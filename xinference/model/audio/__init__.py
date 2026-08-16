@@ -81,6 +81,28 @@ def _audio_model_variant_identity(model: "AudioModelFamilyV2"):
     )
 
 
+def _normalize_legacy_audio_model(
+    model: "AudioModelFamilyV2",
+    built_in_models: Dict[str, List["AudioModelFamilyV2"]],
+) -> None:
+    """Map pre-multi-engine catalog entries to the current default variant."""
+    if model.engine is not None:
+        return
+    default_model = next(
+        (
+            candidate
+            for candidate in built_in_models.get(model.model_name, [])
+            if candidate.engine is not None
+        ),
+        None,
+    )
+    if default_model is None:
+        return
+    model.engine = default_model.engine
+    model.model_format = model.model_format or default_model.model_format
+    model.cache_name = model.cache_name or default_model.cache_name
+
+
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
@@ -99,7 +121,8 @@ def _install():
         "audio_models.json",
         has_downloaded_models,
         load_model_family_from_json,
-        _audio_model_variant_identity,
+        model_identity_func=_audio_model_variant_identity,
+        model_normalize_func=_normalize_legacy_audio_model,
     )
 
     # Register one cache/version entry per engine variant. Hugging Face is the

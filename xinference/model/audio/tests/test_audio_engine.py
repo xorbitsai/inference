@@ -27,6 +27,7 @@ from .. import (
     BUILTIN_AUDIO_MODELS,
     _audio_model_variant_identity,
     _install,
+    _normalize_legacy_audio_model,
     load_model_family_from_json,
 )
 from .. import platform as audio_platform
@@ -352,7 +353,8 @@ def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
             "audio_models.json",
             lambda: True,
             load_model_family_from_json,
-            _audio_model_variant_identity,
+            model_identity_func=_audio_model_variant_identity,
+            model_normalize_func=_normalize_legacy_audio_model,
         )
 
     whisper_specs = models["whisper-tiny"]
@@ -363,6 +365,57 @@ def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
     assert {spec.cache_name for spec in whisper_specs if spec.engine == "MLX"} == {
         "whisper-tiny-mlx"
     }
+
+
+@pytest.mark.parametrize("timestamp_delta", [-1, 0, 1])
+def test_downloaded_legacy_audio_registry_migrates_default_variant(
+    tmp_path, timestamp_delta
+):
+    from ...utils import install_models_with_merge
+
+    model_spec_path = Path(__file__).parents[1] / "model_spec.json"
+    built_in_data = json.loads(model_spec_path.read_text())
+    built_in_transformers = built_in_data[0]
+    downloaded_legacy = dict(built_in_transformers)
+    downloaded_legacy.pop("engine")
+    downloaded_legacy.pop("model_format")
+    downloaded_legacy.pop("cache_name", None)
+    downloaded_legacy["updated_at"] += timestamp_delta
+
+    downloaded_dir = tmp_path / "v2" / "builtin" / "audio"
+    downloaded_dir.mkdir(parents=True)
+    (downloaded_dir / "audio_models.json").write_text(json.dumps([downloaded_legacy]))
+
+    models = {}
+    with (
+        patch.object(audio_sys, "platform", "darwin"),
+        patch.object(audio_platform, "processor", return_value="arm"),
+        patch("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path)),
+    ):
+        install_models_with_merge(
+            models,
+            "model_spec.json",
+            "audio",
+            "audio_models.json",
+            lambda: True,
+            load_model_family_from_json,
+            model_identity_func=_audio_model_variant_identity,
+            model_normalize_func=_normalize_legacy_audio_model,
+        )
+
+    whisper_specs = models["whisper-tiny"]
+    transformers_specs = [
+        spec for spec in whisper_specs if spec.engine == "transformers"
+    ]
+    assert len(transformers_specs) == 1
+    assert all(spec.engine is not None for spec in whisper_specs)
+    assert transformers_specs[0].model_format == "pytorch"
+    assert transformers_specs[0].updated_at == max(
+        built_in_transformers["updated_at"], downloaded_legacy["updated_at"]
+    )
+    assert bool(getattr(transformers_specs[0], "is_builtin", False)) is (
+        timestamp_delta <= 0
+    )
 
 
 def test_audio_engine_api_returns_variant_formats(apple_mlx_engines):

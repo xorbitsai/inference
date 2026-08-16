@@ -90,9 +90,11 @@ For example:
     xinference launch --model-name Qwen3-ASR-1.7B --model-type audio --model-engine vLLM
     xinference launch --model-name Qwen3-TTS-12Hz-0.6B-Base --model-type audio --model-engine MLX
 
-The former ``*-mlx`` model names remain accepted as compatibility aliases, but
-new integrations should use the canonical model name with ``--model-engine
-MLX``. The Web UI presents the available engines in the launch dialog.
+The former ``*-mlx`` model names remain accepted as launch compatibility
+aliases. Registration, cache, version, and virtual-environment lookups use the
+canonical model name. New integrations should use that name with
+``--model-engine MLX``. The Web UI presents the available engines in the launch
+dialog.
 
 
 Text to audio (TTS)

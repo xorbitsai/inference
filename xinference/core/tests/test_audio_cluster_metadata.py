@@ -12,7 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..supervisor import _merge_audio_model_registrations, _merge_worker_engine_params
+from unittest.mock import patch
+
+import pytest
+
+from ..supervisor import (
+    SupervisorActor,
+    _merge_audio_model_registrations,
+    _merge_worker_engine_params,
+)
 
 
 def test_merge_platform_specific_audio_catalogs():
@@ -77,3 +85,31 @@ def test_merge_platform_specific_audio_engine_params():
         "transformers": [{"model_format": "pytorch"}],
         "MLX": [{"model_format": "mlx"}],
     }
+
+
+@pytest.mark.asyncio
+async def test_empty_audio_engine_discovery_calls_each_worker_once():
+    class Worker:
+        def __init__(self):
+            self.calls = 0
+
+        async def query_engines_by_model_name(self, *args, **kwargs):
+            self.calls += 1
+            return None
+
+    workers = [Worker(), Worker()]
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._worker_address_to_worker = {
+        str(index): worker for index, worker in enumerate(workers)
+    }
+
+    with patch(
+        "xinference.core.supervisor.get_engine_params_by_name",
+        return_value={"local": []},
+    ):
+        result = await supervisor.query_engines_by_model_name(
+            "missing-audio", model_type="audio", enable_virtual_env=False
+        )
+
+    assert result == {"local": []}
+    assert [worker.calls for worker in workers] == [1, 1]

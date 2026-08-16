@@ -1846,13 +1846,15 @@ class SupervisorActor(xo.StatelessActor):
             merged = _merge_worker_engine_params(worker_results)
             if merged is not None:
                 return merged
-
-        for worker in workers:
-            res = await worker.query_engines_by_model_name(
-                model_name, model_type=model_type, enable_virtual_env=enable_virtual_env
-            )
-            if res is not None:
-                return res
+        else:
+            for worker in workers:
+                res = await worker.query_engines_by_model_name(
+                    model_name,
+                    model_type=model_type,
+                    enable_virtual_env=enable_virtual_env,
+                )
+                if res is not None:
+                    return res
 
         if enable_virtual_env is None:
             from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV

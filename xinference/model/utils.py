@@ -2633,9 +2633,11 @@ def merge_models_by_timestamp(
 
             merged_models[model_name] = []
             for models in models_by_identity.values():
-                latest_updated_at = max(model.updated_at for model in models)
-                merged_models[model_name].extend(
-                    model for model in models if model.updated_at == latest_updated_at
+                # Variants with the same identity are interchangeable. Keep one
+                # newest entry; because built-ins are ordered first, an equal-
+                # timestamp downloaded copy does not create a duplicate.
+                merged_models[model_name].append(
+                    max(models, key=lambda model: model.updated_at)
                 )
         return merged_models
 
@@ -2689,6 +2691,7 @@ def install_models_with_merge(
     has_downloaded_models_func,
     load_model_family_func,
     model_identity_func: Optional[Callable[[Any], Any]] = None,
+    model_normalize_func: Optional[Callable[[Any, Dict[str, List[Any]]], None]] = None,
 ) -> None:
     """Install models with intelligent merging based on timestamps.
 
@@ -2701,6 +2704,8 @@ def install_models_with_merge(
         load_model_family_func: Function to load model family from JSON
         model_identity_func: Optional function that distinguishes independently
             versioned variants under the same model name.
+        model_normalize_func: Optional function that upgrades downloaded model
+            metadata before identity and timestamp comparison.
     """
     import os.path
 
@@ -2728,6 +2733,10 @@ def install_models_with_merge(
 
         # Create a copy of built-in models for merging
         built_in_models_copy = dict(built_in_dict)
+        if model_normalize_func is not None:
+            for user_model_list in user_models.values():
+                for user_model in user_model_list:
+                    model_normalize_func(user_model, built_in_models_copy)
 
         # Merge models, keeping the latest version based on updated_at
         merged_models = merge_models_by_timestamp(
