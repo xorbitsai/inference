@@ -721,6 +721,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
 
+   * - :ref:`qwen3.8 <models_llm_qwen3.8>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.
+
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
      - 32768
@@ -1132,6 +1137,8 @@ The following is a list of built-in LLM in Xinference:
    qwen3.5
   
    qwen3.6
+  
+   qwen3.8
   
    qwenlong-l1
   
