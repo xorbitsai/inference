@@ -159,8 +159,14 @@ class MLXBatchModel:
             except ImportError:
                 return False
 
-    def _get_or_create_generator(self, temperature: float, top_p: float, top_k: int):
+    def _get_or_create_generator(
+        self,
+        temperature: float,
+        top_p: float,
+        top_k: Optional[Union[int, float]],
+    ):
         """Get or create a BatchGenerator for the given sampling parameters."""
+        top_k = int(top_k) if top_k is not None else 0
         key = (round(temperature, 6), round(top_p, 6), top_k)
 
         if key not in MLXBatchModel._batch_generators:
@@ -583,6 +589,8 @@ class MLXModel(LLM, ChatModelMixin):
         generate_config.setdefault("repetition_context_size", 20)
         generate_config.setdefault("top_p", model_defaults.get("top_p", 1.0))
         generate_config.setdefault("top_k", model_defaults.get("top_k", 0))
+        top_k = generate_config.get("top_k")
+        generate_config["top_k"] = int(top_k) if top_k is not None else 0
 
         max_tokens = max_tokens_field.default or XINFERENCE_MAX_TOKENS
         if not generate_config.get("max_tokens") and max_tokens:
@@ -591,10 +599,15 @@ class MLXModel(LLM, ChatModelMixin):
 
     def _update_model_generation_config(self, config: Dict[str, Any]) -> None:
         nested_config = config.get("generation_config")
-        model_defaults = dict(nested_config) if isinstance(nested_config, dict) else {}
+        model_defaults = (
+            {key: value for key, value in nested_config.items() if value is not None}
+            if isinstance(nested_config, dict)
+            else {}
+        )
         for key in ("temperature", "top_p", "top_k"):
-            if key in config:
-                model_defaults[key] = config[key]
+            value = config.get(key)
+            if value is not None:
+                model_defaults[key] = value
         self._model_generation_config = model_defaults
 
     def _load_model(self, **kwargs):

@@ -57,6 +57,43 @@ def test_mlx_model_uses_model_sampling_defaults():
     assert explicit["top_p"] == 0.7
     assert explicit["top_k"] == 5
 
+    model._update_model_generation_config(
+        {
+            "generation_config": {
+                "temperature": 0.8,
+                "top_p": None,
+                "top_k": None,
+            },
+            "temperature": None,
+            "top_p": 0.95,
+        }
+    )
+    nullable_defaults = model._sanitize_generate_config({})
+    assert nullable_defaults["temperature"] == 0.8
+    assert nullable_defaults["top_p"] == 0.95
+    assert nullable_defaults["top_k"] == 0
+
+    float_top_k = model._sanitize_generate_config({"top_k": 20.0})
+    assert float_top_k["top_k"] == 20
+
+
+def test_mlx_batch_generator_normalizes_top_k():
+    from ..core import MLXBatchModel
+
+    model = object.__new__(MLXBatchModel)
+    float_top_k_generator = {"generator": object()}
+    none_top_k_generator = {"generator": object()}
+    original_generators = MLXBatchModel._batch_generators
+    try:
+        MLXBatchModel._batch_generators = {
+            (0.7, 0.9, 20): float_top_k_generator,
+            (0.7, 0.9, 0): none_top_k_generator,
+        }
+        assert model._get_or_create_generator(0.7, 0.9, 20.0) is float_top_k_generator
+        assert model._get_or_create_generator(0.7, 0.9, None) is none_top_k_generator
+    finally:
+        MLXBatchModel._batch_generators = original_generators
+
 
 def test_mlx_generate_stream_passes_top_k():
     from ..core import MLXModel
