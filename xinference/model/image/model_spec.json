@@ -1867,7 +1867,7 @@
       "packages": [
         "deepdoc-lib[gpu]~=0.2.2 ; has_cuda",
         "deepdoc-lib~=0.2.2 ; not has_cuda",
-        "transformers<5 ; #engine# == \"deepdoc\""
+        "transformers<5"
       ]
     },
     "model_src": {
