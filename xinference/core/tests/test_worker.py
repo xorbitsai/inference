@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import itertools
+import threading
 from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
 
@@ -151,8 +152,10 @@ class MockWorkerActor(WorkerActor):
 
     # --- test helpers for report_status GPU attribution ---
     def set_supervisor_ref_for_test(self, ref):
-        self._supervisor_ref = ref
-        self._registered = True
+        with self._supervisor_ref_lock:
+            self._supervisor_ref = ref
+            self._registered = True
+            self._supervisor_ref_generation += 1
 
     def set_gpu_attribution_tables_for_test(self, pid, subpool, total_devices):
         self._model_uid_to_pid = dict(pid)
@@ -402,10 +405,18 @@ class DummyVirtualEnvManager:
 
 
 class DummySupervisorRef:
-    def __init__(self, fail_report_status_times: int = 0):
+    def __init__(
+        self,
+        fail_report_status_times: int = 0,
+        fail_heartbeat_times: int = 0,
+        cancel_after_report: bool = False,
+    ):
         self.fail_report_status_times = fail_report_status_times
+        self.fail_heartbeat_times = fail_heartbeat_times
+        self.cancel_after_report = cancel_after_report
         self.add_worker_calls: List[Tuple[str, List[dict], List[str]]] = []
         self.report_worker_status_calls: List[Tuple[str, Any]] = []
+        self.heartbeat_calls: List[str] = []
 
     async def add_worker(
         self,
@@ -426,6 +437,14 @@ class DummySupervisorRef:
             self.fail_report_status_times -= 1
             raise RuntimeError("stale supervisor")
         self.report_worker_status_calls.append((worker_address, status))
+        if self.cancel_after_report:
+            raise asyncio.CancelledError
+
+    async def receive_heartbeat(self, worker_address: str):
+        self.heartbeat_calls.append(worker_address)
+        if self.fail_heartbeat_times > 0:
+            self.fail_heartbeat_times -= 1
+            raise RuntimeError("heartbeat failed")
 
     async def record_model_version(self, model_version_infos, worker_address: str):
         return None
@@ -449,15 +468,18 @@ async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
         def __init__(self):
             self.address = "test://worker"
             self._supervisor_ref = FailingSupervisorRef()
+            self._supervisor_ref_address = "test://supervisor"
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref_generation = 0
             self._registered = True
             self._status_guard_ref = object()
             self._event_collector_ref = object()
             self._cache_tracker_ref = object()
             self._progress_tracker_ref = object()
 
-        async def get_supervisor_ref(self, add_worker=True):
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
             assert not add_worker
-            return self._supervisor_ref
+            return self._supervisor_ref, self._supervisor_ref_generation
 
     worker = DummyWorker()
 
@@ -2168,6 +2190,331 @@ def test_wait_for_metrics_export_server_times_out(monkeypatch):
 
     address_queue.get.assert_called_once_with(timeout=0.1)
     metrics_thread.is_alive.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message",
+    [
+        "transient RPC failure",
+        "cannot schedule new futures after shutdown",
+        "Executor shutdown has been called",
+    ],
+)
+async def test_periodical_report_status_recovers_from_runtime_error(
+    monkeypatch, message
+):
+    heartbeat_calls = 0
+    report_calls = 0
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 1:
+                raise RuntimeError(message)
+
+        async def report_status(self):
+            nonlocal report_calls
+            report_calls += 1
+            raise asyncio.CancelledError
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
+    assert heartbeat_calls == 2
+    assert report_calls == 1
+    assert sleep_calls == 1
+
+
+def test_clear_supervisor_refs_does_not_remove_newer_reference():
+    old_supervisor = DummySupervisorRef()
+    new_supervisor = DummySupervisorRef()
+    barrier = threading.Barrier(2)
+    result = []
+
+    class DummyWorker:
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+
+        def __init__(self):
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref = old_supervisor
+            self._supervisor_ref_generation = 1
+            self._registered = True
+            self._status_guard_ref = object()
+            self._event_collector_ref = object()
+            self._cache_tracker_ref = object()
+            self._progress_tracker_ref = object()
+
+    worker = DummyWorker()
+
+    def clear_old_reference():
+        barrier.wait()
+        result.append(
+            worker._clear_supervisor_refs(expected_supervisor_ref=old_supervisor)
+        )
+
+    thread = threading.Thread(target=clear_old_reference)
+    thread.start()
+    with worker._supervisor_ref_lock:
+        worker._supervisor_ref = new_supervisor
+    barrier.wait()
+    thread.join(timeout=1)
+
+    assert not thread.is_alive()
+    assert result == [False]
+    assert worker._supervisor_ref is new_supervisor
+    assert worker._registered is True
+
+
+def test_clear_supervisor_refs_does_not_remove_newer_same_reference_generation():
+    supervisor = DummySupervisorRef()
+    barrier = threading.Barrier(2)
+    result = []
+
+    class DummyWorker:
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+
+        def __init__(self):
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref = supervisor
+            self._supervisor_ref_generation = 1
+            self._registered = False
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
+
+    worker = DummyWorker()
+
+    def clear_old_generation():
+        barrier.wait()
+        result.append(
+            worker._clear_supervisor_refs(
+                expected_supervisor_ref=supervisor,
+                expected_generation=1,
+            )
+        )
+
+    thread = threading.Thread(target=clear_old_generation)
+    thread.start()
+    with worker._supervisor_ref_lock:
+        worker._status_guard_ref = object()
+        worker._event_collector_ref = object()
+        worker._cache_tracker_ref = object()
+        worker._registered = True
+        worker._supervisor_ref_generation = 2
+    barrier.wait()
+    thread.join(timeout=1)
+
+    assert not thread.is_alive()
+    assert result == [False]
+    assert worker._supervisor_ref is supervisor
+    assert worker._supervisor_ref_generation == 2
+    assert worker._registered is True
+
+
+@pytest.mark.asyncio
+async def test_periodical_report_status_reregisters_after_heartbeat_failure(
+    monkeypatch,
+):
+    stale_supervisor = DummySupervisorRef(fail_heartbeat_times=1)
+    fresh_supervisor = DummySupervisorRef(cancel_after_report=True)
+    supervisor_refs = iter([stale_supervisor, fresh_supervisor, fresh_supervisor])
+    sleep_calls = 0
+
+    class DummyWorker:
+        get_supervisor_ref = WorkerActor.get_supervisor_ref
+        _get_supervisor_ref_with_generation = (
+            WorkerActor._get_supervisor_ref_with_generation
+        )
+        _get_supervisor_ref_generation = WorkerActor._get_supervisor_ref_generation
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+        heartbeat = WorkerActor.heartbeat
+        report_status = WorkerActor.report_status
+
+        def __init__(self):
+            self.address = "test://worker"
+            self._supervisor_address = "test://supervisor"
+            self._supervisor_endpoint = None
+            self._supervisor_ref = None
+            self._supervisor_ref_address = None
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref_generation = 0
+            self._actor_loop = None
+            self._supervisor_init_lock = None
+            self._registered = False
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
+            self._total_gpu_devices = []
+
+        def _get_running_replica_states(self):
+            return [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}]
+
+        async def _refresh_supervisor_address(self):
+            pytest.fail("the configured supervisor address should be reachable")
+
+    async def fake_actor_ref(address, uid):
+        if uid == SupervisorActor.default_uid():
+            return next(supervisor_refs)
+        return None
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    worker = DummyWorker()
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
+
+    await WorkerActor._periodical_report_status(worker)  # type: ignore[arg-type]
+
+    assert stale_supervisor.heartbeat_calls == [worker.address]
+    assert stale_supervisor.add_worker_calls == []
+    assert fresh_supervisor.heartbeat_calls == [worker.address]
+    assert fresh_supervisor.add_worker_calls == [
+        (
+            worker.address,
+            [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}],
+            [],
+        )
+    ]
+    assert fresh_supervisor.report_worker_status_calls == [
+        (worker.address, {"cpu": "ok"})
+    ]
+    assert worker._supervisor_ref is fresh_supervisor
+    assert worker._registered is True
+    assert sleep_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_supervisor_registration_is_single_flight_and_replays_latest_snapshot(
+    monkeypatch,
+):
+    first_registration_started = asyncio.Event()
+    release_first_registration = asyncio.Event()
+
+    class BlockingSupervisor(DummySupervisorRef):
+        async def add_worker(
+            self,
+            worker_address: str,
+            replica_states=None,
+            replica_model_uids=None,
+        ):
+            await super().add_worker(
+                worker_address,
+                replica_states=replica_states,
+                replica_model_uids=replica_model_uids,
+            )
+            if len(self.add_worker_calls) == 1:
+                first_registration_started.set()
+                await release_first_registration.wait()
+
+    supervisor = BlockingSupervisor()
+
+    class DummyWorker:
+        get_supervisor_ref = WorkerActor.get_supervisor_ref
+        _get_supervisor_ref_with_generation = (
+            WorkerActor._get_supervisor_ref_with_generation
+        )
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+        _get_supervisor_ref_on_actor_loop = (
+            WorkerActor._get_supervisor_ref_on_actor_loop
+        )
+        _clear_unregistered_supervisor_refs = (
+            WorkerActor._clear_unregistered_supervisor_refs
+        )
+
+        def __init__(self):
+            self.address = "test://worker"
+            self._supervisor_address = "test://supervisor"
+            self._supervisor_endpoint = None
+            self._supervisor_ref = None
+            self._supervisor_ref_address = None
+            self._supervisor_ref_lock = threading.Lock()
+            self._supervisor_ref_generation = 0
+            self._actor_loop = None
+            self._supervisor_init_lock = None
+            self._registered = False
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
+            self.replica_states = [
+                {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}
+            ]
+
+        def _get_running_replica_states(self):
+            return [dict(state) for state in self.replica_states]
+
+        async def _refresh_supervisor_address(self):
+            pytest.fail("the configured supervisor address should be reachable")
+
+    async def fake_actor_ref(address, uid):
+        if uid == SupervisorActor.default_uid():
+            return supervisor
+        return None
+
+    worker = DummyWorker()
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    first = asyncio.create_task(worker.get_supervisor_ref(add_worker=True))
+    await first_registration_started.wait()
+    worker.replica_states = [
+        {"replica_model_uid": "model-b-0", "n_worker": 1, "shard": 0}
+    ]
+    second = asyncio.create_task(worker.get_supervisor_ref(add_worker=True))
+    await asyncio.sleep(0)
+    release_first_registration.set()
+
+    first_ref, second_ref = await asyncio.gather(first, second)
+
+    assert first_ref is supervisor
+    assert second_ref is supervisor
+    assert supervisor.add_worker_calls == [
+        (
+            worker.address,
+            [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}],
+            [],
+        ),
+        (
+            worker.address,
+            [{"replica_model_uid": "model-b-0", "n_worker": 1, "shard": 0}],
+            [],
+        ),
+    ]
+    assert worker._registered is True
+    assert worker._supervisor_init_lock is not None
+    assert not worker._supervisor_init_lock.locked()
 
 
 @pytest.mark.asyncio
