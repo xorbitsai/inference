@@ -845,3 +845,23 @@ def test_streaming_xml_tool_calls_keep_completed_call_before_next_partial_call()
         both_complete,
         both_complete[len(first_complete_second_partial) :],
     ) == (None, "web_search", {"query": "second"}, 1)
+
+
+def test_streaming_tool_calls_keep_inter_call_content_in_generation_order():
+    parser = QwenToolParser()
+    first_partial = (
+        '<tool_call>\n{"name": "web_search", ' '"arguments": {"query": "first"}}\n'
+    )
+    inter_call_content = " explanation "
+    delta = (
+        "</tool_call>"
+        + inter_call_content
+        + '<tool_call>\n{"name": "web_search", "arguments":'
+    )
+    current = first_partial + delta
+
+    assert parser.extract_tool_calls_streaming([first_partial], current, delta) == [
+        (None, "web_search", {"query": "first"}, 0),
+        (inter_call_content, None, None),
+        (None, "web_search", None, 1),
+    ]

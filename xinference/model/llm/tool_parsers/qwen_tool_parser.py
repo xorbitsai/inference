@@ -374,6 +374,7 @@ class QwenToolParser(ToolParser):
                         ],
                     ]
                 ] = []
+                inter_call_content: Optional[str] = None
                 new_tool_start = delta_text.find(self.tool_call_start_token)
                 if new_tool_start > 0:
                     # A detokenizer chunk may introduce both ordinary content and
@@ -392,7 +393,10 @@ class QwenToolParser(ToolParser):
                             else ""
                         )
                     if prefix.strip():
-                        tool_events.append((prefix, None, None))
+                        if previous_inside_tool:
+                            inter_call_content = prefix
+                        else:
+                            tool_events.append((prefix, None, None))
 
                 # A detokenizer chunk can close one call and begin the next.
                 # Process every newly completed call rather than only the last
@@ -418,6 +422,12 @@ class QwenToolParser(ToolParser):
                             tool_call_index,
                         )
                     )
+
+                if inter_call_content is not None:
+                    # The delta closed an earlier call before producing this
+                    # content, so keep it after newly completed calls and before
+                    # any following partial call.
+                    tool_events.append((inter_call_content, None, None))
 
                 function_calls = self._get_function_calls_streaming(current_text)
                 partial_call = function_calls[-1] if function_calls else ""
