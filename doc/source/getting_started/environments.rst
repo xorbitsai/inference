@@ -13,8 +13,11 @@ XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
 Modelhub used for downloading models. Options are "huggingface", "modelscope"
 and "auto". When unset or set to "auto", Xinference probes whether the Hugging
-Face endpoint is reachable and picks "huggingface" if so, otherwise falls back
-to "modelscope". Set an explicit value to pin the download source.
+Face endpoint (including ``HF_ENDPOINT``) would use an environment-configured
+proxy. If so, or if the endpoint is not directly reachable, it falls back to
+"modelscope"; otherwise it picks "huggingface". ``NO_PROXY`` is honored. Set an
+explicit value to pin the download source. An explicit value can be overridden
+for an individual launch with ``--download_hub``.
 
 XINFERENCE_HUB_DETECT_TIMEOUT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -909,7 +909,7 @@ class ChatModelMixin:
         c,
         chunk_id=None,
         previous_texts: List[str] = [""],
-        tool_call_state: Optional[Dict[str, bool]] = None,
+        tool_call_state: Optional[Dict[str, Any]] = None,
     ):
         if not c.get("choices"):
             return c
@@ -944,6 +944,7 @@ class ChatModelMixin:
             tool_results = [tool_result]
         else:
             tool_results = []
+        ignored_incomplete_tool_call = False
         for tool_event in tool_results:
             if len(tool_event) == 4:
                 parsed_content, func, args, tool_call_index = tool_event
@@ -951,19 +952,48 @@ class ChatModelMixin:
                 parsed_content, func, args = tool_event
                 tool_call_index = len(tool_calls)
             if func:
+                # A caller without streaming state cannot reuse the same call ID
+                # when the completed arguments arrive. Preserve its historical
+                # one-shot behavior instead of finalizing an empty placeholder.
+                if args is None and tool_call_state is None:
+                    ignored_incomplete_tool_call = True
+                    continue
+                call_id = f"call_{str(uuid.uuid4())}"
+                function_name: Optional[str] = func
+                if tool_call_state is not None:
+                    call_ids = tool_call_state.setdefault("call_ids", {})
+                    call_id = call_ids.setdefault(tool_call_index, call_id)
+                    sent_names = tool_call_state.setdefault("sent_names", set())
+                    if tool_call_index in sent_names:
+                        function_name = None
+                    else:
+                        sent_names.add(tool_call_index)
+
+                function_delta: Dict[str, Any] = {
+                    "arguments": (
+                        "" if args is None else json.dumps(args, ensure_ascii=False)
+                    )
+                }
+                if function_name is not None:
+                    function_delta["name"] = function_name
                 tool_calls.append(
                     {
                         "index": tool_call_index,
-                        "id": f"call_{str(uuid.uuid4())}",
+                        "id": call_id,
                         "type": "function",
-                        "function": {
-                            "name": func,
-                            "arguments": json.dumps(args, ensure_ascii=False),
-                        },
+                        "function": function_delta,
                     }
                 )
             elif parsed_content:
                 failed_contents.append(parsed_content)
+
+        if (
+            ignored_incomplete_tool_call
+            and not tool_calls
+            and not failed_contents
+            and not finish_reason
+        ):
+            return None
 
         if tool_calls:
             if tool_call_state is None:
@@ -996,7 +1026,7 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "delta": d,
-                    # `_async_to_tool_completion_chunks` already converted the
+                    # The streaming tool-completion helpers already converted
                     # legacy completion logprobs to the chat ``content[]`` shape
                     # via `_to_chat_completion_chunk`; pass it through unchanged
                     # here so a real logprob is not collapsed to ``{"content": []}``.
@@ -1196,6 +1226,96 @@ class ChatModelMixin:
 
         return normalized_tool_calls
 
+    @staticmethod
+    def _split_reasoning_tool_chunk(
+        chat_chunk: ChatCompletionChunk,
+    ) -> Tuple[Optional[ChatCompletionChunk], Optional[ChatCompletionChunk]]:
+        """Split a delta that crosses from reasoning into tool-call content."""
+        if not chat_chunk.get("choices"):
+            return None, chat_chunk
+
+        choice = chat_chunk["choices"][0]
+        delta = choice["delta"]
+        reasoning_content = delta.get("reasoning_content")
+        if reasoning_content is None:
+            return None, chat_chunk
+
+        content = delta.get("content")
+        if not content:
+            return chat_chunk, None
+
+        reasoning_choices = list(chat_chunk["choices"])
+        reasoning_choices[0] = cast(
+            ChatCompletionChunkChoice,
+            {
+                **choice,
+                "delta": {**delta, "content": None},
+            },
+        )
+        content_choices = list(chat_chunk["choices"])
+        content_choices[0] = cast(
+            ChatCompletionChunkChoice,
+            {
+                **choice,
+                "delta": {**delta, "reasoning_content": None},
+            },
+        )
+        return (
+            cast(ChatCompletionChunk, {**chat_chunk, "choices": reasoning_choices}),
+            cast(ChatCompletionChunk, {**chat_chunk, "choices": content_choices}),
+        )
+
+    def _to_tool_completion_chunks(
+        self,
+        chunks: Iterator[CompletionChunk],
+        ctx: Optional[Dict[str, Any]] = None,
+    ) -> Iterator[ChatCompletionChunk]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
+        previous_texts = [""]
+        previous_tools_texts = [""]
+        tool_call_state: Dict[str, Any] = {"seen": False}
+        fallback_chunk: Optional[CompletionChunk] = None
+        if self.reasoning_parser:
+            set_context()
+            chunks = self.reasoning_parser.prepare_reasoning_content_sync(chunks)
+        for i, completion_chunk in enumerate(chunks):
+            set_context()
+            if not completion_chunk.get("choices"):
+                if completion_chunk.get("usage") is not None:
+                    yield self._get_usage_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                else:
+                    yield self._get_final_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                continue
+
+            fallback_chunk = completion_chunk
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk,
+                self.reasoning_parser,
+                previous_texts,
+                ensure_role=i == 0,
+            )
+            reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
+            if reasoning_chunk is not None:
+                yield reasoning_chunk
+            if tool_chunk is None:
+                continue
+            processed_chunk = self._post_process_completion_chunk(
+                self.model_family,
+                self.model_uid,
+                tool_chunk,
+                previous_texts=previous_tools_texts,
+                tool_call_state=tool_call_state,
+            )
+            if processed_chunk:
+                yield processed_chunk
+
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
@@ -1208,30 +1328,41 @@ class ChatModelMixin:
         i = 0
         previous_texts = [""]
         previous_tools_texts = [""]
-        tool_call_state = {"seen": False}
+        tool_call_state: Dict[str, Any] = {"seen": False}
         full_text = ""
+        fallback_chunk: Optional[CompletionChunk] = None
         if self.reasoning_parser:
             set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for completion_chunk in chunks:
             set_context()
+            if not completion_chunk.get("choices"):
+                if completion_chunk.get("usage") is not None:
+                    yield self._get_usage_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                else:
+                    yield self._get_final_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                continue
+
+            fallback_chunk = completion_chunk
             chat_chunk = self._to_chat_completion_chunk(
                 completion_chunk,
                 self.reasoning_parser,
                 previous_texts,
                 ensure_role=i == 0,
             )
-            if (
-                chat_chunk["choices"]
-                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
-                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
-            ):
-                yield chat_chunk
+            reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
+            if reasoning_chunk is not None:
+                yield reasoning_chunk
+            if tool_chunk is None:
                 continue
             processed_chunk = self._post_process_completion_chunk(
                 self.model_family,
                 self.model_uid,
-                chat_chunk,
+                tool_chunk,
                 previous_texts=previous_tools_texts,
                 tool_call_state=tool_call_state,
             )

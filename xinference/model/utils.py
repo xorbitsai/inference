@@ -644,20 +644,46 @@ _auto_detected_hub: Optional[str] = None
 _auto_detect_hub_lock = threading.Lock()
 
 
-def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
+def _uses_environment_proxy(url: str) -> bool:
     import requests
 
     try:
-        # Proxies configured via HTTP(S)_PROXY environment variables are
-        # honored by requests. The probe is best-effort: any failure
-        # (including malformed endpoint or proxy configuration) just means
-        # "not reachable".
-        response = requests.head(url, timeout=timeout, allow_redirects=True)
+        proxies = requests.utils.get_environ_proxies(url)
+        return bool(requests.utils.select_proxy(url, proxies))
+    except Exception:
+        # Let the direct reachability probe handle malformed endpoints and
+        # other unexpected environment configuration.
+        return False
+
+
+def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
+    import requests
+
+    session = requests.Session()
+    # Auto detection must test direct connectivity.  If the endpoint is only
+    # reachable through an environment proxy applicable to its URL scheme,
+    # selecting Hugging Face would route large model downloads through the
+    # user's proxy and consume its traffic quota.  Disable only proxies here;
+    # keep trust_env enabled for CA bundles and netrc credentials used by direct
+    # private mirrors.  Explicitly selecting Hugging Face remains possible.
+    direct_proxies: Dict[str, Any] = {
+        "http": None,
+        "https": None,
+        "all": None,
+    }
+    try:
+        response = session.head(
+            url,
+            timeout=timeout,
+            allow_redirects=True,
+            proxies=direct_proxies,
+        )
     except Exception:
         return False
-    # An error response (e.g. 403/407 from a blocking corporate proxy or a
-    # 5xx from a broken mirror) means downloads would fail as well, so treat
-    # it the same as unreachable.
+    finally:
+        session.close()
+    # An error response (e.g. access denied or a 5xx from a broken mirror)
+    # means downloads would fail as well, so treat it as unreachable.
     return response.status_code < 400
 
 
@@ -673,10 +699,13 @@ def auto_detect_download_hub() -> str:
     """
     Decide between huggingface and modelscope by probing connectivity.
 
-    Probes the Hugging Face endpoint (honoring ``HF_ENDPOINT`` mirrors and
-    ``HTTP(S)_PROXY`` proxies). If it is reachable, returns "huggingface";
-    otherwise falls back to "modelscope". When Hugging Face offline mode is
-    enabled (``HF_HUB_OFFLINE`` / ``TRANSFORMERS_OFFLINE``), no probe runs and
+    Checks the actual Hugging Face endpoint (honoring ``HF_ENDPOINT`` mirrors).
+    If requests to that endpoint would use an environment-configured proxy,
+    returns "modelscope" without probing so large downloads do not consume
+    proxy traffic. Otherwise, probes direct connectivity and returns
+    "huggingface" only when the endpoint is reachable. When Hugging Face
+    offline mode is enabled
+    (``HF_HUB_OFFLINE`` / ``TRANSFORMERS_OFFLINE``), no probe runs and
     "huggingface" is returned directly: offline deployments read weights from
     a pre-populated local Hugging Face cache, which the huggingface_hub
     downloader resolves without network access, whereas falling back to
@@ -697,17 +726,25 @@ def auto_detect_download_hub() -> str:
                 )
                 return _auto_detected_hub
             hf_endpoint = os.environ.get("HF_ENDPOINT") or "https://huggingface.co"
-            if _is_hub_endpoint_reachable(hf_endpoint, XINFERENCE_HUB_DETECT_TIMEOUT):
+            if _uses_environment_proxy(hf_endpoint):
+                _auto_detected_hub = "modelscope"
+                logger.info(
+                    "Auto-detected download hub: modelscope "
+                    "(%s would use an environment-configured proxy)",
+                    hf_endpoint,
+                )
+            elif _is_hub_endpoint_reachable(hf_endpoint, XINFERENCE_HUB_DETECT_TIMEOUT):
                 _auto_detected_hub = "huggingface"
                 logger.info(
-                    "Auto-detected download hub: huggingface (%s is reachable)",
+                    "Auto-detected download hub: huggingface "
+                    "(%s is directly reachable)",
                     hf_endpoint,
                 )
             else:
                 _auto_detected_hub = "modelscope"
                 logger.info(
                     "Auto-detected download hub: modelscope "
-                    "(%s is not reachable within %.1f seconds)",
+                    "(%s is not directly reachable within %.1f seconds)",
                     hf_endpoint,
                     XINFERENCE_HUB_DETECT_TIMEOUT,
                 )

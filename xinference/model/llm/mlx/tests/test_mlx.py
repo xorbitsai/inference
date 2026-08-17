@@ -12,17 +12,597 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import base64
 import concurrent.futures
 import importlib
+import json
 import os
 import platform
 import sys
 import threading
+from types import SimpleNamespace
 
 import pytest
 
 from .....client import Client
+
+
+def test_mlx_model_uses_model_sampling_defaults():
+    from ..core import MLXModel
+
+    model = object.__new__(MLXModel)
+    model._model_generation_config = {}
+    model._update_model_generation_config(
+        {
+            "generation_config": {
+                "temperature": 0.8,
+                "top_p": 0.9,
+                "top_k": 10,
+            },
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+        }
+    )
+
+    defaults = model._sanitize_generate_config({})
+    assert defaults["temperature"] == 1.0
+    assert defaults["top_p"] == 0.95
+    assert defaults["top_k"] == 20
+
+    explicit = model._sanitize_generate_config(
+        {"temperature": 0.2, "top_p": 0.7, "top_k": 5}
+    )
+    assert explicit["temperature"] == 0.2
+    assert explicit["top_p"] == 0.7
+    assert explicit["top_k"] == 5
+
+    model._update_model_generation_config(
+        {
+            "generation_config": {
+                "temperature": 0.8,
+                "top_p": None,
+                "top_k": None,
+            },
+            "temperature": None,
+            "top_p": 0.95,
+        }
+    )
+    nullable_defaults = model._sanitize_generate_config({})
+    assert nullable_defaults["temperature"] == 0.8
+    assert nullable_defaults["top_p"] == 0.95
+    assert nullable_defaults["top_k"] == 0
+
+    float_top_k = model._sanitize_generate_config({"top_k": 20.0})
+    assert float_top_k["top_k"] == 20
+
+
+def test_mlx_batch_generator_normalizes_top_k():
+    from ..core import MLXBatchModel
+
+    model = object.__new__(MLXBatchModel)
+    float_top_k_generator = {"generator": object()}
+    none_top_k_generator = {"generator": object()}
+    original_generators = MLXBatchModel._batch_generators
+    try:
+        MLXBatchModel._batch_generators = {
+            (0.7, 0.9, 20): float_top_k_generator,
+            (0.7, 0.9, 0): none_top_k_generator,
+        }
+        assert model._get_or_create_generator(0.7, 0.9, 20.0) is float_top_k_generator
+        assert model._get_or_create_generator(0.7, 0.9, None) is none_top_k_generator
+    finally:
+        MLXBatchModel._batch_generators = original_generators
+
+
+def test_mlx_batch_generator_reuses_prompt_cache(monkeypatch):
+    from ..core import MLXBatchModel
+
+    cached_state = [object()]
+
+    class FakePromptCache:
+        def fetch_nearest_cache(self, model_key, prompt_tokens):
+            assert model_key == "model-key"
+            assert prompt_tokens == [1, 2, 3, 4, 5]
+            return cached_state, [4, 5]
+
+    class FakeBatchGenerator:
+        def __init__(self):
+            self.calls = []
+
+        def insert(self, prompts, **kwargs):
+            self.calls.append((prompts, kwargs))
+            return [7]
+
+    model = object.__new__(MLXBatchModel)
+    model._prompt_cache = FakePromptCache()
+    model._prompt_cache_model_key = "model-key"
+    monkeypatch.setattr(model, "_is_new_mlx_lm", lambda: True)
+    generator = FakeBatchGenerator()
+
+    assert model._insert_request(generator, [1, 2, 3, 4, 5], 32, None) == (
+        7,
+        3,
+        None,
+    )
+    assert generator.calls == [
+        (
+            [[4, 5]],
+            {
+                "max_tokens": [32],
+                "caches": [cached_state],
+                "all_tokens": [[1, 2, 3]],
+            },
+        )
+    ]
+
+
+def test_mlx_batch_generator_checkpoints_reusable_prefix(monkeypatch):
+    from ..core import MLXBatchModel
+
+    cached_state = [object()]
+
+    class FakePromptCache:
+        def fetch_nearest_cache(self, model_key, prompt_tokens):
+            return cached_state, prompt_tokens[3:]
+
+    class FakeBatchGenerator:
+        def __init__(self):
+            self.calls = []
+
+        def insert_segments(self, segments, **kwargs):
+            self.calls.append((segments, kwargs))
+            return [8]
+
+    model = object.__new__(MLXBatchModel)
+    model._prompt_cache = FakePromptCache()
+    model._prompt_cache_model_key = "model-key"
+    monkeypatch.setattr(model, "_is_new_mlx_lm", lambda: True)
+    generator = FakeBatchGenerator()
+
+    assert model._insert_request(generator, [1, 2, 3, 4, 5, 6], 32, 5) == (
+        8,
+        3,
+        5,
+    )
+    assert generator.calls == [
+        (
+            [[[4, 5], [6]]],
+            {
+                "max_tokens": [32],
+                "caches": [cached_state],
+                "all_tokens": [[1, 2, 3]],
+            },
+        )
+    ]
+
+
+def test_mlx_batch_generator_stores_reusable_prefix():
+    from ..core import MLXBatchModel
+
+    class FakePromptCache:
+        def __init__(self):
+            self.inserted = []
+
+        def insert_cache(self, *args, **kwargs):
+            self.inserted.append((args, kwargs))
+
+        def __len__(self):
+            return len(self.inserted)
+
+    cached_state = [object()]
+    cached_tokens = [1, 2, 3]
+
+    class FakeBatchGenerator:
+        def extract_cache(self, uids):
+            assert uids == [9]
+            return {9: (cached_state, cached_tokens)}
+
+    model = object.__new__(MLXBatchModel)
+    model._prompt_cache = FakePromptCache()
+    model._prompt_cache_model_key = "model-key"
+    gen_dict = {"cache_boundaries": {9: 3}}
+
+    model._store_segment_prompt_caches(
+        FakeBatchGenerator(),
+        [SimpleNamespace(uid=9, end_of_segment=True)],
+        gen_dict,
+    )
+    cached_tokens.append(4)
+
+    assert gen_dict["cache_boundaries"] == {}
+    assert model._prompt_cache.inserted == [
+        (
+            ("model-key", [1, 2, 3], cached_state),
+            {"cache_type": "system"},
+        )
+    ]
+    assert model._prompt_cache.inserted[0][0][1] is not cached_tokens
+
+
+@pytest.mark.asyncio
+async def test_mlx_batch_generator_reports_cached_tokens(monkeypatch):
+    from ..core import MLXBatchModel
+
+    model = object.__new__(MLXBatchModel)
+    gen_dict = {
+        "generator": object(),
+        "queues": {},
+        "pending": {},
+        "active": set(),
+        "cache_boundaries": {},
+    }
+    monkeypatch.setattr(model, "_get_or_create_generator", lambda *args: gen_dict)
+    monkeypatch.setattr(model, "_insert_request", lambda *args: (7, 3, None))
+
+    async def feed_result():
+        while 7 not in gen_dict["queues"]:
+            await asyncio.sleep(0)
+        await gen_dict["queues"][7].put(
+            SimpleNamespace(uid=7, token=10, finish_reason="stop")
+        )
+
+    def ensure_background_worker(_gen_dict):
+        asyncio.create_task(feed_result())
+
+    monkeypatch.setattr(model, "_ensure_background_worker", ensure_background_worker)
+    original_tokenizer = MLXBatchModel._tokenizer_ref
+    MLXBatchModel._tokenizer_ref = SimpleNamespace(
+        encode=lambda prompt: [1, 2, 3, 4, 5],
+        decode=lambda tokens, **kwargs: "x",
+    )
+    try:
+        chunks = [
+            chunk
+            async for chunk in model.generate_stream(
+                "prompt", 1, prompt_cache_prefix_len=3
+            )
+        ]
+    finally:
+        MLXBatchModel._tokenizer_ref = original_tokenizer
+
+    assert len(chunks) == 2
+    assert all(
+        chunk["usage"]["prompt_tokens_details"] == {"cached_tokens": 3}
+        for chunk in chunks
+    )
+
+
+def test_mlx_vision_model_checkpoints_reusable_prompt_prefix(monkeypatch):
+    from ..core import MLXVisionModel
+
+    class FakePromptCache:
+        def __init__(self):
+            self.inserted = []
+
+        def insert_cache(self, *args, **kwargs):
+            self.inserted.append((args, kwargs))
+
+        def __len__(self):
+            return len(self.inserted)
+
+    model = object.__new__(MLXVisionModel)
+    model._reusable_prompt_cache = FakePromptCache()
+    model._reusable_prompt_cache_model_key = "vision-model-key"
+    initial_cache = [{"state": "initial"}]
+    monkeypatch.setattr(
+        model,
+        "_fetch_reusable_prompt_cache",
+        lambda prompt_tokens: (initial_cache, prompt_tokens, 0),
+    )
+
+    remaining_tokens, cache_kwargs, cached_tokens = (
+        model._prepare_reusable_prompt_cache([1, 2, 3, 4, 5], 3)
+    )
+
+    assert remaining_tokens == [1, 2, 3, 4, 5]
+    assert cached_tokens == 0
+    assert cache_kwargs["prompt_cache"] is initial_cache
+    assert cache_kwargs["prompt_cache_checkpoint_len"] == 3
+
+    checkpoint_cache = [{"state": "prefix"}]
+    cache_kwargs["prompt_cache_checkpoint"](3, checkpoint_cache)
+    checkpoint_cache[0]["state"] = "mutated"
+
+    assert model._reusable_prompt_cache.inserted == [
+        (
+            ("vision-model-key", [1, 2, 3], [{"state": "prefix"}]),
+            {"cache_type": "system"},
+        )
+    ]
+
+
+def test_mlx_generate_stream_passes_top_k():
+    from ..core import MLXModel
+
+    model = object.__new__(MLXModel)
+    model.model_uid = "top-k-test"
+    model._tokenizer = SimpleNamespace(eos_token_id=99)
+    model._context_length = 128
+    model._prompt_cache = None
+    model._prepare_inputs = lambda prompt, kwargs: ([4, 5], 5, 3)
+
+    captured = {}
+
+    def fake_generate_stream_inner(**kwargs):
+        captured.update(kwargs)
+        yield SimpleNamespace(token=10, text="ok")
+
+    model._generate_stream_inner = fake_generate_stream_inner
+    results = list(
+        model._generate_stream(
+            "hello",
+            {
+                "max_tokens": 1,
+                "temperature": 1.0,
+                "top_p": 0.95,
+                "top_k": 20,
+                "repetition_penalty": None,
+                "repetition_context_size": 20,
+                "stop_token_ids": [],
+                "stream": True,
+            },
+        )
+    )
+
+    assert captured["temperature"] == 1.0
+    assert captured["top_p"] == 0.95
+    assert captured["top_k"] == 20
+    assert all(
+        usage["prompt_tokens_details"] == {"cached_tokens": 3} for _, usage in results
+    )
+    assert all(
+        chunk["usage"]["prompt_tokens_details"] == {"cached_tokens": 3}
+        for chunk, _ in results
+    )
+
+
+def test_mlx_vision_chat_marks_reusable_text_prompt_prefix(monkeypatch):
+    from ..core import MLXVisionModel
+
+    class FakeTokenizer:
+        @staticmethod
+        def encode(prompt):
+            return list(prompt.encode())
+
+    monkeypatch.setitem(
+        sys.modules,
+        "qwen_vl_utils",
+        SimpleNamespace(process_vision_info=lambda messages: ([], None)),
+    )
+    model = object.__new__(MLXVisionModel)
+    model.model_uid = "vision-prompt-prefix-test"
+    model.model_family = SimpleNamespace(
+        model_family="qwen3.8",
+        model_name="qwen3.8",
+        model_ability=["chat", "vision"],
+        chat_template="test-template",
+        stop=None,
+        stop_token_ids=None,
+    )
+    model.reasoning_parser = None
+    model._tokenizer = FakeTokenizer()
+    model._transform_messages = lambda messages: messages
+
+    def get_full_context(messages, *args, **kwargs):
+        tool_names = ",".join(
+            tool["function"]["name"] for tool in kwargs.get("tools", [])
+        )
+        return (
+            f"tools:{tool_names}:stable-prefix:"
+            + messages[-1]["content"]
+            + ":generation-suffix"
+        )
+
+    model.get_full_context = get_full_context
+    model._sanitize_generate_config = lambda config: config
+    captured = {}
+
+    def fake_generate(prompt, generate_config):
+        captured["prompt"] = prompt
+        captured["generate_config"] = generate_config
+        return {"completion": "ok"}
+
+    model.generate = fake_generate
+    model._to_chat_completion = lambda completion, reasoning_parser: completion
+    model._post_process_completion = lambda family, uid, completion: completion
+
+    result = model.chat(
+        [{"role": "user", "content": "dynamic question"}],
+        {"tools": iter([{"type": "function", "function": {"name": "search"}}])},
+    )
+
+    assert result == {"completion": "ok"}
+    assert captured["prompt"] == {
+        "prompt": "tools:search:stable-prefix:dynamic question:generation-suffix"
+    }
+    assert captured["generate_config"]["prompt_cache_prefix_len"] == len(
+        "tools:search:stable-prefix:"
+    )
+
+
+@pytest.mark.asyncio
+async def test_mlx_chat_marks_reusable_prompt_prefix():
+    from ..core import MLXChatModel
+
+    class FakeTokenizer:
+        chat_template = "test-template"
+
+        @staticmethod
+        def encode(prompt):
+            return list(prompt.encode())
+
+    model = object.__new__(MLXChatModel)
+    model.model_uid = "prompt-prefix-test"
+    model.model_family = SimpleNamespace(
+        model_family="qwen3",
+        model_name="qwen3",
+        model_ability=["chat"],
+        chat_template="test-template",
+        stop=None,
+        stop_token_ids=None,
+    )
+    model.reasoning_parser = None
+    model._tokenizer = FakeTokenizer()
+
+    def get_full_context(messages, *args, **kwargs):
+        tool_names = ",".join(
+            tool["function"]["name"] for tool in kwargs.get("tools", [])
+        )
+        return (
+            f"tools:{tool_names}:stable-prefix:"
+            + messages[-1]["content"]
+            + ":generation-suffix"
+        )
+
+    model.get_full_context = get_full_context
+    model._sanitize_generate_config = lambda config: config
+    captured = {}
+
+    async def fake_async_generate(prompt, generate_config):
+        captured["prompt"] = prompt
+        captured["generate_config"] = generate_config
+        return {"completion": "ok"}
+
+    model.async_generate = fake_async_generate
+    model._to_chat_completion = lambda completion, reasoning_parser: completion
+    model._post_process_completion = lambda family, uid, completion: completion
+
+    result = await model.async_chat(
+        [{"role": "user", "content": "dynamic question"}],
+        {"tools": iter([{"type": "function", "function": {"name": "search"}}])},
+    )
+
+    assert result == {"completion": "ok"}
+    assert captured["prompt"] == (
+        "tools:search:stable-prefix:dynamic question:generation-suffix"
+    )
+    assert captured["generate_config"]["prompt_cache_prefix_len"] == len(
+        "tools:search:stable-prefix:"
+    )
+
+
+@pytest.mark.asyncio
+async def test_mlx_streaming_parses_multiple_qwen_tool_calls():
+    from ...reasoning_parser import ReasoningParser
+    from ...tool_parsers.qwen_tool_parser import QwenToolParser
+    from ..core import MLXVisionModel
+
+    model = object.__new__(MLXVisionModel)
+    model.model_uid = "qwen3.8-mlx-test"
+    model.model_family = SimpleNamespace(model_name="qwen3.8")
+    model.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    model.tool_parser = QwenToolParser()
+
+    def chunk(text, finish_reason=None):
+        return {
+            "id": "task-835",
+            "object": "text_completion",
+            "created": 1,
+            "model": model.model_uid,
+            "choices": [
+                {
+                    "text": text,
+                    "index": 0,
+                    "logprobs": None,
+                    "finish_reason": finish_reason,
+                }
+            ],
+        }
+
+    def make_chunks():
+        return [
+            chunk("<think>"),
+            chunk("I should"),
+            chunk(
+                " search twice.</think>\n\n<tool_call>\n"
+                "<function=web_search>\n"
+                "<parameter=query>Dario"
+            ),
+            chunk(
+                " Amodei recent news</parameter>\n"
+                "<parameter=num_results>10</parameter>\n"
+                "</function>\n"
+            ),
+            chunk("</tool_call>\n"),
+            chunk("<tool_call>"),
+            chunk(
+                "\n<function=web_search>\n"
+                "<parameter=query>Dario Amodei gossip</parameter>\n"
+                "<parameter=num_results>10</parameter>\n"
+                "</function>\n"
+            ),
+            chunk("</tool_call>"),
+            chunk("", "stop"),
+        ]
+
+    def assert_results(results):
+        tool_calls = [
+            tool_call
+            for result in results
+            for choice in result["choices"]
+            for tool_call in choice["delta"].get("tool_calls", [])
+        ]
+
+        calls_by_index = {
+            index: [call for call in tool_calls if call["index"] == index]
+            for index in {call["index"] for call in tool_calls}
+        }
+        assert sorted(calls_by_index) == [0, 1]
+        assert [
+            next(
+                call["function"]["name"]
+                for call in calls_by_index[index]
+                if call["function"].get("name")
+            )
+            for index in sorted(calls_by_index)
+        ] == ["web_search", "web_search"]
+        assert [
+            json.loads(
+                "".join(
+                    call["function"].get("arguments") or ""
+                    for call in calls_by_index[index]
+                )
+            )["query"]
+            for index in sorted(calls_by_index)
+        ] == ["Dario Amodei recent news", "Dario Amodei gossip"]
+        assert all(
+            len({call["id"] for call in calls}) == 1
+            for calls in calls_by_index.values()
+        )
+        assert calls_by_index[0][0]["id"] != calls_by_index[1][0]["id"]
+        assert results[-1]["choices"][0]["finish_reason"] == "tool_calls"
+        assert (
+            "".join(
+                choice["delta"].get("reasoning_content") or ""
+                for result in results
+                for choice in result["choices"]
+            )
+            == "I should search twice."
+        )
+        assert all(
+            "<tool_call>" not in (choice["delta"].get("content") or "")
+            for result in results
+            for choice in result["choices"]
+        )
+
+    assert_results(list(model._to_tool_completion_chunks(iter(make_chunks()))))
+
+    async def async_chunks():
+        for value in make_chunks():
+            yield value
+
+    async_results = [
+        result
+        async for result in model._async_to_tool_completion_chunks(async_chunks())
+    ]
+    assert_results(async_results)
 
 
 def test_mlx_vision_model_stop_shuts_down_executor():

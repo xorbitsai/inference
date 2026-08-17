@@ -284,6 +284,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "ChatGLMForConditionalGeneration",
     "GlmForCausalLM",
     "ChatGLMModel",
+    "Qwen3_5MoeForCausalLM",
 ]
 
 
@@ -1939,6 +1940,13 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if llm_spec.model_format == "ggufv2":
             if not (VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.2")):
                 return False, "ggufv2 support requires vLLM >= 0.8.2"
+        if (
+            llm_family.has_architecture("Qwen3_5MoeForCausalLM")
+            and VLLM_INSTALLED
+            and VLLM_VERSION < version.parse("0.27.0")
+            and not _virtual_env_allows_missing_vllm()
+        ):
+            return False, "Qwen3_5MoeForCausalLM requires vLLM >= 0.27.0"
         if not llm_family.matches_supported_architectures(VLLM_SUPPORTED_CHAT_MODELS):
             return (
                 False,

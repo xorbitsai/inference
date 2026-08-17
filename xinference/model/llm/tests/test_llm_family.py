@@ -18,6 +18,7 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
+from packaging import version
 from packaging.requirements import Requirement
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
@@ -1285,3 +1286,265 @@ def test_multimodal_vllm_engine_requires_gpu_even_with_virtualenv():
     result = VLLMMultiModel.match_json(family, spec, spec.quantization)
     assert result is not True
     assert isinstance(result, tuple) and result[0] is False
+
+
+def test_qwen3_8_builtin_families_preserve_checkpoint_capabilities():
+    from xinference.model.llm.llm_family import BUILTIN_LLM_FAMILIES
+    from xinference.model.utils import generate_model_file_names_with_quantization_parts
+
+    families = {family.model_name: family for family in BUILTIN_LLM_FAMILIES}
+    dense = families["qwen3.8"]
+    max_model = families["qwen3.8-max"]
+
+    assert dense.context_length == max_model.context_length == 262144
+    assert dense.architectures == ["Qwen3_5ForConditionalGeneration"]
+    assert set(dense.model_ability) == {
+        "chat",
+        "vision",
+        "tools",
+        "reasoning",
+        "hybrid",
+    }
+    dense_specs = {
+        (spec.model_hub, spec.model_format, spec.model_id, spec.quantization)
+        for spec in dense.model_specs
+    }
+    assert {
+        ("huggingface", "pytorch", "Qwen/Qwen3.8-27B", "none"),
+        ("modelscope", "pytorch", "Qwen/Qwen3.8-27B", "none"),
+        ("huggingface", "fp8", "Qwen/Qwen3.8-27B-FP8", "FP8"),
+        ("modelscope", "fp8", "Qwen/Qwen3.8-27B-FP8", "FP8"),
+    } <= dense_specs
+    dense_gguf_specs = [
+        spec for spec in dense.model_specs if spec.model_format == "ggufv2"
+    ]
+    assert {spec.model_hub for spec in dense_gguf_specs} == {
+        "huggingface",
+        "modelscope",
+    }
+    assert {spec.model_id for spec in dense_gguf_specs} == {"unsloth/Qwen3.8-27B-GGUF"}
+    assert {spec.quantization for spec in dense_gguf_specs} == {
+        "BF16",
+        "IQ4_NL",
+        "IQ4_XS",
+        "Q3_K_M",
+        "Q3_K_S",
+        "Q4_0",
+        "Q4_1",
+        "Q4_K_M",
+        "Q4_K_S",
+        "Q5_K_M",
+        "Q5_K_S",
+        "Q6_K",
+        "Q8_0",
+        "UD-IQ2_M",
+        "UD-IQ2_XXS",
+        "UD-IQ3_XXS",
+        "UD-Q2_K_XL",
+        "UD-Q3_K_XL",
+        "UD-Q4_K_XL",
+        "UD-Q5_K_XL",
+        "UD-Q6_K_XL",
+        "UD-Q8_K_XL",
+    }
+    assert all(
+        spec.multimodal_projectors == ["mmproj-BF16.gguf", "mmproj-F16.gguf"]
+        for spec in dense_gguf_specs
+    )
+    assert all(
+        spec.quantization_parts["BF16"] == ["00001-of-00002", "00002-of-00002"]
+        and spec.model_file_name_split_template
+        == "{quantization}/Qwen3.8-27B-{quantization}-{part}.gguf"
+        for spec in dense_gguf_specs
+        if spec.quantization == "BF16"
+    )
+    dense_bf16 = next(
+        spec
+        for spec in dense_gguf_specs
+        if spec.model_hub == "huggingface" and spec.quantization == "BF16"
+    )
+    file_names, final_file_name, need_merge = (
+        generate_model_file_names_with_quantization_parts(dense_bf16)
+    )
+    assert file_names == [
+        "BF16/Qwen3.8-27B-BF16-00001-of-00002.gguf",
+        "BF16/Qwen3.8-27B-BF16-00002-of-00002.gguf",
+    ]
+    assert final_file_name == "Qwen3.8-27B-BF16.gguf"
+    assert need_merge is True
+
+    dense_mlx_specs = [spec for spec in dense.model_specs if spec.model_format == "mlx"]
+    assert {spec.model_hub for spec in dense_mlx_specs} == {
+        "huggingface",
+        "modelscope",
+    }
+    assert {spec.quantization for spec in dense_mlx_specs} == {
+        "4bit",
+        "8bit",
+        "bf16",
+    }
+    assert all(
+        spec.model_id == f"mlx-community/Qwen3.8-27B-{spec.quantization}"
+        for spec in dense_mlx_specs
+    )
+    assert "reasoning_effort|default('xhigh')" in dense.chat_template
+
+    assert max_model.architectures == ["Qwen3_5MoeForCausalLM"]
+    assert set(max_model.model_ability) == {"chat", "tools", "reasoning"}
+    assert "vision" not in max_model.model_ability
+    assert "hybrid" not in max_model.model_ability
+    max_specs = {
+        (
+            spec.model_hub,
+            spec.model_format,
+            spec.model_id,
+            spec.quantization,
+            spec.model_size_in_billions,
+            spec.activated_size_in_billions,
+        )
+        for spec in max_model.model_specs
+    }
+    assert {
+        (
+            "huggingface",
+            "pytorch",
+            "Qwen/Qwen3.8-2.4T-A95B",
+            "none",
+            2400,
+            95,
+        ),
+        (
+            "modelscope",
+            "pytorch",
+            "Qwen/Qwen3.8-2.4T-A95B",
+            "none",
+            2400,
+            95,
+        ),
+        (
+            "huggingface",
+            "fp8",
+            "Qwen/Qwen3.8-2.4T-A95B-FP8",
+            "FP8",
+            2400,
+            95,
+        ),
+        (
+            "modelscope",
+            "fp8",
+            "Qwen/Qwen3.8-2.4T-A95B-FP8",
+            "FP8",
+            2400,
+            95,
+        ),
+    } <= max_specs
+    max_gguf_specs = [
+        spec for spec in max_model.model_specs if spec.model_format == "ggufv2"
+    ]
+    max_gguf_part_counts = {
+        "BF16": 140,
+        "Q8_0": 56,
+        "UD-IQ1_M": 13,
+        "UD-IQ1_S": 12,
+        "UD-IQ2_XS": 16,
+        "UD-IQ2_XXS": 15,
+        "UD-IQ3_XXS": 21,
+        "UD-IQ4_XS": 29,
+        "UD-Q1_0": 10,
+    }
+    assert {spec.model_hub for spec in max_gguf_specs} == {
+        "huggingface",
+        "modelscope",
+    }
+    assert {spec.model_id for spec in max_gguf_specs} == {
+        "unsloth/Qwen3.8-2.4T-A95B-GGUF"
+    }
+    assert {spec.quantization for spec in max_gguf_specs} == set(max_gguf_part_counts)
+    assert all(
+        spec.model_size_in_billions == 2400
+        and spec.activated_size_in_billions == 95
+        and spec.model_file_name_template
+        == f"Qwen3.8-2.4T-A95B-{spec.quantization}.gguf"
+        and spec.model_file_name_split_template
+        == "{quantization}/Qwen3.8-2.4T-A95B-{quantization}-{part}.gguf"
+        and len(spec.quantization_parts[spec.quantization])
+        == max_gguf_part_counts[spec.quantization]
+        for spec in max_gguf_specs
+    )
+    max_ud_q1_0 = next(
+        spec
+        for spec in max_gguf_specs
+        if spec.model_hub == "modelscope" and spec.quantization == "UD-Q1_0"
+    )
+    file_names, final_file_name, need_merge = (
+        generate_model_file_names_with_quantization_parts(max_ud_q1_0)
+    )
+    assert file_names[0] == ("UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00001-of-00010.gguf")
+    assert file_names[-1] == ("UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00010-of-00010.gguf")
+    assert final_file_name == "Qwen3.8-2.4T-A95B-UD-Q1_0.gguf"
+    assert need_merge is True
+    assert "Disabling thinking is not supported." in max_model.chat_template
+
+
+def test_qwen3_8_local_engine_virtualenv_requirements():
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    families = {family.model_name: family for family in BUILTIN_LLM_FAMILIES}
+    for family_name in ("qwen3.8", "qwen3.8-max"):
+        family = families[family_name]
+        assert family.virtualenv is not None
+        packages = expand_engine_dependency_placeholders(
+            family.virtualenv.packages, "llama.cpp"
+        )
+        packages = merge_virtual_env_packages(packages, None)
+        packages = filter_virtualenv_packages_by_markers(
+            packages, "llama.cpp", None, "darwin"
+        )
+        requirements = {
+            requirement.name: requirement
+            for package in packages
+            if not package.lstrip().startswith("#")
+            for requirement in [Requirement(package.split(";", 1)[0].strip())]
+        }
+        assert requirements["xllamacpp"].specifier.contains("2026.8.10229")
+        assert not requirements["xllamacpp"].specifier.contains("2026.7.10068")
+        assert sum(package.startswith("xllamacpp") for package in packages) == 1
+
+    dense = families["qwen3.8"]
+    assert dense.virtualenv is not None
+    packages = expand_engine_dependency_placeholders(dense.virtualenv.packages, "mlx")
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(packages, "mlx", None, "darwin")
+    requirements = {
+        requirement.name: requirement
+        for package in packages
+        if not package.lstrip().startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+    assert requirements["mlx-lm"].specifier.contains("0.24.0")
+    assert requirements["mlx-vlm"].specifier.contains("0.6.13")
+    assert not requirements["mlx-vlm"].specifier.contains("0.6.12")
+
+
+def test_qwen3_8_max_requires_vllm_027_without_virtualenv(monkeypatch):
+    from xinference.model.llm.llm_family import BUILTIN_LLM_FAMILIES
+    from xinference.model.llm.vllm import core as vllm_core
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "qwen3.8-max"
+    )
+    spec = next(spec for spec in family.model_specs if spec.model_format == "pytorch")
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("0.26.0"))
+    monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: False)
+
+    result = vllm_core.VLLMChatModel.match_json(family, spec, spec.quantization)
+    assert result == (False, "Qwen3_5MoeForCausalLM requires vLLM >= 0.27.0")
+
+    monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: True)
+    assert vllm_core.VLLMChatModel.match_json(family, spec, spec.quantization) is True
