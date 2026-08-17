@@ -907,9 +907,18 @@ def test_probe_bypasses_proxies_and_rejects_http_errors(
 
     import xinference.model.utils as model_utils
 
+    ca_bundle = "/private/corporate-ca.pem"
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", ca_bundle)
+
     def _head(status):
-        def head(session, url, timeout=None, allow_redirects=None):
-            assert session.trust_env is False
+        def head(session, url, timeout=None, allow_redirects=None, proxies=None):
+            assert session.trust_env is True
+            assert proxies == {"http": None, "https": None, "all": None}
+            settings = session.merge_environment_settings(
+                url, proxies, stream=None, verify=None, cert=None
+            )
+            assert requests.utils.select_proxy(url, settings["proxies"]) is None
+            assert settings["verify"] == ca_bundle
             return SimpleNamespace(status_code=status)
 
         return head
@@ -926,8 +935,9 @@ def test_probe_bypasses_proxies_and_rejects_http_errors(
         monkeypatch.setattr(requests.Session, "head", _head(status))
         assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
 
-    def head_raise(session, url, timeout=None, allow_redirects=None):
-        assert session.trust_env is False
+    def head_raise(session, url, timeout=None, allow_redirects=None, proxies=None):
+        assert session.trust_env is True
+        assert proxies == {"http": None, "https": None, "all": None}
         raise requests.ConnectionError("boom")
 
     monkeypatch.setattr(requests.Session, "head", head_raise)

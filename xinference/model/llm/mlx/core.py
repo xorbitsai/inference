@@ -310,7 +310,7 @@ class MLXBatchModel:
 
             self._prompt_cache.insert_cache(
                 self._prompt_cache_model_key,
-                cached_tokens,
+                list(cached_tokens),
                 prompt_cache,
                 cache_type="system",
             )

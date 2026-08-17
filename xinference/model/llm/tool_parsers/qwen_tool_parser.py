@@ -399,19 +399,30 @@ class QwenToolParser(ToolParser):
                     function_call = match.group(1)
                     if not function_call.strip():
                         continue
-                    end_index = function_call.find(">")
-                    if end_index != -1:
-                        parsed = self.parse_qwen35_tool_call(function_call)
-                        if parsed:
-                            completed_events[match.end()] = (*parsed, tool_call_index)
-                            continue
-                    parsed_json = json.loads(function_call, strict=False)
-                    completed_events[match.end()] = (
-                        None,
-                        parsed_json["name"],
-                        parsed_json["arguments"],
-                        tool_call_index,
-                    )
+                    try:
+                        end_index = function_call.find(">")
+                        if end_index != -1:
+                            parsed = self.parse_qwen35_tool_call(function_call)
+                            if parsed:
+                                completed_events[match.end()] = (
+                                    *parsed,
+                                    tool_call_index,
+                                )
+                                continue
+                        parsed_json = json.loads(function_call, strict=False)
+                        completed_events[match.end()] = (
+                            None,
+                            parsed_json["name"],
+                            parsed_json["arguments"],
+                            tool_call_index,
+                        )
+                    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+                        logger.warning(
+                            "Skipping malformed Qwen streaming tool call: %s. "
+                            "Error: %s",
+                            function_call,
+                            e,
+                        )
 
                 new_text_start = len(current_text) - len(delta_text)
                 token_regex = re.compile(

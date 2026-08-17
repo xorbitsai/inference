@@ -192,11 +192,12 @@ def test_mlx_batch_generator_stores_reusable_prefix():
             return len(self.inserted)
 
     cached_state = [object()]
+    cached_tokens = [1, 2, 3]
 
     class FakeBatchGenerator:
         def extract_cache(self, uids):
             assert uids == [9]
-            return {9: (cached_state, [1, 2, 3])}
+            return {9: (cached_state, cached_tokens)}
 
     model = object.__new__(MLXBatchModel)
     model._prompt_cache = FakePromptCache()
@@ -208,6 +209,7 @@ def test_mlx_batch_generator_stores_reusable_prefix():
         [SimpleNamespace(uid=9, end_of_segment=True)],
         gen_dict,
     )
+    cached_tokens.append(4)
 
     assert gen_dict["cache_boundaries"] == {}
     assert model._prompt_cache.inserted == [
@@ -216,6 +218,7 @@ def test_mlx_batch_generator_stores_reusable_prefix():
             {"cache_type": "system"},
         )
     ]
+    assert model._prompt_cache.inserted[0][0][1] is not cached_tokens
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,5 @@
+import pytest
+
 from ..qwen_tool_parser import QwenToolParser
 
 
@@ -881,3 +883,20 @@ def test_streaming_tool_calls_keep_inter_call_content_in_generation_order():
         (inter_call_content, None, None),
         (None, "web_search", {"query": "second"}, 1),
     ]
+
+
+@pytest.mark.parametrize("malformed_call", ['{"name": "bad"}', "oops"])
+def test_streaming_tool_calls_skip_malformed_sibling(malformed_call):
+    parser = QwenToolParser()
+    current = (
+        f"<tool_call>{malformed_call}</tool_call>"
+        "<tool_call><function=good><parameter=x>1</parameter>"
+        "</function></tool_call>"
+    )
+
+    assert parser.extract_tool_calls_streaming([""], current, current) == (
+        None,
+        "good",
+        {"x": 1},
+        1,
+    )

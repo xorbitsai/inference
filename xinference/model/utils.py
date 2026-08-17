@@ -661,12 +661,23 @@ def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
 
     session = requests.Session()
     # Auto detection must test direct connectivity.  If the endpoint is only
-    # reachable through HTTP(S)_PROXY / ALL_PROXY, selecting Hugging Face would
-    # route large model downloads through the user's proxy and consume its
-    # traffic quota.  Explicitly selecting Hugging Face still remains possible.
-    session.trust_env = False
+    # reachable through an environment proxy applicable to its URL scheme,
+    # selecting Hugging Face would route large model downloads through the
+    # user's proxy and consume its traffic quota.  Disable only proxies here;
+    # keep trust_env enabled for CA bundles and netrc credentials used by direct
+    # private mirrors.  Explicitly selecting Hugging Face remains possible.
+    direct_proxies: Dict[str, Any] = {
+        "http": None,
+        "https": None,
+        "all": None,
+    }
     try:
-        response = session.head(url, timeout=timeout, allow_redirects=True)
+        response = session.head(
+            url,
+            timeout=timeout,
+            allow_redirects=True,
+            proxies=direct_proxies,
+        )
     except Exception:
         return False
     finally:
