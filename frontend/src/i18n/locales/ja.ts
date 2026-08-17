@@ -52,6 +52,7 @@ const ja = {
     text2music: '音楽生成',
     text2audio_zero_shot: 'テキストから音声(ゼロショット)',
     text2audio_voice_cloning: 'テキストから音声(声のクローン)',
+    text2audio_voice_design: 'テキストから音声(音声デザイン)',
     text2audio_emotion_control: 'テキストから音声(感情制御)',
     text2video: 'テキストから動画',
     image2video: '画像から動画',

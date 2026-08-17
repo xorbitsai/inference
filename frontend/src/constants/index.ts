@@ -66,6 +66,7 @@ export enum ModelAbility {
   Ocr = 'ocr',
   Firstlastframe2video = 'firstlastframe2video',
   Text2audioVoiceCloning = 'text2audio_voice_cloning',
+  Text2audioVoiceDesign = 'text2audio_voice_design',
   Text2audioZeroShot = 'text2audio_zero_shot',
   Text2audioEmotionControl = 'text2audio_emotion_control',
   Docanalyze = 'docanalyze',

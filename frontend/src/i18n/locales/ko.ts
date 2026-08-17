@@ -52,6 +52,7 @@ const ko = {
     text2music: '음악 생성',
     text2audio_zero_shot: '텍스트에서 오디오(제로 샷)',
     text2audio_voice_cloning: '텍스트에서 오디오(음성 클로닝)',
+    text2audio_voice_design: '텍스트에서 오디오(음성 디자인)',
     text2audio_emotion_control: '텍스트에서 오디오(감정 제어)',
     text2video: '텍스트에서 비디오',
     image2video: '이미지에서 비디오',

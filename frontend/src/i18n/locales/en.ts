@@ -52,6 +52,7 @@ const en = {
     text2music: 'Music Generation',
     text2audio_zero_shot: 'Text to Audio (Zero-Shot)',
     text2audio_voice_cloning: 'Text to Audio (Voice Cloning)',
+    text2audio_voice_design: 'Text to Audio (Voice Design)',
     text2audio_emotion_control: 'Text to Audio (Emotion Control)',
     text2video: 'Text to Video',
     image2video: 'Image to Video',

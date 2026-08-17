@@ -679,6 +679,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       speed: 1,
       prompt_speech: [],
       prompt_text: '',
+      instruct: '',
       use_emo_vector: false,
       emo_vector: [...EMPTY_INDEX_TTS_EMOTION_VECTOR],
     },
@@ -686,11 +687,24 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     resultPanel: ResultPanels.Universal,
     responseType: 'blob',
     transformValues: ({ modelUid, model, values }) => {
-      const promptSpeech = firstUpload(values, 'prompt_speech');
+      const supportsVoiceCloning = model.model_ability.includes(
+        ModelAbility.Text2audioVoiceCloning
+      );
+      const supportsVoiceDesign = model.model_ability.includes(ModelAbility.Text2audioVoiceDesign);
+      const promptSpeech = supportsVoiceCloning ? firstUpload(values, 'prompt_speech') : undefined;
       const kwargs: Record<string, unknown> = {};
       const promptText = stringValue(values.prompt_text).trim();
+      const instruct = stringValue(values.instruct).trim();
 
-      if (promptText) {
+      if (promptSpeech) {
+        if (promptText) {
+          kwargs.prompt_text = promptText;
+        }
+      } else if (supportsVoiceDesign) {
+        if (instruct) {
+          kwargs.instruct = instruct;
+        }
+      } else if (promptText) {
         kwargs.prompt_text = promptText;
       }
 

@@ -2596,5 +2596,84 @@
     },
     "updated_at": 1786859407,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "FireRedTTS3-Base",
+    "cache_name": "FireRedTTS3",
+    "model_description": "FireRedTTS3 Base supports multilingual zero-shot voice cloning with reference audio and text.",
+    "model_family": "FireRedTTS3",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==5.6.2",
+        "flash-attn==2.8.3",
+        "einops==0.8.2",
+        "regex",
+        "wetext",
+        "soundfile",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "FireRedTeam/FireRedTTS3",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "FireRedTeam/FireRedTTS3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786646013,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "FireRedTTS3-Instruct",
+    "cache_name": "FireRedTTS3",
+    "model_description": "FireRedTTS3 Instruct supports natural-language voice design and zero-shot voice cloning.",
+    "model_family": "FireRedTTS3",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==5.6.2",
+        "flash-attn==2.8.3",
+        "einops==0.8.2",
+        "regex",
+        "wetext",
+        "soundfile",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "FireRedTeam/FireRedTTS3",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "FireRedTeam/FireRedTTS3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786646013,
+    "featured": false
   }
 ]

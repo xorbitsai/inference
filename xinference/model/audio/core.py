@@ -22,6 +22,7 @@ from .cosyvoice import CosyVoiceModel
 from .engine_family import AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
+from .fireredtts3 import FireRedTTS3Model
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .indextts2 import Indextts2
@@ -226,6 +227,7 @@ def create_audio_model_instance(
     FishSpeechModel,
     F5TTSModel,
     F5TTSMLXModel,
+    FireRedTTS3Model,
     MeloTTSModel,
     MiniMaxMusic3Model,
     KokoroModel,
@@ -312,6 +314,7 @@ def create_audio_model_instance(
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
+        FireRedTTS3Model,
         MeloTTSModel,
         KokoroModel,
         KokoroMLXModel,
@@ -345,6 +348,8 @@ def create_audio_model_instance(
         model = F5TTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "F5-TTS-MLX":
         model = F5TTSMLXModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "FireRedTTS3":
+        model = FireRedTTS3Model(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "MeloTTS":
         if (model_spec.engine or "").lower() == "mlx":
             model = MLXAudioTTSModel(model_uid, model_path, model_spec, **kwargs)

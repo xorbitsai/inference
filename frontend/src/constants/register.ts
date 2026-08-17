@@ -226,12 +226,14 @@ export const MODEL_ABILITY_IMAGE_OPTIONS = [
 export enum ModelAbilityForAudio {
   Text2audio = 'text2audio',
   Text2music = 'text2music',
+  Text2audioVoiceDesign = 'text2audio_voice_design',
   Audio2text = 'audio2text',
   SpeakerEmbedding = 'speaker_embedding',
 }
 export const MODEL_ABILITY_AUDIO_OPTIONS = [
   { label: 'Text2audio', value: ModelAbilityForAudio.Text2audio },
   { label: 'MusicGeneration', value: ModelAbilityForAudio.Text2music },
+  { label: 'Text2audioVoiceDesign', value: ModelAbilityForAudio.Text2audioVoiceDesign },
   { label: 'Audio2text', value: ModelAbilityForAudio.Audio2text },
   { label: 'SpeakerEmbedding', value: ModelAbilityForAudio.SpeakerEmbedding },
 ];
