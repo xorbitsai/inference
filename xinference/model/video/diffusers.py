@@ -25,6 +25,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from functools import partial, reduce
+from types import MethodType
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import numpy as np
@@ -40,6 +41,48 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _minimax_h3_memory_efficient_lora_forward(self, x, *args, **kwargs):
+    """Evaluate a TorchAO LoRA branch directly into the base-layer result."""
+    import torch
+
+    if kwargs or self.disable_adapters or self.merged:
+        return type(self).forward(self, x, *args, **kwargs)
+
+    active_adapters = [
+        adapter for adapter in self.active_adapters if adapter in self.lora_A
+    ]
+    if any(
+        adapter in self.lora_variant or self.lora_B[adapter].bias is not None
+        for adapter in active_adapters
+    ):
+        return type(self).forward(self, x, *args, **kwargs)
+
+    result = self.base_layer(x, *args)
+    result_dtype = result.dtype
+    if not result.is_contiguous():
+        raise RuntimeError(
+            "MiniMax-H3 requires contiguous TorchAO linear outputs for its "
+            "memory-efficient lightning adapter"
+        )
+
+    for active_adapter in active_adapters:
+        lora_a = self.lora_A[active_adapter]
+        lora_b = self.lora_B[active_adapter]
+        dropout = self.lora_dropout[active_adapter]
+        lora_input = self._cast_input_dtype(x, lora_a.weight.dtype)
+        low_rank_states = lora_a(dropout(lora_input))
+        torch.addmm(
+            result.view(-1, result.shape[-1]),
+            low_rank_states.view(-1, low_rank_states.shape[-1]),
+            lora_b.weight.T,
+            beta=1.0,
+            alpha=self.scaling[active_adapter],
+            out=result.view(-1, result.shape[-1]),
+        )
+
+    return result.to(result_dtype)
 
 
 def export_to_video_imageio(
@@ -220,6 +263,7 @@ class DiffusersVideoModel:
     @staticmethod
     def _load_minimax_h3_lightning_adapter(transformer, path: str, alpha: int):
         from peft import LoraConfig
+        from peft.tuners.lora.torchao import TorchaoLoraLinear
         from safetensors.torch import load_file
 
         target_modules = (
@@ -320,17 +364,21 @@ class DiffusersVideoModel:
                 f"unexpected={incompatible.unexpected_keys[:3]}"
             )
         transformer.set_adapters("default", weights=1.0)
-        # H3's FFN activations are large enough that evaluating the LoRA branch
-        # separately can add multiple GiB to the per-step peak.  The lightning
-        # adapter is fixed for the lifetime of this pipeline, so merge it into
-        # the quantized transformer once during loading and remove the runtime
-        # PEFT modules.
-        transformer.fuse_lora(
-            lora_scale=1.0,
-            safe_fusing=True,
-            adapter_names=["default"],
-        )
-        transformer.unload_lora()
+        # TorchAO INT4 weights cannot currently be dequantized, so PEFT cannot
+        # fuse this adapter. Its regular forward also materializes and then
+        # scales a full-size LoRA output, adding multiple GiB to H3's peak.
+        # Accumulate B(A(x)) directly into the base output instead.
+        patched_layers = 0
+        for module in transformer.modules():
+            if isinstance(module, TorchaoLoraLinear):
+                module.forward = MethodType(
+                    _minimax_h3_memory_efficient_lora_forward, module
+                )
+                patched_layers += 1
+        if not patched_layers:
+            raise RuntimeError(
+                "MiniMax-H3 lightning did not find any TorchAO LoRA layers"
+            )
         transformer.requires_grad_(False)
         transformer.eval()
         del state_dict

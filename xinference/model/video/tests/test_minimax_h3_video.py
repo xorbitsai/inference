@@ -298,7 +298,13 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
+    class FakeTorchaoLoraLinear:
+        pass
+
     class FakeTransformer:
+        def __init__(self):
+            self.lora_layer = FakeTorchaoLoraLinear()
+
         def add_adapter(self, config):
             assert fake_peft_awq.is_gptqmodel_available() is False
             assert fake_peft_gptq.is_gptqmodel_available() is False
@@ -315,11 +321,8 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
         def set_adapters(self, name, weights):
             calls["set_adapters"] = (name, weights)
 
-        def fuse_lora(self, **kwargs):
-            calls["fuse_lora"] = kwargs
-
-        def unload_lora(self):
-            calls["unload_lora"] = True
+        def modules(self):
+            return [self, self.lora_layer]
 
         def requires_grad_(self, value):
             calls["requires_grad"] = value
@@ -331,6 +334,8 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     fake_peft.LoraConfig = FakeLoraConfig
     fake_peft_tuners = types.ModuleType("peft.tuners")
     fake_peft_lora = types.ModuleType("peft.tuners.lora")
+    fake_peft_torchao = types.ModuleType("peft.tuners.lora.torchao")
+    fake_peft_torchao.TorchaoLoraLinear = FakeTorchaoLoraLinear
     fake_peft_awq = types.ModuleType("peft.tuners.lora.awq")
     fake_peft_gptq = types.ModuleType("peft.tuners.lora.gptq")
 
@@ -341,6 +346,7 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     fake_peft_gptq.is_gptqmodel_available = incompatible_gptqmodel_probe
     fake_peft_lora.awq = fake_peft_awq
     fake_peft_lora.gptq = fake_peft_gptq
+    fake_peft_lora.torchao = fake_peft_torchao
     fake_peft_tuners.lora = fake_peft_lora
     fake_peft.tuners = fake_peft_tuners
     fake_safetensors = types.ModuleType("safetensors")
@@ -352,11 +358,13 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     monkeypatch.setitem(sys.modules, "peft.tuners.lora", fake_peft_lora)
     monkeypatch.setitem(sys.modules, "peft.tuners.lora.awq", fake_peft_awq)
     monkeypatch.setitem(sys.modules, "peft.tuners.lora.gptq", fake_peft_gptq)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.torchao", fake_peft_torchao)
     monkeypatch.setitem(sys.modules, "safetensors", fake_safetensors)
     monkeypatch.setitem(sys.modules, "safetensors.torch", fake_safetensors_torch)
 
+    transformer = FakeTransformer()
     DiffusersVideoModel._load_minimax_h3_lightning_adapter(
-        FakeTransformer(), "/tmp/lightning.safetensors", alpha=8
+        transformer, "/tmp/lightning.safetensors", alpha=8
     )
 
     assert calls["config"].kwargs == {
@@ -376,16 +384,61 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     assert calls["loaded_state_dict"] == state_dict
     assert calls["strict"] is False
     assert calls["set_adapters"] == ("default", 1.0)
-    assert calls["fuse_lora"] == {
-        "lora_scale": 1.0,
-        "safe_fusing": True,
-        "adapter_names": ["default"],
-    }
-    assert calls["unload_lora"] is True
+    assert (
+        transformer.lora_layer.forward.__func__
+        is diffusers_module._minimax_h3_memory_efficient_lora_forward
+    )
     assert calls["requires_grad"] is False
     assert calls["eval"] is True
     assert fake_peft_awq.is_gptqmodel_available is incompatible_gptqmodel_probe
     assert fake_peft_gptq.is_gptqmodel_available is incompatible_gptqmodel_probe
+
+
+def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
+    monkeypatch,
+):
+    import torch
+
+    torch.manual_seed(0)
+
+    class FakeLoraLayer:
+        def __init__(self):
+            self.base_layer = torch.nn.Linear(4, 6, bias=False)
+            self.lora_A = {"default": torch.nn.Linear(4, 2, bias=False)}
+            self.lora_B = {"default": torch.nn.Linear(2, 6, bias=False)}
+            self.lora_dropout = {"default": torch.nn.Identity()}
+            self.scaling = {"default": 0.5}
+            self.active_adapters = ["default"]
+            self.lora_variant = {}
+            self.disable_adapters = False
+            self.merged = False
+
+        @staticmethod
+        def _cast_input_dtype(value, dtype):
+            return value.to(dtype)
+
+    layer = FakeLoraLayer()
+    inputs = torch.randn(2, 3, 4)
+    with torch.inference_mode():
+        expected = layer.base_layer(inputs) + 0.5 * layer.lora_B["default"](
+            layer.lora_A["default"](inputs)
+        )
+
+    original_addmm = torch.addmm
+    calls = {}
+
+    def tracked_addmm(input_tensor, mat1, mat2, **kwargs):
+        calls["uses_base_output"] = input_tensor.data_ptr() == kwargs["out"].data_ptr()
+        return original_addmm(input_tensor, mat1, mat2, **kwargs)
+
+    monkeypatch.setattr(torch, "addmm", tracked_addmm)
+    with torch.inference_mode():
+        actual = diffusers_module._minimax_h3_memory_efficient_lora_forward(
+            layer, inputs
+        )
+
+    assert calls["uses_base_output"] is True
+    torch.testing.assert_close(actual, expected)
 
 
 def test_minimax_h3_loads_modular_pipeline(monkeypatch):
