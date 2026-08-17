@@ -32,6 +32,27 @@ class _DummySupervisor:
         return func(*args)
 
 
+class _DummyAutostartRunner:
+    _autostart_one_model = SupervisorActor._autostart_one_model
+
+    def __init__(self, model_status: str | None, attempts: int):
+        self._model_status = model_status
+        self._autostart_model_states = {
+            "uid-1": {"attempts": attempts, "last_error": "previous failure"}
+        }
+        self.launched: list = []
+
+    async def _get_autostart_model_status(self, model_uid: str) -> str | None:
+        return self._model_status
+
+    def _autostart_waiting_for_worker(self, launch):
+        return False
+
+    async def _launch_autostart_model(self, launch):
+        self.launched.append(launch)
+        return launch["model_uid"]
+
+
 @pytest.mark.asyncio
 async def test_load_autostart_entries_reads_sqlite_store_and_normalizes():
     supervisor = _DummySupervisor(
@@ -66,3 +87,72 @@ async def test_load_autostart_entries_reads_sqlite_store_and_normalizes():
         }
     ]
     supervisor._launch_history_store.list_autostart.assert_called_once_with(None)
+
+
+@pytest.mark.asyncio
+async def test_autostart_ready_model_resets_retry_attempts():
+    supervisor = _DummyAutostartRunner(model_status="READY", attempts=3)
+    entry = {
+        "max_retries": 3,
+        "retry_interval_seconds": 30,
+        "launch": {"model_name": "llama", "model_uid": "uid-1"},
+    }
+
+    retry_delay = await supervisor._autostart_one_model(entry)
+
+    assert retry_delay is None
+    assert supervisor.launched == []
+    assert supervisor._autostart_model_states["uid-1"] == {
+        "attempts": 0,
+        "status": "active",
+        "message": "Model is already active.",
+        "last_error": None,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_status", ["CREATING", "LOADING", "UPDATING", "TERMINATING"]
+)
+async def test_autostart_transitional_model_preserves_retry_attempts(model_status):
+    supervisor = _DummyAutostartRunner(model_status=model_status, attempts=2)
+    entry = {
+        "max_retries": 3,
+        "retry_interval_seconds": 30,
+        "launch": {"model_name": "llama", "model_uid": "uid-1"},
+    }
+
+    retry_delay = await supervisor._autostart_one_model(entry)
+
+    assert retry_delay == 30
+    assert supervisor.launched == []
+    assert supervisor._autostart_model_states["uid-1"] == {
+        "attempts": 2,
+        "status": "waiting_model",
+        "message": f"Model is {model_status.lower()}.",
+        "last_error": "previous failure",
+    }
+
+
+@pytest.mark.asyncio
+async def test_autostart_successful_launch_resets_retry_attempts():
+    supervisor = _DummyAutostartRunner(model_status=None, attempts=2)
+    launch = {"model_name": "llama", "model_uid": "uid-1"}
+    entry = {
+        "max_retries": 3,
+        "retry_interval_seconds": 30,
+        "launch": launch,
+    }
+
+    retry_delay = await supervisor._autostart_one_model(entry)
+
+    assert retry_delay is None
+    assert supervisor.launched == [launch]
+    state = supervisor._autostart_model_states["uid-1"]
+    assert state["attempts"] == 0
+    assert state["status"] == "active"
+    assert state["model_uid"] == "uid-1"
+    assert state["message"] == "Model is ready."
+    assert state["last_error"] is None
+    assert isinstance(state["last_attempt_ts"], int)
+    assert isinstance(state["last_started_ts"], int)

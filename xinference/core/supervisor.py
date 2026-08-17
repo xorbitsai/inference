@@ -180,9 +180,7 @@ class WorkerNotRegisteredError(Exception):
     supervisor restart clears the in-memory registry while workers keep their
     cached refs. Raising forces the worker into ``report_status``'s reconnect
     branch, which re-runs ``add_worker`` and self-heals the registry (and thus
-    ``workers_total``). Subclasses ``Exception`` (not ``RuntimeError``) on
-    purpose: the worker report loop treats some ``RuntimeError``s as fatal and
-    breaks, which must never happen here.
+    ``workers_total``).
     """
 
 
@@ -1081,17 +1079,24 @@ class SupervisorActor(xo.StatelessActor):
                 logger.exception("Skip invalid autostart entry: %s", raw_entry)
         return entries
 
-    async def _autostart_model_is_active(self, model_uid: str) -> bool:
-        if model_uid in self._model_uid_to_replica_info:
-            return True
+    async def _get_autostart_model_status(self, model_uid: str) -> Optional[str]:
         infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
-        active_statuses = {
+        statuses = {info.status for info in infos}
+        for status in (
+            LaunchStatus.READY.name,
             LaunchStatus.CREATING.name,
+            LaunchStatus.LOADING.name,
             LaunchStatus.UPDATING.name,
             LaunchStatus.TERMINATING.name,
-            LaunchStatus.READY.name,
-        }
-        return any(info.status in active_statuses for info in infos)
+        ):
+            if status in statuses:
+                return status
+
+        # Backward-compatible fallback for model mappings created before status
+        # tracking was available. Do not override an explicit non-active status.
+        if not infos and model_uid in self._model_uid_to_replica_info:
+            return LaunchStatus.READY.name
+        return None
 
     def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
         worker_ip = launch.get("worker_ip")
@@ -1145,16 +1150,30 @@ class SupervisorActor(xo.StatelessActor):
         launch = entry["launch"]
         model_uid = launch["model_uid"]
         state = self._autostart_model_states.setdefault(model_uid, {"attempts": 0})
+        retry_interval = float(entry.get("retry_interval_seconds", 30))
 
-        if await self._autostart_model_is_active(model_uid):
+        model_status = await self._get_autostart_model_status(model_uid)
+        if model_status == LaunchStatus.READY.name:
             state.update(
                 {
                     "status": "active",
+                    "attempts": 0,
                     "message": "Model is already active.",
                     "last_error": None,
                 }
             )
             return None
+        if model_status is not None:
+            # CREATING/LOADING/UPDATING/TERMINATING suppress duplicate launches
+            # but do not prove a successful recovery. Preserve the retry budget
+            # and revisit the entry after the normal retry interval.
+            state.update(
+                {
+                    "status": "waiting_model",
+                    "message": f"Model is {model_status.lower()}.",
+                }
+            )
+            return retry_interval
 
         if self._autostart_waiting_for_worker(launch):
             state.update(
@@ -1166,7 +1185,6 @@ class SupervisorActor(xo.StatelessActor):
             return None
 
         max_retries = int(entry.get("max_retries", 3))
-        retry_interval = float(entry.get("retry_interval_seconds", 30))
         attempts = int(state.get("attempts", 0))
         if attempts >= max_retries:
             state.update(
@@ -1197,6 +1215,7 @@ class SupervisorActor(xo.StatelessActor):
             state.update(
                 {
                     "status": "active",
+                    "attempts": 0,
                     "model_uid": launched_uid,
                     "last_started_ts": int(time.time()),
                     "last_error": None,
