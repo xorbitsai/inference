@@ -773,8 +773,8 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       response_format: 'wav',
       kwargs: JSON.stringify({
         prompt_text: stringValue(values.prompt_text),
-        seed: values.seed,
-        duration: values.duration,
+        seed: numberValue(values.seed, 0),
+        duration: numberValue(values.duration, 60),
       }),
     }),
   },
