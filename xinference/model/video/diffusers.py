@@ -198,6 +198,26 @@ class DiffusersVideoModel:
         return config
 
     @staticmethod
+    @contextmanager
+    def _skip_peft_gptqmodel_probes():
+        # Xinference virtual environments inherit parent site-packages so the
+        # model subprocess can import Xinference and xoscar. PEFT otherwise
+        # probes an unrelated parent GPTQModel installation while injecting a
+        # TorchAO LoRA, and an incompatible GPTQModel can fail before PEFT
+        # reaches its TorchAO dispatcher.
+        peft_awq = importlib.import_module("peft.tuners.lora.awq")
+        peft_gptq = importlib.import_module("peft.tuners.lora.gptq")
+        original_awq_probe = peft_awq.is_gptqmodel_available
+        original_gptq_probe = peft_gptq.is_gptqmodel_available
+        peft_awq.is_gptqmodel_available = lambda: False
+        peft_gptq.is_gptqmodel_available = lambda: False
+        try:
+            yield
+        finally:
+            peft_awq.is_gptqmodel_available = original_awq_probe
+            peft_gptq.is_gptqmodel_available = original_gptq_probe
+
+    @staticmethod
     def _load_minimax_h3_lightning_adapter(transformer, path: str, alpha: int):
         from peft import LoraConfig
         from safetensors.torch import load_file
@@ -258,15 +278,16 @@ class DiffusersVideoModel:
             raise ValueError(f"Mixed MiniMax-H3 LoRA ranks are unsupported: {ranks}")
         rank = ranks.pop()
 
-        transformer.add_adapter(
-            LoraConfig(
-                r=rank,
-                lora_alpha=alpha,
-                init_lora_weights=False,
-                target_modules=list(target_modules),
-                use_rslora=False,
+        with DiffusersVideoModel._skip_peft_gptqmodel_probes():
+            transformer.add_adapter(
+                LoraConfig(
+                    r=rank,
+                    lora_alpha=alpha,
+                    init_lora_weights=False,
+                    target_modules=list(target_modules),
+                    use_rslora=False,
+                )
             )
-        )
         adapter_parameters = {
             name: parameter
             for name, parameter in transformer.named_parameters()

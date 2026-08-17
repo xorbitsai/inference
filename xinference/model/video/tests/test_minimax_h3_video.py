@@ -96,6 +96,7 @@ def test_minimax_h3_selects_modelscope_source(monkeypatch):
     assert model_spec.model_id == "MiniMax/MiniMax-H3"
     assert model_spec.model_revision == "master"
     assert model_spec.default_model_config["quantization"] == "int4"
+    assert "peft==0.20.0" in model_spec.virtualenv.packages
     assert model_spec.lightning_model_id == "lightx2v/Minimax-h3-Turbo"
     assert model_spec.lightning_model_revision == "master"
     assert model_spec.lightning_version_configs["4step_v1.0_768p_bf16"] == {
@@ -299,6 +300,8 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
 
     class FakeTransformer:
         def add_adapter(self, config):
+            assert fake_peft_awq.is_gptqmodel_available() is False
+            assert fake_peft_gptq.is_gptqmodel_available() is False
             calls["config"] = config
 
         def named_parameters(self):
@@ -320,11 +323,29 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
 
     fake_peft = types.ModuleType("peft")
     fake_peft.LoraConfig = FakeLoraConfig
+    fake_peft_tuners = types.ModuleType("peft.tuners")
+    fake_peft_lora = types.ModuleType("peft.tuners.lora")
+    fake_peft_awq = types.ModuleType("peft.tuners.lora.awq")
+    fake_peft_gptq = types.ModuleType("peft.tuners.lora.gptq")
+
+    def incompatible_gptqmodel_probe():
+        raise ImportError("incompatible inherited GPTQModel")
+
+    fake_peft_awq.is_gptqmodel_available = incompatible_gptqmodel_probe
+    fake_peft_gptq.is_gptqmodel_available = incompatible_gptqmodel_probe
+    fake_peft_lora.awq = fake_peft_awq
+    fake_peft_lora.gptq = fake_peft_gptq
+    fake_peft_tuners.lora = fake_peft_lora
+    fake_peft.tuners = fake_peft_tuners
     fake_safetensors = types.ModuleType("safetensors")
     fake_safetensors_torch = types.ModuleType("safetensors.torch")
     fake_safetensors_torch.load_file = lambda path, device: state_dict.copy()
     fake_safetensors.torch = fake_safetensors_torch
     monkeypatch.setitem(sys.modules, "peft", fake_peft)
+    monkeypatch.setitem(sys.modules, "peft.tuners", fake_peft_tuners)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora", fake_peft_lora)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.awq", fake_peft_awq)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.gptq", fake_peft_gptq)
     monkeypatch.setitem(sys.modules, "safetensors", fake_safetensors)
     monkeypatch.setitem(sys.modules, "safetensors.torch", fake_safetensors_torch)
 
@@ -351,6 +372,8 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     assert calls["set_adapters"] == ("default", 1.0)
     assert calls["requires_grad"] is False
     assert calls["eval"] is True
+    assert fake_peft_awq.is_gptqmodel_available is incompatible_gptqmodel_probe
+    assert fake_peft_gptq.is_gptqmodel_available is incompatible_gptqmodel_probe
 
 
 def test_minimax_h3_loads_modular_pipeline(monkeypatch):
