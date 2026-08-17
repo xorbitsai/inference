@@ -944,6 +944,7 @@ class ChatModelMixin:
             tool_results = [tool_result]
         else:
             tool_results = []
+        ignored_incomplete_tool_call = False
         for tool_event in tool_results:
             if len(tool_event) == 4:
                 parsed_content, func, args, tool_call_index = tool_event
@@ -951,6 +952,12 @@ class ChatModelMixin:
                 parsed_content, func, args = tool_event
                 tool_call_index = len(tool_calls)
             if func:
+                # A caller without streaming state cannot reuse the same call ID
+                # when the completed arguments arrive. Preserve its historical
+                # one-shot behavior instead of finalizing an empty placeholder.
+                if args is None and tool_call_state is None:
+                    ignored_incomplete_tool_call = True
+                    continue
                 call_id = f"call_{str(uuid.uuid4())}"
                 function_name: Optional[str] = func
                 if tool_call_state is not None:
@@ -979,6 +986,14 @@ class ChatModelMixin:
                 )
             elif parsed_content:
                 failed_contents.append(parsed_content)
+
+        if (
+            ignored_incomplete_tool_call
+            and not tool_calls
+            and not failed_contents
+            and not finish_reason
+        ):
+            return None
 
         if tool_calls:
             if tool_call_state is None:
