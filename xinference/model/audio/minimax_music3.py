@@ -149,7 +149,7 @@ class MiniMaxMusic3Model:
     @staticmethod
     def _validate_speech_request(
         input: str,
-        prompt_text: Optional[str],
+        instruct: Optional[str],
         voice: Optional[str],
         response_format: Optional[str],
         speed: Optional[float],
@@ -160,10 +160,10 @@ class MiniMaxMusic3Model:
     ) -> None:
         if not isinstance(input, str) or not input.strip():
             raise ValueError("MiniMax-Music3 requires non-empty lyrics in `input`.")
-        if not isinstance(prompt_text, str) or not prompt_text.strip():
+        if not isinstance(instruct, str) or not instruct.strip():
             raise ValueError(
                 "MiniMax-Music3 requires a non-empty music description in "
-                "`prompt_text`."
+                "`instruct`."
             )
         if voice not in (None, "", "default"):
             raise ValueError(
@@ -257,12 +257,12 @@ class MiniMaxMusic3Model:
         **kwargs: Any,
     ) -> bytes:
         assert self._model is not None
-        prompt_text = kwargs.pop("prompt_text", None)
+        instruct = kwargs.pop("instruct", None)
         seed = kwargs.pop("seed", 0)
         duration = kwargs.pop("duration", 60.0)
         self._validate_speech_request(
             input,
-            prompt_text,
+            instruct,
             voice,
             response_format,
             speed,
@@ -276,7 +276,7 @@ class MiniMaxMusic3Model:
 
         generator = torch.Generator(device=self._device).manual_seed(seed)
         result = self._model(
-            prompt=prompt_text,
+            prompt=instruct,
             lyrics=input,
             audio_duration=float(duration),
             generator=generator,

@@ -748,7 +748,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           key: 'kwargs',
           required: true,
           value: JSON.stringify({
-            prompt_text: 'Warm acoustic pop with intimate vocals',
+            instruct: 'Warm acoustic pop with intimate vocals',
             seed: 7,
             duration: 60,
           }),
@@ -759,7 +759,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     },
     initialValues: {
       input: '',
-      prompt_text: '',
+      instruct: '',
       seed: 0,
       duration: 60,
     },
@@ -772,7 +772,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       voice: 'default',
       response_format: 'wav',
       kwargs: JSON.stringify({
-        prompt_text: stringValue(values.prompt_text),
+        instruct: stringValue(values.instruct),
         seed: numberValue(values.seed, 0),
         duration: numberValue(values.duration, 60),
       }),

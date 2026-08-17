@@ -525,7 +525,7 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           </FormField>
         </div>
       )}
-      {supportsVoiceCloning && (
+      {supportsVoiceCloning && !isMusicGeneration && (
         <>
           <FormField name="prompt_speech">
             <FileUpload
@@ -565,11 +565,8 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
         </div>
       )}
       {isMusicGeneration && (
-        <FormField name="prompt_text" label="Music description" rules={[{ required: true }]}>
-          <Textarea
-            className="min-h-28"
-            placeholder="Describe the genre, mood, vocals, instrumentation, and arrangement..."
-          />
+        <FormField name="instruct" label="Music description" rules={[{ required: true }]}>
+          <Textarea placeholder="Describe the music to generate" />
         </FormField>
       )}
     </>

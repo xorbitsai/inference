@@ -367,7 +367,7 @@ MiniMax-Music3 Usage
 
 ``MiniMax-Music3`` reuses the Speech endpoint for text-to-music generation.
 Put the lyrics in ``input`` and the required music description in
-``prompt_text`` inside the existing ``kwargs`` field. Preserve line breaks and
+``instruct`` inside the existing ``kwargs`` field. Preserve line breaks and
 put tags such as ``[Verse]`` and ``[Chorus]`` on their own lines.
 
 ``duration`` is the maximum generated length in seconds. Its range is 0.04
@@ -383,7 +383,7 @@ Xinference preserves the Diffusers pipeline's native 44.1 kHz stereo samples.
 It wraps them in an IEEE-float WAV container without resampling or integer PCM
 quantization.
 
-``prompt_text``, ``seed``, and ``duration`` are model options passed through the
+``instruct``, ``seed``, and ``duration`` are model options passed through the
 existing ``kwargs`` channel rather than additional Speech API parameters. Raw
 REST requests encode ``kwargs`` as a JSON string. The Xinference sync and async
 clients accept these names through their existing ``**kwargs`` argument.
@@ -401,7 +401,7 @@ clients accept these names through their existing ``**kwargs`` argument.
         "response_format": "wav",
         "speed": 1.0,
         "stream": false,
-        "kwargs": "{\"prompt_text\": \"Warm acoustic pop with intimate female vocals, fingerpicked guitar, soft piano, and a wide final chorus.\", \"seed\": 7, \"duration\": 60}"
+        "kwargs": "{\"instruct\": \"Warm acoustic pop with intimate female vocals, fingerpicked guitar, soft piano, and a wide final chorus.\", \"seed\": 7, \"duration\": 60}"
       }' \
       --output music3.wav
 
@@ -422,7 +422,7 @@ clients accept these names through their existing ``**kwargs`` argument.
         response_format="wav",
         extra_body={
             "kwargs": json.dumps({
-                "prompt_text": "Warm acoustic pop with intimate vocals and soft piano.",
+                "instruct": "Warm acoustic pop with intimate vocals and soft piano.",
                 "seed": 7,
                 "duration": 60,
             })
@@ -438,7 +438,7 @@ clients accept these names through their existing ``**kwargs`` argument.
     model = client.get_model("<MODEL_UID>")
     wav = model.speech(
         input="[Verse]\nMorning light\n[Chorus]\nSing again",
-        prompt_text="Warm acoustic pop with intimate vocals and soft piano.",
+        instruct="Warm acoustic pop with intimate vocals and soft piano.",
         voice="default",
         response_format="wav",
         seed=7,
