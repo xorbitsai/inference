@@ -315,6 +315,12 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
         def set_adapters(self, name, weights):
             calls["set_adapters"] = (name, weights)
 
+        def fuse_lora(self, **kwargs):
+            calls["fuse_lora"] = kwargs
+
+        def unload_lora(self):
+            calls["unload_lora"] = True
+
         def requires_grad_(self, value):
             calls["requires_grad"] = value
 
@@ -370,6 +376,12 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     assert calls["loaded_state_dict"] == state_dict
     assert calls["strict"] is False
     assert calls["set_adapters"] == ("default", 1.0)
+    assert calls["fuse_lora"] == {
+        "lora_scale": 1.0,
+        "safe_fusing": True,
+        "adapter_names": ["default"],
+    }
+    assert calls["unload_lora"] is True
     assert calls["requires_grad"] is False
     assert calls["eval"] is True
     assert fake_peft_awq.is_gptqmodel_available is incompatible_gptqmodel_probe

@@ -320,6 +320,17 @@ class DiffusersVideoModel:
                 f"unexpected={incompatible.unexpected_keys[:3]}"
             )
         transformer.set_adapters("default", weights=1.0)
+        # H3's FFN activations are large enough that evaluating the LoRA branch
+        # separately can add multiple GiB to the per-step peak.  The lightning
+        # adapter is fixed for the lifetime of this pipeline, so merge it into
+        # the quantized transformer once during loading and remove the runtime
+        # PEFT modules.
+        transformer.fuse_lora(
+            lora_scale=1.0,
+            safe_fusing=True,
+            adapter_names=["default"],
+        )
+        transformer.unload_lora()
         transformer.requires_grad_(False)
         transformer.eval()
         del state_dict
