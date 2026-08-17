@@ -15,6 +15,7 @@
 """Unit tests for the in-tree build backend's revision recording."""
 
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -66,6 +67,13 @@ def _make_source_tree(root):
     os.makedirs(os.path.join(root, "xinference"), exist_ok=True)
     with open(os.path.join(root, "xinference", "__init__.py"), "w") as f:
         f.write("")
+
+
+def _write_llm_families(root, families):
+    llm_dir = os.path.join(root, "xinference", "model", "llm")
+    os.makedirs(llm_dir, exist_ok=True)
+    with open(os.path.join(llm_dir, "llm_family.json"), "w") as f:
+        json.dump(families, f)
 
 
 def _git(cwd, *args):
@@ -169,3 +177,32 @@ def test_existing_record_kept_without_revision_source(backend, tmp_path):
     backend._record_full_revision(str(src))
 
     assert _read_recorded(str(src)) == sha
+
+
+def test_validates_llm_family_specs(backend, tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    _write_llm_families(
+        str(src),
+        [{"model_name": "valid-family", "model_specs": []}],
+    )
+
+    backend._validate_builtin_model_specs(str(src))
+
+
+def test_rejects_llm_family_without_model_specs(backend, tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    _write_llm_families(
+        str(src),
+        [
+            {"model_name": "valid-family", "model_specs": []},
+            {"model_name": "misplaced-audio-model", "model_family": "audio"},
+        ],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="misplaced-audio-model.*model_specs",
+    ):
+        backend._validate_builtin_model_specs(str(src))
