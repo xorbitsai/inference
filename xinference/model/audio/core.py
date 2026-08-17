@@ -251,6 +251,12 @@ def create_audio_model_instance(
     model_spec = match_audio(model_name, download_hub, model_engine=model_engine)
     audio_cls = None
 
+    if (
+        model_spec.model_family == "minimax_music3"
+        and model_spec.model_name not in AUDIO_ENGINES
+    ):
+        raise ValueError("MiniMax-Music3 requires an NVIDIA CUDA device.")
+
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
     # engines keep the legacy dispatch below.
