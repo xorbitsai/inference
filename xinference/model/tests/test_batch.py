@@ -80,3 +80,155 @@ async def test_batch_mixin_respects_batch_size_and_order(
         ] == [f"request-{i}" for i in range(len(requests))]
     finally:
         await _shutdown_batch_processor(probe)
+
+
+class _BatchModel(BatchMixin):
+    def __init__(self):
+        self.batch_started = asyncio.Event()
+        self.batch_completed = asyncio.Event()
+        self.release_batch = asyncio.Event()
+        self.batch_error = None
+        self.batch_values = []
+        BatchMixin.__init__(self, self.infer, batch_interval=0.05)
+
+    def _get_batch_size(self, *args, **kwargs) -> int:
+        return 1
+
+    @extensible
+    def infer(self, value: int) -> int:
+        return value * 2
+
+    @infer.batch  # type: ignore[no-redef]
+    async def infer(self, args_list, kwargs_list):
+        self.batch_values = [args[0] for args in args_list]
+        self.batch_started.set()
+        try:
+            await self.release_batch.wait()
+            if self.batch_error is not None:
+                raise self.batch_error
+            return [args[0] * 2 for args in args_list]
+        finally:
+            self.batch_completed.set()
+
+
+class _QueuedBatchModel(_BatchModel):
+    def __init__(self):
+        self.release_processor = asyncio.Event()
+        super().__init__()
+
+    async def _process_batch(self):
+        await self.release_processor.wait()
+        await super()._process_batch()
+
+
+class _FailOnceProcessorModel(_BatchModel):
+    def __init__(self):
+        super().__init__()
+        self.processor_failed = asyncio.Event()
+
+    async def _process_batch(self):
+        if not self.processor_failed.is_set():
+            # Remove the request from the queue before failing, exercising the
+            # in-flight cleanup path rather than only draining queued requests.
+            await self.queue.get()
+            self.processor_failed.set()
+            raise RuntimeError("processor failed")
+        await super()._process_batch()
+
+
+async def _stop_batch_processor(model):
+    task = model._process_batch_task
+    if task is None:
+        return
+    if not task.done():
+        task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_survives_cancelled_caller():
+    model = _BatchModel()
+
+    first = asyncio.create_task(model.infer(1))
+    second = asyncio.create_task(model.infer(2))
+    try:
+        await model.batch_started.wait()
+        assert model.batch_values == [1, 2]
+
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+
+        model.release_batch.set()
+        assert await asyncio.wait_for(second, timeout=1) == 4
+        assert model._process_batch_task is not None
+        assert not model._process_batch_task.done()
+    finally:
+        await _stop_batch_processor(model)
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_skips_caller_cancelled_while_queued():
+    model = _QueuedBatchModel()
+
+    first = asyncio.create_task(model.infer(1))
+    second = asyncio.create_task(model.infer(2))
+    try:
+        while model.queue.qsize() < 2:
+            await asyncio.sleep(0)
+
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+
+        model.release_processor.set()
+        await model.batch_started.wait()
+        assert model.batch_values == [2]
+
+        model.release_batch.set()
+        assert await asyncio.wait_for(second, timeout=1) == 4
+    finally:
+        model.release_processor.set()
+        await _stop_batch_processor(model)
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_survives_cancelled_caller_when_batch_fails():
+    model = _BatchModel()
+
+    first = asyncio.create_task(model.infer(1))
+    try:
+        await model.batch_started.wait()
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+
+        model.batch_error = RuntimeError("batch failed")
+        model.release_batch.set()
+        await model.batch_completed.wait()
+        model.batch_error = None
+
+        assert await asyncio.wait_for(model.infer(2), timeout=1) == 4
+        assert model._process_batch_task is not None
+        assert not model._process_batch_task.done()
+    finally:
+        await _stop_batch_processor(model)
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_fails_inflight_request_after_unexpected_exit():
+    model = _FailOnceProcessorModel()
+
+    first = asyncio.create_task(model.infer(1))
+    try:
+        await model.processor_failed.wait()
+        with pytest.raises(RuntimeError, match="processor failed"):
+            await asyncio.wait_for(first, timeout=1)
+
+        model.release_batch.set()
+        assert await asyncio.wait_for(model.infer(2), timeout=1) == 4
+        assert model._process_batch_task is not None
+        assert not model._process_batch_task.done()
+    finally:
+        await _stop_batch_processor(model)
