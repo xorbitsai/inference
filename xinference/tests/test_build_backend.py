@@ -206,3 +206,22 @@ def test_rejects_llm_family_without_model_specs(backend, tmp_path):
         match="misplaced-audio-model.*model_specs",
     ):
         backend._validate_builtin_model_specs(str(src))
+
+
+def test_reports_entry_index_for_unnamed_invalid_llm_families(backend, tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    _write_llm_families(
+        str(src),
+        [
+            {"model_name": None},
+            {"model_name": ""},
+            {},
+        ],
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        backend._validate_builtin_model_specs(str(src))
+
+    message = str(exc_info.value)
+    assert all(f"'entry {index}'" in message for index in range(3))

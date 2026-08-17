@@ -62,7 +62,7 @@ def _validate_builtin_model_specs(root=None):
         if not isinstance(family, dict):
             invalid_families.append(f"entry {index}")
         elif not isinstance(family.get("model_specs"), list):
-            invalid_families.append(family.get("model_name", f"entry {index}"))
+            invalid_families.append(family.get("model_name") or f"entry {index}")
 
     if invalid_families:
         names = ", ".join(repr(name) for name in invalid_families)
