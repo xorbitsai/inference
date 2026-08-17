@@ -213,6 +213,14 @@ msgstr ""
 "https://github.com/xorbitsai/inference/releases"
 
 #: ../../source/getting_started/release_notes.rst:12
+msgid "v3.2.0"
+msgstr "v3.2.0"
+
+#: ../../source/getting_started/release_notes.rst:12
+msgid "`View release notes <https://xinference.co/release_notes/v3.2.0.html>`_"
+msgstr "`버전 설명 보기 <https://xinference.co/release_notes/v3.2.0.html>`_"
+
+#: ../../source/getting_started/release_notes.rst:12
 msgid "v3.1.0"
 msgstr "v3.1.0"
 
