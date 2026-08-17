@@ -1209,6 +1209,21 @@ export default function LaunchDialog({
         show: !!ggufQuantizations,
       },
       {
+        name: 'lightning_version',
+        label: t('launchModel.lightningVersions'),
+        placeholder: t('launchModel.lightningVersionsPlaceholder'),
+        type: 'select',
+        fieldProps: { options: lightningVersionOptions },
+        show: !!lightningVersionOptions.length,
+      },
+      {
+        name: 'lightning_model_path',
+        label: t('launchModel.lightningModelPath'),
+        placeholder: t('launchModel.lightningModelPathPlaceholder'),
+        type: 'input',
+        show: !!lightningVersionOptions.length,
+      },
+      {
         name: 'worker_ip',
         type: 'multi-select',
         label: t('launchModel.workerIp'),
