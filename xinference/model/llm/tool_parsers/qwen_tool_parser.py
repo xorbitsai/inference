@@ -374,60 +374,75 @@ class QwenToolParser(ToolParser):
                         ],
                     ]
                 ] = []
-                inter_call_content: Optional[str] = None
-                new_tool_start = delta_text.find(self.tool_call_start_token)
-                if new_tool_start > 0:
-                    # A detokenizer chunk may introduce both ordinary content and
-                    # a tool tag. Preserve only the newly generated plain-text
-                    # prefix; earlier content has already been emitted by prior
-                    # chunks, while an unfinished prior call is parser markup.
-                    prefix = delta_text[:new_tool_start]
-                    previous_inside_tool = previous_text[-1].count(
-                        self.tool_call_start_token
-                    ) > previous_text[-1].count(self.tool_call_end_token)
-                    if previous_inside_tool:
-                        previous_tool_end = prefix.rfind(self.tool_call_end_token)
-                        prefix = (
-                            prefix[previous_tool_end + len(self.tool_call_end_token) :]
-                            if previous_tool_end >= 0
-                            else ""
-                        )
-                    if prefix.strip():
-                        if previous_inside_tool:
-                            inter_call_content = prefix
-                        else:
-                            tool_events.append((prefix, None, None))
+                completed_events: Dict[
+                    int,
+                    Union[
+                        Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+                        Tuple[
+                            Optional[str],
+                            Optional[str],
+                            Optional[Dict[str, Any]],
+                            int,
+                        ],
+                    ],
+                ] = {}
 
-                # A detokenizer chunk can close one call and begin the next.
-                # Process every newly completed call rather than only the last
-                # regex match, otherwise parallel Qwen calls are silently lost.
-                for tool_call_index, function_call in enumerate(
-                    current_complete[len(previous_complete) :],
-                    start=len(previous_complete),
+                # Associate each newly completed call with the end position of
+                # its closing tag. Content and tool events are emitted below by
+                # walking the generated text, rather than grouping events by
+                # type and losing their original order.
+                for tool_call_index, match in enumerate(
+                    self.tool_call_complete_regex.finditer(current_text)
                 ):
+                    if tool_call_index < len(previous_complete):
+                        continue
+                    function_call = match.group(1)
                     if not function_call.strip():
                         continue
                     end_index = function_call.find(">")
                     if end_index != -1:
                         parsed = self.parse_qwen35_tool_call(function_call)
                         if parsed:
-                            tool_events.append((*parsed, tool_call_index))
+                            completed_events[match.end()] = (*parsed, tool_call_index)
                             continue
                     parsed_json = json.loads(function_call, strict=False)
-                    tool_events.append(
-                        (
-                            None,
-                            parsed_json["name"],
-                            parsed_json["arguments"],
-                            tool_call_index,
-                        )
+                    completed_events[match.end()] = (
+                        None,
+                        parsed_json["name"],
+                        parsed_json["arguments"],
+                        tool_call_index,
                     )
 
-                if inter_call_content is not None:
-                    # The delta closed an earlier call before producing this
-                    # content, so keep it after newly completed calls and before
-                    # any following partial call.
-                    tool_events.append((inter_call_content, None, None))
+                new_text_start = len(current_text) - len(delta_text)
+                token_regex = re.compile(
+                    rf"{re.escape(self.tool_call_start_token)}|"
+                    rf"{re.escape(self.tool_call_end_token)}"
+                )
+                inside_tool_call = False
+                cursor = 0
+                for token_match in token_regex.finditer(current_text):
+                    if not inside_tool_call:
+                        content_start = max(cursor, new_text_start)
+                        if content_start < token_match.start():
+                            content = current_text[content_start : token_match.start()]
+                            if content.strip():
+                                tool_events.append((content, None, None))
+
+                    if token_match.group() == self.tool_call_start_token:
+                        inside_tool_call = True
+                    else:
+                        inside_tool_call = False
+                        completed_event = completed_events.get(token_match.end())
+                        if completed_event is not None:
+                            tool_events.append(completed_event)
+                    cursor = token_match.end()
+
+                if not inside_tool_call:
+                    content_start = max(cursor, new_text_start)
+                    if content_start < len(current_text):
+                        content = current_text[content_start:]
+                        if content.strip():
+                            tool_events.append((content, None, None))
 
                 function_calls = self._get_function_calls_streaming(current_text)
                 partial_call = function_calls[-1] if function_calls else ""

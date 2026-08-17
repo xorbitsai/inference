@@ -865,3 +865,19 @@ def test_streaming_tool_calls_keep_inter_call_content_in_generation_order():
         (inter_call_content, None, None),
         (None, "web_search", None, 1),
     ]
+
+    complete_delta = (
+        "</tool_call>"
+        + inter_call_content
+        + '<tool_call>\n{"name": "web_search", '
+        + '"arguments": {"query": "second"}}\n</tool_call>'
+    )
+    complete_current = first_partial + complete_delta
+
+    assert parser.extract_tool_calls_streaming(
+        [first_partial], complete_current, complete_delta
+    ) == [
+        (None, "web_search", {"query": "first"}, 0),
+        (inter_call_content, None, None),
+        (None, "web_search", {"query": "second"}, 1),
+    ]
