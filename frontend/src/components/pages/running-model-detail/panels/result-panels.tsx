@@ -184,7 +184,14 @@ function BlobMediaPreview({
 
   if (!url) return null;
 
-  return <MediaPreview type={type} url={url} className={className} />;
+  return (
+    <MediaPreview
+      type={type}
+      url={url}
+      title={blob instanceof File ? blob.name : undefined}
+      className={className}
+    />
+  );
 }
 
 function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }) {
