@@ -298,12 +298,12 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
-    class FakeTorchaoLoraLinear:
+    class FakePeftLoraLinear:
         pass
 
     class FakeTransformer:
         def __init__(self):
-            self.lora_layer = FakeTorchaoLoraLinear()
+            self.lora_layer = FakePeftLoraLinear()
 
         def add_adapter(self, config):
             assert fake_peft_awq.is_gptqmodel_available() is False
@@ -334,8 +334,8 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     fake_peft.LoraConfig = FakeLoraConfig
     fake_peft_tuners = types.ModuleType("peft.tuners")
     fake_peft_lora = types.ModuleType("peft.tuners.lora")
-    fake_peft_torchao = types.ModuleType("peft.tuners.lora.torchao")
-    fake_peft_torchao.TorchaoLoraLinear = FakeTorchaoLoraLinear
+    fake_peft_layer = types.ModuleType("peft.tuners.lora.layer")
+    fake_peft_layer.Linear = FakePeftLoraLinear
     fake_peft_awq = types.ModuleType("peft.tuners.lora.awq")
     fake_peft_gptq = types.ModuleType("peft.tuners.lora.gptq")
 
@@ -346,7 +346,7 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     fake_peft_gptq.is_gptqmodel_available = incompatible_gptqmodel_probe
     fake_peft_lora.awq = fake_peft_awq
     fake_peft_lora.gptq = fake_peft_gptq
-    fake_peft_lora.torchao = fake_peft_torchao
+    fake_peft_lora.layer = fake_peft_layer
     fake_peft_tuners.lora = fake_peft_lora
     fake_peft.tuners = fake_peft_tuners
     fake_safetensors = types.ModuleType("safetensors")
@@ -358,7 +358,7 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     monkeypatch.setitem(sys.modules, "peft.tuners.lora", fake_peft_lora)
     monkeypatch.setitem(sys.modules, "peft.tuners.lora.awq", fake_peft_awq)
     monkeypatch.setitem(sys.modules, "peft.tuners.lora.gptq", fake_peft_gptq)
-    monkeypatch.setitem(sys.modules, "peft.tuners.lora.torchao", fake_peft_torchao)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.layer", fake_peft_layer)
     monkeypatch.setitem(sys.modules, "safetensors", fake_safetensors)
     monkeypatch.setitem(sys.modules, "safetensors.torch", fake_safetensors_torch)
 

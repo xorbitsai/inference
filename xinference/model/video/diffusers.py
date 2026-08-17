@@ -263,7 +263,7 @@ class DiffusersVideoModel:
     @staticmethod
     def _load_minimax_h3_lightning_adapter(transformer, path: str, alpha: int):
         from peft import LoraConfig
-        from peft.tuners.lora.torchao import TorchaoLoraLinear
+        from peft.tuners.lora.layer import Linear as PeftLoraLinear
         from safetensors.torch import load_file
 
         target_modules = (
@@ -370,15 +370,19 @@ class DiffusersVideoModel:
         # Accumulate B(A(x)) directly into the base output instead.
         patched_layers = 0
         for module in transformer.modules():
-            if isinstance(module, TorchaoLoraLinear):
+            if isinstance(module, PeftLoraLinear):
                 module.forward = MethodType(
                     _minimax_h3_memory_efficient_lora_forward, module
                 )
                 patched_layers += 1
         if not patched_layers:
             raise RuntimeError(
-                "MiniMax-H3 lightning did not find any TorchAO LoRA layers"
+                "MiniMax-H3 lightning did not find any PEFT LoRA linear layers"
             )
+        logger.info(
+            "Enabled memory-efficient MiniMax-H3 lightning forward for %s LoRA layers",
+            patched_layers,
+        )
         transformer.requires_grad_(False)
         transformer.eval()
         del state_dict
