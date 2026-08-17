@@ -363,7 +363,36 @@ class QwenToolParser(ToolParser):
                     previous_text[-1]
                 )
                 current_complete = self.tool_call_complete_regex.findall(current_text)
-                tool_events = []
+                tool_events: List[
+                    Union[
+                        Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+                        Tuple[
+                            Optional[str],
+                            Optional[str],
+                            Optional[Dict[str, Any]],
+                            int,
+                        ],
+                    ]
+                ] = []
+                new_tool_start = delta_text.find(self.tool_call_start_token)
+                if new_tool_start > 0:
+                    # A detokenizer chunk may introduce both ordinary content and
+                    # a tool tag. Preserve only the newly generated plain-text
+                    # prefix; earlier content has already been emitted by prior
+                    # chunks, while an unfinished prior call is parser markup.
+                    prefix = delta_text[:new_tool_start]
+                    previous_inside_tool = previous_text[-1].count(
+                        self.tool_call_start_token
+                    ) > previous_text[-1].count(self.tool_call_end_token)
+                    if previous_inside_tool:
+                        previous_tool_end = prefix.rfind(self.tool_call_end_token)
+                        prefix = (
+                            prefix[previous_tool_end + len(self.tool_call_end_token) :]
+                            if previous_tool_end >= 0
+                            else ""
+                        )
+                    if prefix.strip():
+                        tool_events.append((prefix, None, None))
 
                 # A detokenizer chunk can close one call and begin the next.
                 # Process every newly completed call rather than only the last

@@ -801,6 +801,21 @@ def test_streaming_xml_tool_call_emits_function_name_before_arguments_complete()
     ) == (None, "select_execution_pattern", {"action": "react"}, 0)
 
 
+def test_streaming_tool_call_preserves_content_before_tag_in_same_delta():
+    parser = QwenToolParser()
+    prefix = "I should check.\n"
+    current = (
+        prefix
+        + '<tool_call>\n{"name": "web_search", '
+        + '"arguments": {"query": "latest news"}}\n</tool_call>'
+    )
+
+    assert parser.extract_tool_calls_streaming([""], current, current) == [
+        (prefix, None, None),
+        (None, "web_search", {"query": "latest news"}, 0),
+    ]
+
+
 def test_streaming_xml_tool_calls_keep_completed_call_before_next_partial_call():
     parser = QwenToolParser()
     first_partial = "analysis\n<tool_call>\n<function=web_search>\n<parameter=query>\n"
