@@ -16,7 +16,7 @@ import importlib.util
 import platform
 from typing import TYPE_CHECKING, Tuple, Union
 
-from ..utils import has_cuda_device
+from ..utils import has_cuda_device, virtual_env_allows_missing_engine
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -24,6 +24,7 @@ from .funasr import FunASRModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .melotts import MeloTTSModel
+from .minimax_music3 import MiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
@@ -319,6 +320,20 @@ class MLXAudioTTSEngineModel(MLXAudioTTSModel, AudioEngineModel):
         return model_family.model_name in MLX_AUDIO_TTS_MODEL_NAMES
 
 
+class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
+    required_libs = ("diffusers",)
+
+    @classmethod
+    def check_lib(cls):
+        if virtual_env_allows_missing_engine():
+            return True
+        return super().check_lib()
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return has_cuda_device() and model_family.model_family == "minimax_music3"
+
+
 def register_builtin_audio_engines() -> None:
     # the first registered engine is the default one for a model
     SUPPORTED_ENGINES["transformers"] = [
@@ -341,3 +356,4 @@ def register_builtin_audio_engines() -> None:
         MLXAudioSTTEngineModel,
         MLXAudioTTSEngineModel,
     ]
+    SUPPORTED_ENGINES["diffusers"] = [DiffusersMiniMaxMusic3AudioModel]

@@ -2546,5 +2546,55 @@
     },
     "updated_at": 1786731468,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "MiniMax-Music3",
+    "model_family": "minimax_music3",
+    "model_description": "MiniMax-Music3 generates complete songs from lyrics and a music description. The model is distributed under the MiniMax-Music3 Community License and requires NVIDIA CUDA for inference.",
+    "model_ability": [
+      "text2music"
+    ],
+    "multilingual": true,
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "cpu_offload": false,
+      "group_offload": false
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "modular_model_index.json",
+        "condition_encoder/*",
+        "language_model/*",
+        "rvq_depth_decoder/*",
+        "scheduler/*",
+        "tokenizer/*",
+        "transformer/*",
+        "vocoder/*"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
+        "transformers>=5.15.0,<6.0",
+        "accelerate>=1.13.0",
+        "huggingface-hub>=1.23.0,<2.0",
+        "safetensors>=0.8.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "MiniMaxAI/MiniMax-Music3",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-Music3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786859407,
+    "featured": true
   }
 ]

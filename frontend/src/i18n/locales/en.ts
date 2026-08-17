@@ -49,6 +49,7 @@ const en = {
     audio2text: 'Audio to Text',
     speaker_embedding: 'Speaker Embedding',
     text2audio: 'Text to Audio',
+    text2music: 'Music Generation',
     text2audio_zero_shot: 'Text to Audio (Zero-Shot)',
     text2audio_voice_cloning: 'Text to Audio (Voice Cloning)',
     text2audio_emotion_control: 'Text to Audio (Emotion Control)',

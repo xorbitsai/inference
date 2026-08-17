@@ -7,6 +7,7 @@ import {
   ImageUp,
   ListFilter,
   Mic,
+  Music2,
   Paintbrush,
   ScanText,
   Video,
@@ -727,5 +728,54 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         kwargs
       );
     },
+  },
+  [ModelAbility.Text2music]: {
+    ability: ModelAbility.Text2music,
+    label: 'Music Generation',
+    icon: Music2,
+    requestApi: '/v1/audio/speech',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'input',
+          required: true,
+          value: '[Verse]\nMorning light across the city\n[Chorus]\nSing it back to me',
+        },
+        {
+          key: 'kwargs',
+          required: true,
+          value: JSON.stringify({
+            instruct: 'Warm acoustic pop with intimate vocals',
+            seed: 7,
+            duration: 60,
+          }),
+        },
+        { key: 'voice', required: true, value: 'default' },
+        { key: 'response_format', required: true, value: 'wav' },
+      ],
+    },
+    initialValues: {
+      input: '',
+      instruct: '',
+      seed: 0,
+      duration: 60,
+    },
+    formPanel: SpeechPanel,
+    resultPanel: ResultPanels.Universal,
+    responseType: 'blob',
+    transformValues: ({ modelUid, values }) => ({
+      model: modelUid,
+      input: stringValue(values.input),
+      voice: 'default',
+      response_format: 'wav',
+      kwargs: JSON.stringify({
+        instruct: stringValue(values.instruct),
+        seed: numberValue(values.seed, 0),
+        duration: numberValue(values.duration, 60),
+      }),
+    }),
   },
 };

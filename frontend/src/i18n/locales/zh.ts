@@ -49,6 +49,7 @@ const zh = {
     audio2text: '语音转文本',
     speaker_embedding: '说话人向量',
     text2audio: '文本转语音',
+    text2music: '音乐生成',
     text2audio_zero_shot: '文本转语音(零样本)',
     text2audio_voice_cloning: '文本转语音(声音克隆)',
     text2audio_emotion_control: '文本转语音(情感控制)',

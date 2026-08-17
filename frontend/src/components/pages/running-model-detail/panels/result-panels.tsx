@@ -97,7 +97,7 @@ function isVisualAbility(ability: ModelAbility) {
 }
 
 function isAudioResultAbility(ability: ModelAbility) {
-  return [ModelAbility.Text2audio, ModelAbility.Audio2audio, ModelAbility.Audio2audio].includes(
+  return [ModelAbility.Text2audio, ModelAbility.Text2music, ModelAbility.Audio2audio].includes(
     ability
   );
 }
@@ -184,7 +184,14 @@ function BlobMediaPreview({
 
   if (!url) return null;
 
-  return <MediaPreview type={type} url={url} className={className} />;
+  return (
+    <MediaPreview
+      type={type}
+      url={url}
+      title={blob instanceof File ? blob.name : undefined}
+      className={className}
+    />
+  );
 }
 
 function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }) {

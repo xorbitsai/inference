@@ -198,6 +198,27 @@ def test_invalid_audio_engine_is_rejected_before_download():
     cache.assert_not_called()
 
 
+def test_minimax_music3_without_cuda_is_rejected_before_download():
+    engine_mod = __import__(
+        register_builtin_audio_engines.__module__, fromlist=["has_cuda_device"]
+    )
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=False),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+        patch.object(CacheManager, "cache") as cache,
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["MiniMax-Music3"]:
+            generate_engine_config_by_model_name(model_spec)
+        with pytest.raises(ValueError, match="requires an NVIDIA CUDA device"):
+            create_audio_model_instance(
+                "uid",
+                "MiniMax-Music3",
+                enable_virtual_env=False,
+            )
+    cache.assert_not_called()
+
+
 def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
     models = apple_mlx_engines
     assert "whisper-tiny-mlx" not in models

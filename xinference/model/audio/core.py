@@ -30,6 +30,7 @@ from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
+from .minimax_music3 import MiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
@@ -226,6 +227,7 @@ def create_audio_model_instance(
     F5TTSModel,
     F5TTSMLXModel,
     MeloTTSModel,
+    MiniMaxMusic3Model,
     KokoroModel,
     KokoroMLXModel,
     KokoroZHModel,
@@ -248,6 +250,12 @@ def create_audio_model_instance(
     )
     model_spec = match_audio(model_name, download_hub, model_engine=model_engine)
     audio_cls = None
+
+    if (
+        model_spec.model_family == "minimax_music3"
+        and model_spec.model_name not in AUDIO_ENGINES
+    ):
+        raise ValueError("MiniMax-Music3 requires an NVIDIA CUDA device.")
 
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
