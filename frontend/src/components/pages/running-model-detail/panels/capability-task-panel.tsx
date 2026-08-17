@@ -40,6 +40,14 @@ function normalizeProgress(response: ProgressResponse) {
   return Math.max(0, Math.min(100, response.progress * 100));
 }
 
+function audioFileName(modelName: string, blob: Blob) {
+  const mimeSubtype = blob.type.split(';', 1)[0].split('/')[1];
+  const extension = mimeSubtype === 'mpeg' ? 'mp3' : mimeSubtype || 'mp3';
+  const timestamp = new Date().toLocaleString('sv-SE').replace(/\D/g, '');
+  const safeModelName = modelName.replace(/[<>:"/\\|?*]/g, '_');
+  return `${safeModelName}_${timestamp}.${extension}`;
+}
+
 const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTaskPanelProps>(
   ({ config, model, modelUid }, ref) => {
     const form = useMemo(() => createForm(), []);
@@ -147,7 +155,13 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
         .then((response) => {
           if (runTokenRef.current !== runToken) return;
 
-          setResult(response);
+          setResult(
+            response instanceof Blob
+              ? new File([response], audioFileName(model.model_name, response), {
+                  type: response.type,
+                })
+              : response
+          );
           setResultValues(values);
         })
         .finally(() => {

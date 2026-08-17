@@ -49,6 +49,7 @@ const ja = {
     audio2text: '音声からテキスト',
     speaker_embedding: '話者埋め込み',
     text2audio: 'テキストから音声',
+    text2music: '音楽生成',
     text2audio_zero_shot: 'テキストから音声(ゼロショット)',
     text2audio_voice_cloning: 'テキストから音声(声のクローン)',
     text2audio_emotion_control: 'テキストから音声(感情制御)',

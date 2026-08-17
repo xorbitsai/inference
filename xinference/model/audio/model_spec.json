@@ -3,6 +3,8 @@
     "version": 2,
     "model_name": "whisper-tiny",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -13,7 +15,7 @@
         "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
       }
     },
-    "updated_at": 1783912296,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -28,6 +30,8 @@
     "version": 2,
     "model_name": "whisper-tiny.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -38,7 +42,7 @@
         "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
       }
     },
-    "updated_at": 1783912299,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -53,6 +57,8 @@
     "version": 2,
     "model_name": "whisper-base",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -63,7 +69,7 @@
         "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
       }
     },
-    "updated_at": 1783912301,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -78,6 +84,8 @@
     "version": 2,
     "model_name": "whisper-base.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -88,7 +96,7 @@
         "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
       }
     },
-    "updated_at": 1783912303,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -103,6 +111,8 @@
     "version": 2,
     "model_name": "whisper-small",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -113,7 +123,7 @@
         "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
       }
     },
-    "updated_at": 1783912305,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -128,6 +138,8 @@
     "version": 2,
     "model_name": "whisper-small.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -138,7 +150,7 @@
         "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
       }
     },
-    "updated_at": 1783912307,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -153,6 +165,8 @@
     "version": 2,
     "model_name": "whisper-medium",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -163,7 +177,7 @@
         "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
       }
     },
-    "updated_at": 1783912309,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -178,6 +192,8 @@
     "version": 2,
     "model_name": "whisper-medium.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -188,7 +204,7 @@
         "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
       }
     },
-    "updated_at": 1783912311,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -203,6 +219,8 @@
     "version": 2,
     "model_name": "whisper-large-v3",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -217,7 +235,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912313,
+    "updated_at": 1786790280,
     "featured": true,
     "virtualenv": {
       "packages": [
@@ -232,6 +250,8 @@
     "version": 2,
     "model_name": "whisper-large-v3-turbo",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -246,7 +266,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912315,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -338,231 +358,261 @@
   },
   {
     "version": 2,
-    "model_name": "whisper-tiny-mlx",
+    "model_name": "whisper-tiny",
+    "cache_name": "whisper-tiny-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-tiny"
       }
     },
-    "updated_at": 1783912323,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-tiny.en-mlx",
+    "model_name": "whisper-tiny.en",
+    "cache_name": "whisper-tiny.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-tiny.en-mlx"
       }
     },
-    "updated_at": 1783912325,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-base-mlx",
+    "model_name": "whisper-base",
+    "cache_name": "whisper-base-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-base-mlx"
       }
     },
-    "updated_at": 1783912327,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-base.en-mlx",
+    "model_name": "whisper-base.en",
+    "cache_name": "whisper-base.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-base.en-mlx"
       }
     },
-    "updated_at": 1783912329,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-small-mlx",
+    "model_name": "whisper-small",
+    "cache_name": "whisper-small-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-small-mlx"
       }
     },
-    "updated_at": 1783912331,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-small.en-mlx",
+    "model_name": "whisper-small.en",
+    "cache_name": "whisper-small.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-small.en-mlx"
       }
     },
-    "updated_at": 1783912333,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-medium-mlx",
+    "model_name": "whisper-medium",
+    "cache_name": "whisper-medium-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-medium-mlx"
       }
     },
-    "updated_at": 1783912335,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-medium.en-mlx",
+    "model_name": "whisper-medium.en",
+    "cache_name": "whisper-medium.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-medium.en-mlx"
       }
     },
-    "updated_at": 1783912337,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-large-v3-mlx",
+    "model_name": "whisper-large-v3",
+    "cache_name": "whisper-large-v3-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-large-v3-mlx"
       }
     },
-    "updated_at": 1783912339,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-large-v3-turbo-mlx",
+    "model_name": "whisper-large-v3-turbo",
+    "cache_name": "whisper-large-v3-turbo-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-large-v3-turbo"
       }
     },
-    "updated_at": 1783912341,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -573,6 +623,8 @@
     "model_ability": [
       "audio2text"
     ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "multilingual": true,
     "default_model_config": {
       "vad_model": "fsmn-vad",
@@ -604,6 +656,34 @@
         "#system_torch#",
         "#system_torchaudio#",
         "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "SenseVoiceSmall",
+    "cache_name": "SenseVoiceSmall-MLX",
+    "model_family": "funasr",
+    "model_ability": [
+      "audio2text"
+    ],
+    "engine": "MLX",
+    "model_format": "mlx",
+    "multilingual": true,
+    "default_transcription_config": {
+      "use_itn": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/SenseVoiceSmall",
+        "model_revision": "8ddd966bd96243cff196422f81f0c5d955814792"
+      }
+    },
+    "updated_at": 1786801843,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[stt]==0.4.6 ; #engine# == \"MLX\""
       ]
     }
   },
@@ -1038,6 +1118,8 @@
     "version": 2,
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot",
@@ -1054,7 +1136,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912367,
+    "updated_at": 1786790280,
     "featured": true,
     "virtualenv": {
       "packages": [
@@ -1077,8 +1159,11 @@
   },
   {
     "version": 2,
-    "model_name": "F5-TTS-MLX",
+    "model_name": "F5-TTS",
+    "cache_name": "F5-TTS-MLX",
     "model_family": "F5-TTS-MLX",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot",
@@ -1091,15 +1176,15 @@
         "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93"
       }
     },
-    "updated_at": 1783912368,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "f5-tts-mlx",
-        "vocos-mlx",
-        "soundfile",
-        "tomli",
-        "#system_numpy#"
+        "f5-tts-mlx ; #engine# == \"MLX\"",
+        "vocos-mlx ; #engine# == \"MLX\"",
+        "soundfile ; #engine# == \"MLX\"",
+        "tomli ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -1111,6 +1196,8 @@
       "text2audio",
       "text2audio_zero_shot"
     ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "multilingual": false,
     "language": "EN",
     "model_src": {
@@ -1146,6 +1233,35 @@
         "#system_torch#",
         "#system_torchaudio#",
         "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "MeloTTS-English",
+    "cache_name": "MeloTTS-English-MLX",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "engine": "MLX",
+    "model_format": "mlx",
+    "multilingual": false,
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/MeloTTS-English-MLX",
+        "model_revision": "30a1b9d981b4ed3d80b312a9979f2b39b1aed42a"
+      }
+    },
+    "updated_at": 1786801843,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "g2p_en",
+        "soundfile"
       ]
     }
   },
@@ -1203,6 +1319,8 @@
       "text2audio",
       "text2audio_zero_shot"
     ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "multilingual": false,
     "language": "EN",
     "model_src": {
@@ -1238,6 +1356,35 @@
         "#system_torch#",
         "#system_torchaudio#",
         "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "MeloTTS-English-v3",
+    "cache_name": "MeloTTS-English-v3-MLX",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "engine": "MLX",
+    "model_format": "mlx",
+    "multilingual": false,
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/MeloTTS-English-v3-MLX",
+        "model_revision": "837d15fd72bc35a15033234ce5ea242367ca1960"
+      }
+    },
+    "updated_at": 1786801843,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "g2p_en",
+        "soundfile"
       ]
     }
   },
@@ -1475,6 +1622,8 @@
     "version": 2,
     "model_name": "Kokoro-82M",
     "model_family": "Kokoro",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot"
@@ -1489,7 +1638,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912386,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -1503,8 +1652,11 @@
   },
   {
     "version": 2,
-    "model_name": "Kokoro-82M-MLX",
+    "model_name": "Kokoro-82M",
+    "cache_name": "Kokoro-82M-MLX",
     "model_family": "Kokoro-MLX",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot"
@@ -1522,14 +1674,14 @@
     },
     "virtualenv": {
       "packages": [
-        "mlx-audio==0.2.3",
-        "mlx-lm==0.24.1",
-        "en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
-        "en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl",
-        "#system_numpy#"
+        "mlx-audio==0.2.3 ; #engine# == \"MLX\"",
+        "mlx-lm==0.24.1 ; #engine# == \"MLX\"",
+        "en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl ; #engine# == \"MLX\"",
+        "en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     },
-    "updated_at": 1766387102,
+    "updated_at": 1786790280,
     "featured": false
   },
   {
@@ -1663,6 +1815,8 @@
       "audio2text"
     ],
     "model_family": "funasr",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_src": {
       "modelscope": {
         "model_id": "FunAudioLLM/Fun-ASR-Nano-2512",
@@ -1690,6 +1844,33 @@
     },
     "featured": false,
     "updated_at": 1783413976
+  },
+  {
+    "version": 2,
+    "model_name": "Fun-ASR-Nano-2512",
+    "cache_name": "Fun-ASR-Nano-2512-MLX",
+    "model_description": "Fun-ASR-Nano-2512 optimized for Apple Silicon with mlx-audio.",
+    "multilingual": false,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "funasr",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Fun-ASR-Nano-2512",
+        "model_revision": "a7bc96fceaafce39ed6748e0c0fa9a9508b67f86"
+      }
+    },
+    "default_transcription_config": {},
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[stt]==0.4.6 ; #engine# == \"MLX\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
   },
   {
     "model_name": "Fun-ASR-MLT-Nano-2512",
@@ -1735,6 +1916,8 @@
       "audio2text"
     ],
     "model_family": "qwen3_asr",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-ASR-0.6B",
@@ -1763,6 +1946,33 @@
     "updated_at": 1785233762
   },
   {
+    "version": 2,
+    "model_name": "Qwen3-ASR-0.6B",
+    "cache_name": "Qwen3-ASR-0.6B-MLX",
+    "model_description": "Qwen3-ASR-0.6B 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-ASR-0.6B-8bit",
+        "model_revision": "89e96d92ba34aca20b3e29fb10cc284097d1219f"
+      }
+    },
+    "default_transcription_config": {},
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[stt]==0.4.6 ; #engine# == \"MLX\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
+  },
+  {
     "model_name": "Qwen3-ASR-1.7B",
     "model_description": "This is a custom model description.",
     "multilingual": true,
@@ -1770,6 +1980,8 @@
       "audio2text"
     ],
     "model_family": "qwen3_asr",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-ASR-1.7B",
@@ -1796,6 +2008,33 @@
     },
     "featured": false,
     "updated_at": 1785233762
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen3-ASR-1.7B",
+    "cache_name": "Qwen3-ASR-1.7B-MLX",
+    "model_description": "Qwen3-ASR-1.7B 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-ASR-1.7B-8bit",
+        "model_revision": "a8379a2e2f9e313c9292cdf1af4055ab56d50d55"
+      }
+    },
+    "default_transcription_config": {},
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[stt]==0.4.6 ; #engine# == \"MLX\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
   },
   {
     "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
@@ -1806,6 +2045,8 @@
       "text2audio_voice_cloning"
     ],
     "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
@@ -1829,6 +2070,34 @@
     "updated_at": 1775717134
   },
   {
+    "version": 2,
+    "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
+    "cache_name": "Qwen3-TTS-12Hz-0.6B-Base-MLX",
+    "model_description": "Qwen3-TTS Base 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit",
+        "model_revision": "50f45ef0047cde7e84c2ef04326acb8ada2436a7"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
+  },
+  {
     "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
     "model_description": "This is a custom model description.",
     "multilingual": true,
@@ -1837,6 +2106,8 @@
       "text2audio_voice_cloning"
     ],
     "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -1860,6 +2131,34 @@
     "updated_at": 1775717083
   },
   {
+    "version": 2,
+    "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
+    "cache_name": "Qwen3-TTS-12Hz-1.7B-Base-MLX",
+    "model_description": "Qwen3-TTS Base 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
+        "model_revision": "e7dd0585652209fa0d7783659aad4e8a324de11c"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
+  },
+  {
     "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
     "model_description": "This is a custom model description.",
     "multilingual": true,
@@ -1867,6 +2166,8 @@
       "text2audio"
     ],
     "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
@@ -1890,6 +2191,33 @@
     "updated_at": 1775717182
   },
   {
+    "version": 2,
+    "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "cache_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice-MLX",
+    "model_description": "Qwen3-TTS CustomVoice 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-TTS-12Hz-0.6B-CustomVoice-8bit",
+        "model_revision": "049ef77fe8816b536193c0c25f9a214d17921282"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
+  },
+  {
     "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
     "model_description": "This is a custom model description.",
     "multilingual": true,
@@ -1897,6 +2225,8 @@
       "text2audio"
     ],
     "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
@@ -1920,6 +2250,33 @@
     "updated_at": 1775717158
   },
   {
+    "version": 2,
+    "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+    "cache_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice-MLX",
+    "model_description": "Qwen3-TTS CustomVoice 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit",
+        "model_revision": "41d3337e8b7f2843a75841595fc14e4b9a7a4b96"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
+  },
+  {
     "model_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
     "model_description": "This is a custom model description.",
     "multilingual": true,
@@ -1927,6 +2284,8 @@
       "text2audio"
     ],
     "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
@@ -1948,6 +2307,33 @@
     },
     "featured": false,
     "updated_at": 1775717207
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "cache_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-MLX",
+    "model_description": "Qwen3-TTS VoiceDesign 8-bit optimized for Apple Silicon with mlx-audio.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit",
+        "model_revision": "f90d617701d9f7f4ca499291e0b57f2b3c2fd2ee"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
   },
   {
     "version": 2,
@@ -2033,6 +2419,8 @@
       "text2audio_zero_shot",
       "text2audio_voice_cloning"
     ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "multilingual": true,
     "virtualenv": {
       "packages": [
@@ -2073,6 +2461,34 @@
     },
     "updated_at": 1781772400,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "VoxCPM2",
+    "cache_name": "VoxCPM2-MLX",
+    "model_family": "VoxCPM",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "engine": "MLX",
+    "model_format": "mlx",
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/VoxCPM2-8bit",
+        "model_revision": "d52725898a0675703f7f9ddc5a4d1a3cdbb99032"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile"
+      ]
+    },
+    "updated_at": 1786801843,
+    "featured": false
   },
   {
     "version": 2,
@@ -2129,6 +2545,56 @@
       }
     },
     "updated_at": 1786809795,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "MiniMax-Music3",
+    "model_family": "minimax_music3",
+    "model_description": "MiniMax-Music3 generates complete songs from lyrics and a music description. The model is distributed under the MiniMax-Music3 Community License and requires NVIDIA CUDA for inference.",
+    "model_ability": [
+      "text2music"
+    ],
+    "multilingual": true,
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "cpu_offload": false,
+      "group_offload": false
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "modular_model_index.json",
+        "condition_encoder/*",
+        "language_model/*",
+        "rvq_depth_decoder/*",
+        "scheduler/*",
+        "tokenizer/*",
+        "transformer/*",
+        "vocoder/*"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
+        "transformers>=5.15.0,<6.0",
+        "accelerate>=1.13.0",
+        "huggingface-hub>=1.23.0,<2.0",
+        "safetensors>=0.8.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "MiniMaxAI/MiniMax-Music3",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-Music3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786859407,
     "featured": true
   }
 ]

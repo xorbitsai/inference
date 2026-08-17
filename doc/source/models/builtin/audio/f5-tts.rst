@@ -12,8 +12,15 @@ F5-TTS
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** SWivid/F5-TTS
+- **PyTorch model ID:** SWivid/F5-TTS
+- **MLX model ID:** lucasnewman/f5-tts-mlx
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name F5-TTS --model-type audio
+   xinference launch --model-name F5-TTS --model-type audio --model-engine PyTorch
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``PyTorch``
+* ``MLX``

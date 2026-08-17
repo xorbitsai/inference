@@ -1029,6 +1029,10 @@ class CancellableDownloader:
         # progress for file downloader
         # mainly when tqdm unit is set
         self._download_progresses: Set[tqdm] = set()
+        # A byte bar reaches 100% before the repository-level bar advances.
+        # Keep those completed file contributions until a main-bar update
+        # accounts for them, even if get_progress() was not called in between.
+        self._unaccounted_download_progresses: Set[tqdm] = set()
         # Instance-specific tqdm tracking
         self._patched_instances: Set[int] = set()
 
@@ -1069,6 +1073,7 @@ class CancellableDownloader:
         with self._progress_lock:
             self._main_progresses.clear()
             self._download_progresses.clear()
+            self._unaccounted_download_progresses.clear()
 
     def _progress_snapshots(self) -> Tuple[List[tqdm], List[tqdm]]:
         """Return stable copies while tqdm callbacks may update the sets."""
@@ -1076,43 +1081,49 @@ class CancellableDownloader:
             return list(self._main_progresses), list(self._download_progresses)
 
     def get_progress(self) -> float:
-        if self.done:
-            # directly return 1.0 when finished
-            return 1.0
-        # Don't return 1.0 when cancelled, calculate actual progress
+        with self._progress_lock:
+            if self.done:
+                # directly return 1.0 when finished
+                return 1.0
+            # Don't return 1.0 when cancelled, calculate actual progress
 
-        main_progresses, download_progresses = self._progress_snapshots()
+            tasks = finished_tasks = 0
+            for main_progress in self._main_progresses:
+                tasks += main_progress.total or 0
+                finished_tasks += main_progress.n
 
-        tasks = finished_tasks = 0
-        for main_progress in main_progresses:
-            tasks += main_progress.total or 0
-            finished_tasks += main_progress.n
+            if tasks == 0:
+                # we assumed at least 1 task
+                tasks = 1
 
-        if tasks == 0:
-            # we assumed at least 1 task
-            tasks = 1
+            active_file_progress = 0.0
+            for download_progress in self._download_progresses:
+                total = download_progress.total
+                downloaded = download_progress.n or 0
 
-        finished_ratio = finished_tasks / tasks
+                # Completed downloads are represented either by finished_tasks
+                # or by _unaccounted_download_progresses during the short gap
+                # before the repository-level bar advances.
+                if total is not None and downloaded >= total:
+                    continue
 
-        all_download_progress = finished_download_progress = 0
-        for download_progress in download_progresses:
-            # we skip finished download
-            if download_progress.n == download_progress.total:
-                continue
-            all_download_progress += download_progress.total or (
-                download_progress.n * 10
-            )
-            finished_download_progress += download_progress.n
+                if total:
+                    # Give every file the same weight, irrespective of its size.
+                    active_file_progress += min(max(downloaded / total, 0.0), 1.0)
+                elif downloaded > 0:
+                    # Preserve the previous best-effort estimate for downloads
+                    # whose total size is not available yet.
+                    active_file_progress += 0.1
 
-        if all_download_progress > 0:
-            rest_ratio = (
-                (tasks - finished_tasks)
-                / tasks
-                * (finished_download_progress / all_download_progress)
-            )
-            return finished_ratio + rest_ratio
-        else:
-            return finished_ratio
+            unaccounted_file_progress = len(self._unaccounted_download_progresses)
+            file_progress = active_file_progress + unaccounted_file_progress
+
+            # A tqdm implementation may expose more than one byte progress bar
+            # for the same file. Never let byte bars account for more file slots
+            # than the repository-level progress reports as unfinished.
+            unfinished_tasks = max(tasks - finished_tasks, 0)
+            file_progress = min(file_progress, unfinished_tasks)
+            return min(max((finished_tasks + file_progress) / tasks, 0.0), 1.0)
 
     @staticmethod
     def _finite_float(value: Any) -> Optional[float]:
@@ -1243,18 +1254,39 @@ class CancellableDownloader:
             def patched_init(tqdm_instance, *args, **kwargs):
                 # Bind ownership when the bar is created so later updates from
                 # library worker threads remain scoped to the same downloader.
-                CancellableDownloader._get_tqdm_owner(tqdm_instance)
-                return original_init_plain(tqdm_instance, *args, **kwargs)
+                downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                result = original_init_plain(tqdm_instance, *args, **kwargs)
+
+                # Register the bar immediately, rather than waiting for its
+                # first update. Repository-level bars do not update until the
+                # first file finishes; delaying registration would make
+                # get_progress() assume there is only one task until then.
+                if (
+                    downloader is not None
+                    and not downloader.done
+                    and not getattr(tqdm_instance, "disable", False)
+                ):
+                    unit = getattr(tqdm_instance, "unit", "it")
+                    progresses = (
+                        downloader._main_progresses
+                        if unit == "it"
+                        else downloader._download_progresses
+                    )
+                    with downloader._progress_lock:
+                        progresses.add(tqdm_instance)
+
+                return result
 
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):
                 downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                progresses = None
+                unit = None
                 if downloader is not None:
                     # if download cancelled, throw error
                     if getattr(downloader, "cancelled", False):
                         downloader.raise_error()
 
-                    progresses = None
                     if not downloader.done and not getattr(
                         tqdm_instance, "disable", False
                     ):
@@ -1267,10 +1299,37 @@ class CancellableDownloader:
                             )
 
                     if progresses is not None:
-                        # Guard the mutation: a concurrent get_progress()
-                        # caller may be iterating this very set.
                         with downloader._progress_lock:
+                            # Keep the tqdm update and the corresponding
+                            # completed-file bookkeeping atomic with respect to
+                            # get_progress().
                             progresses.add(tqdm_instance)
+                            previous_n = getattr(tqdm_instance, "n", 0) or 0
+                            result = original_update_plain(tqdm_instance, n)
+                            current_n = getattr(tqdm_instance, "n", 0) or 0
+
+                            if unit == "it":
+                                newly_accounted = max(int(current_n - previous_n), 0)
+                                for _ in range(
+                                    min(
+                                        newly_accounted,
+                                        len(
+                                            downloader._unaccounted_download_progresses
+                                        ),
+                                    )
+                                ):
+                                    downloader._unaccounted_download_progresses.pop()
+                            else:
+                                total = getattr(tqdm_instance, "total", None)
+                                if (
+                                    total is not None
+                                    and previous_n < total <= current_n
+                                ):
+                                    downloader._unaccounted_download_progresses.add(
+                                        tqdm_instance
+                                    )
+
+                            return result
 
                 # Call original update with safety check
                 return original_update_plain(tqdm_instance, n)
@@ -1785,8 +1844,7 @@ def _get_engine_params_by_name(
     if model_type == "audio":
         from .audio import BUILTIN_AUDIO_MODELS
         from .audio.custom import get_user_defined_audios
-        from .audio.engine_family import AUDIO_ENGINES
-        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
 
         if model_name not in AUDIO_ENGINES:
             return None
@@ -1798,13 +1856,14 @@ def _get_engine_params_by_name(
         audio_families.extend(
             f for f in get_user_defined_audios() if f.model_name == model_name
         )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
         _validate_available_image_engines(
             audio_families,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             "audio",
         )
         _collect_supported_image_engines(
-            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+            audio_families, supported_audio_engines, "audio"
         )
         return engine_params
 
@@ -2319,8 +2378,7 @@ def _get_engine_params_by_name_with_virtual_env(
     elif model_type == "audio":
         from .audio import BUILTIN_AUDIO_MODELS
         from .audio.custom import get_user_defined_audios
-        from .audio.engine_family import AUDIO_ENGINES
-        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
 
         if model_name not in AUDIO_ENGINES:
             return None
@@ -2332,22 +2390,23 @@ def _get_engine_params_by_name_with_virtual_env(
         audio_families.extend(
             f for f in get_user_defined_audios() if f.model_name == model_name
         )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
         audio_engine_markers: Set[str] = set()
         for family in audio_families:
             audio_engine_markers |= _collect_virtualenv_engine_markers(family)
         _validate_available_image_engines(
             audio_families,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             "audio",
             audio_engine_markers,
             enable_virtual_env,
         )
         _collect_supported_image_engines(
-            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+            audio_families, supported_audio_engines, "audio"
         )
         _apply_virtualenv_engine_overrides(
             engine_params,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             audio_engine_markers,
             enable_virtual_env,
         )
@@ -2603,17 +2662,44 @@ def load_downloaded_models_to_dict(
 
 
 def merge_models_by_timestamp(
-    built_in_models: Dict[str, List[Any]], user_models: Dict[str, List[Any]]
+    built_in_models: Dict[str, List[Any]],
+    user_models: Dict[str, List[Any]],
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> Dict[str, List[Any]]:
     """Merge built-in and user models, keeping the latest version based on updated_at.
 
     Args:
         built_in_models: Dictionary of built-in models
         user_models: Dictionary of user-defined models
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
 
     Returns:
         Merged dictionary with latest models based on updated_at timestamp
     """
+    if model_identity_func is not None:
+        merged_models: Dict[str, List[Any]] = {}
+        model_names = dict.fromkeys([*built_in_models, *user_models])
+        for model_name in model_names:
+            models_by_identity: Dict[Any, List[Any]] = {}
+            for model in [
+                *built_in_models.get(model_name, []),
+                *user_models.get(model_name, []),
+            ]:
+                models_by_identity.setdefault(model_identity_func(model), []).append(
+                    model
+                )
+
+            merged_models[model_name] = []
+            for models in models_by_identity.values():
+                # Variants with the same identity are interchangeable. Keep one
+                # newest entry; because built-ins are ordered first, an equal-
+                # timestamp downloaded copy does not create a duplicate.
+                merged_models[model_name].append(
+                    max(models, key=lambda model: model.updated_at)
+                )
+        return merged_models
+
     merged_models = {}
 
     # First, add all built-in models
@@ -2663,6 +2749,8 @@ def install_models_with_merge(
     user_json_filename: str,
     has_downloaded_models_func,
     load_model_family_func,
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
+    model_normalize_func: Optional[Callable[[Any, Dict[str, List[Any]]], None]] = None,
 ) -> None:
     """Install models with intelligent merging based on timestamps.
 
@@ -2673,6 +2761,10 @@ def install_models_with_merge(
         user_json_filename: Name of user JSON file
         has_downloaded_models_func: Function to check if user models exist
         load_model_family_func: Function to load model family from JSON
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
+        model_normalize_func: Optional function that upgrades downloaded model
+            metadata before identity and timestamp comparison.
     """
     import os.path
 
@@ -2700,9 +2792,15 @@ def install_models_with_merge(
 
         # Create a copy of built-in models for merging
         built_in_models_copy = dict(built_in_dict)
+        if model_normalize_func is not None:
+            for user_model_list in user_models.values():
+                for user_model in user_model_list:
+                    model_normalize_func(user_model, built_in_models_copy)
 
         # Merge models, keeping the latest version based on updated_at
-        merged_models = merge_models_by_timestamp(built_in_models_copy, user_models)
+        merged_models = merge_models_by_timestamp(
+            built_in_models_copy, user_models, model_identity_func
+        )
 
         # Update the dictionary with merged results
         built_in_dict.clear()

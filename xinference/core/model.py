@@ -289,10 +289,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._progress_tracker_ref = None
         self._serve_count = 0
         model_type = self._model_description.get("model_type", "unknown")
-        if model_type in ("audio", "video"):
+        if model_type == "video":
             engine_label = ""
             format_label = ""
-        elif model_type == "image":
+        elif model_type in ("audio", "image"):
             engine_label = model_engine or ""
             format_label = ""
         else:
@@ -879,15 +879,17 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             elif isinstance(response, bytes):
                 record = json.loads(response)
             if record and isinstance(record, dict):
-                usage = record["usage"]
+                usage = record.get("usage")
                 # Some backends may not have a valid usage, we just skip them.
-                completion_tokens = usage["completion_tokens"]
-                prompt_tokens = usage["prompt_tokens"]
-                await self._record_completion_metrics(
-                    time.time() - start_time,
-                    completion_tokens,
-                    prompt_tokens,
-                )
+                if isinstance(usage, dict):
+                    completion_tokens = usage.get("completion_tokens")
+                    prompt_tokens = usage.get("prompt_tokens")
+                    if completion_tokens is not None and prompt_tokens is not None:
+                        await self._record_completion_metrics(
+                            time.time() - start_time,
+                            completion_tokens,
+                            prompt_tokens,
+                        )
                 await self.record_metrics(
                     "time_to_first_token_seconds",
                     "observe",

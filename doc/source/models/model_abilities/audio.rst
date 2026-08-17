@@ -4,7 +4,8 @@
 Audio
 =====
 
-Learn how to turn audio into text, text into audio, or audio into speaker embeddings with Xinference.
+Learn how to turn audio into text, synthesize speech, generate music, or extract
+speaker embeddings with Xinference.
 
 
 Introduction
@@ -62,30 +63,39 @@ Audio to text
 * :ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`
 * :ref:`Paraformer-zh <models_builtin_paraformer-zh>`
 
-For Mac M-series chips only:
-
-* :ref:`whisper-tiny-mlx <models_builtin_whisper-tiny-mlx>`
-* :ref:`whisper-tiny.en-mlx <models_builtin_whisper-tiny.en-mlx>`
-* :ref:`whisper-base-mlx <models_builtin_whisper-base-mlx>`
-* :ref:`whisper-base.en-mlx <models_builtin_whisper-base.en-mlx>`
-* :ref:`whisper-medium-mlx <models_builtin_whisper-medium-mlx>`
-* :ref:`whisper-medium.en-mlx <models_builtin_whisper-medium.en-mlx>`
-* :ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`
-* :ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-mlx>`
-
 Audio engines
 ~~~~~~~~~~~~~
 
-``Qwen3-ASR-0.6B`` and ``Qwen3-ASR-1.7B`` support engine selection. The default
-``transformers`` engine works on all platforms; on Linux with NVIDIA GPUs they
-can also run on the ``vLLM`` engine for faster transcriptions. To use it,
-install the vLLM backend of `qwen-asr <https://pypi.org/project/qwen-asr/>`_ via
-``pip install 'qwen-asr[vllm]'``, then launch the model with
-``--model-engine vLLM``, for example:
+Audio models with multiple implementations use one model name and select the
+runtime with ``--model-engine``:
+
+* The Whisper models listed above use ``transformers`` by default and also
+  support ``MLX`` on Mac computers with Apple silicon.
+* ``F5-TTS`` and ``Kokoro-82M`` use ``PyTorch`` by default and also support
+  ``MLX`` on Mac computers with Apple silicon.
+* ``SenseVoiceSmall`` and ``Fun-ASR-Nano-2512`` use ``PyTorch`` by default and
+  also support ``MLX`` on Mac computers with Apple silicon.
+* ``Qwen3-ASR-0.6B`` and ``Qwen3-ASR-1.7B`` use ``transformers`` by default. On
+  Linux with NVIDIA GPUs, they can use ``vLLM`` for faster transcriptions; on
+  Mac computers with Apple silicon, they can use ``MLX``.
+* The Qwen3-TTS models, ``MeloTTS-English``, ``MeloTTS-English-v3``, and
+  ``VoxCPM2`` use ``PyTorch`` by default and also support ``MLX`` on Mac
+  computers with Apple silicon.
+
+For example:
 
 .. code-block:: bash
 
+    xinference launch --model-name whisper-large-v3 --model-type audio --model-engine MLX
+    xinference launch --model-name F5-TTS --model-type audio --model-engine MLX
     xinference launch --model-name Qwen3-ASR-1.7B --model-type audio --model-engine vLLM
+    xinference launch --model-name Qwen3-TTS-12Hz-0.6B-Base --model-type audio --model-engine MLX
+
+The former ``*-mlx`` model names remain accepted as launch compatibility
+aliases. Registration, cache, version, and virtual-environment lookups use the
+canonical model name. New integrations should use that name with
+``--model-engine MLX``. The Web UI presents the available engines in the launch
+dialog.
 
 
 Text to audio (TTS)
@@ -98,8 +108,12 @@ Text to audio (TTS)
 * :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`
 * MeloTTS series
 * :ref:`Kokoro-82M <models_builtin_kokoro-82m>`
-* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
+
+Music generation
+~~~~~~~~~~~~~~~~
+
+* :ref:`MiniMax-Music3 <models_builtin_minimax-music3>` (NVIDIA CUDA only)
 
 Speaker embeddings
 ~~~~~~~~~~~~~~~~~~
@@ -113,7 +127,6 @@ Speaker embeddings
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
 * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
 * :ref:`F5-TTS <models_builtin_f5-tts>`
-* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
 * :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
 
@@ -121,11 +134,6 @@ Speaker embeddings
 
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
 * :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
-
-For Mac M-series chips only:
-
-* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
-* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 
 Quickstart
 ===================
@@ -350,6 +358,94 @@ Speech API use non-stream by default as
   .. code-tab:: output
 
     The output will be an audio binary.
+
+
+.. _minimax_music3_speech:
+
+MiniMax-Music3 Usage
+~~~~~~~~~~~~~~~~~~~~
+
+``MiniMax-Music3`` reuses the Speech endpoint for text-to-music generation.
+Put the lyrics in ``input`` and the required music description in
+``instruct`` inside the existing ``kwargs`` field. Preserve line breaks and
+put tags such as ``[Verse]`` and ``[Chorus]`` on their own lines.
+
+``duration`` is the maximum generated length in seconds. Its range is 0.04
+through 360 and its default is 60. Xinference passes it directly to the
+Diffusers pipeline as ``audio_duration``. The model may emit an end-of-audio
+token and finish before the limit.
+The initial integration only accepts ``response_format=wav``, ``stream=false``,
+``speed=1.0``, and ``voice`` set to ``default``, an empty string, or null.
+Inference requires NVIDIA CUDA. Sampling steps and classifier-free guidance
+remain at the Diffusers defaults and are not request parameters.
+
+Xinference preserves the Diffusers pipeline's native 44.1 kHz stereo samples.
+It wraps them in an IEEE-float WAV container without resampling or integer PCM
+quantization.
+
+``instruct``, ``seed``, and ``duration`` are model options passed through the
+existing ``kwargs`` channel rather than additional Speech API parameters. Raw
+REST requests encode ``kwargs`` as a JSON string. The Xinference sync and async
+clients accept these names through their existing ``**kwargs`` argument.
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl 'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/audio/speech' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "input": "[Verse]\nMorning light filtering through the pine\n[Chorus]\nSoftly the world begins to breathe",
+        "voice": "default",
+        "response_format": "wav",
+        "speed": 1.0,
+        "stream": false,
+        "kwargs": "{\"instruct\": \"Warm acoustic pop with intimate female vocals, fingerpicked guitar, soft piano, and a wide final chorus.\", \"seed\": 7, \"duration\": 60}"
+      }' \
+      --output music3.wav
+
+  .. code-tab:: python OpenAI Python Client
+
+    import json
+
+    from openai import OpenAI
+
+    client = OpenAI(
+        api_key="cannot be empty",
+        base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1",
+    )
+    response = client.audio.speech.create(
+        model="<MODEL_UID>",
+        input="[Verse]\nMorning light\n[Chorus]\nSing again",
+        voice="default",
+        response_format="wav",
+        extra_body={
+            "kwargs": json.dumps({
+                "instruct": "Warm acoustic pop with intimate vocals and soft piano.",
+                "seed": 7,
+                "duration": 60,
+            })
+        },
+    )
+    response.write_to_file("music3.wav")
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    wav = model.speech(
+        input="[Verse]\nMorning light\n[Chorus]\nSing again",
+        instruct="Warm acoustic pop with intimate vocals and soft piano.",
+        voice="default",
+        response_format="wav",
+        seed=7,
+        duration=60,
+    )
+    with open("music3.wav", "wb") as output:
+        output.write(wav)
 
 
 ChatTTS Usage

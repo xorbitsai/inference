@@ -49,6 +49,7 @@ const ko = {
     audio2text: '오디오에서 텍스트',
     speaker_embedding: '화자 임베딩',
     text2audio: '텍스트에서 오디오',
+    text2music: '음악 생성',
     text2audio_zero_shot: '텍스트에서 오디오(제로 샷)',
     text2audio_voice_cloning: '텍스트에서 오디오(음성 클로닝)',
     text2audio_emotion_control: '텍스트에서 오디오(감정 제어)',

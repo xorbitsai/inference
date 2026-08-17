@@ -22,6 +22,7 @@ import {
 import type { FileUploadValue } from '@/types/common';
 import type { BaseFormFieldProps } from '@/types/form';
 
+import { AudioRecorderUpload } from '../components/audio-recorder-upload';
 import { ImageEditorCreateMask } from '../components/image-editor-create-mask';
 import {
   INDEX_TTS_EMOTION_DIMENSIONS,
@@ -351,15 +352,11 @@ export function FirstLastFrameVideoPanel() {
   );
 }
 
-export function AudioToTextPanel() {
+export function AudioToTextPanel({ form }: CapabilityFormProps) {
   return (
     <>
       <FormField name="file" rules={[{ required: true }]}>
-        <FileUpload
-          accept="audio/*,video/*"
-          label="Upload or drop audio"
-          description="MP3, WAV, M4A, WebM..."
-        />
+        <AudioRecorderUpload form={form} />
       </FormField>
       <FormField name="language" label="Language" placeholder="e.g. en, zh">
         <Input />
@@ -481,6 +478,7 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
 }
 
 export function SpeechPanel({ form, model }: CapabilityFormProps) {
+  const isMusicGeneration = model.model_ability.includes(ModelAbility.Text2music);
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
   const supportsEmotionVector =
     isIndexTTSEmotionModel(model.model_family, model.model_name) &&
@@ -489,18 +487,45 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
 
   return (
     <>
-      <FormField name="input" label="Text" rules={[{ required: true }]}>
+      <FormField
+        name="input"
+        label={isMusicGeneration ? 'Lyrics' : 'Text'}
+        rules={[{ required: true }]}
+      >
         <Textarea className="min-h-32" placeholder="Enter text to synthesize..." />
       </FormField>
-      <div className="grid grid-cols-2 gap-3">
-        <FormField name="voice" label="Voice" placeholder="Optional voice ID">
-          <Input />
-        </FormField>
-        <FormField name="speed" label="Speed" normalize={normalizeNumberInput}>
-          <Input type="number" min={0.5} max={2} step={0.1} />
-        </FormField>
-      </div>
-      {supportsVoiceCloning && (
+      {!isMusicGeneration && (
+        <div className="grid grid-cols-2 gap-3">
+          <FormField name="voice" label="Voice" placeholder="Optional voice ID">
+            <Input />
+          </FormField>
+          <FormField name="speed" label="Speed" normalize={normalizeNumberInput}>
+            <Input type="number" min={0.5} max={2} step={0.1} />
+          </FormField>
+        </div>
+      )}
+      {isMusicGeneration && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-end gap-2">
+            <FormField name="seed" label="Seed" normalize={normalizeNumberInput} className="flex-1">
+              <Input type="number" />
+            </FormField>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Generate random seed"
+              title="Generate random seed"
+              onClick={() => form.setFieldValue('seed', Math.floor(Math.random() * 2 ** 31))}
+            >
+              <span aria-hidden="true">🎲</span>
+            </Button>
+          </div>
+          <FormField name="duration" label="Duration (seconds)" normalize={normalizeNumberInput}>
+            <Input type="number" />
+          </FormField>
+        </div>
+      )}
+      {supportsVoiceCloning && !isMusicGeneration && (
         <>
           <FormField name="prompt_speech">
             <FileUpload
@@ -538,6 +563,11 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
             <EmotionVectorInput />
           </FormField>
         </div>
+      )}
+      {isMusicGeneration && (
+        <FormField name="instruct" label="Music description" rules={[{ required: true }]}>
+          <Textarea placeholder="Describe the music to generate" />
+        </FormField>
       )}
     </>
   );

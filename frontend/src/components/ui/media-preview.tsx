@@ -31,12 +31,23 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
 
   if (mediaType === 'audio') {
     return (
-      <audio
-        src={url}
-        controls
-        className={cn('h-10 w-full max-w-sm', className)}
-        onClick={(event) => event.stopPropagation()}
-      />
+      <div className={cn('flex w-full max-w-sm items-center gap-2', className)}>
+        <audio
+          src={url}
+          controls
+          className="h-10 min-w-0 flex-1"
+          onClick={(event) => event.stopPropagation()}
+        />
+        <a
+          href={url}
+          download={title || 'generated-audio.mp3'}
+          aria-label="Download audio"
+          className="flex size-9 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:text-foreground"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Download className="size-4" />
+        </a>
+      </div>
     );
   }
 
