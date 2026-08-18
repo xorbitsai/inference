@@ -3494,6 +3494,11 @@ class WorkerActor(xo.StatelessActor):
             )
             launch_args["model_name"] = model_name
             launch_args["model_engine"] = model_engine
+        elif model_type.lower() == "image":
+            from ..model.image.core import resolve_image_model_engine
+
+            model_engine = resolve_image_model_engine(model_name, model_engine)
+            launch_args["model_engine"] = model_engine
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:

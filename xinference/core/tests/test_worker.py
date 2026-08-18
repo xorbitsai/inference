@@ -591,6 +591,42 @@ def test_jina_v3_allocator_env_is_persisted_for_recovery(monkeypatch):
     assert launch_args["envs"] == envs
 
 
+@pytest.mark.asyncio
+async def test_launch_image_resolves_default_engine_before_virtualenv(monkeypatch):
+    import inspect
+
+    from ...model.image.engine_family import IMAGE_ENGINES
+
+    monkeypatch.setitem(IMAGE_ENGINES, "test-image", {"transformers": []})
+    captured = {}
+
+    class EarlyLaunchStop(Exception):
+        pass
+
+    def capture_launch_args(model_type, model_name, envs, launch_args):
+        captured["model_engine"] = launch_args["model_engine"]
+        raise EarlyLaunchStop
+
+    monkeypatch.setattr(
+        "xinference.core.worker._inject_jina_v3_allocator_env", capture_launch_args
+    )
+    launch_builtin_model = inspect.unwrap(WorkerActor.launch_builtin_model)
+
+    with pytest.raises(EarlyLaunchStop):
+        await launch_builtin_model(
+            SimpleNamespace(),
+            model_uid="test-image-0",
+            model_name="test-image",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            model_type="image",
+        )
+
+    assert captured["model_engine"] == "transformers"
+
+
 def test_jina_v3_allocator_env_preserves_user_configuration():
     launch_args = {"envs": None}
     user_envs = {"PYTORCH_CUDA_ALLOC_CONF": "max_split_size_mb:128"}

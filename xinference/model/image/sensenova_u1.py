@@ -15,6 +15,7 @@
 import contextlib
 import logging
 import os
+import random
 import re
 import sys
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -221,6 +222,9 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
             config.pop(key, None)
         if "cfg_interval" in config:
             config["cfg_interval"] = tuple(config["cfg_interval"])
+        seed = config.get("seed")
+        if seed is None or seed == -1:
+            config["seed"] = random.randint(0, 2**31 - 1)
         return config
 
     @staticmethod
