@@ -151,3 +151,50 @@ def test_no_drafter_is_a_noop(monkeypatch):
     _model()._apply_draft_model(model_config)
 
     assert model_config == {"gpu_memory_utilization": 0.9}
+
+
+def _model_for_config(architecture="DeepseekV4ForCausalLM"):
+    model = _model(model_name="DeepSeek-V4-Flash-0731", model_size=304)
+    model.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash-0731",
+        architectures=[architecture],
+    )
+    model.model_spec = SimpleNamespace(model_size_in_billions=304, model_format="fp8")
+    model._device_count = 1
+    model._n_worker = 1
+    model._address = None
+    model._shard = 0
+    return model
+
+
+@pytest.mark.parametrize("configured", [256, 128])
+def test_deepseek_v4_preserves_explicit_block_size(monkeypatch, configured):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+
+    model_config = _model_for_config()._sanitize_model_config(
+        {"block_size": configured}
+    )
+
+    assert model_config["block_size"] == configured
+
+
+def test_deepseek_v4_uses_block_size_256_by_default(monkeypatch):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+
+    model_config = _model_for_config()._sanitize_model_config({})
+
+    assert model_config["block_size"] == 256
+
+
+def test_regular_model_keeps_block_size_16_default(monkeypatch):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+
+    model_config = _model_for_config("LlamaForCausalLM")._sanitize_model_config({})
+
+    assert model_config["block_size"] == 16
