@@ -51,6 +51,7 @@ The Text-to-image API is supported with the following models in Xinference:
 * hunyuandit-v1.2-distilled
 * cogview4
 * Qwen-Image
+* Ideogram4
 
 Image-to-image supported models:
 

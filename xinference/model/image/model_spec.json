@@ -1882,5 +1882,46 @@
     },
     "featured": false,
     "updated_at": 1786072489
+  },
+  {
+    "version": 2,
+    "model_name": "Ideogram4",
+    "model_family": "stable_diffusion",
+    "model_description": "Ideogram 4 is a 9.3B open-weight text-to-image model with multilingual text rendering, structured JSON prompting, layout control, and native 2K generation.",
+    "model_ability": [
+      "text2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "ideogram-ai/ideogram-4-nf4-diffusers",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "ideogram-ai/ideogram-4-nf4-diffusers",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {},
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers ; #engine# == \"diffusers\"",
+        "transformers>=5.0.0,<6",
+        "huggingface-hub>=1.23.0,<2",
+        "accelerate>=1.0.0",
+        "importlib-metadata",
+        "idna>=3.18",
+        "bitsandbytes>=0.49.2 ; has_cuda",
+        "sentencepiece",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true,
+      "index_strategy": "unsafe-best-match"
+    },
+    "featured": true,
+    "updated_at": 1787016251
   }
 ]
