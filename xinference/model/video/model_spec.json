@@ -534,7 +534,7 @@
       "packages": [
         "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
         "transformers>=5.15.0,<6.0",
-        "peft==0.18.0",
+        "peft==0.20.0",
         "huggingface-hub>=1.23.0,<2.0",
         "safetensors>=0.8.0",
         "torchao>=0.16.0",
@@ -551,14 +551,44 @@
     "model_src": {
       "huggingface": {
         "model_id": "MiniMaxAI/MiniMax-H3",
-        "model_revision": "6818f6c32d12b210915e44ad56a4228c2608f160"
+        "model_revision": "6818f6c32d12b210915e44ad56a4228c2608f160",
+        "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+        "lightning_model_revision": "5d1d4829fe614c1b93fcfd9cc7718e9ba71f73e1"
       },
       "modelscope": {
         "model_id": "MiniMax/MiniMax-H3",
-        "model_revision": "master"
+        "model_revision": "master",
+        "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+        "lightning_model_revision": "master"
       }
     },
-    "updated_at": 1786704764,
-    "featured": false
+    "updated_at": 1787046544,
+    "featured": false,
+    "lightning_versions": [
+      "4step_v0.1",
+      "8step_v1.0_bf16",
+      "4step_v1.0_768p_bf16"
+    ],
+    "lightning_model_file_name_template": "minimax_h3_fl2v_turbo_{lightning_version}.safetensors",
+    "lightning_version_configs": {
+      "4step_v0.1": {
+        "num_inference_steps": 4,
+        "video_shift": 12,
+        "audio_shift": 3,
+        "lora_alpha": 8
+      },
+      "8step_v1.0_bf16": {
+        "num_inference_steps": 8,
+        "video_shift": 12,
+        "audio_shift": 3,
+        "lora_alpha": 8
+      },
+      "4step_v1.0_768p_bf16": {
+        "num_inference_steps": 4,
+        "video_shift": 6,
+        "audio_shift": 3,
+        "lora_alpha": 128
+      }
+    }
   }
 ]
