@@ -16,7 +16,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def make_asset(root: Path, asset_id: str = "deepseek-v4-flash-0731") -> Path:
+def make_asset(root: Path, asset_id: str = "test-external") -> Path:
     path = root / asset_id
     path.mkdir(parents=True)
     tokenizer = Tokenizer(models.WordLevel({"[UNK]": 0, "hello": 1}, unk_token="[UNK]"))
@@ -69,8 +69,8 @@ def make_registry_config(
                     if assets is not None
                     else [
                         {
-                            "asset_id": "deepseek-v4-flash-0731",
-                            "path": "deepseek-v4-flash-0731",
+                            "asset_id": "test-external",
+                            "path": "test-external",
                             "enabled": True,
                         }
                     ]
@@ -90,15 +90,19 @@ def test_registered_asset_list_resolve_and_validate(tmp_path: Path) -> None:
     listed = registry.list_assets()
     assert listed["allow_custom_path"] is False
     assert listed["config_error"] == ""
-    assert listed["items"][0]["status"] == "available"
-    assert "path" not in listed["items"][0]
+    items = {item["asset_id"]: item for item in listed["items"]}
+    assert items["test-external"]["status"] == "available"
+    assert items["test-external"]["origin"] == "external"
+    assert items["deepseek-v4-flash-0731"]["origin"] == "builtin"
+    assert "path" not in items["test-external"]
 
-    resolved = registry.resolve("deepseek-v4-flash-0731")
+    resolved = registry.resolve("test-external")
     assert resolved["tokenizer_path"] == str(asset_path.resolve())
+    assert resolved["tokenizer_asset_origin"] == "external"
     assert resolved["tokenizer_asset_revision"] == "0731"
     assert resolved["tokenizer_asset_fingerprint"].startswith("sha256:")
 
-    validated = registry.validate_asset("deepseek-v4-flash-0731")
+    validated = registry.validate_asset("test-external")
     assert validated["valid"] is True
     assert validated["validated_at"]
     assert validated["checks"]["required_files"] == "ok"
@@ -115,16 +119,52 @@ def test_registered_asset_list_resolve_and_validate(tmp_path: Path) -> None:
     ]
 
 
-def test_explicit_missing_config_fails_closed(tmp_path: Path) -> None:
+def test_explicit_missing_config_fails_closed_but_keeps_builtins(
+    tmp_path: Path,
+) -> None:
     registry = TokenizerAssetRegistry(str(tmp_path / "missing.yaml"))
     assert registry.allow_custom_path is False
     assert "does not exist" in registry.config_error
+    assert [item["asset_id"] for item in registry.list_assets()["items"]] == [
+        "deepseek-v4-flash-0731"
+    ]
 
 
-def test_no_registry_keeps_legacy_custom_path_compatibility() -> None:
+def test_no_registry_keeps_legacy_custom_path_and_exposes_builtin_asset() -> None:
     registry = TokenizerAssetRegistry("")
+    listed = registry.list_assets()
     assert registry.allow_custom_path is True
-    assert registry.list_assets()["items"] == []
+    assert [item["asset_id"] for item in listed["items"]] == ["deepseek-v4-flash-0731"]
+    assert listed["items"][0]["origin"] == "builtin"
+    resolved = registry.resolve("deepseek-v4-flash-0731")
+    assert resolved["tokenizer_asset_origin"] == "builtin"
+    assert resolved["tokenizer_asset_revision"] == "1"
+    assert (
+        resolved["tokenizer_asset_fingerprint"]
+        == "sha256:1b6c3375c8b4d30bf5606967636cb361d92943e051a977ffbbff5d45be8dc21d"
+    )
+
+
+def test_external_registry_cannot_override_builtin_asset(tmp_path: Path) -> None:
+    asset_root = tmp_path / "assets"
+    make_asset(asset_root, "deepseek-v4-flash-0731")
+    config = make_registry_config(
+        tmp_path,
+        asset_root,
+        assets=[
+            {
+                "asset_id": "deepseek-v4-flash-0731",
+                "path": "deepseek-v4-flash-0731",
+            }
+        ],
+    )
+
+    registry = TokenizerAssetRegistry(str(config))
+
+    assert "Duplicate Tokenizer asset_id" in registry.config_error
+    items = registry.list_assets()["items"]
+    assert [item["asset_id"] for item in items] == ["deepseek-v4-flash-0731"]
+    assert items[0]["origin"] == "builtin"
 
 
 def test_checksum_mismatch_marks_only_that_asset_invalid(tmp_path: Path) -> None:
@@ -136,7 +176,7 @@ def test_checksum_mismatch_marks_only_that_asset_invalid(tmp_path: Path) -> None
         tmp_path,
         asset_root,
         assets=[
-            {"asset_id": "deepseek-v4-flash-0731", "path": first.name},
+            {"asset_id": "test-external", "path": first.name},
             {"asset_id": "second", "path": "second"},
         ],
     )
@@ -145,8 +185,8 @@ def test_checksum_mismatch_marks_only_that_asset_invalid(tmp_path: Path) -> None
         item["asset_id"]: item
         for item in TokenizerAssetRegistry(str(config)).list_assets()["items"]
     }
-    assert items["deepseek-v4-flash-0731"]["status"] == "invalid"
-    assert "SHA-256 mismatch" in items["deepseek-v4-flash-0731"]["errors"][0]
+    assert items["test-external"]["status"] == "invalid"
+    assert "SHA-256 mismatch" in items["test-external"]["errors"][0]
     assert items["second"]["status"] == "available"
 
 
@@ -157,13 +197,15 @@ def test_duplicate_asset_id_invalidates_registry_config(tmp_path: Path) -> None:
         tmp_path,
         asset_root,
         assets=[
-            {"asset_id": "deepseek-v4-flash-0731", "path": "deepseek-v4-flash-0731"},
-            {"asset_id": "deepseek-v4-flash-0731", "path": "deepseek-v4-flash-0731"},
+            {"asset_id": "test-external", "path": "test-external"},
+            {"asset_id": "test-external", "path": "test-external"},
         ],
     )
     registry = TokenizerAssetRegistry(str(config))
     assert registry.allow_custom_path is False
-    assert registry.list_assets()["items"] == []
+    assert [item["asset_id"] for item in registry.list_assets()["items"]] == [
+        "deepseek-v4-flash-0731"
+    ]
     assert "Duplicate Tokenizer asset_id" in registry.config_error
 
 
@@ -173,15 +215,18 @@ def test_symlink_escape_is_rejected(tmp_path: Path) -> None:
     make_asset(outside)
     asset_root.mkdir()
     (asset_root / "escaped").symlink_to(
-        outside / "deepseek-v4-flash-0731", target_is_directory=True
+        outside / "test-external", target_is_directory=True
     )
     config = make_registry_config(
         tmp_path,
         asset_root,
-        assets=[{"asset_id": "deepseek-v4-flash-0731", "path": "escaped"}],
+        assets=[{"asset_id": "test-external", "path": "escaped"}],
     )
 
-    item = TokenizerAssetRegistry(str(config)).list_assets()["items"][0]
+    item = {
+        item["asset_id"]: item
+        for item in TokenizerAssetRegistry(str(config)).list_assets()["items"]
+    }["test-external"]
     assert item["status"] == "invalid"
     assert "escapes configured asset_roots" in item["errors"][0]
 
@@ -194,16 +239,16 @@ def test_disabled_asset_cannot_be_resolved(tmp_path: Path) -> None:
         asset_root,
         assets=[
             {
-                "asset_id": "deepseek-v4-flash-0731",
-                "path": "deepseek-v4-flash-0731",
+                "asset_id": "test-external",
+                "path": "test-external",
                 "enabled": False,
             }
         ],
     )
     registry = TokenizerAssetRegistry(str(config))
-    assert registry.get_asset("deepseek-v4-flash-0731")["status"] == "disabled"
+    assert registry.get_asset("test-external")["status"] == "disabled"
     with pytest.raises(TokenizerAssetError, match="not available"):
-        registry.resolve("deepseek-v4-flash-0731")
+        registry.resolve("test-external")
 
 
 def test_asset_id_and_path_must_resolve_to_same_directory(tmp_path: Path) -> None:
@@ -211,7 +256,7 @@ def test_asset_id_and_path_must_resolve_to_same_directory(tmp_path: Path) -> Non
     make_asset(asset_root)
     registry = TokenizerAssetRegistry(str(make_registry_config(tmp_path, asset_root)))
     with pytest.raises(TokenizerAssetError, match="different directories"):
-        registry.resolve("deepseek-v4-flash-0731", str(tmp_path / "other"))
+        registry.resolve("test-external", str(tmp_path / "other"))
 
 
 def test_registered_asset_requires_checksums_for_all_required_files(
@@ -226,7 +271,8 @@ def test_registered_asset_requires_checksums_for_all_required_files(
 
     item = TokenizerAssetRegistry(
         str(make_registry_config(tmp_path, asset_root))
-    ).list_assets()["items"][0]
+    ).list_assets()["items"]
+    item = {entry["asset_id"]: entry for entry in item}["test-external"]
 
     assert item["status"] == "invalid"
     assert any("Missing SHA-256 checksum" in error for error in item["errors"])
@@ -243,7 +289,8 @@ def test_manifest_metadata_is_validated(tmp_path: Path) -> None:
 
     item = TokenizerAssetRegistry(
         str(make_registry_config(tmp_path, asset_root))
-    ).list_assets()["items"][0]
+    ).list_assets()["items"]
+    item = {entry["asset_id"]: entry for entry in item}["test-external"]
 
     assert item["status"] == "invalid"
     assert any("compatible_models" in error for error in item["errors"])
@@ -259,7 +306,7 @@ def test_declared_capabilities_are_reported(tmp_path: Path) -> None:
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     registry = TokenizerAssetRegistry(str(make_registry_config(tmp_path, asset_root)))
 
-    validated = registry.validate_asset("deepseek-v4-flash-0731")
+    validated = registry.validate_asset("test-external")
 
     assert validated["valid"] is True
     assert validated["checks"]["required_files"] == "ok"
@@ -269,7 +316,7 @@ def test_declared_capabilities_are_reported(tmp_path: Path) -> None:
         "thinking": False,
     }
 
-    resolved = registry.resolve("deepseek-v4-flash-0731")
+    resolved = registry.resolve("test-external")
     assert resolved["tokenizer_asset_capabilities"] == {
         "chat": True,
         "tools": False,
@@ -291,8 +338,8 @@ def test_reload_picks_up_registry_changes(tmp_path: Path) -> None:
                 "allow_custom_path": False,
                 "assets": [
                     {
-                        "asset_id": "deepseek-v4-flash-0731",
-                        "path": "deepseek-v4-flash-0731",
+                        "asset_id": "test-external",
+                        "path": "test-external",
                     },
                     {"asset_id": "second", "path": "second"},
                 ],
@@ -302,10 +349,52 @@ def test_reload_picks_up_registry_changes(tmp_path: Path) -> None:
     )
 
     assert [item["asset_id"] for item in registry.list_assets()["items"]] == [
-        "deepseek-v4-flash-0731"
+        "deepseek-v4-flash-0731",
+        "test-external",
     ]
     registry.reload()
     assert [item["asset_id"] for item in registry.list_assets()["items"]] == [
         "deepseek-v4-flash-0731",
         "second",
+        "test-external",
     ]
+
+
+def test_builtin_asset_source_and_license_metadata_are_auditable() -> None:
+    from xinference.router.tokenizer_assets import builtin_tokenizer_asset_entries
+
+    entry = builtin_tokenizer_asset_entries()["deepseek-v4-flash-0731"]
+    asset_path = Path(entry["path"])
+    manifest = json.loads((asset_path / "asset.json").read_text(encoding="utf-8"))
+
+    assert manifest["origin"] == "builtin"
+    assert manifest["source_metadata"] == "SOURCE.json"
+    assert manifest["license_file"] == "LICENSE.txt"
+
+    source_path = asset_path / manifest["source_metadata"]
+    license_path = asset_path / manifest["license_file"]
+    assert source_path.is_file()
+    assert license_path.is_file()
+    assert license_path.read_text(encoding="utf-8").strip()
+
+    source = json.loads(source_path.read_text(encoding="utf-8"))
+    assert source["upstream_repository"]
+    assert source["upstream_revision"] == "f981a343464c25f82b901e5882716b3b2fa514de"
+    assert source["license"] == "MIT"
+    assert source["local_modifications"] == []
+
+    source_files = {item["local_path"]: item for item in source["files"]}
+    expected_files = {
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "config.json",
+        "LICENSE.txt",
+        "encoding/encoding_dsv4.py",
+    }
+    assert set(source_files) == expected_files
+    for relative_name, metadata in source_files.items():
+        file_path = asset_path / relative_name
+        assert file_path.is_file()
+        assert not file_path.is_symlink()
+        assert _sha256(file_path) == metadata["local_sha256"]
+        assert metadata["upstream_sha256"] == metadata["local_sha256"]

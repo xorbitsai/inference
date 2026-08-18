@@ -17,6 +17,7 @@ from ..router.tokenizer_asset import (
     DEFAULT_TOKENIZER_ASSET_FILES,
     aggregate_tokenizer_asset_fingerprint,
 )
+from ..router.tokenizer_assets import builtin_tokenizer_asset_entries
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class TokenizerAssetRegistry:
 
     def reload(self) -> None:
         self._asset_roots = []
-        self._entries = {}
+        self._entries = builtin_tokenizer_asset_entries()
         self._allow_custom_path = True
         self._config_error = ""
         if self._config_path is None:
@@ -97,11 +98,13 @@ class TokenizerAssetRegistry:
                     raise TokenizerAssetError(
                         f"Duplicate Tokenizer asset_id: {asset_id}"
                     )
-                self._entries[asset_id] = dict(entry)
+                external_entry = dict(entry)
+                external_entry["origin"] = "external"
+                self._entries[asset_id] = external_entry
         except Exception as exc:
             self._config_error = str(exc)
             self._asset_roots = []
-            self._entries = {}
+            self._entries = builtin_tokenizer_asset_entries()
             self._allow_custom_path = False
             logger.error(
                 "Failed to load Tokenizer asset config %s: %s",
@@ -300,6 +303,7 @@ class TokenizerAssetRegistry:
 
         result: Dict[str, Any] = {
             "asset_id": asset_id,
+            "origin": str(entry.get("origin", "external")),
             "display_name": asset_id,
             "model_family": "",
             "model_name": "",
@@ -316,7 +320,8 @@ class TokenizerAssetRegistry:
         }
         try:
             path = self._entry_path(entry)
-            self._ensure_allowed_root(path)
+            if result["origin"] == "external":
+                self._ensure_allowed_root(path)
             result["path"] = str(path)
             manifest = self._read_manifest(path)
             if str(manifest.get("asset_id", "")).strip() != asset_id:
@@ -417,6 +422,7 @@ class TokenizerAssetRegistry:
         return {
             "tokenizer_asset_id": asset_id,
             "tokenizer_path": resolved_path,
+            "tokenizer_asset_origin": str(asset.get("origin", "external")),
             "tokenizer_asset_revision": str(asset.get("revision", "")),
             "tokenizer_asset_fingerprint": str(asset.get("fingerprint", "")),
             "tokenizer_asset_files": list(
