@@ -166,3 +166,15 @@ The `dcgm-custom-metrics.csv` includes:
 - Xinference with metrics enabled
 - DCGM Exporter for GPU hardware panels
 - node_exporter for host resource panels
+
+## Token Router dashboard
+
+Monitoring V2.1 adds the four localized dashboards under `token-router/`, all using
+UID `xinference-token-router`. The dashboard covers logical Router availability,
+Router Agent host resources, Assignment state, Runtime control-plane and process
+resources, request/backend latency and errors, concurrency pools, tokenization, and
+Tokenizer Asset Bindings.
+
+Prometheus must scrape both the Supervisor metrics endpoint and dynamically discovered
+Runtime endpoints. Configure the Runtime targets with the HTTP-SD example in
+`../metrics/prometheus-token-router-http-sd.yml`.

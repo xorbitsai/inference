@@ -574,6 +574,7 @@ const zh = {
     notConfigured: '监控未配置，请设置 XINFERENCE_GRAFANA_URL 环境变量。',
     tab: {
       overview: '概览',
+      tokenRouter: 'Token Router',
       modelLoad: '模型负载',
       llmSlo: 'LLM SLO',
       gpu: 'GPU',

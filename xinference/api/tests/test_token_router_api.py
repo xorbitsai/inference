@@ -896,6 +896,16 @@ async def test_management_scope_enforcement(tmp_path) -> None:
                 headers={"Authorization": "Bearer reader"},
             )
         ).status_code == 200
+        http_sd_path = "/v1/monitor/prometheus/http-sd/token-router-runtimes"
+        assert (await client.get(http_sd_path)).status_code == 401
+        http_sd = await client.get(
+            http_sd_path, headers={"Authorization": "Bearer reader"}
+        )
+        assert http_sd.status_code == 200
+        assert http_sd.json() == []
+        assert (
+            await client.get(http_sd_path, headers={"Authorization": "Bearer writer"})
+        ).status_code == 403
         assert (
             await client.post(
                 "/v1/token_routers",

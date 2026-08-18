@@ -23,7 +23,10 @@ class FakeProcess:
         *,
         cpu_values: list[float],
         rss: int,
+        vms: int = 0,
         threads: int,
+        cpu_user: float = 0.0,
+        cpu_system: float = 0.0,
         created_at: float = 100.0,
         children: Optional[list["FakeProcess"]] = None,
         failure: Optional[Exception] = None,
@@ -31,7 +34,10 @@ class FakeProcess:
         self.pid = pid
         self._cpu_values = iter(cpu_values)
         self._rss = rss
+        self._vms = vms
         self._threads = threads
+        self._cpu_user = cpu_user
+        self._cpu_system = cpu_system
         self._created_at = created_at
         self._children = children or []
         self._failure = failure
@@ -62,7 +68,11 @@ class FakeProcess:
 
     def memory_info(self) -> SimpleNamespace:
         self._raise_if_failed()
-        return SimpleNamespace(rss=self._rss)
+        return SimpleNamespace(rss=self._rss, vms=self._vms)
+
+    def cpu_times(self) -> SimpleNamespace:
+        self._raise_if_failed()
+        return SimpleNamespace(user=self._cpu_user, system=self._cpu_system)
 
     def num_threads(self) -> int:
         self._raise_if_failed()
@@ -70,15 +80,33 @@ class FakeProcess:
 
 
 def test_collects_recursive_process_tree_resources() -> None:
-    grandchild = FakeProcess(3, cpu_values=[0.0, 20.0], rss=30, threads=3)
+    grandchild = FakeProcess(
+        3,
+        cpu_values=[0.0, 20.0],
+        rss=30,
+        vms=300,
+        threads=3,
+        cpu_user=1.5,
+        cpu_system=0.5,
+    )
     child = FakeProcess(
-        2, cpu_values=[0.0, 30.0], rss=50, threads=4, children=[grandchild]
+        2,
+        cpu_values=[0.0, 30.0],
+        rss=50,
+        vms=500,
+        threads=4,
+        cpu_user=2.0,
+        cpu_system=1.0,
+        children=[grandchild],
     )
     root = FakeProcess(
         1,
         cpu_values=[0.0, 50.0],
         rss=100,
+        vms=1000,
         threads=5,
+        cpu_user=4.0,
+        cpu_system=1.0,
         created_at=100.0,
         children=[child],
     )
@@ -88,8 +116,10 @@ def test_collects_recursive_process_tree_resources() -> None:
     assert resources == {
         "cpu_percent": 100.0,
         "cpu_cores": 1.0,
+        "cpu_seconds_total": 10.0,
         "cpu_count": 4.0,
         "rss_bytes": 180,
+        "virtual_memory_bytes": 1800,
         "memory_total_bytes": 1024,
         "main_process_rss_bytes": 100,
         "child_process_rss_bytes": 80,

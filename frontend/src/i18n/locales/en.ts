@@ -594,6 +594,7 @@ const en = {
       'Monitoring not configured. Please set XINFERENCE_GRAFANA_URL environment variable.',
     tab: {
       overview: 'Overview',
+      tokenRouter: 'Token Router',
       modelLoad: 'Model Load',
       llmSlo: 'LLM SLO',
       gpu: 'GPU',

@@ -577,6 +577,7 @@ const ko = {
     notConfigured: '모니터링이 구성되지 않았습니다. XINFERENCE_GRAFANA_URL 환경 변수를 설정하세요.',
     tab: {
       overview: '개요',
+      tokenRouter: 'Token Router',
       modelLoad: '모델 부하',
       llmSlo: 'LLM SLO',
       gpu: 'GPU',

@@ -38,6 +38,7 @@ def test_get_all_returns_defaults_when_empty(store):
     assert all_cfg["grafana_url"] == ""
     assert all_cfg["dashboard_overview"] == "xinference-overview"
     assert all_cfg["dashboard_model_load"] == "xinference-model-load"
+    assert all_cfg["dashboard_token_router"] == "xinference-token-router"
 
 
 def test_get_all_env_fallback(store, monkeypatch):

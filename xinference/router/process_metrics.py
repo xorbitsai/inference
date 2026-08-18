@@ -33,11 +33,11 @@ def _cgroup_cpu_quota() -> Optional[float]:
             except (TypeError, ValueError, ZeroDivisionError):
                 pass
 
-    quota_text = _read_text("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
-    period_text = _read_text("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
-    if quota_text and period_text:
+    quota_raw = _read_text("/sys/fs/cgroup/cpu/cpu.cfs_quota_us")
+    period_raw = _read_text("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+    if quota_raw and period_raw:
         try:
-            value = float(quota_text) / float(period_text)
+            value = float(quota_raw) / float(period_raw)
             if value > 0:
                 return value
         except (TypeError, ValueError, ZeroDivisionError):
@@ -97,11 +97,11 @@ class ProcessMetricsCollector:
             return default
 
     def _processes(self) -> Iterable[psutil.Process]:
-        if self._process is None:
+        root_process = self._process
+        if root_process is None:
             return
-        process = self._process
-        yield process
-        children = self._safe_call(lambda: process.children(recursive=True), [])
+        yield root_process
+        children = self._safe_call(lambda: root_process.children(recursive=True), [])
         yield from children
 
     def _prime_cpu_baselines(self) -> None:
@@ -109,12 +109,10 @@ class ProcessMetricsCollector:
             self._safe_call(lambda: process.cpu_percent(interval=None), 0.0)
 
     def _cpu_capacity(self) -> float:
-        process = self._process
-        if process is not None:
-            affinity = self._safe_call(
-                lambda: process.cpu_affinity(),  # type: ignore[attr-defined]
-                [],
-            )
+        root_process = self._process
+        if root_process is not None:
+            affinity_fn = getattr(root_process, "cpu_affinity", None)
+            affinity = self._safe_call(affinity_fn, []) if callable(affinity_fn) else []
             if affinity:
                 return float(len(affinity))
 
@@ -143,8 +141,10 @@ class ProcessMetricsCollector:
             return {}
 
         cpu_percent = 0.0
+        cpu_seconds_total = 0.0
         main_rss = 0
         child_rss = 0
+        virtual_memory_bytes = 0
         child_count = 0
         thread_count = 0
 
@@ -155,9 +155,17 @@ class ProcessMetricsCollector:
             if current_cpu is not None:
                 cpu_percent += float(current_cpu)
 
+            cpu_times_fn = getattr(process, "cpu_times", None)
+            cpu_times = (
+                self._safe_call(cpu_times_fn, None) if callable(cpu_times_fn) else None
+            )
+            if cpu_times is not None:
+                cpu_seconds_total += float(cpu_times.user) + float(cpu_times.system)
+
             memory_info = self._safe_call(process.memory_info, None)
             if memory_info is not None:
                 rss = int(memory_info.rss)
+                virtual_memory_bytes += int(getattr(memory_info, "vms", 0))
                 if index == 0:
                     main_rss = rss
                 else:
@@ -174,8 +182,10 @@ class ProcessMetricsCollector:
         result: Dict[str, Any] = {
             "cpu_percent": cpu_percent,
             "cpu_cores": cpu_percent / 100.0,
+            "cpu_seconds_total": cpu_seconds_total,
             "cpu_count": self._cpu_capacity(),
             "rss_bytes": main_rss + child_rss,
+            "virtual_memory_bytes": virtual_memory_bytes,
             "memory_total_bytes": self._memory_capacity(),
             "main_process_rss_bytes": main_rss,
             "child_process_rss_bytes": child_rss,

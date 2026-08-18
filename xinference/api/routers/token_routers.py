@@ -154,7 +154,7 @@ def _require_internal(authorization: str = Header(default="")) -> None:
         raise HTTPException(status_code=401, detail="Invalid Token Router credential")
 
 
-async def _parse_payload(request: Request, payload_model: Type[BaseModel]):
+async def _parse_payload(request: Request, payload_model: Type[BaseModel]) -> BaseModel:
     try:
         body = await request.json()
         return payload_model.parse_obj(body)
@@ -644,6 +644,13 @@ async def runtime_ack(
     return JSONResponse(content=result)
 
 
+async def token_router_prometheus_http_sd(
+    api: "RESTfulAPI",
+) -> JSONResponse:
+    targets = await (await _supervisor(api)).get_token_router_prometheus_http_sd()
+    return JSONResponse(content=targets)
+
+
 async def runtime_unregister(instance_id: str, api: "RESTfulAPI") -> JSONResponse:
     deleted = await (await _supervisor(api)).unregister_token_router_instance(
         instance_id
@@ -784,6 +791,13 @@ def register_routes(api: "RESTfulAPI") -> None:
         validate_tokenizer_asset,
         ["POST"],
         "routers:operate",
+    )
+
+    route(
+        "/v1/monitor/prometheus/http-sd/token-router-runtimes",
+        token_router_prometheus_http_sd,
+        ["GET"],
+        "routers:read",
     )
 
     route("/v1/token_routers", list_routers, ["GET"], "routers:list")

@@ -1662,6 +1662,120 @@ class SupervisorActor(xo.StatelessActor):
                 "replica_gpu_details": replica_gpu_details,
             }
 
+        token_router_agents: List[Dict[str, Any]] = []
+        token_router_assignments: List[Dict[str, Any]] = []
+        tokenizer_asset_bindings: List[Dict[str, Any]] = []
+        token_router_runtimes: List[Dict[str, Any]] = []
+        token_router_summaries: List[Dict[str, Any]] = []
+        try:
+            token_router_agents = self._token_router_orchestration.list_nodes(
+                include_offline=True
+            )
+            token_router_assignments = (
+                self._token_router_orchestration.list_assignments()
+            )
+            tokenizer_asset_bindings = (
+                self._token_router_orchestration.list_tokenizer_asset_bindings()
+            )
+            assignments_by_id = {
+                str(item.get("assignment_id") or ""): item
+                for item in token_router_assignments
+            }
+            configs = self._token_router_store.list()
+            configs_by_uid = {str(item["router_uid"]): item for item in configs}
+            all_runtimes = self._token_router_registry.list()
+            health_by_uid: Dict[str, Tuple[Set[str], Set[str]]] = {}
+            for config in configs:
+                _, effective, controllable = self._token_router_runtime_health(config)
+                health_by_uid[str(config["router_uid"])] = (
+                    {str(item["instance_id"]) for item in effective},
+                    {str(item["instance_id"]) for item in controllable},
+                )
+
+            for runtime in all_runtimes:
+                item = dict(runtime)
+                router_uid = str(item.get("router_uid") or "")
+                config = configs_by_uid.get(router_uid, {})
+                assignment = assignments_by_id.get(
+                    str(item.get("assignment_id") or ""), {}
+                )
+                effective_ids, controllable_ids = health_by_uid.get(
+                    router_uid, (set(), set())
+                )
+                instance_id = str(item.get("instance_id") or "")
+                try:
+                    current = self._token_router_orchestration.runtime_is_current(item)
+                except (KeyError, TypeError, ValueError):
+                    current = False
+                expected_revision = int(config.get("revision") or 0)
+                acked_revision = int(item.get("acked_revision") or 0)
+                item.update(
+                    {
+                        "replica_index": assignment.get(
+                            "replica_index", item.get("replica_index", "")
+                        ),
+                        "effective_ready": instance_id in effective_ids,
+                        "controllable": instance_id in controllable_ids,
+                        "current": current,
+                        "expected_revision": expected_revision,
+                        "config_synced": (
+                            current
+                            and item.get("online")
+                            and str(item.get("status") or "") == "ready"
+                            and not item.get("config_error")
+                            and acked_revision == expected_revision
+                        ),
+                    }
+                )
+                token_router_runtimes.append(item)
+
+            for binding in tokenizer_asset_bindings:
+                desired_revision = str(binding.get("desired_revision") or "")
+                desired_fingerprint = str(binding.get("desired_fingerprint") or "")
+                observed_revision = str(binding.get("observed_revision") or "")
+                observed_fingerprint = str(binding.get("observed_fingerprint") or "")
+                binding["synced"] = (
+                    desired_revision == observed_revision
+                    and desired_fingerprint == observed_fingerprint
+                )
+                binding["ready"] = (
+                    binding.get("desired_state") == "present"
+                    and binding.get("observed_state") == "ready"
+                    and binding["synced"]
+                )
+
+            runtimes_by_uid: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+            for runtime in token_router_runtimes:
+                runtimes_by_uid[str(runtime.get("router_uid") or "")].append(runtime)
+            for config in configs:
+                router_uid = str(config["router_uid"])
+                status_item = self._with_token_router_status(config)
+                deployment = status_item["deployment"]
+                runtimes = runtimes_by_uid.get(router_uid, [])
+                token_router_summaries.append(
+                    {
+                        "router_uid": router_uid,
+                        "desired_replicas": int(
+                            deployment.get("desired_replicas") or 0
+                        ),
+                        "effective_ready_replicas": int(
+                            deployment.get("effective_ready_runtimes") or 0
+                        ),
+                        "controllable_ready_replicas": int(
+                            deployment.get("controllable_ready_runtimes") or 0
+                        ),
+                        "status": status_item["status"],
+                        "expected_revision": int(config.get("revision") or 0),
+                        "config_synced_replicas": sum(
+                            bool(item.get("config_synced")) for item in runtimes
+                        ),
+                    }
+                )
+        except Exception:
+            logger.warning(
+                "Failed to build Token Router metrics snapshot", exc_info=True
+            )
+
         return {
             "uptime": int(time.time() - self._uptime) if self._uptime else 0,
             "worker_count": len(self._worker_address_to_worker),
@@ -1679,6 +1793,11 @@ class SupervisorActor(xo.StatelessActor):
                     self._unexpected_down_replicas.items()
                 )
             ],
+            "token_router_agents": token_router_agents,
+            "token_router_assignments": token_router_assignments,
+            "token_router_runtimes": token_router_runtimes,
+            "tokenizer_asset_bindings": tokenizer_asset_bindings,
+            "token_router_summaries": token_router_summaries,
         }
 
     def _get_spec_dicts(
@@ -5866,6 +5985,53 @@ class SupervisorActor(xo.StatelessActor):
         self, router_uid: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
         return self._token_router_orchestration.update_deployment(router_uid, data)
+
+    async def get_token_router_prometheus_http_sd(
+        self, cluster: str = ""
+    ) -> List[Dict[str, Any]]:
+        """Return Prometheus HTTP-SD targets for retained Runtime instances."""
+        from urllib.parse import urlsplit
+
+        cluster_name = cluster or os.environ.get("XINFERENCE_CLUSTER_NAME", "default")
+        assignments = {
+            str(item.get("assignment_id") or ""): item
+            for item in self._token_router_orchestration.list_assignments()
+        }
+        targets: List[Dict[str, Any]] = []
+        for runtime in self._token_router_registry.list():
+            endpoint = str(runtime.get("endpoint") or "").strip()
+            try:
+                parsed = urlsplit(endpoint)
+                host = parsed.hostname
+                port = parsed.port
+            except ValueError:
+                continue
+            if parsed.scheme not in {"http", "https"} or not host or port is None:
+                continue
+            target = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+            assignment = assignments.get(str(runtime.get("assignment_id") or ""), {})
+            targets.append(
+                {
+                    "targets": [target],
+                    "labels": {
+                        "job": "xinference-token-router-runtime",
+                        "cluster": cluster_name,
+                        "router_uid": str(runtime.get("router_uid") or ""),
+                        "node_id": str(runtime.get("node_id") or ""),
+                        "assignment_id": str(runtime.get("assignment_id") or ""),
+                        "replica_index": str(
+                            assignment.get(
+                                "replica_index", runtime.get("replica_index", "")
+                            )
+                        ),
+                        "assignment_generation": str(
+                            runtime.get("assignment_generation") or 0
+                        ),
+                        "instance_id": str(runtime.get("instance_id") or ""),
+                    },
+                }
+            )
+        return targets
 
     async def list_token_router_nodes(
         self, include_offline: bool = True
