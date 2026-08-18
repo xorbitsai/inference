@@ -1968,5 +1968,151 @@
     },
     "featured": true,
     "updated_at": 1787016251
+  },
+  {
+    "version": 2,
+    "model_name": "HiDream-O1-Image",
+    "model_family": "hidream_o1",
+    "model_description": "HiDream-O1-Image is an 8B pixel-level unified image model for text-to-image generation, instruction-based editing, and subject-driven personalization.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "HiDream-ai/HiDream-O1-Image",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "HiDream-ai/HiDream-O1-Image",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "use_flash_attn": false
+    },
+    "default_generate_config": {
+      "num_inference_steps": 50,
+      "guidance_scale": 5.0,
+      "shift": 3.0,
+      "seed": 32,
+      "noise_scale_start": 7.5,
+      "noise_scale_end": 7.5,
+      "noise_clip_std": 2.5
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1 ; #engine# == \"diffusers\"",
+        "diffusers>=0.31.0 ; #engine# == \"diffusers\"",
+        "accelerate ; #engine# == \"diffusers\"",
+        "einops ; #engine# == \"diffusers\"",
+        "scipy ; #engine# == \"diffusers\"",
+        "Pillow ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1786985658
+  },
+  {
+    "version": 2,
+    "model_name": "HiDream-O1-Image-Dev",
+    "model_family": "hidream_o1",
+    "model_description": "HiDream-O1-Image-Dev is the 28-step distilled HiDream-O1 variant for text-to-image generation, image editing, and subject-driven personalization.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "HiDream-ai/HiDream-O1-Image-Dev",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "HiDream-ai/HiDream-O1-Image-Dev",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "use_flash_attn": false
+    },
+    "default_generate_config": {
+      "num_inference_steps": 28,
+      "guidance_scale": 0.0,
+      "shift": 1.0,
+      "seed": 32,
+      "noise_scale_start": 7.5,
+      "noise_scale_end": 7.5,
+      "noise_clip_std": 2.5
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1 ; #engine# == \"diffusers\"",
+        "diffusers>=0.31.0 ; #engine# == \"diffusers\"",
+        "accelerate ; #engine# == \"diffusers\"",
+        "einops ; #engine# == \"diffusers\"",
+        "scipy ; #engine# == \"diffusers\"",
+        "Pillow ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1786985658
+  },
+  {
+    "version": 2,
+    "model_name": "HiDream-O1-Image-Dev-2604",
+    "model_family": "hidream_o1",
+    "model_description": "HiDream-O1-Image-Dev-2604 is the 28-step HiDream-O1 text-to-image variant identified by the 2604 checkpoint tag.",
+    "model_ability": [
+      "text2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "HiDream-ai/HiDream-O1-Image-Dev-2604",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "HiDream-ai/HiDream-O1-Image-Dev-2604",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "float32",
+      "use_flash_attn": false
+    },
+    "default_generate_config": {
+      "num_inference_steps": 28,
+      "guidance_scale": 0.0,
+      "shift": 1.0,
+      "seed": 42,
+      "noise_scale_start": 8.0,
+      "noise_scale_end": 8.0,
+      "noise_clip_std": 8.0
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1 ; #engine# == \"diffusers\"",
+        "diffusers>=0.31.0 ; #engine# == \"diffusers\"",
+        "accelerate ; #engine# == \"diffusers\"",
+        "einops ; #engine# == \"diffusers\"",
+        "scipy ; #engine# == \"diffusers\"",
+        "Pillow ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1786985658
   }
 ]

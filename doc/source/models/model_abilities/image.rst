@@ -52,11 +52,16 @@ The Text-to-image API is supported with the following models in Xinference:
 * cogview4
 * Qwen-Image
 * Ideogram4
+* HiDream-O1-Image
+* HiDream-O1-Image-Dev
+* HiDream-O1-Image-Dev-2604
 
 Image-to-image supported models:
 
 * Flux.1-Kontext-dev
 * Qwen-Image-Edit
+* HiDream-O1-Image
+* HiDream-O1-Image-Dev
 
 
 Image engines
