@@ -45,6 +45,7 @@ dependencies = [
     "python-multipart>=0.0.18",  # required by FastAPI's Form/File/UploadFile params; used to come in transitively via gradio
     "orjson",  # used by core.utils.json_dumps for all REST API JSON responses; used to come in transitively via gradio
     "uvicorn",
+    "PyYAML",
     "huggingface-hub>=0.19.4",
     "typing_extensions",
     "modelscope>=1.19.0",
@@ -76,6 +77,7 @@ xinference = "xinference.deploy.cmdline:cli"
 xinference-local = "xinference.deploy.cmdline:local"
 xinference-supervisor = "xinference.deploy.cmdline:supervisor"
 xinference-worker = "xinference.deploy.cmdline:worker"
+xinference-router = "xinference.deploy.router:main"
 xinference-migrate-auth = "xinference.api.oauth2.advanced.migrate:main"
 xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:main"
 

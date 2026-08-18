@@ -227,6 +227,18 @@ XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "monitor_config.db"),
 )
 
+XINFERENCE_TOKEN_ROUTER_ENABLED = os.environ.get(
+    "XINFERENCE_TOKEN_ROUTER_ENABLED", "false"
+).lower() in {"1", "true", "yes", "on"}
+
+XINFERENCE_TOKEN_ROUTER_DB_PATH = os.environ.get(
+    "XINFERENCE_TOKEN_ROUTER_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "token_routers.db"),
+)
+XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS = float(
+    os.environ.get("XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS", "90")
+)
+
 # Whether to allow models to run their own bundled code (transformers /
 # sentence-transformers / FlagEmbedding / engine `trust_remote_code`). Off by
 # default; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it.

@@ -24,8 +24,9 @@ import time
 import uuid
 import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Union, get_type_hints
+from typing import Any, AsyncIterator, Dict, List, Optional, Union, get_type_hints
 
+import httpx
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
@@ -43,7 +44,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import PlainTextResponse
+from starlette.responses import PlainTextResponse, StreamingResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -59,6 +60,7 @@ from ..constants import (
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+    XINFERENCE_TOKEN_ROUTER_ENABLED,
     get_auth_encryption_key,
     get_auth_jwt_secret_key,
     is_auth_advanced,
@@ -104,6 +106,46 @@ from .schemas import (
 from .utils import require_model
 
 logger = logging.getLogger(__name__)
+
+_TOKEN_ROUTER_HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "t" "e",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+}
+_TOKEN_ROUTER_REQUEST_HEADERS = {
+    "accept",
+    "authorization",
+    "content-type",
+    "traceparent",
+    "tracestate",
+    "user-agent",
+    "x-request-id",
+}
+
+
+def _token_router_request_headers(request: Request, request_id: str) -> Dict[str, str]:
+    headers = {
+        key.lower(): value
+        for key, value in request.headers.items()
+        if key.lower() in _TOKEN_ROUTER_REQUEST_HEADERS
+    }
+    headers["content-type"] = "application/json"
+    headers["x-request-id"] = request_id
+    return headers
+
+
+def _token_router_response_headers(response: httpx.Response) -> Dict[str, str]:
+    excluded = _TOKEN_ROUTER_HOP_BY_HOP_HEADERS | {"content-length"}
+    return {
+        key: value
+        for key, value in response.headers.items()
+        if key.lower() not in excluded
+    }
 
 
 _AUDIO_RESPONSE_MEDIA_TYPES = {
@@ -508,6 +550,93 @@ class RESTfulAPI(CancelMixin):
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
 
+    async def _proxy_token_router_chat_completion(
+        self,
+        request: Request,
+        raw_body: Dict[str, Any],
+        runtime: Dict[str, Any],
+    ) -> Response:
+        request_id = request.headers.get("x-request-id") or f"xinf-{uuid.uuid4()}"
+        endpoint = runtime["endpoint"]
+        upstream_url = f"{endpoint}/v1/chat/completions"
+        client = httpx.AsyncClient(timeout=None, follow_redirects=False)
+        try:
+            upstream_request = client.build_request(
+                "POST",
+                upstream_url,
+                headers=_token_router_request_headers(request, request_id),
+                json=raw_body,
+            )
+            upstream_response = await client.send(upstream_request, stream=True)
+        except httpx.HTTPError as exc:
+            await client.aclose()
+            logger.warning(
+                "Token Router connection failed: virtual_model_uid=%s "
+                "router_uid=%s instance_id=%s error=%s",
+                runtime.get("virtual_model_uid"),
+                runtime.get("router_uid"),
+                runtime.get("instance_id"),
+                exc,
+            )
+            return JSONResponse(
+                content={
+                    "error": {
+                        "message": "Token Router runtime is temporarily unavailable",
+                        "type": "router_unavailable",
+                    }
+                },
+                status_code=502,
+                headers={"Retry-After": "1", "X-Request-ID": request_id},
+            )
+
+        is_stream = bool(raw_body.get("stream", False))
+        response_headers = _token_router_response_headers(upstream_response)
+        response_headers.setdefault("x-request-id", request_id)
+
+        if is_stream and upstream_response.status_code < 400:
+
+            async def body_stream() -> AsyncIterator[bytes]:
+                try:
+                    async for chunk in upstream_response.aiter_raw():
+                        if await request.is_disconnected():
+                            break
+                        yield chunk
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception(
+                        "Token Router stream failed: virtual_model_uid=%s "
+                        "router_uid=%s instance_id=%s",
+                        runtime.get("virtual_model_uid"),
+                        runtime.get("router_uid"),
+                        runtime.get("instance_id"),
+                    )
+                    raise
+                finally:
+                    await upstream_response.aclose()
+                    await client.aclose()
+
+            response_headers.setdefault("cache-control", "no-cache")
+            response_headers.setdefault("x-accel-buffering", "no")
+            return StreamingResponse(
+                body_stream(),
+                status_code=upstream_response.status_code,
+                headers=response_headers,
+            )
+
+        try:
+            response_body = b"".join(
+                [chunk async for chunk in upstream_response.aiter_raw()]
+            )
+        finally:
+            await upstream_response.aclose()
+            await client.aclose()
+        return Response(
+            content=response_body,
+            status_code=upstream_response.status_code,
+            headers=response_headers,
+        )
+
     def serve(self, logging_conf: Optional[dict] = None):
         self._app.add_middleware(
             CORSMiddleware,
@@ -781,7 +910,10 @@ class RESTfulAPI(CancelMixin):
 
     async def list_models(self) -> JSONResponse:
         try:
-            models = await (await self._get_supervisor_ref()).list_models()
+            supervisor_ref = await self._get_supervisor_ref()
+            physical_models = await supervisor_ref.list_models()
+            virtual_models = await supervisor_ref.list_virtual_models()
+            models = {**physical_models, **virtual_models}
 
             model_list = []
             for model_id, model_info in models.items():
@@ -2683,6 +2815,31 @@ class RESTfulAPI(CancelMixin):
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
         self._check_model_access(request, model_uid, "LLM")
+
+        supervisor_ref = await self._get_supervisor_ref()
+        token_router_runtime = None
+        if XINFERENCE_TOKEN_ROUTER_ENABLED:
+            token_router_runtime = await supervisor_ref.resolve_token_router_runtime(
+                model_uid
+            )
+        if token_router_runtime is not None:
+            if not token_router_runtime.get("available"):
+                return JSONResponse(
+                    content={
+                        "error": {
+                            "message": (
+                                "No ready Token Router runtime is available for "
+                                f"virtual model {model_uid}"
+                            ),
+                            "type": "router_unavailable",
+                        }
+                    },
+                    status_code=503,
+                    headers={"Retry-After": "1"},
+                )
+            return await self._proxy_token_router_chat_completion(
+                request, raw_body, token_router_runtime
+            )
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
