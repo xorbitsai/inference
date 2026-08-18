@@ -200,9 +200,10 @@ export function Select<T extends SelectValue = SelectValue>({
     const optionsContainerPadding =
       Number.parseFloat(optionsContainerStyle.paddingLeft) +
       Number.parseFloat(optionsContainerStyle.paddingRight);
+    const scrollbarWidth = optionsContainer.offsetWidth - optionsContainer.clientWidth;
     const dropdownBorderWidth = dropdown.offsetWidth - dropdown.clientWidth;
     const measuredWidth = Math.ceil(
-      widestOptionWidth + optionsContainerPadding + dropdownBorderWidth
+      widestOptionWidth + optionsContainerPadding + scrollbarWidth + dropdownBorderWidth
     );
 
     if (autoDropdownWidthRef.current === measuredWidth) return;
