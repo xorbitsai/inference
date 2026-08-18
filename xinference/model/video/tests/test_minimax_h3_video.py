@@ -289,8 +289,8 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
 
     prefix = "transformer_blocks.0.attn.to_q"
     state_dict = {
-        f"{prefix}.lora_A.default.weight": torch.zeros((128, 4)),
-        f"{prefix}.lora_B.default.weight": torch.zeros((4, 128)),
+        f"{prefix}.lora_A.default.weight": torch.zeros((4, 128)),
+        f"{prefix}.lora_B.default.weight": torch.zeros((128, 4)),
     }
     calls = {}
 
@@ -368,7 +368,7 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     )
 
     assert calls["config"].kwargs == {
-        "r": 128,
+        "r": 4,
         "lora_alpha": 8,
         "init_lora_weights": False,
         "target_modules": [
@@ -392,6 +392,38 @@ def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
     assert calls["eval"] is True
     assert fake_peft_awq.is_gptqmodel_available is incompatible_gptqmodel_probe
     assert fake_peft_gptq.is_gptqmodel_available is incompatible_gptqmodel_probe
+
+
+def test_minimax_h3_rejects_partial_lora_target_match(monkeypatch):
+    import torch
+
+    prefix = "transformer_blocks.0.attn.add_to_q"
+    state_dict = {
+        f"{prefix}.lora_A.default.weight": torch.zeros((4, 128)),
+        f"{prefix}.lora_B.default.weight": torch.zeros((128, 4)),
+    }
+
+    fake_peft = types.ModuleType("peft")
+    fake_peft.LoraConfig = object
+    fake_peft_tuners = types.ModuleType("peft.tuners")
+    fake_peft_lora = types.ModuleType("peft.tuners.lora")
+    fake_peft_layer = types.ModuleType("peft.tuners.lora.layer")
+    fake_peft_layer.Linear = object
+    fake_safetensors = types.ModuleType("safetensors")
+    fake_safetensors_torch = types.ModuleType("safetensors.torch")
+    fake_safetensors_torch.load_file = lambda path, device: state_dict.copy()
+    fake_safetensors.torch = fake_safetensors_torch
+    monkeypatch.setitem(sys.modules, "peft", fake_peft)
+    monkeypatch.setitem(sys.modules, "peft.tuners", fake_peft_tuners)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora", fake_peft_lora)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.layer", fake_peft_layer)
+    monkeypatch.setitem(sys.modules, "safetensors", fake_safetensors)
+    monkeypatch.setitem(sys.modules, "safetensors.torch", fake_safetensors_torch)
+
+    with pytest.raises(ValueError, match="Unsupported MiniMax-H3 LoRA target module"):
+        DiffusersVideoModel._load_minimax_h3_lightning_adapter(
+            object(), "/tmp/lightning.safetensors", alpha=8
+        )
 
 
 def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(

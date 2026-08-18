@@ -318,7 +318,10 @@ class DiffusersVideoModel:
                     f"MiniMax-H3 LoRA rank mismatch for {module_name}: "
                     f"A{tuple(a_tensor.shape)} and B{tuple(b_tensor.shape)}"
                 )
-            if not module_name.endswith(target_modules):
+            if not any(
+                module_name == target or module_name.endswith(f".{target}")
+                for target in target_modules
+            ):
                 raise ValueError(
                     f"Unsupported MiniMax-H3 LoRA target module {module_name!r}"
                 )
