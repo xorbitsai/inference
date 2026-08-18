@@ -47,6 +47,7 @@ def _minimax_h3_memory_efficient_lora_forward(self, x, *args, **kwargs):
     """Evaluate a TorchAO LoRA branch directly into the base-layer result."""
     import torch
 
+    self._check_forward_args(x, *args, **kwargs)
     if kwargs or self.disable_adapters or self.merged:
         return type(self).forward(self, x, *args, **kwargs)
 
@@ -60,7 +61,6 @@ def _minimax_h3_memory_efficient_lora_forward(self, x, *args, **kwargs):
         return type(self).forward(self, x, *args, **kwargs)
 
     result = self.base_layer(x, *args)
-    result_dtype = result.dtype
     if not result.is_contiguous():
         raise RuntimeError(
             "MiniMax-H3 requires contiguous TorchAO linear outputs for its "
@@ -73,16 +73,21 @@ def _minimax_h3_memory_efficient_lora_forward(self, x, *args, **kwargs):
         dropout = self.lora_dropout[active_adapter]
         lora_input = self._cast_input_dtype(x, lora_a.weight.dtype)
         low_rank_states = lora_a(dropout(lora_input))
+        if low_rank_states.dtype != result.dtype:
+            low_rank_states = low_rank_states.to(result.dtype)
+        lora_b_weight = lora_b.weight
+        if lora_b_weight.dtype != result.dtype:
+            lora_b_weight = lora_b_weight.to(result.dtype)
         torch.addmm(
             result.view(-1, result.shape[-1]),
             low_rank_states.view(-1, low_rank_states.shape[-1]),
-            lora_b.weight.T,
+            lora_b_weight.T,
             beta=1.0,
             alpha=self.scaling[active_adapter],
             out=result.view(-1, result.shape[-1]),
         )
 
-    return result.to(result_dtype)
+    return result
 
 
 def export_to_video_imageio(

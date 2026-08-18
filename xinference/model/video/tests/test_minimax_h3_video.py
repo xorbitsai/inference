@@ -403,7 +403,7 @@ def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
 
     class FakeLoraLayer:
         def __init__(self):
-            self.base_layer = torch.nn.Linear(4, 6, bias=False)
+            self.base_layer = torch.nn.Linear(4, 6, bias=False, dtype=torch.bfloat16)
             self.lora_A = {"default": torch.nn.Linear(4, 2, bias=False)}
             self.lora_B = {"default": torch.nn.Linear(2, 6, bias=False)}
             self.lora_dropout = {"default": torch.nn.Identity()}
@@ -414,14 +414,21 @@ def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
             self.merged = False
 
         @staticmethod
+        def _check_forward_args(*args, **kwargs):
+            pass
+
+        @staticmethod
         def _cast_input_dtype(value, dtype):
             return value.to(dtype)
 
     layer = FakeLoraLayer()
-    inputs = torch.randn(2, 3, 4)
+    inputs = torch.randn(2, 3, 4, dtype=torch.bfloat16)
     with torch.inference_mode():
-        expected = layer.base_layer(inputs) + 0.5 * layer.lora_B["default"](
-            layer.lora_A["default"](inputs)
+        expected = layer.base_layer(inputs)
+        low_rank_states = layer.lora_A["default"](inputs.float()).to(expected.dtype)
+        expected = expected + 0.5 * torch.nn.functional.linear(
+            low_rank_states,
+            layer.lora_B["default"].weight.to(expected.dtype),
         )
 
     original_addmm = torch.addmm
@@ -429,6 +436,7 @@ def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
 
     def tracked_addmm(input_tensor, mat1, mat2, **kwargs):
         calls["uses_base_output"] = input_tensor.data_ptr() == kwargs["out"].data_ptr()
+        calls["dtypes"] = (input_tensor.dtype, mat1.dtype, mat2.dtype)
         return original_addmm(input_tensor, mat1, mat2, **kwargs)
 
     monkeypatch.setattr(torch, "addmm", tracked_addmm)
@@ -438,6 +446,7 @@ def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
         )
 
     assert calls["uses_base_output"] is True
+    assert calls["dtypes"] == (torch.bfloat16,) * 3
     torch.testing.assert_close(actual, expected)
 
 

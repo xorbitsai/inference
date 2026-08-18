@@ -225,6 +225,14 @@ per-request override. Match it to the selected Lightning version: use 4 for a
 internally adds the terminal sigma grid point required to run that number of
 evaluations.
 
+.. note::
+
+   The evaluation-count semantics apply to MiniMax-H3 with or without Lightning.
+   A request for N evaluations now passes N + 1 scheduler grid points so the
+   terminal sigma does not consume one of the requested evaluations. Therefore,
+   non-Lightning output may differ from earlier Xinference versions for the same
+   ``num_inference_steps`` value.
+
 
 Memory optimization
 ===================
