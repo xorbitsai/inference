@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from types import MethodType
 
 import httpx
@@ -6,15 +7,9 @@ import pytest
 from fastapi import FastAPI, Request
 
 from xinference.api import restful_api as restful_api_module
-
-
-@pytest.fixture(autouse=True)
-def enable_token_router(monkeypatch):
-    monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", True)
-
-
 from xinference.api.restful_api import RESTfulAPI
 from xinference.core.router_config_store import RouterConfigStore
+from xinference.core.router_orchestration import RouterOrchestrationController
 from xinference.core.router_registry import RouterRuntimeRegistry
 from xinference.core.supervisor import SupervisorActor
 
@@ -35,8 +30,12 @@ async def test_restful_api_lifespan_closes_token_router_client():
 
 def make_supervisor(tmp_path):
     supervisor = SupervisorActor.__new__(SupervisorActor)
-    supervisor._token_router_store = RouterConfigStore(str(tmp_path / "routers.db"))
+    db_path = str(tmp_path / "routers.db")
+    supervisor._token_router_store = RouterConfigStore(db_path)
     supervisor._token_router_registry = RouterRuntimeRegistry()
+    supervisor._token_router_orchestration = RouterOrchestrationController(
+        db_path, supervisor._token_router_store
+    )
     supervisor._token_router_runtime_cursors = {}
     return supervisor
 
@@ -163,7 +162,7 @@ async def test_resolve_rejects_offline_and_non_ready_runtime(tmp_path, monkeypat
     now[0] = 111.0
     resolution = await supervisor.resolve_token_router_runtime("virtual-model")
     assert resolution["available"] is False
-    assert resolution["status"] == "offline"
+    assert resolution["status"] == "unavailable"
 
 
 @pytest.mark.asyncio
@@ -187,6 +186,107 @@ async def test_list_virtual_models_only_exposes_enabled_sanitized_models(tmp_pat
         "router_status": "ready",
     }
     assert "endpoint" not in json.dumps(models)
+
+
+@pytest.mark.asyncio
+async def test_managed_runtime_remains_available_but_degraded_when_agent_is_offline(
+    tmp_path,
+):
+    supervisor = make_supervisor(tmp_path)
+    config = create_enabled_router(supervisor)
+    orchestration = supervisor._token_router_orchestration
+    orchestration.register_node(
+        {
+            "node_id": "node-a",
+            "advertise_host": "127.0.0.1",
+            "port_range_start": 12080,
+            "port_range_end": 12089,
+            "max_instances": 5,
+        }
+    )
+    orchestration.update_deployment(
+        "router-a", {"management_mode": "managed", "desired_replicas": 1}
+    )
+    orchestration.router_enabled("router-a", True)
+    assignment = orchestration.list_assignments(router_uid="router-a")[0]
+    supervisor._token_router_registry.register(
+        "router-a",
+        "instance-a",
+        {
+            "endpoint": assignment["public_endpoint"],
+            "status": "ready",
+            "acked_revision": config["revision"],
+            "config_error": "",
+            "assignment_id": assignment["assignment_id"],
+            "assignment_generation": assignment["assignment_generation"],
+            "node_id": "node-a",
+        },
+    )
+
+    last_seen = (datetime.now(timezone.utc) - timedelta(seconds=46)).isoformat()
+    with orchestration.nodes._connect() as conn:
+        conn.execute(
+            "UPDATE token_router_nodes SET last_seen_at = ? WHERE node_id = ?",
+            (last_seen, "node-a"),
+        )
+    orchestration.sweep_nodes()
+
+    resolution = await supervisor.resolve_token_router_runtime("virtual-model")
+    status = supervisor._with_token_router_status(config)
+
+    assert resolution["available"] is True
+    assert resolution["status"] == "degraded"
+    assert status["deployment"]["observed_ready_assignments"] == 0
+    assert status["deployment"]["effective_ready_runtimes"] == 1
+    assert status["deployment"]["controllable_ready_runtimes"] == 0
+    assert status["deployment"]["ready_replicas"] == 1
+
+    supervisor._token_router_registry.unregister("instance-a")
+    unavailable = supervisor._with_token_router_status(config)
+    assert unavailable["status"] == "unavailable"
+    assert unavailable["deployment"]["ready_replicas"] == 0
+
+
+@pytest.mark.asyncio
+async def test_managed_stopped_deployment_is_disabled_and_not_dispatched(tmp_path):
+    supervisor = make_supervisor(tmp_path)
+    config = create_enabled_router(supervisor)
+    orchestration = supervisor._token_router_orchestration
+    orchestration.register_node(
+        {
+            "node_id": "node-a",
+            "advertise_host": "127.0.0.1",
+            "port_range_start": 12080,
+            "port_range_end": 12089,
+            "max_instances": 5,
+        }
+    )
+    orchestration.update_deployment(
+        "router-a", {"management_mode": "managed", "desired_replicas": 1}
+    )
+    orchestration.router_enabled("router-a", True)
+    assignment = orchestration.list_assignments(router_uid="router-a")[0]
+    supervisor._token_router_registry.register(
+        "router-a",
+        "instance-a",
+        {
+            "endpoint": assignment["public_endpoint"],
+            "status": "ready",
+            "acked_revision": config["revision"],
+            "config_error": "",
+            "assignment_id": assignment["assignment_id"],
+            "assignment_generation": assignment["assignment_generation"],
+            "node_id": "node-a",
+        },
+    )
+
+    orchestration.update_deployment("router-a", {"desired_state": "stopped"})
+    resolution = await supervisor.resolve_token_router_runtime("virtual-model")
+    status = supervisor._with_token_router_status(config)
+
+    assert status["status"] == "disabled"
+    assert resolution["status"] == "disabled"
+    assert resolution["available"] is False
 
 
 class FakeSupervisor:

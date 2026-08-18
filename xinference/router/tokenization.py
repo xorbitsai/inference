@@ -19,7 +19,7 @@ from .tokenization_worker import (
 from .tokenizer import TokenBudget
 from .tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
 
-logger = logging.getLogger("deepseek_v4_token_router.tokenization")
+logger = logging.getLogger(__name__)
 
 
 class TokenizationWorkerUnavailable(RuntimeError):

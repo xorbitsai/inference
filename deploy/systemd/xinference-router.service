@@ -1,0 +1,67 @@
+[Unit]
+Description=Xinference Token-aware Router
+Documentation=file:///data/inference/deploy/systemd/README-xinference-router.md
+After=network-online.target xinference-supervisor.service
+Wants=network-online.target xinference-supervisor.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=cloud
+Group=cloud
+WorkingDirectory=/data/inference
+
+# Non-sensitive runtime configuration.
+EnvironmentFile=/etc/xinference/router.env
+# Contains only XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN. Do not reuse the
+# Supervisor secret file because it also contains unrelated credentials.
+EnvironmentFile=/etc/xinference/router.secret.env
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONFAULTHANDLER=1
+Environment=TOKENIZERS_PARALLELISM=false
+Environment=XINFERENCE_HOME=/data/models
+
+ExecStartPre=/usr/bin/test -x /data/inference/.venv/bin/xinference-router
+ExecStart=/bin/bash -c 'set -euo pipefail; \
+  : "${XINFERENCE_TOKEN_ROUTER_SUPERVISOR_URL:?missing XINFERENCE_TOKEN_ROUTER_SUPERVISOR_URL}"; \
+  : "${XINFERENCE_TOKEN_ROUTER_UID:?missing XINFERENCE_TOKEN_ROUTER_UID}"; \
+  : "${XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN:?missing XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN}"; \
+  : "${XINFERENCE_TOKEN_ROUTER_HOST:?missing XINFERENCE_TOKEN_ROUTER_HOST}"; \
+  : "${XINFERENCE_TOKEN_ROUTER_PORT:?missing XINFERENCE_TOKEN_ROUTER_PORT}"; \
+  : "${XINFERENCE_TOKEN_ROUTER_PUBLIC_ENDPOINT:?missing XINFERENCE_TOKEN_ROUTER_PUBLIC_ENDPOINT}"; \
+  exec /data/inference/.venv/bin/xinference-router \
+    --supervisor-url "${XINFERENCE_TOKEN_ROUTER_SUPERVISOR_URL}" \
+    --router-uid "${XINFERENCE_TOKEN_ROUTER_UID}" \
+    --host "${XINFERENCE_TOKEN_ROUTER_HOST}" \
+    --port "${XINFERENCE_TOKEN_ROUTER_PORT}" \
+    --public-endpoint "${XINFERENCE_TOKEN_ROUTER_PUBLIC_ENDPOINT}" \
+    --log-level "${XINFERENCE_TOKEN_ROUTER_LOG_LEVEL:-INFO}"'
+
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+# Allow long in-flight SSE requests to drain during an intentional stop.
+TimeoutStopSec=7200
+KillSignal=SIGTERM
+KillMode=control-group
+SendSIGKILL=yes
+LimitNOFILE=65535
+UMask=0027
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+# Keep journal as a fallback for systemd lifecycle messages, failures before
+# Python logging is initialized, faulthandler output, and native stderr.
+# Application JSON logs are written through XINFERENCE_LOG_DIR; do not use
+# StandardOutput=append because it would mix plain text into the JSON file.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=xinference-router
+
+[Install]
+WantedBy=multi-user.target

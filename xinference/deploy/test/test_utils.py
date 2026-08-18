@@ -12,11 +12,116 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import logging
 from unittest.mock import MagicMock
 
 import pytest
 
-from ..utils import StreamToLogger, handle_click_args_type
+from ..utils import (
+    JsonFileFormatter,
+    StreamToLogger,
+    TextFileFormatter,
+    handle_click_args_type,
+)
+
+
+class TestStructuredLogFields:
+    def _record(self, fields=None, *, exc_info=None):
+        record = logging.LogRecord(
+            "xinference.router",
+            logging.INFO,
+            __file__,
+            1,
+            "Route selected",
+            (),
+            exc_info,
+        )
+        if fields is not None:
+            record.xinference_fields = fields
+        return record
+
+    def test_json_formatter_merges_safe_fields(self):
+        formatted = JsonFileFormatter(role="router", address="127.0.0.1:10080").format(
+            self._record(
+                {
+                    "event": "route_decision",
+                    "backend_model_uid": "physical-model",
+                    "prompt_tokens": 12,
+                }
+            )
+        )
+        entry = json.loads(formatted)
+
+        assert entry["role"] == "router"
+        assert entry["event"] == "route_decision"
+        assert entry["backend_model_uid"] == "physical-model"
+        assert entry["prompt_tokens"] == 12
+
+    def test_json_formatter_protects_base_fields_and_ignores_invalid_values(self):
+        entry = json.loads(
+            JsonFileFormatter(role="router", address="router:10080").format(
+                self._record(
+                    {
+                        "message": "overridden",
+                        "role": "worker",
+                        "event": "route_completed",
+                        "invalid": object(),
+                        "non_finite": float("nan"),
+                        42: "invalid-key",
+                    }
+                )
+            )
+        )
+
+        assert entry["message"] == "Route selected"
+        assert entry["role"] == "router"
+        assert entry["event"] == "route_completed"
+        assert "invalid" not in entry
+        assert "non_finite" not in entry
+        assert "42" not in entry
+
+    def test_text_formatter_appends_structured_fields(self):
+        formatted = TextFileFormatter(role="router", address="router:10080").format(
+            self._record(
+                {
+                    "event": "route_decision",
+                    "backend_mapping": {"short": "short-model"},
+                }
+            )
+        )
+
+        assert 'event="route_decision"' in formatted
+        assert 'backend_mapping={"short":"short-model"}' in formatted
+
+    def test_non_mapping_fields_preserve_existing_output(self):
+        formatted = JsonFileFormatter(role="router", address="router:10080").format(
+            self._record("not-a-mapping")
+        )
+        entry = json.loads(formatted)
+
+        assert entry["message"] == "Route selected"
+        assert "event" not in entry
+
+    def test_exception_and_structured_fields_share_one_json_object(self):
+        try:
+            raise RuntimeError("route failed")
+        except RuntimeError:
+            import sys
+
+            exc_info = sys.exc_info()
+
+        formatted = JsonFileFormatter(role="router", address="router:10080").format(
+            self._record(
+                {"event": "backend_error", "outcome": "backend_unavailable"},
+                exc_info=exc_info,
+            )
+        )
+        entry = json.loads(formatted)
+
+        assert entry["event"] == "backend_error"
+        assert entry["outcome"] == "backend_unavailable"
+        assert "RuntimeError: route failed" in entry["exception"]
 
 
 class TestHandleClickArgsType:

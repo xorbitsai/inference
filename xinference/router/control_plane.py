@@ -6,18 +6,49 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import platform
 import socket
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import httpx
 
+from xinference import __version__
+
 from .config import config_from_control_plane
+from .logging_config import router_log_extra, set_router_log_identity
+from .process_metrics import ProcessMetricsCollector
 
 if TYPE_CHECKING:
     from .runtime import RouterRuntime
 
 logger = logging.getLogger(__name__)
+
+
+def _software_revision() -> Optional[str]:
+    try:
+        from xinference._commit import full_revisionid
+    except ImportError:
+        try:
+            from xinference._version import commit_id
+        except ImportError:
+            commit_id = None
+        return commit_id.lstrip("g") if commit_id else None
+    return full_revisionid or None
+
+
+def _config_log_fields(config: Any) -> Dict[str, Any]:
+    backends = getattr(config, "backends", ())
+    return {
+        "logical_model": getattr(config, "logical_model", None),
+        "route_profile": getattr(config, "route_profile", None),
+        "enabled": getattr(config, "enabled", None),
+        "backend_mapping": {
+            backend.id: backend.model_uid
+            for backend in backends
+            if getattr(backend, "id", None) and getattr(backend, "model_uid", None)
+        },
+    }
 
 
 class RouterInstanceNotFound(RuntimeError):
@@ -37,6 +68,9 @@ class RouterControlPlaneClient:
         listen_host: str = "127.0.0.1",
         listen_port: int = 10080,
         log_level: str = "INFO",
+        assignment_id: Optional[str] = None,
+        assignment_generation: Optional[int] = None,
+        node_id: Optional[str] = None,
     ) -> None:
         if not internal_token:
             raise ValueError("Token Router internal token is required")
@@ -45,11 +79,44 @@ class RouterControlPlaneClient:
         self.internal_token = internal_token
         self.endpoint = endpoint
         self.instance_id = instance_id or f"{socket.gethostname()}-{uuid.uuid4()}"
-        self.revision = 0
+        self._revision = 0
         self.listen_host = listen_host
         self.listen_port = listen_port
         self.log_level = log_level
+        self.assignment_id = assignment_id
+        self.assignment_generation = assignment_generation
+        self.node_id = node_id
+        set_router_log_identity(
+            router_uid=router_uid,
+            node_id=node_id,
+            assignment_id=assignment_id,
+            assignment_generation=assignment_generation,
+            instance_id=self.instance_id,
+            listen_port=listen_port,
+            config_revision=0,
+        )
         self._client = httpx.AsyncClient(timeout=timeout_seconds)
+        self._process_metrics: Any = ProcessMetricsCollector()
+        self._last_process_metrics_warning = 0.0
+        self._runtime_metadata: Dict[str, Any] = {
+            "hostname": socket.gethostname(),
+            "python_version": platform.python_version(),
+            "platform": f"{platform.system()}-{platform.machine()}",
+            "assignment_id": assignment_id,
+            "assignment_generation": assignment_generation,
+            "node_id": node_id,
+        }
+        if self._process_metrics.started_at is not None:
+            self._runtime_metadata["started_at"] = self._process_metrics.started_at
+
+    @property
+    def revision(self) -> int:
+        return self._revision
+
+    @revision.setter
+    def revision(self, value: int) -> None:
+        self._revision = int(value)
+        set_router_log_identity(config_revision=self._revision)
 
     @property
     def _headers(self) -> Dict[str, str]:
@@ -75,8 +142,16 @@ class RouterControlPlaneClient:
                 "router_uid": self.router_uid,
                 "instance_id": self.instance_id,
                 "endpoint": self.endpoint,
+                "assignment_id": self.assignment_id,
+                "assignment_generation": self.assignment_generation,
+                "node_id": self.node_id,
+                # Keep the legacy field for older Supervisors and clients.
                 "version": "1",
+                "protocol_version": "1",
+                "software_version": __version__,
+                "software_revision": _software_revision(),
                 "acked_revision": self.revision,
+                "metadata": self._runtime_metadata,
             },
         )
         response.raise_for_status()
@@ -126,6 +201,7 @@ class RouterControlPlaneClient:
         response.raise_for_status()
         if not error:
             self.revision = revision
+            set_router_log_identity(config_revision=revision)
         return response.json()
 
     async def aclose(self) -> None:
@@ -143,6 +219,18 @@ class RouterControlPlaneClient:
         finally:
             await self.aclose()
 
+    async def _collect_process_resources(self) -> Dict[str, Any]:
+        try:
+            return await asyncio.to_thread(self._process_metrics.collect)
+        except Exception:
+            now = asyncio.get_running_loop().time()
+            if now - self._last_process_metrics_warning >= 300.0:
+                self._last_process_metrics_warning = now
+                logger.warning(
+                    "Failed to collect Token Router process metrics", exc_info=True
+                )
+            return {}
+
     async def _publish_runtime_state(
         self,
         runtime: "RouterRuntime",
@@ -157,6 +245,7 @@ class RouterControlPlaneClient:
                 "pid": os.getpid(),
                 "revision": summary["revision"],
                 "active_requests": summary["active_requests"],
+                "resources": await self._collect_process_resources(),
                 "tokenization": summary["tokenization"],
                 "pools": summary["pools"],
                 "tokenizer_asset": summary["tokenizer_asset"],
@@ -215,6 +304,7 @@ class RouterControlPlaneClient:
                                 revision,
                             )
                         else:
+                            previous_revision = self.revision
                             try:
                                 config = config_from_control_plane(
                                     data,
@@ -225,12 +315,55 @@ class RouterControlPlaneClient:
                                 await runtime.apply(config)
                             except Exception as exc:
                                 logger.exception(
-                                    "Failed to apply Token Router revision %s",
-                                    revision,
+                                    "Failed to apply Token Router configuration",
+                                    extra=router_log_extra(
+                                        event="config_apply_failed",
+                                        router_uid=self.router_uid,
+                                        current_revision=previous_revision,
+                                        target_revision=revision,
+                                        outcome="config_apply_failed",
+                                    ),
                                 )
-                                await self.ack(revision, str(exc))
+                                try:
+                                    await self.ack(revision, str(exc))
+                                except Exception:
+                                    logger.exception(
+                                        "Failed to acknowledge rejected Token Router configuration",
+                                        extra=router_log_extra(
+                                            event="config_apply_failed",
+                                            router_uid=self.router_uid,
+                                            current_revision=previous_revision,
+                                            target_revision=revision,
+                                            outcome="config_error_ack_failed",
+                                        ),
+                                    )
+                                    raise
                             else:
-                                await self.ack(revision)
+                                try:
+                                    await self.ack(revision)
+                                except Exception:
+                                    logger.exception(
+                                        "Failed to acknowledge applied Token Router configuration",
+                                        extra=router_log_extra(
+                                            event="config_apply_failed",
+                                            router_uid=self.router_uid,
+                                            current_revision=previous_revision,
+                                            target_revision=revision,
+                                            outcome="config_ack_failed",
+                                        ),
+                                    )
+                                    raise
+                                logger.info(
+                                    "Token Router configuration applied",
+                                    extra=router_log_extra(
+                                        event="config_applied",
+                                        router_uid=self.router_uid,
+                                        previous_revision=previous_revision,
+                                        revision=revision,
+                                        outcome="completed",
+                                        **_config_log_fields(config),
+                                    ),
+                                )
 
                     now = loop.time()
                     if now >= next_heartbeat:

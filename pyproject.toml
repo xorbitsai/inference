@@ -78,6 +78,7 @@ xinference-local = "xinference.deploy.cmdline:local"
 xinference-supervisor = "xinference.deploy.cmdline:supervisor"
 xinference-worker = "xinference.deploy.cmdline:worker"
 xinference-router = "xinference.deploy.router:main"
+xinference-router-agent = "xinference.deploy.router_agent:main"
 xinference-migrate-auth = "xinference.api.oauth2.advanced.migrate:main"
 xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:main"
 

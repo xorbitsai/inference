@@ -50,6 +50,7 @@ async def test_get_ui_config_returns_defaults(mock_request):
     assert data["grafana_dashboard_uid"] == "xinference-overview"
     assert "grafana_dashboards" in data
     assert data["grafana_dashboards"]["overview"] == "xinference-overview"
+    assert data["token_router_enabled"] is True
 
 
 @pytest.mark.asyncio
@@ -221,3 +222,12 @@ async def test_enable_then_disable_dashboard_via_empty_string(mock_request, stor
     configured = store.get_configured_dashboard_keys()
     assert "model_load" not in configured
     assert configured == ["overview"]
+
+
+@pytest.mark.asyncio
+async def test_get_ui_config_reports_disabled_token_router(mock_request, monkeypatch):
+    monkeypatch.setattr(admin, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+
+    response = await admin.get_ui_config(request=mock_request)
+
+    assert _json_body(response)["token_router_enabled"] is False
