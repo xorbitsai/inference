@@ -102,7 +102,10 @@ class BatchMixin:
             if isinstance(exception, asyncio.CancelledError):
                 future.cancel()
             else:
-                future.set_exception(exception)
+                try:
+                    future.set_exception(type(exception)(*exception.args))
+                except Exception:
+                    future.set_exception(exception)
 
         # Discard queued entries after their futures have been completed. This
         # prevents a replacement processor from doing work for failed callers.

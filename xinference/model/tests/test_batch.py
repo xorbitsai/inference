@@ -147,6 +147,28 @@ async def _stop_batch_processor(model):
 
 
 @pytest.mark.asyncio
+async def test_batch_processor_uses_distinct_exceptions_for_pending_callers():
+    probe = _BatchProbe(batch_size=4)
+    loop = asyncio.get_running_loop()
+    first = loop.create_future()
+    second = loop.create_future()
+    probe._pending_batch_futures.update((first, second))
+
+    exception = RuntimeError("processor failed")
+    probe._fail_pending_requests(exception)
+
+    first_exception = first.exception()
+    second_exception = second.exception()
+    assert isinstance(first_exception, RuntimeError)
+    assert isinstance(second_exception, RuntimeError)
+    assert first_exception.args == exception.args
+    assert second_exception.args == exception.args
+    assert first_exception is not exception
+    assert second_exception is not exception
+    assert first_exception is not second_exception
+
+
+@pytest.mark.asyncio
 async def test_batch_processor_survives_cancelled_caller():
     model = _BatchModel()
 
