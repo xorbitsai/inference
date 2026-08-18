@@ -281,3 +281,193 @@ export interface UserItem {
   permissions: string[];
   created_at: string | null;
 }
+
+export interface TokenizerAssetItem {
+  asset_id: string;
+  origin: 'builtin' | 'external';
+  display_name: string;
+  model_family: string;
+  model_name: string;
+  revision: string;
+  encoding_type: string;
+  compatible_models: string[];
+  capabilities: Record<string, boolean>;
+  enabled: boolean;
+  status: 'available' | 'invalid' | 'disabled' | 'missing' | 'validating';
+  valid: boolean;
+  fingerprint: string;
+  errors: string[];
+  checks?: Record<string, string>;
+  validated_at?: string;
+}
+
+export interface TokenizerAssetListResponse {
+  items: TokenizerAssetItem[];
+  allow_custom_path: boolean;
+  config_error?: string;
+}
+
+export interface TokenRouterAdmissionConfig {
+  max_active: number;
+  max_queue: number;
+  queue_timeout_seconds: number;
+  retry_after_seconds: number;
+}
+
+export interface TokenRouterBackendConfig {
+  model_uid: string;
+  max_context_tokens: number;
+  admission: TokenRouterAdmissionConfig;
+}
+
+export interface TokenRouterDynamicBackendConfig extends TokenRouterBackendConfig {
+  id: string;
+}
+
+export interface TokenRouterRuleMatch {
+  total_tokens_gte?: number;
+  total_tokens_lte?: number;
+  thinking?: boolean;
+  tools_present?: boolean;
+  stream?: boolean;
+}
+
+export type TokenRouterRouteAction = {
+  type: 'route';
+  backend_id: string;
+};
+
+export type TokenRouterRejectAction = {
+  type: 'reject';
+  reason: string;
+};
+
+export type TokenRouterRoutingAction = TokenRouterRouteAction | TokenRouterRejectAction;
+
+export interface TokenRouterRoutingRule {
+  id: string;
+  priority: number;
+  match: TokenRouterRuleMatch;
+  action: TokenRouterRoutingAction;
+}
+
+interface TokenRouterItemBase {
+  router_uid: string;
+  virtual_model_uid: string;
+  model_type: 'LLM';
+  route_profile?: 'llm_chat';
+  tokenizer_asset_id?: string;
+  tokenizer_asset_origin?: 'builtin' | 'external';
+  tokenizer_path: string;
+  tokenizer_asset_revision?: string;
+  tokenizer_asset_fingerprint?: string;
+  backend_url: string;
+  model_aliases: string[];
+  request_timeout_seconds: number;
+  connect_timeout_seconds: number;
+  tokenization: {
+    executor: 'process';
+    multiprocessing_start_method: 'spawn';
+    max_workers: number;
+    max_active: number;
+    max_queue: number;
+    queue_timeout_seconds: number;
+    retry_after_seconds: number;
+  };
+  enabled: boolean;
+  revision: number;
+  status: 'draft' | 'disabled' | 'syncing' | 'ready' | 'degraded' | 'offline' | 'error';
+  runtime_instances: number;
+  online_instances: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TokenRouterLegacyItem extends TokenRouterItemBase {
+  config_version?: 1;
+  strategy: 'token_budget';
+  backends: {
+    short: TokenRouterBackendConfig;
+    long: TokenRouterBackendConfig;
+  };
+  routing: {
+    short_threshold_tokens: number;
+    context_reserve_tokens: number;
+    default_output_tokens: number;
+    thinking_policy: 'short' | 'long' | 'reject';
+    overflow_policy: 'reject';
+  };
+}
+
+export interface TokenRouterTypedItem extends TokenRouterItemBase {
+  config_version: 2;
+  route_profile: 'llm_chat';
+  strategy: 'typed_rules';
+  backends: TokenRouterDynamicBackendConfig[];
+  routing: {
+    evaluation_mode: 'first_match';
+    context_reserve_tokens: number;
+    default_output_tokens: number;
+    rules: TokenRouterRoutingRule[];
+    default_action: TokenRouterRoutingAction;
+  };
+}
+
+export type TokenRouterItem = TokenRouterLegacyItem | TokenRouterTypedItem;
+
+export interface TokenRouterBackendCandidate {
+  model_uid: string;
+  model_name: string;
+  model_type?: string;
+  model_engine: string;
+  model_format: string;
+  model_ability: string[];
+  context_length?: number;
+  compatibility_status: 'Verified' | 'Unsupported' | 'Unknown';
+  compatibility_reason: string;
+  eligible: boolean;
+  ineligible_reasons: string[];
+}
+
+export interface TokenRouterBackendCandidateResponse {
+  items: TokenRouterBackendCandidate[];
+  errors: string[];
+}
+
+export interface TokenRouterDefaultsResponse {
+  backend: {
+    mode: 'current_supervisor';
+    display_name: string;
+    backend_url: string | null;
+    source: 'server_config' | 'rest_endpoint' | 'unavailable';
+    available: boolean;
+    error?: string;
+  };
+}
+
+export function isTypedTokenRouter(router: TokenRouterItem): router is TokenRouterTypedItem {
+  return router.config_version === 2 || Array.isArray(router.backends);
+}
+
+export interface TokenRouterRuntimeInstance {
+  router_uid: string;
+  instance_id: string;
+  endpoint: string;
+  status?: string;
+  online: boolean;
+  acked_revision: number;
+  heartbeat_age_seconds: number;
+  last_heartbeat: number;
+  config_error?: string;
+  metrics?: Record<string, unknown>;
+  backend_health?: Record<string, unknown>;
+  process?: {
+    tokenizer_asset?: {
+      asset_id?: string;
+      origin?: 'builtin' | 'external';
+      revision?: string;
+      fingerprint?: string;
+    };
+    [key: string]: unknown;
+  };
+}
