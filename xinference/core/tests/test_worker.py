@@ -2144,6 +2144,32 @@ def test_wait_for_metrics_export_server_detects_early_thread_exit():
     metrics_thread.is_alive.assert_called_once_with()
 
 
+def test_wait_for_metrics_export_server_times_out(monkeypatch):
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.side_effect = queue.Empty
+    metrics_thread = MagicMock()
+    metrics_thread.is_alive.return_value = True
+    monotonic_values = iter((100.0, 101.0))
+    monkeypatch.setattr(
+        "xinference.core.worker.time.monotonic", lambda: next(monotonic_values)
+    )
+
+    with pytest.raises(
+        RuntimeError, match="Timed out waiting for metrics server startup"
+    ):
+        _wait_for_metrics_export_server(
+            metrics_thread, address_queue, startup_timeout=1
+        )
+
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_called_once_with()
+
+
 @pytest.mark.asyncio
 async def test_recover_model_pops_launch_ts_from_kwargs():
     """launch_ts is an internal timestamp stamped onto the launch snapshot at

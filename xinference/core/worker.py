@@ -230,14 +230,19 @@ _venv_locks_lock = threading.Lock()
 
 
 def _wait_for_metrics_export_server(
-    metrics_thread: threading.Thread, address_queue: queue.Queue
+    metrics_thread: threading.Thread,
+    address_queue: queue.Queue,
+    startup_timeout: float = 10.0,
 ) -> Tuple[str, int]:
+    deadline = time.monotonic() + startup_timeout
     while True:
         try:
             return address_queue.get(timeout=0.1)[:2]
         except queue.Empty:
             if not metrics_thread.is_alive():
                 raise RuntimeError("Metrics server thread exited before startup.")
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Timed out waiting for metrics server startup.")
 
 
 @contextmanager
