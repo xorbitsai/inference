@@ -1080,17 +1080,21 @@ class SupervisorActor(xo.StatelessActor):
         return entries
 
     async def _get_autostart_model_status(self, model_uid: str) -> Optional[str]:
-        infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
-        statuses = {info.status for info in infos}
-        for status in (
-            LaunchStatus.READY.name,
-            LaunchStatus.CREATING.name,
-            LaunchStatus.LOADING.name,
-            LaunchStatus.UPDATING.name,
-            LaunchStatus.TERMINATING.name,
-        ):
-            if status in statuses:
-                return status
+        status_guard_ref = self._status_guard_ref
+        if status_guard_ref is not None:
+            infos = await status_guard_ref.get_instance_info(model_uid=model_uid)
+            statuses = {info.status for info in infos}
+            for status in (
+                LaunchStatus.READY.name,
+                LaunchStatus.CREATING.name,
+                LaunchStatus.LOADING.name,
+                LaunchStatus.UPDATING.name,
+                LaunchStatus.TERMINATING.name,
+            ):
+                if status in statuses:
+                    return status
+        else:
+            infos = []
 
         # Backward-compatible fallback for model mappings created before status
         # tracking was available. Do not override an explicit non-active status.

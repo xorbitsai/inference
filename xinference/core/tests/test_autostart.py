@@ -35,14 +35,14 @@ class _DummySupervisor:
 class _DummyAutostartRunner:
     _autostart_one_model = SupervisorActor._autostart_one_model
 
-    def __init__(self, model_status: str | None, attempts: int):
+    def __init__(self, model_status, attempts: int):
         self._model_status = model_status
         self._autostart_model_states = {
             "uid-1": {"attempts": attempts, "last_error": "previous failure"}
         }
         self.launched: list = []
 
-    async def _get_autostart_model_status(self, model_uid: str) -> str | None:
+    async def _get_autostart_model_status(self, model_uid: str):
         return self._model_status
 
     def _autostart_waiting_for_worker(self, launch):
@@ -51,6 +51,18 @@ class _DummyAutostartRunner:
     async def _launch_autostart_model(self, launch):
         self.launched.append(launch)
         return launch["model_uid"]
+
+
+@pytest.mark.asyncio
+async def test_autostart_status_falls_back_without_status_guard():
+    class DummySupervisor:
+        _get_autostart_model_status = SupervisorActor._get_autostart_model_status
+
+        def __init__(self):
+            self._status_guard_ref = None
+            self._model_uid_to_replica_info = {"uid-1": object()}
+
+    assert await DummySupervisor()._get_autostart_model_status("uid-1") == "READY"
 
 
 @pytest.mark.asyncio
