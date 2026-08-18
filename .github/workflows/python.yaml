@@ -136,9 +136,16 @@ jobs:
                 # This also covers restful_api.py (the launch/inference
                 # endpoints), dependencies.py, and the models/videos routers.
                 xinference/core/*|xinference/api/*|xinference/client/*|xinference/deploy/*) full=true; break ;;
-                # Model families not broken out above (flexible, video, ...)
-                # and top-level files directly under xinference/model/ have
-                # no dedicated GPU test group; play it safe and run every group.
+                # video/ and flexible/ have no GPU test group at all: no
+                # group below runs a single test from either package, so a full
+                # run costs every GPU minute while covering none of the change.
+                # Their tests (video/tests/, flexible/tests/) run in the
+                # ubuntu/macos/windows CI, which is where they are covered.
+                xinference/model/video/*|xinference/model/flexible/*) ;;
+                # Remaining model families with no dedicated group, plus
+                # top-level files directly under xinference/model/ (batch.py,
+                # cache_manager.py, core.py, custom.py, utils.py) which are
+                # shared by every family; play it safe and run every group.
                 xinference/model/*) full=true; break ;;
                 # The rest of the package (deploy/, docs, examples, other
                 # top-level modules) is not exercised by any GPU test.
