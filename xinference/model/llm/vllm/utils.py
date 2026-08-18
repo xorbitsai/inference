@@ -15,35 +15,90 @@ import functools
 import ipaddress
 import logging
 import os
+from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
+# vLLM has moved the engine-dead exception between releases.  Import the
+# concrete exception where possible instead of falling back to RuntimeError
+# whenever vLLM is installed: a RuntimeError raised by request processing is
+# not, by itself, evidence that the EngineCore has died.
+_vllm_engine_dead_errors = []
 try:
     from vllm.engine.async_llm_engine import AsyncEngineDeadError
 except Exception:
     # vLLM 0.19.0+ removed AsyncEngineDeadError from this module.
-    # It is a subclass of RuntimeError, so except RuntimeError suffices.
-    # Use except Exception (not just ImportError) to handle partial/broken
-    # vllm installations where module init may raise non-ImportError errors.
-    AsyncEngineDeadError = RuntimeError  # type: ignore[assignment,misc]
+    AsyncEngineDeadError = None  # type: ignore[assignment,misc]
+else:
+    _vllm_engine_dead_errors.append(AsyncEngineDeadError)
+
+try:
+    from vllm.v1.engine.exceptions import EngineDeadError
+except Exception:
+    EngineDeadError = None  # type: ignore[assignment,misc]
+else:
+    _vllm_engine_dead_errors.append(EngineDeadError)
+
+VLLM_ENGINE_DEAD_ERRORS = tuple(_vllm_engine_dead_errors) or (RuntimeError,)
+
+_F = TypeVar("_F", bound=Callable[..., Awaitable[Any]])
 
 
-def vllm_check(fn):
+def _stop_after_engine_death(model: Any) -> None:
+    logger.exception("vLLM EngineCore is dead; terminating the model process")
+    try:
+        model.stop()
+    except Exception:
+        # Ignore errors while stopping a broken engine.
+        logger.debug(
+            "Failed to stop the vLLM model after EngineCore death", exc_info=True
+        )
+    # Let Xinference's process supervisor recover the model.  In particular,
+    # do not let the vLLM exception cross the xoscar Worker/Supervisor boundary:
+    # the Supervisor may not have vLLM installed and would replace the useful
+    # EngineDeadError with a misleading ModuleNotFoundError during unpickling.
+    os._exit(1)
+
+
+async def _guard_async_iterator(model: Any, iterator: Any) -> AsyncIterator[Any]:
+    completed = False
+    try:
+        async for item in iterator:
+            yield item
+        completed = True
+    except VLLM_ENGINE_DEAD_ERRORS:
+        _stop_after_engine_death(model)
+    finally:
+        # Closing the wrapper (for example after a client disconnects) must
+        # also close the wrapped async generator so that vLLM can release the
+        # request and run its cleanup handlers.  Avoid an unnecessary aclose
+        # call after normal exhaustion.
+        if not completed:
+            aclose = getattr(iterator, "aclose", None)
+            if aclose is not None:
+                try:
+                    await aclose()
+                except VLLM_ENGINE_DEAD_ERRORS:
+                    _stop_after_engine_death(model)
+
+
+def vllm_check(fn: _F) -> _F:
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
         try:
-            return await fn(self, *args, **kwargs)
-        except AsyncEngineDeadError:
-            logger.info("Detecting vLLM is not health, prepare to quit the process")
-            try:
-                self.stop()
-            except Exception:
-                # ignore error when stop
-                pass
-            # Just kill the process and let xinference auto-recover the model
-            os._exit(1)
+            result = await fn(self, *args, **kwargs)
+            # async_generate/async_chat return an async generator.  Exceptions
+            # from `async for` happen after the decorated coroutine has already
+            # returned, so the outer try/except cannot see them unless the
+            # iterator itself is wrapped.
+            if hasattr(result, "__aiter__") and hasattr(result, "__anext__"):
+                return _guard_async_iterator(self, result)
+            return result
+        except VLLM_ENGINE_DEAD_ERRORS:
+            _stop_after_engine_death(self)
+        return cast(Any, None)
 
-    return _async_wrapper
+    return cast(_F, _async_wrapper)
 
 
 def get_distributed_init_method(ip: str, port: int) -> str:
