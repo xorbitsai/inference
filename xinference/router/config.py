@@ -314,7 +314,7 @@ def _tokenization(value: Mapping[str, Any]) -> TokenizationConfig:
 
 def load_config(path: str | Path | None = None) -> RouterConfig:
     """Load the legacy standalone YAML format and normalize it to V2 internally."""
-    config_path = (
+    config_path: str | Path = (
         path if path is not None else os.getenv("ROUTER_CONFIG", "config.yaml")
     )
     data = _load_yaml(Path(config_path).expanduser())
@@ -460,9 +460,11 @@ def _typed_rule(value: Mapping[str, Any]) -> RoutingRule:
 
 def _resolve_tokenizer(data: Mapping[str, Any]) -> tuple[str, str, Path]:
     tokenizer_path = str(data.get("tokenizer_path") or "").strip()
+    asset_id = str(data.get("tokenizer_asset_id") or "").strip()
     if not tokenizer_path:
         raise ConfigError("tokenizer_path is required")
-    return "", "", Path(tokenizer_path).expanduser()
+    asset_origin = "registered" if asset_id else "custom_path"
+    return asset_id, asset_origin, Path(tokenizer_path).expanduser()
 
 
 def config_from_control_plane(

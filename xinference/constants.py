@@ -231,12 +231,19 @@ XINFERENCE_TOKEN_ROUTER_ENABLED = os.environ.get(
     "XINFERENCE_TOKEN_ROUTER_ENABLED", "false"
 ).lower() in {"1", "true", "yes", "on"}
 
+XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
+    "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""
+)
+
 XINFERENCE_TOKEN_ROUTER_DB_PATH = os.environ.get(
     "XINFERENCE_TOKEN_ROUTER_DB_PATH",
     os.path.join(XINFERENCE_HOME, "token_routers.db"),
 )
 XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS = float(
     os.environ.get("XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS", "90")
+)
+XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
+    "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""
 )
 
 # Whether to allow models to run their own bundled code (transformers /

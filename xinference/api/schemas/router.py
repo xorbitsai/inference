@@ -128,7 +128,8 @@ class TokenRouterConfigBase(BaseModel):
     model_type: Literal["LLM"] = "LLM"
     route_profile: Literal["llm_chat"] = "llm_chat"
     strategy: Literal["token_budget", "typed_rules"] = "token_budget"
-    tokenizer_path: str = Field(min_length=1)
+    tokenizer_asset_id: Optional[str] = Field(default=None, min_length=1)
+    tokenizer_path: Optional[str] = Field(default=None, min_length=1)
     backend_url: str = Field(min_length=1)
     model_aliases: list[str] = Field(default_factory=list)
     request_timeout_seconds: float = Field(default=10800.0, gt=0)
@@ -136,6 +137,21 @@ class TokenRouterConfigBase(BaseModel):
     backends: Union[RouterBackendsConfig, list[DynamicRouterBackendConfig]]
     routing: Union[TypedRoutingConfig, RoutingConfig]
     tokenization: TokenizationConfig = Field(default_factory=TokenizationConfig)
+
+    @validator("tokenizer_asset_id", "tokenizer_path", pre=True)
+    def normalize_tokenizer_source(cls, value: Any):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
+
+    @validator("tokenizer_path", always=True)
+    def validate_tokenizer_source(
+        cls, value: Optional[str], values: Dict[str, Any]
+    ) -> Optional[str]:
+        if not values.get("tokenizer_asset_id") and not value:
+            raise ValueError("tokenizer_asset_id or tokenizer_path must be provided")
+        return value
 
     @validator("config_version")
     def validate_config_version(cls, value: int) -> int:

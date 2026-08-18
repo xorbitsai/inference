@@ -170,6 +170,11 @@ class RouterRuntime:
             "active_requests": snapshot.active_requests,
             "pools": pools,
             "tokenization": tokenization,
+            "tokenizer_asset": {
+                "asset_id": snapshot.config.tokenizer_asset_id,
+                "revision": snapshot.config.tokenizer_asset_revision,
+                "fingerprint": snapshot.config.tokenizer_asset_fingerprint,
+            },
         }
 
     async def aclose(self) -> None:

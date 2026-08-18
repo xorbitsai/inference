@@ -159,6 +159,8 @@ def create_app(config: RouterConfig) -> FastAPI:
                 "status": "ready",
                 "revision": snapshot.config.revision,
                 "router_uid": snapshot.config.router_uid,
+                "tokenizer_asset_id": snapshot.config.tokenizer_asset_id,
+                "tokenizer_asset_revision": snapshot.config.tokenizer_asset_revision,
             }
         )
 

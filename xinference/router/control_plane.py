@@ -159,6 +159,7 @@ class RouterControlPlaneClient:
                 "active_requests": summary["active_requests"],
                 "tokenization": summary["tokenization"],
                 "pools": summary["pools"],
+                "tokenizer_asset": summary["tokenizer_asset"],
             },
         )
         return summary
