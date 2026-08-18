@@ -96,6 +96,22 @@ Note that GGUF quantization, Lightning acceleration, LoRA and controlnet are
 only available on the ``diffusers`` engine.
 
 
+Ideogram4
+-------------------
+
+:ref:`Ideogram4 <models_builtin_ideogram4>` uses the NF4 checkpoint and
+requires an NVIDIA CUDA GPU. The checkpoint is distributed under the Ideogram
+4 Non-Commercial Model Agreement, and its repositories are gated. Accept the
+license and authenticate with the selected model hub before launching.
+
+Ideogram4 accepts plain text prompts, but serialized structured JSON captions
+provide the best quality and control.
+
+To download from ModelScope for an individual launch::
+
+   xinference launch --model-name Ideogram4 --model-type image --download_hub modelscope
+
+
 Quickstart
 ===================
 
