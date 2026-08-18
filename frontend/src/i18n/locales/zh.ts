@@ -52,6 +52,7 @@ const zh = {
     text2music: '音乐生成',
     text2audio_zero_shot: '文本转语音(零样本)',
     text2audio_voice_cloning: '文本转语音(声音克隆)',
+    text2audio_voice_design: '文本转语音(声音设计)',
     text2audio_emotion_control: '文本转语音(情感控制)',
     text2video: '文生视频',
     image2video: '图生视频',

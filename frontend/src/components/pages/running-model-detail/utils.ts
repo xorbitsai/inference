@@ -6,6 +6,7 @@ import type { FileUploadValue } from '@/types/common';
 
 const SUB_CAPABILITIES = new Set<ModelAbility>([
   ModelAbility.Text2audioVoiceCloning,
+  ModelAbility.Text2audioVoiceDesign,
   ModelAbility.Text2audioZeroShot,
   ModelAbility.Text2audioEmotionControl,
 ]);

@@ -480,6 +480,18 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
 export function SpeechPanel({ form, model }: CapabilityFormProps) {
   const isMusicGeneration = model.model_ability.includes(ModelAbility.Text2music);
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
+  const supportsVoiceDesign = model.model_ability.includes(ModelAbility.Text2audioVoiceDesign);
+  const promptSpeech = useWatch('prompt_speech', form);
+  const hasPromptSpeech =
+    supportsVoiceCloning && Array.isArray(promptSpeech) && promptSpeech.length > 0;
+  const showPromptSpeech = supportsVoiceCloning;
+  const showPromptText = supportsVoiceCloning && (!supportsVoiceDesign || hasPromptSpeech);
+  const showVoiceInstruction = supportsVoiceDesign && !hasPromptSpeech;
+  const showInstruct = showVoiceInstruction || isMusicGeneration;
+  const instructLabel = isMusicGeneration ? 'Music description' : 'Voice Instruction';
+  const instructPlaceholder = isMusicGeneration
+    ? 'Describe the music to generate'
+    : 'Describe the voice to generate';
   const supportsEmotionVector =
     isIndexTTSEmotionModel(model.model_family, model.model_name) &&
     model.model_ability.includes(ModelAbility.Text2audioEmotionControl);
@@ -525,19 +537,28 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           </FormField>
         </div>
       )}
-      {supportsVoiceCloning && !isMusicGeneration && (
-        <>
-          <FormField name="prompt_speech">
-            <FileUpload
-              accept="audio/*"
-              label="Prompt speech"
-              description="Reference audio for cloning"
-            />
-          </FormField>
-          <FormField name="prompt_text" label="Prompt Text">
-            <Textarea placeholder="Text spoken in the prompt audio" />
-          </FormField>
-        </>
+      {showPromptSpeech && (
+        <FormField name="prompt_speech">
+          <FileUpload
+            accept="audio/*"
+            label="Prompt speech"
+            description="Reference audio for cloning"
+          />
+        </FormField>
+      )}
+      {showPromptText && (
+        <FormField name="prompt_text" label="Prompt Text">
+          <Textarea placeholder="Text spoken in the prompt audio" />
+        </FormField>
+      )}
+      {showInstruct && (
+        <FormField
+          name="instruct"
+          label={instructLabel}
+          rules={[{ required: isMusicGeneration || showVoiceInstruction }]}
+        >
+          <Textarea placeholder={instructPlaceholder} />
+        </FormField>
       )}
       {supportsEmotionVector && (
         <div className="space-y-3 rounded-lg bg-muted/30 p-3">
@@ -563,11 +584,6 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
             <EmotionVectorInput />
           </FormField>
         </div>
-      )}
-      {isMusicGeneration && (
-        <FormField name="instruct" label="Music description" rules={[{ required: true }]}>
-          <Textarea placeholder="Describe the music to generate" />
-        </FormField>
       )}
     </>
   );
