@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from ..utils import has_cuda_device
 from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
+from .sensenova_u1 import SenseNovaU1Model
 from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
 from .stable_diffusion.core import DiffusionModel
 from .vllm.core import VLLM_SUPPORTED_IMAGE_MODELS, VLLMDiffusionModel
@@ -32,7 +33,17 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_family != "ocr"
+        return model_family.model_family not in ("ocr", "sensenova_u1")
+
+
+class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
+    engine_model_format = "pytorch"
+    engine_quantization = "none"
+    required_libs = ("sensenova_u1",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "sensenova_u1"
 
 
 class VLLMImageModel(VLLMDiffusionModel, ImageEngineModel):
@@ -65,5 +76,6 @@ class SGLangImageModel(SGLangDiffusionModel, ImageEngineModel):
 
 def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["diffusers"] = [DiffusersImageModel]
+    SUPPORTED_ENGINES["transformers"] = [TransformersSenseNovaU1ImageModel]
     SUPPORTED_ENGINES["vLLM"] = [VLLMImageModel]
     SUPPORTED_ENGINES["SGLang"] = [SGLangImageModel]

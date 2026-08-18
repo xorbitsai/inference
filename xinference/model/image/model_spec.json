@@ -1882,5 +1882,43 @@
     },
     "featured": false,
     "updated_at": 1786072489
+  },
+  {
+    "version": 2,
+    "model_name": "SenseNova-U1.5-8B-MoT-Preview",
+    "model_description": "SenseNova-U1.5-8B-MoT-Preview is a natively unified multimodal model for text-to-image generation and single- or multi-reference image editing, with native 4K generation support.",
+    "model_family": "sensenova_u1",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "sensenova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "device_map": "auto"
+    },
+    "default_generate_config": {
+      "cfg_scale": 4.0,
+      "cfg_norm": "none",
+      "timestep_shift": 3.0,
+      "num_steps": 50
+    },
+    "virtualenv": {
+      "packages": [
+        "sensenova-u1 @ git+https://github.com/OpenSenseNova/SenseNova-U1.git@35fb2fc520869aa09223a819882abdb3dc328ecd ; #engine# == \"transformers\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1787019514
   }
 ]

@@ -322,12 +322,13 @@ def create_image_model_instance(
         lora_fuse_kwargs = None
 
     from .engine_family import (
+        IMAGE_ENGINES,
         check_engine_by_model_name_and_engine,
         check_engine_by_model_name_and_engine_with_virtual_env,
     )
 
     if model_engine is None:
-        model_engine = "diffusers"
+        model_engine = next(iter(IMAGE_ENGINES.get(model_name, {})), "diffusers")
 
     if enable_virtual_env is None:
         from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
