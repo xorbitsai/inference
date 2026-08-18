@@ -490,6 +490,15 @@ export function transformFormToFetch(values: FormValues) {
   if (nextValues.gguf_quantization === 'none') {
     delete nextValues.gguf_quantization;
   }
+  if (nextValues.lightning_version === 'none') {
+    delete nextValues.lightning_version;
+  }
+  if (
+    typeof nextValues.lightning_model_path === 'string' &&
+    nextValues.lightning_model_path.trim() === ''
+  ) {
+    delete nextValues.lightning_model_path;
+  }
 
   // Per-replica placement. `replica_placement_mode` is UI-only and never sent.
   const placementMode = nextValues.replica_placement_mode;

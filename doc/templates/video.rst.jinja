@@ -11,8 +11,14 @@
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** {{ model_id }}
+- **Model ID:** {{ model_id }}{% if lightning_model_id %}
+- **Lightning Model ID:** {{ lightning_model_id }}
+- **Lightning Versions:** {{ lightning_versions }}{% endif %}
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name {{ model_name }} --model-type video
+   xinference launch --model-name {{ model_name }} --model-type video{% if lightning_versions %}
+
+For Lightning LoRA acceleration, use::
+
+   xinference launch --model-name {{ model_name }} --model-type video --lightning_version ${{ '{' }}lightning_version{{ '}' }}{% endif %}

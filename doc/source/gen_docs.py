@@ -581,11 +581,14 @@ def main():
             # Process model_src for template compatibility
             model_src = _extract_primary_model_src(model)
             if model_src:
-                if 'huggingface' in model_src:
-                    model['model_id'] = model_src['huggingface']['model_id']
-                elif 'modelscope' in model_src:
-                    model['model_id'] = model_src['modelscope']['model_id']
+                primary_src = model_src.get('huggingface') or model_src.get('modelscope')
+                if primary_src:
+                    model['model_id'] = primary_src['model_id']
+                    if primary_src.get('lightning_model_id'):
+                        model['lightning_model_id'] = primary_src['lightning_model_id']
 
+            if model.get('lightning_versions'):
+                model['lightning_versions'] = ", ".join(model['lightning_versions'])
             model["model_ability"] = ', '.join(model.get("model_ability"))
             rendered = env.get_template('video.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")

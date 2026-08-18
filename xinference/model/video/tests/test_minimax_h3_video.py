@@ -21,7 +21,8 @@ from PIL import Image
 
 from .. import diffusers as diffusers_module
 from .. import load_model_family_from_json
-from ..core import VideoModelFamilyV2, match_diffusion
+from ..cache_manager import VideoCacheManager
+from ..core import VideoModelFamilyV2, create_video_model_instance, match_diffusion
 from ..diffusers import DiffusersVideoModel
 
 
@@ -44,6 +45,43 @@ def _model_spec():
     )
 
 
+def _lightning_model_spec():
+    return _model_spec().copy(
+        update={
+            "lightning_model_id": "lightx2v/Minimax-h3-Turbo",
+            "lightning_model_revision": "lightning-revision",
+            "lightning_versions": [
+                "4step_v0.1",
+                "8step_v1.0_bf16",
+                "4step_v1.0_768p_bf16",
+            ],
+            "lightning_model_file_name_template": (
+                "minimax_h3_fl2v_turbo_{lightning_version}.safetensors"
+            ),
+            "lightning_version_configs": {
+                "4step_v0.1": {
+                    "num_inference_steps": 4,
+                    "video_shift": 12.0,
+                    "audio_shift": 3.0,
+                    "lora_alpha": 8,
+                },
+                "8step_v1.0_bf16": {
+                    "num_inference_steps": 8,
+                    "video_shift": 12.0,
+                    "audio_shift": 3.0,
+                    "lora_alpha": 8,
+                },
+                "4step_v1.0_768p_bf16": {
+                    "num_inference_steps": 4,
+                    "video_shift": 6.0,
+                    "audio_shift": 3.0,
+                    "lora_alpha": 128,
+                },
+            },
+        }
+    )
+
+
 def test_minimax_h3_selects_modelscope_source(monkeypatch):
     import xinference.model.video as video_module
 
@@ -58,6 +96,390 @@ def test_minimax_h3_selects_modelscope_source(monkeypatch):
     assert model_spec.model_id == "MiniMax/MiniMax-H3"
     assert model_spec.model_revision == "master"
     assert model_spec.default_model_config["quantization"] == "int4"
+    assert "peft==0.20.0" in model_spec.virtualenv.packages
+    assert model_spec.lightning_model_id == "lightx2v/Minimax-h3-Turbo"
+    assert model_spec.lightning_model_revision == "master"
+    assert model_spec.lightning_version_configs["4step_v1.0_768p_bf16"] == {
+        "num_inference_steps": 4,
+        "video_shift": 6.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 128,
+    }
+
+
+def test_minimax_h3_selects_huggingface_lightning_source(monkeypatch):
+    import xinference.model.video as video_module
+
+    model_families = {}
+    load_model_family_from_json("model_spec.json", model_families)
+    monkeypatch.setattr(video_module, "BUILTIN_VIDEO_MODELS", model_families)
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "huggingface")
+
+    model_spec = match_diffusion("MiniMax-H3")
+
+    assert model_spec.model_hub == "huggingface"
+    assert model_spec.lightning_model_id == "lightx2v/Minimax-h3-Turbo"
+    assert (
+        model_spec.lightning_model_revision
+        == "5d1d4829fe614c1b93fcfd9cc7718e9ba71f73e1"
+    )
+
+
+def test_minimax_h3_downloads_lightning_from_modelscope(monkeypatch, tmp_path):
+    import xinference.model.utils as model_utils
+
+    calls = {}
+    filename = "minimax_h3_fl2v_turbo_4step_v0.1.safetensors"
+
+    def fake_model_file_download(model_id, requested_filename, revision):
+        calls["download"] = (model_id, requested_filename, revision)
+        return f"/downloaded/{requested_filename}"
+
+    fake_modelscope = types.ModuleType("modelscope")
+    fake_modelscope_hub = types.ModuleType("modelscope.hub")
+    fake_modelscope_file_download = types.ModuleType("modelscope.hub.file_download")
+    fake_modelscope_file_download.model_file_download = fake_model_file_download
+    monkeypatch.setitem(sys.modules, "modelscope", fake_modelscope)
+    monkeypatch.setitem(sys.modules, "modelscope.hub", fake_modelscope_hub)
+    monkeypatch.setitem(
+        sys.modules, "modelscope.hub.file_download", fake_modelscope_file_download
+    )
+    monkeypatch.setattr(
+        model_utils,
+        "retry_download",
+        lambda download, _model_name, _model_size, *args, **kwargs: download(
+            *args, **kwargs
+        ),
+    )
+    monkeypatch.setattr(
+        model_utils,
+        "symlink_local_file",
+        lambda source, cache_dir, target: calls.update(
+            symlink=(source, cache_dir, target)
+        ),
+    )
+
+    model_spec = _lightning_model_spec().copy(
+        update={
+            "model_hub": "modelscope",
+            "lightning_model_revision": "master",
+        }
+    )
+    cache_manager = VideoCacheManager(model_spec)
+    cache_manager._cache_dir = str(tmp_path)
+
+    result = cache_manager.cache_lightning("4step_v0.1")
+
+    assert result == str(tmp_path / filename)
+    assert calls["download"] == (
+        "lightx2v/Minimax-h3-Turbo",
+        filename,
+        "master",
+    )
+    assert calls["symlink"] == (
+        f"/downloaded/{filename}",
+        str(tmp_path),
+        filename,
+    )
+
+
+def test_video_rejects_unsupported_lightning_before_cache(monkeypatch):
+    from .. import cache_manager as cache_manager_module
+    from .. import core as core_module
+
+    cache_called = False
+
+    class FakeCacheManager:
+        def __init__(self, model_spec):
+            pass
+
+        def cache_lightning(self, lightning_version):
+            nonlocal cache_called
+            cache_called = True
+            return "/tmp/lightning.safetensors"
+
+    monkeypatch.setattr(core_module, "match_diffusion", lambda *args: _model_spec())
+    monkeypatch.setattr(cache_manager_module, "VideoCacheManager", FakeCacheManager)
+
+    with pytest.raises(ValueError, match="does not support lightning acceleration"):
+        create_video_model_instance(
+            "mock",
+            "MiniMax-H3",
+            model_path="/tmp/minimax-h3",
+            lightning_version="4step_v0.1",
+        )
+
+    assert cache_called is False
+
+
+def test_minimax_h3_applies_lightning_version_config(monkeypatch):
+    calls = {}
+
+    class FakeScheduler:
+        def __init__(self, name):
+            self.name = name
+
+        def set_shift(self, shift):
+            calls[f"{self.name}_shift"] = shift
+
+    transformer = object()
+    pipeline = types.SimpleNamespace(
+        transformer=transformer,
+        scheduler=FakeScheduler("video"),
+        audio_scheduler=FakeScheduler("audio"),
+    )
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/minimax-h3",
+        _lightning_model_spec(),
+        lightning_version="4step_v1.0_768p_bf16",
+        lightning_model_path="/tmp/minimax_h3_fl2v_turbo_4step_v1.0_768p_bf16.safetensors",
+    )
+    monkeypatch.setattr(
+        model,
+        "_load_minimax_h3_lightning_adapter",
+        lambda loaded_transformer, path, alpha: calls.update(
+            transformer=loaded_transformer, path=path, alpha=alpha
+        ),
+    )
+
+    model._apply_minimax_h3_lightning(pipeline)
+
+    assert calls == {
+        "transformer": transformer,
+        "path": "/tmp/minimax_h3_fl2v_turbo_4step_v1.0_768p_bf16.safetensors",
+        "alpha": 128,
+        "video_shift": 6.0,
+        "audio_shift": 3.0,
+    }
+    assert model._minimax_h3_lightning_steps == 4
+
+
+def test_minimax_h3_infers_lightning_version_from_path():
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/minimax-h3",
+        _lightning_model_spec(),
+        lightning_model_path="/tmp/minimax_h3_fl2v_turbo_8step_v1.0_bf16.safetensors",
+    )
+
+    assert model._resolve_minimax_h3_lightning_config() == {
+        "version": "8step_v1.0_bf16",
+        "num_inference_steps": 8,
+        "video_shift": 12.0,
+        "audio_shift": 3.0,
+        "lora_alpha": 8,
+    }
+
+
+def test_minimax_h3_rejects_lightning_version_without_path():
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/minimax-h3",
+        _lightning_model_spec(),
+        lightning_version="4step_v0.1",
+    )
+
+    with pytest.raises(ValueError, match="no lightning model path was provided"):
+        model._resolve_minimax_h3_lightning_config()
+
+
+def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):
+    import torch
+
+    prefix = "transformer_blocks.0.attn.to_q"
+    state_dict = {
+        f"{prefix}.lora_A.default.weight": torch.zeros((4, 128)),
+        f"{prefix}.lora_B.default.weight": torch.zeros((128, 4)),
+    }
+    calls = {}
+
+    class FakeLoraConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakePeftLoraLinear:
+        pass
+
+    class FakeTransformer:
+        def __init__(self):
+            self.lora_layer = FakePeftLoraLinear()
+
+        def add_adapter(self, config):
+            assert fake_peft_awq.is_gptqmodel_available() is False
+            assert fake_peft_gptq.is_gptqmodel_available() is False
+            calls["config"] = config
+
+        def named_parameters(self):
+            return state_dict.items()
+
+        def load_state_dict(self, loaded_state_dict, strict):
+            calls["loaded_state_dict"] = loaded_state_dict
+            calls["strict"] = strict
+            return types.SimpleNamespace(missing_keys=[], unexpected_keys=[])
+
+        def set_adapters(self, name, weights):
+            calls["set_adapters"] = (name, weights)
+
+        def modules(self):
+            return [self, self.lora_layer]
+
+        def requires_grad_(self, value):
+            calls["requires_grad"] = value
+
+        def eval(self):
+            calls["eval"] = True
+
+    fake_peft = types.ModuleType("peft")
+    fake_peft.LoraConfig = FakeLoraConfig
+    fake_peft_tuners = types.ModuleType("peft.tuners")
+    fake_peft_lora = types.ModuleType("peft.tuners.lora")
+    fake_peft_layer = types.ModuleType("peft.tuners.lora.layer")
+    fake_peft_layer.Linear = FakePeftLoraLinear
+    fake_peft_awq = types.ModuleType("peft.tuners.lora.awq")
+    fake_peft_gptq = types.ModuleType("peft.tuners.lora.gptq")
+
+    def incompatible_gptqmodel_probe():
+        raise ImportError("incompatible inherited GPTQModel")
+
+    fake_peft_awq.is_gptqmodel_available = incompatible_gptqmodel_probe
+    fake_peft_gptq.is_gptqmodel_available = incompatible_gptqmodel_probe
+    fake_peft_lora.awq = fake_peft_awq
+    fake_peft_lora.gptq = fake_peft_gptq
+    fake_peft_lora.layer = fake_peft_layer
+    fake_peft_tuners.lora = fake_peft_lora
+    fake_peft.tuners = fake_peft_tuners
+    fake_safetensors = types.ModuleType("safetensors")
+    fake_safetensors_torch = types.ModuleType("safetensors.torch")
+    fake_safetensors_torch.load_file = lambda path, device: state_dict.copy()
+    fake_safetensors.torch = fake_safetensors_torch
+    monkeypatch.setitem(sys.modules, "peft", fake_peft)
+    monkeypatch.setitem(sys.modules, "peft.tuners", fake_peft_tuners)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora", fake_peft_lora)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.awq", fake_peft_awq)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.gptq", fake_peft_gptq)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.layer", fake_peft_layer)
+    monkeypatch.setitem(sys.modules, "safetensors", fake_safetensors)
+    monkeypatch.setitem(sys.modules, "safetensors.torch", fake_safetensors_torch)
+
+    transformer = FakeTransformer()
+    DiffusersVideoModel._load_minimax_h3_lightning_adapter(
+        transformer, "/tmp/lightning.safetensors", alpha=8
+    )
+
+    assert calls["config"].kwargs == {
+        "r": 4,
+        "lora_alpha": 8,
+        "init_lora_weights": False,
+        "target_modules": [
+            "to_q",
+            "to_k",
+            "to_v",
+            "to_out.0",
+            "ff.net.0.proj",
+            "ff.net.2",
+        ],
+        "use_rslora": False,
+    }
+    assert calls["loaded_state_dict"] == state_dict
+    assert calls["strict"] is False
+    assert calls["set_adapters"] == ("default", 1.0)
+    assert (
+        transformer.lora_layer.forward.__func__
+        is diffusers_module._minimax_h3_memory_efficient_lora_forward
+    )
+    assert calls["requires_grad"] is False
+    assert calls["eval"] is True
+    assert fake_peft_awq.is_gptqmodel_available is incompatible_gptqmodel_probe
+    assert fake_peft_gptq.is_gptqmodel_available is incompatible_gptqmodel_probe
+
+
+def test_minimax_h3_rejects_partial_lora_target_match(monkeypatch):
+    import torch
+
+    prefix = "transformer_blocks.0.attn.add_to_q"
+    state_dict = {
+        f"{prefix}.lora_A.default.weight": torch.zeros((4, 128)),
+        f"{prefix}.lora_B.default.weight": torch.zeros((128, 4)),
+    }
+
+    fake_peft = types.ModuleType("peft")
+    fake_peft.LoraConfig = object
+    fake_peft_tuners = types.ModuleType("peft.tuners")
+    fake_peft_lora = types.ModuleType("peft.tuners.lora")
+    fake_peft_layer = types.ModuleType("peft.tuners.lora.layer")
+    fake_peft_layer.Linear = object
+    fake_safetensors = types.ModuleType("safetensors")
+    fake_safetensors_torch = types.ModuleType("safetensors.torch")
+    fake_safetensors_torch.load_file = lambda path, device: state_dict.copy()
+    fake_safetensors.torch = fake_safetensors_torch
+    monkeypatch.setitem(sys.modules, "peft", fake_peft)
+    monkeypatch.setitem(sys.modules, "peft.tuners", fake_peft_tuners)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora", fake_peft_lora)
+    monkeypatch.setitem(sys.modules, "peft.tuners.lora.layer", fake_peft_layer)
+    monkeypatch.setitem(sys.modules, "safetensors", fake_safetensors)
+    monkeypatch.setitem(sys.modules, "safetensors.torch", fake_safetensors_torch)
+
+    with pytest.raises(ValueError, match="Unsupported MiniMax-H3 LoRA target module"):
+        DiffusersVideoModel._load_minimax_h3_lightning_adapter(
+            object(), "/tmp/lightning.safetensors", alpha=8
+        )
+
+
+def test_minimax_h3_memory_efficient_lora_forward_accumulates_in_place(
+    monkeypatch,
+):
+    import torch
+
+    torch.manual_seed(0)
+
+    class FakeLoraLayer:
+        def __init__(self):
+            self.base_layer = torch.nn.Linear(4, 6, bias=False, dtype=torch.bfloat16)
+            self.lora_A = {"default": torch.nn.Linear(4, 2, bias=False)}
+            self.lora_B = {"default": torch.nn.Linear(2, 6, bias=False)}
+            self.lora_dropout = {"default": torch.nn.Identity()}
+            self.scaling = {"default": 0.5}
+            self.active_adapters = ["default"]
+            self.lora_variant = {}
+            self.disable_adapters = False
+            self.merged = False
+
+        @staticmethod
+        def _check_forward_args(*args, **kwargs):
+            pass
+
+        @staticmethod
+        def _cast_input_dtype(value, dtype):
+            return value.to(dtype)
+
+    layer = FakeLoraLayer()
+    inputs = torch.randn(2, 3, 4, dtype=torch.bfloat16)
+    with torch.inference_mode():
+        expected = layer.base_layer(inputs)
+        low_rank_states = layer.lora_A["default"](inputs.float()).to(expected.dtype)
+        expected = expected + 0.5 * torch.nn.functional.linear(
+            low_rank_states,
+            layer.lora_B["default"].weight.to(expected.dtype),
+        )
+
+    original_addmm = torch.addmm
+    calls = {}
+
+    def tracked_addmm(input_tensor, mat1, mat2, **kwargs):
+        calls["uses_base_output"] = input_tensor.data_ptr() == kwargs["out"].data_ptr()
+        calls["dtypes"] = (input_tensor.dtype, mat1.dtype, mat2.dtype)
+        return original_addmm(input_tensor, mat1, mat2, **kwargs)
+
+    monkeypatch.setattr(torch, "addmm", tracked_addmm)
+    with torch.inference_mode():
+        actual = diffusers_module._minimax_h3_memory_efficient_lora_forward(
+            layer, inputs
+        )
+
+    assert calls["uses_base_output"] is True
+    assert calls["dtypes"] == (torch.bfloat16,) * 3
+    torch.testing.assert_close(actual, expected)
 
 
 def test_minimax_h3_loads_modular_pipeline(monkeypatch):
@@ -301,8 +723,9 @@ def test_minimax_h3_forwards_workflows_and_muxes_audio(monkeypatch, tmp_path):
 
         def __call__(self, **kwargs):
             calls.append(kwargs)
-            with denoise.progress_bar(total=kwargs["num_inference_steps"]) as bar:
-                for _ in range(kwargs["num_inference_steps"]):
+            num_evaluations = kwargs["num_inference_steps"] - 1
+            with denoise.progress_bar(total=num_evaluations) as bar:
+                for _ in range(num_evaluations):
                     bar.update()
             return {
                 "videos": [[np.zeros((2, 2, 3), dtype=np.uint8)]],
@@ -352,7 +775,7 @@ def test_minimax_h3_forwards_workflows_and_muxes_audio(monkeypatch, tmp_path):
 
     assert result["data"][0]["b64_json"] is not None
     assert calls[0]["num_frames"] == 124
-    assert calls[0]["num_inference_steps"] == 3
+    assert calls[0]["num_inference_steps"] == 4
     assert calls[0]["output"] == ["videos", "audio", "sampling_rate"]
     assert "negative_prompt" not in calls[0]
     assert "guidance_scale" not in calls[0]
@@ -360,17 +783,21 @@ def test_minimax_h3_forwards_workflows_and_muxes_audio(monkeypatch, tmp_path):
     assert progressor.progress_updates[:3] == [1 / 3, 2 / 3, 1.0]
     assert "progress_bar" not in denoise.__dict__
 
+    model._minimax_h3_lightning_steps = 4
+    model.text_to_video("a running fox", response_format="url")
+    assert calls[1]["num_inference_steps"] == 5
+
     image = Image.new("RGB", (2, 2))
     model.image_to_video(image, "animate it", response_format="url")
-    assert calls[1]["image"] is image
+    assert calls[2]["image"] is image
 
     last_image = Image.new("RGB", (2, 2), color="white")
     model.firstlastframe_to_video(
         image, last_image, "transition", response_format="url"
     )
-    assert calls[2]["image"] is image
-    assert calls[2]["last_image"] is last_image
-    assert len(list(tmp_path.glob("*.mp4"))) == 2
+    assert calls[3]["image"] is image
+    assert calls[3]["last_image"] is last_image
+    assert len(list(tmp_path.glob("*.mp4"))) == 3
 
 
 def test_minimax_h3_cleans_up_partial_outputs_on_failure(monkeypatch, tmp_path):
