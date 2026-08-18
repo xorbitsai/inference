@@ -152,7 +152,8 @@ Lightning LoRA acceleration
 Lightning LoRA checkpoints distill a video model into fewer denoising steps.
 Select a supported version with ``--lightning_version`` when launching the model;
 Xinference downloads the LoRA, applies its training alpha and scheduler shifts,
-and uses the version's recommended inference-step count by default.
+and uses the version's recommended inference-step count when the request does not
+override ``num_inference_steps``.
 Lightning reduces denoising time, but does not reduce model size or peak memory;
 MiniMax-H3's default INT4 quantization and group offload remain enabled.
 
@@ -181,10 +182,34 @@ MiniMax-H3's default INT4 quantization and group offload remain enabled.
      - 6
      - 1344x768
 
-For example::
+In the Web UI, open the MiniMax-H3 launch dialog, expand **Advanced
+Configuration**, and select a value under **Lightning Versions**. Leave
+**Lightning Model Path** empty to download the selected checkpoint
+automatically. After the model starts, set **Inference Steps** on the video
+generation page to the evaluation count in the table. The generation page
+currently starts with 25 steps, which overrides the Lightning default if left
+unchanged.
+
+For example, launch the 768p four-step version from the command line::
 
     xinference launch --model-name MiniMax-H3 --model-type video \
-        --lightning_version 4step_v0.1
+        --lightning_version 4step_v1.0_768p_bf16
+
+Then generate with four inference steps. MiniMax-H3 outputs at a fixed 24 FPS;
+124 frames produce a video of about five seconds::
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    model.text_to_video(
+        prompt="A running cat",
+        width=1344,
+        height=768,
+        num_frames=124,
+        fps=24,
+        num_inference_steps=4,
+    )
 
 Xinference downloads the Lightning checkpoint from the same hub selected for
 the base model. Both Hugging Face and ModelScope are supported. To use an already
@@ -194,9 +219,11 @@ downloaded checkpoint, pass both its path and version::
         --lightning_version 4step_v0.1 \
         --lightning_model_path /path/to/minimax_h3_fl2v_turbo_4step_v0.1.safetensors
 
-``num_inference_steps`` remains a per-request override and represents actual
-transformer evaluations. MiniMax-H3's scheduler internally adds the terminal
-sigma grid point required to run that number of evaluations.
+``num_inference_steps`` represents actual transformer evaluations and remains a
+per-request override. Match it to the selected Lightning version: use 4 for a
+``4step`` checkpoint and 8 for an ``8step`` checkpoint. MiniMax-H3's scheduler
+internally adds the terminal sigma grid point required to run that number of
+evaluations.
 
 
 Memory optimization
