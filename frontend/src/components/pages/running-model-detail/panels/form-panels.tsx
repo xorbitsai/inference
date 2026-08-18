@@ -552,7 +552,11 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
         </FormField>
       )}
       {showInstruct && (
-        <FormField name="instruct" label={instructLabel}>
+        <FormField
+          name="instruct"
+          label={instructLabel}
+          rules={[{ required: isMusicGeneration || showVoiceInstruction }]}
+        >
           <Textarea placeholder={instructPlaceholder} />
         </FormField>
       )}
