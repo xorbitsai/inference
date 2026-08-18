@@ -387,6 +387,35 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
 
 
 @pytest.mark.asyncio
+async def test_distributed_launch_normalizes_string_n_worker():
+    launched = []
+    worker1 = DummyWorkerRef("w1:1000", model_count=1, launched=launched)
+    worker2 = DummyWorkerRef("w2:1000", model_count=0, launched=launched)
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    await supervisor.launch_builtin_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=1,
+        n_worker="2",
+        worker_ip=["w1:1000", "w2:1000"],
+        wait_ready=True,
+    )
+
+    assert set(launched) == {"w1:1000", "w2:1000"}
+    assert {
+        call["n_worker"]
+        for worker in (worker1, worker2)
+        for call in worker.launch_kwargs
+    } == {2}
+
+
+@pytest.mark.asyncio
 async def test_download_hub_resolved_from_selected_workers_before_fanout(monkeypatch):
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "huggingface")
     launched = []

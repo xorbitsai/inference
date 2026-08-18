@@ -50,6 +50,21 @@ def truncate_log_arg(arg) -> str:
     return s
 
 
+def normalize_n_worker(value: Any) -> int:
+    """Normalize the distributed worker count from RPC/JSON launch arguments."""
+    if value is None:
+        return 1
+    if isinstance(value, (bool, float)):
+        raise ValueError("n_worker must be a positive integer.")
+    try:
+        n_worker = int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("n_worker must be a positive integer.") from None
+    if n_worker < 1:
+        raise ValueError("n_worker must be a positive integer.")
+    return n_worker
+
+
 def log_async(
     logger,
     level=logging.DEBUG,

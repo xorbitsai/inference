@@ -72,6 +72,7 @@ from .utils import (
     iter_replica_model_uid,
     log_async,
     log_sync,
+    normalize_n_worker,
     parse_model_version,
     parse_replica_model_uid,
 )
@@ -2373,6 +2374,7 @@ class SupervisorActor(xo.StatelessActor):
         envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> str:
+        n_worker = normalize_n_worker(n_worker)
         if (model_type or "").lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 
@@ -2966,6 +2968,7 @@ class SupervisorActor(xo.StatelessActor):
         envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
+        n_worker = normalize_n_worker(n_worker)
         available_workers = []
         # search workers if registered
         tasks = []
