@@ -26,6 +26,7 @@ wheels, sdists, and editable installs:
   file is kept as-is.
 """
 
+import json
 import os
 import re
 import subprocess
@@ -37,6 +38,38 @@ from build_web import build_web
 
 _repo_root = os.path.dirname(os.path.abspath(__file__))
 _FULL_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def _validate_builtin_model_specs(root=None):
+    """Reject malformed built-in model metadata before packaging it."""
+    root = root or _repo_root
+    relative_path = os.path.join(
+        "xinference", "model", "llm", "llm_family.json"
+    )
+    path = os.path.join(root, relative_path)
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            families = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Cannot validate {relative_path}: {exc}") from exc
+
+    if not isinstance(families, list):
+        raise RuntimeError(f"{relative_path} must contain a list of model families")
+
+    invalid_families = []
+    for index, family in enumerate(families):
+        if not isinstance(family, dict):
+            invalid_families.append(f"entry {index}")
+        elif not isinstance(family.get("model_specs"), list):
+            invalid_families.append(family.get("model_name") or f"entry {index}")
+
+    if invalid_families:
+        names = ", ".join(repr(name) for name in invalid_families)
+        raise RuntimeError(
+            f"Invalid LLM families {names} in {relative_path}: "
+            "each entry must define 'model_specs' as a list"
+        )
 
 
 def _git_head_revision(root):
@@ -95,6 +128,7 @@ def _record_full_revision(root=None):
 
 
 def _pre_build():
+    _validate_builtin_model_specs()
     _record_full_revision()
     build_web()
 
