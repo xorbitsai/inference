@@ -211,7 +211,9 @@ export function Sidebar() {
             name: t('menu.tokenRouter'),
             Icon: Route,
             Extra: ChevronRight,
-            show: !clusterUIConfig?.auth_advanced || canAccessRouterPage,
+            show:
+              clusterUIConfig?.token_router_enabled !== false &&
+              (!clusterUIConfig?.auth_advanced || canAccessRouterPage),
           },
           {
             path: '/register-model',

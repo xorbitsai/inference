@@ -34,6 +34,17 @@ export function PermissionGuard({ scope, children }: PermissionGuardProps) {
     );
   }
 
+  const isRouterScope = scope.startsWith('routers:');
+  if (isRouterScope && clusterUIConfig?.token_router_enabled === false) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-muted-foreground">
+        <ShieldAlert className="h-16 w-16" />
+        <h2 className="text-xl font-semibold">{t('tokenRouter.featureDisabled')}</h2>
+        <p className="text-sm">{t('tokenRouter.featureDisabledDescription')}</p>
+      </div>
+    );
+  }
+
   // When auth_advanced is disabled, all pages are accessible
   if (!clusterUIConfig?.auth_advanced) {
     return <>{children}</>;
