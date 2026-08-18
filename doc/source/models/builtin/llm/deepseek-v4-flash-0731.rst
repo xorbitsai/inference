@@ -84,7 +84,7 @@ it:
      }
    }
 
-The following parameters are an upstream example for a specific 4xGB300
+The following parameters are an upstream example for a specific 4xGB200
 configuration and are **not** Xinference defaults:
 
 .. code-block:: bash
