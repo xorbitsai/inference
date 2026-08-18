@@ -13,14 +13,10 @@ Specifications
 ^^^^^^^^^^^^^^
 
 - **Model ID:** HiDream-ai/HiDream-O1-Image-Dev-2604
-- **Sources:** Hugging Face (``main``), ModelScope (``master``)
-- **Inference steps:** 28
-- **Required hardware:** NVIDIA CUDA GPU
-- **PyTorch:** 2.10 or newer
 
-Launch the model with::
+Execute the following command to launch the model::
 
    xinference launch --model-name HiDream-O1-Image-Dev-2604 --model-type image
 
-This checkpoint is specialized for text-to-image generation and uses the
-official Dev-2604 float32 loading and sampling defaults.
+
+
