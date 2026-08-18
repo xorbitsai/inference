@@ -1,5 +1,3 @@
-import json
-
 import pytest
 
 from ..deepseek_v4_tool_parser import DeepseekV42ToolParser
@@ -89,12 +87,13 @@ def test_extract_tool_calls_returns_plain_text_unchanged():
     assert parser.extract_tool_calls(text) == [(text, None, None)]
 
 
-def test_extract_tool_calls_rejects_malformed_non_string_json():
+def test_extract_tool_calls_handles_malformed_non_string_json():
     parser = DeepseekV42ToolParser()
     model_output = _tool_calls([("broken", [("payload", False, '{"missing": }')])])
 
-    with pytest.raises(json.JSONDecodeError):
-        parser.extract_tool_calls(model_output)
+    assert parser.extract_tool_calls(model_output) == [
+        (None, "broken", {"payload": '{"missing": }'})
+    ]
 
 
 def test_extract_tool_calls_streaming_waits_then_returns_typed_parameters():

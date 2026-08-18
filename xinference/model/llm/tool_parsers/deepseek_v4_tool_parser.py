@@ -84,9 +84,12 @@ class DeepseekV42ToolParser(ToolParser):
         for param_name, is_string, param_val in self.parameter_complete_regex.findall(
             invoke_str
         ):
-            param_dict[param_name] = (
-                param_val if is_string == "true" else json.loads(param_val)
-            )
+            try:
+                param_dict[param_name] = (
+                    param_val if is_string == "true" else json.loads(param_val)
+                )
+            except json.JSONDecodeError:
+                param_dict[param_name] = param_val
         return param_dict
 
     def _detect_format(self, text: str) -> bool:
