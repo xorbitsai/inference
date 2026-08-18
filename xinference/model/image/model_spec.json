@@ -1915,7 +1915,14 @@
     },
     "virtualenv": {
       "packages": [
-        "sensenova-u1 @ git+https://github.com/OpenSenseNova/SenseNova-U1.git@35fb2fc520869aa09223a819882abdb3dc328ecd ; #engine# == \"transformers\""
+        "transformers>=4.57.1,<6 ; #engine# == \"transformers\"",
+        "accelerate>=1.1,<2 ; #engine# == \"transformers\"",
+        "huggingface-hub>=0.34,<2 ; #engine# == \"transformers\"",
+        "safetensors>=0.4.3,<1 ; #engine# == \"transformers\"",
+        "sentencepiece==0.2.1 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\""
       ]
     },
     "featured": true,

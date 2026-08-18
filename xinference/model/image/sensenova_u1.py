@@ -14,7 +14,9 @@
 
 import contextlib
 import logging
+import os
 import re
+import sys
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import PIL.Image
@@ -77,6 +79,12 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
         return self._abilities
 
     def load(self) -> None:
+        thirdparty_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../thirdparty")
+        )
+        if thirdparty_dir not in sys.path:
+            sys.path.insert(0, thirdparty_dir)
+
         import sensenova_u1
         import torch
         from sensenova_u1.utils import (

@@ -39,7 +39,7 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
 class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
     engine_model_format = "pytorch"
     engine_quantization = "none"
-    required_libs = ("sensenova_u1",)
+    required_libs = ("torch", "transformers")
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
