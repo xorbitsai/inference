@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -50,8 +51,8 @@ def config(revision: int, *, enabled: bool = True):
 def snapshot(cfg, *, fail_start: bool = False) -> RuntimeSnapshot:
     return RuntimeSnapshot(
         config=cfg,
-        tokenization=FakeTokenization(fail_start=fail_start),
-        policy=SimpleNamespace(),
+        tokenization=cast(Any, FakeTokenization(fail_start=fail_start)),
+        policy=cast(Any, SimpleNamespace()),
         gates={},
         client=FakeClient(),
     )
@@ -77,7 +78,7 @@ async def test_apply_drains_old_snapshot_after_inflight_request(monkeypatch) -> 
     assert runtime.current is snapshots[2]
     assert held.draining is True
     assert held.closed is False
-    assert snapshots[2].tokenization.started is True
+    assert cast(FakeTokenization, snapshots[2].tokenization).started is True
 
     await runtime.release(held)
 
@@ -129,5 +130,3 @@ async def test_failed_apply_keeps_previous_snapshot(monkeypatch) -> None:
     assert first_snapshot.closed is False
     assert failed_snapshot.closed is True
     await runtime.aclose()
-
-

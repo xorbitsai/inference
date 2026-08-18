@@ -133,6 +133,8 @@ class RoutingPolicy:
         long_max_model_len: int | None = None,
         thinking_pool: str | None = None,
     ) -> None:
+        backend_values: tuple[BackendConfig, ...]
+        rule_values: tuple[RoutingRule, ...]
         if backends is None:
             if None in (
                 short_threshold_tokens,
@@ -143,9 +145,13 @@ class RoutingPolicy:
                 raise TypeError(
                     "backends/rules or all legacy routing arguments are required"
                 )
+            assert short_threshold_tokens is not None
+            assert short_max_model_len is not None
+            assert long_max_model_len is not None
+            assert thinking_pool is not None
             backend_values = (
-                BackendConfig("short", "short", int(short_max_model_len), 1, 0, 0, 1),
-                BackendConfig("long", "long", int(long_max_model_len), 1, 0, 0, 1),
+                BackendConfig("short", "short", short_max_model_len, 1, 0, 0, 1),
+                BackendConfig("long", "long", long_max_model_len, 1, 0, 0, 1),
             )
             thinking_action = (
                 RouteAction(type="reject", reason="thinking_not_allowed")
@@ -159,13 +165,13 @@ class RoutingPolicy:
                 RoutingRule(
                     "short-threshold",
                     50,
-                    RuleMatch(total_tokens_lte=int(short_threshold_tokens)),
+                    RuleMatch(total_tokens_lte=short_threshold_tokens),
                     RouteAction(type="route", backend_id="short"),
                 ),
                 RoutingRule(
                     "long-threshold",
                     40,
-                    RuleMatch(total_tokens_gte=int(short_threshold_tokens) + 1),
+                    RuleMatch(total_tokens_gte=short_threshold_tokens + 1),
                     RouteAction(type="route", backend_id="long"),
                 ),
             )

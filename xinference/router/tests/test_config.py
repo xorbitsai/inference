@@ -9,7 +9,8 @@ def test_loads_config_with_environment_secret(tmp_path: Path, monkeypatch) -> No
     assets = tmp_path / "assets"
     assets.mkdir()
     config = tmp_path / "config.yaml"
-    config.write_text(f"""
+    config.write_text(
+        f"""
 backend:
   url: http://127.0.0.1:9997
 model:
@@ -29,7 +30,8 @@ pools:
   long:
     model_uid: long-model
     max_active: 1
-""")
+"""
+    )
     monkeypatch.setenv("XINFERENCE_API_KEY", "secret")
     loaded = load_config(config)
     assert loaded.logical_model == "router-model"

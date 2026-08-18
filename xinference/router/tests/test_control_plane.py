@@ -136,7 +136,7 @@ async def test_register_404_preserves_http_error() -> None:
 @pytest.mark.asyncio
 async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> None:
     client = make_client()
-    runtime = FakeRuntime()
+    runtime: Any = FakeRuntime()
     stop = asyncio.Event()
     config = SimpleNamespace(revision=2)
     acked: list[tuple[int, str]] = []
@@ -199,7 +199,7 @@ async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> Non
 @pytest.mark.asyncio
 async def test_run_reports_apply_error_without_advancing_revision(monkeypatch) -> None:
     client = make_client()
-    runtime = FakeRuntime(apply_error=RuntimeError("worker start failed"))
+    runtime: Any = FakeRuntime(apply_error=RuntimeError("worker start failed"))
     stop = asyncio.Event()
     acked: list[tuple[int, str]] = []
 
@@ -236,7 +236,7 @@ async def test_run_reports_apply_error_without_advancing_revision(monkeypatch) -
 @pytest.mark.asyncio
 async def test_run_ignores_already_acked_revision(monkeypatch) -> None:
     client = make_client(revision=2)
-    runtime = FakeRuntime()
+    runtime: Any = FakeRuntime()
     stop = asyncio.Event()
     acked: list[tuple[int, str]] = []
 
@@ -272,7 +272,7 @@ async def test_run_ignores_already_acked_revision(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_run_reregisters_after_heartbeat_404(monkeypatch) -> None:
     client = make_client(revision=2)
-    runtime = FakeRuntime(revision=2)
+    runtime: Any = FakeRuntime(revision=2)
     stop = asyncio.Event()
     registered_revisions: list[int] = []
     heartbeat_attempts: list[dict[str, Any]] = []
@@ -309,7 +309,7 @@ async def test_run_reregisters_after_heartbeat_404(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_run_reregisters_and_reacks_after_ack_404(monkeypatch) -> None:
     client = make_client(revision=1)
-    runtime = FakeRuntime(revision=1)
+    runtime: Any = FakeRuntime(revision=1)
     stop = asyncio.Event()
     config = SimpleNamespace(revision=2)
     get_config_calls = 0
@@ -361,7 +361,9 @@ async def test_run_reregisters_and_reacks_after_ack_404(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_run_reregisters_old_revision_after_error_ack_404(monkeypatch) -> None:
     client = make_client(revision=1)
-    runtime = FakeRuntime(apply_error=RuntimeError("worker start failed"), revision=1)
+    runtime: Any = FakeRuntime(
+        apply_error=RuntimeError("worker start failed"), revision=1
+    )
     stop = asyncio.Event()
     registered_revisions: list[int] = []
     acked: list[tuple[int, str]] = []
@@ -410,7 +412,7 @@ async def test_run_reregisters_old_revision_after_error_ack_404(monkeypatch) -> 
 @pytest.mark.asyncio
 async def test_run_retries_failed_reregistration(monkeypatch) -> None:
     client = make_client(revision=2)
-    runtime = FakeRuntime(revision=2)
+    runtime: Any = FakeRuntime(revision=2)
     stop = asyncio.Event()
     register_attempts = 0
     heartbeat_attempts = 0
@@ -448,7 +450,7 @@ async def test_run_retries_failed_reregistration(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_run_stops_before_polling(monkeypatch) -> None:
     client = make_client()
-    runtime = FakeRuntime()
+    runtime: Any = FakeRuntime()
     stop = asyncio.Event()
     stop.set()
 

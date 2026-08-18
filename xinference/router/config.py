@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$")
 
@@ -314,9 +314,10 @@ def _tokenization(value: Mapping[str, Any]) -> TokenizationConfig:
 
 def load_config(path: str | Path | None = None) -> RouterConfig:
     """Load the legacy standalone YAML format and normalize it to V2 internally."""
-    data = _load_yaml(
-        Path(path or os.getenv("ROUTER_CONFIG", "config.yaml")).expanduser()
+    config_path = (
+        path if path is not None else os.getenv("ROUTER_CONFIG", "config.yaml")
     )
+    data = _load_yaml(Path(config_path).expanduser())
     listen, limits, auth = (
         data.get("listen", {}),
         data.get("limits", {}),
@@ -482,6 +483,7 @@ def config_from_control_plane(
     asset_id, asset_origin, tokenizer_path = _resolve_tokenizer(data)
     legacy_threshold: int | None = None
     legacy_thinking = ""
+    backends: tuple[BackendConfig, ...]
     if version == 1:
         try:
             threshold = int(routing["short_threshold_tokens"])
