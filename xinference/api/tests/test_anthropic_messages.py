@@ -14,8 +14,12 @@ def make_rest_api():
     api._advanced_auth_service = None
     api._uid_to_model_name = {}
 
+    class FakeSupervisor:
+        async def resolve_token_router_runtime(self, model_uid):
+            return None
+
     async def get_supervisor_ref(_self):
-        return object()
+        return FakeSupervisor()
 
     api._get_supervisor_ref = MethodType(get_supervisor_ref, api)
     return api
