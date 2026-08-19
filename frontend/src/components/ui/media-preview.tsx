@@ -13,6 +13,7 @@ export interface MediaPreviewProps {
   url?: string;
   title?: string;
   className?: string;
+  thumbnailClassName?: string;
 }
 
 function normalizeType(type?: MediaPreviewType) {
@@ -23,7 +24,13 @@ function normalizeType(type?: MediaPreviewType) {
   return 'document';
 }
 
-export function MediaPreview({ type, url, title, className }: MediaPreviewProps) {
+export function MediaPreview({
+  type,
+  url,
+  title,
+  className,
+  thumbnailClassName,
+}: MediaPreviewProps) {
   const [open, setOpen] = useState(false);
   const mediaType = normalizeType(type);
 
@@ -91,9 +98,18 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
         </span>
         {mediaType === 'image' ? (
           // eslint-disable-next-line @next/next/no-img-element -- Runtime media URLs can be data URLs returned by the model.
-          <img src={url} alt={title || label} className="h-full w-full object-cover" />
+          <img
+            src={url}
+            alt={title || label}
+            className={cn('h-full w-full object-cover', thumbnailClassName)}
+          />
         ) : (
-          <video src={url} muted playsInline className="h-full w-full bg-black object-cover" />
+          <video
+            src={url}
+            muted
+            playsInline
+            className={cn('h-full w-full bg-black object-cover', thumbnailClassName)}
+          />
         )}
         {mediaType === 'image' && (
           <a
@@ -109,7 +125,7 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[calc(100vh-4rem)] max-w-[calc(100vw-4rem)] p-4">
+        <DialogContent className="w-fit max-h-[calc(100vh-4rem)] max-w-[calc(100vw-4rem)] p-4 sm:max-w-[calc(100vw-4rem)]">
           <DialogHeader>
             <DialogTitle>{title || label}</DialogTitle>
           </DialogHeader>
