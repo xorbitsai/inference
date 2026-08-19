@@ -710,17 +710,25 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
     refs = [first_supervisor, second_supervisor]
     monkeypatch.setattr("xinference.core.worker.time.time", lambda: 1710000000)
 
-    async def fake_get_supervisor_ref(self, add_worker=True):
+    async def fake_get_supervisor_ref_with_generation(self, add_worker=True):
         if self._supervisor_ref is None:
-            self._supervisor_ref = refs.pop(0)
+            with self._supervisor_ref_lock:
+                self._supervisor_ref = refs.pop(0)
+                self._supervisor_ref_generation += 1
+        supervisor_ref = self._supervisor_ref
+        generation = self._supervisor_ref_generation
         if add_worker:
-            await self._supervisor_ref.add_worker(
+            await supervisor_ref.add_worker(
                 self.address,
                 replica_states=self._get_running_replica_states(),
             )
-        return self._supervisor_ref
+        return supervisor_ref, generation
 
-    monkeypatch.setattr(WorkerActor, "get_supervisor_ref", fake_get_supervisor_ref)
+    monkeypatch.setattr(
+        WorkerActor,
+        "_get_supervisor_ref_with_generation",
+        fake_get_supervisor_ref_with_generation,
+    )
     monkeypatch.setattr(
         "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
     )
