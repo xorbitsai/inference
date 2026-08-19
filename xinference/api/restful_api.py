@@ -2637,8 +2637,7 @@ class RESTfulAPI(CancelMixin):
     @classmethod
     def _is_qwen38_description(cls, desc: dict) -> bool:
         return (
-            desc.get("model_name") == "qwen3.8"
-            or desc.get("model_family") == "qwen3.8"
+            desc.get("model_name") == "qwen3.8" or desc.get("model_family") == "qwen3.8"
         )
 
     @classmethod

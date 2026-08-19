@@ -1314,7 +1314,9 @@ async def _create_chat_completion_with_mock_model(monkeypatch, payload, desc):
 
 
 @pytest.mark.asyncio
-async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(monkeypatch):
+async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(
+    monkeypatch,
+):
     model, response = await _create_chat_completion_with_mock_model(
         monkeypatch,
         {"model": "test", "messages": [{"role": "user", "content": "hi"}]},
@@ -1413,9 +1415,7 @@ async def test_qwen38_invalid_top_level_reasoning_effort_raises_400(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("effort", ["banana", None])
-async def test_qwen38_invalid_template_reasoning_effort_raises_400(
-    monkeypatch, effort
-):
+async def test_qwen38_invalid_template_reasoning_effort_raises_400(monkeypatch, effort):
     payload = {
         "model": "test",
         "messages": [{"role": "user", "content": "hi"}],
