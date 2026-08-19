@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
 
 from xinference.router.agent import service as agent_service
+from xinference.router.agent.control_plane import RouterAgentControlPlaneClient
 from xinference.router.agent.process_manager import (
     ManagedRuntimeProcess,
     RouterRuntimeProcessManager,
@@ -41,11 +44,20 @@ class _FailingControlPlane(_ControlPlane):
 class _FakeProcess:
     _next_pid = 5000
 
-    def __init__(self, *, returncode: int | None = None, ignore_terminate=False):
+    def __init__(
+        self,
+        *,
+        returncode: int | None = None,
+        ignore_terminate: bool = False,
+        terminate_error: OSError | None = None,
+        kill_error: OSError | None = None,
+    ):
         type(self)._next_pid += 1
         self.pid = type(self)._next_pid
         self.returncode = returncode
         self.ignore_terminate = ignore_terminate
+        self.terminate_error = terminate_error
+        self.kill_error = kill_error
         self.terminate_calls = 0
         self.kill_calls = 0
         self._done = asyncio.Event()
@@ -58,6 +70,10 @@ class _FakeProcess:
 
     def terminate(self):
         self.terminate_calls += 1
+        if self.terminate_error is not None:
+            self.returncode = 0
+            self._done.set()
+            raise self.terminate_error
         if not self.ignore_terminate:
             self.returncode = 0
             self._done.set()
@@ -66,6 +82,8 @@ class _FakeProcess:
         self.kill_calls += 1
         self.returncode = -9
         self._done.set()
+        if self.kill_error is not None:
+            raise self.kill_error
 
 
 def _manager(tmp_path, control=None, **kwargs):
@@ -93,6 +111,38 @@ def _assignment(generation=1):
         "public_endpoint": "http://127.0.0.1:12080",
         "desired_state": "running",
     }
+
+
+@pytest.mark.asyncio
+async def test_assignment_status_omits_unset_observed_metadata() -> None:
+    payloads: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"ok": True})
+
+    client = RouterAgentControlPlaneClient("http://supervisor:9997", "internal-secret")
+    await client.aclose()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        await client.report_assignment_status(
+            "router-a-0",
+            node_id="node-a",
+            assignment_generation=1,
+            observed_state="draining",
+        )
+        await client.report_assignment_status(
+            "router-a-0",
+            node_id="node-a",
+            assignment_generation=1,
+            observed_state="draining",
+            observed={},
+        )
+    finally:
+        await client.aclose()
+
+    assert "observed" not in payloads[0]
+    assert payloads[1]["observed"] == {}
 
 
 def test_agent_config_reads_node_scope_environment(monkeypatch, tmp_path):
@@ -325,6 +375,46 @@ async def test_shutdown_kills_runtime_after_graceful_timeout(monkeypatch, tmp_pa
 
     assert process.terminate_calls == 1
     assert process.kill_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_tolerates_process_exiting_before_terminate(
+    monkeypatch, tmp_path
+):
+    manager = _manager(tmp_path)
+    monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
+    process = _FakeProcess(terminate_error=ProcessLookupError())
+
+    async def create_subprocess_exec(*args, **kwargs):
+        return process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
+    await manager.reconcile([_assignment()])
+    managed = manager._processes["router-a-0"]
+    await manager.shutdown()
+
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 0
+    assert managed.process is None
+
+
+@pytest.mark.asyncio
+async def test_shutdown_tolerates_process_exiting_before_kill(monkeypatch, tmp_path):
+    manager = _manager(tmp_path, drain_timeout_seconds=0.01)
+    monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
+    process = _FakeProcess(ignore_terminate=True, kill_error=ProcessLookupError())
+
+    async def create_subprocess_exec(*args, **kwargs):
+        return process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
+    await manager.reconcile([_assignment()])
+    managed = manager._processes["router-a-0"]
+    await manager.shutdown()
+
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 1
+    assert managed.process is None
 
 
 @pytest.mark.asyncio

@@ -101,6 +101,47 @@ def test_managed_router_schedules_and_fences_runtime(tmp_path):
         )
 
 
+def test_assignment_status_preserves_observed_metadata_when_omitted(tmp_path):
+    store = _config_store(tmp_path)
+    controller = RouterOrchestrationController(str(tmp_path / "routers.db"), store)
+    controller.register_node(_node("node-a", "127.0.0.1", 12080))
+    controller.update_deployment("router-a", {"management_mode": "managed"})
+    store.set_enabled("router-a", True)
+    controller.router_enabled("router-a", True)
+    assignment = controller.list_assignments(router_uid="router-a")[0]
+    instance = {
+        "assignment_id": assignment["assignment_id"],
+        "assignment_generation": assignment["assignment_generation"],
+        "instance_id": "instance-a",
+    }
+
+    controller.runtime_heartbeat(
+        instance, {"status": "ready", "process": {"pid": 5001}}
+    )
+    controller.runtime_acked(instance)
+    preserved = controller.report_assignment_status(
+        assignment["assignment_id"],
+        {
+            "node_id": "node-a",
+            "assignment_generation": assignment["assignment_generation"],
+            "observed_state": "draining",
+        },
+    )
+
+    assert preserved["observed"] == {"runtime_status": "ready"}
+
+    cleared = controller.report_assignment_status(
+        assignment["assignment_id"],
+        {
+            "node_id": "node-a",
+            "assignment_generation": assignment["assignment_generation"],
+            "observed_state": "draining",
+            "observed": {},
+        },
+    )
+    assert cleared["observed"] == {}
+
+
 def test_replicas_spread_and_config_revision_does_not_bump_generation(tmp_path):
     store = _config_store(tmp_path)
     controller = RouterOrchestrationController(str(tmp_path / "routers.db"), store)

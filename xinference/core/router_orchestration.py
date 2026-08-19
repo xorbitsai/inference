@@ -403,7 +403,7 @@ class RouterOrchestrationController:
             pid=data.get("pid"),
             instance_id=data.get("instance_id"),
             last_error=str(data.get("last_error") or ""),
-            observed=data.get("observed", {}),
+            observed=data.get("observed"),
         )
         if state == "port_conflict":
             return self.scheduler.reassign_port(assignment_id)

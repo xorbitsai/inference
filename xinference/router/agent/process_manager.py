@@ -471,13 +471,19 @@ class RouterRuntimeProcessManager:
                     listen_port=managed.assignment["listen_port"],
                 ),
             )
-            process.terminate()
+            try:
+                process.terminate()
+            except OSError:
+                pass
             try:
                 await asyncio.wait_for(
                     process.wait(), timeout=self.drain_timeout_seconds
                 )
             except asyncio.TimeoutError:
-                process.kill()
+                try:
+                    process.kill()
+                except OSError:
+                    pass
                 await process.wait()
         if managed.monitor_task is not None and not managed.monitor_task.done():
             managed.monitor_task.cancel()

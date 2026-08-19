@@ -203,7 +203,10 @@ class RouterAssignmentStore:
                     pid,
                     instance_id,
                     last_error,
-                    json.dumps(observed or {}, ensure_ascii=False),
+                    json.dumps(
+                        current["observed"] if observed is None else observed,
+                        ensure_ascii=False,
+                    ),
                     now,
                     now,
                     assignment_id,

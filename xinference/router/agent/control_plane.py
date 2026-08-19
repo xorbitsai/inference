@@ -140,8 +140,9 @@ class RouterAgentControlPlaneClient:
             "assignment_generation": assignment_generation,
             "observed_state": observed_state,
             "last_error": last_error,
-            "observed": observed or {},
         }
+        if observed is not None:
+            payload["observed"] = observed
         if pid is not None:
             payload["pid"] = pid
         if instance_id:
