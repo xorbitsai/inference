@@ -229,6 +229,22 @@ _venv_locks: Dict[str, threading.Lock] = {}
 _venv_locks_lock = threading.Lock()
 
 
+def _wait_for_metrics_export_server(
+    metrics_thread: threading.Thread,
+    address_queue: queue.Queue,
+    startup_timeout: float = 10.0,
+) -> Tuple[str, int]:
+    deadline = time.monotonic() + startup_timeout
+    while True:
+        try:
+            return address_queue.get(timeout=0.1)[:2]
+        except queue.Empty:
+            if not metrics_thread.is_alive():
+                raise RuntimeError("Metrics server thread exited before startup.")
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Timed out waiting for metrics server startup.")
+
+
 @contextmanager
 def _exclusive_venv_path_lock(env_path: str):
     """
@@ -745,17 +761,10 @@ class WorkerActor(xo.StatelessActor):
             )
             self._metrics_thread.start()
             logger.info("Checking metrics export server...")
-            while self._metrics_thread.is_alive():
-                try:
-                    host, port = q.get(block=False)[:2]
-                    logger.info(
-                        f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
-                    )
-                    break
-                except queue.Empty:
-                    pass
-            else:
-                raise Exception("Metrics server thread exit.")
+            host, port = _wait_for_metrics_export_server(self._metrics_thread, q)
+            logger.info(
+                f"Metrics server is started at: http://{host}:{port}"  # noqa: E231
+            )
 
         # Initialize virtual environment manager
         self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)

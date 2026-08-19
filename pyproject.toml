@@ -178,7 +178,7 @@ mlx = [
     "tomli",
 ]
 embedding = [
-    "sentence-transformers>=3.1.0",
+    "sentence-transformers>=3.1.0,<6",
     "FlagEmbedding",
     "datasets>=3.4.0",  # see GH#3934
 ]

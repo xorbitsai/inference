@@ -2106,6 +2106,70 @@ async def test_mark_replica_dead_last_replica_terminates_rank0():
     assert ("model-x", 0) in supervisor._unexpected_down_replicas
 
 
+def test_wait_for_metrics_export_server_uses_blocking_queue_read():
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.return_value = ("127.0.0.1", 12345, "ignored")
+    metrics_thread = MagicMock()
+
+    assert _wait_for_metrics_export_server(metrics_thread, address_queue) == (
+        "127.0.0.1",
+        12345,
+    )
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_not_called()
+
+
+def test_wait_for_metrics_export_server_detects_early_thread_exit():
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.side_effect = queue.Empty
+    metrics_thread = MagicMock()
+    metrics_thread.is_alive.return_value = False
+
+    with pytest.raises(
+        RuntimeError, match="Metrics server thread exited before startup"
+    ):
+        _wait_for_metrics_export_server(metrics_thread, address_queue)
+
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_called_once_with()
+
+
+def test_wait_for_metrics_export_server_times_out(monkeypatch):
+    import queue
+    from unittest.mock import MagicMock
+
+    from ..worker import _wait_for_metrics_export_server
+
+    address_queue = MagicMock(spec=queue.Queue)
+    address_queue.get.side_effect = queue.Empty
+    metrics_thread = MagicMock()
+    metrics_thread.is_alive.return_value = True
+    monotonic_values = iter((100.0, 101.0))
+    monkeypatch.setattr(
+        "xinference.core.worker.time.monotonic", lambda: next(monotonic_values)
+    )
+
+    with pytest.raises(
+        RuntimeError, match="Timed out waiting for metrics server startup"
+    ):
+        _wait_for_metrics_export_server(
+            metrics_thread, address_queue, startup_timeout=1
+        )
+
+    address_queue.get.assert_called_once_with(timeout=0.1)
+    metrics_thread.is_alive.assert_called_once_with()
+
+
 @pytest.mark.asyncio
 async def test_recover_model_pops_launch_ts_from_kwargs():
     """launch_ts is an internal timestamp stamped onto the launch snapshot at
