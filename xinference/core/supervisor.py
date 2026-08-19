@@ -271,6 +271,7 @@ class SupervisorActor(xo.StatelessActor):
 
         self._token_router_store = RouterConfigStore(XINFERENCE_TOKEN_ROUTER_DB_PATH)
         self._tokenizer_asset_registry = TokenizerAssetRegistry()
+        self._tokenizer_asset_registry_lock = asyncio.Lock()
         self._token_router_registry = RouterRuntimeRegistry(
             XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS
         )
@@ -4879,7 +4880,28 @@ class SupervisorActor(xo.StatelessActor):
             registry = self._tokenizer_asset_registry = TokenizerAssetRegistry()
         return registry
 
-    def _normalize_token_router_tokenizer(
+    def _get_tokenizer_asset_registry_lock(self) -> asyncio.Lock:
+        lock = getattr(self, "_tokenizer_asset_registry_lock", None)
+        if lock is None:
+            lock = self._tokenizer_asset_registry_lock = asyncio.Lock()
+        return lock
+
+    def _call_tokenizer_asset_registry(
+        self, method_name: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        registry = self._get_tokenizer_asset_registry()
+        registry.reload()
+        return getattr(registry, method_name)(*args, **kwargs)
+
+    async def _call_tokenizer_asset_registry_async(
+        self, method_name: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        async with self._get_tokenizer_asset_registry_lock():
+            return await asyncio.to_thread(
+                self._call_tokenizer_asset_registry, method_name, *args, **kwargs
+            )
+
+    def _normalize_token_router_tokenizer_sync(
         self,
         config: Dict[str, Any],
         current: Optional[Dict[str, Any]] = None,
@@ -4934,20 +4956,26 @@ class SupervisorActor(xo.StatelessActor):
         payload.pop("tokenizer_asset_fingerprint", None)
         return payload
 
+    async def _normalize_token_router_tokenizer(
+        self,
+        config: Dict[str, Any],
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        async with self._get_tokenizer_asset_registry_lock():
+            return await asyncio.to_thread(
+                self._normalize_token_router_tokenizer_sync, config, current
+            )
+
     async def list_tokenizer_assets(self) -> Dict[str, Any]:
-        registry = self._get_tokenizer_asset_registry()
-        registry.reload()
-        return registry.list_assets()
+        return await self._call_tokenizer_asset_registry_async("list_assets")
 
     async def get_tokenizer_asset(self, asset_id: str) -> Dict[str, Any]:
-        registry = self._get_tokenizer_asset_registry()
-        registry.reload()
-        return registry.get_asset(asset_id)
+        return await self._call_tokenizer_asset_registry_async("get_asset", asset_id)
 
     async def validate_tokenizer_asset(self, asset_id: str) -> Dict[str, Any]:
-        registry = self._get_tokenizer_asset_registry()
-        registry.reload()
-        return registry.validate_asset(asset_id)
+        return await self._call_tokenizer_asset_registry_async(
+            "validate_asset", asset_id
+        )
 
     def _validate_token_router_uniqueness(
         self, router_uid: str, config: Dict[str, Any]
@@ -4965,7 +4993,7 @@ class SupervisorActor(xo.StatelessActor):
     async def create_token_router(
         self, router_uid: str, config: Dict[str, Any], username: str = ""
     ) -> Dict[str, Any]:
-        payload = self._normalize_token_router_tokenizer(config)
+        payload = await self._normalize_token_router_tokenizer(config)
         self._validate_token_router_uniqueness(router_uid, payload)
         return self._with_token_router_status(
             self._token_router_store.create(router_uid, payload, username)
@@ -4977,7 +5005,7 @@ class SupervisorActor(xo.StatelessActor):
         current = self._token_router_store.get(router_uid)
         if current is None:
             raise KeyError(router_uid)
-        payload = self._normalize_token_router_tokenizer(config, current)
+        payload = await self._normalize_token_router_tokenizer(config, current)
         self._validate_token_router_uniqueness(router_uid, payload)
         expected_revision = payload.pop("revision", None)
         return self._with_token_router_status(
@@ -5101,11 +5129,11 @@ class SupervisorActor(xo.StatelessActor):
         warnings: List[str] = []
         asset_validation: Dict[str, Any]
         asset_id = str(config.get("tokenizer_asset_id") or "").strip()
-        registry = self._get_tokenizer_asset_registry()
-        registry.reload()
         try:
             if asset_id:
-                asset_validation = registry.validate_asset(asset_id)
+                asset_validation = await self._call_tokenizer_asset_registry_async(
+                    "validate_asset", asset_id
+                )
                 configured_revision = str(config.get("tokenizer_asset_revision") or "")
                 configured_fingerprint = str(
                     config.get("tokenizer_asset_fingerprint") or ""
@@ -5125,8 +5153,10 @@ class SupervisorActor(xo.StatelessActor):
                         "configuration"
                     )
             else:
-                asset_validation = registry.validate_path(
-                    str(config.get("tokenizer_path") or ""), smoke_test=True
+                asset_validation = await self._call_tokenizer_asset_registry_async(
+                    "validate_path",
+                    str(config.get("tokenizer_path") or ""),
+                    smoke_test=True,
                 )
         except KeyError:
             asset_validation = {

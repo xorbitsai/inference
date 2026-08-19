@@ -1,3 +1,6 @@
+import asyncio
+import threading
+import time
 from copy import deepcopy
 from types import MethodType
 
@@ -248,6 +251,138 @@ async def test_management_crud_revision_and_validation(tmp_path) -> None:
         assert disabled.json()["enabled"] is False
         assert (await client.delete("/v1/token_routers/router-a")).status_code == 200
         assert (await client.get("/v1/token_routers/router-a")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_tokenizer_asset_registry_operations_run_off_event_loop(tmp_path) -> None:
+    event_loop_thread = threading.current_thread()
+    calls = []
+
+    class TokenizerAssetRegistry:
+        allow_custom_path = False
+
+        @staticmethod
+        def _record(name: str) -> None:
+            calls.append((name, threading.current_thread()))
+
+        def reload(self) -> None:
+            self._record("reload")
+
+        def resolve(self, asset_id: str, tokenizer_path=None) -> dict:
+            self._record("resolve")
+            assert asset_id == "test-asset"
+            assert tokenizer_path is None
+            return {
+                "tokenizer_asset_id": asset_id,
+                "tokenizer_path": "/models/tokenizer",
+                "tokenizer_asset_revision": "1",
+                "tokenizer_asset_fingerprint": "sha256:test",
+            }
+
+        def validate_asset(self, asset_id: str) -> dict:
+            self._record("validate_asset")
+            assert asset_id == "test-asset"
+            return {
+                "valid": True,
+                "errors": [],
+                "revision": "1",
+                "fingerprint": "sha256:test",
+            }
+
+        def validate_path(self, tokenizer_path: str, *, smoke_test: bool) -> dict:
+            self._record("validate_path")
+            assert tokenizer_path == "/models/tokenizer"
+            assert smoke_test is True
+            return {"valid": True, "errors": []}
+
+    supervisor = make_supervisor(tmp_path)
+    supervisor._tokenizer_asset_registry = TokenizerAssetRegistry()
+    payload = router_payload()
+    payload.pop("tokenizer_path")
+    payload["tokenizer_asset_id"] = "test-asset"
+
+    await supervisor.validate_tokenizer_asset("test-asset")
+    created = await supervisor.create_token_router("router-a", payload)
+    update_payload = deepcopy(payload)
+    update_payload["revision"] = created["revision"]
+    await supervisor.update_token_router("router-a", update_payload)
+    assert await supervisor.validate_token_router("router-a") is not None
+
+    custom_path_payload = router_payload()
+    custom_path_payload["virtual_model_uid"] = "virtual-model-path"
+    supervisor._token_router_store.create("router-path", custom_path_payload)
+    assert await supervisor.validate_token_router("router-path") is not None
+
+    assert [name for name, _ in calls].count("resolve") == 2
+    assert [name for name, _ in calls].count("validate_asset") == 2
+    assert [name for name, _ in calls].count("validate_path") == 1
+    assert all(thread is not event_loop_thread for _, thread in calls)
+
+
+@pytest.mark.asyncio
+async def test_tokenizer_asset_registry_operations_are_serialized(tmp_path) -> None:
+    state_lock = threading.Lock()
+    active = 0
+    max_active = 0
+
+    class TokenizerAssetRegistry:
+        def reload(self) -> None:
+            pass
+
+        def validate_asset(self, asset_id: str) -> dict:
+            nonlocal active, max_active
+            with state_lock:
+                active += 1
+                max_active = max(max_active, active)
+            time.sleep(0.05)
+            with state_lock:
+                active -= 1
+            return {"asset_id": asset_id, "valid": True, "errors": []}
+
+    supervisor = make_supervisor(tmp_path)
+    supervisor._tokenizer_asset_registry = TokenizerAssetRegistry()
+
+    await asyncio.gather(
+        supervisor.validate_tokenizer_asset("asset-a"),
+        supervisor.validate_tokenizer_asset("asset-b"),
+    )
+
+    assert max_active == 1
+
+
+@pytest.mark.asyncio
+async def test_tokenizer_asset_validation_keeps_event_loop_responsive(
+    tmp_path,
+) -> None:
+    started = threading.Event()
+    release = threading.Event()
+
+    class TokenizerAssetRegistry:
+        def reload(self) -> None:
+            pass
+
+        def validate_asset(self, asset_id: str) -> dict:
+            assert asset_id == "test-asset"
+            started.set()
+            release.wait(timeout=1)
+            return {"valid": True, "errors": []}
+
+    supervisor = make_supervisor(tmp_path)
+    supervisor._tokenizer_asset_registry = TokenizerAssetRegistry()
+    safety_timer = threading.Timer(0.5, release.set)
+    safety_timer.start()
+    loop = asyncio.get_running_loop()
+    started_at = loop.time()
+    task = asyncio.create_task(supervisor.validate_tokenizer_asset("test-asset"))
+    try:
+        await asyncio.sleep(0.02)
+        elapsed = loop.time() - started_at
+        assert started.is_set()
+        assert elapsed < 0.25
+    finally:
+        release.set()
+        safety_timer.cancel()
+        await task
 
 
 @pytest.mark.asyncio
