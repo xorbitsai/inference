@@ -251,6 +251,43 @@ async def test_management_crud_revision_and_validation(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("process", [None, {"tokenizer_asset": None}])
+async def test_validation_tolerates_missing_process_tokenizer_metadata(
+    tmp_path, process
+) -> None:
+    class TokenizerAssetRegistry:
+        def reload(self) -> None:
+            pass
+
+        def validate_asset(self, asset_id: str) -> dict:
+            assert asset_id == "test-asset"
+            return {"valid": True, "errors": []}
+
+    supervisor = make_supervisor(tmp_path)
+    supervisor._tokenizer_asset_registry = TokenizerAssetRegistry()
+    payload = router_payload()
+    payload["tokenizer_asset_id"] = "test-asset"
+    supervisor._token_router_store.create("router-a", payload)
+    supervisor._token_router_registry.register(
+        "router-a",
+        "instance-a",
+        {"endpoint": "http://router.internal", "acked_revision": 1},
+    )
+    supervisor._token_router_registry.heartbeat(
+        "instance-a", {"status": "ready", "process": process}
+    )
+
+    result = await supervisor.validate_token_router("router-a")
+
+    assert result is not None
+    assert result["valid"] is False
+    assert any(
+        "loaded Tokenizer asset <unknown>, expected test-asset" in error
+        for error in result["errors"]
+    )
+
+
+@pytest.mark.asyncio
 async def test_validation_checks_running_backend_type_and_context(tmp_path) -> None:
     supervisor = make_supervisor(tmp_path)
 

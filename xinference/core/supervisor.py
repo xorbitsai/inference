@@ -5226,7 +5226,8 @@ class SupervisorActor(xo.StatelessActor):
                     continue
                 if int(instance.get("acked_revision", 0)) < int(config["revision"]):
                     continue
-                loaded = instance.get("process", {}).get("tokenizer_asset", {})
+                process_info = instance.get("process") or {}
+                loaded = process_info.get("tokenizer_asset") or {}
                 loaded_id = str(loaded.get("asset_id") or "")
                 loaded_revision = str(loaded.get("revision") or "")
                 loaded_fingerprint = str(loaded.get("fingerprint") or "")
