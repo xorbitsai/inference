@@ -120,8 +120,10 @@ from .virtual_env_manager import (
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
     is_cuda_compatible,
+    merge_virtual_env_find_links,
     pin_sentence_transformers_numpy_abi,
     resolve_virtualenv_python_path,
+    validate_virtual_env_find_links,
 )
 
 try:
@@ -3052,6 +3054,7 @@ class WorkerActor(xo.StatelessActor):
         model_name: Optional[str] = None,
         architectures: Optional[List[str]] = None,
         model_format: Optional[str] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
     ):
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
@@ -3094,6 +3097,14 @@ class WorkerActor(xo.StatelessActor):
             for k, v in pip_config.items():
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
+
+        if virtual_env_find_links is not None:
+            requested_find_links = validate_virtual_env_find_links(
+                virtual_env_find_links
+            )
+            settings.find_links = merge_virtual_env_find_links(
+                settings.find_links, requested_find_links
+            )
 
         # An extra index present at this point was configured explicitly — by
         # the model spec or inherited pip config (e.g. an offline/private
@@ -3485,6 +3496,7 @@ class WorkerActor(xo.StatelessActor):
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -3813,6 +3825,7 @@ class WorkerActor(xo.StatelessActor):
                                 model_format=self._resolve_virtualenv_model_format(
                                     model, model_format
                                 ),
+                                virtual_env_find_links=virtual_env_find_links,
                             )
                             launch_info.virtual_env_manager = virtual_env_manager
 

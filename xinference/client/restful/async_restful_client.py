@@ -1345,6 +1345,10 @@ class AsyncClient:
         replica_config: Optional[List[Dict]] = None,
         model_path: Optional[str] = None,
         enable_thinking: Optional[bool] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -1396,6 +1400,14 @@ class AsyncClient:
         enable_thinking: Optional[bool]
             Enable or disable thinking mode for hybrid reasoning LLMs (e.g., Qwen3). None uses
             the model default.
+        enable_virtual_env: Optional[bool]
+            If enable virtual env.
+        virtual_env_packages: Optional[List[str]]
+            Packages to specify in virtual env, can be used to override builtin packages in virtual env.
+        virtual_env_find_links: Optional[List[str]]
+            Worker-local wheel directories to use when installing virtual env packages.
+        envs: Optional[Dict[str, str]]
+            Environment variables to pass when launching model.
         **kwargs:
             Any other parameters been specified. e.g. multimodal_projector for multimodal inference with the llama.cpp backend.
 
@@ -1430,6 +1442,10 @@ class AsyncClient:
             "replica_config": replica_config,
             "model_path": model_path,
             "enable_thinking": enable_thinking,
+            "enable_virtual_env": enable_virtual_env,
+            "virtual_env_packages": virtual_env_packages,
+            "virtual_env_find_links": virtual_env_find_links,
+            "envs": envs,
         }
 
         wait_ready = kwargs.pop("wait_ready", True)

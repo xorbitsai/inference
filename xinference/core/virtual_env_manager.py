@@ -17,9 +17,13 @@ import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
+from ..constants import (
+    XINFERENCE_VIRTUAL_ENV_DIR,
+    XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1121,6 +1125,84 @@ def build_uv_source_options(
     if index_strategy:
         options += ["--index-strategy", index_strategy]
     return options
+
+
+def validate_virtual_env_find_links(
+    find_links: Optional[List[str]],
+    allowed_roots: Optional[tuple[str, ...]] = None,
+) -> List[str]:
+    """Validate request-level local wheel directories on the worker."""
+    if find_links is None:
+        return []
+    if not isinstance(find_links, list):
+        raise ValueError("virtual_env_find_links must be a list of local paths")
+
+    roots = (
+        XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS
+        if allowed_roots is None
+        else tuple(os.path.realpath(root) for root in allowed_roots)
+    )
+    if not roots:
+        raise ValueError(
+            "Request-level virtualenv find-links are disabled on this worker"
+        )
+
+    result: List[str] = []
+    seen = set()
+    for raw_path in find_links:
+        if not isinstance(raw_path, str):
+            raise ValueError("virtual_env_find_links entries must be strings")
+        path = raw_path.strip()
+        if not path:
+            continue
+        if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", path):
+            raise ValueError(
+                "virtual_env_find_links only accepts absolute local directories"
+            )
+        if not os.path.isabs(path):
+            raise ValueError(f"virtual_env_find_links path must be absolute: {path!r}")
+        try:
+            canonical_path = str(Path(path).resolve(strict=True))
+        except (OSError, RuntimeError) as exc:
+            raise ValueError(
+                f"virtual_env_find_links path does not exist: {path!r}"
+            ) from exc
+        if not os.path.isdir(canonical_path):
+            raise ValueError(
+                f"virtual_env_find_links path is not a directory: {path!r}"
+            )
+        if not os.access(canonical_path, os.R_OK | os.X_OK):
+            raise ValueError(f"virtual_env_find_links path is not readable: {path!r}")
+
+        contained = False
+        for root in roots:
+            try:
+                contained = os.path.normcase(
+                    os.path.commonpath([canonical_path, root])
+                ) == os.path.normcase(root)
+            except ValueError:
+                contained = False
+            if contained:
+                break
+        if not contained:
+            raise ValueError(
+                f"virtual_env_find_links path is outside the configured allowed roots: {path!r}"
+            )
+
+        key = os.path.normcase(canonical_path)
+        if key not in seen:
+            seen.add(key)
+            result.append(canonical_path)
+    return result
+
+
+def merge_virtual_env_find_links(
+    configured: Optional[Union[str, List[str]]], requested: List[str]
+) -> Optional[List[str]]:
+    values = _as_uv_option_values(configured) + requested
+    if not values:
+        return None
+    return list(dict.fromkeys(values))
 
 
 def _has_configured_package_source(conf: Dict[str, Any]) -> bool:

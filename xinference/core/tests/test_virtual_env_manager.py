@@ -41,7 +41,9 @@ from ..virtual_env_manager import (
     ensure_flashinfer_cubin_matches_post_install,
     ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
+    merge_virtual_env_find_links,
     needs_flashinfer_aot,
+    validate_virtual_env_find_links,
 )
 
 
@@ -498,6 +500,103 @@ class TestBuildUvSourceOptions:
 
         assert result.returncode == 0, result.stderr
         assert fallback_requests == []
+
+
+class TestValidateVirtualEnvFindLinks:
+    def test_accepts_canonical_paths_and_deduplicates(self, tmp_path):
+        allowed = tmp_path / "allowed"
+        wheels = allowed / "wheels"
+        wheels.mkdir(parents=True)
+
+        result = validate_virtual_env_find_links(
+            [str(wheels), f"  {wheels}  ", ""],
+            allowed_roots=(str(allowed),),
+        )
+
+        assert result == [str(wheels.resolve())]
+
+    @pytest.mark.parametrize(
+        "value, message",
+        [
+            ("relative/wheels", "must be absolute"),
+            ("https://example.com/wheels", "absolute local directories"),
+            ("file:///srv/wheels", "absolute local directories"),
+        ],
+    )
+    def test_rejects_non_local_absolute_paths(self, tmp_path, value, message):
+        with pytest.raises(ValueError, match=message):
+            validate_virtual_env_find_links([value], allowed_roots=(str(tmp_path),))
+
+    def test_rejects_non_list_and_non_string_entries(self, tmp_path):
+        with pytest.raises(ValueError, match="must be a list"):
+            validate_virtual_env_find_links(  # type: ignore[arg-type]
+                str(tmp_path), allowed_roots=(str(tmp_path),)
+            )
+        with pytest.raises(ValueError, match="entries must be strings"):
+            validate_virtual_env_find_links(  # type: ignore[list-item]
+                [123], allowed_roots=(str(tmp_path),)
+            )
+
+    def test_rejects_missing_files_and_regular_files(self, tmp_path):
+        with pytest.raises(ValueError, match="does not exist"):
+            validate_virtual_env_find_links(
+                [str(tmp_path / "missing")], allowed_roots=(str(tmp_path),)
+            )
+
+        wheel = tmp_path / "package.whl"
+        wheel.write_text("not a wheel")
+        with pytest.raises(ValueError, match="not a directory"):
+            validate_virtual_env_find_links(
+                [str(wheel)], allowed_roots=(str(tmp_path),)
+            )
+
+    def test_rejects_path_outside_allowed_roots(self, tmp_path):
+        allowed = tmp_path / "allowed"
+        outside = tmp_path / "allowed-suffix"
+        allowed.mkdir()
+        outside.mkdir()
+
+        with pytest.raises(ValueError, match="outside the configured allowed roots"):
+            validate_virtual_env_find_links(
+                [str(outside)], allowed_roots=(str(allowed),)
+            )
+
+    def test_rejects_symlink_escape(self, tmp_path):
+        allowed = tmp_path / "allowed"
+        outside = tmp_path / "outside"
+        allowed.mkdir()
+        outside.mkdir()
+        link = allowed / "wheels"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            pytest.skip("directory symlinks are not available")
+
+        with pytest.raises(ValueError, match="outside the configured allowed roots"):
+            validate_virtual_env_find_links([str(link)], allowed_roots=(str(allowed),))
+
+    def test_rejects_unreadable_directory(self, tmp_path):
+        with mock.patch(
+            "xinference.core.virtual_env_manager.os.access", return_value=False
+        ):
+            with pytest.raises(ValueError, match="not readable"):
+                validate_virtual_env_find_links(
+                    [str(tmp_path)], allowed_roots=(str(tmp_path),)
+                )
+
+    def test_empty_allowed_roots_disables_feature(self, tmp_path):
+        with pytest.raises(ValueError, match="disabled on this worker"):
+            validate_virtual_env_find_links([str(tmp_path)], allowed_roots=())
+
+    def test_merge_preserves_configured_sources(self):
+        assert merge_virtual_env_find_links(
+            ["https://packages.example/wheels", "/srv/wheels"],
+            ["/srv/wheels", "/opt/wheels"],
+        ) == [
+            "https://packages.example/wheels",
+            "/srv/wheels",
+            "/opt/wheels",
+        ]
 
 
 class TestEnsureFlashinferCubinMatchesPostInstall:

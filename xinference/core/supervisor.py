@@ -1194,6 +1194,7 @@ class SupervisorActor(xo.StatelessActor):
             model_path=payload.pop("model_path", None),
             enable_virtual_env=payload.pop("enable_virtual_env", None),
             virtual_env_packages=payload.pop("virtual_env_packages", None),
+            virtual_env_find_links=payload.pop("virtual_env_find_links", None),
             envs=payload.pop("envs", None),
             **payload,
         )
@@ -2612,6 +2613,7 @@ class SupervisorActor(xo.StatelessActor):
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         n_worker = normalize_n_worker(n_worker)
@@ -2664,6 +2666,7 @@ class SupervisorActor(xo.StatelessActor):
                 model_path=model_path,
                 enable_virtual_env=enable_virtual_env,
                 virtual_env_packages=virtual_env_packages,
+                virtual_env_find_links=virtual_env_find_links,
                 envs=envs,
                 **kwargs,
             )
@@ -2861,6 +2864,7 @@ class SupervisorActor(xo.StatelessActor):
                     model_path=model_path,
                     enable_virtual_env=enable_virtual_env,
                     virtual_env_packages=virtual_env_packages,
+                    virtual_env_find_links=virtual_env_find_links,
                     envs=envs,
                     xavier_config=xavier_config,
                     **kwargs,
@@ -3206,6 +3210,7 @@ class SupervisorActor(xo.StatelessActor):
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ):
         n_worker = normalize_n_worker(n_worker)
@@ -3312,6 +3317,7 @@ class SupervisorActor(xo.StatelessActor):
                             model_path=model_path,
                             enable_virtual_env=enable_virtual_env,
                             virtual_env_packages=virtual_env_packages,
+                            virtual_env_find_links=virtual_env_find_links,
                             envs=envs,
                             shard=i_worker,
                             n_worker=n_worker,
