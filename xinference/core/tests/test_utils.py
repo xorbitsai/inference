@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pytest
+
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
@@ -19,6 +21,7 @@ from ..utils import (
     is_valid_model_uid,
     iter_replica_model_uid,
     merge_virtual_env_packages,
+    normalize_n_worker,
     normalize_sglang_kernel_packages,
     parse_legacy_replica_model_uid,
     parse_replica_model_uid,
@@ -30,6 +33,17 @@ from ..virtual_env_manager import (
     get_xllamacpp_cuda_index_url,
     pin_sentence_transformers_numpy_abi,
 )
+
+
+@pytest.mark.parametrize(("value", "expected"), [(None, 1), (1, 1), ("2", 2)])
+def test_normalize_n_worker(value, expected):
+    assert normalize_n_worker(value) == expected
+
+
+@pytest.mark.parametrize("value", [True, 1.5, "2.0", "invalid", 0, "0", -1])
+def test_normalize_n_worker_rejects_non_positive_or_non_integral_values(value):
+    with pytest.raises(ValueError, match="n_worker must be a positive integer"):
+        normalize_n_worker(value)
 
 
 def test_replica_model_uid():

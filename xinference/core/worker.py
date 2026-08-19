@@ -102,6 +102,7 @@ from .utils import (
     log_async,
     log_sync,
     merge_virtual_env_packages,
+    normalize_n_worker,
     normalize_sglang_kernel_packages,
     parse_legacy_replica_model_uid,
     parse_replica_model_uid,
@@ -3476,6 +3477,7 @@ class WorkerActor(xo.StatelessActor):
         envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
+        n_worker = normalize_n_worker(n_worker)
         # !!! Note that The following code must be placed at the very beginning of this function,
         # or there will be problems with auto-recovery.
         # Because `locals()` will collect all the local parameters of this function and pass to this function again.
