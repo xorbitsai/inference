@@ -114,6 +114,26 @@ def generate_image_description(
     return res
 
 
+def resolve_image_model_engine(
+    model_name: str, model_engine: Optional[str] = None
+) -> Optional[str]:
+    from .engine_family import IMAGE_ENGINES
+
+    available_engines = IMAGE_ENGINES.get(model_name)
+    if not available_engines:
+        return model_engine
+    if model_engine is None:
+        return next(iter(available_engines))
+    return next(
+        (
+            engine
+            for engine in available_engines
+            if engine.lower() == model_engine.lower()
+        ),
+        model_engine,
+    )
+
+
 def match_diffusion(
     model_name: str,
     download_hub: Optional[
@@ -326,8 +346,7 @@ def create_image_model_instance(
         check_engine_by_model_name_and_engine_with_virtual_env,
     )
 
-    if model_engine is None:
-        model_engine = "diffusers"
+    model_engine = resolve_image_model_engine(model_name, model_engine) or "diffusers"
 
     if enable_virtual_env is None:
         from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
