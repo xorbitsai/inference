@@ -74,12 +74,7 @@ from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
-from ..types import (
-    CreateChatCompletion,
-    CreateMessage,
-    PeftModelConfig,
-    max_tokens_field,
-)
+from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
 from .frontend_static import mount_frontend
 from .pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
@@ -89,6 +84,13 @@ from .pdf_ocr import (
     merge_ocr_page_results,
     rasterize_pdf,
     validate_pdf_for_parse,
+)
+from .protocols import (
+    AnthropicProtocolError,
+    anthropic_error_response,
+    anthropic_stream_events,
+    openai_to_anthropic,
+    parse_anthropic_request,
 )
 from .responses import JSONResponse
 from .schemas import (
@@ -178,6 +180,9 @@ def _normalize_token_router_chat_payload(
     if max_completion_tokens is not None:
         normalized["max_tokens"] = max_completion_tokens
     return normalized
+
+
+_SUPPORTED_ANTHROPIC_VERSIONS = {"2023-06-01"}
 
 
 _AUDIO_RESPONSE_MEDIA_TYPES = {
@@ -1460,6 +1465,89 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    async def _iter_openai_sse_bytes(
+        byte_stream: AsyncIterator[bytes],
+    ) -> AsyncIterator[Dict[str, Any]]:
+        buffer = b""
+        async for chunk in byte_stream:
+            buffer += chunk
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                line = line.strip()
+                if not line or not line.startswith(b"data:"):
+                    continue
+                payload = line[5:].strip()
+                if not payload or payload == b"[DONE]":
+                    continue
+                try:
+                    value = json.loads(payload)
+                except json.JSONDecodeError:
+                    logger.warning("Ignoring malformed OpenAI SSE payload")
+                    continue
+                if isinstance(value, dict):
+                    yield value
+        line = buffer.strip()
+        if line.startswith(b"data:"):
+            payload = line[5:].strip()
+            if payload and payload != b"[DONE]":
+                try:
+                    value = json.loads(payload)
+                except json.JSONDecodeError:
+                    return
+                if isinstance(value, dict):
+                    yield value
+
+    @classmethod
+    async def _iter_model_openai_chunks(
+        cls, iterator: Any
+    ) -> AsyncIterator[Dict[str, Any]]:
+        async def _items() -> AsyncIterator[Any]:
+            if hasattr(iterator, "__aiter__"):
+                async for item in iterator:
+                    yield item
+            elif isinstance(iterator, (str, bytes, dict)):
+                yield iterator
+            else:
+                for item in iterator:
+                    yield item
+
+        async for item in _items():
+            if isinstance(item, dict) and "data" not in item:
+                yield item
+                continue
+            payload = item.get("data") if isinstance(item, dict) else item
+            if isinstance(payload, bytes):
+                payload_bytes = payload
+                payload_text = payload.decode("utf-8", errors="replace")
+            elif isinstance(payload, str):
+                payload_text = payload
+                payload_bytes = payload.encode("utf-8")
+            else:
+                continue
+
+            if any(
+                line.lstrip().startswith("data:") for line in payload_text.splitlines()
+            ):
+
+                async def _single_payload() -> AsyncIterator[bytes]:
+                    yield payload_bytes
+
+                async for value in cls._iter_openai_sse_bytes(_single_payload()):
+                    yield value
+                continue
+
+            payload_text = payload_text.strip()
+            if not payload_text or payload_text == "[DONE]":
+                continue
+            try:
+                value = json.loads(payload_text)
+            except json.JSONDecodeError:
+                yield {"choices": [{"delta": {"content": payload_text}}]}
+                continue
+            if isinstance(value, dict):
+                yield value
+
     async def _get_model_last_error(self, replica_model_uid: bytes, e: Exception):
         if not isinstance(e, xo.ServerClosed):
             return e
@@ -1605,131 +1693,134 @@ class RESTfulAPI(CancelMixin):
             normalized.insert(0, {"role": "system", "content": "\n".join(system_parts)})
         return normalized
 
-    async def create_message(self, request: Request) -> Response:
-        raw_body = await request.json()
-        body = CreateMessage.parse_obj(raw_body)
+    @staticmethod
+    def _anthropic_error_type(status_code: int) -> str:
+        return {
+            400: "invalid_request_error",
+            401: "authentication_error",
+            403: "permission_error",
+            404: "not_found_error",
+            413: "request_too_large",
+            429: "rate_limit_error",
+            504: "timeout_error",
+            529: "overloaded_error",
+        }.get(status_code, "api_error")
 
-        exclude = {
-            "model",
-            "messages",
-            "stream",
-            "stop_sequences",
-            "metadata",
-            "tool_choice",
-            "tools",
-        }
-        raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
-        kwargs = body.dict(exclude_unset=True, exclude=exclude)
-
-        # guided_decoding params
-        kwargs.update(self.extract_guided_params(raw_body=raw_body))
-
-        # TODO: Decide if this default value override is necessary #1061
-        if body.max_tokens is None:
-            kwargs["max_tokens"] = max_tokens_field.default
-
-        messages = body.messages and list(body.messages)
-
-        # Fold the top-level `system` prompt and any inline `role: system`
-        # messages into a leading OpenAI-style system message, then drop the
-        # consumed `system` field so it is not forwarded as a stray generation
-        # parameter (which the chat backend discards anyway).
-        messages = self._normalize_anthropic_messages(raw_body.get("system"), messages)
-        raw_kwargs.pop("system", None)
-
-        if not messages or messages[-1].get("role") not in ["user", "assistant"]:
-            raise HTTPException(
-                status_code=400, detail="Invalid input. Please specify the prompt."
-            )
-
-        # Handle tools parameter
-        if hasattr(body, "tools") and body.tools:
-            kwargs["tools"] = list(body.tools)
-
-        # Handle tool_choice parameter
-        if hasattr(body, "tool_choice") and body.tool_choice:
-            kwargs["tool_choice"] = body.tool_choice
-
-        # Get model mapping
-        try:
-            running_models = await (await self._get_supervisor_ref()).list_models()
-        except Exception as e:
-            logger.error(f"Failed to get model mapping: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail="Failed to get model mapping")
-
-        if not running_models:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No running models available. Please start a model in xinference first.",
-            )
-
-        requested_model_id = body.model
-        if "claude" in requested_model_id:
-            requested_model_id = list(running_models.keys())[0]
-
-        if requested_model_id not in running_models:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Model '{requested_model_id}' is not available. Available models: {list(running_models.keys())}",
-            )
-        else:
-            model_uid = requested_model_id
-
-        self._set_trace_model(model_uid)
-        self._set_trace_model_type("llm")
-        self._check_model_access(request, model_uid, "LLM")
-
-        model = await require_model(
-            self._get_supervisor_ref, model_uid, self._report_error_event
+    @classmethod
+    def _anthropic_error(
+        cls,
+        status_code: int,
+        message: str,
+        request_id: str,
+        *,
+        error_type: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> JSONResponse:
+        response_headers = {"request-id": request_id}
+        if headers:
+            response_headers.update(headers)
+        return JSONResponse(
+            status_code=status_code,
+            headers=response_headers,
+            content=anthropic_error_response(
+                error_type or cls._anthropic_error_type(status_code),
+                message,
+                request_id,
+            ),
         )
 
-        if body.stream:
+    async def create_message(self, request: Request) -> Response:
+        request_id = (
+            request.headers.get("request-id")
+            or request.headers.get("x-request-id")
+            or f"req_{uuid.uuid4().hex}"
+        )
+        anthropic_version = request.headers.get("anthropic-version")
+        if request.url.path == "/v1/messages" and not anthropic_version:
+            return self._anthropic_error(
+                400, "The anthropic-version header is required", request_id
+            )
+        if (
+            anthropic_version is not None
+            and anthropic_version not in _SUPPORTED_ANTHROPIC_VERSIONS
+        ):
+            return self._anthropic_error(
+                400,
+                f"Unsupported anthropic-version header: {anthropic_version}",
+                request_id,
+            )
 
-            async def stream_results():
-                iterator = None
+        try:
+            canonical = parse_anthropic_request(await request.json())
+        except AnthropicProtocolError as exc:
+            return self._anthropic_error(
+                exc.status_code,
+                exc.message,
+                request_id,
+                error_type=exc.error_type,
+                headers=exc.headers,
+            )
+        except Exception:
+            return self._anthropic_error(
+                400, "Request body must be valid JSON", request_id
+            )
+
+        model_uid = canonical.requested_model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
+        try:
+            self._check_model_access(request, model_uid, "LLM")
+        except HTTPException as exc:
+            return self._anthropic_error(
+                exc.status_code, str(exc.detail), request_id, headers=exc.headers
+            )
+
+        try:
+            model = await require_model(
+                self._get_supervisor_ref, model_uid, self._report_error_event
+            )
+        except HTTPException as exc:
+            return self._anthropic_error(
+                exc.status_code, str(exc.detail), request_id, headers=exc.headers
+            )
+        except Exception as exc:
+            logger.error(exc, exc_info=True)
+            return self._anthropic_error(500, str(exc), request_id)
+
+        openai_body = canonical.to_openai_body()
+        kwargs = {
+            key: value
+            for key, value in openai_body.items()
+            if key not in {"model", "messages"}
+        }
+        raw_kwargs = dict(kwargs)
+
+        if canonical.stream:
+            iterator = None
+            try:
+                iterator = await model.chat(
+                    canonical.messages, kwargs, raw_params=raw_kwargs
+                )
+            except Exception as exc:
+                exc = await self._get_model_last_error(model.uid, exc)
+                logger.error(exc, exc_info=True)
+                await self._report_error_event(model_uid, str(exc))
+                status_code = 429 if "Rate limit reached" in str(exc) else 500
+                return self._anthropic_error(status_code, str(exc), request_id)
+
+            async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
                 try:
-                    try:
-                        iterator = await model.chat(
-                            messages, kwargs, raw_params=raw_kwargs
-                        )
-                    except RuntimeError as re:
-                        self.handle_request_limit_error(re)
-
-                    # Check if iterator is actually an async iterator
-                    if hasattr(iterator, "__aiter__"):
-                        async for item in iterator:
-                            yield item
-                    elif isinstance(iterator, (str, bytes)):
-                        # Handle case where chat returns bytes/string instead of iterator
-                        if isinstance(iterator, bytes):
-                            try:
-                                content = iterator.decode("utf-8")
-                            except UnicodeDecodeError:
-                                content = str(iterator)
-                        else:
-                            content = iterator
-                        yield dict(data=json.dumps({"content": content}))
-                    else:
-                        # Fallback: try to iterate normally
-                        try:
-                            for item in iterator:
-                                yield item
-                        except TypeError:
-                            # If not iterable, yield as single result
-                            yield dict(data=json.dumps({"content": str(iterator)}))
-
-                    yield "[DONE]"
+                    async for chunk in self._iter_model_openai_chunks(iterator):
+                        if await request.is_disconnected():
+                            break
+                        yield chunk
                 except asyncio.CancelledError:
-                    logger.info(
-                        f"Disconnected from client (via refresh/close) {request.client} during chat."
-                    )
-                    return
-                except Exception as ex:
-                    ex = await self._get_model_last_error(model.uid, ex)
-                    logger.exception("Message stream got an error: %s", ex)
-                    await self._report_error_event(model_uid, str(ex))
-                    yield dict(data=json.dumps({"error": str(ex)}))
-                    return
+                    raise
+                except Exception as exc:
+                    exc = await self._get_model_last_error(model.uid, exc)
+                    logger.exception("Anthropic physical model stream failed")
+                    await self._report_error_event(model_uid, str(exc))
+                    yield {"error": {"type": "api_error", "message": str(exc)}}
                 finally:
                     if iterator is not None:
                         from xoscar.api import IteratorWrapper
@@ -1742,25 +1833,33 @@ class RESTfulAPI(CancelMixin):
                             await model.decrease_serve_count()
 
             return EventSourceResponse(
-                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+                anthropic_stream_events(physical_chunks(), model_uid, request_id),
+                ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+                headers={"request-id": request_id},
             )
-        else:
-            try:
-                data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
-                # Convert OpenAI format to Anthropic format
-                openai_response = json.loads(data)
-                anthropic_response = self._convert_openai_to_anthropic(
-                    openai_response, body.model
-                )
-                return Response(
-                    json.dumps(anthropic_response), media_type="application/json"
-                )
-            except Exception as e:
-                e = await self._get_model_last_error(model.uid, e)
-                logger.error(e, exc_info=True)
-                await self._report_error_event(model_uid, str(e))
-                self.handle_request_limit_error(e)
-                raise HTTPException(status_code=500, detail=str(e))
+
+        try:
+            data = await model.chat(canonical.messages, kwargs, raw_params=raw_kwargs)
+            if isinstance(data, bytes):
+                data = data.decode("utf-8")
+            openai_response = json.loads(data) if isinstance(data, str) else data
+            return JSONResponse(
+                content=openai_to_anthropic(openai_response, model_uid),
+                headers={"request-id": request_id},
+            )
+        except AnthropicProtocolError as exc:
+            return self._anthropic_error(
+                exc.status_code,
+                exc.message,
+                request_id,
+                error_type=exc.error_type,
+            )
+        except Exception as exc:
+            exc = await self._get_model_last_error(model.uid, exc)
+            logger.error(exc, exc_info=True)
+            await self._report_error_event(model_uid, str(exc))
+            status_code = 429 if "Rate limit reached" in str(exc) else 500
+            return self._anthropic_error(status_code, str(exc), request_id)
 
     async def create_embedding(self, request: Request) -> Response:
         payload = await request.json()
@@ -3334,94 +3433,32 @@ class RESTfulAPI(CancelMixin):
         return kwargs
 
     def _convert_openai_to_anthropic(self, openai_response: dict, model: str) -> dict:
-        """
-        Convert OpenAI response format to Anthropic response format.
+        """Compatibility wrapper for existing callers and tests."""
+        response = dict(openai_response)
+        try:
+            result = openai_to_anthropic(response, model)
+        except AnthropicProtocolError:
+            # Preserve the historical helper behavior for malformed tool JSON.
+            for choice in response.get("choices", []):
+                message = choice.get("message") or {}
+                for tool_call in message.get("tool_calls") or []:
+                    function = tool_call.get("function") or {}
+                    try:
+                        json.loads(function.get("arguments", "{}"))
+                    except (TypeError, json.JSONDecodeError):
+                        function["arguments"] = "{}"
+            result = openai_to_anthropic(response, model)
 
-        Args:
-            openai_response: OpenAI format response
-            model: Model name
-
-        Returns:
-            Anthropic format response
-        """
-
-        # Extract content and tool calls from OpenAI response
-        content_blocks = []
-        stop_reason = "stop"
-
-        if "choices" in openai_response and len(openai_response["choices"]) > 0:
-            choice = openai_response["choices"][0]
-            message = choice.get("message", {})
-
-            # Handle content text
-            content = message.get("content", "")
-            if content:
-                if isinstance(content, str):
-                    # If content is a string, use it directly
-                    content_blocks.append({"type": "text", "text": content})
-                elif isinstance(content, list):
-                    # If content is a list, extract text from each content block
-                    for content_block in content:
-                        if isinstance(content_block, dict):
-                            if content_block.get("type") == "text":
-                                text = content_block.get("text", "")
-                                if text:
-                                    content_blocks.append(
-                                        {"type": "text", "text": text}
-                                    )
-                            elif "text" in content_block:
-                                # Handle different content block format
-                                text = content_block.get("text", "")
-                                if text:
-                                    content_blocks.append(
-                                        {"type": "text", "text": text}
-                                    )
-
-            # Handle tool calls
-            tool_calls = message.get("tool_calls", [])
-            for tool_call in tool_calls:
-                function = tool_call.get("function", {})
-                arguments = function.get("arguments", "{}")
-                try:
-                    input_data = json.loads(arguments)
-                except json.JSONDecodeError:
-                    input_data = {}
-                tool_use_block = {
-                    "type": "tool_use",
-                    "cache_control": {"type": "ephemeral"},
-                    "id": tool_call.get("id", str(uuid.uuid4())),
-                    "name": function.get("name", ""),
-                    "input": input_data,
-                }
-                content_blocks.append(tool_use_block)
-
-            # Set stop reason based on finish reason
-            finish_reason = choice.get("finish_reason", "stop")
-            if finish_reason == "tool_calls":
-                stop_reason = "tool_use"
-
-        # Build Anthropic response
-        anthropic_response = {
-            "id": str(uuid.uuid4()),
-            "type": "message",
-            "role": "assistant",
-            "content": content_blocks,
-            "model": model,
-            "stop_reason": stop_reason,
-            "stop_sequence": None,
-            "usage": {
-                "input_tokens": openai_response.get("usage", {}).get(
-                    "prompt_tokens", 0
-                ),
-                "output_tokens": openai_response.get("usage", {}).get(
-                    "completion_tokens", 0
-                ),
-                "cache_creation_input_tokens": 0,
-                "cache_read_input_tokens": 0,
-            },
-        }
-
-        return anthropic_response
+        # Keep the private helper's historical shape while the public endpoint
+        # uses the canonical Anthropic representation from the protocol module.
+        if result["stop_reason"] == "end_turn":
+            result["stop_reason"] = "stop"
+        for block in result["content"]:
+            if block.get("type") == "tool_use":
+                block["cache_control"] = {"type": "ephemeral"}
+        result["usage"].setdefault("cache_creation_input_tokens", 0)
+        result["usage"].setdefault("cache_read_input_tokens", 0)
+        return result
 
 
 def run(

@@ -375,6 +375,11 @@ class AdvancedAuthService:
         security_scopes: SecurityScopes,
         token: Annotated[Optional[str], Depends(oauth2_scheme)] = None,
     ):
+        if request.url.path in {"/v1/messages", "/anthropic/v1/messages"}:
+            # Anthropic clients send the same Xinference credential in
+            # ``x-api-key`` rather than an Authorization header.
+            token = token or request.headers.get("x-api-key", "").strip() or None
+
         try:
             from .audit import (
                 classify_endpoint,
