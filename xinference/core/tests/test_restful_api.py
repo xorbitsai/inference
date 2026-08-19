@@ -1461,6 +1461,176 @@ async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch, model
     model.chat.assert_not_called()
 
 
+@pytest.mark.asyncio
+async def test_chat_completion_preflights_strict_qwen_template_errors(monkeypatch):
+    from fastapi import HTTPException
+
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(
+        return_value={"model_family": "qwen3.8", "strict_system_first": True}
+    )
+
+    for stream in (False, True):
+        payload = {
+            "model": "test",
+            "stream": stream,
+            "messages": [{"role": "developer", "content": "hi"}],
+        }
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(_DummyRequest(payload))
+        assert exc.value.status_code == 400
+        assert "developer" in exc.value.detail
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest({"model": "test", "messages": [{"content": "hi"}]})
+        )
+    assert exc.value.status_code == 400
+    assert ".role is required" in exc.value.detail
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_preflights_multimodal_limit(monkeypatch):
+    from fastapi import HTTPException
+
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(
+        return_value={"model_family": "qwen3.8", "limit_mm_per_prompt": {"image": 2}}
+    )
+    image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA=="}}
+    payload = {
+        "model": "test",
+        "stream": True,
+        "messages": [
+            {"role": "user", "content": [image]},
+            {"role": "assistant", "content": "ok"},
+            {"role": "user", "content": [image, image]},
+        ],
+    }
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+    assert exc.value.status_code == 400
+    assert (
+        exc.value.detail
+        == "At most 2 image(s) may be provided in one prompt; received 3."
+    )
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_stream_sanitizes_worker_error(monkeypatch):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+
+    async def stream_error():
+        yield "ignored"
+        raise RuntimeError("[address=10.0.0.1:12345, pid=6789] invalid request")
+
+    model.chat = AsyncMock(return_value=stream_error())
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3.8"})
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {
+                "model": "test",
+                "stream": True,
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+        )
+    )
+    result = response.body_iterator
+    assert await anext(result) == "ignored"
+    error = await anext(result)
+    assert error["data"] == json.dumps({"error": api._chat_completion_error_detail()})
+    assert "address" not in error["data"]
+    assert "pid" not in error["data"]
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_does_not_apply_strict_role_validation_to_other_models(
+    monkeypatch,
+):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(return_value="{}")
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "other"})
+
+    response = await api.create_chat_completion(
+        _DummyRequest(
+            {"model": "test", "messages": [{"role": "developer", "content": "hi"}]}
+        )
+    )
+    assert response.status_code == 200
+    model.chat.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_sanitizes_worker_error(monkeypatch):
+    from fastapi import HTTPException
+
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(
+        side_effect=RuntimeError("[address=10.0.0.1:12345, pid=6789] invalid request")
+    )
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3.8"})
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(
+            _DummyRequest(
+                {"model": "test", "messages": [{"role": "user", "content": "hi"}]}
+            )
+        )
+    assert exc.value.status_code == 500
+    assert exc.value.detail == api._chat_completion_error_detail()
+    assert "address" not in exc.value.detail
+    assert "pid" not in exc.value.detail
+
+
 def test_launch_model_async(setup):
     endpoint, _ = setup
     url = f"{endpoint}/v1/models?wait_ready=false"

@@ -136,6 +136,34 @@ class MessageRoleOrderError(ValueError):
     that requires system-first ordering (e.g. the Qwen3 family)."""
 
 
+class MessageRoleError(ValueError):
+    """A chat message role is missing or unsupported by the selected template."""
+
+
+def check_message_roles(messages: List, allowed_roles: Set[str]) -> None:
+    """Validate that every message has a role accepted by a strict template.
+
+    Callers must restrict this to templates with a known role set so that
+    models accepting provider-specific roles retain their existing behavior.
+    """
+    for index, message in enumerate(messages):
+        role = (
+            message.get("role")
+            if isinstance(message, dict)
+            else getattr(message, "role", None)
+        )
+        if not isinstance(role, str):
+            raise MessageRoleError(
+                f"messages[{index}].role is required and must be one of "
+                f"{sorted(allowed_roles)}."
+            )
+        if role not in allowed_roles:
+            raise MessageRoleError(
+                f"messages[{index}].role {role!r} is not supported by this "
+                f"model's chat template. Supported roles are {sorted(allowed_roles)}."
+            )
+
+
 def check_system_role_order(messages: List) -> None:
     """Raise ``MessageRoleOrderError`` if a ``system`` role appears at index > 0.
 

@@ -3979,6 +3979,12 @@ class WorkerActor(xo.StatelessActor):
                     # engine (shown in the Web UI running-model detail view).
                     if model_engine is not None:
                         model_spec["model_engine"] = model_engine
+                    if model_engine and model_engine.lower() == "vllm":
+                        # ModelActor returns a copy of the effective post-sanitization
+                        # vLLM limits, including an operator-supplied override.
+                        model_spec["limit_mm_per_prompt"] = (
+                            await model_ref.get_limit_mm_per_prompt()
+                        )
                     self._model_uid_to_model_spec[model_uid] = model_spec
                     self._model_uid_to_model_status[model_uid] = ModelStatus(
                         model_state="loading"

@@ -596,6 +596,25 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=429, detail=str(e))
 
     @staticmethod
+    def _chat_completion_error_detail() -> str:
+        """Return a client-safe error while preserving the original in logs/events."""
+        return "The chat completion request failed. Check the server logs for details."
+
+    @staticmethod
+    def _count_multimodal_items(messages: List[dict], item_type: str) -> int:
+        count = 0
+        for message in messages:
+            content = message.get("content") if isinstance(message, dict) else None
+            if not isinstance(content, list):
+                continue
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") == f"{item_type}_url" or item_type in item:
+                    count += 1
+        return count
+
+    @staticmethod
     def _set_trace_model(model_uid: Optional[str]) -> None:
         if not model_uid:
             return
@@ -3301,12 +3320,31 @@ class RESTfulAPI(CancelMixin):
         # the stream/non-stream split so BOTH paths return a clean 400 instead
         # of the worker raising mid-render (non-stream 500 / stream 200+SSE).
         if desc.get("strict_system_first"):
-            from ..model.llm.utils import MessageRoleOrderError, check_system_role_order
+            from ..model.llm.utils import (
+                MessageRoleError,
+                MessageRoleOrderError,
+                check_message_roles,
+                check_system_role_order,
+            )
 
             try:
+                check_message_roles(messages, {"system", "user", "assistant", "tool"})
                 check_system_role_order(messages)
-            except MessageRoleOrderError as ve:
+            except (MessageRoleError, MessageRoleOrderError) as ve:
                 raise HTTPException(status_code=400, detail=str(ve))
+
+        for item_type, limit in (desc.get("limit_mm_per_prompt") or {}).items():
+            if not isinstance(limit, int) or limit < 0:
+                continue
+            count = self._count_multimodal_items(messages, item_type)
+            if count > limit:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"At most {limit} {item_type}(s) may be provided in one prompt; "
+                        f"received {count}."
+                    ),
+                )
 
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
@@ -3343,7 +3381,9 @@ class RESTfulAPI(CancelMixin):
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
                     # https://github.com/openai/openai-python/blob/e0aafc6c1a45334ac889fe3e54957d309c3af93f/src/openai/_streaming.py#L107
-                    yield dict(data=json.dumps({"error": str(ex)}))
+                    yield dict(
+                        data=json.dumps({"error": self._chat_completion_error_detail()})
+                    )
                     return
                 finally:
                     if iterator is not None:
@@ -3372,7 +3412,9 @@ class RESTfulAPI(CancelMixin):
                 logger.error(e, exc_info=True)
                 await self._report_error_event(model_uid, str(e))
                 self.handle_request_limit_error(e)
-                raise HTTPException(status_code=500, detail=str(e))
+                raise HTTPException(
+                    status_code=500, detail=self._chat_completion_error_detail()
+                )
 
     async def query_engines_by_model_name(
         self, request: Request, model_name: str, model_type: Optional[str] = None

@@ -499,6 +499,13 @@ class VLLMModel(LLM):
         # to call aynsc method with asyncio.run_coroutine_threadsafe
         self._loop = loop  # type: ignore
 
+    def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
+        """Return the effective multimodal item limits for request preflight."""
+        if self._model_config is None:
+            return None
+        limit = self._model_config.get("limit_mm_per_prompt")
+        return dict(limit) if isinstance(limit, dict) else None
+
     def _is_vllm_v1(self) -> bool:
         """
         Check if vLLM v1 is being used.

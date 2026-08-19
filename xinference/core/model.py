@@ -469,6 +469,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         return isinstance(self._model, SGLANGModel)
 
+    def get_limit_mm_per_prompt(self) -> Optional[Dict[str, int]]:
+        if not self.is_vllm_backend():
+            return None
+        return self._model.get_limit_mm_per_prompt()
+
     async def load(self):
         self._model_state = "loading"
         try:
