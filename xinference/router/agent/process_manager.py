@@ -425,6 +425,28 @@ class RouterRuntimeProcessManager:
                 managed.assignment_id,
             )
 
+    async def _report_stop_status(
+        self,
+        managed: ManagedRuntimeProcess,
+        observed_state: str,
+        *,
+        pid: Optional[int],
+    ) -> None:
+        try:
+            await self.control_plane.report_assignment_status(
+                managed.assignment_id,
+                node_id=self.node_id,
+                assignment_generation=managed.generation,
+                observed_state=observed_state,
+                pid=pid,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to report Router Runtime %s status assignment=%s",
+                observed_state,
+                managed.assignment_id,
+            )
+
     async def _stop_locked(
         self, managed: ManagedRuntimeProcess, *, report: bool
     ) -> None:
@@ -437,13 +459,7 @@ class RouterRuntimeProcessManager:
         managed.restart_task = None
         if process is not None and process.returncode is None:
             if report:
-                await self.control_plane.report_assignment_status(
-                    managed.assignment_id,
-                    node_id=self.node_id,
-                    assignment_generation=managed.generation,
-                    observed_state="draining",
-                    pid=process.pid,
-                )
+                await self._report_stop_status(managed, "draining", pid=process.pid)
             logger.info(
                 "Stopping Router Runtime",
                 extra=router_log_extra(
@@ -467,11 +483,9 @@ class RouterRuntimeProcessManager:
             managed.monitor_task.cancel()
             await asyncio.gather(managed.monitor_task, return_exceptions=True)
         if report:
-            await self.control_plane.report_assignment_status(
-                managed.assignment_id,
-                node_id=self.node_id,
-                assignment_generation=managed.generation,
-                observed_state="stopped",
+            await self._report_stop_status(
+                managed,
+                "stopped",
                 pid=process.pid if process is not None else None,
             )
         logger.info(

@@ -360,6 +360,19 @@ def test_unknown_placement_node_is_rejected_during_managed_validation(tmp_path):
     assert "No online active Router Agent node" in errors[0]
 
 
+def test_scheduler_tolerates_null_node_capabilities(tmp_path):
+    store = _config_store(tmp_path)
+    controller = RouterOrchestrationController(str(tmp_path / "routers.db"), store)
+
+    assert (
+        controller.scheduler._node_has_asset(
+            {"node_id": "node-a", "capabilities": None},
+            {"tokenizer_asset_id": "asset-a"},
+        )
+        is False
+    )
+
+
 def test_asset_binding_readiness_gates_assignment_and_stale_preserves_runtime(tmp_path):
     store = _config_store(tmp_path)
     store.update(

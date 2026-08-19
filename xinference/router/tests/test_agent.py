@@ -26,6 +26,18 @@ class _ControlPlane:
         return payload
 
 
+class _FailingControlPlane(_ControlPlane):
+    def __init__(self, failed_state: str):
+        super().__init__()
+        self.failed_state = failed_state
+
+    async def report_assignment_status(self, assignment_id, **payload):
+        await super().report_assignment_status(assignment_id, **payload)
+        if payload.get("observed_state") == self.failed_state:
+            raise RuntimeError(f"failed to report {self.failed_state}")
+        return payload
+
+
 class _FakeProcess:
     _next_pid = 5000
 
@@ -270,6 +282,31 @@ async def test_generation_replacement_and_snapshot_orphan_cleanup(
 
     await manager.reconcile([])
     assert second.terminate_calls == 1
+    assert manager._processes == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed_state", ["draining", "stopped"])
+async def test_shutdown_stops_runtime_when_status_report_fails(
+    monkeypatch, tmp_path, failed_state
+):
+    control = _FailingControlPlane(failed_state)
+    manager = _manager(tmp_path, control)
+    monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
+    process = _FakeProcess()
+
+    async def create_subprocess_exec(*args, **kwargs):
+        return process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
+    await manager.reconcile([_assignment()])
+    managed = manager._processes["router-a-0"]
+
+    await manager.shutdown()
+
+    assert process.terminate_calls == 1
+    assert process.returncode == 0
+    assert managed.process is None
     assert manager._processes == {}
 
 

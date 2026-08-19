@@ -88,7 +88,8 @@ class RouterScheduler:
         # Compatibility window only: old Agents may still publish a static
         # tokenizer_assets capability. Registration imports it into a legacy
         # Binding whenever the Catalog contains the Asset.
-        assets = node.get("capabilities", {}).get("tokenizer_assets", [])
+        capabilities = node.get("capabilities") or {}
+        assets = capabilities.get("tokenizer_assets") or []
         if assets:
             logger.warning(
                 "Using deprecated Router Agent tokenizer_assets capability for node %s",
