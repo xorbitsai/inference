@@ -54,6 +54,19 @@ def test_thinking_and_text_content_list(tmp_path: Path) -> None:
     assert result.total_tokens == 5
 
 
+def test_null_text_content_part_is_treated_as_empty(tmp_path: Path) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+
+    result = estimator.estimate(
+        {"messages": [{"role": "user", "content": [{"type": "text", "text": None}]}]}
+    )
+
+    assert result.prompt_tokens == 0
+    assert result.total_tokens == 1
+
+
 def test_chat_template_kwargs_cannot_override_messages(tmp_path: Path) -> None:
     estimator = DeepSeekV4TokenEstimator(
         make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
