@@ -54,6 +54,26 @@ def test_thinking_and_text_content_list(tmp_path: Path) -> None:
     assert result.total_tokens == 5
 
 
+def test_chat_template_kwargs_cannot_override_messages(tmp_path: Path) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+
+    result = estimator.estimate(
+        {
+            "messages": [{"role": "user", "content": "hello hello"}],
+            "chat_template_kwargs": {
+                "messages": [],
+                "enable_thinking": True,
+                "reasoning_effort": "high",
+            },
+        }
+    )
+
+    assert result.prompt_tokens == 5
+    assert result.enable_thinking is True
+
+
 def test_normalization_does_not_mutate_input_messages(tmp_path: Path) -> None:
     estimator = DeepSeekV4TokenEstimator(
         make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1

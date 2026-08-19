@@ -125,7 +125,7 @@ class DeepSeekV4TokenEstimator:
         }
         signature = inspect.signature(encode_messages)
         for name in signature.parameters:
-            if name in template_kwargs:
+            if name != "messages" and name in template_kwargs:
                 kwargs[name] = template_kwargs[name]
         try:
             prompt = encode_messages(messages, **kwargs)
