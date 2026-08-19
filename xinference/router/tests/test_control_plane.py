@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -13,6 +13,7 @@ from xinference.router.control_plane import (
     RouterControlPlaneClient,
     RouterInstanceNotFound,
 )
+from xinference.router.runtime import RouterRuntime
 
 
 class FakeMetrics:
@@ -637,7 +638,7 @@ async def test_process_metrics_failure_does_not_block_heartbeat() -> None:
 
     client.heartbeat = heartbeat  # type: ignore[method-assign]
     try:
-        await client._publish_runtime_state(FakeRuntime())
+        await client._publish_runtime_state(cast(RouterRuntime, FakeRuntime()))
     finally:
         await client.aclose()
 
