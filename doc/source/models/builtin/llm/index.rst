@@ -176,6 +176,11 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
 
+   * - :ref:`deepseek-v4-flash-0731 <models_llm_deepseek-v4-flash-0731>`
+     - chat, reasoning, hybrid, tools
+     - 1048576
+     - Official DeepSeek-V4-Flash release with enhanced agentic capabilities and an attached DSpark speculative decoding module.
+
    * - :ref:`deepseek-v4-pro <models_llm_deepseek-v4-pro>`
      - chat, reasoning, hybrid, tools
      - 163840
@@ -925,6 +930,8 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-v4-flash
   
+   deepseek-v4-flash-0731
+
    deepseek-v4-pro
   
    deepseek-vl2

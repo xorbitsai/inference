@@ -163,10 +163,12 @@ function BlobMediaPreview({
   blob,
   type,
   className,
+  thumbnailClassName,
 }: {
   blob: Blob;
   type: MediaType;
   className: string;
+  thumbnailClassName?: string;
 }) {
   const [url, setUrl] = useState<string>();
 
@@ -190,15 +192,36 @@ function BlobMediaPreview({
       url={url}
       title={blob instanceof File ? blob.name : undefined}
       className={className}
+      thumbnailClassName={thumbnailClassName}
     />
   );
 }
 
 function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }) {
   const isAudio = type === 'audio';
-  const mediaClassName = isAudio ? 'w-full max-w-full' : 'h-72 w-full max-w-full';
+  const isImage = type === 'image';
+  const mediaClassName = isAudio
+    ? 'w-full max-w-full'
+    : isImage
+      ? 'h-fit w-fit max-h-72 max-w-full'
+      : 'h-72 w-full max-w-full';
+  const thumbnailClassName = isImage
+    ? 'h-auto max-h-72 w-auto max-w-full object-contain'
+    : undefined;
+  const resultLayoutClassName = isAudio
+    ? 'grid'
+    : isImage
+      ? 'flex flex-wrap items-start'
+      : 'grid grid-cols-2';
   if (result instanceof Blob) {
-    return <BlobMediaPreview blob={result} type={type} className={mediaClassName} />;
+    return (
+      <BlobMediaPreview
+        blob={result}
+        type={type}
+        className={mediaClassName}
+        thumbnailClassName={thumbnailClassName}
+      />
+    );
   }
 
   const mediaResults = extractMediaResults(result, type);
@@ -208,7 +231,7 @@ function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }
   }
 
   return (
-    <div className={cn('grid gap-2', !isAudio && 'grid-cols-2')}>
+    <div className={cn('gap-2', resultLayoutClassName)}>
       {mediaResults.map((item, index) => (
         <MediaPreview
           key={item.title || index}
@@ -216,6 +239,7 @@ function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }
           url={item.url}
           title={item.title}
           className={mediaClassName}
+          thumbnailClassName={thumbnailClassName}
         />
       ))}
     </div>

@@ -3065,7 +3065,16 @@ class WorkerActor(xo.StatelessActor):
 
         assert settings is not None  # for mypy type narrowing
 
-        if settings and model_engine and model_engine.lower() not in ("vllm", "sglang"):
+        if (
+            settings
+            and model_engine
+            and model_engine.lower()
+            not in (
+                "vllm",
+                "sglang",
+                "diffusers",
+            )
+        ):
             # Pydantic v1 compatibility: use copy() when model_copy is unavailable.
             if hasattr(settings, "model_copy"):
                 settings = settings.model_copy(deep=True)

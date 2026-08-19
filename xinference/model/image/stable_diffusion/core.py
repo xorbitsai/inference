@@ -136,6 +136,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             and "flux.2" in self._model_spec.model_name.lower()  # type: ignore
         )
 
+    def _is_ideogram4_model(self) -> bool:
+        return bool(
+            self._model_spec
+            and self._model_spec.model_name.lower() == "ideogram4"  # type: ignore
+        )
+
     @staticmethod
     def _get_pipeline_type(ability: str) -> type:
         if ability == "text2image":
@@ -763,6 +769,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
         self._process_progressor(kwargs)
+        if self._is_ideogram4_model() and kwargs.get("guidance_scale") is not None:
+            # Ideogram4 defaults to a per-step guidance schedule. Its pipeline
+            # rejects passing that default together with a constant scale.
+            kwargs.setdefault("guidance_schedule", None)
         assert callable(model)
         with (
             self._reset_when_done(model, sampler_name),

@@ -38,6 +38,8 @@ The following is a list of built-in image models in Xinference:
    hunyuandit-v1.2-distilled
   
    hunyuanocr
+
+   ideogram4
   
    kolors
   
@@ -84,4 +86,3 @@ The following is a list of built-in image models in Xinference:
    z-image
   
    z-image-turbo
-  
