@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock
 import openai
 import pytest
 import requests
+from fastapi import HTTPException
 from packaging import version
 
 from ...model.embedding import BUILTIN_EMBEDDING_MODELS
@@ -1287,6 +1288,169 @@ async def test_chat_completion_enable_thinking_injected(monkeypatch, payload, ex
     raw_chat_kwargs = called_kwargs["raw_params"]["chat_template_kwargs"]
     assert raw_chat_kwargs["enable_thinking"] is expected
     assert raw_chat_kwargs["thinking"] is expected
+
+
+def _build_mock_chat_api(monkeypatch, desc):
+    from ...api.restful_api import RESTfulAPI
+
+    monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
+
+    api = RESTfulAPI("localhost", "localhost", 9997)
+    mock_supervisor = AsyncMock()
+    api._get_supervisor_ref = AsyncMock(return_value=mock_supervisor)
+
+    model = AsyncMock()
+    model.uid = "test-model"
+    model.chat = AsyncMock(return_value="{}")
+    mock_supervisor.get_model = AsyncMock(return_value=model)
+    mock_supervisor.describe_model = AsyncMock(return_value=desc)
+    return api, model
+
+
+async def _create_chat_completion_with_mock_model(monkeypatch, payload, desc):
+    api, model = _build_mock_chat_api(monkeypatch, desc)
+    response = await api.create_chat_completion(_DummyRequest(payload))
+    return model, response
+
+
+@pytest.mark.asyncio
+async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(monkeypatch):
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch,
+        {"model": "test", "messages": [{"role": "user", "content": "hi"}]},
+        {"model_name": "qwen3.8", "model_family": "qwen3.8"},
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    assert "chat_template_kwargs" not in called_args[1]
+    assert "chat_template_kwargs" not in called_kwargs["raw_params"]
+
+
+@pytest.mark.asyncio
+async def test_qwen38_top_level_reasoning_effort_injected(monkeypatch):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "low",
+    }
+
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch, payload, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    chat_kwargs = called_args[1]["chat_template_kwargs"]
+    assert chat_kwargs["reasoning_effort"] == "low"
+    raw_params = called_kwargs["raw_params"]
+    assert "reasoning_effort" not in raw_params
+    assert raw_params["chat_template_kwargs"]["reasoning_effort"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_qwen38_reasoning_effort_preserves_enable_thinking(monkeypatch):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "enable_thinking": False,
+        "reasoning_effort": "medium",
+    }
+
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch, payload, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    chat_kwargs = called_args[1]["chat_template_kwargs"]
+    assert chat_kwargs == {
+        "enable_thinking": False,
+        "thinking": False,
+        "reasoning_effort": "medium",
+    }
+    assert called_kwargs["raw_params"]["chat_template_kwargs"] == chat_kwargs
+
+
+@pytest.mark.asyncio
+async def test_non_qwen38_top_level_reasoning_effort_unchanged(monkeypatch):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "high",
+    }
+
+    model, response = await _create_chat_completion_with_mock_model(
+        monkeypatch, payload, {"model_name": "qwen3", "model_family": "qwen3"}
+    )
+
+    assert response.status_code == 200
+    called_args, called_kwargs = model.chat.call_args
+    assert "chat_template_kwargs" not in called_args[1]
+    assert called_kwargs["raw_params"]["reasoning_effort"] == "high"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("effort", ["off", "high", "banana", None])
+async def test_qwen38_invalid_top_level_reasoning_effort_raises_400(
+    monkeypatch, effort
+):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": effort,
+    }
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+
+    assert exc.value.status_code == 400
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("effort", ["banana", None])
+async def test_qwen38_invalid_template_reasoning_effort_raises_400(
+    monkeypatch, effort
+):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "chat_template_kwargs": {"reasoning_effort": effort},
+    }
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+
+    assert exc.value.status_code == 400
+    assert "chat_template_kwargs.reasoning_effort" in exc.value.detail
+    model.chat.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch):
+    payload = {
+        "model": "test",
+        "messages": [{"role": "user", "content": "hi"}],
+        "reasoning_effort": "xhigh",
+        "chat_template_kwargs": {"reasoning_effort": "low"},
+    }
+    api, model = _build_mock_chat_api(
+        monkeypatch, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await api.create_chat_completion(_DummyRequest(payload))
+
+    assert exc.value.status_code == 400
+    assert "Conflicting reasoning_effort" in exc.value.detail
+    model.chat.assert_not_called()
 
 
 def test_launch_model_async(setup):
