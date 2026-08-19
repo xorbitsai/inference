@@ -54,6 +54,29 @@ def test_thinking_and_text_content_list(tmp_path: Path) -> None:
     assert result.total_tokens == 5
 
 
+def test_normalization_does_not_mutate_input_messages(tmp_path: Path) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+    messages = [
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "hello"}],
+            "tool_calls": [{"id": "call-1"}],
+        }
+    ]
+
+    estimator.estimate({"messages": messages})
+
+    assert messages == [
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "hello"}],
+            "tool_calls": [{"id": "call-1"}],
+        }
+    ]
+
+
 def test_rejects_multimodal_content(tmp_path: Path) -> None:
     estimator = DeepSeekV4TokenEstimator(
         make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1

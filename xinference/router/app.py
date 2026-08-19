@@ -16,6 +16,7 @@ import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from starlette.background import BackgroundTask
 
 from .admission import AdmissionRejected
 from .backend import request_headers, response_headers
@@ -320,6 +321,31 @@ def create_app(config: RouterConfig) -> FastAPI:
                             },
                         )
 
+                    cleanup_task: asyncio.Task[None] | None = None
+
+                    async def release_resources() -> None:
+                        nonlocal cleanup_task
+
+                        async def _release() -> None:
+                            try:
+                                await backend_response.aclose()
+                            finally:
+                                try:
+                                    await gate.release()
+                                finally:
+                                    await runtime.release(snapshot)
+                                    logger.info(
+                                        "request_id=%s backend_id=%s "
+                                        "elapsed_seconds=%.3f released=true",
+                                        request_id,
+                                        decision.pool,
+                                        time.monotonic() - started,
+                                    )
+
+                        if cleanup_task is None:
+                            cleanup_task = asyncio.create_task(_release())
+                        await asyncio.shield(cleanup_task)
+
                     async def body_stream() -> AsyncIterator[bytes]:
                         disconnected = False
                         try:
@@ -343,15 +369,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                             )
                             raise
                         finally:
-                            await backend_response.aclose()
-                            await gate.release()
-                            await runtime.release(snapshot)
-                            logger.info(
-                                "request_id=%s backend_id=%s elapsed_seconds=%.3f released=true",
-                                request_id,
-                                decision.pool,
-                                time.monotonic() - started,
-                            )
+                            await release_resources()
 
                     response = StreamingResponse(
                         body_stream(),
@@ -363,6 +381,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                             **response_headers(backend_response),
                             **router_headers,
                         },
+                        background=BackgroundTask(release_resources),
                     )
                     gate_release_owned = False
                     runtime_release_owned = False

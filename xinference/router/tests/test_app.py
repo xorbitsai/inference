@@ -1,6 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -257,6 +258,95 @@ async def test_client_disconnect_releases_gate(
     assert active == 0
     assert 'event="client_disconnected",pool="short"} 1' in metrics
     assert 'event="completed",pool="short"}' not in metrics
+
+
+@pytest.mark.asyncio
+async def test_disconnect_before_stream_starts_releases_resources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = create_app(make_config(tmp_path))
+    stream_started = False
+    stream_closed = False
+
+    class TrackingStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            nonlocal stream_started
+            stream_started = True
+            yield b"data: [DONE]\n\n"
+
+        async def aclose(self) -> None:
+            nonlocal stream_closed
+            stream_closed = True
+
+    async def backend_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            stream=TrackingStream(),
+        )
+
+    async with app.router.lifespan_context(app):
+        snapshot = app.state.runtime.current
+        await snapshot.client.aclose()
+        snapshot.client = httpx.AsyncClient(
+            transport=httpx.MockTransport(backend_handler), timeout=10
+        )
+        gate = snapshot.gates["short"]
+        gate_release = AsyncMock(wraps=gate.release)
+        runtime_release = AsyncMock(wraps=app.state.runtime.release)
+        monkeypatch.setattr(gate, "release", gate_release)
+        monkeypatch.setattr(app.state.runtime, "release", runtime_release)
+
+        request_body = json.dumps(
+            {
+                "model": "router-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 8,
+                "stream": True,
+            }
+        ).encode()
+        receive_calls = 0
+
+        async def receive():
+            nonlocal receive_calls
+            receive_calls += 1
+            if receive_calls == 1:
+                return {
+                    "type": "http.request",
+                    "body": request_body,
+                    "more_body": False,
+                }
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            if message["type"] == "http.response.start":
+                await asyncio.sleep(3600)
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/v1/chat/completions",
+            "raw_path": b"/v1/chat/completions",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"authorization", b"Bearer secret"),
+            ],
+            "client": ("test", 1234),
+            "server": ("router", 10080),
+        }
+        await app(scope, receive, send)
+
+        assert stream_started is False
+        assert stream_closed is True
+        assert gate_release.await_count == 1
+        assert runtime_release.await_count == 1
+        assert (await gate.snapshot()).active == 0
+        assert snapshot.active_requests == 0
 
 
 @pytest.mark.asyncio

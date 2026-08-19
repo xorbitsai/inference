@@ -112,7 +112,7 @@ _TOKEN_ROUTER_HOP_BY_HOP_HEADERS = {
     "keep-alive",
     "proxy-authenticate",
     "proxy-authorization",
-    "t" "e",
+    "te",
     "trailer",
     "transfer-encoding",
     "upgrade",
@@ -323,6 +323,8 @@ class RESTfulAPI(CancelMixin):
 
         self._router = APIRouter()
         self._app = FastAPI()
+        self._token_router_client: Optional[httpx.AsyncClient] = None
+        self._app.add_event_handler("shutdown", self._close_token_router_client)
         # Initialize allowed IP list once
         self._init_allowed_ip_list()
 
@@ -550,6 +552,19 @@ class RESTfulAPI(CancelMixin):
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
 
+    def _get_token_router_client(self) -> httpx.AsyncClient:
+        client = getattr(self, "_token_router_client", None)
+        if client is None or client.is_closed:
+            client = httpx.AsyncClient(timeout=None, follow_redirects=False)
+            self._token_router_client = client
+        return client
+
+    async def _close_token_router_client(self) -> None:
+        client = getattr(self, "_token_router_client", None)
+        if client is not None:
+            await client.aclose()
+            self._token_router_client = None
+
     async def _proxy_token_router_chat_completion(
         self,
         request: Request,
@@ -559,7 +574,7 @@ class RESTfulAPI(CancelMixin):
         request_id = request.headers.get("x-request-id") or f"xinf-{uuid.uuid4()}"
         endpoint = runtime["endpoint"]
         upstream_url = f"{endpoint}/v1/chat/completions"
-        client = httpx.AsyncClient(timeout=None, follow_redirects=False)
+        client = self._get_token_router_client()
         try:
             upstream_request = client.build_request(
                 "POST",
@@ -569,7 +584,6 @@ class RESTfulAPI(CancelMixin):
             )
             upstream_response = await client.send(upstream_request, stream=True)
         except httpx.HTTPError as exc:
-            await client.aclose()
             logger.warning(
                 "Token Router connection failed: virtual_model_uid=%s "
                 "router_uid=%s instance_id=%s error=%s",
@@ -614,7 +628,6 @@ class RESTfulAPI(CancelMixin):
                     raise
                 finally:
                     await upstream_response.aclose()
-                    await client.aclose()
 
             response_headers.setdefault("cache-control", "no-cache")
             response_headers.setdefault("x-accel-buffering", "no")
@@ -630,7 +643,6 @@ class RESTfulAPI(CancelMixin):
             )
         finally:
             await upstream_response.aclose()
-            await client.aclose()
         return Response(
             content=response_body,
             status_code=upstream_response.status_code,

@@ -352,7 +352,7 @@ follow_imports = "skip"
 exclude = "thirdparty"
 
 [tool.codespell]
-ignore-words-list = "hist,rcall,fpr,ser,nd,inout,ot,Ba,ba,asend,hart,coo,splitted,datas,fro"
+ignore-words-list = "hist,rcall,fpr,ser,nd,inout,ot,Ba,ba,asend,hart,coo,splitted,datas,fro,te"
 skip = ".idea,.git,./build,./docs/build,node_modules,static,generated,*.po,*.ts,*.json,*.c,*.cpp,*.cfg,thirdparty"
 
 [tool.ruff]

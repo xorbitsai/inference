@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import importlib.util
 import inspect
 import json
@@ -43,7 +42,7 @@ def _normalize_content(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for original in messages:
         if not isinstance(original, dict):
             raise TokenizationError("Each chat message must be an object")
-        message = copy.deepcopy(original)
+        message = dict(original)
         content = message.get("content")
         if content is None:
             message["content"] = ""

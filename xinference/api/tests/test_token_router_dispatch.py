@@ -353,7 +353,9 @@ async def test_virtual_chat_non_stream_preserves_router_error(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_virtual_chat_connect_error_returns_502_and_closes_client(monkeypatch):
+async def test_virtual_chat_connect_error_returns_502_without_closing_shared_client(
+    monkeypatch,
+):
     resolution = {
         "matched": True,
         "available": True,
@@ -387,7 +389,61 @@ async def test_virtual_chat_connect_error_returns_502_and_closes_client(monkeypa
     assert response.status_code == 502
     assert response.headers["retry-after"] == "1"
     assert response.json()["error"]["type"] == "router_unavailable"
-    assert upstream_client.is_closed
+    assert upstream_client.is_closed is False
+    await api._close_token_router_client()
+    assert upstream_client.is_closed is True
+
+
+@pytest.mark.asyncio
+async def test_virtual_chat_reuses_shared_proxy_client(monkeypatch):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    app = make_chat_app(api)
+    real_async_client = httpx.AsyncClient
+    created_clients = []
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'{"id":"chatcmpl-router"}'
+
+    def upstream_handler(_request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            stream=UpstreamStream(),
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+
+    def make_upstream_client(**_kwargs):
+        created_clients.append(upstream_client)
+        return upstream_client
+
+    monkeypatch.setattr(restful_api_module.httpx, "AsyncClient", make_upstream_client)
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        for _ in range(2):
+            response = await client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "virtual-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "stream": False,
+                },
+            )
+            assert response.status_code == 200
+
+    assert created_clients == [upstream_client]
+    assert upstream_client.is_closed is False
+    await api._close_token_router_client()
+    assert upstream_client.is_closed is True
 
 
 @pytest.mark.asyncio
