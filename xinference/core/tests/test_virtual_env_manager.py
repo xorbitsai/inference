@@ -611,12 +611,19 @@ class TestApplyFlashAttnWheelPostInstall:
             fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
         )
 
-    def test_find_links_install_failure_is_fatal(self, fake_venv_manager):
+    def test_find_links_install_failure_is_fatal_and_redacts_output(
+        self, fake_venv_manager, caplog
+    ):
+        result = mock.MagicMock(
+            returncode=1,
+            stdout="Downloading https://user:password@example.com/wheel",
+            stderr="authentication failed: token=secret-token",
+        )
         with mock.patch(
             "xinference.core.virtual_env_manager.subprocess.run",
-            return_value=mock.MagicMock(returncode=1),
+            return_value=result,
         ):
-            with pytest.raises(RuntimeError, match="installation failed"):
+            with pytest.raises(RuntimeError, match="installation failed") as exc_info:
                 apply_flash_attn_wheel_post_install(
                     "jina-embeddings-v3",
                     ["flash-attn==2.8.3.post1+cvte1"],
@@ -624,6 +631,16 @@ class TestApplyFlashAttnWheelPostInstall:
                     {"find_links": ["/wheels/jina"]},
                     True,
                 )
+
+        message = str(exc_info.value)
+        assert "stdout=" in message
+        assert "stderr=" in message
+        assert "https://***@example.com/wheel" in message
+        assert "token=***" in message
+        assert "password" not in message
+        assert "secret-token" not in message
+        assert "https://***@example.com/wheel" in caplog.text
+        assert "secret-token" not in caplog.text
 
     def test_validation_failure_after_install_is_fatal(self, fake_venv_manager):
         with (
@@ -670,6 +687,22 @@ class TestApplyFlashAttnWheelPostInstall:
         assert "VIRTUAL_ENV" not in child_env
         assert "PYTHONPATH" not in child_env
         assert "PYTHONHOME" not in child_env
+
+    def test_validation_failure_logs_subprocess_output(self, fake_venv_manager, caplog):
+        result = mock.MagicMock(
+            returncode=1,
+            stdout="validation stdout",
+            stderr="ImportError: libcudart.so not found",
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ):
+            assert not _validate_flash_attn_install(
+                fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+            )
+
+        assert "validation stdout" in caplog.text
+        assert "ImportError: libcudart.so not found" in caplog.text
 
 
 class TestValidateVirtualEnvFindLinks:

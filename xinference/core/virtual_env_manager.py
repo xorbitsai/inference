@@ -1140,6 +1140,28 @@ def is_flash_attn_requirement(spec: str) -> bool:
     return canonicalize_name(requirement.name) == "flash-attn"
 
 
+_SUBPROCESS_OUTPUT_LIMIT = 2048
+
+
+def _format_subprocess_output(output: Any) -> str:
+    """Prepare bounded subprocess output for logs and user-facing errors."""
+    if not isinstance(output, str) or not output:
+        return "<empty>"
+
+    sanitized = output.strip()
+    sanitized = re.sub(r"(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@", r"\1***@", sanitized)
+    sanitized = re.sub(
+        r"(?i)\b(password|passwd|token|api[-_]?key|access[-_]?key)=" r"([^&\s]+)",
+        r"\1=***",
+        sanitized,
+    )
+    sanitized = re.sub(r"(?i)(\bBearer\s+)[^\s,;]+", r"\1***", sanitized)
+    sanitized = sanitized.replace("\r", "\\r").replace("\n", "\\n")
+    if len(sanitized) > _SUBPROCESS_OUTPUT_LIMIT:
+        sanitized = sanitized[:_SUBPROCESS_OUTPUT_LIMIT] + "...<truncated>"
+    return sanitized or "<empty>"
+
+
 def _validate_flash_attn_install(
     virtual_env_manager: Any, flash_attn_packages: List[str]
 ) -> bool:
@@ -1195,7 +1217,12 @@ print(json.dumps({"version": distribution.version}, sort_keys=True))
         return False
     if result.returncode != 0:
         logger.warning(
-            "flash-attn validation failed in %s", virtual_env_manager.env_path
+            "flash-attn validation failed in %s with exit code %s. "
+            "stdout=%r, stderr=%r",
+            virtual_env_manager.env_path,
+            result.returncode,
+            _format_subprocess_output(result.stdout),
+            _format_subprocess_output(result.stderr),
         )
         return False
 
@@ -1290,8 +1317,19 @@ def apply_flash_attn_wheel_post_install(
             "flash-attn Wheel installation could not be started"
         ) from exc
     if result.returncode != 0:
+        stdout = _format_subprocess_output(result.stdout)
+        stderr = _format_subprocess_output(result.stderr)
+        logger.error(
+            "flash-attn Wheel installation failed for %s with exit code %s. "
+            "stdout=%r, stderr=%r",
+            flash_attn_packages,
+            result.returncode,
+            stdout,
+            stderr,
+        )
         raise RuntimeError(
-            f"flash-attn Wheel installation failed for {flash_attn_packages}"
+            f"flash-attn Wheel installation failed for {flash_attn_packages} "
+            f"with exit code {result.returncode}. stdout={stdout!r}, stderr={stderr!r}"
         )
 
     if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
