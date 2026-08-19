@@ -60,9 +60,13 @@ def _stop_after_engine_death(model: Any) -> None:
     os._exit(1)
 
 
-async def _guard_async_iterator(model: Any, iterator: Any) -> AsyncIterator[Any]:
+async def _guard_async_iterator(model: Any, iterable: Any) -> AsyncIterator[Any]:
     completed = False
+    iterator = None
     try:
+        # AsyncIterable objects do not have to implement __anext__ themselves;
+        # close the concrete iterator returned by __aiter__ on cancellation.
+        iterator = aiter(iterable)
         async for item in iterator:
             yield item
         completed = True
@@ -70,10 +74,10 @@ async def _guard_async_iterator(model: Any, iterator: Any) -> AsyncIterator[Any]
         _stop_after_engine_death(model)
     finally:
         # Closing the wrapper (for example after a client disconnects) must
-        # also close the wrapped async generator so that vLLM can release the
+        # also close the wrapped async iterator so that vLLM can release the
         # request and run its cleanup handlers.  Avoid an unnecessary aclose
         # call after normal exhaustion.
-        if not completed:
+        if not completed and iterator is not None:
             aclose = getattr(iterator, "aclose", None)
             if aclose is not None:
                 try:
@@ -91,7 +95,7 @@ def vllm_check(fn: _F) -> _F:
             # from `async for` happen after the decorated coroutine has already
             # returned, so the outer try/except cannot see them unless the
             # iterator itself is wrapped.
-            if hasattr(result, "__aiter__") and hasattr(result, "__anext__"):
+            if hasattr(result, "__aiter__"):
                 return _guard_async_iterator(self, result)
             return result
         except VLLM_ENGINE_DEAD_ERRORS:

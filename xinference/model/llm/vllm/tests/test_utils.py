@@ -19,6 +19,24 @@ from .. import utils
 from ..utils import vllm_check
 
 
+class _AsyncIterableOnly:
+    def __init__(self, model, fail: bool = False):
+        self._model = model
+        self._fail = fail
+
+    def __aiter__(self):
+        async def iterator():
+            try:
+                yield "first"
+                if self._fail:
+                    raise utils.VLLM_ENGINE_DEAD_ERRORS[0]("EngineCore died")
+                yield "second"
+            finally:
+                self._model.iterator_closed()
+
+        return iterator()
+
+
 class _Model:
     def __init__(self):
         self.stop = MagicMock()
@@ -48,6 +66,10 @@ class _Model:
                 self.iterator_closed()
 
         return iterator()
+
+    @vllm_check
+    async def async_iterable_stream(self, fail: bool = False):
+        return _AsyncIterableOnly(self, fail)
 
 
 @pytest.mark.asyncio
@@ -95,6 +117,34 @@ async def test_vllm_check_closes_wrapped_async_generator(monkeypatch):
     assert await anext(iterator) == "first"
 
     await iterator.aclose()
+
+    model.iterator_closed.assert_called_once_with()
+    model.stop.assert_not_called()
+    exit_process.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_vllm_check_guards_async_iterable(monkeypatch):
+    model = _Model()
+    exit_process = MagicMock()
+    monkeypatch.setattr("xinference.model.llm.vllm.utils.os._exit", exit_process)
+
+    iterable = await model.async_iterable_stream(fail=True)
+    assert [item async for item in iterable] == ["first"]
+    model.stop.assert_called_once_with()
+    exit_process.assert_called_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_vllm_check_closes_async_iterable_iterator(monkeypatch):
+    model = _Model()
+    exit_process = MagicMock()
+    monkeypatch.setattr("xinference.model.llm.vllm.utils.os._exit", exit_process)
+
+    iterable = await model.async_iterable_stream()
+    assert await anext(iterable) == "first"
+
+    await iterable.aclose()
 
     model.iterator_closed.assert_called_once_with()
     model.stop.assert_not_called()
