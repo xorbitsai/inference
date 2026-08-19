@@ -55,7 +55,7 @@ class CapacityGate:
                     timeout=self.queue_timeout_seconds,
                 )
                 self._active += 1
-            except TimeoutError as exc:
+            except asyncio.TimeoutError as exc:
                 raise AdmissionRejected(
                     self.pool, "queue_timeout", self.retry_after_seconds
                 ) from exc
