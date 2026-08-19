@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import PageContainer from '@/components/ui/page-container';
 import {
@@ -27,7 +27,6 @@ export default function ClusterInfoPage() {
   const { t } = useI18n();
   const { clusterVersion, clusterUIConfig, globalReady } = useGlobal();
   const tokenRouterEnabled = globalReady && clusterUIConfig?.token_router_enabled !== false;
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const supervisorSummary = useMemo(() => {
     const addresses: string[] = [];
@@ -190,37 +189,48 @@ export default function ClusterInfoPage() {
     ];
   }, [routers, t]);
 
-  const fetchClusterInfo = useCallback(async () => {
-    try {
-      const response = await request.get<ClusterInformationItem[]>('/v1/cluster/info', {
-        params: { detailed: true, include_routers: tokenRouterEnabled },
-      });
-      setLastUpdateTime(format(new Date(), 'yyyy-MM-dd HH:mm:ss'));
-      setData({
-        supervisors: response.filter(
-          (item): item is ClusterInfo => item.node_type === 'Supervisor'
-        ),
-        workers: response.filter((item): item is ClusterInfo => item.node_type === 'Worker'),
-        routers: tokenRouterEnabled
-          ? response.filter(
-              (item): item is RouterNodeClusterInfo =>
-                item.node_type === 'Router' && item.online && item.connectivity_status === 'online'
-            )
-          : [],
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      timerRef.current = setTimeout(fetchClusterInfo, 5000);
-    }
-  }, [tokenRouterEnabled]);
-
   useEffect(() => {
-    void fetchClusterInfo();
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const pollClusterInfo = async () => {
+      try {
+        const response = await request.get<ClusterInformationItem[]>('/v1/cluster/info', {
+          params: { detailed: true, include_routers: tokenRouterEnabled },
+        });
+        if (cancelled) return;
+        setLastUpdateTime(format(new Date(), 'yyyy-MM-dd HH:mm:ss'));
+        setData({
+          supervisors: response.filter(
+            (item): item is ClusterInfo => item.node_type === 'Supervisor'
+          ),
+          workers: response.filter((item): item is ClusterInfo => item.node_type === 'Worker'),
+          routers: tokenRouterEnabled
+            ? response.filter(
+                (item): item is RouterNodeClusterInfo =>
+                  item.node_type === 'Router' &&
+                  item.online &&
+                  item.connectivity_status === 'online'
+              )
+            : [],
+        });
+      } catch (error) {
+        if (!cancelled) console.error(error);
+      } finally {
+        if (!cancelled) {
+          timer = setTimeout(() => {
+            void pollClusterInfo();
+          }, 5000);
+        }
+      }
     };
-  }, [fetchClusterInfo]);
+
+    void pollClusterInfo();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [tokenRouterEnabled]);
 
   const renderSummary = (
     rows: Array<{ label: string; value: string | number; total?: string; title?: string }>
