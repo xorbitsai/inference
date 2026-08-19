@@ -155,5 +155,6 @@ export const ALL_FORM_KEYS = [
   'multimodal_projector',
   'enable_virtual_env',
   'virtual_env_packages',
+  'virtual_env_find_links',
   'envs',
 ];

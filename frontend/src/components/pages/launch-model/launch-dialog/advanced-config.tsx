@@ -133,6 +133,14 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
         </div>
 
         <div className="p-2">
+          <CommonFormList
+            name="virtual_env_find_links"
+            label={t('launchModel.virtualEnvFindLinks')}
+            onlyValue
+          />
+        </div>
+
+        <div className="p-2">
           <CommonFormList name="envs" label={t('launchModel.envVariable')} />
         </div>
       </ConfigSection>

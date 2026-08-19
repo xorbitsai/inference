@@ -537,6 +537,7 @@ const ja = {
     virtualEnvConfig: '仮想環境の設定',
     modelVirtualEnv: 'モデルの仮想環境',
     virtualEnvPackage: '仮想環境パッケージ',
+    virtualEnvFindLinks: 'ローカル Wheel ディレクトリ',
     envVariable: '環境変数',
     envVariableConfig: '環境変数の設定',
     additionalQuantizationParametersForInferenceEngine:
