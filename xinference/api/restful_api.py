@@ -133,12 +133,13 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
 
 
 def _request_credential(request: Request) -> str:
-    authorization = request.headers.get("authorization", "")
+    headers = {key.lower(): value for key, value in request.headers.items()}
+    authorization = headers.get("authorization", "")
     if authorization.lower().startswith("bearer "):
         bearer_token = authorization[7:].strip()
         if bearer_token:
             return bearer_token
-    return request.headers.get("x-api-key", "").strip()
+    return headers.get("x-api-key", "").strip()
 
 
 def _token_router_request_headers(
@@ -672,30 +673,26 @@ class RESTfulAPI(CancelMixin):
         runtime: Dict[str, Any],
         *,
         forward_external_credential: bool = True,
-    ) -> tuple[httpx.AsyncClient, httpx.Response, str]:
+    ) -> tuple[httpx.Response, str]:
         request_id = (
             request.headers.get("request-id")
             or request.headers.get("x-request-id")
             or f"xinf-{uuid.uuid4()}"
         )
         upstream_url = f"{runtime['endpoint']}/v1/chat/completions"
-        client = httpx.AsyncClient(timeout=None, follow_redirects=False)
-        try:
-            upstream_request = client.build_request(
-                "POST",
-                upstream_url,
-                headers=_token_router_request_headers(
-                    request,
-                    request_id,
-                    forward_external_credential=forward_external_credential,
-                ),
-                json=raw_body,
-            )
-            upstream_response = await client.send(upstream_request, stream=True)
-        except httpx.HTTPError:
-            await client.aclose()
-            raise
-        return client, upstream_response, request_id
+        client = self._get_token_router_client()
+        upstream_request = client.build_request(
+            "POST",
+            upstream_url,
+            headers=_token_router_request_headers(
+                request,
+                request_id,
+                forward_external_credential=forward_external_credential,
+            ),
+            json=raw_body,
+        )
+        upstream_response = await client.send(upstream_request, stream=True)
+        return upstream_response, request_id
 
     async def _proxy_token_router_chat_completion(
         self,
@@ -1851,7 +1848,7 @@ class RESTfulAPI(CancelMixin):
                     headers={"Retry-After": "1"},
                 )
             try:
-                client, upstream_response, request_id = (
+                upstream_response, request_id = (
                     await self._open_token_router_chat_completion(
                         request,
                         openai_body,
@@ -1880,7 +1877,6 @@ class RESTfulAPI(CancelMixin):
                     error_payload = {}
                 finally:
                     await upstream_response.aclose()
-                    await client.aclose()
                 error = error_payload.get("error") or {}
                 error_message = (
                     error.get("message") if isinstance(error, dict) else str(error)
@@ -1909,7 +1905,6 @@ class RESTfulAPI(CancelMixin):
                         yield {"error": {"type": "api_error", "message": str(exc)}}
                     finally:
                         await upstream_response.aclose()
-                        await client.aclose()
 
                 return EventSourceResponse(
                     anthropic_stream_events(router_chunks(), model_uid, request_id),
@@ -1929,7 +1924,6 @@ class RESTfulAPI(CancelMixin):
                 return self._anthropic_error(502, str(exc), request_id)
             finally:
                 await upstream_response.aclose()
-                await client.aclose()
 
         try:
             model = await require_model(

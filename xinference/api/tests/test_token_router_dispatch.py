@@ -923,6 +923,9 @@ async def test_anthropic_virtual_non_stream_uses_openai_data_plane(monkeypatch):
         },
     }
     assert auth_service.checked == [("external-anthropic-key", "virtual-model", "LLM")]
+    assert api._token_router_client is upstream_client
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
     assert upstream_client.is_closed
 
 
@@ -970,6 +973,9 @@ async def test_anthropic_virtual_uses_internal_router_token(monkeypatch):
 
     assert response.status_code == 200
     assert captured["authorization"] == "Bearer internal-token"
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
+    assert upstream_client.is_closed
 
 
 @pytest.mark.asyncio
@@ -1040,6 +1046,9 @@ async def test_anthropic_virtual_stream_returns_native_event_sequence(monkeypatc
     assert '"model": "virtual-model"' in response.text
     assert '"stop_reason": "end_turn"' in response.text
     assert captured["stream_closed"] is True
+    assert api._token_router_client is upstream_client
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
     assert upstream_client.is_closed
 
 
@@ -1088,3 +1097,6 @@ async def test_anthropic_virtual_router_error_is_converted(monkeypatch):
         "message": "busy",
     }
     assert response.json()["request_id"] == response.headers["request-id"]
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
+    assert upstream_client.is_closed
