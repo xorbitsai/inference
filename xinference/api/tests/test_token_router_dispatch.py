@@ -3,7 +3,7 @@ from types import MethodType
 
 import httpx
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from xinference.api import restful_api as restful_api_module
 
@@ -303,6 +303,134 @@ async def test_virtual_chat_stream_is_proxied_with_auth_headers_and_done(monkeyp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "thinking_fields",
+    [
+        {"enable_thinking": True, "extra_body": {"enable_thinking": False}},
+        {"extra_body": {"enable_thinking": True}},
+    ],
+)
+async def test_virtual_chat_normalizes_router_estimation_fields(
+    monkeypatch, thinking_fields
+):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    app = make_chat_app(api)
+    real_async_client = httpx.AsyncClient
+    captured = {}
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'{"id":"chatcmpl-router"}'
+
+    def upstream_handler(request):
+        captured["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            stream=UpstreamStream(),
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    transport = httpx.ASGITransport(app=app)
+    try:
+        async with real_async_client(
+            transport=transport, base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                json={
+                    "model": "virtual-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "stream": False,
+                    "max_tokens": 8,
+                    "max_completion_tokens": 16,
+                    **thinking_fields,
+                },
+            )
+    finally:
+        await api._close_token_router_client()
+
+    assert response.status_code == 200
+    assert captured["payload"]["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
+    assert captured["payload"]["max_tokens"] == 16
+
+
+@pytest.mark.asyncio
+async def test_stream_proxy_background_closes_uniterated_response_once():
+    api = make_rest_api(FakeSupervisor(None))
+    close_calls = 0
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b"data: [DONE]\n\n"
+
+        async def aclose(self):
+            nonlocal close_calls
+            close_calls += 1
+
+    upstream_request = httpx.Request("POST", "http://router:10081/v1/chat/completions")
+    upstream_response = httpx.Response(
+        200,
+        headers={"content-type": "text/event-stream"},
+        stream=UpstreamStream(),
+        request=upstream_request,
+    )
+
+    class FakeClient:
+        def build_request(self, *args, **kwargs):
+            return upstream_request
+
+        async def send(self, request, *, stream):
+            assert stream is True
+            return upstream_response
+
+    api._get_token_router_client = lambda: FakeClient()
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "query_string": b"",
+            "scheme": "http",
+            "server": ("test", 80),
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+
+    response = await api._proxy_token_router_chat_completion(
+        request,
+        {"stream": True},
+        {
+            "endpoint": "http://router:10081",
+            "virtual_model_uid": "virtual-model",
+            "router_uid": "router-a",
+            "instance_id": "instance-a",
+        },
+    )
+
+    assert close_calls == 0
+    assert response.background is not None
+    await response.background()
+    await response.background()
+    assert close_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_virtual_chat_non_stream_preserves_router_error(monkeypatch):
     resolution = {
         "matched": True,
@@ -556,3 +684,40 @@ async def test_list_models_merges_sanitized_virtual_model(monkeypatch):
     assert by_id["virtual-model"]["model_engine"] == "token_router"
     assert by_id["virtual-model"]["router_status"] == "ready"
     assert "endpoint" not in by_id["virtual-model"]
+
+
+@pytest.mark.asyncio
+async def test_list_models_hides_persisted_virtual_models_when_router_disabled(
+    monkeypatch,
+):
+    monkeypatch.setattr(restful_api_module, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    supervisor = FakeSupervisor(
+        None,
+        physical_models={
+            "physical-model": {"model_name": "physical", "model_type": "LLM"}
+        },
+        virtual_models={
+            "virtual-model": {
+                "model_name": "virtual-model",
+                "model_type": "LLM",
+                "model_engine": "token_router",
+            }
+        },
+    )
+
+    async def fail_list_virtual_models():
+        raise AssertionError(
+            "virtual models must not be loaded when Router is disabled"
+        )
+
+    supervisor.list_virtual_models = fail_list_virtual_models
+    api = make_rest_api(supervisor)
+    monkeypatch.setattr(
+        "xinference.api.oauth2.advanced.audit.update_model_cache",
+        lambda *args, **kwargs: None,
+    )
+
+    response = await api.list_models()
+    payload = json.loads(response.body)
+
+    assert [item["id"] for item in payload["data"]] == ["physical-model"]

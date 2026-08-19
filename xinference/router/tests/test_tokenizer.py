@@ -125,3 +125,56 @@ def test_rejects_multimodal_content(tmp_path: Path) -> None:
                 ]
             }
         )
+
+
+def test_top_level_thinking_overrides_extra_body_and_template_kwargs(
+    tmp_path: Path,
+) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+
+    result = estimator.estimate(
+        {
+            "messages": [{"role": "user", "content": "hello"}],
+            "enable_thinking": False,
+            "extra_body": {"enable_thinking": True},
+            "chat_template_kwargs": {"enable_thinking": True},
+        }
+    )
+
+    assert result.enable_thinking is False
+    assert result.prompt_tokens == 1
+
+
+def test_extra_body_thinking_is_normalized(tmp_path: Path) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+
+    result = estimator.estimate(
+        {
+            "messages": [{"role": "user", "content": "hello"}],
+            "extra_body": {"enable_thinking": True},
+        }
+    )
+
+    assert result.enable_thinking is True
+    assert result.prompt_tokens == 4
+
+
+def test_max_completion_tokens_overrides_max_tokens(tmp_path: Path) -> None:
+    estimator = DeepSeekV4TokenEstimator(
+        make_assets(tmp_path), reserve_tokens=0, default_output_tokens=1
+    )
+
+    result = estimator.estimate(
+        {
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 8,
+            "max_completion_tokens": 16,
+        }
+    )
+
+    assert result.output_tokens == 16
+    assert result.total_tokens == result.prompt_tokens + 16

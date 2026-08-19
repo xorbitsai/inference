@@ -78,10 +78,11 @@ async def wait_for_active(service: TokenizationService, expected: int = 1) -> No
 
 
 @pytest.mark.asyncio
-async def test_spawn_workers_are_prestarted_and_remove_api_key(
+async def test_spawn_workers_are_prestarted_and_remove_router_credentials(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("XINFERENCE_API_KEY", "parent-secret")
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", "internal-secret")
     service, _ = make_service(
         tmp_path,
         max_workers=2,
@@ -92,6 +93,7 @@ async def test_spawn_workers_are_prestarted_and_remove_api_key(
         assert len(service.worker_pids) == 2
         assert os.getpid() not in service.worker_pids
         assert os.environ["XINFERENCE_API_KEY"] == "parent-secret"
+        assert os.environ["XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"] == "internal-secret"
     finally:
         await service.aclose()
 

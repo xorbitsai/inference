@@ -44,6 +44,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
+from starlette.background import BackgroundTask
 from starlette.responses import PlainTextResponse, StreamingResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
@@ -146,6 +147,36 @@ def _token_router_response_headers(response: httpx.Response) -> Dict[str, str]:
         for key, value in response.headers.items()
         if key.lower() not in excluded
     }
+
+
+def _normalize_token_router_chat_payload(
+    raw_body: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Mirror Chat API normalization before forwarding to the Token Router."""
+    normalized = dict(raw_body)
+    enable_thinking = raw_body.get("enable_thinking")
+    if enable_thinking is None:
+        extra_body = raw_body.get("extra_body")
+        if isinstance(extra_body, dict):
+            enable_thinking = extra_body.get("enable_thinking")
+    if isinstance(enable_thinking, bool):
+        chat_template_kwargs = raw_body.get("chat_template_kwargs") or {}
+        if isinstance(chat_template_kwargs, str):
+            try:
+                chat_template_kwargs = json.loads(chat_template_kwargs)
+            except json.JSONDecodeError:
+                chat_template_kwargs = {}
+        if not isinstance(chat_template_kwargs, dict):
+            chat_template_kwargs = {}
+        chat_template_kwargs = dict(chat_template_kwargs)
+        chat_template_kwargs["enable_thinking"] = enable_thinking
+        chat_template_kwargs["thinking"] = enable_thinking
+        normalized["chat_template_kwargs"] = chat_template_kwargs
+
+    max_completion_tokens = raw_body.get("max_completion_tokens")
+    if max_completion_tokens is not None:
+        normalized["max_tokens"] = max_completion_tokens
+    return normalized
 
 
 _AUDIO_RESPONSE_MEDIA_TYPES = {
@@ -483,6 +514,38 @@ class RESTfulAPI(CancelMixin):
             auth_type="jwt",
         )
 
+    async def _audit_middleware(self, request: Request, call_next):
+        started = time.perf_counter()
+        response = await call_next(request)
+        model_uid = getattr(request.state, "_audit_model_uid", "")
+        if model_uid:
+            latency_s = time.perf_counter() - started
+            if response.status_code < 400:
+                audit_status = "success"
+            elif response.status_code == 404:
+                audit_status = "model_not_found"
+            else:
+                audit_status = "error"
+            model_type = getattr(request.state, "_audit_model_type", "")
+            self._record_audit(request, model_uid, model_type, audit_status, latency_s)
+        elif self._advanced_auth_service and request.url.path.startswith(
+            ("/v1/models", "/v1/admin", "/v1/token_routers")
+        ):
+            from .oauth2.advanced.audit import classify_endpoint
+
+            category = classify_endpoint(request.url.path)
+            if category == "admin":
+                latency_s = time.perf_counter() - started
+                audit_status = "success" if response.status_code < 400 else "error"
+                self._record_admin_audit(request, audit_status, latency_s)
+        elif self._advanced_auth_service and request.url.path.startswith(
+            ("/token", "/v1/auth/", "/v1/api_keys")
+        ):
+            latency_s = time.perf_counter() - started
+            audit_status = "success" if response.status_code < 400 else "login_failed"
+            self._record_admin_audit(request, audit_status, latency_s)
+        return response
+
     @staticmethod
     def handle_request_limit_error(e: Exception):
         if "Rate limit reached" in str(e):
@@ -608,6 +671,13 @@ class RESTfulAPI(CancelMixin):
         response_headers.setdefault("x-request-id", request_id)
 
         if is_stream and upstream_response.status_code < 400:
+            cleanup_task: asyncio.Task[None] | None = None
+
+            async def release_resources() -> None:
+                nonlocal cleanup_task
+                if cleanup_task is None:
+                    cleanup_task = asyncio.create_task(upstream_response.aclose())
+                await asyncio.shield(cleanup_task)
 
             async def body_stream() -> AsyncIterator[bytes]:
                 try:
@@ -627,7 +697,7 @@ class RESTfulAPI(CancelMixin):
                     )
                     raise
                 finally:
-                    await upstream_response.aclose()
+                    await release_resources()
 
             response_headers.setdefault("cache-control", "no-cache")
             response_headers.setdefault("x-accel-buffering", "no")
@@ -635,6 +705,7 @@ class RESTfulAPI(CancelMixin):
                 body_stream(),
                 status_code=upstream_response.status_code,
                 headers=response_headers,
+                background=BackgroundTask(release_resources),
             )
 
         try:
@@ -668,44 +739,7 @@ class RESTfulAPI(CancelMixin):
             response = await call_next(request)
             return response
 
-        @self._app.middleware("http")
-        async def audit_middleware(request: Request, call_next):
-            import time as _time
-
-            _start = _time.perf_counter()
-            response = await call_next(request)
-            model_uid = getattr(request.state, "_audit_model_uid", "")
-            if model_uid:
-                latency_s = _time.perf_counter() - _start
-                if response.status_code < 400:
-                    audit_status = "success"
-                elif response.status_code == 404:
-                    audit_status = "model_not_found"
-                else:
-                    audit_status = "error"
-                model_type = getattr(request.state, "_audit_model_type", "")
-                self._record_audit(
-                    request, model_uid, model_type, audit_status, latency_s
-                )
-            elif self._advanced_auth_service and request.url.path.startswith(
-                ("/v1/models", "/v1/admin")
-            ):
-                from .oauth2.advanced.audit import classify_endpoint
-
-                _category = classify_endpoint(request.url.path)
-                if _category == "admin":
-                    latency_s = _time.perf_counter() - _start
-                    audit_status = "success" if response.status_code < 400 else "error"
-                    self._record_admin_audit(request, audit_status, latency_s)
-            elif self._advanced_auth_service and request.url.path.startswith(
-                ("/token", "/v1/auth/", "/v1/api_keys")
-            ):
-                latency_s = _time.perf_counter() - _start
-                audit_status = (
-                    "success" if response.status_code < 400 else "login_failed"
-                )
-                self._record_admin_audit(request, audit_status, latency_s)
-            return response
+        self._app.middleware("http")(self._audit_middleware)
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
         if XINFERENCE_ENABLE_OTEL:
@@ -924,8 +958,11 @@ class RESTfulAPI(CancelMixin):
         try:
             supervisor_ref = await self._get_supervisor_ref()
             physical_models = await supervisor_ref.list_models()
-            virtual_models = await supervisor_ref.list_virtual_models()
-            models = {**physical_models, **virtual_models}
+            if XINFERENCE_TOKEN_ROUTER_ENABLED:
+                virtual_models = await supervisor_ref.list_virtual_models()
+                models = {**physical_models, **virtual_models}
+            else:
+                models = physical_models
 
             model_list = []
             for model_id, model_info in models.items():
@@ -2767,6 +2804,7 @@ class RESTfulAPI(CancelMixin):
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateChatCompletion.parse_obj(raw_body)
+        raw_body = _normalize_token_router_chat_payload(raw_body)
         exclude = {
             "prompt",
             "model",

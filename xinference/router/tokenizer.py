@@ -82,7 +82,17 @@ def _chat_template_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
             raise TokenizationError("chat_template_kwargs must be valid JSON") from exc
     if not isinstance(raw, dict):
         raise TokenizationError("chat_template_kwargs must be an object")
-    return dict(raw)
+
+    normalized = dict(raw)
+    enable_thinking = payload.get("enable_thinking")
+    if enable_thinking is None:
+        extra_body = payload.get("extra_body")
+        if isinstance(extra_body, dict):
+            enable_thinking = extra_body.get("enable_thinking")
+    if isinstance(enable_thinking, bool):
+        normalized["enable_thinking"] = enable_thinking
+        normalized["thinking"] = enable_thinking
+    return normalized
 
 
 class DeepSeekV4TokenEstimator:
@@ -137,9 +147,9 @@ class DeepSeekV4TokenEstimator:
             raise TokenizationError("DeepSeek-V4 renderer did not return text")
 
         prompt_tokens = len(self._tokenizer.encode(prompt, add_special_tokens=True).ids)
-        output_value = payload.get("max_tokens")
+        output_value = payload.get("max_completion_tokens")
         if output_value is None:
-            output_value = payload.get("max_completion_tokens")
+            output_value = payload.get("max_tokens")
         if output_value is None:
             output_value = self._default_output_tokens
         if isinstance(output_value, bool) or not isinstance(output_value, int):

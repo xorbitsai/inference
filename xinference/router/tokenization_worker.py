@@ -18,6 +18,7 @@ def initialize_tokenization_worker(
     """Initialize one process-local estimator and remove backend credentials."""
     global _ESTIMATOR
     os.environ.pop("XINFERENCE_API_KEY", None)
+    os.environ.pop("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", None)
     _ESTIMATOR = DeepSeekV4TokenEstimator(
         Path(tokenizer_path),
         reserve_tokens=reserve_tokens,
@@ -31,9 +32,13 @@ def estimate_in_worker(payload: dict[str, Any]) -> TokenBudget:
     return _ESTIMATOR.estimate(payload)
 
 
-def ping_worker(delay_seconds: float = 0.05) -> tuple[int, bool]:
+def ping_worker(delay_seconds: float = 0.05) -> tuple[int, bool, bool]:
     """Return worker identity without exposing any credential value."""
     if _ESTIMATOR is None:
         raise RuntimeError("Tokenization worker is not initialized")
     time.sleep(delay_seconds)
-    return os.getpid(), "XINFERENCE_API_KEY" in os.environ
+    return (
+        os.getpid(),
+        "XINFERENCE_API_KEY" in os.environ,
+        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN" in os.environ,
+    )

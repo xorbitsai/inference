@@ -76,7 +76,7 @@ class TokenizationService:
             raise TokenizationWorkerUnavailable("Tokenization service is closed")
         executor = self._executor
         loop = asyncio.get_running_loop()
-        results: list[tuple[int, bool]] = []
+        results: list[tuple[int, bool, bool]] = []
 
         # ProcessPoolExecutor starts processes lazily. Multiple bounded waves
         # ensure every configured spawn worker completes its initializer even
@@ -92,11 +92,14 @@ class TokenizationService:
                 raise TokenizationWorkerUnavailable(
                     f"Unable to start tokenization workers: {exc}"
                 ) from exc
-            if any(api_key_present for _, api_key_present in results):
+            if any(
+                api_key_present or internal_token_present
+                for _, api_key_present, internal_token_present in results
+            ):
                 raise TokenizationWorkerUnavailable(
-                    "Tokenization worker retained XINFERENCE_API_KEY"
+                    "Tokenization worker retained a Router credential"
                 )
-            worker_pids = {pid for pid, _ in results}
+            worker_pids = {pid for pid, _, _ in results}
             if len(worker_pids) >= self._max_workers:
                 self._worker_pids = tuple(sorted(worker_pids))
                 logger.info("Tokenization workers started: pids=%s", self._worker_pids)
