@@ -742,6 +742,59 @@ def test_match_llm():
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
 
 
+def test_match_deepseek_v4_flash_0731():
+    family = match_llm(
+        "DeepSeek-V4-Flash-0731",
+        model_format="fp8",
+        model_size_in_billions=304,
+        quantization="fp8",
+        download_hub="huggingface",
+    )
+
+    assert family is not None
+    assert family.model_name == "DeepSeek-V4-Flash-0731"
+    assert family.context_length == 1048576
+    assert family.architectures == ["DeepseekV4ForCausalLM"]
+    assert family.tool_parser == "deepseek-v4"
+    assert len(family.model_specs) == 1
+    spec = family.model_specs[0]
+    assert spec.model_format == "fp8"
+    assert spec.model_size_in_billions == 304
+    assert spec.quantization == "fp8"
+    assert spec.model_hub == "huggingface"
+    assert spec.model_id == "deepseek-ai/DeepSeek-V4-Flash-0731"
+
+    modelscope_family = match_llm(
+        "DeepSeek-V4-Flash-0731",
+        model_format="fp8",
+        model_size_in_billions=304,
+        quantization="fp8",
+        download_hub="modelscope",
+    )
+    assert modelscope_family is not None
+    assert modelscope_family.model_specs[0].model_hub == "modelscope"
+    assert (
+        modelscope_family.model_specs[0].model_id
+        == "deepseek-ai/DeepSeek-V4-Flash-0731"
+    )
+
+    assert family.virtualenv is not None
+    packages = family.virtualenv.packages
+    assert 'vllm>=0.20.1 ; #engine# == "vllm"' in packages
+    assert not any('#engine# == "Transformers"' in package for package in packages)
+    assert not any('#engine# == "SGLang"' in package for package in packages)
+
+    preview = match_llm(
+        "DeepSeek-V4-Flash",
+        model_format="pytorch",
+        model_size_in_billions=284,
+        quantization="none",
+        download_hub="huggingface",
+    )
+    assert preview is not None
+    assert preview.model_specs[0].model_id == "deepseek-ai/DeepSeek-V4-Flash"
+
+
 def test_is_valid_file_uri():
     with tempfile.NamedTemporaryFile() as tmp_file:
         assert is_valid_model_uri(f"file://{tmp_file.name}") is True
