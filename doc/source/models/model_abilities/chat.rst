@@ -206,6 +206,73 @@ Usage examples:
     )
 
 
+DeepSeek-V4-Flash-0731
+~~~~~~~~~~~~~~~~~~~~~~
+
+``DeepSeek-V4-Flash-0731`` is a separate built-in model from the
+``DeepSeek-V4-Flash`` preview entry. It uses the native FP8 checkpoint and
+requires vLLM 0.20.1 or newer.
+
+Launch it with:
+
+.. code-block:: bash
+
+   xinference launch \
+       --model-engine vLLM \
+       --model-name DeepSeek-V4-Flash-0731 \
+       --size-in-billions 304 \
+       --model-format fp8 \
+       --quantization fp8
+
+The upstream repository supplies DeepSeek-V4-specific encoding code. Enable
+trusted repository code before launch:
+
+.. code-block:: bash
+
+   export XINFERENCE_TRUST_REMOTE_CODE=1
+
+The ``chat_template_kwargs`` option selects thinking mode and reasoning level:
+
+.. code-block:: json
+
+   {
+     "chat_template_kwargs": {
+       "enable_thinking": true,
+       "reasoning_effort": "high"
+     }
+   }
+
+Set ``enable_thinking`` to ``false`` for chat mode. Supported reasoning levels
+are provided by the model repository; ``low``, ``high``, and ``max`` are
+forwarded without Xinference rewriting them.
+
+The checkpoint includes a DSpark speculative decoding module, but Xinference
+does not enable it automatically. Enable it through vLLM model configuration
+when supported:
+
+.. code-block:: json
+
+   {
+     "speculative_config": {
+       "method": "dspark",
+       "num_speculative_tokens": 7,
+       "draft_sample_method": "greedy"
+     }
+   }
+
+The following parameters are the upstream example for a single 4xGB300 node
+and are not Xinference defaults:
+
+.. code-block:: bash
+
+   --kv-cache-dtype fp8 \
+   --block-size 256 \
+   --data-parallel-size 4 \
+   --enable-expert-parallel \
+   --moe-backend deep_gemm_mega_moe \
+   --attention-config '{"use_fp4_indexer_cache": true}'
+
+
 Generate Models
 ================
 
