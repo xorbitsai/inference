@@ -22,11 +22,19 @@ import time
 from collections import OrderedDict
 from typing import Any, Callable, Optional
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from ..core.exceptions import ModelNotReadyError
 
 logger = logging.getLogger(__name__)
+
+
+def get_request_route_path(request: Request) -> str:
+    """Return the matched route path without an ASGI ``root_path`` prefix."""
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", None)
+    return route_path if isinstance(route_path, str) else request.url.path
+
 
 # ---------------------------------------------------------------------------
 # Negative cache for ``get_model`` – prevents retry floods from blocking

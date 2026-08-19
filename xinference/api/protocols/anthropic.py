@@ -388,18 +388,10 @@ def openai_to_anthropic(openai_response: Dict[str, Any], model: str) -> Dict[str
                 input_data = (
                     json.loads(arguments) if isinstance(arguments, str) else arguments
                 )
-            except json.JSONDecodeError as exc:
-                raise AnthropicProtocolError(
-                    500,
-                    "api_error",
-                    "The model returned invalid tool arguments",
-                ) from exc
+            except json.JSONDecodeError:
+                input_data = {}
             if not isinstance(input_data, dict):
-                raise AnthropicProtocolError(
-                    500,
-                    "api_error",
-                    "The model returned non-object tool arguments",
-                )
+                input_data = {}
             content_blocks.append(
                 {
                     "type": "tool_use",
@@ -479,84 +471,95 @@ async def anthropic_stream_events(
             "data": json.dumps({"type": "content_block_stop", "index": index}),
         }
 
-    async for chunk in chunks:
-        if "error" in chunk:
-            error = chunk.get("error") or {}
-            yield {
-                "event": "error",
-                "data": json.dumps(
-                    anthropic_error_response(
-                        error.get("type", "api_error"),
-                        error.get("message", "Upstream stream failed"),
-                        request_id,
-                    )
-                ),
-            }
-            return
-
-        usage = chunk.get("usage") or {}
-        output_tokens = int(usage.get("completion_tokens") or output_tokens)
-        choices = chunk.get("choices") or []
-        if not choices:
-            continue
-
-        choice = choices[0]
-        delta = choice.get("delta") or {}
-        for kind, value, delta_type, field in (
-            ("thinking", delta.get("reasoning_content"), "thinking_delta", "thinking"),
-            ("text", delta.get("content"), "text_delta", "text"),
-        ):
-            if not isinstance(value, str) or not value:
-                continue
-            if active_kind != kind:
-                if active_index is not None:
-                    yield block_stop(active_index)
-                active_index = next_index
-                next_index += 1
-                active_kind = kind
-                content_block = {"type": kind, field: ""}
+    try:
+        async for chunk in chunks:
+            if "error" in chunk:
+                error = chunk.get("error") or {}
                 yield {
-                    "event": "content_block_start",
+                    "event": "error",
+                    "data": json.dumps(
+                        anthropic_error_response(
+                            error.get("type", "api_error"),
+                            error.get("message", "Upstream stream failed"),
+                            request_id,
+                        )
+                    ),
+                }
+                return
+
+            usage = chunk.get("usage") or {}
+            output_tokens = int(usage.get("completion_tokens") or output_tokens)
+            choices = chunk.get("choices") or []
+            if not choices:
+                continue
+
+            choice = choices[0]
+            delta = choice.get("delta") or {}
+            for kind, value, delta_type, field in (
+                (
+                    "thinking",
+                    delta.get("reasoning_content"),
+                    "thinking_delta",
+                    "thinking",
+                ),
+                ("text", delta.get("content"), "text_delta", "text"),
+            ):
+                if not isinstance(value, str) or not value:
+                    continue
+                if active_kind != kind:
+                    if active_index is not None:
+                        yield block_stop(active_index)
+                    active_index = next_index
+                    next_index += 1
+                    active_kind = kind
+                    content_block = {"type": kind, field: ""}
+                    yield {
+                        "event": "content_block_start",
+                        "data": json.dumps(
+                            {
+                                "type": "content_block_start",
+                                "index": active_index,
+                                "content_block": content_block,
+                            }
+                        ),
+                    }
+                yield {
+                    "event": "content_block_delta",
                     "data": json.dumps(
                         {
-                            "type": "content_block_start",
+                            "type": "content_block_delta",
                             "index": active_index,
-                            "content_block": content_block,
+                            "delta": {"type": delta_type, field: value},
                         }
                     ),
                 }
-            yield {
-                "event": "content_block_delta",
-                "data": json.dumps(
-                    {
-                        "type": "content_block_delta",
-                        "index": active_index,
-                        "delta": {"type": delta_type, field: value},
-                    }
-                ),
-            }
 
-        for tool_call in delta.get("tool_calls") or []:
-            try:
-                source_index = int(tool_call.get("index") or 0)
-            except (TypeError, ValueError):
-                source_index = 0
-            state = tool_buffers.setdefault(
-                source_index,
-                {"id": None, "name": "", "argument_fragments": []},
-            )
-            if tool_call.get("id"):
-                state["id"] = tool_call["id"]
-            function = tool_call.get("function") or {}
-            if function.get("name"):
-                state["name"] = function["name"]
-            arguments = function.get("arguments")
-            if isinstance(arguments, str) and arguments:
-                state["argument_fragments"].append(arguments)
+            for tool_call in delta.get("tool_calls") or []:
+                try:
+                    source_index = int(tool_call.get("index") or 0)
+                except (TypeError, ValueError):
+                    source_index = 0
+                state = tool_buffers.setdefault(
+                    source_index,
+                    {"id": None, "name": "", "argument_fragments": []},
+                )
+                if tool_call.get("id"):
+                    state["id"] = tool_call["id"]
+                function = tool_call.get("function") or {}
+                if function.get("name"):
+                    state["name"] = function["name"]
+                arguments = function.get("arguments")
+                if isinstance(arguments, str) and arguments:
+                    state["argument_fragments"].append(arguments)
 
-        if choice.get("finish_reason") is not None:
-            finish_reason = choice["finish_reason"]
-            stop_sequence = choice.get("stop_sequence") or stop_sequence
+            if choice.get("finish_reason") is not None:
+                finish_reason = choice["finish_reason"]
+                stop_sequence = choice.get("stop_sequence") or stop_sequence
+
+    finally:
+        close = getattr(chunks, "aclose", None)
+        if close is not None:
+            await close()
 
     if active_index is not None:
         yield block_stop(active_index)

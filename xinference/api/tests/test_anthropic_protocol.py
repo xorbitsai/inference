@@ -170,30 +170,40 @@ def test_openai_response_maps_text_thinking_tools_stop_and_usage():
     assert response["usage"] == {"input_tokens": 12, "output_tokens": 7}
 
 
-def test_openai_response_rejects_invalid_tool_json():
-    with pytest.raises(AnthropicProtocolError) as exc_info:
-        openai_to_anthropic(
-            {
-                "choices": [
-                    {
-                        "message": {
-                            "tool_calls": [
-                                {
-                                    "function": {
-                                        "name": "weather",
-                                        "arguments": "{invalid",
-                                    }
+@pytest.mark.parametrize(
+    "arguments",
+    ["{invalid", "[]", '"value"', "1", "null", ["already-decoded"]],
+)
+def test_openai_response_defaults_invalid_tool_arguments_to_empty_object(arguments):
+    response = openai_to_anthropic(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "weather",
+                                    "arguments": arguments,
                                 }
-                            ]
-                        },
-                        "finish_reason": "tool_calls",
-                    }
-                ]
-            },
-            "model",
-        )
-    assert exc_info.value.status_code == 500
-    assert exc_info.value.error_type == "api_error"
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        },
+        "model",
+    )
+
+    assert response["content"] == [
+        {
+            "type": "tool_use",
+            "id": response["content"][0]["id"],
+            "name": "weather",
+            "input": {},
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -366,3 +376,24 @@ async def test_stream_error_terminates_without_message_stop():
     assert json.loads(events[-1]["data"]) == anthropic_error_response(
         "rate_limit_error", "slow down", "req_2"
     )
+
+
+@pytest.mark.asyncio
+async def test_stream_closes_inner_iterator_when_consumer_stops_early():
+    closed = False
+
+    async def chunks():
+        nonlocal closed
+        try:
+            yield {"choices": [{"delta": {"content": "hello"}, "finish_reason": None}]}
+        finally:
+            closed = True
+
+    events = anthropic_stream_events(chunks(), "model", "req_disconnect")
+    assert (await anext(events))["event"] == "message_start"
+    assert (await anext(events))["event"] == "content_block_start"
+    assert closed is False
+
+    await events.aclose()
+
+    assert closed is True

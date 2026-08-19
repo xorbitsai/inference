@@ -107,7 +107,7 @@ from .schemas import (
     TextToVideoRequest,
     UpdateModelRequest,
 )
-from .utils import require_model
+from .utils import get_request_route_path, require_model
 
 logger = logging.getLogger(__name__)
 
@@ -1736,7 +1736,7 @@ class RESTfulAPI(CancelMixin):
             or f"req_{uuid.uuid4().hex}"
         )
         anthropic_version = request.headers.get("anthropic-version")
-        if request.url.path == "/v1/messages" and not anthropic_version:
+        if get_request_route_path(request) == "/v1/messages" and not anthropic_version:
             return self._anthropic_error(
                 400, "The anthropic-version header is required", request_id
             )

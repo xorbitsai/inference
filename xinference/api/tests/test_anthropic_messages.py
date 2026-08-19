@@ -29,12 +29,13 @@ def make_app(api):
 
 
 @pytest.mark.asyncio
-async def test_standard_path_requires_version_header():
+@pytest.mark.parametrize("root_path", ["", "/xinference", "/anthropic"])
+async def test_standard_path_requires_version_header(root_path):
     app = make_app(make_rest_api())
-    transport = httpx.ASGITransport(app=app)
+    transport = httpx.ASGITransport(app=app, root_path=root_path)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
-            "/v1/messages",
+            f"{root_path}/v1/messages",
             json={
                 "model": "model",
                 "messages": [{"role": "user", "content": "hello"}],
@@ -68,7 +69,8 @@ async def test_standard_path_rejects_unsupported_version():
 
 
 @pytest.mark.asyncio
-async def test_physical_non_stream_converts_bytes_response(monkeypatch):
+@pytest.mark.parametrize("root_path", ["", "/anthropic"])
+async def test_physical_non_stream_converts_bytes_response(monkeypatch, root_path):
     api = make_rest_api()
     app = make_app(api)
     calls = {}
@@ -96,10 +98,10 @@ async def test_physical_non_stream_converts_bytes_response(monkeypatch):
         return FakeModel()
 
     monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
-    transport = httpx.ASGITransport(app=app)
+    transport = httpx.ASGITransport(app=app, root_path=root_path)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
-            "/anthropic/v1/messages",
+            f"{root_path}/anthropic/v1/messages",
             json={
                 "model": "physical-model",
                 "system": "Be helpful.",

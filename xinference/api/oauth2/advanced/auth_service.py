@@ -24,6 +24,7 @@ from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import JWTError, jwt
 from typing_extensions import Annotated
 
+from ...utils import get_request_route_path
 from .cache import ApiKeyCache, ApiKeyCacheEntry
 from .crypto import (
     aes_decrypt,
@@ -375,7 +376,10 @@ class AdvancedAuthService:
         security_scopes: SecurityScopes,
         token: Annotated[Optional[str], Depends(oauth2_scheme)] = None,
     ):
-        if request.url.path in {"/v1/messages", "/anthropic/v1/messages"}:
+        if get_request_route_path(request) in {
+            "/v1/messages",
+            "/anthropic/v1/messages",
+        }:
             # Anthropic clients send the same Xinference credential in
             # ``x-api-key`` rather than an Authorization header.
             token = token or request.headers.get("x-api-key", "").strip() or None

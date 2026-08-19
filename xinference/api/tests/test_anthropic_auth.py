@@ -8,7 +8,16 @@ from xinference.api.oauth2.advanced.crypto import get_password_hash
 
 
 @pytest.mark.asyncio
-async def test_advanced_auth_accepts_x_api_key_as_credential(tmp_path):
+@pytest.mark.parametrize(
+    ("url_path", "route_path"),
+    [
+        ("/xinference/v1/messages", "/v1/messages"),
+        ("/anthropic/anthropic/v1/messages", "/anthropic/v1/messages"),
+    ],
+)
+async def test_advanced_auth_accepts_x_api_key_as_credential(
+    tmp_path, url_path, route_path
+):
     service = AdvancedAuthService(
         db_path=str(tmp_path / "auth.db"),
         jwt_secret_key="unit-test-secret",
@@ -24,7 +33,8 @@ async def test_advanced_auth_accepts_x_api_key_as_credential(tmp_path):
     )
     token = service.create_access_token(user_id, "anthropic-user", ["models:read"])
     request = MagicMock()
-    request.url.path = "/v1/messages"
+    request.url.path = url_path
+    request.scope = {"route": MagicMock(path=route_path)}
     request.method = "POST"
     request.headers = {
         "x-api-key": token,
@@ -63,6 +73,7 @@ async def test_advanced_auth_does_not_accept_x_api_key_on_other_routes(tmp_path)
     token = service.create_access_token(user_id, "openai-user", ["models:read"])
     request = MagicMock()
     request.url.path = "/v1/chat/completions"
+    request.scope = {"route": MagicMock(path="/v1/chat/completions")}
     request.method = "POST"
     request.headers = {
         "x-api-key": token,
