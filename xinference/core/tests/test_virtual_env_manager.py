@@ -29,6 +29,7 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_WHEEL_URL,
     FLASHINFER_CUBIN_WHEEL_URL,
     apply_flashinfer_aot_post_install,
+    build_uv_source_options,
     ensure_flashinfer_cubin_matches_post_install,
     ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
@@ -111,6 +112,57 @@ class TestNeedsFlashinferAot:
         assert "flashinfer.ai" in FLASHINFER_AOT_WHEEL_URL
 
 
+class TestBuildUvSourceOptions:
+    def test_reuses_all_configured_source_options(self):
+        options = build_uv_source_options(
+            {
+                "index_url": "https://packages.example/simple",
+                "extra_index_url": ["https://cuda.example/simple"],
+                "find_links": ["/srv/wheels", "/opt/wheels"],
+                "trusted_host": "packages.example",
+                "index_strategy": "unsafe-best-match",
+            },
+            public_index_urls=["https://public.example/simple"],
+        )
+
+        assert options == [
+            "--index-url",
+            "https://packages.example/simple",
+            "--extra-index-url",
+            "https://cuda.example/simple",
+            "--extra-index-url",
+            "https://public.example/simple",
+            "--find-links",
+            "/srv/wheels",
+            "--find-links",
+            "/opt/wheels",
+            "--trusted-host",
+            "packages.example",
+            "--index-strategy",
+            "unsafe-best-match",
+        ]
+
+    def test_offline_mode_omits_public_fallbacks(self):
+        options = build_uv_source_options(
+            {"find_links": "/srv/wheels"},
+            public_index_urls=["https://public.example/simple"],
+            allow_public_install=False,
+        )
+
+        assert options == ["--find-links", "/srv/wheels"]
+
+    def test_deduplicates_public_fallback(self):
+        options = build_uv_source_options(
+            {"extra_index_url": "https://public.example/simple"},
+            public_index_urls=["https://public.example/simple"],
+        )
+
+        assert options == [
+            "--extra-index-url",
+            "https://public.example/simple",
+        ]
+
+
 class TestEnsureFlashinferCubinMatchesPostInstall:
     @pytest.fixture
     def fake_venv_manager(self):
@@ -189,6 +241,30 @@ class TestEnsureFlashinferCubinMatchesPostInstall:
 
         run_mock.assert_not_called()
         assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
+
+    def test_offline_mismatch_uses_configured_find_links(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6", "0.6.14"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
+            ensure_flashinfer_cubin_matches_post_install(
+                "vllm",
+                fake_venv_manager,
+                allow_public_install=False,
+                conf={"find_links": "/srv/wheels"},
+            )
+
+        cmd = run_mock.call_args[0][0]
+        assert ["--find-links", "/srv/wheels"] == cmd[7:9]
+        assert FLASHINFER_CUBIN_WHEEL_URL not in cmd
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
 
     def test_non_vllm_engine_is_noop(self, fake_venv_manager):
         with mock.patch(
@@ -416,6 +492,71 @@ class TestApplyFlashinferAotPostInstall:
             cmd_str = " ".join(cmd)
             assert "wheels.vllm.ai" in cmd_str
             assert "flashinfer.ai" in cmd_str
+
+    def test_reuses_configured_source_options(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        conf = {
+            "index_url": "https://packages.example/simple",
+            "find_links": "/srv/wheels",
+            "trusted_host": "packages.example",
+            "index_strategy": "unsafe-best-match",
+        }
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                conf,
+                "13.0",
+            )
+
+        cmd = run_mock.call_args[0][0]
+        assert "--index-url" in cmd
+        assert "https://packages.example/simple" in cmd
+        assert "--find-links" in cmd
+        assert "/srv/wheels" in cmd
+        assert "--trusted-host" in cmd
+        assert "packages.example" in cmd
+        assert "--index-strategy" in cmd
+        assert "unsafe-best-match" in cmd
+        assert FLASHINFER_AOT_WHEEL_URL in cmd
+
+    def test_offline_mode_uses_configured_find_links(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {"find_links": "/srv/wheels"},
+                "13.0",
+                allow_public_install=False,
+            )
+
+        cmd = run_mock.call_args[0][0]
+        assert "--find-links" in cmd
+        assert "/srv/wheels" in cmd
+        assert FLASHINFER_AOT_WHEEL_URL not in cmd
+
+    def test_offline_mode_without_source_skips_install(self, fake_venv_manager):
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run"
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {},
+                "13.0",
+                allow_public_install=False,
+            )
+
+        run_mock.assert_not_called()
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
 
     def test_skipped_for_non_cu130_cuda(self, fake_venv_manager):
         """CUDA 12.x must skip — AOT packages are +cu130 only."""

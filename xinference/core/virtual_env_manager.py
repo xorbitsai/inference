@@ -1034,10 +1034,61 @@ def ensure_sglang_inherited_packages_compatible_post_install(
         )
 
 
+def _as_uv_option_values(value: Any) -> List[str]:
+    if not value:
+        return []
+    return [value] if isinstance(value, str) else list(value)
+
+
+def build_uv_source_options(
+    conf: Dict[str, Any],
+    *,
+    public_index_urls: Optional[List[str]] = None,
+    allow_public_install: bool = True,
+) -> List[str]:
+    """Build uv source options from the virtualenv install configuration.
+
+    Post-install hooks invoke ``uv`` directly, so they must explicitly reuse the
+    same package sources as the main virtualenv installation. Administrator-
+    supplied public indexes are appended as fallbacks only when public installs
+    are allowed.
+    """
+    options: List[str] = []
+    index_url = conf.get("index_url")
+    if index_url:
+        options += ["--index-url", index_url]
+
+    extra_index_urls = _as_uv_option_values(conf.get("extra_index_url"))
+    if allow_public_install:
+        configured_urls = {index_url, *extra_index_urls}
+        extra_index_urls.extend(
+            url
+            for url in (public_index_urls or [])
+            if url and url not in configured_urls
+        )
+    for url in extra_index_urls:
+        options += ["--extra-index-url", url]
+
+    for link in _as_uv_option_values(conf.get("find_links")):
+        options += ["--find-links", link]
+    for host in _as_uv_option_values(conf.get("trusted_host")):
+        options += ["--trusted-host", host]
+
+    index_strategy = conf.get("index_strategy")
+    if index_strategy:
+        options += ["--index-strategy", index_strategy]
+    return options
+
+
+def _has_configured_package_source(conf: Dict[str, Any]) -> bool:
+    return any(conf.get(key) for key in ("index_url", "extra_index_url", "find_links"))
+
+
 def ensure_flashinfer_cubin_matches_post_install(
     model_engine: Optional[str],
     virtual_env_manager: Any,
     allow_public_install: bool = True,
+    conf: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Keep FlashInfer's Python package and cubin package on the same version.
 
@@ -1072,7 +1123,8 @@ def ensure_flashinfer_cubin_matches_post_install(
         cubin_version or "not installed",
     )
 
-    if allow_public_install:
+    conf = conf or {}
+    if allow_public_install or _has_configured_package_source(conf):
         uv_path = None
         if hasattr(virtual_env_manager, "_get_uv_path"):
             try:
@@ -1090,10 +1142,13 @@ def ensure_flashinfer_cubin_matches_post_install(
             str(virtual_env_manager.env_path),
             "--no-deps",
             "--upgrade",
-            "--index-url",
-            FLASHINFER_CUBIN_WHEEL_URL,
-            f"flashinfer-cubin=={python_version}",
         ]
+        cmd += build_uv_source_options(
+            conf,
+            public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
+            allow_public_install=allow_public_install,
+        )
+        cmd.append(f"flashinfer-cubin=={python_version}")
         try:
             result = subprocess.run(cmd, check=False, capture_output=True, text=True)
             if result.returncode == 0:
@@ -1152,6 +1207,7 @@ def apply_flashinfer_aot_post_install(
     virtual_env_manager: Any,
     conf: Dict[str, Any],
     cuda_version: Optional[str] = None,
+    allow_public_install: bool = True,
 ) -> None:
     """Post-install hook: force-upgrade flashinfer to AOT versions for sm_120.
 
@@ -1178,14 +1234,12 @@ def apply_flashinfer_aot_post_install(
         list(architectures or []),
     )
 
-    extra_urls = conf.get("extra_index_url") or []
-    if isinstance(extra_urls, str):
-        extra_urls = [extra_urls]
-    extra_urls = (
-        list(extra_urls) + [FLASHINFER_AOT_WHEEL_URL]
-        if extra_urls
-        else [FLASHINFER_AOT_WHEEL_URL]
-    )
+    if not allow_public_install and not _has_configured_package_source(conf):
+        logger.info(
+            "Skipping the FlashInfer AOT post-install because public installs "
+            "are disabled and no package source is configured"
+        )
+        return
 
     # Resolve uv path with a fallback. ``_get_uv_path`` is a private method
     # on xoscar's VirtualEnvManager and could be renamed/removed in future
@@ -1209,8 +1263,11 @@ def apply_flashinfer_aot_post_install(
         "--upgrade",
         "--color=always",
     ]
-    for url in extra_urls:
-        cmd += ["--extra-index-url", url]
+    cmd += build_uv_source_options(
+        conf,
+        public_index_urls=[FLASHINFER_AOT_WHEEL_URL],
+        allow_public_install=allow_public_install,
+    )
     cmd += FLASHINFER_AOT_PACKAGES
 
     try:
