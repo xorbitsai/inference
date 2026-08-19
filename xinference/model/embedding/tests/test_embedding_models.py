@@ -116,6 +116,16 @@ def test_jina_v5_requires_transformers_5_compatible_sentence_transformers():
     assert matched_families
 
 
+def test_jina_v3_pins_custom_flash_attn_wheel():
+    from .. import _install
+
+    _install()
+    family = BUILTIN_EMBEDDING_MODELS["jina-embeddings-v3"][0]
+
+    assert family.virtualenv is not None
+    assert "flash-attn==2.8.3.post1+cvte1" in family.virtualenv.packages
+
+
 def test_bce_embedding_vllm_engine_params_with_virtualenv():
     from ....model.utils import (
         _collect_virtualenv_engine_markers,

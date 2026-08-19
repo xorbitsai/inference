@@ -1406,6 +1406,100 @@ def test_prepare_virtual_env_without_engine_vars():
     assert "model_engine" not in kwargs
 
 
+def test_prepare_virtual_env_jina_flash_attn_uses_dedicated_hook_and_fingerprint(
+    tmp_path, monkeypatch
+):
+    import xinference.core.virtual_env_manager as virtual_env_manager_module
+
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "jina-venv")
+    os.makedirs(manager.env_path)
+    base_packages = ["pkgA==1.0.0", "flash-attn==2.8.3.post1+cvte1"]
+    hook_calls = []
+
+    monkeypatch.setattr(
+        virtual_env_manager_module,
+        "apply_flash_attn_wheel_post_install",
+        lambda *args: hook_calls.append(args),
+    )
+    monkeypatch.setattr(
+        WorkerActor, "_is_cuda_device_available", staticmethod(lambda: True)
+    )
+
+    first_settings = VirtualEnvSettings(
+        packages=base_packages,
+        inherit_pip_config=False,
+        find_links=["/wheels/jina"],
+    )
+    for _ in range(2):
+        WorkerActor._prepare_virtual_env(
+            manager,
+            first_settings,
+            None,
+            model_engine=None,
+            model_name="jina-embeddings-v3",
+        )
+
+    changed_settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0", "flash-attn==2.8.4"],
+        inherit_pip_config=False,
+        find_links=["/wheels/jina"],
+    )
+    WorkerActor._prepare_virtual_env(
+        manager,
+        changed_settings,
+        None,
+        model_engine=None,
+        model_name="jina-embeddings-v3",
+    )
+
+    assert [call[0] for call in manager.calls] == [
+        ["pkgA==1.0.0"],
+        ["pkgA==1.0.0"],
+    ]
+    assert [call[1] for call in hook_calls] == [
+        ["flash-attn==2.8.3.post1+cvte1"],
+        ["flash-attn==2.8.4"],
+    ]
+    assert hook_calls[0][3]["find_links"] == ["/wheels/jina"]
+    assert hook_calls[0][4] is True
+    assert os.path.exists(os.path.join(manager.env_path, ".xinference_setup_done"))
+
+
+def test_prepare_virtual_env_non_jina_keeps_flash_attn_in_regular_install(
+    tmp_path, monkeypatch
+):
+    import xinference.core.virtual_env_manager as virtual_env_manager_module
+
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "other-venv")
+    os.makedirs(manager.env_path)
+    hook_calls = []
+    monkeypatch.setattr(
+        virtual_env_manager_module,
+        "apply_flash_attn_wheel_post_install",
+        lambda *args: hook_calls.append(args),
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        VirtualEnvSettings(
+            packages=["pkgA==1.0.0", "flash-attn==2.8.3.post1+cvte1"],
+            inherit_pip_config=False,
+        ),
+        None,
+        model_engine=None,
+        model_name="another-model",
+    )
+
+    assert manager.calls[0][0] == [
+        "pkgA==1.0.0",
+        "flash-attn==2.8.3.post1+cvte1",
+    ]
+    assert hook_calls[0][0] == "another-model"
+    assert hook_calls[0][1] == []
+
+
 def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=True)

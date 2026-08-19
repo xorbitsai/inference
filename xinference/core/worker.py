@@ -120,6 +120,7 @@ from .virtual_env_manager import (
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
     is_cuda_compatible,
+    is_flash_attn_requirement,
     merge_virtual_env_find_links,
     pin_sentence_transformers_numpy_abi,
     resolve_virtualenv_python_path,
@@ -3330,16 +3331,37 @@ class WorkerActor(xo.StatelessActor):
             variables["engine"] = engine_value
             variables["model_engine"] = engine_value
 
+        setup_packages = packages.copy()
+        if model_name == "jina-embeddings-v3":
+            flash_attn_packages = [
+                package
+                for package in setup_packages
+                if is_flash_attn_requirement(package)
+            ]
+            regular_packages = [
+                package
+                for package in setup_packages
+                if not is_flash_attn_requirement(package)
+            ]
+        else:
+            # flash-attn is a normal dependency for all other models. Only Jina
+            # uses the dedicated binary-only Find Links installation below.
+            flash_attn_packages = []
+            regular_packages = setup_packages
+        flash_attn_cuda_available = bool(flash_attn_packages) and (
+            cls._is_cuda_device_available()
+        )
+
         logger.info(
             "Installing packages %s in virtual env %s, with settings(%s)",
-            packages,
+            setup_packages,
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         venv_path = str(virtual_env_manager.env_path)
         with _exclusive_venv_path_lock(venv_path):
             if not _should_skip_venv_setup(
-                venv_path, packages, conf, variables, architectures
+                venv_path, setup_packages, conf, variables, architectures
             ):
                 if modern_sglang_kernel:
                     # SGLang 0.5.11 renamed the distribution while retaining the
@@ -3348,7 +3370,19 @@ class WorkerActor(xo.StatelessActor):
                     cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
                 if force_reinstall_xllamacpp:
                     cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
-                virtual_env_manager.install_packages(packages, **conf, **variables)
+                virtual_env_manager.install_packages(
+                    regular_packages, **conf, **variables
+                )
+
+                from .virtual_env_manager import apply_flash_attn_wheel_post_install
+
+                apply_flash_attn_wheel_post_install(
+                    model_name,
+                    flash_attn_packages,
+                    virtual_env_manager,
+                    conf,
+                    flash_attn_cuda_available,
+                )
 
                 # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
                 # and onnxruntime-gpu (extra). They install the same Python module,
@@ -3414,7 +3448,7 @@ class WorkerActor(xo.StatelessActor):
                         )
 
                 _mark_venv_setup_done(
-                    venv_path, packages, conf, variables, architectures
+                    venv_path, setup_packages, conf, variables, architectures
                 )
             else:
                 logger.info(

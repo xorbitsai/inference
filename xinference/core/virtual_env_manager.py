@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 import re
@@ -1125,6 +1126,179 @@ def build_uv_source_options(
     if index_strategy:
         options += ["--index-strategy", index_strategy]
     return options
+
+
+def is_flash_attn_requirement(spec: str) -> bool:
+    """Return whether *spec* targets the flash-attn distribution."""
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    try:
+        requirement = Requirement(spec)
+    except InvalidRequirement:
+        return False
+    return canonicalize_name(requirement.name) == "flash-attn"
+
+
+def _validate_flash_attn_install(
+    virtual_env_manager: Any, flash_attn_packages: List[str]
+) -> bool:
+    """Validate flash-attn metadata and CUDA imports in a fresh venv process."""
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    if not python_path:
+        logger.warning("flash-attn validation has no virtualenv Python")
+        return False
+
+    validation_script = """
+import importlib.metadata as metadata
+import json
+import pathlib
+import sys
+
+prefix = pathlib.Path(sys.prefix).resolve()
+distribution = metadata.distribution("flash-attn")
+distribution_path = pathlib.Path(distribution.locate_file("")).resolve()
+if prefix != distribution_path and prefix not in distribution_path.parents:
+    raise RuntimeError(
+        f"flash-attn distribution resolved outside the model virtualenv: "
+        f"{distribution_path}"
+    )
+
+import flash_attn
+from flash_attn import flash_attn_func
+
+module_path = pathlib.Path(flash_attn.__file__).resolve()
+if prefix != module_path and prefix not in module_path.parents:
+    raise RuntimeError(
+        f"flash_attn module resolved outside the model virtualenv: {module_path}"
+    )
+if not callable(flash_attn_func):
+    raise RuntimeError("flash_attn.flash_attn_func is not callable")
+
+print(json.dumps({"version": distribution.version}, sort_keys=True))
+"""
+    env = os.environ.copy()
+    for variable in ("VIRTUAL_ENV", "PYTHONPATH", "PYTHONHOME"):
+        env.pop(variable, None)
+    try:
+        result = subprocess.run(
+            [python_path, "-c", validation_script],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    except OSError:
+        logger.warning("flash-attn validation process could not be started")
+        return False
+    if result.returncode != 0:
+        logger.warning(
+            "flash-attn validation failed in %s", virtual_env_manager.env_path
+        )
+        return False
+
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        installed_version = str(payload["version"])
+    except (IndexError, KeyError, TypeError, ValueError):
+        logger.warning(
+            "flash-attn validation returned invalid metadata in %s",
+            virtual_env_manager.env_path,
+        )
+        return False
+
+    for spec in flash_attn_packages:
+        try:
+            requirement = Requirement(spec)
+        except InvalidRequirement:
+            logger.warning("Invalid flash-attn requirement during validation: %s", spec)
+            return False
+        if requirement.specifier and not requirement.specifier.contains(
+            installed_version, prereleases=True
+        ):
+            logger.warning(
+                "Installed flash-attn %s does not satisfy %s",
+                installed_version,
+                spec,
+            )
+            return False
+
+    logger.info(
+        "flash-attn %s import and version validation succeeded in %s",
+        installed_version,
+        virtual_env_manager.env_path,
+    )
+    return True
+
+
+def apply_flash_attn_wheel_post_install(
+    model_name: Optional[str],
+    flash_attn_packages: List[str],
+    virtual_env_manager: Any,
+    conf: Dict[str, Any],
+    cuda_available: bool,
+) -> None:
+    """Install Jina's flash-attn requirement from configured Wheel sources."""
+    if (
+        model_name != "jina-embeddings-v3"
+        or not cuda_available
+        or not flash_attn_packages
+    ):
+        return
+
+    python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    if not python_path:
+        raise RuntimeError("flash-attn post-install has no virtualenv Python")
+
+    if not conf.get("find_links"):
+        if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
+            logger.warning(
+                "flash-attn is not installed or invalid for %s, and no Find "
+                "Links source was configured. The model will use PyTorch "
+                "native attention (higher GPU memory usage).",
+                model_name,
+            )
+        return
+
+    uv_path = None
+    if hasattr(virtual_env_manager, "_get_uv_path"):
+        try:
+            uv_path = virtual_env_manager._get_uv_path()
+        except Exception:
+            pass
+    if not uv_path:
+        uv_path = shutil.which("uv") or "uv"
+
+    command = [
+        uv_path,
+        "pip",
+        "install",
+        "--python",
+        python_path,
+        "--no-deps",
+        "--reinstall",
+        "--only-binary=:all:",
+        *build_uv_source_options(conf),
+        *flash_attn_packages,
+    ]
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError as exc:
+        raise RuntimeError(
+            "flash-attn Wheel installation could not be started"
+        ) from exc
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"flash-attn Wheel installation failed for {flash_attn_packages}"
+        )
+
+    if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
+        raise RuntimeError(
+            "flash-attn Wheel installation completed, but fresh-process "
+            "version/path/CUDA import validation failed."
+        )
 
 
 def validate_virtual_env_find_links(
