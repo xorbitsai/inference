@@ -218,6 +218,8 @@ def _log_setup_required_notice() -> None:
 class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
+    QWEN38_REASONING_EFFORTS = {"xhigh", "medium", "low"}
+    QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max"}
 
     def __init__(
         self,
@@ -2620,6 +2622,79 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    def _coerce_chat_template_kwargs(value: Any) -> dict:
+        if not value:
+            return {}
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+        if isinstance(value, dict):
+            return dict(value)
+        return {}
+
+    @classmethod
+    def _is_qwen38_description(cls, desc: dict) -> bool:
+        return (
+            desc.get("model_name") in cls.QWEN38_REASONING_MODEL_NAMES
+            or desc.get("model_family") in cls.QWEN38_REASONING_MODEL_NAMES
+        )
+
+    @classmethod
+    def _apply_qwen38_reasoning_effort(
+        cls, raw_body: dict, raw_kwargs: dict, kwargs: dict
+    ) -> None:
+        has_top_level_effort = "reasoning_effort" in raw_body
+        top_level_effort = raw_body.get("reasoning_effort")
+        chat_template_kwargs = cls._coerce_chat_template_kwargs(
+            raw_kwargs.get("chat_template_kwargs")
+        )
+        has_template_effort = "reasoning_effort" in chat_template_kwargs
+        template_effort = chat_template_kwargs.get("reasoning_effort")
+
+        if not has_top_level_effort and not has_template_effort:
+            return
+
+        if has_template_effort and template_effort not in cls.QWEN38_REASONING_EFFORTS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid chat_template_kwargs.reasoning_effort for qwen3.8. "
+                    "Supported values are xhigh, medium, and low."
+                ),
+            )
+
+        if not has_top_level_effort:
+            return
+
+        if top_level_effort not in cls.QWEN38_REASONING_EFFORTS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid reasoning_effort for qwen3.8. Supported values are "
+                    "xhigh, medium, and low. Use chat_template_kwargs.enable_thinking "
+                    "to disable thinking."
+                ),
+            )
+
+        if has_template_effort and template_effort != top_level_effort:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Conflicting reasoning_effort values for qwen3.8. Provide either "
+                    "top-level reasoning_effort or matching "
+                    "chat_template_kwargs.reasoning_effort."
+                ),
+            )
+
+        chat_template_kwargs["reasoning_effort"] = top_level_effort
+        raw_kwargs.pop("reasoning_effort", None)
+        kwargs.pop("reasoning_effort", None)
+        raw_kwargs["chat_template_kwargs"] = chat_template_kwargs
+        kwargs["chat_template_kwargs"] = chat_template_kwargs
+
     async def create_chat_completion(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateChatCompletion.parse_obj(raw_body)
@@ -2713,6 +2788,9 @@ class RESTfulAPI(CancelMixin):
             LLAMA3_TOOL_CALL_FAMILY,
             QWEN_TOOL_CALL_FAMILY,
         )
+
+        if self._is_qwen38_description(desc):
+            self._apply_qwen38_reasoning_effort(raw_body, raw_kwargs, kwargs)
 
         model_family = desc.get("model_family", "")
 
