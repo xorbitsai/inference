@@ -5810,26 +5810,33 @@ class SupervisorActor(xo.StatelessActor):
         """Return all, effectively ready, and controllably ready Runtimes.
 
         This is the single source of truth shared by status reporting and the
-        request dispatch path.  An Agent outage does not by itself invalidate a
+        request dispatch path. An Agent outage does not by itself invalidate a
         healthy Runtime data plane, but it removes that Runtime from the
         controllable subset.
         """
 
-        instances = self._token_router_registry.list(config["router_uid"])
+        router_uid = config.get("router_uid")
+        if not isinstance(router_uid, str) or not router_uid:
+            # RouterRuntimeRegistry.list(None) returns every instance. Treat a
+            # malformed config as unavailable instead of leaking another Router's
+            # runtime state into this one.
+            instances: List[Dict[str, Any]] = []
+        else:
+            instances = self._token_router_registry.list(router_uid)
+        config_revision = self._safe_public_int(config.get("revision"), 0)
+        revision_is_valid = config_revision > 0
         effective: List[Dict[str, Any]] = []
         controllable: List[Dict[str, Any]] = []
         for instance in instances:
+            acked_revision = self._safe_public_int(instance.get("acked_revision"), 0)
             endpoint = instance.get("endpoint")
-            try:
-                acked_revision = int(instance.get("acked_revision", 0))
-            except (TypeError, ValueError):
-                acked_revision = 0
             if not (
                 instance.get("online")
                 and self._token_router_orchestration.runtime_is_current(instance)
                 and instance.get("status") == "ready"
                 and not instance.get("config_error")
-                and acked_revision >= int(config["revision"])
+                and revision_is_valid
+                and acked_revision >= config_revision
                 and isinstance(endpoint, str)
                 and endpoint.startswith(("http://", "https://"))
             ):
@@ -5982,25 +5989,39 @@ class SupervisorActor(xo.StatelessActor):
         instances, effective, controllable = self._token_router_runtime_health(config)
         item = self._normalize_token_router_public_config(config)
         online = [instance for instance in instances if instance["online"]]
-        if not config["enabled"]:
+        config_revision = self._safe_public_int(config.get("revision"), 0)
+        if not config.get("enabled"):
             status = "disabled"
+        elif config_revision <= 0:
+            status = "syncing"
         elif not effective:
             status = "unavailable"
         elif len(effective) < len(online) or len(controllable) < len(effective):
             status = "degraded"
         else:
             status = "ready"
-        deployment = self._token_router_orchestration.deployment_summary(
-            config["router_uid"],
-            effective_ready_runtimes=effective,
-            controllable_ready_runtimes=controllable,
-        )
+        router_uid = config.get("router_uid")
+        if isinstance(router_uid, str) and router_uid:
+            deployment = self._token_router_orchestration.deployment_summary(
+                router_uid,
+                effective_ready_runtimes=effective,
+                controllable_ready_runtimes=controllable,
+            )
+        else:
+            # A malformed legacy record must remain safe to inspect and must not
+            # create deployment state under an empty Router UID.
+            deployment = dict(item.get("deployment") or {})
+            deployment["effective_ready_runtimes"] = len(effective)
+            deployment["controllable_ready_runtimes"] = len(controllable)
+            deployment["ready_replicas"] = len(effective)
+            desired = self._safe_public_int(deployment.get("desired_replicas"))
+            deployment["pending_replicas"] = max(desired - len(effective), 0)
         if (
             deployment["management_mode"] == "managed"
             and deployment["desired_state"] == "stopped"
         ):
             status = "disabled"
-        elif deployment["management_mode"] == "managed" and config["enabled"]:
+        elif deployment["management_mode"] == "managed" and config.get("enabled"):
             desired = deployment["desired_replicas"]
             ready = deployment["effective_ready_runtimes"]
             manageable = deployment["controllable_ready_runtimes"]
@@ -6022,6 +6043,12 @@ class SupervisorActor(xo.StatelessActor):
         """Build the sanitized public model descriptor for a Token Router."""
         item = self._with_token_router_status(config)
         deployment = item["deployment"]
+        virtual_model_uid = config.get("virtual_model_uid")
+        if not isinstance(virtual_model_uid, str):
+            virtual_model_uid = ""
+        router_uid = config.get("router_uid")
+        if not isinstance(router_uid, str):
+            router_uid = ""
         public_deployment = {
             "management_mode": deployment.get("management_mode", "external"),
             "desired_state": deployment.get("desired_state", "running"),
@@ -6034,13 +6061,13 @@ class SupervisorActor(xo.StatelessActor):
             ),
         }
         return {
-            "model_name": config["virtual_model_uid"],
+            "model_name": virtual_model_uid,
             "model_type": config.get("model_type", "LLM"),
             "model_engine": "token_router",
             "model_ability": ["chat"],
             "model_kind": "virtual",
             "virtual_model_type": "token_router",
-            "router_uid": config["router_uid"],
+            "router_uid": router_uid,
             "router_status": item["status"],
             "route_profile": config.get("route_profile", "llm_chat"),
             "runtime_instances": self._safe_public_int(item.get("runtime_instances")),

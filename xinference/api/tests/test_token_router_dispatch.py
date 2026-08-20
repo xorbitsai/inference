@@ -137,6 +137,51 @@ async def test_resolve_rejects_stale_error_and_invalid_runtime(tmp_path):
     assert resolution["available"] is False
 
 
+@pytest.mark.parametrize("revision", [None, "invalid"])
+def test_runtime_health_rejects_invalid_config_revision(tmp_path, revision):
+    supervisor = make_supervisor(tmp_path)
+    register_ready_runtime(supervisor, "instance-a", "http://router-a:10081", 1)
+    config = {
+        "router_uid": "router-a",
+        "virtual_model_uid": "virtual-model",
+        "enabled": True,
+        "revision": revision,
+    }
+
+    instances, effective, controllable = supervisor._token_router_runtime_health(config)
+    model = supervisor._build_token_router_model_info(config)
+
+    assert len(instances) == 1
+    assert effective == []
+    assert controllable == []
+    assert model["router_status"] == "syncing"
+    assert model["ready_instances"] == 0
+
+
+def test_runtime_health_missing_router_uid_does_not_list_other_instances(tmp_path):
+    supervisor = make_supervisor(tmp_path)
+    register_ready_runtime(supervisor, "instance-a", "http://router-a:10081", 1)
+
+    instances, effective, controllable = supervisor._token_router_runtime_health(
+        {"revision": 1}
+    )
+
+    assert instances == []
+    assert effective == []
+    assert controllable == []
+
+
+def test_build_virtual_model_info_tolerates_missing_uids(tmp_path):
+    supervisor = make_supervisor(tmp_path)
+
+    model = supervisor._build_token_router_model_info({"enabled": False, "revision": 1})
+
+    assert model["model_name"] == ""
+    assert model["router_uid"] == ""
+    assert model["router_status"] == "disabled"
+    assert model["runtime_instances"] == 0
+
+
 @pytest.mark.asyncio
 async def test_resolve_rejects_offline_and_non_ready_runtime(tmp_path, monkeypatch):
     now = [100.0]

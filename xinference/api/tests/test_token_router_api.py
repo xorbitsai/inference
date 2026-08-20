@@ -1173,6 +1173,8 @@ async def test_disabled_feature_rejects_public_and_internal_apis(
             "code": "TOKEN_ROUTER_DISABLED",
             "message": "Token Router feature is disabled",
         }
+
+
 @pytest.mark.asyncio
 async def test_public_router_responses_normalize_sparse_configs_without_persisting(
     tmp_path,
