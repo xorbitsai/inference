@@ -2149,12 +2149,13 @@
         "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
         "tokenizers==0.22.2 ; #engine# == \"diffusers\"",
         "importlib-metadata ; #engine# == \"diffusers\"",
+        "numpy<2.3 ; #engine# == \"SGLang\"",
+        "pandas<3 ; #engine# == \"SGLang\"",
         "sglang[diffusion] ; #engine# == \"SGLang\"",
         "#system_torch# ; #engine# == \"diffusers\"",
         "#system_torchvision# ; #engine# == \"diffusers\"",
         "#system_numpy# ; #engine# == \"diffusers\""
-      ],
-      "no_build_isolation": true
+      ]
     },
     "featured": true,
     "updated_at": 1787142695
