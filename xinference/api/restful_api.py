@@ -23,6 +23,7 @@ import pprint
 import time
 import uuid
 import warnings
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Union, get_type_hints
 
@@ -292,6 +293,13 @@ class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
 
+    @asynccontextmanager
+    async def _lifespan(self, _app: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await self._close_token_router_client()
+
     def __init__(
         self,
         supervisor_address: str,
@@ -353,9 +361,8 @@ class RESTfulAPI(CancelMixin):
         )
 
         self._router = APIRouter()
-        self._app = FastAPI()
         self._token_router_client: Optional[httpx.AsyncClient] = None
-        self._app.add_event_handler("shutdown", self._close_token_router_client)
+        self._app = FastAPI(lifespan=self._lifespan)
         # Initialize allowed IP list once
         self._init_allowed_ip_list()
 

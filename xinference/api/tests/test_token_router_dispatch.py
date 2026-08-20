@@ -19,6 +19,20 @@ from xinference.core.router_registry import RouterRuntimeRegistry
 from xinference.core.supervisor import SupervisorActor
 
 
+@pytest.mark.asyncio
+async def test_restful_api_lifespan_closes_token_router_client():
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    client = httpx.AsyncClient()
+    api._token_router_client = client
+    app = FastAPI(lifespan=api._lifespan)
+
+    async with app.router.lifespan_context(app):
+        assert client.is_closed is False
+
+    assert client.is_closed is True
+    assert api._token_router_client is None
+
+
 def make_supervisor(tmp_path):
     supervisor = SupervisorActor.__new__(SupervisorActor)
     supervisor._token_router_store = RouterConfigStore(str(tmp_path / "routers.db"))
