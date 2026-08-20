@@ -142,6 +142,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             and self._model_spec.model_name.lower() == "ideogram4"  # type: ignore
         )
 
+    def _is_glm_image_model(self) -> bool:
+        if self._model_spec is None:
+            return False
+        model_name = self._model_spec.model_name.lower().replace("_", "-")
+        return model_name.startswith("glm-image")
+
     @staticmethod
     def _get_pipeline_type(ability: str) -> type:
         if ability == "text2image":
@@ -174,9 +180,21 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         try:
             return self._ability_to_models[ability, controlnet_name]
         except KeyError:
-            model_type = self._get_pipeline_type(ability)
+            pass
 
         assert self._model is not None
+
+        # GLM-Image uses one pipeline for both text-to-image and image-to-image.
+        # AutoPipeline has no GLM-Image conversion mapping.
+        if (
+            ability == "image2image"
+            and controlnet_name is None
+            and self._is_glm_image_model()
+        ):
+            self._ability_to_models[ability, controlnet_name] = self._model
+            return self._model
+
+        model_type = self._get_pipeline_type(ability)
 
         if controlnet_name:
             assert controlnet_path
@@ -246,7 +264,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return getattr(module, class_name)
 
     def load(self):
-        if "text2image" in self._abilities or "image2image" in self._abilities:
+        if self._is_glm_image_model():
+            from diffusers import GlmImagePipeline as AutoPipelineModel
+        elif "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
         elif "inpainting" in self._abilities:
             from diffusers import AutoPipelineForInpainting as AutoPipelineModel
@@ -966,14 +986,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 raise RuntimeError(f"{self._model_uid} does not support image2image")
             model = self._get_model(ability)
 
-        # QwenImageEditPlusPipeline consumes all reference images through its
-        # ``image`` argument.  The OpenAI-compatible endpoint exposes the first
-        # upload as ``image`` and the remaining uploads as ``reference_images``;
-        # combine them here instead of letting the latter be filtered out as an
-        # unsupported pipeline keyword.
-        if (
-            kwargs.get("reference_images")
-            and type(model).__name__ == "QwenImageEditPlusPipeline"
+        # These pipelines consume all reference images through their ``image``
+        # argument. The OpenAI-compatible endpoint exposes the first upload as
+        # ``image`` and the remaining uploads as ``reference_images``.
+        if kwargs.get("reference_images") and (
+            type(model).__name__ == "QwenImageEditPlusPipeline"
+            or self._is_glm_image_model()
         ):
             reference_images = kwargs.pop("reference_images")
             primary_images = image if isinstance(image, list) else [image]
@@ -983,6 +1001,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 else [reference_images]
             )
             image = primary_images + reference_images
+
+        # GlmImagePipeline expects a list even for one conditioning image.
+        if self._is_glm_image_model() and not isinstance(image, list):
+            image = [image]
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16

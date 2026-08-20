@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # Image models verified against the sglang-diffusion compatibility matrix:
 # https://docs.sglang.io/docs/sglang-diffusion/compatibility_matrix
 SGLANG_SUPPORTED_IMAGE_MODELS = (
+    "GLM-Image",
     "Qwen-Image",
     "Qwen-Image-2512",
     "Z-Image",
