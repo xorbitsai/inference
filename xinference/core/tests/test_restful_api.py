@@ -1330,7 +1330,8 @@ async def test_qwen38_without_reasoning_effort_does_not_add_template_kwargs(
 
 
 @pytest.mark.asyncio
-async def test_qwen38_top_level_reasoning_effort_injected(monkeypatch):
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
+async def test_qwen38_top_level_reasoning_effort_injected(monkeypatch, model_name):
     payload = {
         "model": "test",
         "messages": [{"role": "user", "content": "hi"}],
@@ -1338,7 +1339,7 @@ async def test_qwen38_top_level_reasoning_effort_injected(monkeypatch):
     }
 
     model, response = await _create_chat_completion_with_mock_model(
-        monkeypatch, payload, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+        monkeypatch, payload, {"model_name": model_name, "model_family": model_name}
     )
 
     assert response.status_code == 200
@@ -1393,9 +1394,10 @@ async def test_non_qwen38_top_level_reasoning_effort_unchanged(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
 @pytest.mark.parametrize("effort", ["off", "high", "banana", None])
 async def test_qwen38_invalid_top_level_reasoning_effort_raises_400(
-    monkeypatch, effort
+    monkeypatch, model_name, effort
 ):
     payload = {
         "model": "test",
@@ -1403,7 +1405,7 @@ async def test_qwen38_invalid_top_level_reasoning_effort_raises_400(
         "reasoning_effort": effort,
     }
     api, model = _build_mock_chat_api(
-        monkeypatch, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+        monkeypatch, {"model_name": model_name, "model_family": model_name}
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -1414,15 +1416,18 @@ async def test_qwen38_invalid_top_level_reasoning_effort_raises_400(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
 @pytest.mark.parametrize("effort", ["banana", None])
-async def test_qwen38_invalid_template_reasoning_effort_raises_400(monkeypatch, effort):
+async def test_qwen38_invalid_template_reasoning_effort_raises_400(
+    monkeypatch, model_name, effort
+):
     payload = {
         "model": "test",
         "messages": [{"role": "user", "content": "hi"}],
         "chat_template_kwargs": {"reasoning_effort": effort},
     }
     api, model = _build_mock_chat_api(
-        monkeypatch, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+        monkeypatch, {"model_name": model_name, "model_family": model_name}
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -1434,7 +1439,8 @@ async def test_qwen38_invalid_template_reasoning_effort_raises_400(monkeypatch, 
 
 
 @pytest.mark.asyncio
-async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch):
+@pytest.mark.parametrize("model_name", ["qwen3.8", "qwen3.8-max"])
+async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch, model_name):
     payload = {
         "model": "test",
         "messages": [{"role": "user", "content": "hi"}],
@@ -1442,7 +1448,7 @@ async def test_qwen38_conflicting_reasoning_effort_raises_400(monkeypatch):
         "chat_template_kwargs": {"reasoning_effort": "low"},
     }
     api, model = _build_mock_chat_api(
-        monkeypatch, {"model_name": "qwen3.8", "model_family": "qwen3.8"}
+        monkeypatch, {"model_name": model_name, "model_family": model_name}
     )
 
     with pytest.raises(HTTPException) as exc:

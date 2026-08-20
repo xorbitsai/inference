@@ -219,6 +219,7 @@ class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
     QWEN38_REASONING_EFFORTS = {"xhigh", "medium", "low"}
+    QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max"}
 
     def __init__(
         self,
@@ -2637,7 +2638,8 @@ class RESTfulAPI(CancelMixin):
     @classmethod
     def _is_qwen38_description(cls, desc: dict) -> bool:
         return (
-            desc.get("model_name") == "qwen3.8" or desc.get("model_family") == "qwen3.8"
+            desc.get("model_name") in cls.QWEN38_REASONING_MODEL_NAMES
+            or desc.get("model_family") in cls.QWEN38_REASONING_MODEL_NAMES
         )
 
     @classmethod
