@@ -77,7 +77,9 @@ from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import VirtualEnvSettings, create_model_instance
 from ..model.utils import (
+    CACHE_SOURCE_MANIFEST,
     CancellableDownloader,
+    get_cache_source_paths,
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
@@ -4592,25 +4594,43 @@ class WorkerActor(xo.StatelessActor):
 
     @classmethod
     def _collect_symlink_file_targets(
-        cls, root: str, excluded_root: Optional[str] = None
+        cls,
+        root: str,
+        excluded_root: Optional[str] = None,
+        follow_directory_links: bool = False,
+        include_regular_files: bool = False,
     ) -> Set[str]:
-        """Collect existing file targets without following directory links."""
-        if not os.path.isdir(root) or os.path.islink(root):
+        """Collect canonical files reachable from a cache tree."""
+        if not os.path.isdir(root) or (
+            os.path.islink(root) and not follow_directory_links
+        ):
             return set()
 
         excluded_root = os.path.abspath(excluded_root) if excluded_root else None
         targets: Set[str] = set()
-        for current_root, dirs, files in os.walk(root, followlinks=False):
+        visited_roots: Set[str] = set()
+        for current_root, dirs, files in os.walk(
+            root, followlinks=follow_directory_links
+        ):
             if excluded_root and cls._is_path_within(current_root, excluded_root):
                 dirs[:] = []
                 continue
 
-            # ``os.walk`` does not follow these by default. Pruning them explicitly
-            # also prevents a future ``followlinks`` change from reaching user data.
+            # Directory links may form cycles. Canonical-directory deduplication
+            # makes read-only reference discovery safe when following model_uri.
+            real_current_root = os.path.normcase(os.path.realpath(current_root))
+            if real_current_root in visited_roots:
+                dirs[:] = []
+                continue
+            visited_roots.add(real_current_root)
+
             dirs[:] = [
                 name
                 for name in dirs
-                if not os.path.islink(os.path.join(current_root, name))
+                if (
+                    follow_directory_links
+                    or not os.path.islink(os.path.join(current_root, name))
+                )
                 and not (
                     excluded_root
                     and cls._is_path_within(
@@ -4622,11 +4642,46 @@ class WorkerActor(xo.StatelessActor):
                 link_path = os.path.join(current_root, name)
                 if excluded_root and cls._is_path_within(link_path, excluded_root):
                     continue
-                if not os.path.islink(link_path):
+                if name == CACHE_SOURCE_MANIFEST:
+                    continue
+                if not os.path.islink(link_path) and not include_regular_files:
                     continue
                 target = os.path.realpath(link_path)
                 if os.path.isfile(target):
                     targets.add(target)
+        return targets
+
+    @classmethod
+    def _collect_cache_source_manifest_targets(
+        cls, root: str, excluded_root: Optional[str] = None
+    ) -> Set[str]:
+        """Collect source paths recorded by other normal cache entries."""
+        if not os.path.isdir(root) or os.path.islink(root):
+            return set()
+
+        excluded_root = os.path.abspath(excluded_root) if excluded_root else None
+        targets: Set[str] = set()
+        for current_root, dirs, files in os.walk(root, followlinks=False):
+            if excluded_root and cls._is_path_within(current_root, excluded_root):
+                dirs[:] = []
+                continue
+            dirs[:] = [
+                name
+                for name in dirs
+                if not os.path.islink(os.path.join(current_root, name))
+                and not (
+                    excluded_root
+                    and cls._is_path_within(
+                        os.path.join(current_root, name), excluded_root
+                    )
+                )
+            ]
+            if CACHE_SOURCE_MANIFEST in files:
+                targets.update(
+                    target
+                    for target in get_cache_source_paths(current_root)
+                    if os.path.isfile(target)
+                )
         return targets
 
     @staticmethod
@@ -4725,11 +4780,27 @@ class WorkerActor(xo.StatelessActor):
             # resolving only the first level leaves nearly all nested weights in
             # ModelScope/Hugging Face caches. Resolve every linked file instead.
             targets = WorkerActor._collect_symlink_file_targets(path)
+            targets.update(
+                target
+                for target in get_cache_source_paths(path)
+                if os.path.isfile(target)
+            )
 
             # Different model versions may link to the same Hub blob/snapshot
-            # file. Keep targets still referenced by another Xinference cache.
+            # file. Keep targets still referenced by another Xinference cache,
+            # including a user-provided model_uri directory link. This traversal
+            # is read-only; the cache entry being deleted remains excluded by its
+            # lexical path before any directory link is resolved.
             shared_targets = WorkerActor._collect_symlink_file_targets(
-                XINFERENCE_CACHE_DIR, excluded_root=path
+                XINFERENCE_CACHE_DIR,
+                excluded_root=path,
+                follow_directory_links=True,
+                include_regular_files=True,
+            )
+            shared_targets.update(
+                WorkerActor._collect_cache_source_manifest_targets(
+                    XINFERENCE_CACHE_DIR, excluded_root=path
+                )
             )
             paths.update(targets - shared_targets)
 

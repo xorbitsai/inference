@@ -13,6 +13,8 @@
 # limitations under the License.
 import asyncio
 import itertools
+import os
+import shutil
 import threading
 from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
@@ -3219,6 +3221,136 @@ async def test_remove_model_cache_keeps_targets_used_by_another_cache(
     assert not first_cache.exists()
     assert blob.exists()
     assert second_link.exists()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_keeps_targets_used_by_model_uri(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    normal_cache = cache_root / "v2" / "normal-model"
+    model_uri_cache = cache_root / "v2" / "local-model"
+    normal_cache.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    hub_model = tmp_path / "huggingface" / "models--org--shared"
+    blob = hub_model / "blobs" / "weights"
+    snapshot = hub_model / "snapshots" / "revision"
+    blob.parent.mkdir(parents=True)
+    snapshot.mkdir(parents=True)
+    blob.write_text("shared weights")
+    (snapshot / "model.safetensors").symlink_to(blob)
+    (snapshot / "loop").symlink_to(snapshot, target_is_directory=True)
+    (normal_cache / "model.safetensors").symlink_to(blob)
+    model_uri_cache.symlink_to(snapshot, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(normal_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "normal-model")
+    assert str(blob) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "normal-model")
+    assert not normal_cache.exists()
+    assert blob.exists()
+    assert (model_uri_cache / "model.safetensors").exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_shared_cache", [False, True])
+async def test_remove_model_cache_handles_file_copy_fallback(
+    tmp_path, monkeypatch, with_shared_cache
+):
+    cache_root = tmp_path / "cache"
+    first_cache = cache_root / "v2" / "first-model"
+    second_cache = cache_root / "v2" / "second-model"
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+    from ...model.utils import get_cache_source_paths, symlink_local_file
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    source_model = huggingface_root / "models--org--copy-model"
+    source = source_model / "snapshots" / "revision" / "model.safetensors"
+    source.parent.mkdir(parents=True)
+    source.write_text("source weights")
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+
+    from huggingface_hub import file_download
+
+    def _copy_file(source_path, destination_path, new_blob=False):
+        assert new_blob is False
+        shutil.copyfile(source_path, destination_path)
+
+    monkeypatch.setattr(file_download, "_create_symlink", _copy_file)
+    first_file = symlink_local_file(str(source), str(first_cache), "model.safetensors")
+    assert not os.path.islink(first_file)
+    assert get_cache_source_paths(str(first_cache)) == {str(source)}
+
+    if with_shared_cache:
+        second_file = symlink_local_file(
+            str(source), str(second_cache), "model.safetensors"
+        )
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(first_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "first-model")
+    assert (str(source) not in paths) is with_shared_cache
+    assert await WorkerActor.confirm_and_remove_model(worker, "first-model")
+    assert not first_cache.exists()
+    assert source.exists() is with_shared_cache
+    if with_shared_cache:
+        assert os.path.isfile(second_file)
+        assert source_model.exists()
+    else:
+        assert not source_model.exists()
+        assert huggingface_root.is_dir()
 
 
 @pytest.mark.asyncio

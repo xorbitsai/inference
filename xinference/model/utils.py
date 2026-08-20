@@ -63,6 +63,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
+CACHE_SOURCE_MANIFEST = "__cache_source_paths.json"
+_CACHE_SOURCE_MANIFEST_LOCK = threading.Lock()
 _ENGINE_MARKER_RE = re.compile(
     r"#(?:engine|model_engine)#\s*==\s*[\"']([^\"']+)[\"']",
     re.IGNORECASE,
@@ -798,6 +800,72 @@ def download_from_csghub() -> bool:
     return False
 
 
+def get_cache_source_paths(cache_dir: str) -> Set[str]:
+    """Return canonical source files recorded for a Xinference cache."""
+    manifest_path = os.path.join(cache_dir, CACHE_SOURCE_MANIFEST)
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as manifest_file:
+            manifest = json.load(manifest_file)
+    except FileNotFoundError:
+        return set()
+    except (JSONDecodeError, OSError, TypeError, ValueError) as exc:
+        logger.warning(
+            "Failed to read cache source manifest %s: %s", manifest_path, exc
+        )
+        return set()
+
+    if not isinstance(manifest, dict):
+        logger.warning("Invalid cache source manifest: %s", manifest_path)
+        return set()
+
+    source_paths = manifest.get("source_paths")
+    if not isinstance(source_paths, list):
+        logger.warning("Invalid cache source manifest: %s", manifest_path)
+        return set()
+
+    return {
+        os.path.realpath(source_path)
+        for source_path in source_paths
+        if isinstance(source_path, str) and os.path.isabs(source_path)
+    }
+
+
+def _record_cache_source_path(cache_dir: str, source_path: str) -> None:
+    """Atomically retain source provenance for symlink-to-copy fallbacks."""
+    cache_dir = os.path.abspath(cache_dir)
+    source_path = os.path.realpath(source_path)
+    try:
+        if os.path.commonpath([source_path, cache_dir]) == cache_dir:
+            # Helpers such as ``merge_cached_files`` may link one cache file to
+            # another. The cache directory already owns both paths.
+            return
+    except ValueError:
+        # Different Windows drives cannot share a common path.
+        pass
+
+    manifest_path = os.path.join(cache_dir, CACHE_SOURCE_MANIFEST)
+    with _CACHE_SOURCE_MANIFEST_LOCK:
+        source_paths = get_cache_source_paths(cache_dir)
+        if source_path in source_paths:
+            return
+        source_paths.add(source_path)
+
+        os.makedirs(cache_dir, exist_ok=True)
+        temp_path = f"{manifest_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        try:
+            with open(temp_path, "w", encoding="utf-8") as manifest_file:
+                json.dump(
+                    {"version": 1, "source_paths": sorted(source_paths)},
+                    manifest_file,
+                )
+            os.replace(temp_path, manifest_path)
+        finally:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+
+
 def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     from huggingface_hub.file_download import _create_symlink
 
@@ -823,6 +891,8 @@ def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
     real_blob_path = os.path.realpath(path)
     _create_symlink(real_blob_path, local_dir_filepath, new_blob=False)
+    if not os.path.islink(local_dir_filepath):
+        _record_cache_source_path(local_dir, real_blob_path)
     return local_dir_filepath
 
 
