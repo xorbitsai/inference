@@ -62,6 +62,7 @@ _AUDIT_SKIP_ENDPOINTS = (
     "/v1/cluster/ui_config",
     "/status",
     "/v1/address",
+    "/v1/internal/token-router/",
 )
 
 # Endpoint prefixes for category classification
