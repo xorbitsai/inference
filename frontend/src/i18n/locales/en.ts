@@ -198,6 +198,7 @@ const en = {
     copyPath: 'Copy path',
     noCacheForNow: 'No cache for now!',
     confirmDeleteCacheFiles: 'Confirm deletion of cache files? This action is irreversible.',
+    deleteCacheFailed: 'Failed to delete cache files. Check the server logs.',
     confirmDeleteVirtualEnv:
       'Confirm deletion of virtual environment? This action is irreversible.',
     commandLineTip: 'Please confirm whether the model names are consistent.',

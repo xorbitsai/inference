@@ -31,10 +31,11 @@ interface CacheManagementDialogProps {
   onCacheDelete: () => void;
 }
 
-const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
-  modelDetail,
-  onCacheDelete,
-}) => {
+interface DeleteCacheResponse {
+  result: boolean;
+}
+
+const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, onCacheDelete }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [dataSource, setDataSource] = useState<ModelCachedItem[]>([]);
@@ -62,7 +63,13 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
       const params = new URLSearchParams();
 
       params.set('model_version', pendingDeleteItem.model_version);
-      await request.delete(`/v1/cache/models?${params.toString()}`);
+      const response = await request.delete<DeleteCacheResponse>(
+        `/v1/cache/models?${params.toString()}`
+      );
+      if (!response?.result) {
+        toast.error(t('launchModel.deleteCacheFailed'));
+        return;
+      }
       toast.success(t('common.deleteSuccess'));
       setPendingDeleteItem(undefined);
 

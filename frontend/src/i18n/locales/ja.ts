@@ -198,6 +198,7 @@ const ja = {
     copyPath: 'パスをコピー',
     noCacheForNow: '現在キャッシュはありません！',
     confirmDeleteCacheFiles: 'キャッシュファイルを削除しますか？この操作は元に戻せません。',
+    deleteCacheFailed: 'キャッシュファイルの削除に失敗しました。サーバーログを確認してください。',
     confirmDeleteVirtualEnv: '仮想環境を削除しますか？この操作は元に戻せません。',
     commandLineTip: 'モデル名が一致しているか確認してください。',
     featured: 'おすすめとお気に入り',

@@ -193,6 +193,7 @@ const zh = {
     copyPath: '复制路径',
     noCacheForNow: '当前没有缓存！',
     confirmDeleteCacheFiles: '确认删除缓存文件吗？此操作无法恢复。',
+    deleteCacheFailed: '删除缓存文件失败，请检查服务端日志。',
     confirmDeleteVirtualEnv: '确认删除虚拟环境吗？此操作无法恢复。',
     commandLineTip: '请确定模型名称是否一致。',
     featured: '推荐和收藏',

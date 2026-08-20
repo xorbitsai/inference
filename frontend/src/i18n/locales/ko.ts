@@ -196,6 +196,7 @@ const ko = {
     copyPath: '경로 복사',
     noCacheForNow: '현재 캐시가 없습니다!',
     confirmDeleteCacheFiles: '캐시 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    deleteCacheFailed: '캐시 파일 삭제에 실패했습니다. 서버 로그를 확인하세요.',
     confirmDeleteVirtualEnv: '가상 환경을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     commandLineTip: '모델 이름이 일치하는지 확인하세요.',
     featured: '추천 및 즐겨찾기',

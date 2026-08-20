@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import errno
 import json
 import logging
 import os
@@ -65,6 +66,7 @@ from ..constants import (
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
     XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
     XINFERENCE_TCP_REQUEST_TIMEOUT,
+    XINFERENCE_TENSORIZER_DIR,
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
@@ -4578,6 +4580,116 @@ class WorkerActor(xo.StatelessActor):
             cached_models.append(cached_model)
         return cached_models
 
+    @staticmethod
+    def _is_path_within(path: str, directory: str) -> bool:
+        path = os.path.abspath(path)
+        directory = os.path.abspath(directory)
+        try:
+            return os.path.commonpath([path, directory]) == directory
+        except ValueError:
+            # Different drives on Windows, for example.
+            return False
+
+    @classmethod
+    def _collect_symlink_file_targets(
+        cls, root: str, excluded_root: Optional[str] = None
+    ) -> Set[str]:
+        """Collect existing file targets without following directory links."""
+        if not os.path.isdir(root) or os.path.islink(root):
+            return set()
+
+        excluded_root = os.path.abspath(excluded_root) if excluded_root else None
+        targets: Set[str] = set()
+        for current_root, dirs, files in os.walk(root, followlinks=False):
+            if excluded_root and cls._is_path_within(current_root, excluded_root):
+                dirs[:] = []
+                continue
+
+            # ``os.walk`` does not follow these by default. Pruning them explicitly
+            # also prevents a future ``followlinks`` change from reaching user data.
+            dirs[:] = [
+                name
+                for name in dirs
+                if not os.path.islink(os.path.join(current_root, name))
+                and not (
+                    excluded_root
+                    and cls._is_path_within(
+                        os.path.join(current_root, name), excluded_root
+                    )
+                )
+            ]
+            for name in files:
+                link_path = os.path.join(current_root, name)
+                if excluded_root and cls._is_path_within(link_path, excluded_root):
+                    continue
+                if not os.path.islink(link_path):
+                    continue
+                target = os.path.realpath(link_path)
+                if os.path.isfile(target):
+                    targets.add(target)
+        return targets
+
+    @staticmethod
+    def _download_cache_roots() -> Tuple[str, ...]:
+        """Return managed Hub roots that may have empty directories pruned."""
+        huggingface_root = os.environ.get("HUGGINGFACE_HUB_CACHE") or os.path.join(
+            XINFERENCE_HOME, "huggingface"
+        )
+        modelscope_root = os.path.join(
+            os.environ.get("MODELSCOPE_CACHE")
+            or os.path.join(XINFERENCE_HOME, "modelscope"),
+            "models",
+        )
+        openmind_root = os.environ.get("XDG_CACHE_HOME") or os.path.join(
+            XINFERENCE_HOME, "openmind_hub"
+        )
+        return tuple(
+            dict.fromkeys(
+                os.path.realpath(root)
+                for root in (huggingface_root, modelscope_root, openmind_root)
+            )
+        )
+
+    @classmethod
+    def _download_cache_root_for_path(cls, path: str) -> Optional[str]:
+        path = os.path.realpath(path)
+        matching_roots = [
+            root
+            for root in cls._download_cache_roots()
+            if path != root and cls._is_path_within(path, root)
+        ]
+        if not matching_roots:
+            return None
+        return max(matching_roots, key=len)
+
+    @classmethod
+    def _prune_empty_download_dirs(cls, parent_dirs: Set[Tuple[str, str]]) -> bool:
+        """Remove empty parents below a managed Hub root, never the root itself."""
+        for parent_dir, download_root in sorted(
+            parent_dirs, key=lambda item: item[0].count(os.sep), reverse=True
+        ):
+            current = os.path.realpath(parent_dir)
+            download_root = os.path.realpath(download_root)
+            while current != download_root and cls._is_path_within(
+                current, download_root
+            ):
+                next_parent = os.path.dirname(current)
+                try:
+                    os.rmdir(current)
+                except FileNotFoundError:
+                    # Another starting point or concurrent cleanup removed it.
+                    pass
+                except OSError as exc:
+                    if exc.errno in (errno.ENOTEMPTY, errno.EEXIST, errno.ENOTDIR):
+                        break
+                    logger.error(
+                        f"Fail to remove empty download directory {current} "
+                        f"with error:{exc}."
+                    )
+                    return False
+                current = next_parent
+        return True
+
     async def list_deletable_models(self, model_version: str) -> List[str]:
         # Defensive: see list_cached_models for rationale.
         if self._cache_tracker_ref is None:
@@ -4585,41 +4697,48 @@ class WorkerActor(xo.StatelessActor):
                 "cache_tracker_ref is None, returning empty deletable model list"
             )
             return []
-        paths = set()
+        paths: Set[str] = set()
         path = await self._cache_tracker_ref.list_deletable_models(
             model_version, self.address
         )
         if not path:
             return []
 
-        # Always keep the symlink itself so broken links can be unlinked.
+        path = os.path.abspath(path)
+        cache_root = os.path.abspath(XINFERENCE_CACHE_DIR)
+        if path == cache_root or not WorkerActor._is_path_within(path, cache_root):
+            raise ValueError(
+                f"Refusing to delete model path outside the Xinference cache "
+                f"directory: {path}"
+            )
+
+        # A root link represents a user-provided ``model_uri``. Remove only the
+        # cache entry; deleting its target would destroy the user's source model.
         if os.path.islink(path):
             paths.add(path)
-
-        if os.path.isfile(path):
-            path = os.path.dirname(path)
-
-        if os.path.isdir(path):
+        elif os.path.isfile(path):
             paths.add(path)
-            files = os.listdir(path)
-            paths.update([os.path.join(path, file) for file in files])
-            # search real path
-            if paths:
-                paths.update(
-                    [
-                        real_path
-                        for path in paths
-                        if os.path.exists((real_path := os.path.realpath(path)))
-                    ]
-                )
+        elif os.path.isdir(path):
+            paths.add(path)
+
+            # ``create_symlink`` mirrors the whole Hub snapshot recursively, so
+            # resolving only the first level leaves nearly all nested weights in
+            # ModelScope/Hugging Face caches. Resolve every linked file instead.
+            targets = WorkerActor._collect_symlink_file_targets(path)
+
+            # Different model versions may link to the same Hub blob/snapshot
+            # file. Keep targets still referenced by another Xinference cache.
+            shared_targets = WorkerActor._collect_symlink_file_targets(
+                XINFERENCE_CACHE_DIR, excluded_root=path
+            )
+            paths.update(targets - shared_targets)
 
             # get tensorizer path
             from ..model.llm.transformers.tensorizer_utils import get_tensorizer_dir
 
             tensorizer_path = get_tensorizer_dir(path)
             if os.path.isdir(tensorizer_path):
-                files = os.listdir(tensorizer_path)
-                paths.update([os.path.join(tensorizer_path, file) for file in files])
+                paths.add(tensorizer_path)
 
             # get the drafters cached for speculative decoding, so that they are
             # removed along with the model they belong to instead of being
@@ -4654,19 +4773,56 @@ class WorkerActor(xo.StatelessActor):
             logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
             return False
         paths = await self.list_deletable_models(model_version)
+
+        # Remember managed download parents before deleting their files. They are
+        # pruned with ``rmdir`` afterwards, so non-empty/shared directories stop
+        # the walk naturally and each Hub root itself is always preserved.
+        download_parent_dirs: Set[Tuple[str, str]] = set()
         for path in paths:
+            if os.path.islink(path) or not os.path.isfile(path):
+                continue
+            download_root = WorkerActor._download_cache_root_for_path(path)
+            if download_root:
+                download_parent_dirs.add(
+                    (os.path.dirname(os.path.realpath(path)), download_root)
+                )
+
+        # Remove external linked files before their cache tree. For directories,
+        # delete deepest first so overlapping drafter/cache paths are harmless.
+        def _deletion_order(path: str) -> Tuple[bool, int]:
+            is_directory = not os.path.islink(path) and os.path.isdir(path)
+            return is_directory, -path.count(os.sep)
+
+        for path in sorted(paths, key=_deletion_order):
             try:
                 if os.path.islink(path):
                     os.unlink(path)
                 elif os.path.isfile(path):
                     os.remove(path)
                 elif os.path.isdir(path):
+                    path_abs = os.path.abspath(path)
+                    managed_roots = (
+                        os.path.abspath(XINFERENCE_CACHE_DIR),
+                        os.path.abspath(XINFERENCE_TENSORIZER_DIR),
+                    )
+                    if any(path_abs == root for root in managed_roots) or not any(
+                        WorkerActor._is_path_within(path_abs, root)
+                        for root in managed_roots
+                    ):
+                        logger.error(f"Refusing to delete unmanaged directory: {path}")
+                        return False
                     shutil.rmtree(path)
                 else:
                     logger.debug(f"{path} is not a valid path.")
+            except FileNotFoundError:
+                # A parent directory or a concurrent cleanup already removed it.
+                continue
             except Exception as e:
                 logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
                 return False
+
+        if not WorkerActor._prune_empty_download_dirs(download_parent_dirs):
+            return False
 
         await self._cache_tracker_ref.confirm_and_remove_model(
             model_version, self.address
