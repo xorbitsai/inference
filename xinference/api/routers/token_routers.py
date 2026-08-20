@@ -542,7 +542,7 @@ async def register_router_node(
 ) -> JSONResponse:
     try:
         result = await (await _supervisor(api)).register_token_router_node(
-            payload.dict()
+            payload.dict(exclude_unset=True)
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

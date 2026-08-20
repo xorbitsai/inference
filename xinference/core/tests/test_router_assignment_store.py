@@ -29,7 +29,10 @@ def test_report_status_without_instance_id_preserves_existing_value(tmp_path):
         instance_id="router-agent-1-13fdc0e8-34b3-4e7d-ad06-a1db60427557",
     )
     updated = store.report_status("router-a-0", 1, "ready", pid=1234)
+    preserved = store.report_status("router-a-0", 1, "ready")
 
     assert updated["instance_id"] == (
         "router-agent-1-13fdc0e8-34b3-4e7d-ad06-a1db60427557"
     )
+    assert preserved["instance_id"] == updated["instance_id"]
+    assert preserved["pid"] == 1234

@@ -194,6 +194,7 @@ class RouterAssignmentStore:
         effective_instance_id = (
             current["instance_id"] if instance_id is None else instance_id
         )
+        effective_pid = current["pid"] if pid is None else pid
         now = self._now()
         with self._lock, self._connect() as conn:
             conn.execute(
@@ -203,7 +204,7 @@ class RouterAssignmentStore:
                    WHERE assignment_id = ?""",
                 (
                     observed_state,
-                    pid,
+                    effective_pid,
                     effective_instance_id,
                     last_error,
                     json.dumps(
