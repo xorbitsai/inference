@@ -193,3 +193,15 @@ async def test_tokenization_error_crosses_process_boundary(tmp_path: Path) -> No
         assert 'outcome="failed"} 1' in rendered
     finally:
         await service.aclose()
+
+
+@pytest.mark.asyncio
+async def test_start_measures_tokenizer_asset_fingerprint(tmp_path: Path) -> None:
+    service, _ = make_service(tmp_path, max_workers=2, max_active=2)
+    try:
+        await service.start()
+        assert service.asset_fingerprint.startswith("sha256:")
+        assert len(service.asset_fingerprint) == len("sha256:") + 64
+        assert service.asset_revision == ""
+    finally:
+        await service.aclose()

@@ -6,7 +6,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import multiprocessing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -14,74 +13,17 @@ from typing import Any, Dict, List, Optional
 import yaml  # type: ignore[import-untyped]
 
 from ..constants import XINFERENCE_TOKENIZER_ASSET_CONFIG
+from ..router.tokenizer_asset import (
+    DEFAULT_TOKENIZER_ASSET_FILES,
+    aggregate_tokenizer_asset_fingerprint,
+)
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_REQUIRED_FILES = (
-    "tokenizer.json",
-    "encoding/encoding_dsv4.py",
-)
+_DEFAULT_REQUIRED_FILES = DEFAULT_TOKENIZER_ASSET_FILES
 _MAX_MANIFEST_BYTES = 1024 * 1024
 _MAX_TOKENIZER_BYTES = 4 * 1024 * 1024 * 1024
 _MAX_ENCODING_BYTES = 16 * 1024 * 1024
-_SMOKE_TEST_TIMEOUT_SECONDS = 30
-
-
-def _execute_smoke_test(path: Path, capabilities: Dict[str, bool]) -> Dict[str, str]:
-    from ..router.tokenizer import DeepSeekV4TokenEstimator
-
-    checks: Dict[str, str] = {}
-    estimator = DeepSeekV4TokenEstimator(
-        path, reserve_tokens=64, default_output_tokens=512
-    )
-    payloads: Dict[str, Dict[str, Any]] = {
-        "chat_smoke_test": {
-            "messages": [{"role": "user", "content": "hello"}],
-            "max_tokens": 8,
-        }
-    }
-    if capabilities.get("tools", False):
-        payloads["tools_smoke_test"] = {
-            "messages": [{"role": "user", "content": "hello"}],
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "ping",
-                        "description": "ping",
-                        "parameters": {"type": "object", "properties": {}},
-                    },
-                }
-            ],
-            "max_tokens": 8,
-        }
-    if capabilities.get("thinking", False):
-        payloads["thinking_smoke_test"] = {
-            "messages": [{"role": "user", "content": "hello"}],
-            "chat_template_kwargs": {"enable_thinking": True},
-            "max_tokens": 8,
-        }
-
-    for name, payload in payloads.items():
-        first = estimator.estimate(payload)
-        second = estimator.estimate(payload)
-        if first.total_tokens < 1:
-            raise TokenizerAssetError(f"{name} returned an invalid Token budget")
-        if first != second:
-            raise TokenizerAssetError(f"{name} returned an unstable Token budget")
-        checks[name] = "ok"
-    return checks
-
-
-def _smoke_test_worker(
-    path: str, capabilities: Dict[str, bool], connection: Any
-) -> None:
-    try:
-        connection.send(("ok", _execute_smoke_test(Path(path), capabilities)))
-    except BaseException as exc:  # noqa: BLE001 - isolate untrusted asset code.
-        connection.send(("error", f"{type(exc).__name__}: {exc}"))
-    finally:
-        connection.close()
 
 
 class TokenizerAssetError(ValueError):
@@ -308,7 +250,7 @@ class TokenizerAssetRegistry:
                         f"Invalid SHA-256 checksum for Tokenizer file: {relative_name}"
                     )
 
-        aggregate = hashlib.sha256()
+        file_digests: Dict[str, str] = {}
         for relative_name in sorted(required_files):
             relative_path = Path(relative_name)
             if relative_path.is_absolute() or ".." in relative_path.parts:
@@ -345,55 +287,11 @@ class TokenizerAssetRegistry:
             expected = str(checksums.get(relative_name, "")).removeprefix("sha256:")
             if expected and digest.lower() != expected.lower():
                 errors.append(f"SHA-256 mismatch for Tokenizer file: {relative_name}")
-            aggregate.update(relative_name.encode("utf-8"))
-            aggregate.update(b"\0")
-            aggregate.update(digest.encode("ascii"))
-            aggregate.update(b"\0")
-        return errors, aggregate.hexdigest() if not errors else ""
-
-    @staticmethod
-    def _smoke_test(path: Path, capabilities: Dict[str, bool]) -> Dict[str, str]:
-        context = multiprocessing.get_context("spawn")
-        parent_connection, child_connection = context.Pipe(duplex=False)
-        process = context.Process(
-            target=_smoke_test_worker,
-            args=(str(path), capabilities, child_connection),
-            daemon=True,
+            file_digests[relative_name] = digest
+        return (
+            errors,
+            aggregate_tokenizer_asset_fingerprint(file_digests) if not errors else "",
         )
-        try:
-            process.start()
-        except Exception as exc:
-            parent_connection.close()
-            child_connection.close()
-            raise TokenizerAssetError(
-                f"Cannot start Tokenizer asset smoke test process: {exc}"
-            ) from exc
-        child_connection.close()
-        try:
-            if not parent_connection.poll(_SMOKE_TEST_TIMEOUT_SECONDS):
-                process.terminate()
-                process.join(timeout=5)
-                raise TokenizerAssetError("Tokenizer asset smoke test timed out")
-            try:
-                status, payload = parent_connection.recv()
-            except EOFError as exc:
-                raise TokenizerAssetError(
-                    "Tokenizer asset smoke test process exited unexpectedly"
-                ) from exc
-        finally:
-            parent_connection.close()
-            process.join(timeout=5)
-            if process.is_alive():
-                process.kill()
-                process.join(timeout=5)
-
-        if status != "ok":
-            raise TokenizerAssetError(str(payload))
-        if not isinstance(payload, dict):
-            raise TokenizerAssetError(
-                "Tokenizer asset smoke test returned invalid data"
-            )
-        return {str(key): str(value) for key, value in payload.items()}
 
     def _inspect_entry(self, asset_id: str, *, smoke_test: bool) -> Dict[str, Any]:
         entry = self._entries.get(asset_id)
@@ -440,20 +338,13 @@ class TokenizerAssetRegistry:
             if not metadata_errors:
                 result["checks"]["manifest"] = "ok"
             result["errors"].extend(metadata_errors)
+            result["required_files"] = self._required_files(manifest)
             errors, fingerprint = self._validate_files(path, manifest)
             result["errors"].extend(errors)
             if not errors:
                 result["fingerprint"] = f"sha256:{fingerprint}"
                 result["checks"]["required_files"] = "ok"
                 result["checks"]["checksums"] = "ok"
-            if result["enabled"] and not result["errors"] and smoke_test:
-                capabilities = {
-                    str(name): bool(enabled)
-                    for name, enabled in result["capabilities"].items()
-                }
-                result["checks"].update(self._smoke_test(path, capabilities))
-                result["checks"]["tokenizer_load"] = "ok"
-                result["checks"]["encoding_load"] = "ok"
         except Exception as exc:
             result["errors"].append(str(exc))
 
@@ -522,35 +413,34 @@ class TokenizerAssetRegistry:
                 raise TokenizerAssetError(
                     "tokenizer_asset_id and tokenizer_path resolve to different directories"
                 )
+        capabilities = asset.get("capabilities") or {}
         return {
             "tokenizer_asset_id": asset_id,
             "tokenizer_path": resolved_path,
             "tokenizer_asset_revision": str(asset.get("revision", "")),
             "tokenizer_asset_fingerprint": str(asset.get("fingerprint", "")),
+            "tokenizer_asset_files": list(
+                asset.get("required_files") or DEFAULT_TOKENIZER_ASSET_FILES
+            ),
+            "tokenizer_asset_capabilities": {
+                str(name): bool(enabled) for name, enabled in capabilities.items()
+            },
         }
 
     def validate_path(self, tokenizer_path: str, *, smoke_test: bool) -> Dict[str, Any]:
+        # ``smoke_test`` is retained for API compatibility. Executing asset
+        # Python in the Supervisor is intentionally not supported.
         path = Path(tokenizer_path).expanduser().resolve()
         errors, fingerprint = self._validate_files(path, None)
         checks: Dict[str, str] = {}
         if not errors:
             checks["required_files"] = "ok"
-            if smoke_test:
-                try:
-                    checks.update(
-                        self._smoke_test(
-                            path,
-                            {"chat": True, "tools": True, "thinking": True},
-                        )
-                    )
-                    checks["tokenizer_load"] = "ok"
-                    checks["encoding_load"] = "ok"
-                except Exception as exc:
-                    errors.append(str(exc))
         return {
             "valid": not errors,
             "status": "available" if not errors else "invalid",
             "fingerprint": f"sha256:{fingerprint}" if fingerprint else "",
+            "required_files": list(DEFAULT_TOKENIZER_ASSET_FILES),
+            "capabilities": {"chat": True, "tools": True, "thinking": True},
             "checks": checks,
             "errors": errors,
         }

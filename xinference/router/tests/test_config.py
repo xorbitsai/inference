@@ -240,6 +240,26 @@ def test_control_plane_v2_loads_four_dynamic_backends(tmp_path: Path) -> None:
             lambda payload: payload.update(config_version=3),
             "Unsupported config_version",
         ),
+        (
+            lambda payload: payload.update(
+                tokenizer_asset_capabilities={
+                    "chat": True,
+                    "tools": False,
+                    "thinking": True,
+                }
+            ),
+            "requires tools but the Tokenizer asset",
+        ),
+        (
+            lambda payload: payload.update(
+                tokenizer_asset_capabilities={
+                    "chat": True,
+                    "tools": True,
+                    "thinking": False,
+                }
+            ),
+            "requires thinking but the Tokenizer asset",
+        ),
     ],
 )
 def test_control_plane_v2_rejects_invalid_dynamic_config(

@@ -17,6 +17,7 @@ from .tokenization_worker import (
     ping_worker,
 )
 from .tokenizer import TokenBudget
+from .tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
 
 logger = logging.getLogger("deepseek_v4_token_router.tokenization")
 
@@ -40,11 +41,15 @@ class TokenizationService:
         max_queue: int,
         queue_timeout_seconds: float,
         retry_after_seconds: int,
+        tokenizer_asset_files: tuple[str, ...] = DEFAULT_TOKENIZER_ASSET_FILES,
     ) -> None:
         self._tokenizer_path = tokenizer_path
         self._reserve_tokens = reserve_tokens
         self._default_output_tokens = default_output_tokens
         self._max_workers = max_workers
+        self._tokenizer_asset_files = tokenizer_asset_files
+        self._asset_fingerprint = ""
+        self._asset_revision = ""
         self._metrics = metrics
         self._gate = CapacityGate(
             "tokenization",
@@ -67,6 +72,7 @@ class TokenizationService:
                 str(self._tokenizer_path),
                 self._reserve_tokens,
                 self._default_output_tokens,
+                self._tokenizer_asset_files,
             ),
         )
 
@@ -76,7 +82,7 @@ class TokenizationService:
             raise TokenizationWorkerUnavailable("Tokenization service is closed")
         executor = self._executor
         loop = asyncio.get_running_loop()
-        results: list[tuple[int, bool, bool]] = []
+        results: list[tuple[int, bool, bool, str, str]] = []
 
         # ProcessPoolExecutor starts processes lazily. Multiple bounded waves
         # ensure every configured spawn worker completes its initializer even
@@ -94,13 +100,25 @@ class TokenizationService:
                 ) from exc
             if any(
                 api_key_present or internal_token_present
-                for _, api_key_present, internal_token_present in results
+                for _, api_key_present, internal_token_present, _, _ in results
             ):
                 raise TokenizationWorkerUnavailable(
                     "Tokenization worker retained a Router credential"
                 )
-            worker_pids = {pid for pid, _, _ in results}
+            fingerprints = {fingerprint for _, _, _, fingerprint, _ in results}
+            revisions = {revision for _, _, _, _, revision in results}
+            if len(fingerprints) != 1 or "" in fingerprints:
+                raise TokenizationWorkerUnavailable(
+                    "Tokenization workers loaded different Tokenizer assets"
+                )
+            if len(revisions) != 1:
+                raise TokenizationWorkerUnavailable(
+                    "Tokenization workers loaded different Tokenizer asset revisions"
+                )
+            worker_pids = {pid for pid, _, _, _, _ in results}
             if len(worker_pids) >= self._max_workers:
+                self._asset_fingerprint = fingerprints.pop()
+                self._asset_revision = revisions.pop()
                 self._worker_pids = tuple(sorted(worker_pids))
                 logger.info("Tokenization workers started: pids=%s", self._worker_pids)
                 return
@@ -159,6 +177,14 @@ class TokenizationService:
             )
             await self._gate.release()
             await self._publish_gate_snapshot()
+
+    @property
+    def asset_fingerprint(self) -> str:
+        return self._asset_fingerprint
+
+    @property
+    def asset_revision(self) -> str:
+        return self._asset_revision
 
     async def snapshot(self) -> GateSnapshot:
         return await self._gate.snapshot()

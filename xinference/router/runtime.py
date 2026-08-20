@@ -66,6 +66,7 @@ class RouterRuntime:
             max_queue=config.tokenization.max_queue,
             queue_timeout_seconds=config.tokenization.queue_timeout_seconds,
             retry_after_seconds=config.tokenization.retry_after_seconds,
+            tokenizer_asset_files=config.tokenizer_asset_files,
         )
         policy = RoutingPolicy(
             backends=config.backends,
@@ -172,8 +173,8 @@ class RouterRuntime:
             "tokenization": tokenization,
             "tokenizer_asset": {
                 "asset_id": snapshot.config.tokenizer_asset_id,
-                "revision": snapshot.config.tokenizer_asset_revision,
-                "fingerprint": snapshot.config.tokenizer_asset_fingerprint,
+                "revision": snapshot.tokenization.asset_revision,
+                "fingerprint": snapshot.tokenization.asset_fingerprint,
             },
         }
 

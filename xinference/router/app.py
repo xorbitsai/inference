@@ -59,6 +59,24 @@ def _authorized(request: Request, config: RouterConfig) -> bool:
     return hmac.compare_digest(value[len(prefix) :], config.backend_api_key)
 
 
+def _payload_thinking(payload: dict) -> bool:
+    """Return whether the request asks for thinking mode.
+
+    Mirrors the tokenizer normalization so capability enforcement rejects the
+    request before expensive rendering when the asset does not support it.
+    """
+    value = payload.get("enable_thinking")
+    if value is None:
+        extra_body = payload.get("extra_body")
+        if isinstance(extra_body, dict):
+            value = extra_body.get("enable_thinking")
+    if value is None:
+        template_kwargs = payload.get("chat_template_kwargs")
+        if isinstance(template_kwargs, dict):
+            value = template_kwargs.get("enable_thinking")
+    return bool(value)
+
+
 def _router_headers(decision: RouteDecision, request_id: str) -> dict[str, str]:
     return {
         "x-request-id": request_id,
@@ -230,6 +248,15 @@ def create_app(config: RouterConfig) -> FastAPI:
             if payload.get("model") not in accepted_models:
                 await metrics.increment("unknown_model", "none")
                 return _error(404, "Unknown logical model", "model_not_found")
+            capabilities = config.tokenizer_asset_capabilities
+            if bool(payload.get("tools")) and "tools" not in capabilities:
+                await metrics.increment("tools_not_allowed", "none")
+                return _error(
+                    400,
+                    "Tool requests are not supported by this Tokenizer asset",
+                    "tools_not_allowed",
+                    headers={"x-request-id": request_id},
+                )
             try:
                 budget = await snapshot.tokenization.estimate(
                     payload, input_bytes=len(body)
@@ -239,6 +266,15 @@ def create_app(config: RouterConfig) -> FastAPI:
                     tools_present=bool(payload.get("tools")),
                     stream=bool(payload.get("stream", False)),
                 )
+                if budget.enable_thinking and "thinking" not in capabilities:
+                    await metrics.increment("thinking_not_allowed", "none")
+                    return _error(
+                        400,
+                        "Thinking-mode requests are not supported by this "
+                        "Tokenizer asset",
+                        "thinking_not_allowed",
+                        headers={"x-request-id": request_id},
+                    )
             except AdmissionRejected as exc:
                 await metrics.increment(f"tokenization_admission_{exc.reason}", "none")
                 return _error(

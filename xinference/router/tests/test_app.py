@@ -34,9 +34,15 @@ class FakeTokenizationService:
         max_queue: int,
         queue_timeout_seconds: float,
         retry_after_seconds: int,
+        tokenizer_asset_files: tuple[str, ...] = (
+            "tokenizer.json",
+            "encoding/encoding_dsv4.py",
+        ),
     ) -> None:
         self._reserve_tokens = reserve_tokens
         self._default_output_tokens = default_output_tokens
+        self.asset_fingerprint = "sha256:test-fingerprint"
+        self.asset_revision = "0731"
         self._snapshot = GateSnapshot(
             active=0,
             waiting=0,
@@ -49,6 +55,17 @@ class FakeTokenizationService:
         return None
 
     async def estimate(self, payload, *, input_bytes: int) -> TokenBudget:
+        thinking = (
+            payload.get("enable_thinking")
+            or (
+                isinstance(payload.get("extra_body"), dict)
+                and payload["extra_body"].get("enable_thinking")
+            )
+            or (
+                isinstance(payload.get("chat_template_kwargs"), dict)
+                and payload["chat_template_kwargs"].get("enable_thinking")
+            )
+        )
         return TokenBudget(
             prompt_tokens=1,
             output_tokens=int(payload.get("max_tokens", self._default_output_tokens)),
@@ -56,7 +73,7 @@ class FakeTokenizationService:
             total_tokens=1
             + int(payload.get("max_tokens", self._default_output_tokens))
             + self._reserve_tokens,
-            enable_thinking=False,
+            enable_thinking=bool(thinking),
         )
 
     async def snapshot(self) -> GateSnapshot:
@@ -516,3 +533,63 @@ async def test_v2_tools_rule_routes_to_dynamic_backend_and_sets_headers(
     assert response.headers["x-xinference-router-backend"] == "tools"
     assert response.headers["x-xinference-router-rule"] == "tools-route"
     assert response.headers["x-xinference-router-pool"] == "tools"
+
+
+@pytest.mark.asyncio
+async def test_tools_request_rejected_when_asset_lacks_tools_capability(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    config = replace(
+        make_config(tmp_path),
+        tokenizer_asset_capabilities=("chat", "thinking"),
+    )
+    app = create_app(config)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json={
+                    "model": "router-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "tools": [{"type": "function", "function": {"name": "lookup"}}],
+                    "max_tokens": 8,
+                },
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "tools_not_allowed"
+
+
+@pytest.mark.asyncio
+async def test_thinking_request_rejected_when_asset_lacks_thinking_capability(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    config = replace(
+        make_config(tmp_path),
+        tokenizer_asset_capabilities=("chat", "tools"),
+    )
+    app = create_app(config)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json={
+                    "model": "router-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "chat_template_kwargs": {"enable_thinking": True},
+                    "max_tokens": 8,
+                },
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "thinking_not_allowed"

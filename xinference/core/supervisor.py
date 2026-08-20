@@ -4954,6 +4954,16 @@ class SupervisorActor(xo.StatelessActor):
         payload.pop("tokenizer_asset_id", None)
         payload.pop("tokenizer_asset_revision", None)
         payload.pop("tokenizer_asset_fingerprint", None)
+        # Custom paths have no declared capability metadata; preserve phase-1
+        # behavior where every request shape is accepted.
+        from ..router.tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
+
+        payload["tokenizer_asset_capabilities"] = {
+            "chat": True,
+            "tools": True,
+            "thinking": True,
+        }
+        payload["tokenizer_asset_files"] = list(DEFAULT_TOKENIZER_ASSET_FILES)
         return payload
 
     async def _normalize_token_router_tokenizer(
@@ -5172,6 +5182,18 @@ class SupervisorActor(xo.StatelessActor):
             }
         errors.extend(str(error) for error in asset_validation.get("errors", []))
 
+        declared_asset_capabilities = asset_validation.get("capabilities")
+        asset_capabilities = None
+        if (
+            isinstance(declared_asset_capabilities, dict)
+            and declared_asset_capabilities
+        ):
+            asset_capabilities = {
+                str(name)
+                for name, enabled in declared_asset_capabilities.items()
+                if enabled
+            }
+
         running_models = await self.list_models()
         compatible_models = {
             str(name).strip().casefold()
@@ -5247,6 +5269,22 @@ class SupervisorActor(xo.StatelessActor):
                 ):
                     errors.append(
                         f"Rule {rule.get('id')} requires thinking but backend {backend_id} does not report reasoning or hybrid capability"
+                    )
+                if (
+                    asset_capabilities is not None
+                    and match.get("tools_present") is True
+                    and "tools" not in asset_capabilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires tools but Tokenizer asset does not support tools"
+                    )
+                if (
+                    asset_capabilities is not None
+                    and match.get("thinking") is True
+                    and "thinking" not in asset_capabilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires thinking but Tokenizer asset does not support thinking"
                     )
         if asset_id and asset_validation.get("valid"):
             expected_revision = str(config.get("tokenizer_asset_revision") or "")

@@ -12,6 +12,8 @@ class FakeTokenization:
         self.fail_start = fail_start
         self.started = False
         self.closed = False
+        self.asset_fingerprint = "sha256:measured-fingerprint"
+        self.asset_revision = "measured-revision"
 
     async def start(self) -> None:
         if self.fail_start:
@@ -129,4 +131,26 @@ async def test_failed_apply_keeps_previous_snapshot(monkeypatch) -> None:
     assert runtime.current is first_snapshot
     assert first_snapshot.closed is False
     assert failed_snapshot.closed is True
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_summary_reports_measured_asset_fingerprint(monkeypatch) -> None:
+    runtime_config = config(1)
+    runtime_snapshot = snapshot(runtime_config)
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: runtime_snapshot,
+    )
+
+    runtime = RouterRuntime(runtime_config)
+    await runtime.start()
+
+    summary = await runtime.summary()
+
+    assert summary["tokenizer_asset"]["asset_id"] == "deepseek-v4-flash-0731"
+    assert summary["tokenizer_asset"]["revision"] == "measured-revision"
+    assert summary["tokenizer_asset"]["fingerprint"] == "sha256:measured-fingerprint"
+
     await runtime.aclose()

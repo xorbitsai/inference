@@ -758,3 +758,109 @@ async def test_v2_validation_checks_tools_and_thinking_capabilities(tmp_path) ->
     assert result["valid"] is False
     assert any("requires tools" in error for error in result["errors"])
     assert any("requires thinking" in error for error in result["errors"])
+
+
+@pytest.mark.asyncio
+async def test_validation_detects_loaded_fingerprint_mismatch(tmp_path) -> None:
+    class TokenizerAssetRegistry:
+        def reload(self) -> None:
+            pass
+
+        def resolve(self, asset_id: str, tokenizer_path=None) -> dict:
+            return {
+                "tokenizer_asset_id": asset_id,
+                "tokenizer_path": "/models/tokenizer",
+                "tokenizer_asset_revision": "0731",
+                "tokenizer_asset_fingerprint": "sha256:expected",
+            }
+
+        def validate_asset(self, asset_id: str) -> dict:
+            assert asset_id == "test-asset"
+            return {
+                "valid": True,
+                "errors": [],
+                "revision": "0731",
+                "fingerprint": "sha256:expected",
+                "capabilities": {"chat": True, "tools": True, "thinking": True},
+            }
+
+        def validate_path(self, tokenizer_path: str, *, smoke_test: bool) -> dict:
+            return {"valid": True, "errors": []}
+
+    supervisor = make_supervisor(tmp_path)
+    supervisor._tokenizer_asset_registry = TokenizerAssetRegistry()
+    payload = router_payload()
+    payload.pop("tokenizer_path")
+    payload["tokenizer_asset_id"] = "test-asset"
+    payload["tokenizer_asset_revision"] = "0731"
+    payload["tokenizer_asset_fingerprint"] = "sha256:expected"
+    supervisor._token_router_store.create("router-a", payload)
+    supervisor._token_router_registry.register(
+        "router-a",
+        "instance-a",
+        {"endpoint": "http://router.internal", "acked_revision": 1},
+    )
+    supervisor._token_router_registry.heartbeat(
+        "instance-a",
+        {
+            "status": "ready",
+            "process": {
+                "tokenizer_asset": {
+                    "asset_id": "test-asset",
+                    "revision": "0731",
+                    "fingerprint": "sha256:swapped",
+                }
+            },
+        },
+    )
+
+    result = await supervisor.validate_token_router("router-a")
+
+    assert result is not None
+    assert result["valid"] is False
+    assert any(
+        "loaded Tokenizer asset fingerprint differs from the Router configuration"
+        in error
+        for error in result["errors"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_v2_validation_rejects_rules_asset_cannot_support(tmp_path) -> None:
+    class TokenizerAssetRegistry:
+        def reload(self) -> None:
+            pass
+
+        def validate_asset(self, asset_id: str) -> dict:
+            return {
+                "valid": True,
+                "errors": [],
+                "revision": "0731",
+                "fingerprint": "sha256:expected",
+                "capabilities": {"chat": True, "tools": False, "thinking": False},
+            }
+
+        def validate_path(self, tokenizer_path: str, *, smoke_test: bool) -> dict:
+            return {"valid": True, "errors": []}
+
+    supervisor = make_supervisor(tmp_path)
+    supervisor._tokenizer_asset_registry = TokenizerAssetRegistry()
+    payload = typed_router_payload()
+    payload.pop("tokenizer_path")
+    payload["tokenizer_asset_id"] = "test-asset"
+    payload["tokenizer_asset_revision"] = "0731"
+    payload["tokenizer_asset_fingerprint"] = "sha256:expected"
+    supervisor._token_router_store.create("router-a", payload)
+
+    result = await supervisor.validate_token_router("router-a")
+
+    assert result is not None
+    assert result["valid"] is False
+    assert any(
+        "requires tools but Tokenizer asset does not support tools" in error
+        for error in result["errors"]
+    )
+    assert any(
+        "requires thinking but Tokenizer asset does not support thinking" in error
+        for error in result["errors"]
+    )

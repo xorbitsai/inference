@@ -101,9 +101,18 @@ def test_registered_asset_list_resolve_and_validate(tmp_path: Path) -> None:
     validated = registry.validate_asset("deepseek-v4-flash-0731")
     assert validated["valid"] is True
     assert validated["validated_at"]
-    assert validated["checks"]["chat_smoke_test"] == "ok"
-    assert validated["checks"]["tools_smoke_test"] == "ok"
-    assert validated["checks"]["thinking_smoke_test"] == "ok"
+    assert validated["checks"]["required_files"] == "ok"
+    assert validated["checks"]["checksums"] == "ok"
+    assert validated["checks"]["manifest"] == "ok"
+    assert validated["capabilities"] == {
+        "chat": True,
+        "tools": True,
+        "thinking": True,
+    }
+    assert validated["required_files"] == [
+        "tokenizer.json",
+        "encoding/encoding_dsv4.py",
+    ]
 
 
 def test_explicit_missing_config_fails_closed(tmp_path: Path) -> None:
@@ -241,7 +250,7 @@ def test_manifest_metadata_is_validated(tmp_path: Path) -> None:
     assert any("capability chat must be true" in error for error in item["errors"])
 
 
-def test_declared_capabilities_control_dynamic_smoke_tests(tmp_path: Path) -> None:
+def test_declared_capabilities_are_reported(tmp_path: Path) -> None:
     asset_root = tmp_path / "assets"
     asset_path = make_asset(asset_root)
     manifest_path = asset_path / "asset.json"
@@ -253,9 +262,19 @@ def test_declared_capabilities_control_dynamic_smoke_tests(tmp_path: Path) -> No
     validated = registry.validate_asset("deepseek-v4-flash-0731")
 
     assert validated["valid"] is True
-    assert validated["checks"]["chat_smoke_test"] == "ok"
-    assert "tools_smoke_test" not in validated["checks"]
-    assert "thinking_smoke_test" not in validated["checks"]
+    assert validated["checks"]["required_files"] == "ok"
+    assert validated["capabilities"] == {
+        "chat": True,
+        "tools": False,
+        "thinking": False,
+    }
+
+    resolved = registry.resolve("deepseek-v4-flash-0731")
+    assert resolved["tokenizer_asset_capabilities"] == {
+        "chat": True,
+        "tools": False,
+        "thinking": False,
+    }
 
 
 def test_reload_picks_up_registry_changes(tmp_path: Path) -> None:
