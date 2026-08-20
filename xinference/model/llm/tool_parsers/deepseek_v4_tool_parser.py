@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -71,9 +72,8 @@ class DeepseekV42ToolParser(ToolParser):
             rf"{open_tag}invoke\s+name=\"([^\"]+)\"\s*>(.*?)</{close_body}invoke>",
             re.DOTALL,
         )
-        _non_cap = "(?:"  # noqa: E231 — split to avoid flake8 false positive on "?:"
         self.parameter_complete_regex = re.compile(
-            rf'{open_tag}parameter\s+name="([^"]+)"\s+string="{_non_cap}true|false)"\s*>'
+            rf'{open_tag}parameter\s+name="([^"]+)"\s+string="(true|false)"\s*>'
             rf"(.*?)</{close_body}parameter>",
             re.DOTALL,
         )
@@ -81,8 +81,15 @@ class DeepseekV42ToolParser(ToolParser):
     def _parse_invoke_params(self, invoke_str: str) -> dict:
         """Parse parameter name-value pairs from an invoke block."""
         param_dict = {}
-        for param_name, param_val in self.parameter_complete_regex.findall(invoke_str):
-            param_dict[param_name] = param_val
+        for param_name, is_string, param_val in self.parameter_complete_regex.findall(
+            invoke_str
+        ):
+            try:
+                param_dict[param_name] = (
+                    param_val if is_string == "true" else json.loads(param_val)
+                )
+            except json.JSONDecodeError:
+                param_dict[param_name] = param_val
         return param_dict
 
     def _detect_format(self, text: str) -> bool:
@@ -185,5 +192,5 @@ class DeepseekV42ToolParser(ToolParser):
             return None
 
         except Exception as e:
-            logger.error("Error in DeepSeek V3.2 streaming tool call extraction: %s", e)
+            logger.error("Error in DeepSeek V4 streaming tool call extraction: %s", e)
             raise
