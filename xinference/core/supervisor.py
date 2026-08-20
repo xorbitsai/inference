@@ -5061,15 +5061,16 @@ class SupervisorActor(xo.StatelessActor):
             virtual_model_uid = config.get("virtual_model_uid")
             if not isinstance(virtual_model_uid, str) or not virtual_model_uid:
                 continue
-            item = self._with_token_router_status(config)
-            result[virtual_model_uid] = {
-                "model_name": virtual_model_uid,
-                "model_type": config.get("model_type", "LLM"),
-                "model_engine": "token_router",
-                "router_uid": config["router_uid"],
-                "router_status": item["status"],
-            }
+            result[virtual_model_uid] = self._build_token_router_model_info(config)
         return result
+
+    @log_async(logger=logger)
+    async def describe_running_model(self, model_uid: str) -> Dict[str, Any]:
+        """Describe either a public virtual model or an existing physical model."""
+        config = self._token_router_store.get_by_virtual_model_uid(model_uid)
+        if config is not None and config.get("enabled"):
+            return self._build_token_router_model_info(config)
+        return await self.describe_model(model_uid)
 
     async def resolve_token_router_runtime(
         self, virtual_model_uid: str
@@ -5838,9 +5839,148 @@ class SupervisorActor(xo.StatelessActor):
                 controllable.append(instance)
         return instances, effective, controllable
 
-    def _with_token_router_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    @staticmethod
+    def _normalize_token_router_public_config(
+        config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Return a schema-complete copy for UI-facing Router responses.
+
+        Router configurations are persisted across upgrades. Older records may
+        not contain fields introduced by newer UI revisions, so public detail
+        responses must be safe to render without changing the stored payload or
+        the runtime routing semantics.
+        """
         item = dict(config)
+        item.setdefault("model_type", "LLM")
+        item.setdefault("route_profile", "llm_chat")
+        item.setdefault(
+            "strategy",
+            "typed_rules" if isinstance(item.get("backends"), list) else "token_budget",
+        )
+        model_aliases = item.get("model_aliases")
+        item["model_aliases"] = (
+            list(model_aliases) if isinstance(model_aliases, list) else []
+        )
+
+        tokenization = item.get("tokenization")
+        normalized_tokenization = (
+            dict(tokenization) if isinstance(tokenization, dict) else {}
+        )
+        normalized_tokenization.setdefault("executor", "process")
+        normalized_tokenization.setdefault("multiprocessing_start_method", "spawn")
+        normalized_tokenization.setdefault("max_workers", 2)
+        normalized_tokenization.setdefault("max_active", 2)
+        normalized_tokenization.setdefault("max_queue", 8)
+        normalized_tokenization.setdefault("queue_timeout_seconds", 5)
+        normalized_tokenization.setdefault("retry_after_seconds", 1)
+        item["tokenization"] = normalized_tokenization
+
+        backends = item.get("backends")
+        typed = item.get("config_version") == 2 or isinstance(backends, list)
+        if typed:
+            normalized_backends = []
+            for index, backend in enumerate(
+                backends if isinstance(backends, list) else []
+            ):
+                normalized = dict(backend) if isinstance(backend, dict) else {}
+                normalized.setdefault("id", f"backend-{index + 1}")
+                normalized.setdefault("model_uid", "")
+                normalized.setdefault("max_context_tokens", 0)
+                admission = normalized.get("admission")
+                normalized_admission = (
+                    dict(admission) if isinstance(admission, dict) else {}
+                )
+                normalized_admission.setdefault("max_active", 0)
+                normalized_admission.setdefault("max_queue", 0)
+                normalized_admission.setdefault("queue_timeout_seconds", 5)
+                normalized_admission.setdefault("retry_after_seconds", 1)
+                normalized["admission"] = normalized_admission
+                normalized_backends.append(normalized)
+            item["backends"] = normalized_backends
+
+            routing = item.get("routing")
+            normalized_routing = dict(routing) if isinstance(routing, dict) else {}
+            normalized_routing.setdefault("evaluation_mode", "first_match")
+            normalized_routing.setdefault("context_reserve_tokens", 0)
+            normalized_routing.setdefault("default_output_tokens", 0)
+            rules = normalized_routing.get("rules")
+            normalized_routing["rules"] = list(rules) if isinstance(rules, list) else []
+            normalized_routing.setdefault(
+                "default_action", {"type": "reject", "reason": "configuration_error"}
+            )
+            item["routing"] = normalized_routing
+        else:
+            source_backends = backends if isinstance(backends, dict) else {}
+            normalized_legacy_backends: Dict[str, Dict[str, Any]] = {}
+            for backend_id in ("short", "long"):
+                backend = source_backends.get(backend_id)
+                normalized = dict(backend) if isinstance(backend, dict) else {}
+                normalized.setdefault("model_uid", "")
+                normalized.setdefault("max_context_tokens", 0)
+                admission = normalized.get("admission")
+                normalized_admission = (
+                    dict(admission) if isinstance(admission, dict) else {}
+                )
+                normalized_admission.setdefault("max_active", 0)
+                normalized_admission.setdefault("max_queue", 0)
+                normalized_admission.setdefault("queue_timeout_seconds", 5)
+                normalized_admission.setdefault("retry_after_seconds", 1)
+                normalized["admission"] = normalized_admission
+                normalized_legacy_backends[backend_id] = normalized
+            item["backends"] = normalized_legacy_backends
+
+            routing = item.get("routing")
+            normalized_routing = dict(routing) if isinstance(routing, dict) else {}
+            normalized_routing.setdefault("short_threshold_tokens", 0)
+            normalized_routing.setdefault("context_reserve_tokens", 0)
+            normalized_routing.setdefault("default_output_tokens", 0)
+            normalized_routing.setdefault("thinking_policy", "short")
+            normalized_routing.setdefault("overflow_policy", "reject")
+            item["routing"] = normalized_routing
+
+        deployment = item.get("deployment")
+        normalized_deployment = dict(deployment) if isinstance(deployment, dict) else {}
+        normalized_deployment.setdefault("router_uid", item.get("router_uid", ""))
+        normalized_deployment.setdefault("management_mode", "external")
+        normalized_deployment.setdefault("desired_replicas", 0)
+        normalized_deployment.setdefault("desired_state", "running")
+        normalized_deployment.setdefault("placement", {})
+        normalized_deployment.setdefault("rollout", {})
+        normalized_deployment.setdefault("deployment_generation", 1)
+        normalized_deployment.setdefault("observed_ready_assignments", 0)
+        normalized_deployment.setdefault("effective_ready_runtimes", 0)
+        normalized_deployment.setdefault("controllable_ready_runtimes", 0)
+        normalized_deployment.setdefault("ready_replicas", 0)
+        normalized_deployment.setdefault("pending_replicas", 0)
+        normalized_deployment.setdefault("assignments", 0)
+        item["deployment"] = normalized_deployment
+        return item
+
+    @staticmethod
+    def _token_router_backend_count(config: Dict[str, Any]) -> int:
+        backends = config.get("backends")
+        if isinstance(backends, list):
+            return sum(
+                isinstance(backend, dict) and bool(backend.get("model_uid"))
+                for backend in backends
+            )
+        if isinstance(backends, dict):
+            return sum(
+                isinstance(backend, dict) and bool(backend.get("model_uid"))
+                for backend in backends.values()
+            )
+        return 0
+
+    @staticmethod
+    def _safe_public_int(value: Any, default: int = 0) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError, OverflowError):
+            return default
+
+    def _with_token_router_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
         instances, effective, controllable = self._token_router_runtime_health(config)
+        item = self._normalize_token_router_public_config(config)
         online = [instance for instance in instances if instance["online"]]
         if not config["enabled"]:
             status = "disabled"
@@ -5877,6 +6017,40 @@ class SupervisorActor(xo.StatelessActor):
         item["online_instances"] = len(online)
         item["deployment"] = deployment
         return item
+
+    def _build_token_router_model_info(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Build the sanitized public model descriptor for a Token Router."""
+        item = self._with_token_router_status(config)
+        deployment = item["deployment"]
+        public_deployment = {
+            "management_mode": deployment.get("management_mode", "external"),
+            "desired_state": deployment.get("desired_state", "running"),
+            "desired_replicas": self._safe_public_int(
+                deployment.get("desired_replicas")
+            ),
+            "ready_replicas": self._safe_public_int(deployment.get("ready_replicas")),
+            "pending_replicas": self._safe_public_int(
+                deployment.get("pending_replicas")
+            ),
+        }
+        return {
+            "model_name": config["virtual_model_uid"],
+            "model_type": config.get("model_type", "LLM"),
+            "model_engine": "token_router",
+            "model_ability": ["chat"],
+            "model_kind": "virtual",
+            "virtual_model_type": "token_router",
+            "router_uid": config["router_uid"],
+            "router_status": item["status"],
+            "route_profile": config.get("route_profile", "llm_chat"),
+            "runtime_instances": self._safe_public_int(item.get("runtime_instances")),
+            "online_instances": self._safe_public_int(item.get("online_instances")),
+            "ready_instances": self._safe_public_int(
+                deployment.get("effective_ready_runtimes")
+            ),
+            "backend_count": self._token_router_backend_count(config),
+            "deployment": public_deployment,
+        }
 
     async def get_token_router_status(
         self, router_uid: str

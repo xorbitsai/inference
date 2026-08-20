@@ -178,14 +178,48 @@ async def test_list_virtual_models_only_exposes_enabled_sanitized_models(tmp_pat
 
     models = await supervisor.list_virtual_models()
     assert list(models) == ["virtual-model"]
-    assert models["virtual-model"] == {
-        "model_name": "virtual-model",
-        "model_type": "LLM",
-        "model_engine": "token_router",
-        "router_uid": "router-a",
-        "router_status": "ready",
-    }
+    model = models["virtual-model"]
+    assert model["model_name"] == "virtual-model"
+    assert model["model_type"] == "LLM"
+    assert model["model_engine"] == "token_router"
+    assert model["model_ability"] == ["chat"]
+    assert model["model_kind"] == "virtual"
+    assert model["virtual_model_type"] == "token_router"
+    assert model["router_uid"] == "router-a"
+    assert model["router_status"] == "ready"
+    assert model["runtime_instances"] == 1
+    assert model["online_instances"] == 1
+    assert model["ready_instances"] == 1
+    assert model["backend_count"] == 0
     assert "endpoint" not in json.dumps(models)
+    assert "api_key" not in json.dumps(models)
+
+
+@pytest.mark.asyncio
+async def test_describe_running_model_supports_virtual_and_physical_models(tmp_path):
+    supervisor = make_supervisor(tmp_path)
+    config = create_enabled_router(supervisor)
+    register_ready_runtime(
+        supervisor, "instance-a", "http://secret-router:10081", config["revision"]
+    )
+
+    async def describe_physical(_self, model_uid):
+        return {"model_name": model_uid, "model_type": "LLM", "replica": 1}
+
+    supervisor.describe_model = MethodType(describe_physical, supervisor)
+
+    virtual = await supervisor.describe_running_model("virtual-model")
+    physical = await supervisor.describe_running_model("physical-model")
+
+    assert virtual["model_kind"] == "virtual"
+    assert virtual["model_ability"] == ["chat"]
+    assert virtual["router_uid"] == "router-a"
+    assert "endpoint" not in json.dumps(virtual)
+    assert physical == {
+        "model_name": "physical-model",
+        "model_type": "LLM",
+        "replica": 1,
+    }
 
 
 @pytest.mark.asyncio
@@ -290,10 +324,18 @@ async def test_managed_stopped_deployment_is_disabled_and_not_dispatched(tmp_pat
 
 
 class FakeSupervisor:
-    def __init__(self, resolution, *, physical_models=None, virtual_models=None):
+    def __init__(
+        self,
+        resolution,
+        *,
+        physical_models=None,
+        virtual_models=None,
+        running_model_details=None,
+    ):
         self.resolution = resolution
         self.physical_models = physical_models or {}
         self.virtual_models = virtual_models or {}
+        self.running_model_details = running_model_details or {}
         self.resolved_model_uids = []
 
     async def resolve_token_router_runtime(self, model_uid):
@@ -305,6 +347,11 @@ class FakeSupervisor:
 
     async def list_virtual_models(self):
         return dict(self.virtual_models)
+
+    async def describe_running_model(self, model_uid):
+        if model_uid not in self.running_model_details:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        return dict(self.running_model_details[model_uid])
 
 
 class FakeAuthService:
@@ -334,6 +381,27 @@ def make_chat_app(api):
         "/v1/chat/completions", api.create_chat_completion, methods=["POST"]
     )
     return app
+
+
+@pytest.mark.asyncio
+async def test_describe_virtual_model_returns_public_router_metadata():
+    detail = {
+        "model_name": "virtual-model",
+        "model_type": "LLM",
+        "model_engine": "token_router",
+        "model_ability": ["chat"],
+        "model_kind": "virtual",
+        "virtual_model_type": "token_router",
+        "router_uid": "router-a",
+        "router_status": "ready",
+    }
+    supervisor = FakeSupervisor(None, running_model_details={"virtual-model": detail})
+    api = make_rest_api(supervisor)
+
+    response = await api.describe_model("virtual-model")
+
+    assert response.status_code == 200
+    assert json.loads(response.body) == detail
 
 
 @pytest.mark.asyncio
