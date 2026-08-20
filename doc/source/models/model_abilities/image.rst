@@ -51,6 +51,7 @@ The Text-to-image API is supported with the following models in Xinference:
 * hunyuandit-v1.2-distilled
 * cogview4
 * Qwen-Image
+* GLM-Image
 * Ideogram4
 * HiDream-O1-Image
 * HiDream-O1-Image-Dev
@@ -60,6 +61,7 @@ Image-to-image supported models:
 
 * Flux.1-Kontext-dev
 * Qwen-Image-Edit
+* GLM-Image
 * HiDream-O1-Image
 * HiDream-O1-Image-Dev
 
@@ -105,6 +107,7 @@ or the ``vLLM`` engine
 for faster inference:
 
 * FLUX.1-dev
+* GLM-Image (SGLang only)
 * Qwen-Image
 * Qwen-Image-2512
 * Z-Image
@@ -145,6 +148,33 @@ provide the best quality and control.
 To download from ModelScope for an individual launch::
 
    xinference launch --model-name Ideogram4 --model-type image --download_hub modelscope
+
+
+GLM-Image
+-------------------
+
+:ref:`GLM-Image <models_builtin_glm-image>` supports both text-to-image
+generation and single- or multi-reference image-to-image generation through
+the same ``GlmImagePipeline``. Output width and height must both be divisible
+by 32.
+
+The ``diffusers`` engine uses ``diffusers==0.38.0`` and
+``transformers==5.0.0``. Xinference installs these packages automatically when
+per-model virtual environments are enabled.
+
+The Hugging Face source is ``zai-org/GLM-Image`` at revision ``main``. The
+ModelScope source is ``ZhipuAI/GLM-Image`` at revision ``master``.
+
+To download from ModelScope for an individual launch::
+
+   xinference launch --model-name GLM-Image --model-type image --download_hub modelscope
+
+On Linux with NVIDIA GPUs, text-to-image generation can also use SGLang::
+
+   xinference launch --model-name GLM-Image --model-type image --model-engine SGLang
+
+The SGLang engine currently exposes only text-to-image generation. Use the
+default ``diffusers`` engine for image-to-image generation.
 
 
 Quickstart
