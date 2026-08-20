@@ -167,11 +167,15 @@ def _model_for_config(architecture="DeepseekV4ForCausalLM"):
     return model
 
 
+@pytest.mark.parametrize("npu_available", [False, True])
 @pytest.mark.parametrize("configured", [256, 128])
-def test_deepseek_v4_preserves_explicit_block_size(monkeypatch, configured):
+def test_deepseek_v4_preserves_explicit_block_size(
+    monkeypatch, npu_available, configured
+):
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(core, "is_npu_available", lambda: npu_available)
 
     model_config = _model_for_config()._sanitize_model_config(
         {"block_size": configured}
@@ -180,20 +184,29 @@ def test_deepseek_v4_preserves_explicit_block_size(monkeypatch, configured):
     assert model_config["block_size"] == configured
 
 
-def test_deepseek_v4_uses_block_size_256_by_default(monkeypatch):
+@pytest.mark.parametrize(
+    ("npu_available", "expected"),
+    [(False, 256), (True, 128)],
+)
+def test_deepseek_v4_uses_platform_block_size_by_default(
+    monkeypatch, npu_available, expected
+):
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(core, "is_npu_available", lambda: npu_available)
 
     model_config = _model_for_config()._sanitize_model_config({})
 
-    assert model_config["block_size"] == 256
+    assert model_config["block_size"] == expected
 
 
-def test_regular_model_keeps_block_size_16_default(monkeypatch):
+@pytest.mark.parametrize("npu_available", [False, True])
+def test_regular_model_keeps_block_size_16_default(monkeypatch, npu_available):
     from .. import core
 
     monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(core, "is_npu_available", lambda: npu_available)
 
     model_config = _model_for_config("LlamaForCausalLM")._sanitize_model_config({})
 

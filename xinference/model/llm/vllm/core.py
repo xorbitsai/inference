@@ -1111,7 +1111,11 @@ class VLLMModel(LLM):
             model_config.setdefault("master_addr", master_addr)  # type: ignore
             model_config.setdefault("master_port", get_next_port())  # type: ignore
         is_deepseek_v4 = "DeepseekV4ForCausalLM" in architectures
-        model_config.setdefault("block_size", 256 if is_deepseek_v4 else 16)
+        if is_deepseek_v4:
+            default_block_size = 128 if is_npu_available() else 256
+        else:
+            default_block_size = 16
+        model_config.setdefault("block_size", default_block_size)
         if VLLM_VERSION < version.parse("0.18.0"):
             model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
