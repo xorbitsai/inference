@@ -810,37 +810,44 @@ class ChatModelMixin:
         full_text = ""
         is_first_chunk = True
         fallback_chunk: Optional[CompletionChunk] = None
-        # Process chunks
-        if reasoning_parser:
-            set_context()
-            chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for chunk in chunks:
-            set_context()
-            choices = chunk.get("choices")
-            if not choices:
-                # usage
-                if chunk.get("usage") is not None:
-                    chat_chunk = cls._get_usage_chat_completion_chunk(
-                        chunk, fallback_chunk
-                    )
+        upstream_chunks = chunks
+        try:
+            # Process chunks
+            if reasoning_parser:
+                set_context()
+                chunks = reasoning_parser.prepare_reasoning_content_streaming(chunks)
+            async for chunk in chunks:
+                set_context()
+                choices = chunk.get("choices")
+                if not choices:
+                    # usage
+                    if chunk.get("usage") is not None:
+                        chat_chunk = cls._get_usage_chat_completion_chunk(
+                            chunk, fallback_chunk
+                        )
+                    else:
+                        chat_chunk = cls._get_final_chat_completion_chunk(
+                            chunk, fallback_chunk
+                        )
                 else:
-                    chat_chunk = cls._get_final_chat_completion_chunk(
-                        chunk, fallback_chunk
-                    )
-            else:
-                if choices[0].get("text"):
-                    full_text += choices[0]["text"]  # type: ignore
+                    if choices[0].get("text"):
+                        full_text += choices[0]["text"]  # type: ignore
 
-                chat_chunk = cls._to_chat_completion_chunk(
-                    chunk,
-                    reasoning_parser,
-                    previous_texts,
-                    ensure_role=is_first_chunk,
-                )
-                fallback_chunk = chunk
-            is_first_chunk = False
-            yield chat_chunk
-        logger.debug("Chat finished, output: %s", full_text)
+                    chat_chunk = cls._to_chat_completion_chunk(
+                        chunk,
+                        reasoning_parser,
+                        previous_texts,
+                        ensure_role=is_first_chunk,
+                    )
+                    fallback_chunk = chunk
+                is_first_chunk = False
+                yield chat_chunk
+            logger.debug("Chat finished, output: %s", full_text)
+        finally:
+            # async for does not close its iterator when this conversion
+            # generator is closed early.  Close the original model stream
+            # explicitly so engines can release the request immediately.
+            await upstream_chunks.aclose()
 
     @staticmethod
     def _to_chat_completion(
@@ -1331,45 +1338,55 @@ class ChatModelMixin:
         tool_call_state: Dict[str, Any] = {"seen": False}
         full_text = ""
         fallback_chunk: Optional[CompletionChunk] = None
-        if self.reasoning_parser:
-            set_context()
-            chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
-        async for completion_chunk in chunks:
-            set_context()
-            if not completion_chunk.get("choices"):
-                if completion_chunk.get("usage") is not None:
-                    yield self._get_usage_chat_completion_chunk(
-                        completion_chunk, fallback_chunk
-                    )
-                else:
-                    yield self._get_final_chat_completion_chunk(
-                        completion_chunk, fallback_chunk
-                    )
-                continue
+        upstream_chunks = chunks
+        try:
+            if self.reasoning_parser:
+                set_context()
+                chunks = self.reasoning_parser.prepare_reasoning_content_streaming(
+                    chunks
+                )
+            async for completion_chunk in chunks:
+                set_context()
+                if not completion_chunk.get("choices"):
+                    if completion_chunk.get("usage") is not None:
+                        yield self._get_usage_chat_completion_chunk(
+                            completion_chunk, fallback_chunk
+                        )
+                    else:
+                        yield self._get_final_chat_completion_chunk(
+                            completion_chunk, fallback_chunk
+                        )
+                    continue
 
-            fallback_chunk = completion_chunk
-            chat_chunk = self._to_chat_completion_chunk(
-                completion_chunk,
-                self.reasoning_parser,
-                previous_texts,
-                ensure_role=i == 0,
-            )
-            reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
-            if reasoning_chunk is not None:
-                yield reasoning_chunk
-            if tool_chunk is None:
-                continue
-            processed_chunk = self._post_process_completion_chunk(
-                self.model_family,
-                self.model_uid,
-                tool_chunk,
-                previous_texts=previous_tools_texts,
-                tool_call_state=tool_call_state,
-            )
-            if processed_chunk:
-                yield processed_chunk
-            i += 1
-        logger.debug("Chat finished, output: %s", full_text)
+                fallback_chunk = completion_chunk
+                chat_chunk = self._to_chat_completion_chunk(
+                    completion_chunk,
+                    self.reasoning_parser,
+                    previous_texts,
+                    ensure_role=i == 0,
+                )
+                reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(
+                    chat_chunk
+                )
+                if reasoning_chunk is not None:
+                    yield reasoning_chunk
+                if tool_chunk is None:
+                    continue
+                processed_chunk = self._post_process_completion_chunk(
+                    self.model_family,
+                    self.model_uid,
+                    tool_chunk,
+                    previous_texts=previous_tools_texts,
+                    tool_call_state=tool_call_state,
+                )
+                if processed_chunk:
+                    yield processed_chunk
+                i += 1
+            logger.debug("Chat finished, output: %s", full_text)
+        finally:
+            # Keep request cleanup deterministic when the converted tool stream
+            # is closed before the model stream is exhausted.
+            await upstream_chunks.aclose()
 
 
 def get_model_version(
