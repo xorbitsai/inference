@@ -228,6 +228,7 @@ def assert_rejection_metrics(metrics: str, *, router_uid: str, result: str) -> N
         f'{{router_uid="{router_uid}",pool="none"}} 0' in metrics
     )
 
+
 def test_request_headers_promotes_backend_user_credential() -> None:
     headers = request_headers(
         [
@@ -243,6 +244,29 @@ def test_request_headers_promotes_backend_user_credential() -> None:
 
     assert headers["authorization"] == "Bearer external-user-token"
     assert "x-xinference-backend-authorization" not in headers
+
+
+@pytest.mark.parametrize(
+    "env_name",
+    [
+        "XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN",
+        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN",
+    ],
+)
+def test_request_headers_does_not_forward_internal_token_without_backend_auth(
+    monkeypatch: pytest.MonkeyPatch, env_name: str
+) -> None:
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", raising=False)
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", raising=False)
+    monkeypatch.setenv(env_name, "internal-token")
+
+    headers = request_headers(
+        [(b"authorization", b"Bearer internal-token")],
+        backend_api_key="",
+        request_id="request-a",
+    )
+
+    assert "authorization" not in headers
 
 
 def test_request_headers_backend_api_key_has_highest_priority() -> None:

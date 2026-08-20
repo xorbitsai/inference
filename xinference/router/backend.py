@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Iterable
 
 import httpx
@@ -25,12 +26,21 @@ def request_headers(
 ) -> dict[str, str]:
     headers: dict[str, str] = {}
     backend_authorization = ""
+    internal_token = os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN") or os.getenv(
+        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"
+    )
     for key_bytes, value_bytes in incoming:
         key = key_bytes.decode("latin-1").lower()
         value = value_bytes.decode("latin-1")
         if key == TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER:
             backend_authorization = value
         elif key in FORWARDED_REQUEST_HEADERS:
+            if (
+                key == "authorization"
+                and internal_token
+                and value == f"Bearer {internal_token}"
+            ):
+                continue
             headers[key] = value
     if backend_api_key:
         headers["authorization"] = f"Bearer {backend_api_key}"
