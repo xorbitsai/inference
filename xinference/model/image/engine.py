@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from ..utils import has_cuda_device
 from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
+from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
 from .sensenova_u1 import SenseNovaU1Model
 from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
 from .stable_diffusion.core import DiffusionModel
@@ -44,6 +45,19 @@ class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_family == "sensenova_u1"
+
+
+class HiDreamO1ImageModel(HiDreamO1Model, ImageEngineModel):
+    engine_model_format = "pytorch"
+    engine_quantization = "none"
+    required_libs = ("transformers", "diffusers", "einops")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return (
+            model_family.model_family == "hidream_o1"
+            and model_family.model_name in HIDREAM_O1_MODEL_NAMES
+        )
 
 
 class VLLMImageModel(VLLMDiffusionModel, ImageEngineModel):
@@ -75,7 +89,7 @@ class SGLangImageModel(SGLangDiffusionModel, ImageEngineModel):
 
 
 def register_builtin_image_engines() -> None:
-    SUPPORTED_ENGINES["diffusers"] = [DiffusersImageModel]
+    SUPPORTED_ENGINES["diffusers"] = [HiDreamO1ImageModel, DiffusersImageModel]
     SUPPORTED_ENGINES["transformers"] = [TransformersSenseNovaU1ImageModel]
     SUPPORTED_ENGINES["vLLM"] = [VLLMImageModel]
     SUPPORTED_ENGINES["SGLang"] = [SGLangImageModel]

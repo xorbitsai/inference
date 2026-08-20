@@ -52,11 +52,46 @@ The Text-to-image API is supported with the following models in Xinference:
 * cogview4
 * Qwen-Image
 * Ideogram4
+* HiDream-O1-Image
+* HiDream-O1-Image-Dev
+* HiDream-O1-Image-Dev-2604
 
 Image-to-image supported models:
 
 * Flux.1-Kontext-dev
 * Qwen-Image-Edit
+* HiDream-O1-Image
+* HiDream-O1-Image-Dev
+
+
+HiDream-O1 runtime notes
+------------------------
+
+All three HiDream-O1 checkpoints are available from Hugging Face with revision
+``main`` and ModelScope with revision ``master``. They require an NVIDIA CUDA
+GPU and PyTorch 2.10 or newer. Flash Attention is optional; Xinference disables
+it by default for compatibility.
+
+.. list-table::
+   :widths: 30 15 55
+   :header-rows: 1
+
+   * - Model
+     - Default steps
+     - Usage and scheduler defaults
+   * - HiDream-O1-Image
+     - 50
+     - Text-to-image, instruction-based editing, and multiple reference images;
+       uses the official default scheduler.
+   * - HiDream-O1-Image-Dev
+     - 28
+     - Text-to-image, editing, and multiple reference images; single-reference
+       editing uses the flow-matching scheduler, while text-to-image and
+       multi-reference generation use the flash scheduler.
+   * - HiDream-O1-Image-Dev-2604
+     - 28
+     - Text-to-image only; uses the checkpoint's float32 loading and sampling
+       defaults.
 
 
 Image engines

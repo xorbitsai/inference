@@ -33,6 +33,12 @@ The following is a list of built-in image models in Xinference:
   
    got-ocr2_0
   
+   hidream-o1-image
+
+   hidream-o1-image-dev
+
+   hidream-o1-image-dev-2604
+
    hunyuandit-v1.2
   
    hunyuandit-v1.2-distilled
