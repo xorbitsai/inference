@@ -72,7 +72,7 @@ export function RouterRuntimeDetailDrawer({ router, open, onOpenChange }: Props)
         {router && (
           <div className="mt-6 space-y-4 pb-6">
             <DetailSection title={t('clusterInfo.routerBasicInfo')}>
-              <DetailItem label={t('clusterInfo.routerUid')} value={router.router_uid} />
+              <DetailItem label={t('tokenRouter.routerUid')} value={router.router_uid} />
               <DetailItem label={t('clusterInfo.routerInstanceId')} value={router.instance_id} />
               <DetailItem
                 label={t('clusterInfo.routerHostname')}

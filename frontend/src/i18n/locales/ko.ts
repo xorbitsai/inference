@@ -27,8 +27,12 @@ const ko = {
     description: '짧은 컨텍스트와 긴 컨텍스트 모델 백엔드 간의 토큰 예산 라우팅을 관리합니다.',
     create: 'Router 생성',
     edit: 'Router 편집',
-    routerUid: 'Router UID',
+    routerUid: '정책 이름',
     virtualModelUid: '가상 모델 UID',
+    routerUidHint:
+      '이 라우팅 정책을 고유하게 식별하고 관리합니다. 생성 후에는 변경할 수 없으며, 클라이언트 모델 요청에는 “가상 모델 UID”를 사용하세요.',
+    virtualModelUidHint:
+      'Token Router가 외부에 노출하는 논리 모델 UID이며 클라이언트 요청의 model 파라미터로 사용됩니다.',
     tokenizerPath: 'Tokenizer 경로',
     tokenizerSource: 'Tokenizer 소스',
     tokenizerAsset: 'Tokenizer 자산',
@@ -256,7 +260,7 @@ const ko = {
     validate: '검증',
     disable: '비활성화',
     enable: '활성화',
-    confirmDelete: 'Router {{routerUid}}를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    confirmDelete: '정책 "{{routerUid}}"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     deleteTitle: 'Token Router 삭제',
     deleteDisabledHint: '삭제하기 전에 Router를 비활성화하세요.',
     createSuccess: 'Token Router를 생성했습니다.',

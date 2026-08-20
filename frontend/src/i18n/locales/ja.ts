@@ -29,8 +29,12 @@ const ja = {
       '短いコンテキストと長いコンテキストのモデル間のトークン予算ルーティングを管理します。',
     create: 'Router を作成',
     edit: 'Router を編集',
-    routerUid: 'Router UID',
+    routerUid: 'ポリシー名',
     virtualModelUid: '仮想モデル UID',
+    routerUidHint:
+      'このルーティングポリシーを一意に識別して管理します。作成後は変更できません。クライアントからモデルをリクエストする際は「仮想モデル UID」を使用してください。',
+    virtualModelUidHint:
+      'Token Router が外部に公開する論理モデル UID であり、クライアントリクエストの model パラメーターとして使用します。',
     tokenizerPath: 'Tokenizer パス',
     tokenizerSource: 'Tokenizer ソース',
     tokenizerAsset: 'Tokenizer アセット',
@@ -258,7 +262,7 @@ const ja = {
     validate: '検証',
     disable: '無効化',
     enable: '有効化',
-    confirmDelete: 'Router {{routerUid}} を削除しますか？この操作は元に戻せません。',
+    confirmDelete: 'ポリシー「{{routerUid}}」を削除しますか？この操作は元に戻せません。',
     deleteTitle: 'Token Router を削除',
     deleteDisabledHint: '削除する前に Router を無効化してください。',
     createSuccess: 'Token Router を作成しました。',

@@ -564,6 +564,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
             <FormField
               name="router_uid"
               label={t('tokenRouter.routerUid')}
+              extra={t('tokenRouter.routerUidHint')}
               disabled={editing}
               rules={[requiredRule]}
             >
@@ -572,6 +573,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
             <FormField
               name="virtual_model_uid"
               label={t('tokenRouter.virtualModelUid')}
+              extra={t('tokenRouter.virtualModelUidHint')}
               rules={[requiredRule]}
             >
               <Input />
