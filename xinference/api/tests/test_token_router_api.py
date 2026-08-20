@@ -133,10 +133,24 @@ def typed_router_payload() -> dict:
     return payload
 
 
+class FakeTokenizerAssetRegistry:
+    allow_custom_path = True
+
+    def reload(self) -> None:
+        pass
+
+    def match_path(self, tokenizer_path: str):
+        return None
+
+    def validate_path(self, tokenizer_path: str, *, smoke_test: bool) -> dict:
+        return {"valid": True, "errors": []}
+
+
 def make_supervisor(tmp_path):
     supervisor = SupervisorActor.__new__(SupervisorActor)
     supervisor._token_router_store = RouterConfigStore(str(tmp_path / "routers.db"))
     supervisor._token_router_registry = RouterRuntimeRegistry()
+    supervisor._tokenizer_asset_registry = FakeTokenizerAssetRegistry()
 
     async def list_models(_self):
         return {
@@ -446,7 +460,9 @@ async def test_validation_checks_running_backend_type_and_context(tmp_path) -> N
     assert response.status_code == 200
     result = response.json()
     assert result["valid"] is False
-    assert "short backend model must be an LLM" in result["errors"][0]
+    assert any(
+        "short backend model must be an LLM" in error for error in result["errors"]
+    )
     assert any("short max_context_tokens" in error for error in result["errors"])
     assert any(
         "long backend model is not running" in error for error in result["errors"]
