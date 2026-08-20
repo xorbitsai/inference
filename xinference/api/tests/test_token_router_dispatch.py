@@ -560,6 +560,70 @@ async def test_virtual_chat_stream_is_proxied_with_auth_headers_and_done(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_virtual_chat_separates_internal_and_external_credentials(monkeypatch):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    supervisor = FakeSupervisor(resolution)
+    auth_service = FakeAuthService()
+    api = make_rest_api(supervisor, auth_service)
+    app = make_chat_app(api)
+    real_async_client = httpx.AsyncClient
+    captured = {}
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", raising=False)
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", "internal-token")
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'data: {"choices": []}\n\n'
+            yield b"data: [DONE]\n\n"
+
+    def upstream_handler(request):
+        captured["authorization"] = request.headers.get("authorization")
+        captured["backend_authorization"] = request.headers.get(
+            "x-xinference-backend-authorization"
+        )
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            stream=UpstreamStream(),
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/chat/completions",
+            headers={
+                "Authorization": "Bearer external-user-token",
+                # A client-supplied internal header must not be trusted.
+                "X-Xinference-Backend-Authorization": "Bearer forged-token",
+            },
+            json={
+                "model": "virtual-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "stream": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.content.endswith(b"data: [DONE]\n\n")
+    assert captured == {
+        "authorization": "Bearer internal-token",
+        "backend_authorization": "Bearer external-user-token",
+    }
+    assert auth_service.checked == [("external-user-token", "virtual-model", "LLM")]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "thinking_fields",
     [
