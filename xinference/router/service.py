@@ -43,6 +43,7 @@ async def _load_control_plane_config(args: argparse.Namespace):
     generation_value = os.getenv("XINFERENCE_TOKEN_ROUTER_ASSIGNMENT_GENERATION")
     assignment_generation = int(generation_value) if generation_value else None
     node_id = os.getenv("XINFERENCE_TOKEN_ROUTER_NODE_ID") or None
+    instance_id = os.getenv("XINFERENCE_TOKEN_ROUTER_INSTANCE_ID") or None
     assignment_fields = (assignment_id, assignment_generation, node_id)
     if any(value is not None for value in assignment_fields) and not all(
         value is not None for value in assignment_fields
@@ -55,6 +56,7 @@ async def _load_control_plane_config(args: argparse.Namespace):
         args.router_uid,
         internal_token=token,
         endpoint=endpoint,
+        instance_id=instance_id,
         listen_host=args.host,
         listen_port=args.port,
         log_level=args.log_level,

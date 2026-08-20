@@ -101,6 +101,30 @@ def _manager(tmp_path, control=None, **kwargs):
     )
 
 
+def test_runtime_instance_id_replaces_only_uuid_host_prefix(tmp_path) -> None:
+    manager = _manager(tmp_path)
+    assignment = _assignment()
+    assignment["listen_host"] = "router-agent-1"
+    assignment["instance_id"] = "old-host-name-13fdc0e8-34b3-4e7d-ad06-a1db60427557"
+
+    assert manager._runtime_instance_id(assignment) == (
+        "router-agent-1-13fdc0e8-34b3-4e7d-ad06-a1db60427557"
+    )
+    assert manager._runtime_instance_id({**assignment, "instance_id": "legacy"}) == (
+        "legacy"
+    )
+
+
+def test_runtime_child_environment_contains_stable_instance_id(tmp_path) -> None:
+    manager = _manager(tmp_path)
+    assignment = _assignment()
+    assignment["instance_id"] = "router-agent-1-13fdc0e8-34b3-4e7d-ad06-a1db60427557"
+
+    env = manager._child_environment(assignment)
+
+    assert env["XINFERENCE_TOKEN_ROUTER_INSTANCE_ID"] == assignment["instance_id"]
+
+
 def _assignment(generation=1):
     return {
         "assignment_id": "router-a-0",

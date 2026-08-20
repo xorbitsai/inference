@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import socket
 import time
 from dataclasses import dataclass, field
@@ -18,6 +19,9 @@ from .control_plane import RouterAgentControlPlaneClient
 logger = logging.getLogger(__name__)
 
 _SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 10.0
+_INSTANCE_UUID_SUFFIX = re.compile(
+    r"(?i)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+)
 
 _ALLOWED_ENVIRONMENT = (
     "PATH",
@@ -134,6 +138,29 @@ class RouterRuntimeProcessManager:
         finally:
             sock.close()
 
+    @staticmethod
+    def _runtime_instance_id(assignment: Dict[str, Any]) -> Optional[str]:
+        """Return a stable, agent-scoped ID for a managed Runtime.
+
+        Supervisor-created assignments already carry the Runtime instance ID.
+        Preserve its UUID suffix while replacing the old host prefix with the
+        Agent listen host.  Legacy or malformed IDs are deliberately left
+        untouched so that externally managed assignments remain compatible.
+        """
+        listen_host = str(assignment.get("listen_host") or "").strip()
+        instance_id = str(assignment.get("instance_id") or "").strip()
+        if not listen_host or not instance_id:
+            return None
+        match = _INSTANCE_UUID_SUFFIX.search(instance_id)
+        if match is None:
+            return instance_id
+        return f"{listen_host}-{match.group(1).lower()}"
+
+    @staticmethod
+    def _assignment_instance_id(assignment: Dict[str, Any]) -> Optional[str]:
+        value = assignment.get("instance_id")
+        return str(value) if value else None
+
     def _child_environment(self, assignment: Dict[str, Any]) -> Dict[str, str]:
         env = {
             key: value
@@ -164,6 +191,9 @@ class RouterRuntimeProcessManager:
                 "TOKENIZERS_PARALLELISM": os.getenv("TOKENIZERS_PARALLELISM", "false"),
             }
         )
+        instance_id = self._assignment_instance_id(assignment)
+        if instance_id:
+            env["XINFERENCE_TOKEN_ROUTER_INSTANCE_ID"] = instance_id
         if asset:
             env.update(
                 {
@@ -204,7 +234,15 @@ class RouterRuntimeProcessManager:
                     managed = ManagedRuntimeProcess(assignment=assignment)
                     self._processes[assignment_id] = managed
                 else:
+                    previous_instance_id = managed.assignment.get("instance_id")
                     managed.assignment = assignment
+                    if previous_instance_id and not managed.assignment.get(
+                        "instance_id"
+                    ):
+                        managed.assignment["instance_id"] = previous_instance_id
+                runtime_instance_id = self._runtime_instance_id(managed.assignment)
+                if runtime_instance_id is not None:
+                    managed.assignment["instance_id"] = runtime_instance_id
                 if managed.process is None or managed.process.returncode is not None:
                     await self._start_locked(managed)
 
@@ -228,6 +266,7 @@ class RouterRuntimeProcessManager:
                 managed.assignment_id,
                 node_id=self.node_id,
                 assignment_generation=managed.generation,
+                instance_id=self._assignment_instance_id(managed.assignment),
                 observed_state="failed",
                 last_error="Tokenizer Asset Binding is not ready on this Router Agent",
             )
@@ -251,6 +290,7 @@ class RouterRuntimeProcessManager:
                 managed.assignment_id,
                 node_id=self.node_id,
                 assignment_generation=managed.generation,
+                instance_id=self._assignment_instance_id(managed.assignment),
                 observed_state="port_conflict",
                 listen_port=port,
                 last_error=f"Router Runtime port is already in use: {host}:{port}",
@@ -264,6 +304,7 @@ class RouterRuntimeProcessManager:
             managed.assignment_id,
             node_id=self.node_id,
             assignment_generation=managed.generation,
+            instance_id=self._assignment_instance_id(managed.assignment),
             observed_state="starting",
             listen_port=port,
         )
@@ -311,6 +352,7 @@ class RouterRuntimeProcessManager:
             managed.assignment_id,
             node_id=self.node_id,
             assignment_generation=managed.generation,
+            instance_id=self._assignment_instance_id(managed.assignment),
             observed_state="starting",
             pid=process.pid,
             listen_port=port,
@@ -337,6 +379,7 @@ class RouterRuntimeProcessManager:
             managed.assignment_id,
             node_id=self.node_id,
             assignment_generation=managed.generation,
+            instance_id=self._assignment_instance_id(managed.assignment),
             observed_state=state,
             last_error=error,
         )
@@ -415,6 +458,7 @@ class RouterRuntimeProcessManager:
                 managed.assignment_id,
                 node_id=self.node_id,
                 assignment_generation=managed.generation,
+                instance_id=self._assignment_instance_id(managed.assignment),
                 observed_state=state,
                 pid=process.pid,
                 listen_port=int(managed.assignment["listen_port"]),
@@ -439,6 +483,7 @@ class RouterRuntimeProcessManager:
                 managed.assignment_id,
                 node_id=self.node_id,
                 assignment_generation=managed.generation,
+                instance_id=self._assignment_instance_id(managed.assignment),
                 observed_state=observed_state,
                 pid=pid,
             )

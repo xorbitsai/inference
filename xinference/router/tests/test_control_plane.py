@@ -12,6 +12,7 @@ from xinference.router import control_plane as control_plane_module
 from xinference.router.control_plane import (
     RouterControlPlaneClient,
     RouterInstanceNotFound,
+    _default_instance_id_prefix,
 )
 from xinference.router.runtime import RouterRuntime
 
@@ -63,6 +64,19 @@ class FakeRuntime:
                 "fingerprint": "sha256:test-fingerprint",
             },
         }
+
+
+def test_default_instance_id_prefix_uses_listen_host() -> None:
+    assert _default_instance_id_prefix("router-agent-1", "http://runtime:10080") == (
+        "router-agent-1"
+    )
+
+
+def test_default_instance_id_prefix_uses_endpoint_for_wildcard_host() -> None:
+    assert _default_instance_id_prefix("0.0.0.0", "http://runtime.example:10080") == (
+        "runtime.example"
+    )
+    assert _default_instance_id_prefix("::", "")
 
 
 def make_client(*, revision: int = 1) -> RouterControlPlaneClient:

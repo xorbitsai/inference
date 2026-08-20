@@ -191,6 +191,9 @@ class RouterAssignmentStore:
                 f"Stale Assignment generation {assignment_generation}; current is "
                 f"{current['assignment_generation']}"
             )
+        effective_instance_id = (
+            current["instance_id"] if instance_id is None else instance_id
+        )
         now = self._now()
         with self._lock, self._connect() as conn:
             conn.execute(
@@ -201,7 +204,7 @@ class RouterAssignmentStore:
                 (
                     observed_state,
                     pid,
-                    instance_id,
+                    effective_instance_id,
                     last_error,
                     json.dumps(
                         current["observed"] if observed is None else observed,
