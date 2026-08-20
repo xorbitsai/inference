@@ -207,11 +207,9 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [form] = useForm();
   const managementMode = form.getFieldValue('management_mode') as
-    | FormState['management_mode']
-    | undefined;
+    FormState['management_mode'] | undefined;
   const placementMode = form.getFieldValue('placement_mode') as
-    | FormState['placement_mode']
-    | undefined;
+    FormState['placement_mode'] | undefined;
   const editing = Boolean(router);
   const canUseCustomPath = allowCustomPath || Boolean(router && !router.tokenizer_asset_id);
   const assetOptions = useMemo(() => {
@@ -427,6 +425,10 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       }
     }
 
+    const backendUrl = useCustomBackend
+      ? (values.backend_url ?? '').trim()
+      : (backendDefaults?.backend_url ?? '');
+
     const commonPayload = {
       virtual_model_uid: values.virtual_model_uid.trim(),
       model_type: 'LLM' as const,
@@ -434,7 +436,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       ...(values.tokenizer_source === 'asset'
         ? { tokenizer_asset_id: tokenizerAssetId }
         : { tokenizer_path: tokenizerPath }),
-      backend_url: values.backend_url.trim(),
+      backend_url: backendUrl,
       model_aliases: values.model_aliases
         .split(',')
         .map((item) => item.trim())
@@ -501,7 +503,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
     delete placement.node_id;
     delete placement.node_ids;
     if (values.placement_mode === 'node') {
-      placement.node_ids = [values.placement_node_id.trim()];
+      placement.node_ids = [(values.placement_node_id ?? '').trim()];
     }
 
     try {
@@ -533,6 +535,15 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       toast.success(t(router ? 'tokenRouter.updateSuccess' : 'tokenRouter.createSuccess'));
       onOpenChange(false);
       onSaved();
+    } catch (error) {
+      // HTTP errors (409/422) are surfaced by the global request interceptor;
+      // surface only unexpected errors here to avoid duplicate toasts.
+      const isHttpError = Boolean((error as { response?: unknown }).response);
+      if (!isHttpError) {
+        toast.error(
+          t('tokenRouter.saveFailed') + (error instanceof Error ? `: ${error.message}` : '')
+        );
+      }
     } finally {
       setSaving(false);
     }
