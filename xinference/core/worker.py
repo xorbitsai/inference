@@ -4695,9 +4695,12 @@ class WorkerActor(xo.StatelessActor):
             or os.path.join(XINFERENCE_HOME, "modelscope"),
             "models",
         )
-        openmind_root = os.environ.get("XDG_CACHE_HOME") or os.path.join(
+        openmind_cache_home = os.environ.get("XDG_CACHE_HOME") or os.path.join(
             XINFERENCE_HOME, "openmind_hub"
         )
+        # openmind_hub follows the XDG base-directory convention and keeps
+        # model data below ``$XDG_CACHE_HOME/openmind/hub``.
+        openmind_root = os.path.join(openmind_cache_home, "openmind", "hub")
         return tuple(
             dict.fromkeys(
                 os.path.realpath(root)
@@ -4737,11 +4740,14 @@ class WorkerActor(xo.StatelessActor):
                 except OSError as exc:
                     if exc.errno in (errno.ENOTEMPTY, errno.EEXIST, errno.ENOTDIR):
                         break
-                    logger.error(
+                    # Parent pruning is best-effort. Model files and their
+                    # Xinference cache entry were already removed, so failing
+                    # the operation here would leave the cache tracker stale.
+                    logger.warning(
                         f"Fail to remove empty download directory {current} "
                         f"with error:{exc}."
                     )
-                    return False
+                    break
                 current = next_parent
         return True
 
