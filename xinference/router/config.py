@@ -8,6 +8,8 @@ from typing import Any, Mapping
 
 import yaml  # type: ignore[import-untyped]
 
+from .tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
+
 _ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$")
 
 
@@ -117,6 +119,8 @@ class RouterConfig:
     tokenizer_asset_origin: str = ""
     tokenizer_asset_revision: str = ""
     tokenizer_asset_fingerprint: str = ""
+    tokenizer_asset_files: tuple[str, ...] = DEFAULT_TOKENIZER_ASSET_FILES
+    tokenizer_asset_capabilities: tuple[str, ...] = ("chat", "tools", "thinking")
     legacy_short_threshold_tokens: int | None = None
     legacy_thinking_pool: str = ""
 
@@ -225,6 +229,22 @@ def _validate_config(cfg: RouterConfig) -> RouterConfig:
         ):
             raise ConfigError(f"Invalid token range in routing rule {rule.id!r}")
         _validate_action(rule.action, backend_id_set, f"routing rule {rule.id!r}")
+        if (
+            match.tools_present is True
+            and "tools" not in cfg.tokenizer_asset_capabilities
+        ):
+            raise ConfigError(
+                f"routing rule {rule.id!r} requires tools but the Tokenizer "
+                "asset does not support tools"
+            )
+        if (
+            match.thinking is True
+            and "thinking" not in cfg.tokenizer_asset_capabilities
+        ):
+            raise ConfigError(
+                f"routing rule {rule.id!r} requires thinking but the Tokenizer "
+                "asset does not support thinking"
+            )
     _validate_action(cfg.default_action, backend_id_set, "default action")
     if cfg.context_reserve_tokens < 0 or cfg.default_output_tokens < 1:
         raise ConfigError("Invalid token budget defaults")
@@ -314,7 +334,7 @@ def _tokenization(value: Mapping[str, Any]) -> TokenizationConfig:
 
 def load_config(path: str | Path | None = None) -> RouterConfig:
     """Load the legacy standalone YAML format and normalize it to V2 internally."""
-    config_path = (
+    config_path: str | Path = (
         path if path is not None else os.getenv("ROUTER_CONFIG", "config.yaml")
     )
     data = _load_yaml(Path(config_path).expanduser())
@@ -460,9 +480,20 @@ def _typed_rule(value: Mapping[str, Any]) -> RoutingRule:
 
 def _resolve_tokenizer(data: Mapping[str, Any]) -> tuple[str, str, Path]:
     tokenizer_path = str(data.get("tokenizer_path") or "").strip()
+    asset_id = str(data.get("tokenizer_asset_id") or "").strip()
     if not tokenizer_path:
         raise ConfigError("tokenizer_path is required")
-    return "", "", Path(tokenizer_path).expanduser()
+    asset_origin = "registered" if asset_id else "custom_path"
+    return asset_id, asset_origin, Path(tokenizer_path).expanduser()
+
+
+def _control_plane_capabilities(data: Mapping[str, Any]) -> tuple[str, ...]:
+    raw = data.get("tokenizer_asset_capabilities")
+    if raw is None:
+        return ("chat", "tools", "thinking")
+    if isinstance(raw, Mapping):
+        return tuple(str(name) for name, enabled in raw.items() if enabled)
+    return tuple(str(item) for item in raw)
 
 
 def config_from_control_plane(
@@ -535,6 +566,13 @@ def config_from_control_plane(
         tokenizer_asset_origin=asset_origin,
         tokenizer_asset_revision=str(data.get("tokenizer_asset_revision", "")),
         tokenizer_asset_fingerprint=str(data.get("tokenizer_asset_fingerprint", "")),
+        tokenizer_asset_files=tuple(
+            str(item)
+            for item in (
+                data.get("tokenizer_asset_files") or DEFAULT_TOKENIZER_ASSET_FILES
+            )
+        ),
+        tokenizer_asset_capabilities=_control_plane_capabilities(data),
         legacy_short_threshold_tokens=legacy_threshold,
         legacy_thinking_pool=legacy_thinking,
     )

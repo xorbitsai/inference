@@ -267,8 +267,11 @@ class SupervisorActor(xo.StatelessActor):
 
         from .router_config_store import RouterConfigStore
         from .router_registry import RouterRuntimeRegistry
+        from .tokenizer_asset_registry import TokenizerAssetRegistry
 
         self._token_router_store = RouterConfigStore(XINFERENCE_TOKEN_ROUTER_DB_PATH)
+        self._tokenizer_asset_registry = TokenizerAssetRegistry()
+        self._tokenizer_asset_registry_lock = asyncio.Lock()
         self._token_router_registry = RouterRuntimeRegistry(
             XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS
         )
@@ -4869,6 +4872,121 @@ class SupervisorActor(xo.StatelessActor):
             "acked_revision": instance.get("acked_revision", 0),
         }
 
+    def _get_tokenizer_asset_registry(self):
+        registry = getattr(self, "_tokenizer_asset_registry", None)
+        if registry is None:
+            from .tokenizer_asset_registry import TokenizerAssetRegistry
+
+            registry = self._tokenizer_asset_registry = TokenizerAssetRegistry()
+        return registry
+
+    def _get_tokenizer_asset_registry_lock(self) -> asyncio.Lock:
+        lock = getattr(self, "_tokenizer_asset_registry_lock", None)
+        if lock is None:
+            lock = self._tokenizer_asset_registry_lock = asyncio.Lock()
+        return lock
+
+    def _call_tokenizer_asset_registry(
+        self, method_name: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        registry = self._get_tokenizer_asset_registry()
+        registry.reload()
+        return getattr(registry, method_name)(*args, **kwargs)
+
+    async def _call_tokenizer_asset_registry_async(
+        self, method_name: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        async with self._get_tokenizer_asset_registry_lock():
+            return await asyncio.to_thread(
+                self._call_tokenizer_asset_registry, method_name, *args, **kwargs
+            )
+
+    def _normalize_token_router_tokenizer_sync(
+        self,
+        config: Dict[str, Any],
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        from pathlib import Path
+
+        from .tokenizer_asset_registry import TokenizerAssetError
+
+        payload = dict(config)
+        asset_id = str(payload.get("tokenizer_asset_id") or "").strip()
+        tokenizer_path = str(payload.get("tokenizer_path") or "").strip()
+        registry = self._get_tokenizer_asset_registry()
+        registry.reload()
+
+        if asset_id:
+            payload.update(registry.resolve(asset_id, tokenizer_path or None))
+            return payload
+
+        if not tokenizer_path:
+            raise ValueError("tokenizer_asset_id or tokenizer_path must be provided")
+
+        resolved_path = str(Path(tokenizer_path).expanduser().resolve())
+        matched = registry.match_path(resolved_path)
+        if matched is not None:
+            if matched.get("status") != "available":
+                detail = "; ".join(matched.get("errors", [])) or matched.get(
+                    "status", "invalid"
+                )
+                raise TokenizerAssetError(
+                    f"Tokenizer asset is not available: "
+                    f"{matched['asset_id']}: {detail}"
+                )
+            payload.update(registry.resolve(str(matched["asset_id"]), resolved_path))
+            return payload
+
+        same_historical_path = False
+        if current is not None and not current.get("tokenizer_asset_id"):
+            current_path = str(current.get("tokenizer_path") or "").strip()
+            if current_path:
+                same_historical_path = (
+                    str(Path(current_path).expanduser().resolve()) == resolved_path
+                )
+        if not registry.allow_custom_path and not same_historical_path:
+            raise PermissionError(
+                "Custom tokenizer_path is disabled; select a registered "
+                "tokenizer_asset_id"
+            )
+
+        payload["tokenizer_path"] = resolved_path
+        payload.pop("tokenizer_asset_id", None)
+        payload.pop("tokenizer_asset_revision", None)
+        payload.pop("tokenizer_asset_fingerprint", None)
+        # Custom paths have no declared capability metadata; preserve phase-1
+        # behavior where every request shape is accepted.
+        from ..router.tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
+
+        payload["tokenizer_asset_capabilities"] = {
+            "chat": True,
+            "tools": True,
+            "thinking": True,
+        }
+        payload["tokenizer_asset_files"] = list(DEFAULT_TOKENIZER_ASSET_FILES)
+        return payload
+
+    async def _normalize_token_router_tokenizer(
+        self,
+        config: Dict[str, Any],
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        async with self._get_tokenizer_asset_registry_lock():
+            return await asyncio.to_thread(
+                self._normalize_token_router_tokenizer_sync, config, current
+            )
+
+    async def list_tokenizer_assets(self) -> Dict[str, Any]:
+        return await self._call_tokenizer_asset_registry_async("list_assets")
+
+    async def get_tokenizer_asset(self, asset_id: str) -> Dict[str, Any]:
+        return await self._call_tokenizer_asset_registry_async("get_asset", asset_id)
+
+    async def validate_tokenizer_asset(self, asset_id: str) -> Dict[str, Any]:
+        return await self._call_tokenizer_asset_registry_async(
+            "validate_asset", asset_id
+        )
+
     def _validate_token_router_uniqueness(
         self, router_uid: str, config: Dict[str, Any]
     ) -> None:
@@ -4885,15 +5003,19 @@ class SupervisorActor(xo.StatelessActor):
     async def create_token_router(
         self, router_uid: str, config: Dict[str, Any], username: str = ""
     ) -> Dict[str, Any]:
-        self._validate_token_router_uniqueness(router_uid, config)
+        payload = await self._normalize_token_router_tokenizer(config)
+        self._validate_token_router_uniqueness(router_uid, payload)
         return self._with_token_router_status(
-            self._token_router_store.create(router_uid, config, username)
+            self._token_router_store.create(router_uid, payload, username)
         )
 
     async def update_token_router(
         self, router_uid: str, config: Dict[str, Any], username: str = ""
     ) -> Dict[str, Any]:
-        payload = dict(config)
+        current = self._token_router_store.get(router_uid)
+        if current is None:
+            raise KeyError(router_uid)
+        payload = await self._normalize_token_router_tokenizer(config, current)
         self._validate_token_router_uniqueness(router_uid, payload)
         expected_revision = payload.pop("revision", None)
         return self._with_token_router_status(
@@ -5015,7 +5137,69 @@ class SupervisorActor(xo.StatelessActor):
             return None
         errors: List[str] = []
         warnings: List[str] = []
+        asset_validation: Dict[str, Any]
+        asset_id = str(config.get("tokenizer_asset_id") or "").strip()
+        try:
+            if asset_id:
+                asset_validation = await self._call_tokenizer_asset_registry_async(
+                    "validate_asset", asset_id
+                )
+                configured_revision = str(config.get("tokenizer_asset_revision") or "")
+                configured_fingerprint = str(
+                    config.get("tokenizer_asset_fingerprint") or ""
+                )
+                if configured_revision and configured_revision != str(
+                    asset_validation.get("revision") or ""
+                ):
+                    errors.append(
+                        "Tokenizer asset revision differs from the stored Router "
+                        "configuration"
+                    )
+                if configured_fingerprint and configured_fingerprint != str(
+                    asset_validation.get("fingerprint") or ""
+                ):
+                    errors.append(
+                        "Tokenizer asset fingerprint differs from the stored Router "
+                        "configuration"
+                    )
+            else:
+                asset_validation = await self._call_tokenizer_asset_registry_async(
+                    "validate_path",
+                    str(config.get("tokenizer_path") or ""),
+                    smoke_test=True,
+                )
+        except KeyError:
+            asset_validation = {
+                "valid": False,
+                "status": "missing",
+                "errors": [f"Tokenizer asset is not registered: {asset_id}"],
+            }
+        except Exception as exc:
+            asset_validation = {
+                "valid": False,
+                "status": "invalid",
+                "errors": [str(exc)],
+            }
+        errors.extend(str(error) for error in asset_validation.get("errors", []))
+
+        declared_asset_capabilities = asset_validation.get("capabilities")
+        asset_capabilities = None
+        if (
+            isinstance(declared_asset_capabilities, dict)
+            and declared_asset_capabilities
+        ):
+            asset_capabilities = {
+                str(name)
+                for name, enabled in declared_asset_capabilities.items()
+                if enabled
+            }
+
         running_models = await self.list_models()
+        compatible_models = {
+            str(name).strip().casefold()
+            for name in asset_validation.get("compatible_models", [])
+            if str(name).strip()
+        }
         backend_models: Dict[str, Dict[str, Any]] = {}
         for backend_id, backend in self._token_router_backend_entries(config):
             model_uid = str(backend.get("model_uid") or "")
@@ -5026,6 +5210,18 @@ class SupervisorActor(xo.StatelessActor):
             backend_models[backend_id] = model_info
             if model_info.get("model_type") != "LLM":
                 errors.append(f"{backend_id} backend model must be an LLM: {model_uid}")
+            if asset_id and compatible_models:
+                model_name = str(model_info.get("model_name") or "").strip()
+                if not model_name:
+                    errors.append(
+                        f"{backend_id} backend does not report model_name for Tokenizer "
+                        f"asset compatibility validation: {model_uid}"
+                    )
+                elif model_name.casefold() not in compatible_models:
+                    errors.append(
+                        f"{backend_id} backend model is not compatible with Tokenizer "
+                        f"asset {asset_id}: {model_name}"
+                    )
             abilities = {
                 str(value).casefold()
                 for value in model_info.get("model_ability", []) or []
@@ -5074,12 +5270,57 @@ class SupervisorActor(xo.StatelessActor):
                     errors.append(
                         f"Rule {rule.get('id')} requires thinking but backend {backend_id} does not report reasoning or hybrid capability"
                     )
+                if (
+                    asset_capabilities is not None
+                    and match.get("tools_present") is True
+                    and "tools" not in asset_capabilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires tools but Tokenizer asset does not support tools"
+                    )
+                if (
+                    asset_capabilities is not None
+                    and match.get("thinking") is True
+                    and "thinking" not in asset_capabilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires thinking but Tokenizer asset does not support thinking"
+                    )
+        if asset_id and asset_validation.get("valid"):
+            expected_revision = str(config.get("tokenizer_asset_revision") or "")
+            expected_fingerprint = str(config.get("tokenizer_asset_fingerprint") or "")
+            for instance in self._token_router_registry.list(router_uid):
+                if not instance.get("online"):
+                    continue
+                if int(instance.get("acked_revision", 0)) < int(config["revision"]):
+                    continue
+                process_info = instance.get("process") or {}
+                loaded = process_info.get("tokenizer_asset") or {}
+                loaded_id = str(loaded.get("asset_id") or "")
+                loaded_revision = str(loaded.get("revision") or "")
+                loaded_fingerprint = str(loaded.get("fingerprint") or "")
+                if loaded_id != asset_id:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        f"asset {loaded_id or '<unknown>'}, expected {asset_id}"
+                    )
+                if expected_revision and loaded_revision != expected_revision:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        "asset revision differs from the Router configuration"
+                    )
+                if expected_fingerprint and loaded_fingerprint != expected_fingerprint:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        "asset fingerprint differs from the Router configuration"
+                    )
         return {
             "router_uid": router_uid,
             "valid": not errors,
             "errors": errors,
             "warnings": warnings,
             "revision": config["revision"],
+            "tokenizer_asset": asset_validation,
         }
 
     def _with_token_router_status(self, config: Dict[str, Any]) -> Dict[str, Any]:

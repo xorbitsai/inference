@@ -67,6 +67,30 @@ async def list_backend_candidates(api: "RESTfulAPI") -> JSONResponse:
     )
 
 
+async def list_tokenizer_assets(api: "RESTfulAPI") -> JSONResponse:
+    return JSONResponse(content=await (await _supervisor(api)).list_tokenizer_assets())
+
+
+async def get_tokenizer_asset(asset_id: str, api: "RESTfulAPI") -> JSONResponse:
+    try:
+        result = await (await _supervisor(api)).get_tokenizer_asset(asset_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail="Tokenizer asset not found"
+        ) from exc
+    return JSONResponse(content=result)
+
+
+async def validate_tokenizer_asset(asset_id: str, api: "RESTfulAPI") -> JSONResponse:
+    try:
+        result = await (await _supervisor(api)).validate_tokenizer_asset(asset_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail="Tokenizer asset not found"
+        ) from exc
+    return JSONResponse(content=result)
+
+
 async def create_router(
     payload: TokenRouterCreate, api: "RESTfulAPI", user: Optional[dict]
 ) -> JSONResponse:
@@ -76,6 +100,12 @@ async def create_router(
         result = await (await _supervisor(api)).create_token_router(
             router_uid, data, _username(user)
         )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail="Tokenizer asset not found"
+        ) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return JSONResponse(status_code=201, content=result)
@@ -99,7 +129,14 @@ async def update_router(
             router_uid, payload.dict(), _username(user)
         )
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Token Router not found") from exc
+        detail = (
+            "Token Router not found"
+            if str(exc).strip("'") == router_uid
+            else "Tokenizer asset not found"
+        )
+        raise HTTPException(status_code=404, detail=detail) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return JSONResponse(content=result)
@@ -278,6 +315,20 @@ def register_routes(api: "RESTfulAPI") -> None:
 
             handler = anonymous
         router.add_api_route(path, handler, methods=methods)
+
+    route("/v1/tokenizer_assets", list_tokenizer_assets, ["GET"], "routers:list")
+    route(
+        "/v1/tokenizer_assets/{asset_id}",
+        get_tokenizer_asset,
+        ["GET"],
+        "routers:read",
+    )
+    route(
+        "/v1/tokenizer_assets/{asset_id}/validate",
+        validate_tokenizer_asset,
+        ["POST"],
+        "routers:operate",
+    )
 
     route("/v1/token_routers", list_routers, ["GET"], "routers:list")
     route(

@@ -41,6 +41,11 @@ class FakeRuntime:
             "active_requests": 4,
             "tokenization": {"active": 1, "waiting": 2},
             "pools": {"short": {"active": 3}, "long": {"active": 1}},
+            "tokenizer_asset": {
+                "asset_id": "deepseek-v4-flash-0731",
+                "revision": "0731",
+                "fingerprint": "sha256:test-fingerprint",
+            },
         }
 
 
@@ -190,6 +195,11 @@ async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> Non
                 "pools": {
                     "short": {"active": 3},
                     "long": {"active": 1},
+                },
+                "tokenizer_asset": {
+                    "asset_id": "deepseek-v4-flash-0731",
+                    "revision": "0731",
+                    "fingerprint": "sha256:test-fingerprint",
                 },
             },
         }

@@ -8,7 +8,10 @@ from tokenizers import Tokenizer, models, pre_tokenizers
 
 from xinference.router.admission import AdmissionRejected
 from xinference.router.metrics import RouterMetrics
-from xinference.router.tokenization import TokenizationService
+from xinference.router.tokenization import (
+    TokenizationService,
+    TokenizationWorkerUnavailable,
+)
 from xinference.router.tokenizer import TokenizationError
 
 
@@ -52,6 +55,8 @@ def make_service(
     max_queue: int = 1,
     queue_timeout_seconds: float = 1,
     retry_after_seconds: int = 1,
+    expected_asset_fingerprint: str = "",
+    expected_asset_revision: str = "",
 ) -> tuple[TokenizationService, RouterMetrics]:
     metrics = RouterMetrics()
     service = TokenizationService(
@@ -64,6 +69,8 @@ def make_service(
         max_queue=max_queue,
         queue_timeout_seconds=queue_timeout_seconds,
         retry_after_seconds=retry_after_seconds,
+        expected_asset_fingerprint=expected_asset_fingerprint,
+        expected_asset_revision=expected_asset_revision,
     )
     return service, metrics
 
@@ -191,5 +198,46 @@ async def test_tokenization_error_crosses_process_boundary(tmp_path: Path) -> No
         assert (await service.snapshot()).active == 0
         rendered = await metrics.render()
         assert 'outcome="failed"} 1' in rendered
+    finally:
+        await service.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mismatch", ["fingerprint", "revision"])
+async def test_start_rejects_asset_metadata_mismatch(
+    tmp_path: Path, mismatch: str
+) -> None:
+    expected_fingerprint = ""
+    expected_revision = ""
+    if mismatch == "fingerprint":
+        expected_fingerprint = "sha256:configured-fingerprint"
+        expected_message = "fingerprint does not match configuration"
+    else:
+        (tmp_path / "asset.json").write_text(
+            '{"revision": "loaded-revision"}', encoding="utf-8"
+        )
+        expected_revision = "configured-revision"
+        expected_message = "revision does not match configuration"
+
+    service, _ = make_service(
+        tmp_path,
+        expected_asset_fingerprint=expected_fingerprint,
+        expected_asset_revision=expected_revision,
+    )
+    try:
+        with pytest.raises(TokenizationWorkerUnavailable, match=expected_message):
+            await service.start()
+    finally:
+        await service.aclose()
+
+
+@pytest.mark.asyncio
+async def test_start_measures_tokenizer_asset_fingerprint(tmp_path: Path) -> None:
+    service, _ = make_service(tmp_path, max_workers=2, max_active=2)
+    try:
+        await service.start()
+        assert service.asset_fingerprint.startswith("sha256:")
+        assert len(service.asset_fingerprint) == len("sha256:") + 64
+        assert service.asset_revision == ""
     finally:
         await service.aclose()

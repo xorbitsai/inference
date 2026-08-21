@@ -34,9 +34,17 @@ class FakeTokenizationService:
         max_queue: int,
         queue_timeout_seconds: float,
         retry_after_seconds: int,
+        tokenizer_asset_files: tuple[str, ...] = (
+            "tokenizer.json",
+            "encoding/encoding_dsv4.py",
+        ),
+        expected_asset_fingerprint: str = "",
+        expected_asset_revision: str = "",
     ) -> None:
         self._reserve_tokens = reserve_tokens
         self._default_output_tokens = default_output_tokens
+        self.asset_fingerprint = "sha256:test-fingerprint"
+        self.asset_revision = "0731"
         self._snapshot = GateSnapshot(
             active=0,
             waiting=0,
@@ -49,6 +57,17 @@ class FakeTokenizationService:
         return None
 
     async def estimate(self, payload, *, input_bytes: int) -> TokenBudget:
+        thinking = (
+            payload.get("enable_thinking")
+            or (
+                isinstance(payload.get("extra_body"), dict)
+                and payload["extra_body"].get("enable_thinking")
+            )
+            or (
+                isinstance(payload.get("chat_template_kwargs"), dict)
+                and payload["chat_template_kwargs"].get("enable_thinking")
+            )
+        )
         return TokenBudget(
             prompt_tokens=1,
             output_tokens=int(payload.get("max_tokens", self._default_output_tokens)),
@@ -56,7 +75,7 @@ class FakeTokenizationService:
             total_tokens=1
             + int(payload.get("max_tokens", self._default_output_tokens))
             + self._reserve_tokens,
-            enable_thinking=False,
+            enable_thinking=bool(thinking),
         )
 
     async def snapshot(self) -> GateSnapshot:
@@ -385,6 +404,24 @@ class FakeControlPlane:
         self.events.append("unregister")
 
 
+class BlockingControlPlane(FakeControlPlane):
+    def __init__(self, events: list[str]) -> None:
+        super().__init__(events)
+        self.started = asyncio.Event()
+        self.cancelled = False
+        self.run_task: asyncio.Task[None] | None = None
+
+    async def run(self, runtime, stop: asyncio.Event) -> None:
+        self.events.append("run")
+        self.run_task = asyncio.current_task()
+        self.started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+
+
 @pytest.mark.asyncio
 async def test_lifespan_acks_only_after_runtime_start(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -405,6 +442,44 @@ async def test_lifespan_acks_only_after_runtime_start(
 
     assert events[-1] == "unregister"
     assert runtime.current.closed is True
+
+
+@pytest.mark.asyncio
+async def test_lifespan_cancels_control_plane_before_waiting_for_shutdown(
+    tmp_path: Path,
+) -> None:
+    app = create_app(make_config(tmp_path))
+    events: list[str] = []
+    control_plane = BlockingControlPlane(events)
+    app.state.control_plane = control_plane
+
+    async def serve_and_shutdown() -> None:
+        async with app.router.lifespan_context(app):
+            await asyncio.wait_for(control_plane.started.wait(), 1)
+
+    shutdown_task = asyncio.create_task(serve_and_shutdown())
+    await asyncio.wait_for(control_plane.started.wait(), 1)
+    await asyncio.sleep(0.05)
+
+    # If lifespan only sets the stop event, it remains stuck awaiting the
+    # deliberately blocked control-plane task. Cancel it as a bounded fallback
+    # so this test fails without hanging the test process.
+    forced_cancel = False
+    if not shutdown_task.done():
+        forced_cancel = True
+        assert control_plane.run_task is not None
+        control_plane.run_task.cancel()
+
+    try:
+        await shutdown_task
+    except asyncio.CancelledError:
+        # The forced fallback above cancels the old implementation's control
+        # task, which propagates through its lifespan cleanup.
+        pass
+
+    assert forced_cancel is False
+    assert control_plane.cancelled is True
+    assert app.state.runtime.current.closed is True
 
 
 @pytest.mark.asyncio
@@ -516,3 +591,98 @@ async def test_v2_tools_rule_routes_to_dynamic_backend_and_sets_headers(
     assert response.headers["x-xinference-router-backend"] == "tools"
     assert response.headers["x-xinference-router-rule"] == "tools-route"
     assert response.headers["x-xinference-router-pool"] == "tools"
+
+
+@pytest.mark.asyncio
+async def test_tools_request_rejected_when_asset_lacks_tools_capability(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    config = replace(
+        make_config(tmp_path),
+        tokenizer_asset_capabilities=("chat", "thinking"),
+    )
+    app = create_app(config)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json={
+                    "model": "router-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "tools": [{"type": "function", "function": {"name": "lookup"}}],
+                    "max_tokens": 8,
+                },
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "tools_not_allowed"
+
+
+@pytest.mark.asyncio
+async def test_thinking_request_is_rejected_before_tokenization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    config = replace(
+        make_config(tmp_path),
+        tokenizer_asset_capabilities=("chat", "tools"),
+    )
+    app = create_app(config)
+    tokenization = app.state.runtime.current.tokenization
+    estimate = AsyncMock(side_effect=AssertionError("tokenizer should not run"))
+    monkeypatch.setattr(tokenization, "estimate", estimate)
+
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json={
+                    "model": "router-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "chat_template_kwargs": json.dumps({"enable_thinking": True}),
+                    "max_tokens": 8,
+                },
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "thinking_not_allowed"
+    estimate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_thinking_request_rejected_when_asset_lacks_thinking_capability(
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    config = replace(
+        make_config(tmp_path),
+        tokenizer_asset_capabilities=("chat", "tools"),
+    )
+    app = create_app(config)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json={
+                    "model": "router-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "chat_template_kwargs": {"enable_thinking": True},
+                    "max_tokens": 8,
+                },
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "thinking_not_allowed"

@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -12,6 +13,8 @@ class FakeTokenization:
         self.fail_start = fail_start
         self.started = False
         self.closed = False
+        self.asset_fingerprint = "sha256:measured-fingerprint"
+        self.asset_revision = "measured-revision"
 
     async def start(self) -> None:
         if self.fail_start:
@@ -29,11 +32,43 @@ class FakeTokenization:
         return [101, 102]
 
 
+class BlockingTokenization(FakeTokenization):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started_event = asyncio.Event()
+
+    async def start(self) -> None:
+        self.started_event.set()
+        await asyncio.Event().wait()
+
+
+class StartedTokenization(FakeTokenization):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started_event = asyncio.Event()
+
+    async def start(self) -> None:
+        self.started = True
+        self.started_event.set()
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.closed = False
 
     async def aclose(self) -> None:
+        self.closed = True
+
+
+class BlockingClient(FakeClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.close_started = asyncio.Event()
+        self.allow_close = asyncio.Event()
+
+    async def aclose(self) -> None:
+        self.close_started.set()
+        await self.allow_close.wait()
         self.closed = True
 
 
@@ -48,10 +83,15 @@ def config(revision: int, *, enabled: bool = True):
     )
 
 
-def snapshot(cfg, *, fail_start: bool = False) -> RuntimeSnapshot:
+def snapshot(
+    cfg,
+    *,
+    fail_start: bool = False,
+    tokenization: Any | None = None,
+) -> RuntimeSnapshot:
     return RuntimeSnapshot(
         config=cfg,
-        tokenization=cast(Any, FakeTokenization(fail_start=fail_start)),
+        tokenization=cast(Any, tokenization or FakeTokenization(fail_start=fail_start)),
         policy=cast(Any, SimpleNamespace()),
         gates={},
         client=FakeClient(),
@@ -85,6 +125,117 @@ async def test_apply_drains_old_snapshot_after_inflight_request(monkeypatch) -> 
     assert held.closed is True
     assert held.client.closed is True
     assert held.tokenization.closed is True
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_apply_while_closing_old_snapshot_finishes_cleanup(
+    monkeypatch,
+) -> None:
+    first = config(1)
+    second = config(2)
+    old_snapshot = snapshot(first)
+    old_client = BlockingClient()
+    old_snapshot.client = cast(Any, old_client)
+    replacement_snapshot = snapshot(second)
+    snapshots = {1: old_snapshot, 2: replacement_snapshot}
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: snapshots[cfg.revision],
+    )
+
+    runtime = RouterRuntime(first)
+    await runtime.start()
+    apply_task = asyncio.create_task(runtime.apply(second))
+    await old_client.close_started.wait()
+
+    assert runtime.current is replacement_snapshot
+    assert len(runtime._drain_tasks) == 1
+
+    apply_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await apply_task
+
+    assert old_snapshot.closed is False
+    assert old_client.closed is False
+    assert cast(FakeTokenization, old_snapshot.tokenization).closed is False
+    assert len(runtime._drain_tasks) == 1
+
+    old_client.allow_close.set()
+    await runtime.aclose()
+
+    assert old_snapshot.closed is True
+    assert old_client.closed is True
+    assert cast(FakeTokenization, old_snapshot.tokenization).closed is True
+    assert not runtime._drain_tasks
+
+
+@pytest.mark.asyncio
+async def test_cancelled_apply_closes_replacement_snapshot(monkeypatch) -> None:
+    first = config(1)
+    second = config(2)
+    replacement_tokenization = BlockingTokenization()
+    first_snapshot = snapshot(first)
+    replacement_snapshot = snapshot(second, tokenization=replacement_tokenization)
+    snapshots = {1: first_snapshot, 2: replacement_snapshot}
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: snapshots[cfg.revision],
+    )
+
+    runtime = RouterRuntime(first)
+    await runtime.start()
+    apply_task = asyncio.create_task(runtime.apply(second))
+    await replacement_tokenization.started_event.wait()
+
+    apply_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await apply_task
+
+    assert runtime.current is first_snapshot
+    assert replacement_snapshot.closed is True
+    assert replacement_snapshot.client.closed is True
+    assert replacement_tokenization.closed is True
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_apply_while_waiting_for_lock_closes_replacement(
+    monkeypatch,
+) -> None:
+    first = config(1)
+    second = config(2)
+    replacement_tokenization = StartedTokenization()
+    first_snapshot = snapshot(first)
+    replacement_snapshot = snapshot(second, tokenization=replacement_tokenization)
+    snapshots = {1: first_snapshot, 2: replacement_snapshot}
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: snapshots[cfg.revision],
+    )
+
+    runtime = RouterRuntime(first)
+    await runtime.start()
+    await runtime._lock.acquire()
+    try:
+        apply_task = asyncio.create_task(runtime.apply(second))
+        await replacement_tokenization.started_event.wait()
+        await asyncio.sleep(0)
+        assert apply_task.done() is False
+
+        apply_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await apply_task
+    finally:
+        runtime._lock.release()
+
+    assert runtime.current is first_snapshot
+    assert replacement_snapshot.closed is True
+    assert replacement_snapshot.client.closed is True
+    assert replacement_tokenization.closed is True
     await runtime.aclose()
 
 
@@ -129,4 +280,26 @@ async def test_failed_apply_keeps_previous_snapshot(monkeypatch) -> None:
     assert runtime.current is first_snapshot
     assert first_snapshot.closed is False
     assert failed_snapshot.closed is True
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_summary_reports_measured_asset_fingerprint(monkeypatch) -> None:
+    runtime_config = config(1)
+    runtime_snapshot = snapshot(runtime_config)
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: runtime_snapshot,
+    )
+
+    runtime = RouterRuntime(runtime_config)
+    await runtime.start()
+
+    summary = await runtime.summary()
+
+    assert summary["tokenizer_asset"]["asset_id"] == "deepseek-v4-flash-0731"
+    assert summary["tokenizer_asset"]["revision"] == "measured-revision"
+    assert summary["tokenizer_asset"]["fingerprint"] == "sha256:measured-fingerprint"
+
     await runtime.aclose()
