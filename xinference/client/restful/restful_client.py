@@ -1244,7 +1244,7 @@ class Client:
         model_type: str
             type of model.
         model_engine: Optional[str]
-            Specify the inference engine of the model when launching LLM.
+            Specify the inference engine to use when launching the model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]

@@ -16,6 +16,7 @@ import platform
 from ..utils import (
     filter_virtualenv_packages_by_markers,
     find_direct_reference_packages,
+    find_remote_direct_reference_packages,
     rewrite_direct_url_packages_for_index,
 )
 from ..virtual_env_manager import ENGINE_VIRTUALENV_PACKAGES
@@ -87,6 +88,36 @@ def test_find_direct_references_after_wheel_rewrite():
     rewritten = rewrite_direct_url_packages_for_index(packages)
 
     assert find_direct_reference_packages(rewritten) == packages[1:4]
+
+
+def test_find_direct_references_supports_pep508_vcs_and_file_urls():
+    packages = [
+        "pkg-hg @ hg+https://example.invalid/repo",
+        "pkg-svn @ svn+ssh://example.invalid/repo",
+        "pkg-bzr @ bzr+https://example.invalid/repo",
+        'pkg-file @ file:///tmp/pkg ; python_version >= "3.10"',
+        "hg+https://example.invalid/bare-repo",
+        "transformers>=4.53.3",
+    ]
+
+    assert find_direct_reference_packages(packages) == packages[:-1]
+    assert find_remote_direct_reference_packages(packages) == [
+        packages[0],
+        packages[1],
+        packages[2],
+        packages[4],
+    ]
+
+
+def test_remote_direct_references_allow_bare_local_paths():
+    packages = [
+        "pkg-absolute @ /opt/local/pkg",
+        "pkg-relative @ ./local/pkg",
+        "pkg-parent @ ../local/pkg",
+        "pkg-remote @ https://example.invalid/pkg.tar.gz",
+    ]
+
+    assert find_remote_direct_reference_packages(packages) == [packages[-1]]
 
 
 def test_malformed_wheel_filename_unchanged():

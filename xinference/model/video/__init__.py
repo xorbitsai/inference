@@ -22,6 +22,7 @@ from ..utils import flatten_model_src
 from .core import (
     BUILTIN_VIDEO_MODELS,
     VIDEO_MODEL_DESCRIPTIONS,
+    VIDEO_REGISTRY_LOCK,
     VideoModelFamilyV2,
     generate_video_description,
     get_video_model_descriptions,
@@ -64,40 +65,58 @@ def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
 
-    # Startup and tests may call the installer more than once in one process.
-    # Rebuild the derived registries to avoid duplicate model and engine specs.
-    BUILTIN_VIDEO_MODELS.clear()
-    VIDEO_MODEL_DESCRIPTIONS.clear()
-    VIDEO_ENGINES.clear()
+    # Build a complete replacement away from the live registries. A reload can
+    # overlap model discovery/launch, and readers must never observe an empty or
+    # partially rebuilt set (nor lose the previous set if rebuilding fails).
+    new_builtin_video_models = {}
+    new_video_model_descriptions = {}
+    new_video_engines = {}
 
     install_models_with_merge(
-        BUILTIN_VIDEO_MODELS,
+        new_builtin_video_models,
         "model_spec.json",
         "video",
         "video_models.json",
         has_downloaded_models,
         load_model_family_from_json,
+        model_identity_func=lambda model: (
+            (model.engine or "diffusers").lower(),
+            model.model_hub,
+            model.cache_name or model.model_name,
+        ),
     )
 
     # Register one cache/version entry per engine variant. Hugging Face is the
     # preferred representative when the same variant has multiple hubs.
-    for model_name, model_specs in BUILTIN_VIDEO_MODELS.items():
+    for model_name, model_specs in new_builtin_video_models.items():
         variants = {}
         for model_spec in model_specs:
             version = model_spec.cache_name or model_spec.model_name
             current = variants.get(version)
             if current is None or model_spec.model_hub == "huggingface":
                 variants[version] = model_spec
-        VIDEO_MODEL_DESCRIPTIONS[model_name] = [
+        new_video_model_descriptions[model_name] = [
             model_spec.to_version_info() for model_spec in variants.values()
         ]
 
     register_builtin_video_engines()
-    for model_specs in BUILTIN_VIDEO_MODELS.values():
+    for model_specs in new_builtin_video_models.values():
         for model_spec in model_specs:
-            generate_engine_config_by_model_name(model_spec)
+            generate_engine_config_by_model_name(
+                model_spec, target_engines=new_video_engines
+            )
 
     register_custom_model()
+
+    # Keep the exported dictionaries stable for compatibility with existing
+    # imports, but serialize the in-place publication with all registry readers.
+    with VIDEO_REGISTRY_LOCK:
+        BUILTIN_VIDEO_MODELS.clear()
+        BUILTIN_VIDEO_MODELS.update(new_builtin_video_models)
+        VIDEO_MODEL_DESCRIPTIONS.clear()
+        VIDEO_MODEL_DESCRIPTIONS.update(new_video_model_descriptions)
+        VIDEO_ENGINES.clear()
+        VIDEO_ENGINES.update(new_video_engines)
 
 
 def has_downloaded_models():

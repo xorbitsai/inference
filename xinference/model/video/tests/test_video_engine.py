@@ -22,31 +22,66 @@ from ...utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
-from .. import BUILTIN_VIDEO_MODELS, _install
+from .. import BUILTIN_VIDEO_MODELS, VIDEO_MODEL_DESCRIPTIONS, _install
 from ..cache_manager import VideoCacheManager
-from ..core import create_video_model_instance, resolve_video_model_name_and_engine
-from ..engine import DiffusersVideoEngineModel
-from ..engine_family import VIDEO_ENGINES, check_engine_by_model_name_and_engine
+from ..core import (
+    create_video_model_instance,
+    match_diffusion,
+    resolve_video_model_name_and_engine,
+)
+from ..engine import (
+    MLX_VIDEO_MODEL_NAMES,
+    DiffusersVideoEngineModel,
+    MLXVideoEngineModel,
+)
+from ..engine_family import (
+    VIDEO_ENGINES,
+    check_engine_by_model_name_and_engine,
+    check_engine_by_model_name_and_engine_with_virtual_env,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_builtin_models():
+    with (
+        patch.object(MLXVideoEngineModel, "_is_apple_silicon", return_value=True),
+        patch("xinference.model.video.engine.sys.version_info", (3, 11)),
+    ):
+        _install()
+        yield
     _install()
 
 
-def test_builtin_video_models_register_diffusers_engine():
+def test_builtin_video_models_register_expected_engines():
     assert set(VIDEO_ENGINES) == set(BUILTIN_VIDEO_MODELS)
     for model_name, engines in VIDEO_ENGINES.items():
-        assert list(engines) == ["diffusers"]
-        params = engines["diffusers"]
-        assert params == [
-            {
-                "model_name": model_name,
-                "model_format": "diffusers",
-                "quantization": "none",
-                "video_class": DiffusersVideoEngineModel,
-            }
-        ]
+        expected_engines = []
+        if any(
+            family.engine == "diffusers" for family in BUILTIN_VIDEO_MODELS[model_name]
+        ):
+            expected_engines.append("diffusers")
+        if model_name in MLX_VIDEO_MODEL_NAMES:
+            expected_engines.append("MLX")
+        assert list(engines) == expected_engines
+
+        if "diffusers" in engines:
+            assert engines["diffusers"] == [
+                {
+                    "model_name": model_name,
+                    "model_format": "diffusers",
+                    "quantization": "none",
+                    "video_class": DiffusersVideoEngineModel,
+                }
+            ]
+        if "MLX" in engines:
+            assert engines["MLX"] == [
+                {
+                    "model_name": model_name,
+                    "model_format": "mlx",
+                    "quantization": "none",
+                    "video_class": MLXVideoEngineModel,
+                }
+            ]
 
 
 def test_video_engine_lookup_is_case_insensitive():
@@ -57,6 +92,13 @@ def test_video_engine_lookup_is_case_insensitive():
     assert resolve_video_model_name_and_engine(
         "MiniMax-H3", use_default_engine=True
     ) == ("MiniMax-H3", "diffusers")
+    assert (
+        check_engine_by_model_name_and_engine("mlx", "LTX-2-distilled")
+        is MLXVideoEngineModel
+    )
+    assert resolve_video_model_name_and_engine(
+        "Wan2.1-1.3B", "mlx", use_default_engine=True
+    ) == ("Wan2.1-1.3B", "MLX")
 
 
 def test_create_video_model_instance_records_default_engine():
@@ -72,6 +114,22 @@ def test_create_video_model_instance_records_default_engine():
     assert model.model_family.to_description()["model_engine"] == "diffusers"
 
 
+def test_create_mlx_video_model_instance():
+    model = create_video_model_instance(
+        "uid",
+        "LTX-2-distilled",
+        model_path="/fake/path",
+        model_engine="mlx",
+        model_format="mlx",
+        quantization="none",
+        enable_virtual_env=False,
+    )
+
+    assert isinstance(model, MLXVideoEngineModel)
+    assert model.model_family.model_engine == "MLX"
+    assert model.model_family.cache_name == "LTX-2-distilled-mlx"
+
+
 def test_invalid_video_engine_is_rejected_before_download():
     with patch.object(VideoCacheManager, "cache") as cache:
         with pytest.raises(ValueError, match="cannot be run on engine"):
@@ -82,6 +140,42 @@ def test_invalid_video_engine_is_rejected_before_download():
                 enable_virtual_env=False,
             )
     cache.assert_not_called()
+
+
+@pytest.mark.parametrize("download_hub", ["modelscope", "auto", None])
+def test_hf_only_mlx_video_rejects_modelscope_before_download(
+    monkeypatch, download_hub
+):
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+    with patch.object(VideoCacheManager, "cache") as cache:
+        with pytest.raises(ValueError, match="does not provide a modelscope source"):
+            create_video_model_instance(
+                "uid",
+                "Wan2.1-1.3B",
+                model_engine="MLX",
+                download_hub=download_hub,
+                enable_virtual_env=True,
+            )
+    cache.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("model_format", "quantization"),
+    [("diffusers", "none"), ("mlx", "q8_0")],
+)
+def test_virtualenv_fallback_preserves_explicit_video_tuple(model_format, quantization):
+    model_spec = match_diffusion(
+        "Wan2.1-1.3B", download_hub="huggingface", model_engine="MLX"
+    )
+
+    with pytest.raises(ValueError, match="with format"):
+        check_engine_by_model_name_and_engine_with_virtual_env(
+            "MLX",
+            model_spec.model_name,
+            model_format,
+            quantization,
+            model_family=model_spec,
+        )
 
 
 def test_generic_factory_forwards_video_engine():
@@ -139,9 +233,59 @@ def test_video_engine_uses_virtualenv_when_dependency_is_missing():
     assert params["diffusers"][0]["virtualenv_required"] is True
 
 
+def test_mlx_video_engine_uses_virtualenv_when_dependency_is_missing():
+    with (
+        patch("xinference.model.utils.sys.platform", "darwin"),
+        patch.object(
+            MLXVideoEngineModel,
+            "check_lib",
+            return_value=(False, "Blaizzy/mlx-video is not installed"),
+        ),
+    ):
+        params = get_engine_params_by_name_with_virtual_env(
+            "video", "LTX-2-distilled", enable_virtual_env=True
+        )
+
+    assert params["MLX"][0]["virtualenv_required"] is True
+
+
+def test_mlx_video_engine_old_python_is_not_virtualenv_repairable():
+    with (
+        patch("xinference.model.utils.sys.platform", "darwin"),
+        patch.object(MLXVideoEngineModel, "_is_apple_silicon", return_value=True),
+        patch("xinference.model.video.engine.sys.version_info", (3, 10)),
+    ):
+        params = get_engine_params_by_name_with_virtual_env(
+            "video", "LTX-2-distilled", enable_virtual_env=True
+        )
+
+    assert params["MLX"] == "Blaizzy/mlx-video requires Python 3.11 or newer"
+
+
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
+def test_mlx_video_engine_incompatible_host_is_rejected_before_download(
+    enable_virtual_env,
+):
+    with (
+        patch.object(MLXVideoEngineModel, "_is_apple_silicon", return_value=False),
+        patch.object(VideoCacheManager, "cache") as cache,
+        pytest.raises(ValueError, match="requires Apple Silicon"),
+    ):
+        create_video_model_instance(
+            "uid",
+            "LTX-2-distilled",
+            model_engine="MLX",
+            enable_virtual_env=enable_virtual_env,
+        )
+
+    cache.assert_not_called()
+
+
 def test_video_specs_scope_diffusers_dependency_to_engine():
     for families in BUILTIN_VIDEO_MODELS.values():
         for family in families:
+            if family.engine != "diffusers":
+                continue
             assert family.engine == "diffusers"
             assert family.model_format == "diffusers"
             assert family.virtualenv is not None
@@ -163,6 +307,85 @@ def test_video_specs_scope_diffusers_dependency_to_engine():
             ]
 
 
+def test_mlx_video_specs_are_pinned_and_isolated():
+    mlx_specs = [
+        family
+        for families in BUILTIN_VIDEO_MODELS.values()
+        for family in families
+        if family.engine == "MLX"
+    ]
+
+    assert {family.model_name for family in mlx_specs} == MLX_VIDEO_MODEL_NAMES
+    assert len({family.cache_name for family in mlx_specs}) == len(
+        MLX_VIDEO_MODEL_NAMES
+    )
+    for family in mlx_specs:
+        assert family.model_format == "mlx"
+        if family.model_hub == "huggingface":
+            assert family.model_revision not in (None, "main")
+        else:
+            assert family.model_hub == "modelscope"
+            assert family.model_revision == "master"
+        assert family.cache_name.endswith("-mlx")
+        assert family.virtualenv is not None
+        mlx_packages = [
+            package
+            for package in family.virtualenv.packages
+            if package.startswith("mlx-video @")
+        ]
+        assert len(mlx_packages) == 1
+        assert "Blaizzy/mlx-video.git@87db56a" in mlx_packages[0]
+        assert '#engine# == "MLX"' in mlx_packages[0]
+
+    wan21_specs = [
+        family for family in mlx_specs if family.model_name.startswith("Wan2.1-")
+    ]
+    assert all(
+        '#system_torch# ; #engine# == "MLX"' in family.virtualenv.packages
+        for family in wan21_specs
+    )
+    ltx23_specs = [
+        family
+        for family in mlx_specs
+        if family.model_family == "LTX-2.3" and family.model_hub == "huggingface"
+    ]
+    assert all(
+        family.text_encoder_model_id == "prince-canuma/LTX-2-distilled"
+        for family in ltx23_specs
+    )
+    modelscope_ltx23_specs = [
+        family
+        for family in mlx_specs
+        if family.model_family == "LTX-2.3" and family.model_hub == "modelscope"
+    ]
+    assert all(
+        family.text_encoder_model_id == "Xorbits/LTX-2-distilled"
+        for family in modelscope_ltx23_specs
+    )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_id"),
+    [
+        ("Wan2.2-A14B", "Xorbits/wan2.2-t2v-a14b-mlx"),
+        ("Wan2.2-i2v-A14B", "Xorbits/wan2.2-i2v-a14b-mlx"),
+        ("Wan2.2-ti2v-5B", "Xorbits/wan2.2-ti2v-5b-mlx"),
+        ("LTX-2-distilled", "Xorbits/LTX-2-distilled"),
+        ("LTX-2-dev", "Xorbits/LTX-2-dev"),
+        ("LTX-2.3-distilled", "Xorbits/LTX-2.3-distilled"),
+        ("LTX-2.3-dev", "Xorbits/LTX-2.3-dev"),
+    ],
+)
+def test_mirrored_mlx_models_default_to_modelscope(monkeypatch, model_name, model_id):
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+
+    model_spec = match_diffusion(model_name, model_engine="MLX")
+
+    assert model_spec.model_hub == "modelscope"
+    assert model_spec.model_id == model_id
+    assert model_spec.model_revision == "master"
+
+
 @pytest.mark.asyncio
 async def test_video_catalog_groups_hub_variants():
     from ....core.worker import WorkerActor
@@ -176,3 +399,41 @@ async def test_video_catalog_groups_hub_variants():
     assert {spec["model_engine"] for spec in specs} == {"diffusers"}
     assert {spec["model_format"] for spec in specs} == {"diffusers"}
     assert {spec["model_hub"] for spec in specs} == {"huggingface", "modelscope"}
+
+    wan_entries = [
+        item for item in registrations if item["model_name"] == "Wan2.2-A14B"
+    ]
+    assert len(wan_entries) == 1
+    wan_specs = wan_entries[0]["model_specs"]
+    assert {spec["model_engine"] for spec in wan_specs} == {"diffusers", "MLX"}
+    assert {spec["model_format"] for spec in wan_specs} == {"diffusers", "mlx"}
+    assert {spec["model_hub"] for spec in wan_specs} == {"huggingface", "modelscope"}
+
+
+def test_video_registry_reload_failure_preserves_live_registries(monkeypatch):
+    from ... import utils as model_utils
+
+    model_snapshot = {name: list(specs) for name, specs in BUILTIN_VIDEO_MODELS.items()}
+    description_snapshot = {
+        name: list(descriptions)
+        for name, descriptions in VIDEO_MODEL_DESCRIPTIONS.items()
+    }
+    engine_snapshot = {
+        name: {engine: list(params) for engine, params in engines.items()}
+        for name, engines in VIDEO_ENGINES.items()
+    }
+
+    def fail_after_partial_build(target, *_args, **_kwargs):
+        target["partial"] = []
+        raise RuntimeError("reload failed")
+
+    monkeypatch.setattr(
+        model_utils, "install_models_with_merge", fail_after_partial_build
+    )
+
+    with pytest.raises(RuntimeError, match="reload failed"):
+        _install()
+
+    assert BUILTIN_VIDEO_MODELS == model_snapshot
+    assert VIDEO_MODEL_DESCRIPTIONS == description_snapshot
+    assert VIDEO_ENGINES == engine_snapshot

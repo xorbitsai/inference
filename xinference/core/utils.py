@@ -671,22 +671,68 @@ def find_direct_reference_packages(packages: List[str]) -> List[str]:
     """Return requirements that still bypass package indexes.
 
     Wheel URLs supported by :func:`rewrite_direct_url_packages_for_index`
-    disappear before this helper is called. Remaining HTTP(S), ``git+`` and
-    PEP 508 direct references cannot be satisfied reliably by an offline
-    simple index, so callers can fail before an installer attempts egress.
+    disappear before this helper is called. Remaining HTTP(S), VCS, ``file://``
+    and PEP 508 direct references bypass the selected package index, so callers
+    must preserve their provenance instead of reconstructing name/version pins.
     """
 
     direct_references: List[str] = []
     for pkg in packages:
-        candidate = pkg.partition(";")[0].strip()
-        if candidate.startswith(("http://", "https://", "git+")):
+        if _direct_reference_target(pkg) is not None:
             direct_references.append(pkg)
-            continue
-        if "@" in candidate:
-            target = candidate.partition("@")[2].strip()
-            if target.startswith(("http://", "https://", "git+")):
-                direct_references.append(pkg)
     return direct_references
+
+
+def find_remote_direct_reference_packages(packages: List[str]) -> List[str]:
+    """Return direct references that require a non-index external source."""
+
+    remote_references: List[str] = []
+    for pkg in packages:
+        target = _direct_reference_target(pkg)
+        if target is None:
+            continue
+        if _is_local_direct_reference(target):
+            continue
+        remote_references.append(pkg)
+    return remote_references
+
+
+def _is_local_direct_reference(target: str) -> bool:
+    lowered = target.lower()
+    if lowered.startswith(
+        ("file://", "git+file://", "hg+file://", "svn+file://", "bzr+file://")
+    ):
+        return True
+    # PEP 508 also accepts absolute and relative path references without a
+    # file:// scheme. Remote direct references always carry a URL/VCS scheme.
+    return "://" not in target and not lowered.startswith(
+        ("git+", "hg+", "svn+", "bzr+")
+    )
+
+
+def _direct_reference_target(package: str) -> Optional[str]:
+    """Extract the URL/VCS target from a PEP 508 or bare direct reference."""
+
+    candidate = package.partition(";")[0].strip()
+    try:
+        requirement = Requirement(candidate)
+    except Exception:
+        requirement = None
+    if requirement is not None and requirement.url:
+        return requirement.url
+
+    direct_prefixes = (
+        "http://",
+        "https://",
+        "file://",
+        "git+",
+        "hg+",
+        "svn+",
+        "bzr+",
+    )
+    if candidate.lower().startswith(direct_prefixes):
+        return candidate
+    return None
 
 
 def assign_replica_gpu(

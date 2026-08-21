@@ -744,7 +744,7 @@ def remove_cache(
     "-en",
     type=str,
     default=None,
-    help="Specify the inference engine of the model when launching LLM.",
+    help="Specify the inference engine to use when launching the model.",
 )
 @click.option(
     "--model-uid",
