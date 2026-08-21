@@ -6,7 +6,14 @@ import { useGlobal } from '@/contexts/global-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 
 interface PermissionGuardProps {
-  scope: 'monitor:view' | 'logs:list' | 'models:register';
+  scope:
+    | 'monitor:view'
+    | 'logs:list'
+    | 'models:register'
+    | 'routers:list'
+    | 'routers:read'
+    | 'routers:write'
+    | 'routers:operate';
   children: React.ReactNode;
 }
 
@@ -41,6 +48,10 @@ export function PermissionGuard({ scope, children }: PermissionGuardProps) {
     'monitor:view': auth.hasMonitorView,
     'logs:list': auth.hasLogsList,
     'models:register': auth.canRegisterModel,
+    'routers:list': auth.hasRouterList,
+    'routers:read': auth.hasRouterRead,
+    'routers:write': auth.canWriteRouters,
+    'routers:operate': auth.canOperateRouters,
   };
 
   if (scopeMap[scope]) {

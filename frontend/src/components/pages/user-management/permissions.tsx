@@ -15,6 +15,10 @@ export const ALL_PERMISSIONS = [
   'models:read',
   'models:write',
   'models:register',
+  'routers:list',
+  'routers:read',
+  'routers:write',
+  'routers:operate',
   'keys:create',
   'keys:manage',
   'users:manage',
@@ -34,6 +38,10 @@ const PERMISSION_GROUPS = [
   {
     key: 'models',
     permissions: ['models:list', 'models:read', 'models:write', 'models:register'],
+  },
+  {
+    key: 'routers',
+    permissions: ['routers:list', 'routers:read', 'routers:write', 'routers:operate'],
   },
   {
     key: 'keys',

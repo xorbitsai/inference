@@ -16,6 +16,7 @@ import {
   Globe,
   BotIcon,
   Rocket,
+  Route,
   Monitor,
   ScrollText,
   ShieldCheck,
@@ -147,7 +148,15 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const { isAdmin, usersManagePage, canAccessKeysPage, hasLogsList, hasMonitorView, canRegisterModel } = useMenuAuth();
+  const {
+    isAdmin,
+    usersManagePage,
+    canAccessKeysPage,
+    hasLogsList,
+    hasMonitorView,
+    canRegisterModel,
+    canAccessRouterPage,
+  } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
@@ -196,6 +205,13 @@ export function Sidebar() {
             name: t('menu.runningModels'),
             Icon: Layers,
             Extra: ChevronRight,
+          },
+          {
+            path: '/token-router',
+            name: t('menu.tokenRouter'),
+            Icon: Route,
+            Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || canAccessRouterPage,
           },
           {
             path: '/register-model',
@@ -307,7 +323,18 @@ export function Sidebar() {
         items: group.items.filter(({ show = true }) => show),
       }))
       .filter(({ items }) => items.length > 0);
-  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin, hasLogsList, hasMonitorView, canRegisterModel]);
+  }, [
+    clusterUIConfig,
+    locale,
+    t,
+    usersManagePage,
+    canAccessKeysPage,
+    isAdmin,
+    hasLogsList,
+    hasMonitorView,
+    canRegisterModel,
+    canAccessRouterPage,
+  ]);
 
   return (
     <div

@@ -25,5 +25,10 @@ export function useMenuAuth() {
     hasLogsList: hasScope('admin', 'logs:list'),
     hasMonitorView: hasScope('admin', 'monitor:view'),
     canRegisterModel: hasScope('admin', 'models:register', 'models:add', 'models:unregister'),
+    hasRouterList: hasScope('admin', 'routers:list'),
+    hasRouterRead: hasScope('admin', 'routers:read'),
+    canWriteRouters: hasScope('admin', 'routers:write'),
+    canOperateRouters: hasScope('admin', 'routers:operate'),
+    canAccessRouterPage: hasScope('admin', 'routers:list', 'routers:read'),
   };
 }
