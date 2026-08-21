@@ -1651,3 +1651,84 @@ def test_ornith_15_builtin_family_matches_modelscope_qwen3_5_moe():
     )
     assert 'sglang>=0.5.9 ; #engine# == "sglang"' in family.virtualenv.packages
     assert 'vllm==0.21.0 ; #engine# == "vllm"' in family.virtualenv.packages
+
+
+def test_ornith_15_397b_builtin_family_matches_modelscope_qwen3_5_moe():
+    from ....core.model import XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..transformers.multimodal.qwen2_vl import Qwen2VLChatModel
+
+    families = {family.model_name: family for family in BUILTIN_LLM_FAMILIES}
+    family = families["Ornith-1.5-397B"]
+
+    assert family.context_length == 262144
+    assert family.architectures == ["Qwen3_5MoeForConditionalGeneration"]
+    assert family.model_ability == [
+        "chat",
+        "vision",
+        "tools",
+        "reasoning",
+        "hybrid",
+    ]
+
+    spec = family.model_specs[0]
+    assert spec.model_format == "pytorch"
+    assert spec.model_size_in_billions == 397
+    # The target model metadata does not provide a trustworthy activated
+    # parameter count; do not inherit qwen3.5's A17B value.
+    assert spec.activated_size_in_billions is None
+    assert spec.model_hub == "modelscope"
+    assert spec.model_id == "ornith-ai/Ornith-1.5-397B"
+    assert spec.quantization == "none"
+
+    modelscope_family = match_llm(
+        "Ornith-1.5-397B",
+        model_format="pytorch",
+        model_size_in_billions=397,
+        quantization="none",
+        download_hub="modelscope",
+    )
+    assert modelscope_family is not None
+    assert modelscope_family.model_specs[0].model_hub == "modelscope"
+    assert modelscope_family.model_specs[0].model_id == spec.model_id
+
+    assert Qwen2VLChatModel.match_json(family, spec, spec.quantization) is True
+    assert "Ornith-1.5-397B" in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+    assert family.tool_parser == "qwen"
+    assert "<function=example_function_name>" in family.chat_template
+    assert (
+        'transformers>=5.8.1 ; #engine# == "Transformers"' in family.virtualenv.packages
+    )
+    assert (
+        'qwen-vl-utils!=0.0.9 ; #engine# == "Transformers"'
+        in family.virtualenv.packages
+    )
+    assert 'sglang>=0.5.9 ; #engine# == "sglang"' in family.virtualenv.packages
+    assert 'vllm==0.21.0 ; #engine# == "vllm"' in family.virtualenv.packages
+
+
+def test_ornith_15_397b_matches_vllm_021_multimodal(monkeypatch):
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..vllm import core as vllm_core
+
+    family = next(
+        family
+        for family in BUILTIN_LLM_FAMILIES
+        if family.model_name == "Ornith-1.5-397B"
+    )
+    spec = family.model_specs[0]
+
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("0.21.0"))
+    monkeypatch.setattr(
+        vllm_core.VLLMMultiModel, "_has_cuda_device", classmethod(lambda cls: True)
+    )
+    monkeypatch.setattr(
+        vllm_core.VLLMMultiModel, "_is_linux", classmethod(lambda cls: True)
+    )
+    vllm_core._update_vllm_supported_lists()
+
+    assert "Qwen3_5MoeForConditionalGeneration" in (
+        vllm_core.VLLM_SUPPORTED_MULTI_MODEL_LIST
+    )
+    assert vllm_core.VLLMMultiModel.match_json(family, spec, spec.quantization) is True
