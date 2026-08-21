@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hmac
+import json
 import logging
 import time
 import uuid
@@ -105,6 +106,34 @@ def _authorized(request: Request, config: RouterConfig) -> bool:
     return hmac.compare_digest(value[len(prefix) :], config.backend_api_key)
 
 
+def _payload_thinking(payload: dict) -> bool:
+    """Return whether the request asks for thinking mode.
+
+    Mirrors the tokenizer normalization so capability enforcement rejects the
+    request before expensive rendering when the asset does not support it.
+    Invalid ``chat_template_kwargs`` are left for the tokenizer to report as a
+    malformed request.
+    """
+    template_kwargs = payload.get("chat_template_kwargs") or {}
+    if isinstance(template_kwargs, str):
+        try:
+            template_kwargs = json.loads(template_kwargs)
+        except json.JSONDecodeError:
+            return False
+    if not isinstance(template_kwargs, dict):
+        return False
+
+    normalized = dict(template_kwargs)
+    value = payload.get("enable_thinking")
+    if value is None:
+        extra_body = payload.get("extra_body")
+        if isinstance(extra_body, dict):
+            value = extra_body.get("enable_thinking")
+    if isinstance(value, bool):
+        normalized["enable_thinking"] = value
+    return bool(normalized.get("enable_thinking", False))
+
+
 def _router_headers(decision: RouteDecision, request_id: str) -> dict[str, str]:
     return {
         "x-request-id": request_id,
@@ -156,7 +185,15 @@ def create_app(config: RouterConfig) -> FastAPI:
             control_stop.set()
             try:
                 if control_task is not None:
-                    await control_task
+                    # The control-plane task may be blocked in an HTTP call or
+                    # while applying a new runtime snapshot. Setting the stop
+                    # event alone cannot interrupt either operation, so cancel
+                    # the task explicitly before waiting for shutdown.
+                    control_task.cancel()
+                    try:
+                        await control_task
+                    except asyncio.CancelledError:
+                        pass
             finally:
                 try:
                     if control_plane is not None:
@@ -368,6 +405,24 @@ def create_app(config: RouterConfig) -> FastAPI:
                     "model_not_found",
                     headers={"x-request-id": request_id},
                 )
+            capabilities = config.tokenizer_asset_capabilities
+            if bool(payload.get("tools")) and "tools" not in capabilities:
+                await metrics.increment("tools_not_allowed", "none")
+                return _error(
+                    400,
+                    "Tool requests are not supported by this Tokenizer asset",
+                    "tools_not_allowed",
+                    headers={"x-request-id": request_id},
+                )
+            if "thinking" not in capabilities and _payload_thinking(payload):
+                await metrics.increment("thinking_not_allowed", "none")
+                return _error(
+                    400,
+                    "Thinking-mode requests are not supported by this "
+                    "Tokenizer asset",
+                    "thinking_not_allowed",
+                    headers={"x-request-id": request_id},
+                )
             try:
                 budget = await snapshot.tokenization.estimate(
                     payload, input_bytes=len(body)
@@ -377,6 +432,15 @@ def create_app(config: RouterConfig) -> FastAPI:
                     tools_present=bool(payload.get("tools")),
                     stream=stream,
                 )
+                if budget.enable_thinking and "thinking" not in capabilities:
+                    await metrics.increment("thinking_not_allowed", "none")
+                    return _error(
+                        400,
+                        "Thinking-mode requests are not supported by this "
+                        "Tokenizer asset",
+                        "thinking_not_allowed",
+                        headers={"x-request-id": request_id},
+                    )
             except AdmissionRejected as exc:
                 await metrics.increment(f"tokenization_admission_{exc.reason}", "none")
                 logger.warning(

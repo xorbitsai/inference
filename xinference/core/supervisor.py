@@ -5412,27 +5412,38 @@ class SupervisorActor(xo.StatelessActor):
         }
 
     async def list_token_router_backend_candidates(
-        self, tokenizer_asset_id: str = ""
+        self, tokenizer_asset_id: Optional[str] = None
     ) -> Dict[str, Any]:
         running_models = await self.list_models()
-        compatible_models: set[str] = set()
-        if tokenizer_asset_id:
+        asset_id = str(tokenizer_asset_id or "").strip()
+        asset_compatibility: Optional[set[str]] = None
+        asset_error: Optional[str] = None
+        if asset_id:
             try:
                 asset = await self._run_tokenizer_asset_operation(
-                    self._catalog_tokenizer_asset, tokenizer_asset_id
+                    self._catalog_tokenizer_asset, asset_id
                 )
-                compatible_models = {
-                    str(name).strip().casefold()
-                    for name in asset.get("metadata", {}).get("compatible_models", [])
-                    if str(name).strip()
-                }
+                compatible_models = asset.get("metadata", {}).get(
+                    "compatible_models", []
+                )
+                if not asset.get("enabled", True):
+                    asset_error = f"Tokenizer asset is not available: {asset_id}"
+                elif not isinstance(compatible_models, list) or not compatible_models:
+                    asset_error = (
+                        f"Tokenizer asset has no compatible model metadata: {asset_id}"
+                    )
+                else:
+                    asset_compatibility = {
+                        str(name).strip().casefold()
+                        for name in compatible_models
+                        if str(name).strip()
+                    }
+                    if not asset_compatibility:
+                        asset_error = f"Tokenizer asset has no compatible model metadata: {asset_id}"
             except KeyError:
-                return {
-                    "items": [],
-                    "errors": [
-                        f"Tokenizer asset is not registered: {tokenizer_asset_id}"
-                    ],
-                }
+                asset_error = f"Tokenizer asset is not registered: {asset_id}"
+            except Exception as exc:
+                asset_error = f"Unable to inspect Tokenizer asset {asset_id}: {exc}"
         items: List[Dict[str, Any]] = []
         for model_uid, model_info in running_models.items():
             if not isinstance(model_info, dict):
@@ -5450,10 +5461,19 @@ class SupervisorActor(xo.StatelessActor):
             if engine_compatibility["status"] in {"Unsupported", "Unknown"}:
                 reasons.append(engine_compatibility["reason"])
             model_name = str(model_info.get("model_name") or "").strip()
-            if compatible_models and model_name.casefold() not in compatible_models:
-                reasons.append(
-                    f"model is not compatible with Tokenizer asset {tokenizer_asset_id}"
-                )
+            if asset_error:
+                reasons.append(asset_error)
+            elif asset_compatibility is not None:
+                if not model_name:
+                    reasons.append(
+                        "model_name is required for Tokenizer asset compatibility "
+                        "validation"
+                    )
+                elif model_name.casefold() not in asset_compatibility:
+                    reasons.append(
+                        f"model_name is not compatible with Tokenizer asset "
+                        f"{asset_id}: {model_name}"
+                    )
             items.append(
                 {
                     "model_uid": model_uid,
@@ -5470,7 +5490,10 @@ class SupervisorActor(xo.StatelessActor):
                 }
             )
         items.sort(key=lambda item: (not item["eligible"], item["model_uid"]))
-        return {"items": items, "errors": []}
+        return {
+            "items": items,
+            "errors": [asset_error] if asset_error else [],
+        }
 
     async def _validate_token_router_config(
         self,

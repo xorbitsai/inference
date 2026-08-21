@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hmac
 import os
+from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 from fastapi import Depends, Header, HTTPException, Query, Request, Security
@@ -39,7 +40,6 @@ if TYPE_CHECKING:
 
 
 _DEFAULT_BACKEND_URL_ENV = "XINFERENCE_TOKEN_ROUTER_DEFAULT_BACKEND_URL"
-_UNUSABLE_REST_HOSTS = {"", "0.0.0.0", "::", "127.0.0.1", "localhost"}
 
 
 def _unavailable_backend_defaults(source: str, error: str) -> Dict[str, Any]:
@@ -57,11 +57,13 @@ def _unavailable_backend_defaults(source: str, error: str) -> Dict[str, Any]:
 
 def _rest_host_url(host: Any, port: Any) -> Optional[str]:
     normalized_host = str(host or "").strip()
-    if normalized_host.lower() in _UNUSABLE_REST_HOSTS or port is None:
+    if not normalized_host or _is_non_routable_bind_host(normalized_host):
         return None
     try:
         normalized_port = int(port)
     except (TypeError, ValueError):
+        return None
+    if not 0 < normalized_port <= 65535:
         return None
     if ":" in normalized_host and not normalized_host.startswith("["):
         normalized_host = f"[{normalized_host}]"
@@ -84,10 +86,13 @@ def _token_router_defaults(api: "RESTfulAPI") -> Dict[str, Any]:
             getattr(api, "_host", ""), getattr(api, "_port", None)
         )
         if candidate is None:
-            return _unavailable_backend_defaults(
-                "unavailable",
-                f"Configure {_DEFAULT_BACKEND_URL_ENV} with the internal Supervisor REST endpoint",
+            host = str(getattr(api, "_host", "") or "").strip()
+            error = (
+                "REST API bind address is not reachable by a separate Token Router"
+                if host and _is_non_routable_bind_host(host)
+                else f"Configure {_DEFAULT_BACKEND_URL_ENV} with the internal Supervisor REST endpoint"
             )
+            return _unavailable_backend_defaults("unavailable", error)
         try:
             backend_url = normalize_token_router_backend_url(candidate)
         except ValueError:
@@ -110,6 +115,19 @@ def _token_router_defaults(api: "RESTfulAPI") -> Dict[str, Any]:
 
 def _username(user: Optional[dict]) -> str:
     return user.get("username", "") if user else ""
+
+
+def _is_non_routable_bind_host(host: str) -> bool:
+    normalized = host.strip().strip("[]").casefold()
+    if normalized in {"localhost", "*"}:
+        return True
+    try:
+        address = ip_address(normalized)
+    except ValueError:
+        # A hostname may identify an address reachable by the Token Router;
+        # only reject addresses that are unambiguously local or wildcard.
+        return False
+    return address.is_loopback or address.is_unspecified
 
 
 def _internal_authorized(authorization: str) -> bool:

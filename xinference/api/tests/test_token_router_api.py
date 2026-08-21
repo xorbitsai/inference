@@ -1026,7 +1026,8 @@ async def test_backend_candidates_apply_profile_engine_and_asset_filters(
     app = create_app(supervisor)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get(
+        response = await client.get("/v1/token_routers/backend-candidates")
+        asset_response = await client.get(
             "/v1/token_routers/backend-candidates",
             params={"tokenizer_asset_id": ASSET_ID},
         )
@@ -1045,13 +1046,64 @@ async def test_backend_candidates_apply_profile_engine_and_asset_filters(
     assert candidates["completion-only"]["eligible"] is False
     assert candidates["nested-router"]["compatibility_status"] == "Unsupported"
     assert candidates["unsupported-engine"]["eligible"] is False
-    assert any(
-        "not compatible" in reason
-        for reason in candidates["asset-mismatch"]["ineligible_reasons"]
-    )
+    # Without an asset selection, candidate discovery retains the legacy behavior.
+    assert candidates["asset-mismatch"]["eligible"] is True
     assert missing.status_code == 200
-    assert missing.json()["items"] == []
+    assert missing.json()["items"]
     assert "not registered" in missing.json()["errors"][0]
+
+    assert asset_response.status_code == 200
+    asset_candidates = {
+        item["model_uid"]: item for item in asset_response.json()["items"]
+    }
+    assert asset_candidates["eligible-vllm"]["eligible"] is True
+    assert asset_candidates["asset-mismatch"]["eligible"] is False
+    assert any(
+        f"not compatible with Tokenizer asset {ASSET_ID}" in reason
+        for reason in asset_candidates["asset-mismatch"]["ineligible_reasons"]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["127.0.0.1", "0.0.0.0", "::1", "::", "localhost"])
+async def test_token_router_defaults_rejects_non_routable_bind_address(
+    tmp_path, host
+) -> None:
+    app = create_app(make_supervisor(tmp_path), host=host)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/token_routers/defaults")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "backend": {
+            "mode": "current_supervisor",
+            "display_name": "Current Supervisor",
+            "backend_url": None,
+            "source": "unavailable",
+            "available": False,
+            "error": (
+                "REST API bind address is not reachable by a separate Token Router"
+            ),
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_token_router_defaults_returns_routable_rest_endpoint(tmp_path) -> None:
+    app = create_app(make_supervisor(tmp_path), host="xinference-supervisor")
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/token_routers/defaults")
+
+    assert response.status_code == 200
+    assert response.json()["backend"] == {
+        "mode": "current_supervisor",
+        "display_name": "Current Supervisor",
+        "backend_url": "http://xinference-supervisor:9997",
+        "source": "rest_endpoint",
+        "available": True,
+    }
 
 
 @pytest.mark.asyncio
