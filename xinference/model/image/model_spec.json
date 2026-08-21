@@ -1445,7 +1445,8 @@
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
-        "transformers>=4.51.3",
+        "transformers>=4.51.3,<5",
+        "bitsandbytes>=0.49.2,<0.50 ; #engine# == \"diffusers\"",
         "#system_torch#",
         "#system_numpy#"
       ],
@@ -1885,8 +1886,8 @@
   },
   {
     "version": 2,
-    "model_name": "SenseNova-U1.5-8B-MoT-Preview",
-    "model_description": "SenseNova-U1.5-8B-MoT-Preview is a natively unified multimodal model for text-to-image generation and single- or multi-reference image editing, with native 4K generation support.",
+    "model_name": "SenseNova-U1.5-8B-MoT",
+    "model_description": "SenseNova-U1.5-8B-MoT is a native unified multimodal model for high-quality text-to-image generation and single- or multi-reference image editing, with stronger text and layout rendering, complex-instruction following, visual control, and native 4K generation.",
     "model_family": "sensenova_u1",
     "model_ability": [
       "text2image",
@@ -1895,11 +1896,11 @@
     "controlnet": [],
     "model_src": {
       "huggingface": {
-        "model_id": "sensenova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_id": "sensenova/SenseNova-U1.5-8B-MoT",
         "model_revision": "main"
       },
       "modelscope": {
-        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT",
         "model_revision": "master"
       }
     },
@@ -1926,7 +1927,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1787019514
+    "updated_at": 1787298897
   },
   {
     "version": 2,
@@ -2114,5 +2115,50 @@
     },
     "featured": false,
     "updated_at": 1786985658
+  },
+  {
+    "version": 2,
+    "model_name": "GLM-Image",
+    "model_family": "stable_diffusion",
+    "model_description": "GLM-Image is a hybrid autoregressive and diffusion image generation model with strong text rendering and knowledge-intensive generation capabilities.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "zai-org/GLM-Image",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "ZhipuAI/GLM-Image",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 50,
+      "guidance_scale": 1.5
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers==0.38.0 ; #engine# == \"diffusers\"",
+        "transformers==5.0.0 ; #engine# == \"diffusers\"",
+        "accelerate>=1.0.0 ; #engine# == \"diffusers\"",
+        "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
+        "tokenizers==0.22.2 ; #engine# == \"diffusers\"",
+        "importlib-metadata ; #engine# == \"diffusers\"",
+        "numpy<2.3 ; #engine# == \"SGLang\"",
+        "pandas<3 ; #engine# == \"SGLang\"",
+        "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1787142695
   }
 ]

@@ -15,6 +15,7 @@
 import base64
 import gc
 import importlib
+import inspect
 import json
 import logging
 import operator
@@ -32,8 +33,13 @@ import numpy as np
 import PIL.Image
 
 from ...constants import XINFERENCE_VIDEO_DIR
-from ...device_utils import gpu_count, move_model_to_available_device
+from ...device_utils import (
+    get_available_device,
+    gpu_count,
+    move_model_to_available_device,
+)
 from ...types import Video, VideoList
+from ..utils import resolve_media_seed
 
 if TYPE_CHECKING:
     from ...core.progress_tracker import Progressor
@@ -788,6 +794,33 @@ class DiffusersVideoModel:
         if progressor and progressor.request_id:
             kwargs["callback_on_step_end"] = report_status_callback
 
+    def _process_seed(self, kwargs: dict):
+        seed = resolve_media_seed(kwargs.pop("seed", None))
+        if seed is None:
+            return
+
+        assert self._model is not None
+        try:
+            parameters = inspect.signature(self._model.__call__).parameters
+        except (TypeError, ValueError):
+            logger.warning("Cannot inspect %s; ignoring `seed`", type(self._model))
+            return
+        accepts_generator = "generator" in parameters or any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        if not accepts_generator:
+            logger.warning(
+                "%s does not accept `generator`; ignoring `seed`", type(self._model)
+            )
+            return
+
+        import torch
+
+        kwargs["generator"] = torch.Generator(
+            device=get_available_device()
+        ).manual_seed(seed)
+
     def text_to_video(
         self,
         prompt: str,
@@ -808,6 +841,7 @@ class DiffusersVideoModel:
             )
         generate_kwargs = self._model_spec.default_generate_config.copy()
         generate_kwargs.update(kwargs)
+        self._process_seed(generate_kwargs)
         generate_kwargs["num_videos_per_prompt"] = n
         fps = generate_kwargs.pop("fps", 10)
         if num_inference_steps is None:
@@ -846,6 +880,7 @@ class DiffusersVideoModel:
             )
         generate_kwargs = self._model_spec.default_generate_config.copy()
         generate_kwargs.update(kwargs)
+        self._process_seed(generate_kwargs)
         if num_inference_steps:
             generate_kwargs["num_inference_steps"] = num_inference_steps
 
@@ -932,6 +967,7 @@ class DiffusersVideoModel:
             )
         generate_kwargs = self._model_spec.default_generate_config.copy()
         generate_kwargs.update(kwargs)
+        self._process_seed(generate_kwargs)
         generate_kwargs["num_videos_per_prompt"] = n
         if num_inference_steps:
             generate_kwargs["num_inference_steps"] = num_inference_steps
@@ -983,6 +1019,7 @@ class DiffusersVideoModel:
 
         generate_kwargs = (self._model_spec.default_generate_config or {}).copy()
         generate_kwargs.update(kwargs)
+        self._process_seed(generate_kwargs)
         if num_inference_steps is None:
             num_inference_steps = generate_kwargs.pop(
                 "num_inference_steps", self._minimax_h3_lightning_steps or 50

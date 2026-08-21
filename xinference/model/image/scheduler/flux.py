@@ -23,7 +23,7 @@ import numpy as np
 import torch
 import xoscar as xo
 
-from ..utils import handle_image_result
+from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ..stable_diffusion.core import DiffusionModel
@@ -308,7 +308,10 @@ def _batch_text_to_image_internal(
         if r.is_encode:
             generate_kwargs = model_cls._model_spec.default_generate_config.copy()
             generate_kwargs.update({k: v for k, v in r.kwargs.items() if v is not None})
+            seed = generate_kwargs.pop("seed", None)
             model_cls._filter_kwargs(model_cls._model, generate_kwargs)
+            if seed is not None:
+                generate_kwargs["seed"] = seed
             r.set_generate_kwargs(generate_kwargs)
 
             # check max_sequence_length
@@ -335,7 +338,15 @@ def _batch_text_to_image_internal(
             guidance_scale = r.generate_kwargs.get("guidance_scale", 7.0)
             generator = None
             seed = r.generate_kwargs.get("seed", None)
-            if seed is not None:
+            seeds = resolve_image_seed_list(seed, num_images_per_prompt)
+            if seeds is not None:
+                generator = [
+                    torch.Generator(  # type: ignore
+                        device=available_device
+                    ).manual_seed(value)
+                    for value in seeds
+                ]
+            elif seed is not None:
                 generator = torch.Generator(device=available_device)  # type: ignore
                 if seed != -1:
                     generator = generator.manual_seed(seed)

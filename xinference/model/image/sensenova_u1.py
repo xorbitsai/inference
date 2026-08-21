@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Un
 import PIL.Image
 
 from .sdapi import SDAPIDiffusionModelMixin
-from .utils import handle_image_result
+from .utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ...types import LoRA
@@ -270,20 +270,37 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
         import torch
 
         width, height = self._parse_size(size)
+        seeds = resolve_image_seed_list(kwargs.get("seed"), n)
         generate_config = self._filter_generate_config(
             self._get_generate_config(kwargs), image_to_image=False
         )
         with torch.inference_mode(), self._offload_context() as model:
-            output = model.t2i_generate(
-                self._tokenizer,
-                prompt,
-                image_size=(width, height),
-                batch_size=n,
-                **generate_config,
-            )
-        if generate_config.get("think_mode"):
-            output = output[0]
-        return handle_image_result(response_format, self._to_pil(output))
+            if seeds is None:
+                output = model.t2i_generate(
+                    self._tokenizer,
+                    prompt,
+                    image_size=(width, height),
+                    batch_size=n,
+                    **generate_config,
+                )
+                if generate_config.get("think_mode"):
+                    output = output[0]
+                result_images = self._to_pil(output)
+            else:
+                result_images = []
+                for seed in seeds:
+                    per_image_config = {**generate_config, "seed": seed}
+                    output = model.t2i_generate(
+                        self._tokenizer,
+                        prompt,
+                        image_size=(width, height),
+                        batch_size=1,
+                        **per_image_config,
+                    )
+                    if per_image_config.get("think_mode"):
+                        output = output[0]
+                    result_images.extend(self._to_pil(output))
+        return handle_image_result(response_format, result_images)
 
     @staticmethod
     def _convert_to_rgb(image: PIL.Image.Image) -> PIL.Image.Image:
@@ -402,18 +419,36 @@ class SenseNovaU1Model(SDAPIDiffusionModelMixin):
             width, height = self._auto_output_size(images[0], target_pixels)
             self._validate_size(width, height)
 
+        seeds = resolve_image_seed_list(kwargs.get("seed"), n)
         generate_config = self._filter_generate_config(
             self._get_generate_config(kwargs), image_to_image=True
         )
         with torch.inference_mode(), self._offload_context() as model:
-            output = model.it2i_generate(
-                self._tokenizer,
-                prompt,
-                images,
-                image_size=(width, height),
-                batch_size=n,
-                **generate_config,
-            )
-        if generate_config.get("think_mode"):
-            output = output[0]
-        return handle_image_result(response_format, self._to_pil(output))
+            if seeds is None:
+                output = model.it2i_generate(
+                    self._tokenizer,
+                    prompt,
+                    images,
+                    image_size=(width, height),
+                    batch_size=n,
+                    **generate_config,
+                )
+                if generate_config.get("think_mode"):
+                    output = output[0]
+                result_images = self._to_pil(output)
+            else:
+                result_images = []
+                for seed in seeds:
+                    per_image_config = {**generate_config, "seed": seed}
+                    output = model.it2i_generate(
+                        self._tokenizer,
+                        prompt,
+                        images,
+                        image_size=(width, height),
+                        batch_size=1,
+                        **per_image_config,
+                    )
+                    if per_image_config.get("think_mode"):
+                        output = output[0]
+                    result_images.extend(self._to_pil(output))
+        return handle_image_result(response_format, result_images)

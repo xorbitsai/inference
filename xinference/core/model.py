@@ -1060,8 +1060,25 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "speech"):
+            from ..model.utils import resolve_media_seed
+
+            if "seed" in kwargs:
+                seed = resolve_media_seed(kwargs["seed"])
+                if seed is None:
+                    kwargs.pop("seed")
+                else:
+                    kwargs["seed"] = seed
+
+            speech = self._model.speech
+            parameters = inspect.signature(speech).parameters
+            accepts_kwargs = any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            )
+            if "seed" not in parameters and not accepts_kwargs:
+                kwargs.pop("seed", None)
             return await self._call_wrapper_binary(
-                self._model.speech,
+                speech,
                 input,
                 voice,
                 response_format,

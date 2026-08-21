@@ -51,6 +51,8 @@ from ..constants import (
     XINFERENCE_LAUNCH_STRATEGY,
     XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+    XINFERENCE_TOKEN_ROUTER_DB_PATH,
+    XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
@@ -262,6 +264,18 @@ class SupervisorActor(xo.StatelessActor):
         self._launch_history_store = LaunchHistoryStore(
             XINFERENCE_LAUNCH_HISTORY_DB_PATH
         )
+
+        from .router_config_store import RouterConfigStore
+        from .router_registry import RouterRuntimeRegistry
+        from .tokenizer_asset_registry import TokenizerAssetRegistry
+
+        self._token_router_store = RouterConfigStore(XINFERENCE_TOKEN_ROUTER_DB_PATH)
+        self._tokenizer_asset_registry = TokenizerAssetRegistry()
+        self._tokenizer_asset_registry_lock = asyncio.Lock()
+        self._token_router_registry = RouterRuntimeRegistry(
+            XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS
+        )
+        self._token_router_runtime_cursors: Dict[str, int] = {}
 
     @classmethod
     def default_uid(cls) -> str:
@@ -4778,6 +4792,665 @@ class SupervisorActor(xo.StatelessActor):
                 ret = False
 
         return ret
+
+    async def list_token_routers(self) -> List[Dict[str, Any]]:
+        return [
+            self._with_token_router_status(item)
+            for item in self._token_router_store.list()
+        ]
+
+    async def get_token_router(self, router_uid: str) -> Optional[Dict[str, Any]]:
+        item = self._token_router_store.get(router_uid)
+        return self._with_token_router_status(item) if item is not None else None
+
+    async def list_virtual_models(self) -> Dict[str, Dict[str, Any]]:
+        """List enabled Token Routers as OpenAI-compatible virtual models."""
+        result: Dict[str, Dict[str, Any]] = {}
+        for config in self._token_router_store.list():
+            if not config.get("enabled"):
+                continue
+            virtual_model_uid = config.get("virtual_model_uid")
+            if not isinstance(virtual_model_uid, str) or not virtual_model_uid:
+                continue
+            item = self._with_token_router_status(config)
+            result[virtual_model_uid] = {
+                "model_name": virtual_model_uid,
+                "model_type": config.get("model_type", "LLM"),
+                "model_engine": "token_router",
+                "router_uid": config["router_uid"],
+                "router_status": item["status"],
+            }
+        return result
+
+    async def resolve_token_router_runtime(
+        self, virtual_model_uid: str
+    ) -> Optional[Dict[str, Any]]:
+        """Resolve a Virtual Model UID to a ready Token Router runtime.
+
+        ``None`` means the UID is not owned by a Token Router. A matched but
+        unavailable Router returns ``available=False`` so the REST layer can
+        fail closed instead of falling through to physical-model lookup.
+        """
+        config = self._token_router_store.get_by_virtual_model_uid(virtual_model_uid)
+        if config is None:
+            return None
+
+        status = self._with_token_router_status(config)["status"]
+        ready_instances = [
+            instance
+            for instance in self._token_router_registry.list(config["router_uid"])
+            if instance.get("online")
+            and instance.get("status") == "ready"
+            and not instance.get("config_error")
+            and int(instance.get("acked_revision", 0)) >= int(config["revision"])
+            and isinstance(instance.get("endpoint"), str)
+            and instance["endpoint"].startswith(("http://", "https://"))
+        ]
+        base = {
+            "matched": True,
+            "available": False,
+            "router_uid": config["router_uid"],
+            "virtual_model_uid": virtual_model_uid,
+            "status": status,
+            "revision": config["revision"],
+        }
+        if not config.get("enabled") or not ready_instances:
+            return base
+
+        cursors = getattr(self, "_token_router_runtime_cursors", None)
+        if cursors is None:
+            cursors = self._token_router_runtime_cursors = {}
+        cursor = cursors.get(config["router_uid"], 0)
+        instance = ready_instances[cursor % len(ready_instances)]
+        cursors[config["router_uid"]] = (cursor + 1) % len(ready_instances)
+        return {
+            **base,
+            "available": True,
+            "status": "ready",
+            "endpoint": instance["endpoint"].rstrip("/"),
+            "instance_id": instance["instance_id"],
+            "acked_revision": instance.get("acked_revision", 0),
+        }
+
+    def _get_tokenizer_asset_registry(self):
+        registry = getattr(self, "_tokenizer_asset_registry", None)
+        if registry is None:
+            from .tokenizer_asset_registry import TokenizerAssetRegistry
+
+            registry = self._tokenizer_asset_registry = TokenizerAssetRegistry()
+        return registry
+
+    def _get_tokenizer_asset_registry_lock(self) -> asyncio.Lock:
+        lock = getattr(self, "_tokenizer_asset_registry_lock", None)
+        if lock is None:
+            lock = self._tokenizer_asset_registry_lock = asyncio.Lock()
+        return lock
+
+    def _call_tokenizer_asset_registry(
+        self, method_name: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        registry = self._get_tokenizer_asset_registry()
+        registry.reload()
+        return getattr(registry, method_name)(*args, **kwargs)
+
+    async def _call_tokenizer_asset_registry_async(
+        self, method_name: str, *args: Any, **kwargs: Any
+    ) -> Any:
+        async with self._get_tokenizer_asset_registry_lock():
+            return await asyncio.to_thread(
+                self._call_tokenizer_asset_registry, method_name, *args, **kwargs
+            )
+
+    def _normalize_token_router_tokenizer_sync(
+        self,
+        config: Dict[str, Any],
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        from pathlib import Path
+
+        from .tokenizer_asset_registry import TokenizerAssetError
+
+        payload = dict(config)
+        asset_id = str(payload.get("tokenizer_asset_id") or "").strip()
+        tokenizer_path = str(payload.get("tokenizer_path") or "").strip()
+        registry = self._get_tokenizer_asset_registry()
+        registry.reload()
+
+        if asset_id:
+            payload.update(registry.resolve(asset_id, tokenizer_path or None))
+            return payload
+
+        if not tokenizer_path:
+            raise ValueError("tokenizer_asset_id or tokenizer_path must be provided")
+
+        resolved_path = str(Path(tokenizer_path).expanduser().resolve())
+        matched = registry.match_path(resolved_path)
+        if matched is not None:
+            if matched.get("status") != "available":
+                detail = "; ".join(matched.get("errors", [])) or matched.get(
+                    "status", "invalid"
+                )
+                raise TokenizerAssetError(
+                    f"Tokenizer asset is not available: "
+                    f"{matched['asset_id']}: {detail}"
+                )
+            payload.update(registry.resolve(str(matched["asset_id"]), resolved_path))
+            return payload
+
+        same_historical_path = False
+        if current is not None and not current.get("tokenizer_asset_id"):
+            current_path = str(current.get("tokenizer_path") or "").strip()
+            if current_path:
+                same_historical_path = (
+                    str(Path(current_path).expanduser().resolve()) == resolved_path
+                )
+        if not registry.allow_custom_path and not same_historical_path:
+            raise PermissionError(
+                "Custom tokenizer_path is disabled; select a registered "
+                "tokenizer_asset_id"
+            )
+
+        payload["tokenizer_path"] = resolved_path
+        payload.pop("tokenizer_asset_id", None)
+        payload.pop("tokenizer_asset_origin", None)
+        payload.pop("tokenizer_asset_revision", None)
+        payload.pop("tokenizer_asset_fingerprint", None)
+        # Custom paths have no declared capability metadata; preserve phase-1
+        # behavior where every request shape is accepted.
+        from ..router.tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
+
+        payload["tokenizer_asset_capabilities"] = {
+            "chat": True,
+            "tools": True,
+            "thinking": True,
+        }
+        payload["tokenizer_asset_files"] = list(DEFAULT_TOKENIZER_ASSET_FILES)
+        return payload
+
+    async def _normalize_token_router_tokenizer(
+        self,
+        config: Dict[str, Any],
+        current: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        async with self._get_tokenizer_asset_registry_lock():
+            return await asyncio.to_thread(
+                self._normalize_token_router_tokenizer_sync, config, current
+            )
+
+    async def list_tokenizer_assets(self) -> Dict[str, Any]:
+        return await self._call_tokenizer_asset_registry_async("list_assets")
+
+    async def get_tokenizer_asset(self, asset_id: str) -> Dict[str, Any]:
+        return await self._call_tokenizer_asset_registry_async("get_asset", asset_id)
+
+    async def validate_tokenizer_asset(self, asset_id: str) -> Dict[str, Any]:
+        return await self._call_tokenizer_asset_registry_async(
+            "validate_asset", asset_id
+        )
+
+    def _validate_token_router_uniqueness(
+        self, router_uid: str, config: Dict[str, Any]
+    ) -> None:
+        virtual_model_uid = config.get("virtual_model_uid")
+        for current in self._token_router_store.list():
+            if current["router_uid"] == router_uid:
+                continue
+            if current.get("virtual_model_uid") == virtual_model_uid:
+                raise ValueError(
+                    f"Virtual model UID is already used by Token Router "
+                    f"{current['router_uid']}: {virtual_model_uid}"
+                )
+
+    async def create_token_router(
+        self, router_uid: str, config: Dict[str, Any], username: str = ""
+    ) -> Dict[str, Any]:
+        payload = await self._normalize_token_router_tokenizer(config)
+        self._validate_token_router_uniqueness(router_uid, payload)
+        return self._with_token_router_status(
+            self._token_router_store.create(router_uid, payload, username)
+        )
+
+    async def update_token_router(
+        self, router_uid: str, config: Dict[str, Any], username: str = ""
+    ) -> Dict[str, Any]:
+        current = self._token_router_store.get(router_uid)
+        if current is None:
+            raise KeyError(router_uid)
+        payload = await self._normalize_token_router_tokenizer(config, current)
+        self._validate_token_router_uniqueness(router_uid, payload)
+        expected_revision = payload.pop("revision", None)
+        return self._with_token_router_status(
+            self._token_router_store.update(
+                router_uid,
+                payload,
+                username,
+                expected_revision=expected_revision,
+            )
+        )
+
+    async def delete_token_router(self, router_uid: str) -> bool:
+        current = self._token_router_store.get(router_uid)
+        if current is not None and current["enabled"]:
+            raise ValueError("Disable the Token Router before deleting it")
+        deleted = self._token_router_store.delete(router_uid)
+        if deleted:
+            self._token_router_registry.remove_router(router_uid)
+        return deleted
+
+    async def set_token_router_enabled(
+        self, router_uid: str, enabled: bool, username: str = ""
+    ) -> Dict[str, Any]:
+        return self._with_token_router_status(
+            self._token_router_store.set_enabled(router_uid, enabled, username)
+        )
+
+    @staticmethod
+    def _token_router_backend_entries(
+        config: Dict[str, Any],
+    ) -> List[tuple[str, Dict[str, Any]]]:
+        backends = config.get("backends", {})
+        if int(config.get("config_version", 1)) == 2:
+            if not isinstance(backends, list):
+                return []
+            return [
+                (str(backend.get("id") or ""), backend)
+                for backend in backends
+                if isinstance(backend, dict)
+            ]
+        if not isinstance(backends, dict):
+            return []
+        return [
+            (name, backend)
+            for name in ("short", "long")
+            if isinstance((backend := backends.get(name)), dict)
+        ]
+
+    @staticmethod
+    def _token_router_engine_compatibility(
+        model_info: Dict[str, Any],
+    ) -> Dict[str, str]:
+        engine = str(model_info.get("model_engine") or "").strip()
+        normalized = engine.casefold()
+        if normalized == "token_router":
+            return {
+                "status": "Unsupported",
+                "reason": "Token Router virtual models cannot be nested",
+            }
+        if "sglang" in normalized:
+            return {
+                "status": "Unsupported",
+                "reason": "SGLang is not validated for this Token Router profile",
+            }
+        if "vllm" in normalized:
+            return {
+                "status": "Verified",
+                "reason": "vLLM is the verified production engine",
+            }
+        if not normalized:
+            return {
+                "status": "Unknown",
+                "reason": "The running model does not report model_engine",
+            }
+        return {
+            "status": "Unknown",
+            "reason": f"Engine {engine} has not been validated for this Router",
+        }
+
+    async def list_token_router_backend_candidates(self) -> Dict[str, Any]:
+        running_models = await self.list_models()
+        items: List[Dict[str, Any]] = []
+        for model_uid, model_info in running_models.items():
+            if not isinstance(model_info, dict):
+                continue
+            reasons: List[str] = []
+            abilities = {
+                str(value).casefold()
+                for value in model_info.get("model_ability", []) or []
+            }
+            compatibility = self._token_router_engine_compatibility(model_info)
+            if model_info.get("model_type") != "LLM":
+                reasons.append("model_type must be LLM")
+            if "chat" not in abilities:
+                reasons.append("model_ability must include chat")
+            if compatibility["status"] in {"Unsupported", "Unknown"}:
+                reasons.append(compatibility["reason"])
+            items.append(
+                {
+                    "model_uid": model_uid,
+                    "model_name": model_info.get("model_name", ""),
+                    "model_type": model_info.get("model_type"),
+                    "model_engine": model_info.get("model_engine", ""),
+                    "model_format": model_info.get("model_format", ""),
+                    "model_ability": model_info.get("model_ability", []),
+                    "context_length": model_info.get("context_length"),
+                    "compatibility_status": compatibility["status"],
+                    "compatibility_reason": compatibility["reason"],
+                    "eligible": not reasons,
+                    "ineligible_reasons": reasons,
+                }
+            )
+        items.sort(key=lambda item: (not item["eligible"], item["model_uid"]))
+        return {"items": items, "errors": []}
+
+    async def validate_token_router(self, router_uid: str) -> Optional[Dict[str, Any]]:
+        config = self._token_router_store.get(router_uid)
+        if config is None:
+            return None
+        errors: List[str] = []
+        warnings: List[str] = []
+        asset_validation: Dict[str, Any]
+        asset_id = str(config.get("tokenizer_asset_id") or "").strip()
+        try:
+            if asset_id:
+                asset_validation = await self._call_tokenizer_asset_registry_async(
+                    "validate_asset", asset_id
+                )
+                configured_origin = str(config.get("tokenizer_asset_origin") or "")
+                configured_revision = str(config.get("tokenizer_asset_revision") or "")
+                configured_fingerprint = str(
+                    config.get("tokenizer_asset_fingerprint") or ""
+                )
+                if configured_origin and configured_origin != str(
+                    asset_validation.get("origin") or ""
+                ):
+                    errors.append(
+                        "Tokenizer asset origin differs from the stored Router "
+                        "configuration"
+                    )
+                if configured_revision and configured_revision != str(
+                    asset_validation.get("revision") or ""
+                ):
+                    errors.append(
+                        "Tokenizer asset revision differs from the stored Router "
+                        "configuration"
+                    )
+                if configured_fingerprint and configured_fingerprint != str(
+                    asset_validation.get("fingerprint") or ""
+                ):
+                    errors.append(
+                        "Tokenizer asset fingerprint differs from the stored Router "
+                        "configuration"
+                    )
+            else:
+                asset_validation = await self._call_tokenizer_asset_registry_async(
+                    "validate_path",
+                    str(config.get("tokenizer_path") or ""),
+                    smoke_test=True,
+                )
+        except KeyError:
+            asset_validation = {
+                "valid": False,
+                "status": "missing",
+                "errors": [f"Tokenizer asset is not registered: {asset_id}"],
+            }
+        except Exception as exc:
+            asset_validation = {
+                "valid": False,
+                "status": "invalid",
+                "errors": [str(exc)],
+            }
+        errors.extend(str(error) for error in asset_validation.get("errors", []))
+
+        declared_asset_capabilities = asset_validation.get("capabilities")
+        asset_capabilities = None
+        if (
+            isinstance(declared_asset_capabilities, dict)
+            and declared_asset_capabilities
+        ):
+            asset_capabilities = {
+                str(name)
+                for name, enabled in declared_asset_capabilities.items()
+                if enabled
+            }
+
+        running_models = await self.list_models()
+        compatible_models = {
+            str(name).strip().casefold()
+            for name in asset_validation.get("compatible_models", [])
+            if str(name).strip()
+        }
+        backend_models: Dict[str, Dict[str, Any]] = {}
+        for backend_id, backend in self._token_router_backend_entries(config):
+            model_uid = str(backend.get("model_uid") or "")
+            model_info = running_models.get(model_uid)
+            if model_info is None:
+                errors.append(f"{backend_id} backend model is not running: {model_uid}")
+                continue
+            backend_models[backend_id] = model_info
+            if model_info.get("model_type") != "LLM":
+                errors.append(f"{backend_id} backend model must be an LLM: {model_uid}")
+            if asset_id and compatible_models:
+                model_name = str(model_info.get("model_name") or "").strip()
+                if not model_name:
+                    errors.append(
+                        f"{backend_id} backend does not report model_name for Tokenizer "
+                        f"asset compatibility validation: {model_uid}"
+                    )
+                elif model_name.casefold() not in compatible_models:
+                    errors.append(
+                        f"{backend_id} backend model is not compatible with Tokenizer "
+                        f"asset {asset_id}: {model_name}"
+                    )
+            abilities = {
+                str(value).casefold()
+                for value in model_info.get("model_ability", []) or []
+            }
+            if "chat" not in abilities:
+                errors.append(
+                    f"{backend_id} backend model must support chat: {model_uid}"
+                )
+            compatibility = self._token_router_engine_compatibility(model_info)
+            if compatibility["status"] in {"Unsupported", "Unknown"}:
+                errors.append(
+                    f"{backend_id} backend engine is {compatibility['status']}: {compatibility['reason']}"
+                )
+            configured_context = backend.get("max_context_tokens")
+            actual_context = model_info.get("context_length")
+            if (
+                isinstance(configured_context, int)
+                and isinstance(actual_context, int)
+                and configured_context > actual_context
+            ):
+                errors.append(
+                    f"{backend_id} max_context_tokens {configured_context} exceeds backend context_length {actual_context}: {model_uid}"
+                )
+        if int(config.get("config_version", 1)) == 2:
+            routing = config.get("routing", {})
+            for rule in routing.get("rules", []) if isinstance(routing, dict) else []:
+                action = rule.get("action", {})
+                if action.get("type") != "route":
+                    continue
+                backend_id = str(action.get("backend_id") or "")
+                model_info = backend_models.get(backend_id)
+                if model_info is None:
+                    continue
+                abilities = {
+                    str(value).casefold()
+                    for value in model_info.get("model_ability", []) or []
+                }
+                match = rule.get("match", {})
+                if match.get("tools_present") is True and "tools" not in abilities:
+                    errors.append(
+                        f"Rule {rule.get('id')} requires tools but backend {backend_id} does not report tools capability"
+                    )
+                if match.get("thinking") is True and not (
+                    {"reasoning", "hybrid"} & abilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires thinking but backend {backend_id} does not report reasoning or hybrid capability"
+                    )
+                if (
+                    asset_capabilities is not None
+                    and match.get("tools_present") is True
+                    and "tools" not in asset_capabilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires tools but Tokenizer asset does not support tools"
+                    )
+                if (
+                    asset_capabilities is not None
+                    and match.get("thinking") is True
+                    and "thinking" not in asset_capabilities
+                ):
+                    errors.append(
+                        f"Rule {rule.get('id')} requires thinking but Tokenizer asset does not support thinking"
+                    )
+        if asset_id and asset_validation.get("valid"):
+            expected_origin = str(config.get("tokenizer_asset_origin") or "")
+            expected_revision = str(config.get("tokenizer_asset_revision") or "")
+            expected_fingerprint = str(config.get("tokenizer_asset_fingerprint") or "")
+            for instance in self._token_router_registry.list(router_uid):
+                if not instance.get("online"):
+                    continue
+                if int(instance.get("acked_revision", 0)) < int(config["revision"]):
+                    continue
+                process_info = instance.get("process") or {}
+                loaded = process_info.get("tokenizer_asset") or {}
+                loaded_id = str(loaded.get("asset_id") or "")
+                loaded_origin = str(loaded.get("origin") or "")
+                loaded_revision = str(loaded.get("revision") or "")
+                loaded_fingerprint = str(loaded.get("fingerprint") or "")
+                if loaded_id != asset_id:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        f"asset {loaded_id or '<unknown>'}, expected {asset_id}"
+                    )
+                if expected_origin and loaded_origin != expected_origin:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        "asset origin differs from the Router configuration"
+                    )
+                if expected_revision and loaded_revision != expected_revision:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        "asset revision differs from the Router configuration"
+                    )
+                if expected_fingerprint and loaded_fingerprint != expected_fingerprint:
+                    errors.append(
+                        f"Router instance {instance['instance_id']} loaded Tokenizer "
+                        "asset fingerprint differs from the Router configuration"
+                    )
+        return {
+            "router_uid": router_uid,
+            "valid": not errors,
+            "errors": errors,
+            "warnings": warnings,
+            "revision": config["revision"],
+            "tokenizer_asset": asset_validation,
+        }
+
+    def _with_token_router_status(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        item = dict(config)
+        instances = self._token_router_registry.list(config["router_uid"])
+        online = [instance for instance in instances if instance["online"]]
+        if not config["enabled"]:
+            status = "disabled"
+        elif not online:
+            status = "offline"
+        elif any(instance.get("config_error") for instance in online):
+            status = "error"
+        elif any(
+            instance.get("acked_revision", 0) < config["revision"]
+            for instance in online
+        ):
+            status = "syncing"
+        elif any(instance.get("status") not in (None, "ready") for instance in online):
+            status = "degraded"
+        else:
+            status = "ready"
+        item["status"] = status
+        item["runtime_instances"] = len(instances)
+        item["online_instances"] = len(online)
+        return item
+
+    async def get_token_router_status(
+        self, router_uid: str
+    ) -> Optional[Dict[str, Any]]:
+        config = self._token_router_store.get(router_uid)
+        if config is None:
+            return None
+        item = self._with_token_router_status(config)
+        return {
+            "router_uid": router_uid,
+            "enabled": item["enabled"],
+            "status": item["status"],
+            "revision": item["revision"],
+            "runtime_instances": item["runtime_instances"],
+            "online_instances": item["online_instances"],
+        }
+
+    async def list_token_router_instances(
+        self, router_uid: str
+    ) -> List[Dict[str, Any]]:
+        return self._token_router_registry.list(router_uid)
+
+    async def get_token_router_metrics(
+        self, router_uid: str
+    ) -> Optional[Dict[str, Any]]:
+        if self._token_router_store.get(router_uid) is None:
+            return None
+        instances = self._token_router_registry.list(router_uid)
+        return {
+            "router_uid": router_uid,
+            "instances": [
+                {
+                    "instance_id": item["instance_id"],
+                    "online": item["online"],
+                    "metrics": item.get("metrics", {}),
+                    "backend_health": item.get("backend_health", {}),
+                    "process": item.get("process", {}),
+                }
+                for item in instances
+            ],
+        }
+
+    async def register_token_router_instance(
+        self, router_uid: str, instance_id: str, data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        config = self._token_router_store.get(router_uid)
+        if config is None:
+            raise KeyError(router_uid)
+        acked_revision = int(data.get("acked_revision", 0))
+        if acked_revision > config["revision"]:
+            raise ValueError(
+                f"Router instance ACK revision {acked_revision} exceeds current "
+                f"configuration revision {config['revision']}"
+            )
+        return self._token_router_registry.register(router_uid, instance_id, data)
+
+    async def heartbeat_token_router_instance(
+        self, instance_id: str, data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        return self._token_router_registry.heartbeat(instance_id, data)
+
+    async def unregister_token_router_instance(self, instance_id: str) -> bool:
+        return self._token_router_registry.unregister(instance_id)
+
+    async def get_token_router_config_after(
+        self, router_uid: str, after_revision: int
+    ) -> Optional[Dict[str, Any]]:
+        config = self._token_router_store.get(router_uid)
+        if config is None:
+            raise KeyError(router_uid)
+        return config if config["revision"] > after_revision else None
+
+    async def ack_token_router_config(
+        self, instance_id: str, router_uid: str, revision: int, error: str = ""
+    ) -> Dict[str, Any]:
+        instance = self._token_router_registry.get(instance_id)
+        if instance is None:
+            raise KeyError(instance_id)
+        if instance["router_uid"] != router_uid:
+            raise ValueError("Router instance does not belong to router_uid")
+        config = self._token_router_store.get(router_uid)
+        if config is None:
+            raise KeyError(router_uid)
+        if revision > config["revision"]:
+            raise ValueError(
+                f"Router ACK revision {revision} exceeds current configuration "
+                f"revision {config['revision']}"
+            )
+        return self._token_router_registry.ack(instance_id, revision, error)
 
     async def get_workers_info(self) -> List[Dict[str, Any]]:
         ret = []

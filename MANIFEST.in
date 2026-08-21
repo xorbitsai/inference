@@ -38,3 +38,5 @@ prune assets
 prune monitor
 prune READMES
 exclude .* *.yaml *.yml
+# Built-in Token Router assets include audited source metadata and licenses.
+recursive-include xinference/router/tokenizer_assets *.py *.json *.txt

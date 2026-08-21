@@ -447,6 +447,9 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
         kwargs: Dict[str, Any],
         temp_files: List[str],
     ) -> Dict[str, Any]:
+        from .utils import apply_mlx_audio_seed
+
+        apply_mlx_audio_seed(kwargs)
         generate_kwargs = dict(kwargs)
         prompt_speech = generate_kwargs.pop("prompt_speech", None)
         prompt_text = generate_kwargs.pop("prompt_text", None)

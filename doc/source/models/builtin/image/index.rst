@@ -31,6 +31,8 @@ The following is a list of built-in image models in Xinference:
   
    flux.2-klein-9b
   
+   glm-image
+
    got-ocr2_0
   
    hidream-o1-image

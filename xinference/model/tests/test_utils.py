@@ -37,8 +37,22 @@ from ..utils import (
     get_cache_source_paths,
     neutralize_broken_torchcodec,
     parse_uri,
+    resolve_media_seed,
     symlink_local_file,
 )
+
+
+def test_resolve_media_seed():
+    assert resolve_media_seed(0) == 0
+    assert resolve_media_seed(42) == 42
+    random_seed = resolve_media_seed(-1)
+    assert random_seed is not None
+    assert 0 <= random_seed <= 2**31 - 1
+
+    with pytest.raises(ValueError, match="Seed must be an integer"):
+        resolve_media_seed(True)
+    with pytest.raises(ValueError, match="Seed must be -1"):
+        resolve_media_seed(-2)
 
 
 def test_parse_uri():

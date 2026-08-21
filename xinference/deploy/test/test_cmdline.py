@@ -151,7 +151,7 @@ def test_cmdline(setup, stream, model_uid):
 
 def test_cmdline_model_path_error(setup):
     endpoint, _ = setup
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
 
     # launch model
     result = runner.invoke(
@@ -244,7 +244,7 @@ def test_cmdline_of_custom_model(setup):
         ],
     )
     assert result.exit_code == 0
-    assert "custom_model" in result.stdout
+    assert "custom_model" in result.output
 
     # unregister custom model
     result = runner.invoke(
@@ -271,7 +271,7 @@ def test_cmdline_of_custom_model(setup):
         ],
     )
     assert result.exit_code == 0
-    assert "custom_model" not in result.stdout
+    assert "custom_model" not in result.output
 
 
 def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):

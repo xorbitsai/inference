@@ -28,6 +28,7 @@ from abc import ABC, abstractmethod
 from contextvars import ContextVar
 from copy import deepcopy
 from json import JSONDecodeError
+from numbers import Integral
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -1132,6 +1133,24 @@ def set_all_random_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
+
+MAX_MEDIA_SEED = 2**31 - 1
+
+
+def resolve_media_seed(seed: Any) -> Optional[int]:
+    """Validate a media seed and replace -1 with a fresh random value."""
+    if seed is None:
+        return None
+    if isinstance(seed, bool) or not isinstance(seed, Integral):
+        raise ValueError("Seed must be an integer")
+
+    value = int(seed)
+    if value == -1:
+        return random.SystemRandom().randrange(MAX_MEDIA_SEED + 1)
+    if value < 0 or value > MAX_MEDIA_SEED:
+        raise ValueError(f"Seed must be -1 or between 0 and {MAX_MEDIA_SEED}")
+    return value
 
 
 _cancellable_downloaders_var: ContextVar[Tuple["CancellableDownloader", ...]] = (
