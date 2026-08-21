@@ -14,6 +14,8 @@
 
 import asyncio
 import io
+import json
+import os
 import shutil
 import sys
 import threading
@@ -25,14 +27,18 @@ from tqdm.auto import tqdm
 
 from ...utils import get_real_path
 from ..utils import (
+    CACHE_SOURCE_MANIFEST,
     CancellableDownloader,
     _apply_virtualenv_engine_overrides,
     _collect_virtualenv_engine_markers,
     _extract_engine_markers_from_packages,
     _force_virtualenv_engine_params,
+    create_symlink,
+    get_cache_source_paths,
     neutralize_broken_torchcodec,
     parse_uri,
     resolve_media_seed,
+    symlink_local_file,
 )
 
 
@@ -65,6 +71,57 @@ def test_parse_uri():
     scheme, path = parse_uri("s3://bucket/dir")
     assert scheme == "s3"
     assert path == "bucket/dir"
+
+
+def test_create_symlink_ignores_downloaded_cache_source_manifest(tmp_path, monkeypatch):
+    download_dir = tmp_path / "download"
+    cache_dir = tmp_path / "cache"
+    download_dir.mkdir()
+    source = download_dir / "model.safetensors"
+    source.write_text("weights")
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("keep")
+    (download_dir / CACHE_SOURCE_MANIFEST).write_text(
+        json.dumps({"version": 1, "source_paths": [str(unrelated)]})
+    )
+
+    from huggingface_hub import file_download
+
+    def _copy_file(source_path, destination_path, new_blob=False):
+        assert new_blob is False
+        shutil.copyfile(source_path, destination_path)
+
+    monkeypatch.setattr(file_download, "_create_symlink", _copy_file)
+    create_symlink(str(download_dir), str(cache_dir))
+
+    assert (cache_dir / "model.safetensors").read_text() == "weights"
+    assert get_cache_source_paths(str(cache_dir)) == {os.path.realpath(source)}
+    assert unrelated.exists()
+
+
+def test_get_cache_source_paths_rejects_symlinked_manifest(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("keep")
+    supplied_manifest = tmp_path / "supplied.json"
+    supplied_manifest.write_text(
+        json.dumps({"version": 1, "source_paths": [str(unrelated)]})
+    )
+    try:
+        (cache_dir / CACHE_SOURCE_MANIFEST).symlink_to(supplied_manifest)
+    except OSError as exc:
+        pytest.skip(f"Symbolic links are unavailable: {exc}")
+
+    assert get_cache_source_paths(str(cache_dir)) == set()
+
+
+def test_symlink_local_file_rejects_reserved_manifest_name(tmp_path):
+    source = tmp_path / "source"
+    source.write_text("untrusted manifest")
+
+    with pytest.raises(ValueError, match="reserved cache metadata filename"):
+        symlink_local_file(str(source), str(tmp_path / "cache"), CACHE_SOURCE_MANIFEST)
 
 
 def test_tqdm_patch():

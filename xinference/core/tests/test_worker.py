@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import errno
 import itertools
+import json
+import os
+import shutil
 import threading
 from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
@@ -23,6 +27,7 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ...model.core import VirtualEnvSettings
+from .. import worker as worker_module
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
@@ -2955,10 +2960,11 @@ async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_list_deletable_models_includes_drafters(tmp_path):
+async def test_list_deletable_models_includes_drafters(tmp_path, monkeypatch):
     """Deleting a model's cache must also remove the drafters downloaded for
     speculative decoding, one per drafter quantization, instead of orphaning
     ~1GB directories next to it."""
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(tmp_path))
     cache_dir = tmp_path / "gemma-4-mlx-12b-4bit"
     cache_dir.mkdir()
     (cache_dir / "config.json").write_text("{}")
@@ -2996,10 +3002,13 @@ async def test_list_deletable_models_includes_drafters(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_list_deletable_models_keeps_shared_drafter_downloads(tmp_path):
+async def test_list_deletable_models_keeps_shared_drafter_downloads(
+    tmp_path, monkeypatch
+):
     """One drafter download is shared by every quantization of its target, so
     only our own cache entries may be deleted — resolving the links would take
     the download out from under the sibling quantizations."""
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(tmp_path))
     hub = tmp_path / "hub"
     hub.mkdir()
     blob = hub / "mtp-gemma-4-12b-it-BF16.gguf"
@@ -3040,3 +3049,557 @@ async def test_list_deletable_models_keeps_shared_drafter_downloads(tmp_path):
     assert str(blob) not in paths
     assert str(snapshot) not in paths
     assert str(snapshot / "model.safetensors") not in paths
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_deletes_nested_symlink_targets(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "nested-model"
+    (cache_dir / "transformer").mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    snapshot = tmp_path / "modelscope" / "snapshots" / "master"
+    (snapshot / "transformer").mkdir(parents=True)
+    config = snapshot / "config.json"
+    weights = snapshot / "transformer" / "model.safetensors"
+    unrelated = snapshot / "unrelated.bin"
+    config.write_text("{}")
+    weights.write_text("weights")
+    unrelated.write_text("keep")
+    (cache_dir / "config.json").symlink_to(config)
+    (cache_dir / "transformer" / "model.safetensors").symlink_to(weights)
+
+    class _Tracker:
+        def __init__(self):
+            self.confirmed = []
+
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            self.confirmed.append((model_version, address))
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "nested-model")
+    assert str(cache_dir) in paths
+    assert str(config) in paths
+    assert str(weights) in paths
+    assert str(unrelated) not in paths
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "nested-model")
+    assert not cache_dir.exists()
+    assert not config.exists()
+    assert not weights.exists()
+    assert unrelated.exists()
+    assert worker._cache_tracker_ref.confirmed == [("nested-model", "127.0.0.1:0")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_sibling_model", [False, True])
+async def test_remove_model_cache_prunes_empty_modelscope_directories(
+    tmp_path, monkeypatch, with_sibling_model
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "glm-image"
+    (cache_dir / "transformer").mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    modelscope_cache = tmp_path / "modelscope"
+    models_root = modelscope_cache / "models"
+    model_dir = models_root / "ZhipuAI--GLM-Image"
+    snapshot = model_dir / "snapshots" / "master"
+    (snapshot / "transformer").mkdir(parents=True)
+    config = snapshot / "config.json"
+    weights = snapshot / "transformer" / "model.safetensors"
+    config.write_text("{}")
+    weights.write_text("weights")
+    (cache_dir / "config.json").symlink_to(config)
+    (cache_dir / "transformer" / "model.safetensors").symlink_to(weights)
+
+    sibling_model = models_root / "ZhipuAI--Another-Model"
+    if with_sibling_model:
+        sibling_model.mkdir()
+        (sibling_model / "keep.bin").write_text("keep")
+
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_cache))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    assert await WorkerActor.confirm_and_remove_model(_Worker(), "glm-image")
+    assert not model_dir.exists()
+    assert models_root.is_dir()
+    assert sibling_model.exists() is with_sibling_model
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_preserves_openmind_hub_root(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "openmind-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    xdg_cache_home = tmp_path / "xdg-cache"
+    openmind_home = xdg_cache_home / "openmind"
+    openmind_hub_root = openmind_home / "hub"
+    model_dir = openmind_hub_root / "models--org--model"
+    snapshot = model_dir / "snapshots" / "main"
+    snapshot.mkdir(parents=True)
+    weights = snapshot / "model.safetensors"
+    weights.write_text("weights")
+    (cache_dir / "model.safetensors").symlink_to(weights)
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(xdg_cache_home))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    assert await WorkerActor.confirm_and_remove_model(_Worker(), "openmind-model")
+    assert not model_dir.exists()
+    assert openmind_hub_root.is_dir()
+    assert openmind_home.is_dir()
+    assert xdg_cache_home.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_tracks_success_when_parent_pruning_fails(
+    tmp_path, monkeypatch, caplog
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "prune-failure-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    model_dir = huggingface_root / "models--org--model"
+    snapshot = model_dir / "snapshots" / "main"
+    snapshot.mkdir(parents=True)
+    weights = snapshot / "model.safetensors"
+    weights.write_text("weights")
+    (cache_dir / "model.safetensors").symlink_to(weights)
+
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg-cache"))
+
+    original_rmdir = os.rmdir
+
+    def _fail_snapshot_pruning(path, *args, **kwargs):
+        if os.path.realpath(path) == os.path.realpath(snapshot):
+            raise OSError(errno.EACCES, "Permission denied", str(path))
+        return original_rmdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(worker_module.os, "rmdir", _fail_snapshot_pruning)
+
+    class _Tracker:
+        def __init__(self):
+            self.confirmed = []
+
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            self.confirmed.append((model_version, address))
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "prune-failure-model")
+    assert not cache_dir.exists()
+    assert not weights.exists()
+    assert snapshot.is_dir()
+    assert worker._cache_tracker_ref.confirmed == [
+        ("prune-failure-model", "127.0.0.1:0")
+    ]
+    assert "Fail to remove empty download directory" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_keeps_targets_used_by_another_cache(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    first_cache = cache_root / "v2" / "model-awq"
+    second_cache = cache_root / "v2" / "model-gptq"
+    first_cache.mkdir(parents=True)
+    second_cache.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    blob = tmp_path / "hub" / "shared.safetensors"
+    blob.parent.mkdir()
+    blob.write_text("shared weights")
+    (first_cache / "model.safetensors").symlink_to(blob)
+    second_link = second_cache / "model.safetensors"
+    second_link.symlink_to(blob)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(first_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "model-awq")
+    assert str(blob) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "model-awq")
+    assert not first_cache.exists()
+    assert blob.exists()
+    assert second_link.exists()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_keeps_targets_used_by_model_uri(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    normal_cache = cache_root / "v2" / "normal-model"
+    model_uri_cache = cache_root / "v2" / "local-model"
+    normal_cache.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    hub_model = tmp_path / "huggingface" / "models--org--shared"
+    blob = hub_model / "blobs" / "weights"
+    snapshot = hub_model / "snapshots" / "revision"
+    blob.parent.mkdir(parents=True)
+    snapshot.mkdir(parents=True)
+    blob.write_text("shared weights")
+    (snapshot / "model.safetensors").symlink_to(blob)
+    (snapshot / "loop").symlink_to(snapshot, target_is_directory=True)
+    (normal_cache / "model.safetensors").symlink_to(blob)
+    model_uri_cache.symlink_to(snapshot, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(normal_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "normal-model")
+    assert str(blob) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "normal-model")
+    assert not normal_cache.exists()
+    assert blob.exists()
+    assert (model_uri_cache / "model.safetensors").exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_shared_cache", [False, True])
+async def test_remove_model_cache_handles_file_copy_fallback(
+    tmp_path, monkeypatch, with_shared_cache
+):
+    cache_root = tmp_path / "cache"
+    first_cache = cache_root / "v2" / "first-model"
+    second_cache = cache_root / "v2" / "second-model"
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+    from ...model.utils import get_cache_source_paths, symlink_local_file
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    source_model = huggingface_root / "models--org--copy-model"
+    source = source_model / "snapshots" / "revision" / "model.safetensors"
+    source.parent.mkdir(parents=True)
+    source.write_text("source weights")
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+
+    from huggingface_hub import file_download
+
+    def _copy_file(source_path, destination_path, new_blob=False):
+        assert new_blob is False
+        shutil.copyfile(source_path, destination_path)
+
+    monkeypatch.setattr(file_download, "_create_symlink", _copy_file)
+    first_file = symlink_local_file(str(source), str(first_cache), "model.safetensors")
+    assert not os.path.islink(first_file)
+    assert get_cache_source_paths(str(first_cache)) == {str(source)}
+
+    if with_shared_cache:
+        second_file = symlink_local_file(
+            str(source), str(second_cache), "model.safetensors"
+        )
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(first_cache)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "first-model")
+    assert (str(source) not in paths) is with_shared_cache
+    assert await WorkerActor.confirm_and_remove_model(worker, "first-model")
+    assert not first_cache.exists()
+    assert source.exists() is with_shared_cache
+    if with_shared_cache:
+        assert os.path.isfile(second_file)
+        assert source_model.exists()
+    else:
+        assert not source_model.exists()
+        assert huggingface_root.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_ignores_unmanaged_manifest_paths(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "malicious-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+    from ...model.utils import CACHE_SOURCE_MANIFEST
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    managed_source = (
+        huggingface_root
+        / "models--org--managed"
+        / "snapshots"
+        / "main"
+        / "model.safetensors"
+    )
+    managed_source.parent.mkdir(parents=True)
+    managed_source.write_text("managed weights")
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("must survive")
+    (cache_dir / CACHE_SOURCE_MANIFEST).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "source_paths": [str(managed_source), str(unrelated)],
+            }
+        )
+    )
+
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "malicious-model")
+    assert str(managed_source) in paths
+    assert str(unrelated) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "malicious-model")
+    assert not cache_dir.exists()
+    assert not managed_source.exists()
+    assert unrelated.read_text() == "must survive"
+    assert huggingface_root.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_uri_cache_only_unlinks_cache_entry(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "local-model"
+    cache_dir.parent.mkdir(parents=True)
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+
+    source = tmp_path / "user-model"
+    source.mkdir()
+    weights = source / "model.safetensors"
+    weights.write_text("user weights")
+    cache_dir.symlink_to(source, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "local-model")
+    assert not cache_dir.exists()
+    assert source.exists()
+    assert weights.exists()
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_rejects_unmanaged_source(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_root.mkdir()
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    source = tmp_path / "flexible-model"
+    source.mkdir()
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(source)
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    with pytest.raises(ValueError, match="outside the Xinference cache directory"):
+        await WorkerActor.list_deletable_models(_Worker(), "flexible-model")
