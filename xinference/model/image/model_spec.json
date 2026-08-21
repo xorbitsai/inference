@@ -1886,8 +1886,8 @@
   },
   {
     "version": 2,
-    "model_name": "SenseNova-U1.5-8B-MoT-Preview",
-    "model_description": "SenseNova-U1.5-8B-MoT-Preview is a natively unified multimodal model for text-to-image generation and single- or multi-reference image editing, with native 4K generation support.",
+    "model_name": "SenseNova-U1.5-8B-MoT",
+    "model_description": "SenseNova-U1.5-8B-MoT is a native unified multimodal model for high-quality text-to-image generation and single- or multi-reference image editing, with stronger text and layout rendering, complex-instruction following, visual control, and native 4K generation.",
     "model_family": "sensenova_u1",
     "model_ability": [
       "text2image",
@@ -1896,11 +1896,11 @@
     "controlnet": [],
     "model_src": {
       "huggingface": {
-        "model_id": "sensenova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_id": "sensenova/SenseNova-U1.5-8B-MoT",
         "model_revision": "main"
       },
       "modelscope": {
-        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT",
         "model_revision": "master"
       }
     },
@@ -1927,7 +1927,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1787019514
+    "updated_at": 1787298897
   },
   {
     "version": 2,
