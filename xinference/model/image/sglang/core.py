@@ -22,7 +22,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ....types import LoRA
-from ..utils import handle_image_result
+from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
@@ -241,12 +241,21 @@ class SGLangDiffusionModel:
             self._model_spec.default_generate_config or {}  # type: ignore
         ).copy()
         generate_config.update({k: v for k, v in kwargs.items() if v is not None})
-        sampling_params_kwargs = self._build_sampling_params(
-            prompt, n, width, height, generate_config
+        seeds = resolve_image_seed_list(generate_config.get("seed"), n)
+        configs = (
+            [{**generate_config, "seed": seed} for seed in seeds]
+            if seeds is not None
+            else [generate_config]
         )
-        result = await asyncio.to_thread(
-            self._model.generate,
-            sampling_params_kwargs=sampling_params_kwargs,
-        )
-        images = self._extract_images(result)
+        outputs_per_config = 1 if seeds is not None else n
+        images = []
+        for config in configs:
+            sampling_params_kwargs = self._build_sampling_params(
+                prompt, outputs_per_config, width, height, config
+            )
+            result = await asyncio.to_thread(
+                self._model.generate,
+                sampling_params_kwargs=sampling_params_kwargs,
+            )
+            images.extend(self._extract_images(result))
         return handle_image_result(response_format, images)

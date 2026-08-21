@@ -13,18 +13,49 @@
 # limitations under the License.
 import base64
 import os
+import random
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from io import BytesIO
-from typing import TYPE_CHECKING, Optional
+from numbers import Integral
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from ...constants import XINFERENCE_IMAGE_DIR
 from ...types import Image, ImageList
 
 if TYPE_CHECKING:
     from .core import ImageModelFamilyV2
+
+
+MAX_IMAGE_SEED = 2**31 - 1
+
+
+def resolve_image_seed_list(seed: Any, n: int) -> Optional[List[int]]:
+    """Resolve a per-image seed list, padding missing entries with random seeds."""
+    if not isinstance(seed, (list, tuple)):
+        return None
+    if n < 1:
+        raise ValueError("n must be greater than 0")
+    if len(seed) > n:
+        raise ValueError(f"Expected at most {n} image seeds, got {len(seed)}")
+
+    values = list(seed) + [-1] * (n - len(seed))
+    random_source = random.SystemRandom()
+    resolved: List[int] = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, Integral):
+            raise ValueError("Image seeds must be integers")
+        value = int(value)
+        if value == -1:
+            value = random_source.randrange(MAX_IMAGE_SEED + 1)
+        elif value < 0 or value > MAX_IMAGE_SEED:
+            raise ValueError(
+                f"Image seeds must be -1 or between 0 and {MAX_IMAGE_SEED}"
+            )
+        resolved.append(value)
+    return resolved
 
 
 def get_model_version(

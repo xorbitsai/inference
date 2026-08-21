@@ -32,7 +32,21 @@ from ..utils import (
     _force_virtualenv_engine_params,
     neutralize_broken_torchcodec,
     parse_uri,
+    resolve_media_seed,
 )
+
+
+def test_resolve_media_seed():
+    assert resolve_media_seed(0) == 0
+    assert resolve_media_seed(42) == 42
+    random_seed = resolve_media_seed(-1)
+    assert random_seed is not None
+    assert 0 <= random_seed <= 2**31 - 1
+
+    with pytest.raises(ValueError, match="Seed must be an integer"):
+        resolve_media_seed(True)
+    with pytest.raises(ValueError, match="Seed must be -1"):
+        resolve_media_seed(-2)
 
 
 def test_parse_uri():

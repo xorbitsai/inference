@@ -26,6 +26,26 @@ from packaging import version
 logger = logging.getLogger(__name__)
 
 
+def apply_audio_seed(kwargs: dict) -> typing.Optional[int]:
+    """Consume a generic audio seed and seed Python, NumPy, and Torch RNGs."""
+    from ..utils import resolve_media_seed, set_all_random_seed
+
+    seed = resolve_media_seed(kwargs.pop("seed", None))
+    if seed is not None:
+        set_all_random_seed(seed)
+    return seed
+
+
+def apply_mlx_audio_seed(kwargs: dict) -> typing.Optional[int]:
+    """Consume a generic audio seed and seed MLX's RNG."""
+    seed = apply_audio_seed(kwargs)
+    if seed is not None:
+        import mlx.core as mx
+
+        mx.random.seed(seed)
+    return seed
+
+
 class MLXModelThreadMixin:
     """Pin every call into an MLX model to a single dedicated thread.
 

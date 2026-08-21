@@ -39,7 +39,7 @@ from ....device_utils import (
 )
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
-from ..utils import handle_image_result
+from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ....core.progress_tracker import Progressor
@@ -783,10 +783,19 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         origin_size = kwargs.pop("origin_size", None)
         seed = kwargs.pop("seed", None)
         return_images = kwargs.pop("_return_images", None)
-        if seed is not None and seed != -1:
+        seeds = resolve_image_seed_list(
+            seed, int(kwargs.get("num_images_per_prompt", 1))
+        )
+        if seeds is not None:
+            kwargs["generator"] = [
+                torch.Generator(  # type: ignore
+                    device=get_available_device()
+                ).manual_seed(value)
+                for value in seeds
+            ]
+        elif seed is not None and seed != -1:
             kwargs["generator"] = generator = torch.Generator(device=get_available_device())  # type: ignore
-            if seed != -1:
-                kwargs["generator"] = generator.manual_seed(seed)
+            kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
         self._process_progressor(kwargs)
         if self._is_ideogram4_model() and kwargs.get("guidance_scale") is not None:

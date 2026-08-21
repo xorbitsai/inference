@@ -85,8 +85,11 @@ class KokoroMLXModel(MLXModelThreadMixin):
     ):
         import soundfile
 
+        from .utils import apply_mlx_audio_seed
+
         if stream:
             raise Exception("Kokoro does not support stream mode.")
+        apply_mlx_audio_seed(kwargs)
         assert self._model is not None
 
         if not voice:

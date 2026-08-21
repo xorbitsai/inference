@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 import PIL.Image
 
 from .sdapi import SDAPIDiffusionModelMixin
-from .utils import handle_image_result
+from .utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ...core.progress_tracker import Progressor
@@ -253,7 +253,8 @@ class HiDreamO1Model(SDAPIDiffusionModelMixin):
         progressor: Optional["Progressor"] = kwargs.pop("progressor", None)
         config = self._prepare_generate_config(len(references), kwargs)
         seed = config.pop("seed", 32)
-        if seed is None or seed == -1:
+        seeds = resolve_image_seed_list(seed, n)
+        if seeds is None and (seed is None or seed == -1):
             seed = random.SystemRandom().randrange(0, 2**31)
         layout_bboxes = config.get("layout_bboxes")
         if layout_bboxes is not None and not isinstance(layout_bboxes, str):
@@ -299,7 +300,11 @@ class HiDreamO1Model(SDAPIDiffusionModelMixin):
                             ref_image_paths=ref_paths,
                             height=height,
                             width=width,
-                            seed=int(seed) + image_index,
+                            seed=(
+                                seeds[image_index]
+                                if seeds is not None
+                                else int(seed) + image_index
+                            ),
                             callback=report_progress,
                             **generate_kwargs,
                         )

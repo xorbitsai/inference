@@ -30,6 +30,13 @@ import {
   isIndexTTSEmotionModel,
   parseIndexTTSEmotionVector,
 } from '../emotion-vector-utils';
+import {
+  formatImageSeeds,
+  generateRandomImageSeeds,
+  MAX_IMAGE_SEED,
+  parseImageSeeds,
+} from '../image-seed-utils';
+import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
 import type { CapabilityFormProps } from '../types';
 
 const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
@@ -66,7 +73,54 @@ function PromptFields() {
   );
 }
 
-function ImageGenerationFields({ includeImageParams = false }: { includeImageParams?: boolean }) {
+function ScalarSeedField({ form }: Pick<CapabilityFormProps, 'form'>) {
+  return (
+    <div className="flex items-end gap-2">
+      <FormField
+        className="flex-1"
+        name="seed"
+        label="Seed"
+        placeholder="-1 = random"
+        normalize={normalizeNumberInput}
+        rules={[
+          {
+            validator: (value) => {
+              try {
+                parseScalarSeed(value);
+                return true;
+              } catch {
+                return false;
+              }
+            },
+            message: `Seed must be -1 or an integer from 0 to ${MAX_SEED}.`,
+          },
+        ]}
+      >
+        <Input type="number" min={-1} max={MAX_SEED} step={1} />
+      </FormField>
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label="Generate random seed"
+        title="Generate random seed"
+        onClick={() => form.setFieldValue('seed', createRandomSeed())}
+      >
+        <span aria-hidden="true">🎲</span>
+      </Button>
+    </div>
+  );
+}
+
+function ImageGenerationFields({
+  form,
+  includeImageParams = false,
+}: Pick<CapabilityFormProps, 'form'> & { includeImageParams?: boolean }) {
+  const imageCount = Math.max(1, Math.round(Number(useWatch('n', form)) || 1));
+
+  const generateRandomSeeds = () => {
+    form.setFieldValue('seed', formatImageSeeds(generateRandomImageSeeds(imageCount)));
+  };
+
   return (
     <>
       <div className="grid grid-cols-2 gap-3">
@@ -104,6 +158,38 @@ function ImageGenerationFields({ includeImageParams = false }: { includeImagePar
           </>
         )}
       </div>
+      <div className="flex items-end gap-2">
+        <FormField
+          className="flex-1"
+          name="seed"
+          label="Seed(s)"
+          placeholder="Comma-separated; missing or -1 = random. For 4 images: 11, 22 = 11, 22, -1, -1"
+          rules={[
+            {
+              validator: (value) => {
+                try {
+                  parseImageSeeds(value, imageCount);
+                  return true;
+                } catch {
+                  return false;
+                }
+              },
+              message: `Use up to ${imageCount} comma-separated seeds; each must be -1 or 0-${MAX_IMAGE_SEED}.`,
+            },
+          ]}
+        >
+          <Input />
+        </FormField>
+        <Button
+          aria-label="Generate new random image seeds"
+          title="Generate a new random seed for every image"
+          variant="outline"
+          size="icon"
+          onClick={generateRandomSeeds}
+        >
+          <span aria-hidden="true">🎲</span>
+        </Button>
+      </div>
       <FormField name="sampler_name" label="Sampling Method">
         <Select options={SAMPLING_METHOD_OPTIONS} allowClear={false} showSearch />
       </FormField>
@@ -111,7 +197,7 @@ function ImageGenerationFields({ includeImageParams = false }: { includeImagePar
   );
 }
 
-function VideoFields() {
+function VideoFields({ form }: Pick<CapabilityFormProps, 'form'>) {
   return (
     <div className="grid grid-cols-2 gap-3">
       <FormField name="width" label="Width" normalize={normalizeNumberInput}>
@@ -136,6 +222,7 @@ function VideoFields() {
       <FormField name="guidance_scale" label="Guidance Scale" normalize={normalizeNumberInput}>
         <Input type="number" min={1} max={20} step={0.1} />
       </FormField>
+      <ScalarSeedField form={form} />
     </div>
   );
 }
@@ -269,16 +356,16 @@ export function OcrPanel() {
   );
 }
 
-export function TextToImagePanel() {
+export function TextToImagePanel({ form }: CapabilityFormProps) {
   return (
     <>
       <PromptFields />
-      <ImageGenerationFields />
+      <ImageGenerationFields form={form} />
     </>
   );
 }
 
-export function ImageToImagePanel() {
+export function ImageToImagePanel({ form }: CapabilityFormProps) {
   return (
     <>
       <FormField name="image" rules={[{ required: true }]}>
@@ -289,7 +376,7 @@ export function ImageToImagePanel() {
         />
       </FormField>
       <PromptFields />
-      <ImageGenerationFields includeImageParams />
+      <ImageGenerationFields form={form} includeImageParams />
     </>
   );
 }
@@ -309,33 +396,33 @@ export function InpaintingPanel({ form }: CapabilityFormProps) {
       </FormField>
       <FormField name="mask_image" hidden />
       <PromptFields />
-      <ImageGenerationFields includeImageParams />
+      <ImageGenerationFields form={form} includeImageParams />
     </>
   );
 }
 
-export function TextToVideoPanel() {
+export function TextToVideoPanel({ form }: CapabilityFormProps) {
   return (
     <>
       <PromptFields />
-      <VideoFields />
+      <VideoFields form={form} />
     </>
   );
 }
 
-export function ImageToVideoPanel() {
+export function ImageToVideoPanel({ form }: CapabilityFormProps) {
   return (
     <>
       <FormField name="image" rules={[{ required: true }]}>
         <FileUpload accept="image/*" label="Upload first frame image" />
       </FormField>
       <PromptFields />
-      <VideoFields />
+      <VideoFields form={form} />
     </>
   );
 }
 
-export function FirstLastFrameVideoPanel() {
+export function FirstLastFrameVideoPanel({ form }: CapabilityFormProps) {
   return (
     <>
       <div className="grid gap-3 md:grid-cols-2">
@@ -347,7 +434,7 @@ export function FirstLastFrameVideoPanel() {
         </FormField>
       </div>
       <PromptFields />
-      <VideoFields />
+      <VideoFields form={form} />
     </>
   );
 }
@@ -516,27 +603,14 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           </FormField>
         </div>
       )}
-      {isMusicGeneration && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-end gap-2">
-            <FormField name="seed" label="Seed" normalize={normalizeNumberInput} className="flex-1">
-              <Input type="number" />
-            </FormField>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Generate random seed"
-              title="Generate random seed"
-              onClick={() => form.setFieldValue('seed', Math.floor(Math.random() * 2 ** 31))}
-            >
-              <span aria-hidden="true">🎲</span>
-            </Button>
-          </div>
+      <div className={isMusicGeneration ? 'grid grid-cols-2 gap-3' : undefined}>
+        <ScalarSeedField form={form} />
+        {isMusicGeneration && (
           <FormField name="duration" label="Duration (seconds)" normalize={normalizeNumberInput}>
             <Input type="number" />
           </FormField>
-        </div>
-      )}
+        )}
+      </div>
       {showPromptSpeech && (
         <FormField name="prompt_speech">
           <FileUpload

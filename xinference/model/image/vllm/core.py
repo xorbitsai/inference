@@ -22,7 +22,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ....types import LoRA
-from ..utils import handle_image_result
+from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
@@ -508,13 +508,24 @@ class VLLMDiffusionModel:
             self._model_spec.default_generate_config or {}  # type: ignore
         ).copy()
         generate_config.update({k: v for k, v in kwargs.items() if v is not None})
-        sampling_params = self._build_sampling_params(n, width, height, generate_config)
+        seeds = resolve_image_seed_list(generate_config.get("seed"), n)
         prompt_payload = self._build_prompt(prompt, width, height)
-        if self._concurrency_available():
-            outputs = await self._submit_and_wait(prompt_payload, sampling_params)
-        else:
-            outputs = await asyncio.to_thread(
-                self._generate_serial, prompt_payload, sampling_params
+        images = []
+        configs = (
+            [{**generate_config, "seed": seed} for seed in seeds]
+            if seeds is not None
+            else [generate_config]
+        )
+        outputs_per_config = 1 if seeds is not None else n
+        for config in configs:
+            sampling_params = self._build_sampling_params(
+                outputs_per_config, width, height, config
             )
-        images = self._extract_images(outputs)
+            if self._concurrency_available():
+                outputs = await self._submit_and_wait(prompt_payload, sampling_params)
+            else:
+                outputs = await asyncio.to_thread(
+                    self._generate_serial, prompt_payload, sampling_params
+                )
+            images.extend(self._extract_images(outputs))
         return handle_image_result(response_format, images)

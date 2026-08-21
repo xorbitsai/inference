@@ -74,13 +74,15 @@ class ChatTTSModel:
         response_format: str = "mp3",
         speed: float = 1.0,
         stream: bool = False,
+        **kwargs,
     ):
         import ChatTTS
         import numpy as np
         import torch
 
-        from .utils import audio_stream_generator, audio_to_bytes
+        from .utils import apply_audio_seed, audio_stream_generator, audio_to_bytes
 
+        requested_seed = apply_audio_seed(kwargs)
         rnd_spk_emb = None
 
         if len(voice) > 400:
@@ -95,7 +97,7 @@ class ChatTTSModel:
                 logger.info("Fallback to random speaker due to %s", e)
 
         if rnd_spk_emb is None:
-            seed = _voice_seed(voice)
+            seed = requested_seed if requested_seed is not None else _voice_seed(voice)
 
             set_all_random_seed(seed)
             torch.backends.cudnn.deterministic = True
