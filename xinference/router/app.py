@@ -124,7 +124,15 @@ def create_app(config: RouterConfig) -> FastAPI:
             control_stop.set()
             try:
                 if control_task is not None:
-                    await control_task
+                    # The control-plane task may be blocked in an HTTP call or
+                    # while applying a new runtime snapshot. Setting the stop
+                    # event alone cannot interrupt either operation, so cancel
+                    # the task explicitly before waiting for shutdown.
+                    control_task.cancel()
+                    try:
+                        await control_task
+                    except asyncio.CancelledError:
+                        pass
             finally:
                 try:
                     if control_plane is not None:

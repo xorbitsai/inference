@@ -402,6 +402,24 @@ class FakeControlPlane:
         self.events.append("unregister")
 
 
+class BlockingControlPlane(FakeControlPlane):
+    def __init__(self, events: list[str]) -> None:
+        super().__init__(events)
+        self.started = asyncio.Event()
+        self.cancelled = False
+        self.run_task: asyncio.Task[None] | None = None
+
+    async def run(self, runtime, stop: asyncio.Event) -> None:
+        self.events.append("run")
+        self.run_task = asyncio.current_task()
+        self.started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+
+
 @pytest.mark.asyncio
 async def test_lifespan_acks_only_after_runtime_start(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -422,6 +440,44 @@ async def test_lifespan_acks_only_after_runtime_start(
 
     assert events[-1] == "unregister"
     assert runtime.current.closed is True
+
+
+@pytest.mark.asyncio
+async def test_lifespan_cancels_control_plane_before_waiting_for_shutdown(
+    tmp_path: Path,
+) -> None:
+    app = create_app(make_config(tmp_path))
+    events: list[str] = []
+    control_plane = BlockingControlPlane(events)
+    app.state.control_plane = control_plane
+
+    async def serve_and_shutdown() -> None:
+        async with app.router.lifespan_context(app):
+            await asyncio.wait_for(control_plane.started.wait(), 1)
+
+    shutdown_task = asyncio.create_task(serve_and_shutdown())
+    await asyncio.wait_for(control_plane.started.wait(), 1)
+    await asyncio.sleep(0.05)
+
+    # If lifespan only sets the stop event, it remains stuck awaiting the
+    # deliberately blocked control-plane task. Cancel it as a bounded fallback
+    # so this test fails without hanging the test process.
+    forced_cancel = False
+    if not shutdown_task.done():
+        forced_cancel = True
+        assert control_plane.run_task is not None
+        control_plane.run_task.cancel()
+
+    try:
+        await shutdown_task
+    except asyncio.CancelledError:
+        # The forced fallback above cancels the old implementation's control
+        # task, which propagates through its lifespan cleanup.
+        pass
+
+    assert forced_cancel is False
+    assert control_plane.cancelled is True
+    assert app.state.runtime.current.closed is True
 
 
 @pytest.mark.asyncio

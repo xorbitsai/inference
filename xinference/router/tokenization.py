@@ -157,7 +157,10 @@ class TokenizationService:
             if future is not None:
                 try:
                     await asyncio.shield(future)
-                except Exception:
+                except (Exception, asyncio.CancelledError):
+                    # The worker future can itself be cancelled or propagate
+                    # CancelledError. Either way, keep the outer cancellation
+                    # and let the finally block release the admission slot.
                     pass
             raise
         except BrokenProcessPool as exc:
