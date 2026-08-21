@@ -3321,6 +3321,20 @@ class WorkerActor(xo.StatelessActor):
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        direct_references = find_direct_reference_packages(packages)
+        if direct_references and conf.get("skip_installed"):
+            # xoscar's skip-installed optimization reconstructs an install list
+            # from ``uv pip install --dry-run`` output.  Direct references are
+            # reported as ``name @ URL`` rather than ``name==version`` and are
+            # therefore omitted from that reconstructed list, leaving only
+            # their dependencies installed.  Let uv handle the original
+            # requirements directly so the top-level package is installed too.
+            logger.info(
+                "Disabling skip-installed optimization for direct-reference "
+                "packages: %s",
+                direct_references,
+            )
+            conf["skip_installed"] = False
         if force_reinstall_xllamacpp:
             # Bypass the satisfied-package filter so uv is actually invoked with
             # the GPU index even when a same-version CPU wheel is already

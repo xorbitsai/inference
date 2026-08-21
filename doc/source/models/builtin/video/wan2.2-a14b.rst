@@ -11,8 +11,15 @@ Wan2.2-A14B
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** Wan-AI/Wan2.2-T2V-A14B-Diffusers
+- **diffusers model ID:** Wan-AI/Wan2.2-T2V-A14B-Diffusers
+- **MLX model ID:** SceneWorks/wan2.2-t2v-a14b-mlx
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Wan2.2-A14B --model-type video
+   xinference launch --model-name Wan2.2-A14B --model-type video --model-engine diffusers
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``diffusers``
+* ``MLX``

@@ -77,6 +77,11 @@ def _install():
         "video_models.json",
         has_downloaded_models,
         load_model_family_from_json,
+        model_identity_func=lambda model: (
+            (model.engine or "diffusers").lower(),
+            model.model_hub,
+            model.cache_name or model.model_name,
+        ),
     )
 
     # Register one cache/version entry per engine variant. Hugging Face is the
