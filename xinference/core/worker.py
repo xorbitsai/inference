@@ -4677,11 +4677,7 @@ class WorkerActor(xo.StatelessActor):
                 )
             ]
             if CACHE_SOURCE_MANIFEST in files:
-                targets.update(
-                    target
-                    for target in get_cache_source_paths(current_root)
-                    if os.path.isfile(target)
-                )
+                targets.update(cls._managed_cache_source_paths(current_root))
         return targets
 
     @staticmethod
@@ -4701,10 +4697,18 @@ class WorkerActor(xo.StatelessActor):
         # openmind_hub follows the XDG base-directory convention and keeps
         # model data below ``$XDG_CACHE_HOME/openmind/hub``.
         openmind_root = os.path.join(openmind_cache_home, "openmind", "hub")
+        csghub_root = os.environ.get("CSGHUB_CACHE") or os.path.join(
+            os.path.expanduser("~"), ".cache", "csg", "hub"
+        )
         return tuple(
             dict.fromkeys(
                 os.path.realpath(root)
-                for root in (huggingface_root, modelscope_root, openmind_root)
+                for root in (
+                    huggingface_root,
+                    modelscope_root,
+                    openmind_root,
+                    csghub_root,
+                )
             )
         )
 
@@ -4719,6 +4723,20 @@ class WorkerActor(xo.StatelessActor):
         if not matching_roots:
             return None
         return max(matching_roots, key=len)
+
+    @classmethod
+    def _managed_cache_source_paths(cls, cache_dir: str) -> Set[str]:
+        """Return recorded source files confined to managed Hub roots."""
+        targets: Set[str] = set()
+        for target in get_cache_source_paths(cache_dir):
+            if cls._download_cache_root_for_path(target) is None:
+                logger.warning(
+                    "Ignoring cache source path outside managed Hub roots: %s", target
+                )
+                continue
+            if os.path.isfile(target):
+                targets.add(target)
+        return targets
 
     @classmethod
     def _prune_empty_download_dirs(cls, parent_dirs: Set[Tuple[str, str]]) -> bool:
@@ -4786,11 +4804,7 @@ class WorkerActor(xo.StatelessActor):
             # resolving only the first level leaves nearly all nested weights in
             # ModelScope/Hugging Face caches. Resolve every linked file instead.
             targets = WorkerActor._collect_symlink_file_targets(path)
-            targets.update(
-                target
-                for target in get_cache_source_paths(path)
-                if os.path.isfile(target)
-            )
+            targets.update(WorkerActor._managed_cache_source_paths(path))
 
             # Different model versions may link to the same Hub blob/snapshot
             # file. Keep targets still referenced by another Xinference cache,

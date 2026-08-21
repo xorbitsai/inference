@@ -14,6 +14,7 @@
 import asyncio
 import errno
 import itertools
+import json
 import os
 import shutil
 import threading
@@ -3473,6 +3474,78 @@ async def test_remove_model_cache_handles_file_copy_fallback(
     else:
         assert not source_model.exists()
         assert huggingface_root.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_ignores_unmanaged_manifest_paths(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "malicious-model"
+    cache_dir.mkdir(parents=True)
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+    from ...model.utils import CACHE_SOURCE_MANIFEST
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    huggingface_root = tmp_path / "huggingface"
+    managed_source = (
+        huggingface_root
+        / "models--org--managed"
+        / "snapshots"
+        / "main"
+        / "model.safetensors"
+    )
+    managed_source.parent.mkdir(parents=True)
+    managed_source.write_text("managed weights")
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("must survive")
+    (cache_dir / CACHE_SOURCE_MANIFEST).write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "source_paths": [str(managed_source), str(unrelated)],
+            }
+        )
+    )
+
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(huggingface_root))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(tmp_path / "modelscope"))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind_hub"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "malicious-model")
+    assert str(managed_source) in paths
+    assert str(unrelated) not in paths
+    assert await WorkerActor.confirm_and_remove_model(worker, "malicious-model")
+    assert not cache_dir.exists()
+    assert not managed_source.exists()
+    assert unrelated.read_text() == "must survive"
+    assert huggingface_root.is_dir()
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,7 @@ import math
 import os
 import random
 import re
+import stat
 import sys
 import threading
 from abc import ABC, abstractmethod
@@ -804,7 +805,25 @@ def get_cache_source_paths(cache_dir: str) -> Set[str]:
     """Return canonical source files recorded for a Xinference cache."""
     manifest_path = os.path.join(cache_dir, CACHE_SOURCE_MANIFEST)
     try:
-        with open(manifest_path, "r", encoding="utf-8") as manifest_file:
+        manifest_stat = os.lstat(manifest_path)
+        if not stat.S_ISREG(manifest_stat.st_mode):
+            logger.warning(
+                "Ignoring non-regular cache source manifest: %s", manifest_path
+            )
+            return set()
+
+        open_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        manifest_fd = os.open(manifest_path, open_flags)
+        with os.fdopen(manifest_fd, "r", encoding="utf-8") as manifest_file:
+            opened_stat = os.fstat(manifest_file.fileno())
+            if not stat.S_ISREG(opened_stat.st_mode) or (
+                opened_stat.st_dev,
+                opened_stat.st_ino,
+            ) != (manifest_stat.st_dev, manifest_stat.st_ino):
+                logger.warning(
+                    "Ignoring replaced cache source manifest: %s", manifest_path
+                )
+                return set()
             manifest = json.load(manifest_file)
     except FileNotFoundError:
         return set()
@@ -814,7 +833,7 @@ def get_cache_source_paths(cache_dir: str) -> Set[str]:
         )
         return set()
 
-    if not isinstance(manifest, dict):
+    if not isinstance(manifest, dict) or manifest.get("version") != 1:
         logger.warning("Invalid cache source manifest: %s", manifest_path)
         return set()
 
@@ -871,6 +890,12 @@ def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
 
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*relpath.split("/"))
+    if os.path.normcase(os.path.normpath(relative_filename)) == os.path.normcase(
+        CACHE_SOURCE_MANIFEST
+    ):
+        raise ValueError(
+            f"Cannot use reserved cache metadata filename: {CACHE_SOURCE_MANIFEST}"
+        )
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
             raise ValueError(
@@ -900,6 +925,14 @@ def create_symlink(download_dir: str, cache_dir: str):
     for subdir, dirs, files in os.walk(download_dir):
         for file in files:
             relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+            if os.path.normcase(os.path.normpath(relpath)) == os.path.normcase(
+                CACHE_SOURCE_MANIFEST
+            ):
+                logger.warning(
+                    "Ignoring downloaded file with reserved cache metadata name: %s",
+                    os.path.join(subdir, file),
+                )
+                continue
             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
 
