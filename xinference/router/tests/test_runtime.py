@@ -42,6 +42,16 @@ class BlockingTokenization(FakeTokenization):
         await asyncio.Event().wait()
 
 
+class StartedTokenization(FakeTokenization):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started_event = asyncio.Event()
+
+    async def start(self) -> None:
+        self.started = True
+        self.started_event.set()
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.closed = False
@@ -128,6 +138,44 @@ async def test_cancelled_apply_closes_replacement_snapshot(monkeypatch) -> None:
     apply_task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await apply_task
+
+    assert runtime.current is first_snapshot
+    assert replacement_snapshot.closed is True
+    assert replacement_snapshot.client.closed is True
+    assert replacement_tokenization.closed is True
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_apply_while_waiting_for_lock_closes_replacement(
+    monkeypatch,
+) -> None:
+    first = config(1)
+    second = config(2)
+    replacement_tokenization = StartedTokenization()
+    first_snapshot = snapshot(first)
+    replacement_snapshot = snapshot(second, tokenization=replacement_tokenization)
+    snapshots = {1: first_snapshot, 2: replacement_snapshot}
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: snapshots[cfg.revision],
+    )
+
+    runtime = RouterRuntime(first)
+    await runtime.start()
+    await runtime._lock.acquire()
+    try:
+        apply_task = asyncio.create_task(runtime.apply(second))
+        await replacement_tokenization.started_event.wait()
+        await asyncio.sleep(0)
+        assert apply_task.done() is False
+
+        apply_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await apply_task
+    finally:
+        runtime._lock.release()
 
     assert runtime.current is first_snapshot
     assert replacement_snapshot.closed is True

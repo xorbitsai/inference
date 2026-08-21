@@ -135,20 +135,23 @@ class RouterRuntime:
 
     async def apply(self, config: RouterConfig) -> None:
         replacement = self._build_snapshot(config)
+        replacement_owned = True
+        old: RuntimeSnapshot
         try:
             await replacement.tokenization.start()
+            async with self._lock:
+                old = self._current
+                old.draining = True
+                self._current = replacement
+                replacement_owned = False
         except BaseException:
-            try:
-                await replacement.close()
-            except BaseException:
-                logger.exception("Failed to clean up replacement runtime snapshot")
+            if replacement_owned:
+                try:
+                    await replacement.close()
+                except BaseException:
+                    logger.exception("Failed to clean up replacement runtime snapshot")
             raise
 
-        old: RuntimeSnapshot
-        async with self._lock:
-            old = self._current
-            old.draining = True
-            self._current = replacement
         self._notify_swap(replacement)
         if old.active_requests == 0:
             await old.close()
