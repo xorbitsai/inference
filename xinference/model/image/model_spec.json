@@ -2160,5 +2160,50 @@
     },
     "featured": true,
     "updated_at": 1787219706
+  },
+  {
+    "version": 2,
+    "model_name": "SenseNova-U1.5-8B-MoT",
+    "model_description": "SenseNova-U1.5-8B-MoT is a native unified multimodal model for high-quality text-to-image generation and single- or multi-reference image editing, with stronger text and layout rendering, complex-instruction following, visual control, and native 4K generation.",
+    "model_family": "sensenova_u1",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "sensenova/SenseNova-U1.5-8B-MoT",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "device_map": "auto"
+    },
+    "default_generate_config": {
+      "cfg_scale": 4,
+      "cfg_norm": "none",
+      "timestep_shift": 3,
+      "num_steps": 50
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.1,<6 ; #engine# == \"transformers\"",
+        "accelerate>=1.1,<2 ; #engine# == \"transformers\"",
+        "huggingface-hub>=0.34,<2 ; #engine# == \"transformers\"",
+        "safetensors>=0.4.3,<1 ; #engine# == \"transformers\"",
+        "sentencepiece==0.2.1 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1787306111
   }
 ]
