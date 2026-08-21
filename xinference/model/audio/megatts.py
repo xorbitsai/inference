@@ -70,8 +70,11 @@ class MegaTTSModel:
     ):
         import soundfile
 
+        from .utils import apply_audio_seed
+
         if stream:
             raise Exception("MegaTTS3 does not support stream generation.")
+        apply_audio_seed(kwargs)
         if voice:
             raise Exception(
                 "MegaTTS3 does not support voice, please specify prompt_speech and prompt_latent."

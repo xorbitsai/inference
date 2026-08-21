@@ -50,6 +50,7 @@ import {
   stringValue,
   uploadList,
 } from './utils';
+import { parseScalarSeed } from './seed-utils';
 
 function appendKwargsIfPresent(formData: FormData, kwargs: Record<string, unknown>) {
   if (isEmpty(kwargs)) {
@@ -84,6 +85,7 @@ const imageDefaults = {
   padding_image_to_multiple: -1,
   strength: 0.6,
   sampler_name: 'default',
+  seed: '-1',
 };
 
 const videoDefaults = {
@@ -96,11 +98,13 @@ const videoDefaults = {
   fps: 8,
   num_inference_steps: 25,
   guidance_scale: 7.5,
+  seed: -1,
 };
 
 const imageKwargsExample = {
   guidance_scale: 7.5,
   num_inference_steps: 25,
+  seed: [11],
 };
 
 const videoKwargsExample = {
@@ -110,10 +114,14 @@ const videoKwargsExample = {
   fps: 8,
   num_inference_steps: 25,
   guidance_scale: 7.5,
+  seed: 11,
 };
 
 function commonImageBody({ modelUid, values, requestId }: TransformContext, fallbackSize?: string) {
-  const kwargs = buildGenerationKwargs(values, requestId, { excludeKeys: ['width', 'height'] });
+  const kwargs = buildGenerationKwargs(values, requestId, {
+    excludeKeys: ['width', 'height'],
+    seedMode: 'image-list',
+  });
 
   return withKwargsIfPresent(
     {
@@ -133,6 +141,7 @@ function appendCommonMediaFormData(formData: FormData, context: TransformContext
   const size = sizeFromValues(values);
   const kwargs = buildGenerationKwargs(values, context.requestId, {
     excludeKeys: ['width', 'height'],
+    seedMode: 'image-list',
   });
 
   formData.append('model', modelUid);
@@ -671,12 +680,19 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         },
         { key: 'voice', value: 'Voice ID', comment: 'Optional' },
         { key: 'speed', value: 1, comment: 'Optional' },
+        {
+          key: 'kwargs',
+          value: { seed: 11 },
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
       ],
     },
     initialValues: {
       input: '',
       voice: '',
       speed: 1,
+      seed: -1,
       prompt_speech: [],
       prompt_text: '',
       instruct: '',
@@ -695,6 +711,11 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       const kwargs: Record<string, unknown> = {};
       const promptText = stringValue(values.prompt_text).trim();
       const instruct = stringValue(values.instruct).trim();
+      const seed = parseScalarSeed(values.seed);
+
+      if (seed !== undefined) {
+        kwargs.seed = seed;
+      }
 
       if (promptSpeech) {
         if (promptText) {
@@ -774,7 +795,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     initialValues: {
       input: '',
       instruct: '',
-      seed: 0,
+      seed: -1,
       duration: 60,
     },
     formPanel: SpeechPanel,
@@ -787,7 +808,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       response_format: 'wav',
       kwargs: JSON.stringify({
         instruct: stringValue(values.instruct),
-        seed: numberValue(values.seed, 0),
+        seed: parseScalarSeed(values.seed) ?? -1,
         duration: numberValue(values.duration, 60),
       }),
     }),

@@ -85,8 +85,12 @@ class Qwen3TTSModel:
 
         import soundfile
 
+        from .utils import apply_audio_seed
+
         if stream:
             raise Exception("qwen-tts does not support stream generation.")
+
+        apply_audio_seed(kwargs)
 
         prompt_speech: Optional[bytes] = kwargs.pop("prompt_speech", None)
         prompt_text: Optional[str] = kwargs.pop("prompt_text", None)

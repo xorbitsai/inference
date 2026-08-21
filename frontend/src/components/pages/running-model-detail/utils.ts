@@ -4,6 +4,9 @@ import type { FormValues } from '@/types/form';
 import type { ChatChoicesMessage } from '@/types/services';
 import type { FileUploadValue } from '@/types/common';
 
+import { parseImageSeeds } from './image-seed-utils';
+import { parseScalarSeed } from './seed-utils';
+
 const SUB_CAPABILITIES = new Set<ModelAbility>([
   ModelAbility.Text2audioVoiceCloning,
   ModelAbility.Text2audioVoiceDesign,
@@ -70,6 +73,7 @@ export function appendIfPresent(formData: FormData, key: string, value: unknown)
 
 interface BuildGenerationKwargsOptions {
   excludeKeys?: string[];
+  seedMode?: 'image-list' | 'scalar';
 }
 
 export function buildGenerationKwargs(
@@ -77,7 +81,7 @@ export function buildGenerationKwargs(
   requestId?: string,
   options: BuildGenerationKwargsOptions = {}
 ) {
-  const kwargs: Record<string, string | number | boolean> = {};
+  const kwargs: Record<string, string | number | boolean | number[]> = {};
   const excludedKeys = new Set(options.excludeKeys || []);
   const guidanceScale = positiveNumber(values.guidance_scale);
   const numInferenceSteps = positiveNumber(values.num_inference_steps);
@@ -107,6 +111,16 @@ export function buildGenerationKwargs(
 
   if (samplerName && samplerName !== 'default') {
     kwargs.sampler_name = samplerName;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(values, 'seed')) {
+    if (options.seedMode === 'image-list') {
+      const imageCount = Math.max(1, Math.round(numberValue(values.n, 1)));
+      kwargs.seed = parseImageSeeds(values.seed, imageCount);
+    } else {
+      const seed = parseScalarSeed(values.seed);
+      if (seed !== undefined) kwargs.seed = seed;
+    }
   }
 
   ['num_frames', 'fps', 'width', 'height'].forEach((key) => {

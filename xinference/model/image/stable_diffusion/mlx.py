@@ -23,7 +23,7 @@ from PIL import Image
 
 from ....types import LoRA
 from ..sdapi import SDAPIDiffusionModelMixin
-from ..utils import handle_image_result
+from ..utils import handle_image_result, resolve_image_seed_list
 
 if TYPE_CHECKING:
     from ....core.progress_tracker import Progressor
@@ -154,6 +154,22 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
 
         flux = self._model
         width, height = map(int, re.split(r"[^\d]+", size))
+        seeds = resolve_image_seed_list(kwargs.get("seed"), n)
+        if seeds is not None:
+            data = []
+            created = 0
+            for image_seed in seeds:
+                per_image_kwargs = {**kwargs, "seed": image_seed}
+                result = self.text_to_image(
+                    prompt,
+                    n=1,
+                    size=size,
+                    response_format=response_format,
+                    **per_image_kwargs,
+                )
+                created = max(created, result["created"])
+                data.extend(result["data"])
+            return {"created": created, "data": data}
 
         # Make the generator
         latent_size = to_latent_size((height, width))
@@ -163,7 +179,7 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
         gen_latent_kwargs["num_steps"] = num_steps
         if guidance := kwargs.get("guidance_scale"):
             gen_latent_kwargs["guidance"] = guidance
-        if seed := kwargs.get("seed"):
+        if (seed := kwargs.get("seed")) is not None and seed != -1:
             gen_latent_kwargs["seed"] = seed
 
         with self._release_after():
