@@ -9,6 +9,10 @@ from typing import Any, Mapping
 import yaml  # type: ignore[import-untyped]
 
 from .tokenizer_asset import DEFAULT_TOKENIZER_ASSET_FILES
+from .tokenizer_assets import (
+    BuiltinTokenizerAssetError,
+    resolve_builtin_tokenizer_asset,
+)
 
 _ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$")
 
@@ -481,9 +485,33 @@ def _typed_rule(value: Mapping[str, Any]) -> RoutingRule:
 def _resolve_tokenizer(data: Mapping[str, Any]) -> tuple[str, str, Path]:
     tokenizer_path = str(data.get("tokenizer_path") or "").strip()
     asset_id = str(data.get("tokenizer_asset_id") or "").strip()
+    asset_origin = str(data.get("tokenizer_asset_origin") or "").strip()
     if not tokenizer_path:
         raise ConfigError("tokenizer_path is required")
-    asset_origin = "registered" if asset_id else "custom_path"
+    if asset_origin == "builtin":
+        try:
+            local_asset = resolve_builtin_tokenizer_asset(asset_id)
+        except (KeyError, BuiltinTokenizerAssetError) as exc:
+            raise ConfigError(
+                f"Cannot resolve built-in Tokenizer asset {asset_id}: {exc}"
+            ) from exc
+        expected_revision = str(data.get("tokenizer_asset_revision") or "")
+        expected_fingerprint = str(data.get("tokenizer_asset_fingerprint") or "")
+        if (
+            expected_revision
+            and expected_revision != local_asset["tokenizer_asset_revision"]
+        ):
+            raise ConfigError(
+                "Built-in Tokenizer asset revision differs from the control plane"
+            )
+        if (
+            expected_fingerprint
+            and expected_fingerprint != local_asset["tokenizer_asset_fingerprint"]
+        ):
+            raise ConfigError(
+                "Built-in Tokenizer asset fingerprint differs from the control plane"
+            )
+        tokenizer_path = local_asset["tokenizer_path"]
     return asset_id, asset_origin, Path(tokenizer_path).expanduser()
 
 

@@ -4,34 +4,34 @@ repos:
     rev: 25.1.0
     hooks:
       - id: black
-        exclude: thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/encoding/)
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: end-of-file-fixer
-        exclude: ^xinference/thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/)
       - id: trailing-whitespace
-        exclude: thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/encoding/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.22
     hooks:
       - id: ruff-check
-        exclude: thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/encoding/)
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-        exclude: thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/encoding/)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.15.0
     hooks:
       - id: mypy
         additional_dependencies: ["tokenize-rt==3.2.0", "types-requests", "types-tabulate"]
         args: [--ignore-missing-imports, --follow-imports, skip]
-        exclude: thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/encoding/)
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.2
     hooks:
       - id: codespell
         additional_dependencies: [tomli]
-        exclude: thirdparty
+        exclude: ^xinference/(thirdparty|router/tokenizer_assets/[^/]+/encoding/)

@@ -199,6 +199,7 @@ class RouterRuntime:
             "tokenization": tokenization,
             "tokenizer_asset": {
                 "asset_id": snapshot.config.tokenizer_asset_id,
+                "origin": snapshot.config.tokenizer_asset_origin,
                 "revision": snapshot.tokenization.asset_revision,
                 "fingerprint": snapshot.tokenization.asset_fingerprint,
             },
