@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hmac
+import json
 import logging
 import time
 import uuid
@@ -64,17 +65,27 @@ def _payload_thinking(payload: dict) -> bool:
 
     Mirrors the tokenizer normalization so capability enforcement rejects the
     request before expensive rendering when the asset does not support it.
+    Invalid ``chat_template_kwargs`` are left for the tokenizer to report as a
+    malformed request.
     """
+    template_kwargs = payload.get("chat_template_kwargs") or {}
+    if isinstance(template_kwargs, str):
+        try:
+            template_kwargs = json.loads(template_kwargs)
+        except json.JSONDecodeError:
+            return False
+    if not isinstance(template_kwargs, dict):
+        return False
+
+    normalized = dict(template_kwargs)
     value = payload.get("enable_thinking")
     if value is None:
         extra_body = payload.get("extra_body")
         if isinstance(extra_body, dict):
             value = extra_body.get("enable_thinking")
-    if value is None:
-        template_kwargs = payload.get("chat_template_kwargs")
-        if isinstance(template_kwargs, dict):
-            value = template_kwargs.get("enable_thinking")
-    return bool(value)
+    if isinstance(value, bool):
+        normalized["enable_thinking"] = value
+    return bool(normalized.get("enable_thinking", False))
 
 
 def _router_headers(decision: RouteDecision, request_id: str) -> dict[str, str]:
@@ -263,6 +274,15 @@ def create_app(config: RouterConfig) -> FastAPI:
                     400,
                     "Tool requests are not supported by this Tokenizer asset",
                     "tools_not_allowed",
+                    headers={"x-request-id": request_id},
+                )
+            if "thinking" not in capabilities and _payload_thinking(payload):
+                await metrics.increment("thinking_not_allowed", "none")
+                return _error(
+                    400,
+                    "Thinking-mode requests are not supported by this "
+                    "Tokenizer asset",
+                    "thinking_not_allowed",
                     headers={"x-request-id": request_id},
                 )
             try:

@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -31,6 +32,16 @@ class FakeTokenization:
         return [101, 102]
 
 
+class BlockingTokenization(FakeTokenization):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started_event = asyncio.Event()
+
+    async def start(self) -> None:
+        self.started_event.set()
+        await asyncio.Event().wait()
+
+
 class FakeClient:
     def __init__(self) -> None:
         self.closed = False
@@ -50,10 +61,15 @@ def config(revision: int, *, enabled: bool = True):
     )
 
 
-def snapshot(cfg, *, fail_start: bool = False) -> RuntimeSnapshot:
+def snapshot(
+    cfg,
+    *,
+    fail_start: bool = False,
+    tokenization: Any | None = None,
+) -> RuntimeSnapshot:
     return RuntimeSnapshot(
         config=cfg,
-        tokenization=cast(Any, FakeTokenization(fail_start=fail_start)),
+        tokenization=cast(Any, tokenization or FakeTokenization(fail_start=fail_start)),
         policy=cast(Any, SimpleNamespace()),
         gates={},
         client=FakeClient(),
@@ -87,6 +103,36 @@ async def test_apply_drains_old_snapshot_after_inflight_request(monkeypatch) -> 
     assert held.closed is True
     assert held.client.closed is True
     assert held.tokenization.closed is True
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_apply_closes_replacement_snapshot(monkeypatch) -> None:
+    first = config(1)
+    second = config(2)
+    replacement_tokenization = BlockingTokenization()
+    first_snapshot = snapshot(first)
+    replacement_snapshot = snapshot(second, tokenization=replacement_tokenization)
+    snapshots = {1: first_snapshot, 2: replacement_snapshot}
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: snapshots[cfg.revision],
+    )
+
+    runtime = RouterRuntime(first)
+    await runtime.start()
+    apply_task = asyncio.create_task(runtime.apply(second))
+    await replacement_tokenization.started_event.wait()
+
+    apply_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await apply_task
+
+    assert runtime.current is first_snapshot
+    assert replacement_snapshot.closed is True
+    assert replacement_snapshot.client.closed is True
+    assert replacement_tokenization.closed is True
     await runtime.aclose()
 
 

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, Optional
 
@@ -14,6 +15,8 @@ from .classifier import RoutingPolicy
 from .config import RouterConfig
 from .metrics import RouterMetrics
 from .tokenization import TokenizationService
+
+logger = logging.getLogger("xinference.router.runtime")
 
 
 class RouterDisabled(RuntimeError):
@@ -67,6 +70,8 @@ class RouterRuntime:
             queue_timeout_seconds=config.tokenization.queue_timeout_seconds,
             retry_after_seconds=config.tokenization.retry_after_seconds,
             tokenizer_asset_files=config.tokenizer_asset_files,
+            expected_asset_fingerprint=config.tokenizer_asset_fingerprint,
+            expected_asset_revision=config.tokenizer_asset_revision,
         )
         policy = RoutingPolicy(
             backends=config.backends,
@@ -132,8 +137,11 @@ class RouterRuntime:
         replacement = self._build_snapshot(config)
         try:
             await replacement.tokenization.start()
-        except Exception:
-            await replacement.close()
+        except BaseException:
+            try:
+                await replacement.close()
+            except BaseException:
+                logger.exception("Failed to clean up replacement runtime snapshot")
             raise
 
         old: RuntimeSnapshot

@@ -42,12 +42,16 @@ class TokenizationService:
         queue_timeout_seconds: float,
         retry_after_seconds: int,
         tokenizer_asset_files: tuple[str, ...] = DEFAULT_TOKENIZER_ASSET_FILES,
+        expected_asset_fingerprint: str = "",
+        expected_asset_revision: str = "",
     ) -> None:
         self._tokenizer_path = tokenizer_path
         self._reserve_tokens = reserve_tokens
         self._default_output_tokens = default_output_tokens
         self._max_workers = max_workers
         self._tokenizer_asset_files = tokenizer_asset_files
+        self._expected_asset_fingerprint = expected_asset_fingerprint
+        self._expected_asset_revision = expected_asset_revision
         self._asset_fingerprint = ""
         self._asset_revision = ""
         self._metrics = metrics
@@ -115,10 +119,26 @@ class TokenizationService:
                 raise TokenizationWorkerUnavailable(
                     "Tokenization workers loaded different Tokenizer asset revisions"
                 )
+            fingerprint = next(iter(fingerprints))
+            revision = next(iter(revisions))
+            if (
+                self._expected_asset_fingerprint
+                and fingerprint != self._expected_asset_fingerprint
+            ):
+                raise TokenizationWorkerUnavailable(
+                    "Tokenizer asset fingerprint does not match configuration"
+                )
+            if (
+                self._expected_asset_revision
+                and revision != self._expected_asset_revision
+            ):
+                raise TokenizationWorkerUnavailable(
+                    "Tokenizer asset revision does not match configuration"
+                )
             worker_pids = {pid for pid, _, _, _, _ in results}
             if len(worker_pids) >= self._max_workers:
-                self._asset_fingerprint = fingerprints.pop()
-                self._asset_revision = revisions.pop()
+                self._asset_fingerprint = fingerprint
+                self._asset_revision = revision
                 self._worker_pids = tuple(sorted(worker_pids))
                 logger.info("Tokenization workers started: pids=%s", self._worker_pids)
                 return

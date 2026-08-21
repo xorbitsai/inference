@@ -38,6 +38,8 @@ class FakeTokenizationService:
             "tokenizer.json",
             "encoding/encoding_dsv4.py",
         ),
+        expected_asset_fingerprint: str = "",
+        expected_asset_revision: str = "",
     ) -> None:
         self._reserve_tokens = reserve_tokens
         self._default_output_tokens = default_output_tokens
@@ -619,6 +621,41 @@ async def test_tools_request_rejected_when_asset_lacks_tools_capability(
 
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "tools_not_allowed"
+
+
+@pytest.mark.asyncio
+async def test_thinking_request_is_rejected_before_tokenization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    config = replace(
+        make_config(tmp_path),
+        tokenizer_asset_capabilities=("chat", "tools"),
+    )
+    app = create_app(config)
+    tokenization = app.state.runtime.current.tokenization
+    estimate = AsyncMock(side_effect=AssertionError("tokenizer should not run"))
+    monkeypatch.setattr(tokenization, "estimate", estimate)
+
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://router"
+        ) as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                headers={"authorization": "Bearer secret"},
+                json={
+                    "model": "router-model",
+                    "messages": [{"role": "user", "content": "hello"}],
+                    "chat_template_kwargs": json.dumps({"enable_thinking": True}),
+                    "max_tokens": 8,
+                },
+            )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["type"] == "thinking_not_allowed"
+    estimate.assert_not_awaited()
 
 
 @pytest.mark.asyncio
