@@ -13,7 +13,8 @@ def _write_config(model_dir, config):
     (model_dir / "config.json").write_text(json.dumps(config))
 
 
-def test_auto_register_huggingface_cache_root(tmp_path):
+@pytest.mark.parametrize("ref_name", ["main", "master"])
+def test_auto_register_huggingface_cache_root(tmp_path, ref_name):
     cache_root = tmp_path / "models--deepseek-ai--DeepSeek-R1-Distill-Qwen-7B"
     revision = "916b56a44061fd5cd7d6a8fb632557ed4f724f60"
     snapshot_dir = cache_root / "snapshots" / revision
@@ -29,7 +30,7 @@ def test_auto_register_huggingface_cache_root(tmp_path):
         },
     )
     (cache_root / "refs").mkdir()
-    (cache_root / "refs" / "main").write_text(revision)
+    (cache_root / "refs" / ref_name).write_text(revision)
 
     result = build_llm_registration_from_local_config(
         str(cache_root), "deepseek-r1-distill-qwen"
@@ -64,6 +65,29 @@ def test_auto_register_uses_cache_name_before_architecture_estimate(tmp_path):
 
     assert result["context_length"] == 4096
     assert result["model_specs"][0]["model_size_in_billions"] == "0_8"
+
+
+def test_auto_register_infers_size_from_snapshot_parent(tmp_path):
+    snapshot_dir = (
+        tmp_path
+        / "models--deepseek-ai--DeepSeek-R1-Distill-Qwen-7B"
+        / "snapshots"
+        / "916b56a44061fd5cd7d6a8fb632557ed4f724f60"
+    )
+    _write_config(
+        snapshot_dir,
+        {
+            "hidden_size": 3584,
+            "num_hidden_layers": 28,
+            "max_position_embeddings": 131072,
+        },
+    )
+
+    result = build_llm_registration_from_local_config(
+        str(snapshot_dir), "deepseek-r1-distill-qwen"
+    )
+
+    assert result["model_specs"][0]["model_size_in_billions"] == "7"
 
 
 def test_huggingface_cache_root_requires_unambiguous_snapshot(tmp_path):

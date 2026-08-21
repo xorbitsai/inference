@@ -12,14 +12,15 @@ def _resolve_huggingface_snapshot(model_dir: str) -> Optional[str]:
     if not os.path.isdir(snapshots_dir):
         return None
 
-    main_ref = os.path.join(model_dir, "refs", "main")
-    if os.path.isfile(main_ref):
-        with open(main_ref, "r") as file:
-            revision = file.read().strip()
-        if revision:
-            main_snapshot = os.path.join(snapshots_dir, revision)
-            if os.path.isfile(os.path.join(main_snapshot, "config.json")):
-                return main_snapshot
+    for ref_name in ("main", "master"):
+        ref_path = os.path.join(model_dir, "refs", ref_name)
+        if os.path.isfile(ref_path):
+            with open(ref_path, "r", encoding="utf-8") as file:
+                revision = file.read().strip()
+            if revision:
+                snapshot = os.path.join(snapshots_dir, revision)
+                if os.path.isfile(os.path.join(snapshot, "config.json")):
+                    return snapshot
 
     candidates = sorted(
         os.path.join(snapshots_dir, revision)
@@ -256,17 +257,25 @@ def _infer_model_size_in_billions(
 
 
 def _infer_model_size_from_path(model_path: str) -> Optional[Union[int, str]]:
-    """Infer model size from names such as 0.8B, 0_8b, or 7B."""
-    basename = os.path.basename(os.path.normpath(model_path)).lower()
-    matches = re.findall(r"(?<![a-z0-9])(\d+(?:[._]+\d+)?)b(?=$|[^a-z0-9])", basename)
-    if not matches:
-        return None
-
-    size_text = re.sub(r"[._]+", ".", matches[-1])
-    size_in_billions = _extract_numeric_size(size_text)
-    if not size_in_billions:
-        return None
-    return _format_size_in_billions(size_in_billions)
+    """Infer model size from nearby path components such as 0_8b or 7B."""
+    path = os.path.abspath(model_path)
+    for _ in range(4):
+        basename = os.path.basename(path).lower()
+        if not basename:
+            break
+        if basename not in {"snapshots", "refs"} and not re.fullmatch(
+            r"[0-9a-f]{40}|[0-9a-f]{64}", basename
+        ):
+            matches = re.findall(
+                r"(?<![a-z0-9])(\d+(?:[._]+\d+)?)b(?=$|[^a-z0-9])", basename
+            )
+            if matches:
+                size_text = re.sub(r"[._]+", ".", matches[-1])
+                size_in_billions = _extract_numeric_size(size_text)
+                if size_in_billions:
+                    return _format_size_in_billions(size_in_billions)
+        path = os.path.dirname(path)
+    return None
 
 
 def _infer_quantization(config: Dict[str, Any], model_format: str) -> str:
