@@ -158,8 +158,8 @@ class MLXDiffusionModel(SDAPIDiffusionModelMixin):
         if seeds is not None:
             data = []
             created = 0
-            for seed in seeds:
-                per_image_kwargs = {**kwargs, "seed": seed}
+            for image_seed in seeds:
+                per_image_kwargs = {**kwargs, "seed": image_seed}
                 result = self.text_to_image(
                     prompt,
                     n=1,
