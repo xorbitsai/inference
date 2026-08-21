@@ -195,13 +195,21 @@ def make_supervisor(tmp_path):
 
 
 class FakeAPI:
-    def __init__(self, supervisor, *, authenticated: bool, auth_service) -> None:
+    def __init__(
+        self,
+        supervisor,
+        *,
+        authenticated: bool,
+        auth_service,
+        host: str = "127.0.0.1",
+        port: int = 9997,
+    ) -> None:
         self._router = APIRouter()
         self._supervisor = supervisor
         self._authenticated = authenticated
         self._auth_service = auth_service
-        self._host = "127.0.0.1"
-        self._port = 9997
+        self._host = host
+        self._port = port
 
     def is_authenticated(self) -> bool:
         return self._authenticated
@@ -214,11 +222,20 @@ async def unused_auth():
     return {"username": "anonymous"}
 
 
-def create_app(supervisor, *, authenticated: bool = False, auth_service=unused_auth):
+def create_app(
+    supervisor,
+    *,
+    authenticated: bool = False,
+    auth_service=unused_auth,
+    host: str = "127.0.0.1",
+    port: int = 9997,
+):
     api = FakeAPI(
         supervisor,
         authenticated=authenticated,
         auth_service=auth_service,
+        host=host,
+        port=port,
     )
     register_routes(api)  # type: ignore[arg-type]
     app = FastAPI()
@@ -761,8 +778,11 @@ async def test_backend_candidates_apply_profile_and_engine_filters(
 
 
 @pytest.mark.asyncio
-async def test_token_router_defaults_returns_current_rest_endpoint(tmp_path) -> None:
-    app = create_app(make_supervisor(tmp_path))
+@pytest.mark.parametrize("host", ["127.0.0.1", "0.0.0.0", "::1", "::", "localhost"])
+async def test_token_router_defaults_rejects_non_routable_bind_address(
+    tmp_path, host
+) -> None:
+    app = create_app(make_supervisor(tmp_path), host=host)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.get("/v1/token_routers/defaults")
@@ -772,10 +792,30 @@ async def test_token_router_defaults_returns_current_rest_endpoint(tmp_path) -> 
         "backend": {
             "mode": "current_supervisor",
             "display_name": "Current Supervisor",
-            "backend_url": "http://127.0.0.1:9997",
-            "source": "rest_endpoint",
-            "available": True,
+            "backend_url": None,
+            "source": "unavailable",
+            "available": False,
+            "error": (
+                "REST API bind address is not reachable by a separate Token Router"
+            ),
         }
+    }
+
+
+@pytest.mark.asyncio
+async def test_token_router_defaults_returns_routable_rest_endpoint(tmp_path) -> None:
+    app = create_app(make_supervisor(tmp_path), host="xinference-supervisor")
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/v1/token_routers/defaults")
+
+    assert response.status_code == 200
+    assert response.json()["backend"] == {
+        "mode": "current_supervisor",
+        "display_name": "Current Supervisor",
+        "backend_url": "http://xinference-supervisor:9997",
+        "source": "rest_endpoint",
+        "available": True,
     }
 
 

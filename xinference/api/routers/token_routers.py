@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hmac
 import os
+from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from fastapi import Depends, Header, HTTPException, Query, Request, Security
@@ -27,6 +28,19 @@ if TYPE_CHECKING:
 
 def _username(user: Optional[dict]) -> str:
     return user.get("username", "") if user else ""
+
+
+def _is_non_routable_bind_host(host: str) -> bool:
+    normalized = host.strip().strip("[]").casefold()
+    if normalized in {"localhost", "*"}:
+        return True
+    try:
+        address = ip_address(normalized)
+    except ValueError:
+        # A hostname may identify an address reachable by the Token Router;
+        # only reject addresses that are unambiguously local or wildcard.
+        return False
+    return address.is_loopback or address.is_unspecified
 
 
 def _internal_authorized(authorization: str) -> bool:
@@ -81,7 +95,12 @@ async def get_backend_defaults(api: "RESTfulAPI") -> JSONResponse:
         "source": "unavailable",
         "available": False,
     }
-    if host and isinstance(port, int) and 0 < port <= 65535:
+    if (
+        host
+        and isinstance(port, int)
+        and 0 < port <= 65535
+        and not _is_non_routable_bind_host(host)
+    ):
         # Bracket IPv6 literals so the generated URL remains valid.
         if ":" in host and not (host.startswith("[") and host.endswith("]")):
             host = f"[{host}]"
@@ -89,6 +108,10 @@ async def get_backend_defaults(api: "RESTfulAPI") -> JSONResponse:
             backend_url=f"http://{host}:{port}",
             source="rest_endpoint",
             available=True,
+        )
+    elif host and _is_non_routable_bind_host(host):
+        backend["error"] = (
+            "REST API bind address is not reachable by a separate Token Router"
         )
     else:
         backend["error"] = "REST API host and port are unavailable"
