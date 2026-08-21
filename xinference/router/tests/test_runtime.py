@@ -159,7 +159,7 @@ async def test_cancelled_apply_while_closing_old_snapshot_finishes_cleanup(
 
     assert old_snapshot.closed is False
     assert old_client.closed is False
-    assert old_snapshot.tokenization.closed is False
+    assert cast(FakeTokenization, old_snapshot.tokenization).closed is False
     assert len(runtime._drain_tasks) == 1
 
     old_client.allow_close.set()
@@ -167,7 +167,7 @@ async def test_cancelled_apply_while_closing_old_snapshot_finishes_cleanup(
 
     assert old_snapshot.closed is True
     assert old_client.closed is True
-    assert old_snapshot.tokenization.closed is True
+    assert cast(FakeTokenization, old_snapshot.tokenization).closed is True
     assert not runtime._drain_tasks
 
 
