@@ -117,6 +117,7 @@ Text to audio (TTS)
 Music generation
 ~~~~~~~~~~~~~~~~
 
+* :ref:`ACE-Step1.5 <models_builtin_ace-step1.5>`
 * :ref:`MiniMax-Music3 <models_builtin_minimax-music3>` (NVIDIA CUDA only)
 
 Speaker embeddings
@@ -363,6 +364,73 @@ Speech API use non-stream by default as
   .. code-tab:: output
 
     The output will be an audio binary.
+
+
+.. _ace_step1_5_speech:
+
+ACE-Step1.5 Usage
+~~~~~~~~~~~~~~~~~
+
+``ACE-Step1.5`` reuses the Speech endpoint for text-to-music generation. Put
+lyrics in ``input`` and the required music description in ``instruct`` inside
+the existing ``kwargs`` field. Use ``[Instrumental]`` as the lyrics when
+generating an instrumental track.
+
+``duration`` defaults to 60 seconds. It accepts ``-1`` for model-selected
+duration or a value from 10 through 600 seconds. ``seed=-1`` selects a random
+seed; non-negative integers provide reproducible generation. Supported output
+formats are ``aac``, ``flac``, ``mp3``, ``opus``, ``wav``, and ``wav32``.
+Generation is non-streaming, ``speed`` must be ``1.0``, and ``voice`` must be
+``default``, an empty string, or null.
+
+The default launch runs DiT-only inference, so ``thinking`` is false. Launch
+with ``--lm_model_path acestep-5Hz-lm-1.7B`` to enable ``thinking=true`` and
+the related ``use_cot_*`` options. Other ACE-Step controls, including ``bpm``,
+``keyscale``, ``timesignature``, ``inference_steps``, ``guidance_scale``,
+``shift``, ``infer_method``, and ``timesteps``, can be supplied through the
+same ``kwargs`` channel.
+
+When the LM is loaded, ``thinking=false`` disables audio-code reasoning by
+default. An explicitly enabled ``use_cot_caption``, ``use_cot_language``, or
+``use_cot_metas`` still uses the LM for that planning step. MP3, AAC, and Opus
+output require a working FFmpeg installation.
+
+Raw REST requests encode ``kwargs`` as a JSON string. The Xinference sync and
+async clients accept these names through their existing ``**kwargs`` argument.
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl 'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/audio/speech' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "input": "[Verse]\nMorning light across the city\n[Chorus]\nSing it back to me",
+        "voice": "default",
+        "response_format": "wav",
+        "speed": 1.0,
+        "stream": false,
+        "kwargs": "{\"instruct\": \"Warm acoustic pop with intimate vocals\", \"seed\": 7, \"duration\": 60}"
+      }' \
+      --output ace-step.wav
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    wav = model.speech(
+        input="[Verse]\nMorning light\n[Chorus]\nSing again",
+        instruct="Warm acoustic pop with intimate vocals",
+        voice="default",
+        response_format="wav",
+        seed=7,
+        duration=60,
+    )
+    with open("ace-step.wav", "wb") as output:
+        output.write(wav)
 
 
 .. _minimax_music3_speech:

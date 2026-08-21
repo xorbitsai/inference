@@ -2677,5 +2677,74 @@
     },
     "updated_at": 1786646013,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "ACE-Step1.5",
+    "model_family": "ace_step_1_5",
+    "model_description": "ACE-Step 1.5 generates complete songs from lyrics and a music description. The default integration uses the bundled turbo DiT model and supports optional 5Hz LM reasoning.",
+    "model_ability": [
+      "text2music"
+    ],
+    "multilingual": true,
+    "default_model_config": {
+      "config_path": "acestep-v15-turbo",
+      "use_flash_attention": false,
+      "compile_model": false,
+      "offload_to_cpu": false,
+      "offload_dit_to_cpu": false,
+      "quantization": null,
+      "use_mlx_dit": true,
+      "vae_checkpoint": "official",
+      "lm_model_path": null,
+      "lm_backend": "pt",
+      "lm_offload_to_cpu": false
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/ace-step/ACE-Step-1.5.git@14c0211d5a0653b0f63e27686f4c3f151b4d8629",
+        "nano-vllm @ git+https://github.com/ace-step/ACE-Step-1.5.git@14c0211d5a0653b0f63e27686f4c3f151b4d8629#subdirectory=acestep/third_parts/nano-vllm ; sys_platform != 'darwin' or platform_machine != 'arm64'",
+        "transformers>=4.51.0,<4.58.0",
+        "diffusers>=0.37.0,<0.40.0",
+        "accelerate>=1.12.0",
+        "huggingface-hub>=0.34.0,<1.0",
+        "tokenizers>=0.21.0,<0.23.0",
+        "safetensors>=0.5.0",
+        "soundfile>=0.13.1",
+        "loguru>=0.7.3",
+        "einops>=0.8.1",
+        "einx>=0.3.0",
+        "frozendict",
+        "scipy>=1.10.1",
+        "vector-quantize-pytorch==1.27.15",
+        "pytorch-wavelets>=1.3.0",
+        "pywavelets>=1.9.0",
+        "pyyaml",
+        "toml",
+        "tqdm",
+        "xxhash",
+        "setuptools<72",
+        "torchcodec>=0.9.1 ; platform_machine != 'aarch64'",
+        "torchao>=0.16.0,<0.17.0 ; platform_machine != 'aarch64'",
+        "torchao ; platform_machine == 'aarch64'",
+        "mlx>=0.25.2 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+        "mlx-lm>=0.20.0 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "ACE-Step/Ace-Step1.5",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "ACE-Step/Ace-Step1.5",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787333415,
+    "featured": true
   }
 ]
