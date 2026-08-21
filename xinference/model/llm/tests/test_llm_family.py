@@ -1601,3 +1601,53 @@ def test_qwen3_8_max_requires_vllm_027_without_virtualenv(monkeypatch):
 
     monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: True)
     assert vllm_core.VLLMChatModel.match_json(family, spec, spec.quantization) is True
+
+
+def test_ornith_15_builtin_family_matches_modelscope_qwen3_5_moe():
+    from ....core.model import XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..transformers.multimodal.qwen2_vl import Qwen2VLChatModel
+
+    families = {family.model_name: family for family in BUILTIN_LLM_FAMILIES}
+    family = families["Ornith-1.5-35B-A3B"]
+
+    assert family.context_length == 262144
+    assert family.architectures == ["Qwen3_5MoeForConditionalGeneration"]
+    assert family.model_ability == [
+        "chat",
+        "vision",
+        "tools",
+        "reasoning",
+        "hybrid",
+    ]
+
+    spec = family.model_specs[0]
+    assert spec.model_format == "pytorch"
+    assert spec.model_size_in_billions == 35
+    assert spec.activated_size_in_billions == 3
+    assert spec.model_hub == "modelscope"
+    assert spec.model_id == "ornith-ai/Ornith-1.5-35B-A3B"
+    assert spec.quantization == "none"
+
+    modelscope_family = match_llm(
+        "Ornith-1.5-35B-A3B",
+        model_format="pytorch",
+        model_size_in_billions=35,
+        quantization="none",
+        download_hub="modelscope",
+    )
+    assert modelscope_family is not None
+    assert modelscope_family.model_specs[0].model_hub == "modelscope"
+    assert modelscope_family.model_specs[0].model_id == spec.model_id
+
+    assert Qwen2VLChatModel.match_json(family, spec, spec.quantization) is True
+    assert "Ornith-1.5-35B-A3B" in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+    assert (
+        'transformers>=5.8.1 ; #engine# == "Transformers"' in family.virtualenv.packages
+    )
+    assert (
+        'qwen-vl-utils!=0.0.9 ; #engine# == "Transformers"'
+        in family.virtualenv.packages
+    )
+    assert 'sglang>=0.5.9 ; #engine# == "sglang"' in family.virtualenv.packages
+    assert 'vllm==0.21.0 ; #engine# == "vllm"' in family.virtualenv.packages
