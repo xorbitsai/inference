@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { FileUpload } from '@/components/ui/file-upload';
@@ -121,15 +121,32 @@ function ImageGenerationFields({
     form.setFieldValue('seed', formatImageSeeds(generateRandomImageSeeds(imageCount)));
   };
 
+  const swapDimensions = () => {
+    const width = form.getFieldValue('width');
+    const height = form.getFieldValue('height');
+    form.setFieldsValue({ width: height, height: width });
+  };
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2">
         <FormField name="width" label="Width" normalize={normalizeNumberInput}>
           <Input type="number" />
         </FormField>
+        <Button
+          aria-label="Swap width and height"
+          title="Swap width and height"
+          variant="outline"
+          size="icon"
+          onClick={swapDimensions}
+        >
+          <ArrowLeftRight />
+        </Button>
         <FormField name="height" label="Height" normalize={normalizeNumberInput}>
           <Input type="number" />
         </FormField>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <FormField name="n" label="Number of Images" normalize={normalizeNumberInput}>
           <Input type="number" min={1} max={10} />
         </FormField>
@@ -198,32 +215,51 @@ function ImageGenerationFields({
 }
 
 function VideoFields({ form }: Pick<CapabilityFormProps, 'form'>) {
+  const swapDimensions = () => {
+    const width = form.getFieldValue('width');
+    const height = form.getFieldValue('height');
+    form.setFieldsValue({ width: height, height: width });
+  };
+
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormField name="width" label="Width" normalize={normalizeNumberInput}>
-        <Input type="number" />
-      </FormField>
-      <FormField name="height" label="Height" normalize={normalizeNumberInput}>
-        <Input type="number" />
-      </FormField>
-      <FormField name="num_frames" label="Frames" normalize={normalizeNumberInput}>
-        <Input type="number" />
-      </FormField>
-      <FormField name="fps" label="FPS" normalize={normalizeNumberInput}>
-        <Input type="number" />
-      </FormField>
-      <FormField
-        name="num_inference_steps"
-        label="Inference Steps"
-        normalize={normalizeNumberInput}
-      >
-        <Input type="number" />
-      </FormField>
-      <FormField name="guidance_scale" label="Guidance Scale" normalize={normalizeNumberInput}>
-        <Input type="number" min={1} max={20} step={0.1} />
-      </FormField>
-      <ScalarSeedField form={form} />
-    </div>
+    <>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-end gap-2">
+        <FormField name="width" label="Width" normalize={normalizeNumberInput}>
+          <Input type="number" />
+        </FormField>
+        <Button
+          aria-label="Swap width and height"
+          title="Swap width and height"
+          variant="outline"
+          size="icon"
+          onClick={swapDimensions}
+        >
+          <ArrowLeftRight />
+        </Button>
+        <FormField name="height" label="Height" normalize={normalizeNumberInput}>
+          <Input type="number" />
+        </FormField>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <FormField name="num_frames" label="Frames" normalize={normalizeNumberInput}>
+          <Input type="number" />
+        </FormField>
+        <FormField name="fps" label="FPS" normalize={normalizeNumberInput}>
+          <Input type="number" />
+        </FormField>
+        <FormField
+          name="num_inference_steps"
+          label="Inference Steps"
+          normalize={normalizeNumberInput}
+        >
+          <Input type="number" />
+        </FormField>
+        <FormField name="guidance_scale" label="Guidance Scale" normalize={normalizeNumberInput}>
+          <Input type="number" min={1} max={20} step={0.1} />
+        </FormField>
+        <ScalarSeedField form={form} />
+      </div>
+    </>
   );
 }
 
