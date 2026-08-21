@@ -17,7 +17,7 @@ import logging
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
-from ..utils import set_all_random_seed
+from ..utils import resolve_media_seed, set_all_random_seed
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -80,9 +80,9 @@ class ChatTTSModel:
         import numpy as np
         import torch
 
-        from .utils import apply_audio_seed, audio_stream_generator, audio_to_bytes
+        from .utils import audio_stream_generator, audio_to_bytes
 
-        requested_seed = apply_audio_seed(kwargs)
+        requested_seed = resolve_media_seed(kwargs.pop("seed", None))
         rnd_spk_emb = None
 
         if len(voice) > 400:
@@ -97,15 +97,18 @@ class ChatTTSModel:
                 logger.info("Fallback to random speaker due to %s", e)
 
         if rnd_spk_emb is None:
-            seed = requested_seed if requested_seed is not None else _voice_seed(voice)
+            speaker_seed = _voice_seed(voice)
 
-            set_all_random_seed(seed)
+            set_all_random_seed(speaker_seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
 
             assert self._model is not None
             rnd_spk_emb = self._model.sample_random_speaker()
             logger.info("Speech by voice %s", voice)
+
+        if requested_seed is not None:
+            set_all_random_seed(requested_seed)
 
         default = 5
         infer_speed = int(default * speed)
