@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from argparse import Namespace
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from xinference.router import logging_config as logging_module
 from xinference.router import service as service_module
 
 
@@ -131,6 +133,8 @@ async def test_serve_uses_one_event_loop_for_control_plane_and_uvicorn(
                 "host": "127.0.0.1",
                 "port": 10081,
                 "log_level": "info",
+                "log_config": logging_conf,
+                "access_log": False,
                 "proxy_headers": True,
             }
 
@@ -151,7 +155,12 @@ async def test_serve_uses_one_event_loop_for_control_plane_and_uvicorn(
     monkeypatch.setattr(service_module.uvicorn, "Config", FakeUvicornConfig)
     monkeypatch.setattr(service_module.uvicorn, "Server", FakeUvicornServer)
 
-    await service_module._serve(make_args())
+    logging_conf = {"formatters": {"router": {"address": "127.0.0.1:10080"}}}
+    monkeypatch.setattr(
+        service_module, "update_router_logging_address", lambda conf, host, port: conf
+    )
+
+    await service_module._serve(make_args(), logging_conf)
 
     client = FakeControlPlaneClient.instances[0]
     assert app.state.control_plane is client
@@ -180,8 +189,111 @@ async def test_serve_closes_control_plane_if_app_bootstrap_fails(
 
     monkeypatch.setattr(service_module, "create_app", fail_create_app)
 
+    logging_conf = {"formatters": {"router": {"address": "127.0.0.1:10080"}}}
+    monkeypatch.setattr(
+        service_module, "update_router_logging_address", lambda conf, host, port: conf
+    )
+
     with pytest.raises(RuntimeError, match="app bootstrap failed"):
-        await service_module._serve(make_args())
+        await service_module._serve(make_args(), logging_conf)
 
     assert len(FakeControlPlaneClient.instances) == 1
     assert FakeControlPlaneClient.instances[0].closed is True
+
+
+def test_configure_router_logging_uses_xinference_standard_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: dict[str, Any] = {}
+    logging_conf = {"formatters": {"json_formatter": {"role": "router", "address": ""}}}
+
+    monkeypatch.setattr(logging_module, "get_log_file", lambda role: "/tmp/router.log")
+
+    def fake_get_config_dict(*args: Any, **kwargs: Any) -> dict:
+        calls["args"] = args
+        calls["kwargs"] = kwargs
+        return logging_conf
+
+    monkeypatch.setattr(logging_module, "get_config_dict", fake_get_config_dict)
+    monkeypatch.setattr(
+        logging_module.logging.config,
+        "dictConfig",
+        lambda config: calls.setdefault("configured", config),
+    )
+
+    httpx_logger = logging.getLogger("httpx")
+    httpcore_logger = logging.getLogger("httpcore")
+    original_levels = (httpx_logger.level, httpcore_logger.level)
+    try:
+        httpx_logger.setLevel(logging.NOTSET)
+        httpcore_logger.setLevel(logging.NOTSET)
+
+        result = logging_module.configure_router_logging(
+            "invalid-level", "127.0.0.1", 10080
+        )
+
+        assert result is logging_conf
+        assert calls["args"][:2] == ("INFO", "/tmp/router.log")
+        assert calls["kwargs"]["role"] == "router"
+        assert calls["kwargs"]["address"] == "127.0.0.1:10080"
+        assert calls["configured"] is logging_conf
+        assert httpx_logger.level == logging.WARNING
+        assert httpcore_logger.level == logging.WARNING
+    finally:
+        httpx_logger.setLevel(original_levels[0])
+        httpcore_logger.setLevel(original_levels[1])
+
+
+def test_router_access_log_defaults_off_and_accepts_true(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_ACCESS_LOG", raising=False)
+    assert logging_module.router_access_log_enabled() is False
+
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_ACCESS_LOG", " TRUE ")
+    assert logging_module.router_access_log_enabled() is True
+
+
+def test_update_router_logging_address_updates_reusable_and_live_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    updated: list[tuple[str, str]] = []
+    logging_conf = {
+        "formatters": {
+            "json_formatter": {"role": "router", "address": "old:10080"},
+            "foreign": {"format": "%(message)s"},
+        }
+    }
+    monkeypatch.setattr(
+        logging_module,
+        "update_all_formatter_addresses",
+        lambda role, address: updated.append((role, address)),
+    )
+
+    result = logging_module.update_router_logging_address(
+        logging_conf, "0.0.0.0", 10081
+    )
+
+    assert result is logging_conf
+    assert logging_conf["formatters"]["json_formatter"]["address"] == ("0.0.0.0:10081")
+    assert updated == [("router", "0.0.0.0:10081")]
+
+
+def test_sanitize_log_url_removes_credentials_query_and_fragment() -> None:
+    assert (
+        logging_module.sanitize_log_url(
+            "https://user:secret@example.com:9997/root?token=secret#fragment"
+        )
+        == "https://example.com:9997/root"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "user:secret@example.com/path?token=secret",
+        "not a url?token=secret",
+    ],
+)
+def test_sanitize_log_url_rejects_malformed_values(value: str) -> None:
+    assert logging_module.sanitize_log_url(value) == "<invalid-url>"

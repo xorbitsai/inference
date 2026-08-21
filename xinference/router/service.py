@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import logging
 import os
 from typing import Optional
 
@@ -14,6 +13,12 @@ import uvicorn
 from .app import create_app
 from .config import config_from_control_plane, load_config
 from .control_plane import RouterControlPlaneClient
+from .logging_config import (
+    configure_router_logging,
+    normalize_log_level,
+    router_access_log_enabled,
+    update_router_logging_address,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -34,6 +39,17 @@ async def _load_control_plane_config(args: argparse.Namespace):
         "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", ""
     )
     endpoint = args.public_endpoint or f"http://{args.host}:{args.port}"
+    assignment_id = os.getenv("XINFERENCE_TOKEN_ROUTER_ASSIGNMENT_ID") or None
+    generation_value = os.getenv("XINFERENCE_TOKEN_ROUTER_ASSIGNMENT_GENERATION")
+    assignment_generation = int(generation_value) if generation_value else None
+    node_id = os.getenv("XINFERENCE_TOKEN_ROUTER_NODE_ID") or None
+    assignment_fields = (assignment_id, assignment_generation, node_id)
+    if any(value is not None for value in assignment_fields) and not all(
+        value is not None for value in assignment_fields
+    ):
+        raise RuntimeError(
+            "Managed Router Runtime requires assignment ID, generation, and node ID"
+        )
     client = RouterControlPlaneClient(
         args.supervisor_url,
         args.router_uid,
@@ -42,6 +58,9 @@ async def _load_control_plane_config(args: argparse.Namespace):
         listen_host=args.host,
         listen_port=args.port,
         log_level=args.log_level,
+        assignment_id=assignment_id,
+        assignment_generation=assignment_generation,
+        node_id=node_id,
     )
     try:
         data = await client.get_config()
@@ -62,7 +81,7 @@ async def _load_control_plane_config(args: argparse.Namespace):
         raise
 
 
-async def _serve(args: argparse.Namespace) -> None:
+async def _serve(args: argparse.Namespace, logging_conf: dict) -> None:
     control_plane = None
     if args.supervisor_url or args.router_uid:
         if not (args.supervisor_url and args.router_uid):
@@ -72,13 +91,18 @@ async def _serve(args: argparse.Namespace) -> None:
         config = load_config(args.config)
 
     try:
+        logging_conf = update_router_logging_address(
+            logging_conf, config.listen_host, config.listen_port
+        )
         app = create_app(config)
         app.state.control_plane = control_plane
         uvicorn_config = uvicorn.Config(
             app,
             host=config.listen_host,
             port=config.listen_port,
-            log_level=config.log_level.lower(),
+            log_level=normalize_log_level(config.log_level).lower(),
+            log_config=logging_conf,
+            access_log=router_access_log_enabled(),
             proxy_headers=True,
         )
         server = uvicorn.Server(uvicorn_config)
@@ -97,8 +121,5 @@ async def _serve(args: argparse.Namespace) -> None:
 
 def main(argv: Optional[list[str]] = None) -> None:
     args = build_parser().parse_args(argv)
-    logging.basicConfig(
-        level=getattr(logging, args.log_level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-    asyncio.run(_serve(args))
+    logging_conf = configure_router_logging(args.log_level, args.host, args.port)
+    asyncio.run(_serve(args, logging_conf))

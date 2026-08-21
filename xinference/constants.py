@@ -15,6 +15,22 @@
 import os
 from pathlib import Path
 
+
+def parse_env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable without accepting ambiguous values."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(
+        f"{name} must be one of true/false, 1/0, yes/no, or on/off; got {raw!r}"
+    )
+
+
 XINFERENCE_ENV_ENDPOINT = "XINFERENCE_ENDPOINT"
 XINFERENCE_ENV_MODEL_SRC = "XINFERENCE_MODEL_SRC"
 XINFERENCE_ENV_CSG_TOKEN = "XINFERENCE_CSG_TOKEN"
@@ -227,9 +243,9 @@ XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "monitor_config.db"),
 )
 
-XINFERENCE_TOKEN_ROUTER_ENABLED = os.environ.get(
-    "XINFERENCE_TOKEN_ROUTER_ENABLED", "false"
-).lower() in {"1", "true", "yes", "on"}
+XINFERENCE_TOKEN_ROUTER_ENABLED = parse_env_bool(
+    "XINFERENCE_TOKEN_ROUTER_ENABLED", True
+)
 
 XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
     "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""
@@ -241,6 +257,18 @@ XINFERENCE_TOKEN_ROUTER_DB_PATH = os.environ.get(
 )
 XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS = float(
     os.environ.get("XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS", "90")
+)
+XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS = float(
+    os.environ.get("XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS", "30")
+)
+XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS = float(
+    os.environ.get("XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS", "45")
+)
+XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS = float(
+    os.environ.get("XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS", "5")
+)
+XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS = float(
+    os.environ.get("XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS", "300")
 )
 XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
     "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""

@@ -38,3 +38,28 @@ def test_runtime_registry_rejects_stale_ack():
         assert "Stale Token Router ACK" in str(exc)
     else:
         raise AssertionError("stale ACK was accepted")
+
+
+def test_runtime_registry_purges_instances_after_retention(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr("xinference.core.router_registry.time.time", lambda: now[0])
+    registry = RouterRuntimeRegistry(
+        heartbeat_timeout_seconds=10, stale_retention_seconds=30
+    )
+    registry.register("router-a", "instance-a", {"endpoint": "x"})
+
+    now[0] = 111.0
+    assert registry.list()[0]["online"] is False
+
+    now[0] = 131.0
+    assert registry.list() == []
+    assert registry.get("instance-a") is None
+
+
+def test_runtime_registry_rejects_invalid_retention():
+    try:
+        RouterRuntimeRegistry(heartbeat_timeout_seconds=30, stale_retention_seconds=29)
+    except ValueError as exc:
+        assert "stale_retention_seconds" in str(exc)
+    else:
+        raise AssertionError("invalid stale retention was accepted")

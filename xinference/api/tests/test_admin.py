@@ -133,11 +133,15 @@ async def test_get_cluster_device_info_returns_data(mock_api, mock_supervisor):
         "devices": ["gpu-0"],
         "workers": [{"ip": "127.0.0.1"}],
     }
-    response = await admin.get_cluster_device_info(api=mock_api, detailed=True)
+    response = await admin.get_cluster_device_info(
+        api=mock_api, detailed=True, include_routers=True
+    )
     assert response.status_code == 200
     data = _json_body(response)
     assert data["devices"] == ["gpu-0"]
-    mock_supervisor.get_cluster_device_info.assert_called_once_with(detailed=True)
+    mock_supervisor.get_cluster_device_info.assert_called_once_with(
+        detailed=True, include_routers=True
+    )
 
 
 @pytest.mark.asyncio

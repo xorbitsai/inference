@@ -72,3 +72,42 @@ An example of the log directory structure is shown below::
             └── xinference.log
             worker_1699503559105
             └── xinference.log
+
+
+Token Router logging
+####################
+
+The independent ``xinference-router`` service uses the same Xinference file
+formatters and rotation handlers as the Supervisor and Worker processes. A
+production systemd deployment can use the following non-sensitive settings in
+``/etc/xinference/router.env``:
+
+.. code-block:: ini
+
+  XINFERENCE_TOKEN_ROUTER_LOG_LEVEL=INFO
+  XINFERENCE_TOKEN_ROUTER_ACCESS_LOG=false
+  XINFERENCE_LOG_FORMAT=json
+  XINFERENCE_LOG_CONSOLE=false
+  XINFERENCE_LOG_DIR=/data/inference/logs/router
+  XINFERENCE_LOG_ROTATION=daily+size
+  XINFERENCE_LOG_RETENTION_DAYS=30
+  XINFERENCE_LOG_MAX_BYTES=104857600
+  XINFERENCE_LOG_BACKUP_COUNT=300
+
+With these settings, Router application logs are written to
+``/data/inference/logs/router/xinference.log``. The directory must exist and be
+writable by the Router service account. Rotation is managed by Xinference; do
+not apply an additional ``logrotate``/``copytruncate`` rule to the same file.
+
+The Router emits structured lifecycle, configuration, routing decision,
+completion, rejection, and backend-error events. Routing events include both
+the requested virtual model and the selected physical backend model UID when
+available. Request bodies, prompt/message content, response bodies,
+Authorization headers, API keys, and control-plane tokens are not logged.
+
+Uvicorn access logs are disabled by default because they duplicate high-volume
+request information. Set ``XINFERENCE_TOKEN_ROUTER_ACCESS_LOG=true`` only when
+access-log diagnostics are required. Uvicorn error logs remain enabled and use
+the same Xinference logging configuration. In systemd deployments, journal
+output should remain enabled as a fallback for process lifecycle messages and
+failures that occur before application logging is initialized.

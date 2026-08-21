@@ -726,6 +726,46 @@ class AddressFormatter(logging.Formatter):
                 inst.address = address
 
 
+_XINFERENCE_BASE_LOG_FIELDS = frozenset(
+    {
+        "@timestamp",
+        "level",
+        "module",
+        "pid",
+        "role",
+        "address",
+        "node",
+        "message",
+        "exception",
+    }
+)
+
+
+def _get_xinference_fields(record: logging.LogRecord) -> dict:
+    """Return safe structured fields attached to a log record.
+
+    Callers may attach a mapping through ``extra={"xinference_fields": ...}``.
+    Invalid values are ignored so observability metadata can never break the
+    underlying application log call.  Core Xinference fields are protected
+    from being overwritten by application-specific metadata.
+    """
+
+    fields = getattr(record, "xinference_fields", None)
+    if not isinstance(fields, dict):
+        return {}
+
+    safe_fields = {}
+    for key, value in fields.items():
+        if not isinstance(key, str) or key in _XINFERENCE_BASE_LOG_FIELDS:
+            continue
+        try:
+            json.dumps(value, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        safe_fields[key] = value
+    return safe_fields
+
+
 class JsonFileFormatter(logging.Formatter):
     """JSON formatter for file output — one JSON object per line."""
 
@@ -756,6 +796,7 @@ class JsonFileFormatter(logging.Formatter):
         }
         if record.exc_info and record.exc_info[0] is not None:
             entry["exception"] = self.formatException(record.exc_info)
+        entry.update(_get_xinference_fields(record))
         return json.dumps(entry, ensure_ascii=False)
 
     @classmethod
@@ -788,6 +829,12 @@ class TextFileFormatter(logging.Formatter):
         )
         msg = record.getMessage()
         line = f"{ts} {record.levelname} {record.name} pid:{record.process} role:{self.role} address:{self.address} node:{self._hostname} {msg}"
+        fields = _get_xinference_fields(record)
+        if fields:
+            line += " " + " ".join(
+                f"{key}={json.dumps(value, ensure_ascii=False, separators=(',', ':'))}"
+                for key, value in fields.items()
+            )
         if record.exc_info and record.exc_info[0] is not None:
             line += "\n" + self.formatException(record.exc_info)
         return line

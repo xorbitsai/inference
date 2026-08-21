@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -12,11 +13,26 @@ from xinference.router.control_plane import (
     RouterControlPlaneClient,
     RouterInstanceNotFound,
 )
+from xinference.router.runtime import RouterRuntime
 
 
 class FakeMetrics:
     async def summary(self) -> dict[str, int]:
         return {"requests": 3}
+
+
+class FakeProcessMetrics:
+    started_at = 100.0
+
+    def collect(self) -> dict[str, Any]:
+        return {
+            "cpu_percent": 12.5,
+            "cpu_cores": 0.125,
+            "rss_bytes": 1024,
+            "started_at": 100.0,
+            "uptime_seconds": 20.0,
+            "sampled_at": 120.0,
+        }
 
 
 class FakeRuntime:
@@ -58,6 +74,7 @@ def make_client(*, revision: int = 1) -> RouterControlPlaneClient:
         instance_id="instance-1",
     )
     client.revision = revision
+    client._process_metrics = FakeProcessMetrics()
     return client
 
 
@@ -124,6 +141,34 @@ async def test_heartbeat_non_404_preserves_http_error(status_code: int) -> None:
 
 
 @pytest.mark.asyncio
+async def test_register_reports_protocol_software_and_runtime_metadata() -> None:
+    payloads: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(__import__("json").loads(request.content))
+        return httpx.Response(200, json={"ok": True})
+
+    client = make_client(revision=2)
+    await client.aclose()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    try:
+        await client.register()
+    finally:
+        await client.aclose()
+
+    payload = payloads[0]
+    assert payload["version"] == "1"
+    assert payload["protocol_version"] == "1"
+    assert payload["software_version"]
+    assert "software_revision" in payload
+    assert payload["acked_revision"] == 2
+    assert payload["metadata"]["hostname"]
+    assert payload["metadata"]["python_version"]
+    assert payload["metadata"]["platform"]
+    assert payload["metadata"]["started_at"] > 0
+
+
+@pytest.mark.asyncio
 async def test_register_404_preserves_http_error() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404, json={"detail": "router not found"})
@@ -139,11 +184,23 @@ async def test_register_404_preserves_http_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> None:
+async def test_run_applies_revision_then_acks_and_heartbeats(
+    monkeypatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="xinference.router.control_plane")
     client = make_client()
     runtime: Any = FakeRuntime()
     stop = asyncio.Event()
-    config = SimpleNamespace(revision=2)
+    config = SimpleNamespace(
+        revision=2,
+        logical_model="router-model",
+        route_profile="llm_chat",
+        enabled=True,
+        backends=(
+            SimpleNamespace(id="short", model_uid="short-model"),
+            SimpleNamespace(id="long", model_uid="long-model"),
+        ),
+    )
     acked: list[tuple[int, str]] = []
     heartbeats: list[dict[str, Any]] = []
 
@@ -183,6 +240,27 @@ async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> Non
     assert runtime.applied == [config]
     assert acked == [(2, "")]
     assert client.revision == 2
+    applied = [
+        record.xinference_fields
+        for record in caplog.records
+        if getattr(record, "xinference_fields", {}).get("event") == "config_applied"
+    ]
+    assert applied == [
+        {
+            "event": "config_applied",
+            "router_uid": "router-1",
+            "instance_id": "instance-1",
+            "listen_port": 10080,
+            "config_revision": 2,
+            "logical_model": "router-model",
+            "route_profile": "llm_chat",
+            "previous_revision": 1,
+            "revision": 2,
+            "outcome": "completed",
+            "enabled": True,
+            "backend_mapping": {"short": "short-model", "long": "long-model"},
+        }
+    ]
     assert heartbeats == [
         {
             "status": "ready",
@@ -191,6 +269,14 @@ async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> Non
                 "pid": __import__("os").getpid(),
                 "revision": 2,
                 "active_requests": 4,
+                "resources": {
+                    "cpu_percent": 12.5,
+                    "cpu_cores": 0.125,
+                    "rss_bytes": 1024,
+                    "started_at": 100.0,
+                    "uptime_seconds": 20.0,
+                    "sampled_at": 120.0,
+                },
                 "tokenization": {"active": 1, "waiting": 2},
                 "pools": {
                     "short": {"active": 3},
@@ -207,7 +293,9 @@ async def test_run_applies_revision_then_acks_and_heartbeats(monkeypatch) -> Non
 
 
 @pytest.mark.asyncio
-async def test_run_reports_apply_error_without_advancing_revision(monkeypatch) -> None:
+async def test_run_reports_apply_error_without_advancing_revision(
+    monkeypatch, caplog: pytest.LogCaptureFixture
+) -> None:
     client = make_client()
     runtime: Any = FakeRuntime(apply_error=RuntimeError("worker start failed"))
     stop = asyncio.Event()
@@ -241,6 +329,25 @@ async def test_run_reports_apply_error_without_advancing_revision(monkeypatch) -
     assert len(runtime.applied) == 1
     assert acked == [(2, "worker start failed")]
     assert client.revision == 1
+    failed = [
+        record.xinference_fields
+        for record in caplog.records
+        if getattr(record, "xinference_fields", {}).get("event")
+        == "config_apply_failed"
+    ]
+    assert failed == [
+        {
+            "event": "config_apply_failed",
+            "router_uid": "router-1",
+            "instance_id": "instance-1",
+            "listen_port": 10080,
+            "config_revision": 1,
+            "current_revision": 1,
+            "target_revision": 2,
+            "outcome": "config_apply_failed",
+        }
+    ]
+    assert "internal-secret" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -504,12 +611,35 @@ async def test_register_reports_initial_revision_zero() -> None:
     finally:
         await client.aclose()
 
-    assert payloads == [
-        {
-            "router_uid": "router-1",
-            "instance_id": "instance-1",
-            "endpoint": "http://router:10080",
-            "version": "1",
-            "acked_revision": 0,
-        }
-    ]
+    assert len(payloads) == 1
+    assert payloads[0]["router_uid"] == "router-1"
+    assert payloads[0]["instance_id"] == "instance-1"
+    assert payloads[0]["endpoint"] == "http://router:10080"
+    assert payloads[0]["version"] == "1"
+    assert payloads[0]["protocol_version"] == "1"
+    assert payloads[0]["acked_revision"] == 0
+
+
+@pytest.mark.asyncio
+async def test_process_metrics_failure_does_not_block_heartbeat() -> None:
+    class BrokenProcessMetrics:
+        started_at = None
+
+        def collect(self) -> dict[str, Any]:
+            raise RuntimeError("metrics unavailable")
+
+    client = make_client()
+    client._process_metrics = BrokenProcessMetrics()
+    heartbeats: list[dict[str, Any]] = []
+
+    async def heartbeat(**kwargs: Any) -> dict[str, Any]:
+        heartbeats.append(kwargs)
+        return {"ok": True}
+
+    client.heartbeat = heartbeat  # type: ignore[method-assign]
+    try:
+        await client._publish_runtime_state(cast(RouterRuntime, FakeRuntime()))
+    finally:
+        await client.aclose()
+
+    assert heartbeats[0]["process"]["resources"] == {}

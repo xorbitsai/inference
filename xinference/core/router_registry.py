@@ -8,13 +8,35 @@ from typing import Any, Dict, Iterable, List, Optional
 
 
 class RouterRuntimeRegistry:
-    def __init__(self, heartbeat_timeout_seconds: float = 90.0) -> None:
+    def __init__(
+        self,
+        heartbeat_timeout_seconds: float = 90.0,
+        stale_retention_seconds: float = 300.0,
+    ) -> None:
+        if heartbeat_timeout_seconds <= 0:
+            raise ValueError("heartbeat_timeout_seconds must be greater than zero")
+        if stale_retention_seconds < heartbeat_timeout_seconds:
+            raise ValueError(
+                "stale_retention_seconds must be greater than or equal to "
+                "heartbeat_timeout_seconds"
+            )
         self._heartbeat_timeout_seconds = heartbeat_timeout_seconds
+        self._stale_retention_seconds = stale_retention_seconds
         self._instances: Dict[str, Dict[str, Any]] = {}
+
+    def _purge_stale(self, now: Optional[float] = None) -> None:
+        now = time.time() if now is None else now
+        for instance_id in [
+            key
+            for key, value in self._instances.items()
+            if now - float(value["last_heartbeat"]) > self._stale_retention_seconds
+        ]:
+            self._instances.pop(instance_id, None)
 
     def register(
         self, router_uid: str, instance_id: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
+        self._purge_stale()
         existing = self._instances.get(instance_id)
         if existing is not None and existing["router_uid"] != router_uid:
             raise ValueError(
@@ -34,16 +56,26 @@ class RouterRuntimeRegistry:
         return self._render(instance, now)
 
     def heartbeat(self, instance_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        self._purge_stale()
         instance = self._instances.get(instance_id)
         if instance is None:
             raise KeyError(instance_id)
         now = time.time()
-        immutable = {"router_uid", "instance_id", "registered_at"}
+        immutable = {
+            "router_uid",
+            "instance_id",
+            "registered_at",
+            "assignment_id",
+            "assignment_generation",
+            "node_id",
+            "endpoint",
+        }
         instance.update({k: v for k, v in data.items() if k not in immutable})
         instance["last_heartbeat"] = now
         return self._render(instance, now)
 
     def ack(self, instance_id: str, revision: int, error: str = "") -> Dict[str, Any]:
+        self._purge_stale()
         instance = self._instances.get(instance_id)
         if instance is None:
             raise KeyError(instance_id)
@@ -62,11 +94,13 @@ class RouterRuntimeRegistry:
         return self._instances.pop(instance_id, None) is not None
 
     def get(self, instance_id: str) -> Optional[Dict[str, Any]]:
+        self._purge_stale()
         instance = self._instances.get(instance_id)
         return self._render(instance) if instance is not None else None
 
     def list(self, router_uid: Optional[str] = None) -> List[Dict[str, Any]]:
         now = time.time()
+        self._purge_stale(now)
         values: Iterable[Dict[str, Any]] = self._instances.values()
         if router_uid is not None:
             values = (v for v in values if v["router_uid"] == router_uid)

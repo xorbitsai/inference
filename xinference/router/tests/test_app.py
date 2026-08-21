@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -90,6 +91,16 @@ def fake_tokenization_service(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "xinference.router.runtime.TokenizationService", FakeTokenizationService
     )
+
+
+def event_fields(
+    caplog: pytest.LogCaptureFixture, event: str
+) -> list[dict[str, object]]:
+    return [
+        record.xinference_fields
+        for record in caplog.records
+        if getattr(record, "xinference_fields", {}).get("event") == event
+    ]
 
 
 class ChunkStream(httpx.AsyncByteStream):
@@ -200,7 +211,9 @@ async def call_router(
 
 
 @pytest.mark.asyncio
-async def test_stream_connect_error_releases_gate(tmp_path: Path) -> None:
+async def test_stream_connect_error_releases_gate(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     async def backend_handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("backend unavailable", request=request)
 
@@ -211,6 +224,15 @@ async def test_stream_connect_error_releases_gate(tmp_path: Path) -> None:
     assert response.status_code == 503
     assert active == 0
     assert 'event="backend_unavailable",pool="short"} 1' in metrics
+    errors = event_fields(caplog, "backend_error")
+    assert len(errors) == 1
+    assert errors[0]["requested_model"] == "router-model"
+    assert errors[0]["logical_model"] == "router-model"
+    assert errors[0]["backend_id"] == "short"
+    assert errors[0]["backend_model_uid"] == "short-model"
+    assert errors[0]["outcome"] == "backend_unavailable"
+    assert "secret" not in caplog.text
+    assert "hello" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -228,7 +250,11 @@ async def test_stream_backend_http_error_releases_gate(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_completed_stream_releases_gate(tmp_path: Path) -> None:
+async def test_completed_stream_releases_gate(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="xinference.router")
+
     async def backend_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
@@ -247,6 +273,11 @@ async def test_completed_stream_releases_gate(tmp_path: Path) -> None:
     assert response.content.endswith(b"data: [DONE]\n\n")
     assert active == 0
     assert 'event="completed",pool="short"} 1' in metrics
+    completed = event_fields(caplog, "route_completed")
+    assert len(completed) == 1
+    assert completed[0]["outcome"] == "completed"
+    assert completed[0]["stream"] is True
+    assert completed[0]["backend_model_uid"] == "short-model"
 
 
 @pytest.mark.asyncio
@@ -506,7 +537,9 @@ async def test_lifespan_start_failure_does_not_ack_and_still_cleans_up(
 
 
 @pytest.mark.asyncio
-async def test_auth_rejection_releases_runtime_snapshot(tmp_path: Path) -> None:
+async def test_auth_rejection_releases_runtime_snapshot(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     app = create_app(make_config(tmp_path))
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(
@@ -529,13 +562,20 @@ async def test_auth_rejection_releases_runtime_snapshot(tmp_path: Path) -> None:
         metrics = await app.state.metrics.render()
         assert 'event="auth_rejected",pool="none"} 3' in metrics
 
+    rejected = event_fields(caplog, "route_rejected")
+    assert [item["outcome"] for item in rejected] == ["auth_rejected"] * 3
+    assert "authorization" not in caplog.text.lower()
+    assert "secret" not in caplog.text
+    assert "hello" not in caplog.text
+
 
 @pytest.mark.asyncio
 async def test_v2_tools_rule_routes_to_dynamic_backend_and_sets_headers(
-    tmp_path: Path,
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     from dataclasses import replace
 
+    caplog.set_level(logging.INFO, logger="xinference.router")
     config = make_config(tmp_path)
     tools_backend = BackendConfig("tools", "tools-model", 400, 2, 1, 1, 1)
     config = replace(
@@ -578,7 +618,7 @@ async def test_v2_tools_rule_routes_to_dynamic_backend_and_sets_headers(
                 "/v1/chat/completions",
                 headers={"authorization": "Bearer secret"},
                 json={
-                    "model": "router-model",
+                    "model": "router-alias",
                     "messages": [{"role": "user", "content": "hello"}],
                     "tools": [{"type": "function", "function": {"name": "lookup"}}],
                     "max_tokens": 8,
@@ -591,6 +631,26 @@ async def test_v2_tools_rule_routes_to_dynamic_backend_and_sets_headers(
     assert response.headers["x-xinference-router-backend"] == "tools"
     assert response.headers["x-xinference-router-rule"] == "tools-route"
     assert response.headers["x-xinference-router-pool"] == "tools"
+
+    decisions = event_fields(caplog, "route_decision")
+    assert len(decisions) == 1
+    assert decisions[0]["requested_model"] == "router-alias"
+    assert decisions[0]["logical_model"] == "router-model"
+    assert decisions[0]["backend_id"] == "tools"
+    assert decisions[0]["backend_model_uid"] == "tools-model"
+    assert decisions[0]["rule_id"] == "tools-route"
+    assert decisions[0]["prompt_tokens"] == 1
+    assert decisions[0]["output_tokens"] == 8
+    assert decisions[0]["total_budget"] == 9
+
+    completed = event_fields(caplog, "route_completed")
+    assert len(completed) == 1
+    assert completed[0]["request_id"] == decisions[0]["request_id"]
+    assert completed[0]["status_code"] == 200
+    assert completed[0]["outcome"] == "completed"
+    assert completed[0]["stream"] is False
+    assert "secret" not in caplog.text
+    assert "hello" not in caplog.text
 
 
 @pytest.mark.asyncio

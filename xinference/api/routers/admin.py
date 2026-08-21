@@ -17,6 +17,7 @@ from fastapi import Body, Depends, HTTPException, Query, Request, Security
 from pydantic import BaseModel
 
 from ... import __version__
+from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
 from ..dependencies import get_api
 from ..responses import JSONResponse
 
@@ -52,10 +53,13 @@ async def is_cluster_authenticated(
 async def get_cluster_device_info(
     api: "RESTfulAPI" = Depends(get_api),
     detailed: bool = Query(False),
+    include_routers: bool = Query(False),
 ) -> JSONResponse:
     try:
         supervisor_ref = await api._get_supervisor_ref()
-        data = await supervisor_ref.get_cluster_device_info(detailed=detailed)
+        data = await supervisor_ref.get_cluster_device_info(
+            detailed=detailed, include_routers=include_routers
+        )
         return JSONResponse(content=data)
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -284,6 +288,7 @@ async def get_ui_config(request: Request) -> JSONResponse:
             not in ("0", "false", "no"),
             "oidc_enabled": os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower()
             in ("1", "true", "yes"),
+            "token_router_enabled": XINFERENCE_TOKEN_ROUTER_ENABLED,
         }
     )
 
