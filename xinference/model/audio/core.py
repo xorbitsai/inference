@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .ace_step import AceStepModel, is_ace_step_python_supported
 from .chattts import ChatTTSModel
 from .cosyvoice import CosyVoiceModel
 from .engine_family import AudioEngineModel
@@ -219,6 +220,7 @@ def create_audio_model_instance(
     model_engine: Optional[str] = None,
     **kwargs,
 ) -> Union[
+    AceStepModel,
     WhisperModel,
     WhisperMLXModel,
     FunASRModel,
@@ -252,6 +254,10 @@ def create_audio_model_instance(
     )
     model_spec = match_audio(model_name, download_hub, model_engine=model_engine)
     audio_cls = None
+
+    if model_spec.model_family == "ace_step_1_5":
+        if not is_ace_step_python_supported():
+            raise ValueError("ACE-Step 1.5 requires Python 3.11 or 3.12.")
 
     if (
         model_spec.model_family == "minimax_music3"
@@ -306,6 +312,7 @@ def create_audio_model_instance(
         return audio_cls(model_uid, model_path, model_spec, **kwargs)  # type: ignore
 
     model: Union[
+        AceStepModel,
         WhisperModel,
         WhisperMLXModel,
         FunASRModel,

@@ -17,6 +17,7 @@ import platform
 from typing import TYPE_CHECKING, Tuple, Union
 
 from ..utils import has_cuda_device, virtual_env_allows_missing_engine
+from .ace_step import AceStepModel, is_ace_step_python_supported
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -221,6 +222,22 @@ class PyTorchVoxCPMAudioModel(VoxCPMModel, AudioEngineModel):
         return model_family.model_name == "VoxCPM2"
 
 
+class PyTorchAceStepAudioModel(AceStepModel, AudioEngineModel):
+    required_libs = ("acestep",)
+
+    @classmethod
+    def check_lib(cls):
+        if not is_ace_step_python_supported():
+            return False, "ACE-Step 1.5 requires Python 3.11 or 3.12"
+        if virtual_env_allows_missing_engine():
+            return True
+        return super().check_lib()
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "ace_step_1_5"
+
+
 class MLXWhisperAudioModel(WhisperMLXModel, AudioEngineModel):
     required_libs = ("mlx",)
 
@@ -342,6 +359,7 @@ def register_builtin_audio_engines() -> None:
     ]
     SUPPORTED_ENGINES["vLLM"] = [VLLMQwen3ASRAudioModel]
     SUPPORTED_ENGINES["PyTorch"] = [
+        PyTorchAceStepAudioModel,
         PyTorchF5TTSAudioModel,
         PyTorchKokoroAudioModel,
         PyTorchFunASRAudioModel,
