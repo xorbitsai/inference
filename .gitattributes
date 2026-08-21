@@ -1,1 +1,2 @@
 .git_archival.txt export-subst
+xinference/router/tokenizer_assets/** -text
