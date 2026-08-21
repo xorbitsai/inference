@@ -5095,8 +5095,38 @@ class SupervisorActor(xo.StatelessActor):
             "reason": f"Engine {engine} has not been validated for this Router",
         }
 
-    async def list_token_router_backend_candidates(self) -> Dict[str, Any]:
+    async def list_token_router_backend_candidates(
+        self, tokenizer_asset_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         running_models = await self.list_models()
+        asset_id = str(tokenizer_asset_id or "").strip()
+        asset_compatibility: Optional[set[str]] = None
+        asset_error: Optional[str] = None
+        if asset_id:
+            try:
+                asset = await self._call_tokenizer_asset_registry_async(
+                    "get_asset", asset_id
+                )
+                compatible_models = asset.get("compatible_models", [])
+                if asset.get("status") != "available":
+                    asset_error = f"Tokenizer asset is not available: {asset_id}"
+                elif not isinstance(compatible_models, list) or not compatible_models:
+                    asset_error = (
+                        f"Tokenizer asset has no compatible model metadata: {asset_id}"
+                    )
+                else:
+                    asset_compatibility = {
+                        str(name).strip().casefold()
+                        for name in compatible_models
+                        if str(name).strip()
+                    }
+                    if not asset_compatibility:
+                        asset_error = f"Tokenizer asset has no compatible model metadata: {asset_id}"
+            except KeyError:
+                asset_error = f"Tokenizer asset is not registered: {asset_id}"
+            except Exception as exc:
+                asset_error = f"Unable to inspect Tokenizer asset {asset_id}: {exc}"
+
         items: List[Dict[str, Any]] = []
         for model_uid, model_info in running_models.items():
             if not isinstance(model_info, dict):
@@ -5113,6 +5143,20 @@ class SupervisorActor(xo.StatelessActor):
                 reasons.append("model_ability must include chat")
             if compatibility["status"] in {"Unsupported", "Unknown"}:
                 reasons.append(compatibility["reason"])
+            if asset_error:
+                reasons.append(asset_error)
+            elif asset_compatibility is not None:
+                model_name = str(model_info.get("model_name") or "").strip()
+                if not model_name:
+                    reasons.append(
+                        "model_name is required for Tokenizer asset compatibility "
+                        "validation"
+                    )
+                elif model_name.casefold() not in asset_compatibility:
+                    reasons.append(
+                        f"model_name is not compatible with Tokenizer asset "
+                        f"{asset_id}: {model_name}"
+                    )
             items.append(
                 {
                     "model_uid": model_uid,
@@ -5129,7 +5173,10 @@ class SupervisorActor(xo.StatelessActor):
                 }
             )
         items.sort(key=lambda item: (not item["eligible"], item["model_uid"]))
-        return {"items": items, "errors": []}
+        return {
+            "items": items,
+            "errors": [asset_error] if asset_error else [],
+        }
 
     async def validate_token_router(self, router_uid: str) -> Optional[Dict[str, Any]]:
         config = self._token_router_store.get(router_uid)

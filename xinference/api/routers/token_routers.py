@@ -61,10 +61,38 @@ async def list_routers(api: "RESTfulAPI") -> JSONResponse:
     return JSONResponse(content=await (await _supervisor(api)).list_token_routers())
 
 
-async def list_backend_candidates(api: "RESTfulAPI") -> JSONResponse:
+async def list_backend_candidates(
+    tokenizer_asset_id: Optional[str], api: "RESTfulAPI"
+) -> JSONResponse:
     return JSONResponse(
-        content=await (await _supervisor(api)).list_token_router_backend_candidates()
+        content=await (await _supervisor(api)).list_token_router_backend_candidates(
+            tokenizer_asset_id=tokenizer_asset_id or None
+        )
     )
+
+
+async def get_backend_defaults(api: "RESTfulAPI") -> JSONResponse:
+    host = str(getattr(api, "_host", "") or "").strip()
+    port = getattr(api, "_port", None)
+    backend: Dict[str, Any] = {
+        "mode": "current_supervisor",
+        "display_name": "Current Supervisor",
+        "backend_url": None,
+        "source": "unavailable",
+        "available": False,
+    }
+    if host and isinstance(port, int) and 0 < port <= 65535:
+        # Bracket IPv6 literals so the generated URL remains valid.
+        if ":" in host and not (host.startswith("[") and host.endswith("]")):
+            host = f"[{host}]"
+        backend.update(
+            backend_url=f"http://{host}:{port}",
+            source="rest_endpoint",
+            available=True,
+        )
+    else:
+        backend["error"] = "REST API host and port are unavailable"
+    return JSONResponse(content={"backend": backend})
 
 
 async def list_tokenizer_assets(api: "RESTfulAPI") -> JSONResponse:
@@ -334,6 +362,15 @@ def register_routes(api: "RESTfulAPI") -> None:
     route(
         "/v1/token_routers/backend-candidates",
         list_backend_candidates,
+        ["GET"],
+        "routers:list",
+        query_params=("tokenizer_asset_id",),
+    )
+    # Keep this static route before /{router_uid}; otherwise "defaults" is
+    # interpreted as a router UID by the dynamic route.
+    route(
+        "/v1/token_routers/defaults",
+        get_backend_defaults,
         ["GET"],
         "routers:list",
     )
