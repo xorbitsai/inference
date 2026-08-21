@@ -170,6 +170,84 @@ async def test_managed_router_agent_runtime_lifecycle(tmp_path, monkeypatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_managed_router_enable_creates_binding_for_clean_agent(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", "internal-secret")
+    app = create_app(make_supervisor(tmp_path))
+    headers = {"Authorization": "Bearer internal-secret"}
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        created = await client.post("/v1/token_routers", json=router_payload())
+        assert created.status_code == 201
+        config = created.json()
+
+        registered = await client.post(
+            "/v1/internal/token-router/nodes/register",
+            headers=headers,
+            json={
+                "node_id": "node-a",
+                "advertise_host": "127.0.0.1",
+                "port_range_start": 12080,
+                "port_range_end": 12089,
+                "max_instances": 5,
+                "labels": {"zone": "a"},
+                "capabilities": {},
+                "software_version": "test",
+            },
+        )
+        assert registered.status_code == 200
+
+        deployment = await client.put(
+            "/v1/token_routers/router-a/deployment",
+            json={
+                "management_mode": "managed",
+                "desired_replicas": 1,
+                "placement": {"labels": {"zone": "a"}},
+            },
+        )
+        assert deployment.status_code == 200
+
+        enabled = await client.post("/v1/token_routers/router-a/enable")
+        assert enabled.status_code == 200
+
+        bindings = await client.get(f"/v1/tokenizer_assets/{ASSET_ID}/bindings")
+        assert bindings.status_code == 200
+        assert len(bindings.json()) == 1
+        binding = bindings.json()[0]
+        assert binding["node_id"] == "node-a"
+        assert binding["binding_mode"] == "on_demand"
+        assert binding["observed_state"] == "pending"
+
+        assignments = await client.get("/v1/token_routers/router-a/assignments")
+        assert assignments.status_code == 200
+        assert assignments.json() == []
+
+        ready = await client.post(
+            "/v1/internal/token-router/nodes/node-a/asset-bindings/status",
+            headers=headers,
+            json={
+                "asset_id": ASSET_ID,
+                "generation": binding["generation"],
+                "observed_state": "ready",
+                "observed_revision": config["tokenizer_asset_revision"],
+                "observed_fingerprint": config["tokenizer_asset_fingerprint"],
+                "local_path": f"/assets/{ASSET_ID}",
+            },
+        )
+        assert ready.status_code == 200
+
+        assignments = await client.get("/v1/token_routers/router-a/assignments")
+        assert assignments.status_code == 200
+        assert len(assignments.json()) == 1
+        assert assignments.json()[0]["node_id"] == "node-a"
+        assert assignments.json()[0]["tokenizer_asset"]["local_path"] == (
+            f"/assets/{ASSET_ID}"
+        )
+
+
+@pytest.mark.asyncio
 async def test_external_router_runtime_registration_remains_compatible(
     tmp_path, monkeypatch
 ) -> None:

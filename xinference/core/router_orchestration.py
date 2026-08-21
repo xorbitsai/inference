@@ -159,12 +159,12 @@ class RouterOrchestrationController:
         deployment = self.deployments.ensure(router_uid)
         if deployment["management_mode"] != "managed":
             return []
-        if deployment["desired_replicas"] > 0 and not self.scheduler.eligible_nodes(
+        if deployment["desired_replicas"] > 0 and not self.scheduler.placeable_nodes(
             router_uid
         ):
             return [
-                "No online active Router Agent node satisfies placement, capacity, "
-                "and tokenizer asset requirements"
+                "No online active Router Agent node satisfies placement and capacity "
+                "requirements"
             ]
         return []
 

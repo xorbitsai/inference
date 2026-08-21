@@ -1276,6 +1276,7 @@ async def test_chat_completion_enable_thinking_injected(monkeypatch, payload, ex
     model.chat = AsyncMock(return_value="{}")
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(return_value={"model_family": "qwen3"})
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
 
     response = await api.create_chat_completion(_DummyRequest(payload))
     assert response.status_code == 200
@@ -1304,6 +1305,7 @@ def _build_mock_chat_api(monkeypatch, desc):
     model.chat = AsyncMock(return_value="{}")
     mock_supervisor.get_model = AsyncMock(return_value=model)
     mock_supervisor.describe_model = AsyncMock(return_value=desc)
+    mock_supervisor.resolve_token_router_runtime = AsyncMock(return_value=None)
     return api, model
 
 

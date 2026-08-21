@@ -171,6 +171,7 @@ class RouterScheduler:
         assignments: Iterable[Dict[str, Any]],
         *,
         exclude_nodes: Optional[Set[str]] = None,
+        require_ready_asset: bool = True,
     ) -> List[Dict[str, Any]]:
         exclude_nodes = exclude_nodes or set()
         counts: Dict[str, int] = {}
@@ -187,7 +188,10 @@ class RouterScheduler:
                 continue
             if counts.get(node["node_id"], 0) >= node["max_instances"]:
                 continue
-            if not self._node_matches_deployment(node, config, deployment):
+            if require_ready_asset:
+                if not self._node_matches_deployment(node, config, deployment):
+                    continue
+            elif not self._placement_matches(node, deployment.get("placement", {})):
                 continue
             node = dict(node)
             node["_load"] = counts.get(node["node_id"], 0) / node["max_instances"]
@@ -201,6 +205,19 @@ class RouterScheduler:
             return []
         deployment = self._deployment_store.ensure(router_uid)
         return self._candidate_nodes(config, deployment, self._assignment_store.list())
+
+    def placeable_nodes(self, router_uid: str) -> List[Dict[str, Any]]:
+        """Return nodes that can host a Router once its Asset becomes ready."""
+        config = self._config_store.get(router_uid)
+        if config is None:
+            return []
+        deployment = self._deployment_store.ensure(router_uid)
+        return self._candidate_nodes(
+            config,
+            deployment,
+            self._assignment_store.list(),
+            require_ready_asset=False,
+        )
 
     @staticmethod
     def _free_port(
