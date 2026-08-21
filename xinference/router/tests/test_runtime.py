@@ -60,6 +60,18 @@ class FakeClient:
         self.closed = True
 
 
+class BlockingClient(FakeClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.close_started = asyncio.Event()
+        self.allow_close = asyncio.Event()
+
+    async def aclose(self) -> None:
+        self.close_started.set()
+        await self.allow_close.wait()
+        self.closed = True
+
+
 def config(revision: int, *, enabled: bool = True):
     return SimpleNamespace(
         revision=revision,
@@ -114,6 +126,49 @@ async def test_apply_drains_old_snapshot_after_inflight_request(monkeypatch) -> 
     assert held.client.closed is True
     assert held.tokenization.closed is True
     await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_apply_while_closing_old_snapshot_finishes_cleanup(
+    monkeypatch,
+) -> None:
+    first = config(1)
+    second = config(2)
+    old_snapshot = snapshot(first)
+    old_client = BlockingClient()
+    old_snapshot.client = cast(Any, old_client)
+    replacement_snapshot = snapshot(second)
+    snapshots = {1: old_snapshot, 2: replacement_snapshot}
+    monkeypatch.setattr(
+        RouterRuntime,
+        "_build_snapshot",
+        lambda self, cfg: snapshots[cfg.revision],
+    )
+
+    runtime = RouterRuntime(first)
+    await runtime.start()
+    apply_task = asyncio.create_task(runtime.apply(second))
+    await old_client.close_started.wait()
+
+    assert runtime.current is replacement_snapshot
+    assert len(runtime._drain_tasks) == 1
+
+    apply_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await apply_task
+
+    assert old_snapshot.closed is False
+    assert old_client.closed is False
+    assert old_snapshot.tokenization.closed is False
+    assert len(runtime._drain_tasks) == 1
+
+    old_client.allow_close.set()
+    await runtime.aclose()
+
+    assert old_snapshot.closed is True
+    assert old_client.closed is True
+    assert old_snapshot.tokenization.closed is True
+    assert not runtime._drain_tasks
 
 
 @pytest.mark.asyncio

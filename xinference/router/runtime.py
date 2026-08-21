@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Optional
 
 import httpx
@@ -33,13 +33,29 @@ class RuntimeSnapshot:
     active_requests: int = 0
     draining: bool = False
     closed: bool = False
+    _close_task: Optional[asyncio.Task[None]] = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     async def close(self) -> None:
         if self.closed:
             return
+        task = self._close_task
+        if task is None:
+            task = asyncio.create_task(self._close_resources())
+            self._close_task = task
+        try:
+            await asyncio.shield(task)
+        finally:
+            if task.done() and not self.closed and self._close_task is task:
+                self._close_task = None
+
+    async def _close_resources(self) -> None:
+        try:
+            await self.client.aclose()
+        finally:
+            await self.tokenization.aclose()
         self.closed = True
-        await self.client.aclose()
-        await self.tokenization.aclose()
 
 
 class RouterRuntime:
@@ -153,12 +169,11 @@ class RouterRuntime:
             raise
 
         self._notify_swap(replacement)
+        task = asyncio.create_task(self._drain(old))
+        self._drain_tasks.add(task)
+        task.add_done_callback(self._drain_tasks.discard)
         if old.active_requests == 0:
-            await old.close()
-        else:
-            task = asyncio.create_task(self._drain(old))
-            self._drain_tasks.add(task)
-            task.add_done_callback(self._drain_tasks.discard)
+            await asyncio.shield(task)
 
     async def _drain(self, snapshot: RuntimeSnapshot) -> None:
         while snapshot.active_requests:
@@ -198,4 +213,6 @@ class RouterRuntime:
         else:
             await self._drain(current)
         if self._drain_tasks:
-            await asyncio.gather(*self._drain_tasks, return_exceptions=True)
+            drain_tasks = set(self._drain_tasks)
+            await asyncio.gather(*drain_tasks, return_exceptions=True)
+            self._drain_tasks.difference_update(drain_tasks)
