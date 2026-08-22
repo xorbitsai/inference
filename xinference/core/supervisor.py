@@ -5067,9 +5067,10 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def describe_running_model(self, model_uid: str) -> Dict[str, Any]:
         """Describe either a public virtual model or an existing physical model."""
-        config = self._token_router_store.get_by_virtual_model_uid(model_uid)
-        if config is not None and config.get("enabled"):
-            return self._build_token_router_model_info(config)
+        if XINFERENCE_TOKEN_ROUTER_ENABLED:
+            config = self._token_router_store.get_by_virtual_model_uid(model_uid)
+            if config is not None and config.get("enabled"):
+                return self._build_token_router_model_info(config)
         return await self.describe_model(model_uid)
 
     async def resolve_token_router_runtime(

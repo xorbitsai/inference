@@ -268,6 +268,29 @@ async def test_describe_running_model_supports_virtual_and_physical_models(tmp_p
 
 
 @pytest.mark.asyncio
+async def test_describe_running_model_honors_disabled_feature_gate(
+    tmp_path, monkeypatch
+):
+    supervisor = make_supervisor(tmp_path)
+    create_enabled_router(supervisor)
+    fallback_calls = []
+
+    async def describe_physical(_self, model_uid):
+        fallback_calls.append(model_uid)
+        return {"model_name": model_uid, "model_kind": "physical"}
+
+    supervisor.describe_model = MethodType(describe_physical, supervisor)
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_TOKEN_ROUTER_ENABLED", False
+    )
+
+    model = await supervisor.describe_running_model("virtual-model")
+
+    assert model == {"model_name": "virtual-model", "model_kind": "physical"}
+    assert fallback_calls == ["virtual-model"]
+
+
+@pytest.mark.asyncio
 async def test_managed_runtime_remains_available_but_degraded_when_agent_is_offline(
     tmp_path,
 ):
