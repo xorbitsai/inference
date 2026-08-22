@@ -449,7 +449,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         return self._progress_tracker_ref
 
-    async def _get_progressor(self, request_id: str):
+    async def _get_progressor(self, request_id: Optional[str]):
         from .progress_tracker import Progressor
 
         progressor = Progressor(
@@ -1375,16 +1375,19 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         if hasattr(self._model, "world_generate"):
-            return await self._call_wrapper_json(
-                self._model.world_generate,
-                prompt,
-                image,
-                video,
-                generation_config,
-                model_kwargs,
-                *args,
-                **kwargs,
-            )
+            request_id = kwargs.get("request_id")
+            progressor = kwargs["progressor"] = await self._get_progressor(request_id)
+            with progressor:
+                return await self._call_wrapper_json(
+                    self._model.world_generate,
+                    prompt,
+                    image,
+                    video,
+                    generation_config,
+                    model_kwargs,
+                    *args,
+                    **kwargs,
+                )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for world generation."
         )

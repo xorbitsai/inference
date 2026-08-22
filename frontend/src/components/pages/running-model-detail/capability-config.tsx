@@ -182,15 +182,20 @@ function appendCommonVideoFormData(formData: FormData, context: TransformContext
 }
 
 async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | 'video') {
-  const { modelUid, values } = context;
+  const { modelUid, values, requestId } = context;
   const media = mediaKey ? firstUpload(values, mediaKey) : undefined;
+  const extraBody = parseJsonObject(values.model_kwargs);
+
+  if (requestId) {
+    extraBody.request_id = requestId;
+  }
 
   return {
     model: modelUid,
     prompt: stringValue(values.prompt),
     ...(media && mediaKey ? { [mediaKey]: await fileToDataUrl(media.file) } : {}),
     generation_config: parseJsonObject(values.generation_config),
-    extra_body: parseJsonObject(values.model_kwargs),
+    extra_body: extraBody,
   };
 }
 
@@ -684,6 +689,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: worldDefaults,
+    showProgress: true,
     formPanel: TextToWorldPanel,
     resultPanel: ResultPanels.Universal,
     transformValues: commonWorldBody,
@@ -713,6 +719,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: { ...worldDefaults, image: [] },
+    showProgress: true,
     formPanel: ImageToWorldPanel,
     resultPanel: ResultPanels.Universal,
     transformValues: (context) => commonWorldBody(context, 'image'),
@@ -742,6 +749,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: { ...worldDefaults, video: [] },
+    showProgress: true,
     formPanel: VideoToWorldPanel,
     resultPanel: ResultPanels.Universal,
     transformValues: (context) => commonWorldBody(context, 'video'),

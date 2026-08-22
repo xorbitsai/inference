@@ -227,8 +227,26 @@ def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch
     monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
     captured = {}
 
-    def fake_run(command, cwd, env, log_path):
+    progress_updates = []
+
+    class FakeProgressor:
+        def set_progress(self, progress, info=None):
+            progress_updates.append((progress, info))
+
+    def fake_run(command, cwd, env, log_path, progress_callback=None):
         captured.update(command=command, cwd=cwd, env=env, log_path=log_path)
+        assert progress_callback is not None
+        for line in (
+            "Starting MoE FramePack sliding window generation...\n",
+            "Loading initial condition frames...\n",
+            "Generation step 1\n",
+            "  Denoising step 1/50\n",
+            "Generation step 2\n",
+            "  Denoising step 41/50\n",
+            "Decoding generated video...\n",
+            "Saving video to output.mp4 ...\n",
+        ):
+            progress_callback(line)
         output_path = command[command.index("--output_path") + 1]
         Path(output_path).write_bytes(b"astra")
 
@@ -238,6 +256,7 @@ def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch
         image=str(image_path),
         generation_config={"total_frames_to_generate": 16},
         model_kwargs={"cam_type": 4, "add_icons": True},
+        progressor=FakeProgressor(),
     )
 
     command = captured["command"]
@@ -249,6 +268,9 @@ def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch
     assert command[command.index("--dit_path") + 1] == str(checkpoint)
     assert "--add_icons" in command
     assert Path(result["data"][0]["url"]).read_bytes() == b"astra"
+    assert progress_updates[0] == (0.01, "Starting Astra runner")
+    assert (0.92, "Decoding video") in progress_updates
+    assert progress_updates[-1] == (0.98, "Saving video")
 
 
 def test_astra_loads_pinned_wan_base_model(tmp_path, monkeypatch):
