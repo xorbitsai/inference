@@ -2516,8 +2516,8 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1769418487,
-    "featured": true,
+    "updated_at": 1787387058,
+    "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
@@ -19182,8 +19182,8 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1769418571,
-    "featured": true,
+    "updated_at": 1787387058,
+    "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
     ],
@@ -23367,11 +23367,11 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "featured": true,
+    "featured": false,
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769418586,
+    "updated_at": 1787387059,
     "model_type": "glm4_moe"
   },
   {
@@ -24764,8 +24764,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1784394365,
-    "featured": true,
+    "updated_at": 1787387059,
+    "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ],
@@ -26039,8 +26039,8 @@
       ]
     },
     "tool_parser": "deepseek-r1",
-    "featured": true,
-    "updated_at": 1770205932
+    "featured": false,
+    "updated_at": 1787387059
   },
   {
     "version": 2,
@@ -26186,11 +26186,11 @@
       ],
       "index_strategy": "unsafe-best-match"
     },
-    "featured": true,
+    "featured": false,
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1784296176
+    "updated_at": 1787387059
   },
   {
     "version": 2,
@@ -32354,8 +32354,8 @@
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
-    "featured": false,
-    "updated_at": 1781600152
+    "featured": true,
+    "updated_at": 1787387059
   },
   {
     "model_name": "DeepSeek-V4-Flash",
@@ -32630,8 +32630,8 @@
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
-    "featured": true,
-    "updated_at": 1781520055
+    "featured": false,
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -32732,8 +32732,8 @@
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
-    "featured": true,
-    "updated_at": 1781520056
+    "featured": false,
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -32810,8 +32810,8 @@
         "#sglang_dependencies# ; #engine# == \"sglang\""
       ]
     },
-    "featured": true,
-    "updated_at": 1781520058
+    "featured": false,
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33569,8 +33569,8 @@
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
-    "featured": false,
-    "updated_at": 1786072259
+    "featured": true,
+    "updated_at": 1787387060
   },
   {
     "version": 2,
