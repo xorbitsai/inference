@@ -467,7 +467,7 @@ class RESTfulAPI(CancelMixin):
     ):
         if not self._advanced_auth_service:
             return
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        token = _request_credential(request)
         if not token:
             return
         from .oauth2.advanced.crypto import sha256_hex
