@@ -13,6 +13,58 @@ If you aim to serve all supported models, you can install all the necessary depe
 
    Due to irreconcilable package dependency conflicts between vLLM and sglang, we have removed sglang from the all extra. If you want to use sglang, please install it separately via ``pip install 'xinference[sglang]'``.
 
+.. _one_line_install:
+
+One-line install script (Linux/macOS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+As a convenience, Linux and macOS users can bootstrap Xinference with a single command::
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+
+The script installs the base framework into a dedicated, isolated virtualenv managed by
+`uv <https://docs.astral.sh/uv/>`_ (so it does not touch your system Python or hit PEP 668),
+selects a hardware-appropriate PyTorch build, and links the ``xinference`` commands into
+``~/.local/bin``. It installs ``uv`` first if it is not already present.
+
+.. important::
+
+   This installs **only the base framework** (CLI, server, and Web UI). It does **not**
+   install any model-serving backend (transformers, vLLM, sglang, MLX, llama.cpp, image,
+   audio, video). It is a quick way to get the ``xinference`` commands, **not** a replacement
+   for the functional ``pip install "xinference[all]"`` install above. To serve models, add
+   an extra afterwards (e.g. ``XINFERENCE_EXTRAS=transformers``) or use the pip install.
+
+The script's behavior can be tuned with environment variables:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Variable
+     - Meaning
+   * - ``XINFERENCE_BACKEND``
+     - PyTorch backend: ``auto`` (default, detects GPU/driver), ``cpu``, a specific CUDA
+       build such as ``cu128``, ``rocm`` (AMD, Linux), or ``xpu`` (Intel GPU, Linux).
+       Ignored on macOS, which ships a single universal wheel.
+   * - ``XINFERENCE_EXTRAS``
+     - Optional extras to include, e.g. ``all`` or ``vllm,transformers``. Some extras
+       (e.g. vLLM) require Linux + CUDA.
+   * - ``XINFERENCE_VERSION``
+     - Pin a specific version, e.g. ``1.8.1``.
+   * - ``XINFERENCE_PYTHON``
+     - Python version for the virtualenv (default ``3.12``).
+   * - ``XINFERENCE_HOME_DIR``
+     - Install location (default ``~/.xinference/venv``).
+
+For example, to install a CPU-only build with the transformers backend::
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_BACKEND=cpu XINFERENCE_EXTRAS=transformers sh
+
+.. note::
+
+   Windows is not covered by the one-line installer. Install with ``pip`` in a virtualenv
+   instead (see above).
+
 
 Several usage scenarios require special attention.
 
