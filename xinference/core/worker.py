@@ -3085,6 +3085,7 @@ class WorkerActor(xo.StatelessActor):
             "vllm",
             "sglang",
             "diffusers",
+            "pytorch",
         ):
             settings.extra_index_url = None
             settings.index_strategy = None
