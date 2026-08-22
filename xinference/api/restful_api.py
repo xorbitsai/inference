@@ -132,12 +132,36 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
 }
 
 
-def _token_router_request_headers(request: Request, request_id: str) -> Dict[str, str]:
+def _request_credential(request: Request) -> str:
+    headers = {key.lower(): value for key, value in request.headers.items()}
+    authorization = headers.get("authorization", "")
+    if authorization.lower().startswith("bearer "):
+        bearer_token = authorization[7:].strip()
+        if bearer_token:
+            return bearer_token
+    return headers.get("x-api-key", "").strip()
+
+
+def _token_router_request_headers(
+    request: Request,
+    request_id: str,
+    *,
+    forward_external_credential: bool = True,
+) -> Dict[str, str]:
     headers = {
         key.lower(): value
         for key, value in request.headers.items()
         if key.lower() in _TOKEN_ROUTER_REQUEST_HEADERS
+        and key.lower() != "authorization"
     }
+    internal_token = os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN") or os.getenv(
+        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"
+    )
+    credential = internal_token
+    if not credential and forward_external_credential:
+        credential = _request_credential(request)
+    if credential:
+        headers["authorization"] = f"Bearer {credential}"
     headers["content-type"] = "application/json"
     headers["x-request-id"] = request_id
     return headers
@@ -418,7 +442,7 @@ class RESTfulAPI(CancelMixin):
     ):
         if not self._advanced_auth_service:
             return
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        token = _request_credential(request)
         if not token:
             return
         if not self._advanced_auth_service.validate_model_access(
@@ -443,7 +467,7 @@ class RESTfulAPI(CancelMixin):
     ):
         if not self._advanced_auth_service:
             return
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        token = _request_credential(request)
         if not token:
             return
         from .oauth2.advanced.crypto import sha256_hex
@@ -641,6 +665,34 @@ class RESTfulAPI(CancelMixin):
         if client is not None:
             await client.aclose()
             self._token_router_client = None
+
+    async def _open_token_router_chat_completion(
+        self,
+        request: Request,
+        raw_body: Dict[str, Any],
+        runtime: Dict[str, Any],
+        *,
+        forward_external_credential: bool = True,
+    ) -> tuple[httpx.Response, str]:
+        request_id = (
+            request.headers.get("request-id")
+            or request.headers.get("x-request-id")
+            or f"xinf-{uuid.uuid4()}"
+        )
+        upstream_url = f"{runtime['endpoint']}/v1/chat/completions"
+        client = self._get_token_router_client()
+        upstream_request = client.build_request(
+            "POST",
+            upstream_url,
+            headers=_token_router_request_headers(
+                request,
+                request_id,
+                forward_external_credential=forward_external_credential,
+            ),
+            json=raw_body,
+        )
+        upstream_response = await client.send(upstream_request, stream=True)
+        return upstream_response, request_id
 
     async def _proxy_token_router_chat_completion(
         self,
@@ -1779,6 +1831,112 @@ class RESTfulAPI(CancelMixin):
             )
 
         try:
+            supervisor_ref = await self._get_supervisor_ref()
+            token_router_runtime = await supervisor_ref.resolve_token_router_runtime(
+                model_uid
+            )
+        except Exception:
+            logger.exception("Failed to resolve Anthropic model target: %s", model_uid)
+            return self._anthropic_error(
+                500, "Failed to resolve the requested model", request_id
+            )
+
+        openai_body = canonical.to_openai_body()
+        if token_router_runtime is not None:
+            if not token_router_runtime.get("available"):
+                return self._anthropic_error(
+                    503,
+                    f"No ready Token Router runtime is available for virtual model {model_uid}",
+                    request_id,
+                    headers={"Retry-After": "1"},
+                )
+            try:
+                upstream_response, request_id = (
+                    await self._open_token_router_chat_completion(
+                        request,
+                        openai_body,
+                        token_router_runtime,
+                        forward_external_credential=False,
+                    )
+                )
+            except httpx.HTTPError:
+                logger.exception(
+                    "Anthropic Token Router connection failed: virtual_model_uid=%s",
+                    model_uid,
+                )
+                return self._anthropic_error(
+                    502,
+                    "Token Router runtime is temporarily unavailable",
+                    request_id,
+                    headers={"Retry-After": "1"},
+                )
+
+            if upstream_response.status_code >= 400:
+                retry_after = upstream_response.headers.get("retry-after")
+                try:
+                    raw_error = await upstream_response.aread()
+                    error_payload = json.loads(raw_error) if raw_error else {}
+                except Exception:
+                    error_payload = {}
+                finally:
+                    await upstream_response.aclose()
+                error = error_payload.get("error") or {}
+                error_message = (
+                    error.get("message") if isinstance(error, dict) else str(error)
+                )
+                return self._anthropic_error(
+                    upstream_response.status_code,
+                    error_message or "Token Router request failed",
+                    request_id,
+                    headers={"Retry-After": retry_after} if retry_after else None,
+                )
+
+            if canonical.stream:
+                cleanup_task: asyncio.Task[None] | None = None
+
+                async def release_resources() -> None:
+                    nonlocal cleanup_task
+                    if cleanup_task is None:
+                        cleanup_task = asyncio.create_task(upstream_response.aclose())
+                    await asyncio.shield(cleanup_task)
+
+                async def router_chunks() -> AsyncIterator[Dict[str, Any]]:
+                    try:
+                        async for chunk in self._iter_openai_sse_bytes(
+                            upstream_response.aiter_raw()
+                        ):
+                            if await request.is_disconnected():
+                                break
+                            yield chunk
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as exc:
+                        logger.exception("Anthropic Token Router stream failed")
+                        yield {"error": {"type": "api_error", "message": str(exc)}}
+                    finally:
+                        await release_resources()
+
+                return EventSourceResponse(
+                    anthropic_stream_events(router_chunks(), model_uid, request_id),
+                    ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+                    headers={"request-id": request_id},
+                    background=BackgroundTask(release_resources),
+                )
+
+            try:
+                raw_response = await upstream_response.aread()
+                openai_response = json.loads(raw_response)
+                return JSONResponse(
+                    content=openai_to_anthropic(openai_response, model_uid),
+                    headers={"request-id": request_id},
+                )
+            except (json.JSONDecodeError, AnthropicProtocolError) as exc:
+                logger.error("Invalid Token Router response: %s", exc)
+                return self._anthropic_error(502, str(exc), request_id)
+            finally:
+                await upstream_response.aclose()
+
+        try:
             model = await require_model(
                 self._get_supervisor_ref, model_uid, self._report_error_event
             )
@@ -1790,7 +1948,6 @@ class RESTfulAPI(CancelMixin):
             logger.error(exc, exc_info=True)
             return self._anthropic_error(500, str(exc), request_id)
 
-        openai_body = canonical.to_openai_body()
         kwargs = {
             key: value
             for key, value in openai_body.items()

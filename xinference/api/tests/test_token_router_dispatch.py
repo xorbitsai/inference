@@ -336,6 +336,13 @@ def make_chat_app(api):
     return app
 
 
+def make_anthropic_app(api):
+    app = FastAPI()
+    app.add_api_route("/v1/messages", api.create_message, methods=["POST"])
+    app.add_api_route("/anthropic/v1/messages", api.create_message, methods=["POST"])
+    return app
+
+
 @pytest.mark.asyncio
 async def test_virtual_chat_stream_is_proxied_with_auth_headers_and_done(monkeypatch):
     resolution = {
@@ -835,3 +842,335 @@ async def test_list_models_hides_persisted_virtual_models_when_router_disabled(
     payload = json.loads(response.body)
 
     assert [item["id"] for item in payload["data"]] == ["physical-model"]
+
+
+@pytest.mark.asyncio
+async def test_anthropic_virtual_non_stream_uses_openai_data_plane(monkeypatch):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    auth_service = FakeAuthService()
+    api = make_rest_api(FakeSupervisor(resolution), auth_service)
+    app = make_anthropic_app(api)
+    real_async_client = httpx.AsyncClient
+    captured = {}
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", raising=False)
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", raising=False)
+
+    def upstream_handler(request):
+        captured["url"] = str(request.url)
+        captured["authorization"] = request.headers.get("authorization")
+        captured["x_api_key"] = request.headers.get("x-api-key")
+        captured["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"content": "routed answer"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 11, "completion_tokens": 3},
+            },
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={
+                "anthropic-version": "2023-06-01",
+                "x-api-key": "external-anthropic-key",
+                "x-request-id": "request-anthropic-a",
+            },
+            json={
+                "model": "virtual-model",
+                "system": "Be concise.",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 64,
+                "stop_sequences": ["END"],
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.headers["request-id"] == "request-anthropic-a"
+    assert response.json()["model"] == "virtual-model"
+    assert response.json()["stop_reason"] == "end_turn"
+    assert response.json()["content"] == [{"type": "text", "text": "routed answer"}]
+    assert captured == {
+        "url": "http://router:10081/v1/chat/completions",
+        "authorization": None,
+        "x_api_key": None,
+        "payload": {
+            "model": "virtual-model",
+            "messages": [
+                {"role": "system", "content": "Be concise."},
+                {"role": "user", "content": "hello"},
+            ],
+            "max_tokens": 64,
+            "stream": False,
+            "stop": ["END"],
+        },
+    }
+    assert auth_service.checked == [("external-anthropic-key", "virtual-model", "LLM")]
+    assert api._token_router_client is upstream_client
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
+    assert upstream_client.is_closed
+
+
+@pytest.mark.asyncio
+async def test_anthropic_virtual_uses_internal_router_token(monkeypatch):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    app = make_anthropic_app(api)
+    real_async_client = httpx.AsyncClient
+    captured = {}
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", "internal-token")
+
+    def upstream_handler(request):
+        captured["authorization"] = request.headers.get("authorization")
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]},
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={
+                "anthropic-version": "2023-06-01",
+                "Authorization": "Bearer external-token",
+            },
+            json={
+                "model": "virtual-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+            },
+        )
+
+    assert response.status_code == 200
+    assert captured["authorization"] == "Bearer internal-token"
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
+    assert upstream_client.is_closed
+
+
+@pytest.mark.asyncio
+async def test_anthropic_stream_background_closes_uniterated_upstream_once():
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    close_calls = 0
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b"data: [DONE]\n\n"
+
+        async def aclose(self):
+            nonlocal close_calls
+            close_calls += 1
+
+    upstream_request = httpx.Request("POST", "http://router:10081/v1/chat/completions")
+    upstream_response = httpx.Response(
+        200,
+        headers={"content-type": "text/event-stream"},
+        stream=UpstreamStream(),
+        request=upstream_request,
+    )
+
+    class FakeClient:
+        def build_request(self, *args, **kwargs):
+            return upstream_request
+
+        async def send(self, request, *, stream):
+            assert stream is True
+            return upstream_response
+
+    api._get_token_router_client = lambda: FakeClient()
+    body = json.dumps(
+        {
+            "model": "virtual-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 32,
+            "stream": True,
+        }
+    ).encode()
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/messages",
+            "root_path": "",
+            "headers": [(b"anthropic-version", b"2023-06-01")],
+            "query_string": b"",
+            "scheme": "http",
+            "server": ("test", 80),
+            "client": ("127.0.0.1", 1234),
+        },
+        receive,
+    )
+
+    response = await api.create_message(request)
+
+    assert close_calls == 0
+    assert response.background is not None
+    await response.background()
+    await response.background()
+    assert close_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_anthropic_virtual_stream_returns_native_event_sequence(monkeypatch):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    app = make_anthropic_app(api)
+    real_async_client = httpx.AsyncClient
+    captured = {}
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'data: {"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}\n\n'
+            yield b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
+            yield b'data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":1}}\n\n'
+            yield b"data: [DONE]\n\n"
+
+        async def aclose(self):
+            captured["stream_closed"] = True
+
+    def upstream_handler(request):
+        captured["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            stream=UpstreamStream(),
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "virtual-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "stream": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert captured["payload"]["stream_options"] == {"include_usage": True}
+    event_names = [
+        line.removeprefix("event: ")
+        for line in response.text.splitlines()
+        if line.startswith("event: ")
+    ]
+    assert event_names == [
+        "message_start",
+        "content_block_start",
+        "content_block_delta",
+        "content_block_stop",
+        "message_delta",
+        "message_stop",
+    ]
+    assert '"model": "virtual-model"' in response.text
+    assert '"stop_reason": "end_turn"' in response.text
+    assert captured["stream_closed"] is True
+    assert api._token_router_client is upstream_client
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
+    assert upstream_client.is_closed
+
+
+@pytest.mark.asyncio
+async def test_anthropic_virtual_router_error_is_converted(monkeypatch):
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    app = make_anthropic_app(api)
+    real_async_client = httpx.AsyncClient
+
+    def upstream_handler(request):
+        return httpx.Response(
+            429,
+            headers={"retry-after": "7"},
+            json={"error": {"type": "rate_limit_error", "message": "busy"}},
+        )
+
+    upstream_client = real_async_client(transport=httpx.MockTransport(upstream_handler))
+    monkeypatch.setattr(
+        restful_api_module.httpx, "AsyncClient", lambda **_: upstream_client
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with real_async_client(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "virtual-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+            },
+        )
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "7"
+    assert response.json()["type"] == "error"
+    assert response.json()["error"] == {
+        "type": "rate_limit_error",
+        "message": "busy",
+    }
+    assert response.json()["request_id"] == response.headers["request-id"]
+    assert not upstream_client.is_closed
+    await api._close_token_router_client()
+    assert upstream_client.is_closed
