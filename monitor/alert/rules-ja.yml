@@ -99,3 +99,105 @@ groups:
         annotations:
           summary: "BAN された IP 数が異常に多い"
           description: "現在 {{ $value }} 件の IP が BAN されています。ブルートフォース攻撃や不正利用の可能性があります。"
+
+  - name: xinference-token-router-monitoring-v2
+    rules:
+      - alert: TokenRouterAgentSuspected
+        expr: xinference:token_router_agent_connectivity_status{status="suspected"} == 1
+        for: 30s
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterAgentSuspected"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterAgentOffline
+        expr: xinference:token_router_agent_connectivity_status{status="offline"} == 1
+        for: 0m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterAgentOffline"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterRuntimeUncontrollable
+        expr: xinference:token_router_runtime_effective_ready == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_controllable == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterRuntimeUncontrollable"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterRuntimeDown
+        expr: xinference:token_router_runtime_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterRuntimeDown"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterRuntimeConfigOutOfSync
+        expr: xinference:token_router_runtime_up == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_config_synced == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterRuntimeConfigOutOfSync"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterAssignmentNotReady
+        expr: xinference:token_router_assignment_desired_state{state="running"} == 1 and on (router_uid, assignment_id, replica_index, node_id) xinference:token_router_assignment_runtime_ready == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterAssignmentNotReady"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterTokenizerBindingFailed
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="failed"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterTokenizerBindingFailed"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterTokenizerBindingStale
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="stale"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterTokenizerBindingStale"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterDegraded
+        expr: xinference:token_router_status{status="degraded"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterDegraded"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"
+
+      - alert: TokenRouterUnavailable
+        expr: xinference:token_router_desired_replicas > 0 and on (router_uid) xinference:token_router_effective_ready_replicas == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: token-router
+        annotations:
+          summary: "Token Router の監視異常を検出: TokenRouterUnavailable"
+          description: "ラベル対象の Router 制御面、Runtime、Binding、またはレプリカ状態を確認してください。"

@@ -258,3 +258,25 @@ OTEL metrics are semantically equivalent to the Supervisor-side Prometheus metri
 - OpenTelemetry initialization: `xinference/core/otel.py`
 - `/metrics` route registration in REST API: `xinference/api/restful_api.py`
 - Worker-side metric instrumentation: `xinference/core/model.py`
+
+## Token Router Runtime dynamic discovery
+
+Token Router Runtime ports are assigned dynamically by Router Agents. Do not scan the
+whole port range and do not maintain static Runtime targets. Configure Prometheus HTTP
+service discovery against:
+
+```text
+GET /v1/monitor/prometheus/http-sd/token-router-runtimes
+Required scope: routers:read
+```
+
+A complete scrape example is provided in
+`prometheus-token-router-http-sd.yml`. The Supervisor returns Runtime targets during
+the active and stale-retention window, including starting/degraded instances and
+instances whose Agent control channel is offline but whose Runtime may still serve
+traffic. Targets disappear automatically after the Runtime Registry retention window.
+
+Supervisor `/metrics` is authoritative for Agent, Assignment, Runtime control-plane,
+Tokenizer Binding, and logical Router summary. Runtime `/metrics`
+is authoritative for request, route, backend, pool, tokenization, and Runtime process
+metrics.

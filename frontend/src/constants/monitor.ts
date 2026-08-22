@@ -22,6 +22,7 @@ export const REFRESH = [
 export const MONITOR_DASHBOARD_TABS = [
   { key: 'overview', labelKey: 'monitorCenter.tab.overview' },
   { key: 'model_load', labelKey: 'monitorCenter.tab.modelLoad' },
+  { key: 'token_router', labelKey: 'monitorCenter.tab.tokenRouter' },
   { key: 'llm_slo', labelKey: 'monitorCenter.tab.llmSlo' },
   { key: 'gpu', labelKey: 'monitorCenter.tab.gpu' },
   { key: 'host', labelKey: 'monitorCenter.tab.host' },

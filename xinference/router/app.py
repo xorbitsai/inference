@@ -36,6 +36,7 @@ from .logging_config import (
     sanitize_log_url,
 )
 from .metrics import RouterMetrics
+from .process_metrics import ProcessMetricsCollector
 from .runtime import RouterDisabled, RouterRuntime, RuntimeSnapshot
 from .tokenization import TokenizationWorkerUnavailable
 from .tokenizer import TokenizationError
@@ -147,7 +148,8 @@ def _router_headers(decision: RouteDecision, request_id: str) -> dict[str, str]:
 
 
 def create_app(config: RouterConfig) -> FastAPI:
-    metrics = RouterMetrics()
+    metrics = RouterMetrics(config.router_uid)
+    process_metrics = ProcessMetricsCollector()
     runtime = RouterRuntime(config, metrics)
 
     @asynccontextmanager
@@ -221,6 +223,7 @@ def create_app(config: RouterConfig) -> FastAPI:
     def sync_state(snapshot: RuntimeSnapshot) -> None:
         # Keep these aliases for diagnostics and compatibility with the
         # standalone prototype tests. Request handling always uses runtime.
+        metrics.set_router_uid(snapshot.config.router_uid)
         app.state.config = snapshot.config
         app.state.tokenization = snapshot.tokenization
         app.state.policy = snapshot.policy
@@ -264,7 +267,26 @@ def create_app(config: RouterConfig) -> FastAPI:
 
     @app.get("/metrics")
     async def prometheus_metrics() -> Response:
-        return Response(await metrics.render(), media_type="text/plain; version=0.0.4")
+        summary = await runtime.summary()
+        process = await asyncio.to_thread(process_metrics.collect)
+        control_plane = getattr(app.state, "control_plane", None)
+        control_metadata = getattr(control_plane, "_runtime_metadata", {})
+        runtime_metadata = {
+            "router_uid": runtime.current.config.router_uid,
+            "assignment_id": getattr(control_plane, "assignment_id", "") or "",
+            "assignment_generation": getattr(control_plane, "assignment_generation", 0)
+            or 0,
+            "software_version": control_metadata.get("software_version", ""),
+            "software_revision": control_metadata.get("software_revision", ""),
+        }
+        return Response(
+            await metrics.render(
+                runtime_summary=summary,
+                process=process,
+                runtime_metadata=runtime_metadata,
+            ),
+            media_type="text/plain; version=0.0.4",
+        )
 
     @app.get("/v1/models")
     async def models(request: Request) -> JSONResponse:
@@ -292,11 +314,42 @@ def create_app(config: RouterConfig) -> FastAPI:
         request_id = request.headers.get("x-request-id") or f"router-{uuid.uuid4()}"
         requested_model: str | None = None
         stream = False
+        metric_config = runtime.current.config
+        current_pool = "none"
+        request_metric_finished = False
+        stream_handed_off = False
+        backend_started: float | None = None
+        backend_model_uid = ""
+
+        async def finish_request(
+            result: str, pool: str, *, backend_result: str | None = None
+        ) -> None:
+            nonlocal request_metric_finished
+            if request_metric_finished:
+                return
+            elapsed = time.monotonic() - started
+            await metrics.finish_request(
+                result,
+                pool,
+                duration_seconds=elapsed,
+                route_mode="stream" if stream else "non_stream",
+                router_uid=metric_config.router_uid,
+            )
+            if backend_result is not None and backend_started is not None:
+                await metrics.observe_backend(
+                    backend_model_uid,
+                    backend_result,
+                    time.monotonic() - backend_started,
+                    pool=pool,
+                    router_uid=metric_config.router_uid,
+                )
+            request_metric_finished = True
+
         try:
             snapshot = await runtime.acquire()
         except RouterDisabled:
             current = runtime.current.config
-            await metrics.increment("router_disabled", "none")
+            await finish_request("router_disabled", "none")
             logger.warning(
                 "Route rejected",
                 extra=_route_log_fields(
@@ -317,10 +370,13 @@ def create_app(config: RouterConfig) -> FastAPI:
 
         runtime_release_owned = True
         config = snapshot.config
+        metric_config = config
 
         try:
+            await metrics.request_started(metric_config.router_uid, current_pool)
+
             if not _authorized(request, config):
-                await metrics.increment("auth_rejected", "none")
+                await finish_request("auth_rejected", current_pool)
                 logger.warning(
                     "Route rejected",
                     extra=_route_log_fields(
@@ -343,7 +399,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                 body = await request.body()
                 payload = await request.json()
             except Exception:
-                await metrics.increment("invalid_json", "none")
+                await finish_request("invalid_json", current_pool)
                 logger.warning(
                     "Route rejected",
                     extra=_route_log_fields(
@@ -362,6 +418,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers={"x-request-id": request_id},
                 )
             if not isinstance(payload, dict):
+                await finish_request("invalid_json", current_pool)
                 logger.warning(
                     "Route rejected",
                     extra=_route_log_fields(
@@ -385,7 +442,7 @@ def create_app(config: RouterConfig) -> FastAPI:
             stream = bool(payload.get("stream", False))
             accepted_models = {config.logical_model, *config.model_aliases}
             if raw_model not in accepted_models:
-                await metrics.increment("unknown_model", "none")
+                await finish_request("unknown_model", current_pool)
                 logger.warning(
                     "Route rejected",
                     extra=_route_log_fields(
@@ -407,7 +464,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                 )
             capabilities = config.tokenizer_asset_capabilities
             if bool(payload.get("tools")) and "tools" not in capabilities:
-                await metrics.increment("tools_not_allowed", "none")
+                await finish_request("tools_not_allowed", current_pool)
                 return _error(
                     400,
                     "Tool requests are not supported by this Tokenizer asset",
@@ -415,7 +472,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers={"x-request-id": request_id},
                 )
             if "thinking" not in capabilities and _payload_thinking(payload):
-                await metrics.increment("thinking_not_allowed", "none")
+                await finish_request("thinking_not_allowed", current_pool)
                 return _error(
                     400,
                     "Thinking-mode requests are not supported by this "
@@ -433,7 +490,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                     stream=stream,
                 )
                 if budget.enable_thinking and "thinking" not in capabilities:
-                    await metrics.increment("thinking_not_allowed", "none")
+                    await finish_request("thinking_not_allowed", current_pool)
                     return _error(
                         400,
                         "Thinking-mode requests are not supported by this "
@@ -442,7 +499,9 @@ def create_app(config: RouterConfig) -> FastAPI:
                         headers={"x-request-id": request_id},
                     )
             except AdmissionRejected as exc:
-                await metrics.increment(f"tokenization_admission_{exc.reason}", "none")
+                await finish_request(
+                    f"tokenization_admission_{exc.reason}", current_pool
+                )
                 logger.warning(
                     "Route rejected",
                     extra=_route_log_fields(
@@ -466,7 +525,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                     },
                 )
             except TokenizationWorkerUnavailable:
-                await metrics.increment("tokenization_worker_unavailable", "none")
+                await finish_request("tokenization_worker_unavailable", current_pool)
                 logger.exception(
                     "Route rejected because tokenization worker is unavailable",
                     extra=_route_log_fields(
@@ -487,25 +546,25 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers={"retry-after": "1", "x-request-id": request_id},
                 )
             except ThinkingRejected as exc:
-                await metrics.increment("thinking_rejected", "none")
+                await finish_request("thinking_rejected", current_pool)
                 outcome = "thinking_rejected"
                 status_code = 400
                 message = str(exc)
                 error_type = "thinking_not_allowed"
             except ContextLimitExceeded as exc:
-                await metrics.increment("context_limit_exceeded", "none")
+                await finish_request("context_limit_exceeded", current_pool)
                 outcome = "context_limit_exceeded"
                 status_code = 400
                 message = str(exc)
                 error_type = "context_length_exceeded"
             except RouteRejected as exc:
-                await metrics.increment(exc.reason, "none")
+                await finish_request(exc.reason, current_pool)
                 outcome = exc.reason
                 status_code = 400
                 message = str(exc)
                 error_type = exc.reason
             except TokenizationError as exc:
-                await metrics.increment("tokenization_failed", "none")
+                await finish_request("tokenization_failed", current_pool)
                 outcome = "tokenization_failed"
                 status_code = 400
                 message = str(exc)
@@ -535,6 +594,20 @@ def create_app(config: RouterConfig) -> FastAPI:
                 )
 
             backend = config.backend(decision.backend_id)
+            backend_model_uid = backend.model_uid
+            current_pool = decision.pool
+            await metrics.assign_request_pool(
+                current_pool, router_uid=metric_config.router_uid
+            )
+            await metrics.record_rule_match(
+                decision.rule_id, router_uid=metric_config.router_uid
+            )
+            await metrics.record_backend_selection(
+                decision.rule_id,
+                backend.model_uid,
+                decision.pool,
+                router_uid=metric_config.router_uid,
+            )
             logger.info(
                 "Route selected",
                 extra=_route_log_fields(
@@ -548,10 +621,19 @@ def create_app(config: RouterConfig) -> FastAPI:
             )
 
             gate = snapshot.gates[decision.pool]
+            pool_wait_started = time.monotonic()
             try:
                 await gate.acquire()
             except AdmissionRejected as exc:
-                await metrics.increment(f"admission_{exc.reason}", decision.pool)
+                await metrics.observe_pool_wait(
+                    decision.pool,
+                    time.monotonic() - pool_wait_started,
+                    router_uid=metric_config.router_uid,
+                )
+                await metrics.record_pool_rejected(
+                    decision.pool, exc.reason, router_uid=metric_config.router_uid
+                )
+                await finish_request(f"admission_{exc.reason}", current_pool)
                 logger.warning(
                     "Route rejected",
                     extra=_route_log_fields(
@@ -576,6 +658,11 @@ def create_app(config: RouterConfig) -> FastAPI:
                     },
                 )
 
+            await metrics.observe_pool_wait(
+                decision.pool,
+                time.monotonic() - pool_wait_started,
+                router_uid=metric_config.router_uid,
+            )
             gate_release_owned = True
             backend_payload = dict(payload)
             backend_payload["model"] = backend.model_uid
@@ -586,6 +673,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                 request_id=request_id,
             )
             router_headers = _router_headers(decision, request_id)
+            backend_started = time.monotonic()
             try:
                 if stream:
                     backend_request = snapshot.client.build_request(
@@ -599,7 +687,16 @@ def create_app(config: RouterConfig) -> FastAPI:
                             response_body = await backend_response.aread()
                         finally:
                             await backend_response.aclose()
-                        await metrics.increment("backend_http_error", decision.pool)
+                        backend_result = (
+                            "http_5xx"
+                            if backend_response.status_code >= 500
+                            else "http_4xx"
+                        )
+                        await finish_request(
+                            "backend_http_error",
+                            current_pool,
+                            backend_result=backend_result,
+                        )
                         logger.warning(
                             "Backend returned an HTTP error",
                             extra=_route_log_fields(
@@ -625,24 +722,39 @@ def create_app(config: RouterConfig) -> FastAPI:
 
                     cleanup_task: asyncio.Task[None] | None = None
 
-                    async def release_resources() -> None:
+                    async def release_resources(
+                        final_outcome: str = "cancelled",
+                    ) -> None:
                         nonlocal cleanup_task
 
                         async def _release() -> None:
+                            backend_result = {
+                                "completed": "success",
+                                "client_disconnected": "cancelled",
+                                "cancelled": "cancelled",
+                                "stream_error": "stream_error",
+                            }.get(final_outcome, "stream_error")
                             try:
-                                await backend_response.aclose()
+                                await finish_request(
+                                    final_outcome,
+                                    current_pool,
+                                    backend_result=backend_result,
+                                )
                             finally:
                                 try:
-                                    await gate.release()
+                                    await backend_response.aclose()
                                 finally:
-                                    await runtime.release(snapshot)
-                                    logger.info(
-                                        "request_id=%s backend_id=%s "
-                                        "elapsed_seconds=%.3f released=true",
-                                        request_id,
-                                        decision.pool,
-                                        time.monotonic() - started,
-                                    )
+                                    try:
+                                        await gate.release()
+                                    finally:
+                                        await runtime.release(snapshot)
+                                        logger.info(
+                                            "request_id=%s backend_id=%s "
+                                            "elapsed_seconds=%.3f released=true",
+                                            request_id,
+                                            decision.pool,
+                                            time.monotonic() - started,
+                                        )
 
                         if cleanup_task is None:
                             cleanup_task = asyncio.create_task(_release())
@@ -655,21 +767,14 @@ def create_app(config: RouterConfig) -> FastAPI:
                             async for chunk in backend_response.aiter_raw():
                                 if await request.is_disconnected():
                                     final_outcome = "client_disconnected"
-                                    await metrics.increment(
-                                        "client_disconnected", decision.pool
-                                    )
                                     break
                                 yield chunk
-                            if final_outcome == "completed":
-                                await metrics.increment("completed", decision.pool)
                         except asyncio.CancelledError:
                             final_outcome = "cancelled"
-                            await metrics.increment("cancelled", decision.pool)
                             raise
                         except Exception:
                             final_outcome = "stream_error"
                             log_completion = False
-                            await metrics.increment("stream_error", decision.pool)
                             logger.exception(
                                 "Backend stream failed",
                                 extra=_route_log_fields(
@@ -688,7 +793,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                             )
                             raise
                         finally:
-                            await release_resources()
+                            await release_resources(final_outcome)
                             if log_completion:
                                 log_method = (
                                     logger.info
@@ -724,6 +829,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                         },
                         background=BackgroundTask(release_resources),
                     )
+                    stream_handed_off = True
                     gate_release_owned = False
                     runtime_release_owned = False
                     return response
@@ -733,7 +839,9 @@ def create_app(config: RouterConfig) -> FastAPI:
                 )
                 if backend_response.status_code < 400:
                     outcome = "completed"
-                    await metrics.increment(outcome, decision.pool)
+                    await finish_request(
+                        outcome, current_pool, backend_result="success"
+                    )
                     logger.info(
                         "Route completed",
                         extra=_route_log_fields(
@@ -750,7 +858,14 @@ def create_app(config: RouterConfig) -> FastAPI:
                     )
                 else:
                     outcome = "backend_http_error"
-                    await metrics.increment(outcome, decision.pool)
+                    backend_result = (
+                        "http_5xx"
+                        if backend_response.status_code >= 500
+                        else "http_4xx"
+                    )
+                    await finish_request(
+                        outcome, current_pool, backend_result=backend_result
+                    )
                     logger.warning(
                         "Backend returned an HTTP error",
                         extra=_route_log_fields(
@@ -771,7 +886,9 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers={**response_headers(backend_response), **router_headers},
                 )
             except httpx.TimeoutException:
-                await metrics.increment("backend_timeout", decision.pool)
+                await finish_request(
+                    "backend_timeout", current_pool, backend_result="timeout"
+                )
                 logger.exception(
                     "Backend timed out",
                     extra=_route_log_fields(
@@ -793,7 +910,11 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers=router_headers,
                 )
             except httpx.HTTPError:
-                await metrics.increment("backend_unavailable", decision.pool)
+                await finish_request(
+                    "backend_unavailable",
+                    current_pool,
+                    backend_result="connect_error",
+                )
                 logger.exception(
                     "Backend unavailable",
                     extra=_route_log_fields(
@@ -820,6 +941,8 @@ def create_app(config: RouterConfig) -> FastAPI:
         finally:
             if runtime_release_owned:
                 await runtime.release(snapshot)
+            if not stream_handed_off and not request_metric_finished:
+                await finish_request("router_error", current_pool)
 
     return app
 

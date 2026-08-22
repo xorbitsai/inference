@@ -45,12 +45,47 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
+  # --- Token Router Agent logs (JSON) ---
+  - type: log
+    id: xinference-token-router-agent
+    enabled: true
+    paths:
+      - /data/inference/logs/router-agent/router.log*
+    exclude_files: ['\.gz$']
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    fields:
+      log_type: router_agent
+      cluster: xinference
+    fields_under_root: true
+
+  # --- Token Router Runtime logs (JSON, one directory per assignment) ---
+  - type: log
+    id: xinference-token-router-runtime
+    enabled: true
+    paths:
+      - /data/inference/logs/router-runtime/*/router.log*
+    exclude_files: ['\.gz$']
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    fields:
+      log_type: router_runtime
+      cluster: xinference
+    fields_under_root: true
+
 processors:
   # Parse text-format application logs (audit logs are already parsed via json.keys_under_root)
   - if:
       not:
-        equals:
-          log_type: "audit"
+        or:
+          - equals:
+              log_type: "audit"
+          - equals:
+              log_type: "router_agent"
+          - equals:
+              log_type: "router_runtime"
     then:
       - dissect:
           tokenizer: "%{@timestamp} %{level} %{module} pid:%{pid} role:%{role} address:%{address} node:%{node} %{msg}"

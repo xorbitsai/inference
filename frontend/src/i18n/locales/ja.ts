@@ -583,6 +583,7 @@ const ja = {
       'モニタリングが設定されていません。XINFERENCE_GRAFANA_URL 環境変数を設定してください。',
     tab: {
       overview: '概要',
+      tokenRouter: 'Token Router',
       modelLoad: 'モデル負荷',
       llmSlo: 'LLM SLO',
       gpu: 'GPU',

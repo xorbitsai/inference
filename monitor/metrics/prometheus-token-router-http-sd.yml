@@ -1,0 +1,16 @@
+# Prometheus scrape example for dynamically managed Token Router Runtime instances.
+# The Supervisor endpoint requires a token with the routers:read scope.
+scrape_configs:
+  - job_name: xinference-token-router-runtime
+    metrics_path: /metrics
+    scheme: http
+    http_sd_configs:
+      - url: http://xinference-supervisor:9997/v1/monitor/prometheus/http-sd/token-router-runtimes
+        refresh_interval: 15s
+        authorization:
+          type: Bearer
+          credentials: REPLACE_WITH_MONITOR_TOKEN
+    relabel_configs:
+      # Preserve discovery metadata while letting Prometheus set instance to the target.
+      - source_labels: [__address__]
+        target_label: instance

@@ -105,6 +105,8 @@ class RouterControlPlaneClient:
             "assignment_id": assignment_id,
             "assignment_generation": assignment_generation,
             "node_id": node_id,
+            "software_version": __version__,
+            "software_revision": _software_revision() or "",
         }
         if self._process_metrics.started_at is not None:
             self._runtime_metadata["started_at"] = self._process_metrics.started_at
@@ -248,7 +250,7 @@ class RouterControlPlaneClient:
                 "resources": await self._collect_process_resources(),
                 "tokenization": summary["tokenization"],
                 "pools": summary["pools"],
-                "tokenizer_asset": summary["tokenizer_asset"],
+                "tokenizer_asset": summary.get("tokenizer_asset", {}),
             },
         )
         return summary
