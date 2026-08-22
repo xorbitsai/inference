@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
+from ..constants import TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD
 from ..logging_config import router_log_extra
 from .control_plane import RouterAgentControlPlaneClient
 
@@ -140,9 +141,13 @@ class RouterRuntimeProcessManager:
             for key in _ALLOWED_ENVIRONMENT
             if (value := os.environ.get(key)) is not None
         }
+        data_plane_token = str(
+            assignment.get(TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD) or self.internal_token
+        )
         asset = assignment.get("tokenizer_asset", {})
         env.update(
             {
+                "XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN": data_plane_token,
                 "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN": self.internal_token,
                 "XINFERENCE_TOKEN_ROUTER_ASSIGNMENT_ID": str(
                     assignment["assignment_id"]
@@ -199,7 +204,13 @@ class RouterRuntimeProcessManager:
                 if managed is None:
                     managed = ManagedRuntimeProcess(assignment=assignment)
                     self._processes[assignment_id] = managed
-                elif managed.generation != int(assignment["assignment_generation"]):
+                elif managed.generation != int(
+                    assignment["assignment_generation"]
+                ) or self._assignment_data_plane_token(
+                    managed.assignment
+                ) != self._assignment_data_plane_token(
+                    assignment
+                ):
                     await self._stop_locked(managed, report=False)
                     managed = ManagedRuntimeProcess(assignment=assignment)
                     self._processes[assignment_id] = managed
@@ -212,6 +223,11 @@ class RouterRuntimeProcessManager:
                 if assignment_id not in desired:
                     managed = self._processes.pop(assignment_id)
                     await self._stop_locked(managed, report=False)
+
+    def _assignment_data_plane_token(self, assignment: Dict[str, Any]) -> str:
+        return str(
+            assignment.get(TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD) or self.internal_token
+        )
 
     async def _start_locked(self, managed: ManagedRuntimeProcess) -> None:
         now = time.monotonic()

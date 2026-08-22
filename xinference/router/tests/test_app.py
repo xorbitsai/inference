@@ -11,6 +11,7 @@ from tokenizers import Tokenizer, models, pre_tokenizers
 
 from xinference.router.admission import GateSnapshot
 from xinference.router.app import create_app
+from xinference.router.backend import request_headers
 from xinference.router.config import (
     BackendConfig,
     RouteAction,
@@ -226,6 +227,82 @@ def assert_rejection_metrics(metrics: str, *, router_uid: str, result: str) -> N
         "xinference_token_router_requests_in_flight"
         f'{{router_uid="{router_uid}",pool="none"}} 0' in metrics
     )
+
+
+def test_request_headers_promotes_backend_user_credential() -> None:
+    headers = request_headers(
+        [
+            (b"authorization", b"Bearer internal-token"),
+            (
+                b"x-xinference-backend-authorization",
+                b"Bearer external-user-token",
+            ),
+        ],
+        backend_api_key="",
+        request_id="request-a",
+    )
+
+    assert headers["authorization"] == "Bearer external-user-token"
+    assert "x-xinference-backend-authorization" not in headers
+
+
+@pytest.mark.parametrize(
+    "env_name",
+    [
+        "XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN",
+        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN",
+    ],
+)
+def test_request_headers_does_not_forward_internal_token_without_backend_auth(
+    monkeypatch: pytest.MonkeyPatch, env_name: str
+) -> None:
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", raising=False)
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", raising=False)
+    monkeypatch.setenv(env_name, "internal-token")
+
+    headers = request_headers(
+        [(b"authorization", b"Bearer internal-token")],
+        backend_api_key="",
+        request_id="request-a",
+    )
+
+    assert "authorization" not in headers
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    ["Bearer data-plane-token", "Bearer internal-token"],
+)
+def test_request_headers_does_not_forward_either_internal_token(
+    monkeypatch: pytest.MonkeyPatch, authorization: str
+) -> None:
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", "data-plane-token")
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", "internal-token")
+
+    headers = request_headers(
+        [(b"authorization", authorization.encode())],
+        backend_api_key="",
+        request_id="request-a",
+    )
+
+    assert "authorization" not in headers
+
+
+def test_request_headers_backend_api_key_has_highest_priority() -> None:
+    headers = request_headers(
+        [
+            (b"authorization", b"Bearer internal-token"),
+            (
+                b"x-xinference-backend-authorization",
+                b"Bearer external-user-token",
+            ),
+        ],
+        backend_api_key="configured-backend-key",
+        request_id="request-a",
+    )
+
+    assert headers["authorization"] == "Bearer configured-backend-key"
+    assert "x-xinference-backend-authorization" not in headers
 
 
 @pytest.mark.asyncio

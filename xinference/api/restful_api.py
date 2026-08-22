@@ -74,6 +74,8 @@ from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
+from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
+from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
 from .frontend_static import mount_frontend
 from .pdf_ocr import (
@@ -154,14 +156,18 @@ def _token_router_request_headers(
         if key.lower() in _TOKEN_ROUTER_REQUEST_HEADERS
         and key.lower() != "authorization"
     }
-    internal_token = os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN") or os.getenv(
-        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"
+    internal_token = token_router_data_plane_token()
+    external_credential = (
+        _request_credential(request) if forward_external_credential else ""
     )
-    credential = internal_token
-    if not credential and forward_external_credential:
-        credential = _request_credential(request)
-    if credential:
-        headers["authorization"] = f"Bearer {credential}"
+    if internal_token:
+        headers["authorization"] = f"Bearer {internal_token}"
+        if external_credential:
+            headers[TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER] = (
+                f"Bearer {external_credential}"
+            )
+    elif external_credential:
+        headers["authorization"] = f"Bearer {external_credential}"
     headers["content-type"] = "application/json"
     headers["x-request-id"] = request_id
     return headers
