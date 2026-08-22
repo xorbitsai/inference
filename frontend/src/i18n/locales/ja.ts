@@ -384,6 +384,23 @@ const ja = {
         '短文コンテキスト上限は長文コンテキスト上限を超えられません。',
       tokenActiveBelowWorkers: 'Tokenization 最大アクティブ数はワーカー数以上にしてください。',
       invalidAdvancedConfig: '高度なバックエンドおよびルーティングルールの設定が無効です。',
+      advancedBackendCount: '高度なルーティングには 1～16 個のバックエンドが必要です。',
+      advancedRuleCount: '高度なルーティングには 1～64 個のルールが必要です。',
+      invalidBackendId: 'バックエンド {{backend}} の ID が無効です。',
+      missingBackendModel: 'バックエンド {{backend}} のモデルを選択してください。',
+      invalidBackendLimits:
+        'バックエンド {{backend}} のコンテキストまたは Admission 制限が無効です。',
+      duplicateBackendIds: 'バックエンド ID は一意である必要があります。',
+      invalidRuleId: 'ルール {{rule}} の ID が無効です。',
+      invalidRulePriority: 'ルール {{rule}} の優先度は 1～10000 にしてください。',
+      duplicateRuleIds: 'ルール ID は一意である必要があります。',
+      duplicateRulePriorities: 'ルールの優先度は一意である必要があります。',
+      missingRuleCondition: 'ルール {{rule}} には少なくとも 1 つの条件が必要です。',
+      invalidRuleTokenRange: 'ルール {{rule}} の最小トークン数が最大トークン数を超えています。',
+      invalidRuleAction:
+        'ルール {{rule}} が不明なバックエンドを参照しているか、拒否理由がありません。',
+      invalidDefaultAction:
+        'デフォルトアクションが不明なバックエンドを参照しているか、拒否理由がありません。',
       invalidPlacementLabels: 'ラベルをカンマ区切りの key=value 形式で入力してください。',
     },
   },
