@@ -17,8 +17,14 @@
 See optimize/20260702/2026070209.md for root cause analysis.
 """
 
+import http.server
 import importlib.metadata
 import os
+import shutil
+import subprocess
+import sys
+import threading
+import zipfile
 from unittest import mock
 
 import pytest
@@ -139,7 +145,7 @@ class TestBuildUvSourceOptions:
             "--trusted-host",
             "packages.example",
             "--index-strategy",
-            "unsafe-best-match",
+            "first-index",
         ]
 
     def test_configured_index_precedes_public_fallback(self):
@@ -156,6 +162,8 @@ class TestBuildUvSourceOptions:
             "https://packages.example/simple",
             "--default-index",
             "https://public.example/simple",
+            "--index-strategy",
+            "first-index",
         ]
 
     def test_multiple_public_fallbacks_follow_configured_sources(self):
@@ -174,6 +182,23 @@ class TestBuildUvSourceOptions:
             "https://public-primary.example/simple",
             "--default-index",
             "https://public-default.example/simple",
+            "--index-strategy",
+            "first-index",
+        ]
+
+    def test_preserves_configured_strategy_without_public_fallback(self):
+        options = build_uv_source_options(
+            {
+                "index_url": "https://packages.example/simple",
+                "index_strategy": "unsafe-best-match",
+            }
+        )
+
+        assert options == [
+            "--default-index",
+            "https://packages.example/simple",
+            "--index-strategy",
+            "unsafe-best-match",
         ]
 
     def test_offline_mode_omits_public_fallbacks(self):
@@ -195,6 +220,99 @@ class TestBuildUvSourceOptions:
             "--index",
             "https://public.example/simple",
         ]
+
+    def test_resolver_does_not_consult_unavailable_public_fallback(self, tmp_path):
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            pytest.skip("uv is required for the resolver-level source priority test")
+
+        package_name = "xinference-source-priority-test"
+        wheel_name = "xinference_source_priority_test-1.0.0-py3-none-any.whl"
+        wheel_path = tmp_path / wheel_name
+        with zipfile.ZipFile(wheel_path, "w") as wheel:
+            wheel.writestr(
+                "xinference_source_priority_test/__init__.py",
+                '__version__ = "1.0.0"\n',
+            )
+            wheel.writestr(
+                "xinference_source_priority_test-1.0.0.dist-info/METADATA",
+                "Metadata-Version: 2.1\n"
+                "Name: xinference-source-priority-test\n"
+                "Version: 1.0.0\n",
+            )
+            wheel.writestr(
+                "xinference_source_priority_test-1.0.0.dist-info/WHEEL",
+                "Wheel-Version: 1.0\n"
+                "Generator: xinference-test\n"
+                "Root-Is-Purelib: true\n"
+                "Tag: py3-none-any\n",
+            )
+            wheel.writestr("xinference_source_priority_test-1.0.0.dist-info/RECORD", "")
+        wheel_bytes = wheel_path.read_bytes()
+        fallback_requests = []
+
+        class SourceHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == f"/private/simple/{package_name}/":
+                    body = (f'<a href="/files/{wheel_name}">{wheel_name}</a>').encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html")
+                elif self.path == f"/files/{wheel_name}":
+                    body = wheel_bytes
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/octet-stream")
+                elif self.path.startswith("/fallback/"):
+                    fallback_requests.append(self.path)
+                    self.send_error(503, "public fallback unavailable")
+                    return
+                else:
+                    self.send_error(404)
+                    return
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SourceHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            private_index = f"http://127.0.0.1:{port}/private/simple"
+            public_fallback = f"http://127.0.0.1:{port}/fallback/simple"
+            options = build_uv_source_options(
+                {
+                    "index_url": private_index,
+                    "index_strategy": "unsafe-best-match",
+                },
+                public_index_urls=[public_fallback],
+            )
+            result = subprocess.run(
+                [
+                    uv_path,
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--no-cache",
+                    "--no-deps",
+                    "--python",
+                    sys.executable,
+                    *options,
+                    f"{package_name}==1.0.0",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        assert result.returncode == 0, result.stderr
+        assert fallback_requests == []
 
 
 class TestEnsureFlashinferCubinMatchesPostInstall:
@@ -557,7 +675,8 @@ class TestApplyFlashinferAotPostInstall:
         assert "--trusted-host" in cmd
         assert "packages.example" in cmd
         assert "--index-strategy" in cmd
-        assert "unsafe-best-match" in cmd
+        assert "first-index" in cmd
+        assert "unsafe-best-match" not in cmd
         assert FLASHINFER_AOT_WHEEL_URL in cmd
 
     def test_offline_mode_uses_configured_find_links(self, fake_venv_manager):

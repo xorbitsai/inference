@@ -1096,7 +1096,16 @@ def build_uv_source_options(
     for host in _as_uv_option_values(conf.get("trusted_host")):
         options += ["--trusted-host", host]
 
-    index_strategy = conf.get("index_strategy")
+    # ``unsafe-best-match`` queries every index even after a configured source
+    # provides the pinned package. An unavailable hook-specific public fallback
+    # would therefore still fail the whole install. Use first-index semantics
+    # whenever a public fallback is appended so configured sources remain
+    # authoritative; otherwise preserve the caller's existing strategy.
+    index_strategy = (
+        "first-index"
+        if configured_index_urls and public_fallback_urls
+        else conf.get("index_strategy")
+    )
     if index_strategy:
         options += ["--index-strategy", index_strategy]
     return options
