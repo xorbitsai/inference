@@ -17,6 +17,8 @@ from .control_plane import RouterAgentControlPlaneClient
 
 logger = logging.getLogger(__name__)
 
+_SHUTDOWN_DRAIN_TIMEOUT_SECONDS = 10.0
+
 _ALLOWED_ENVIRONMENT = (
     "PATH",
     "VIRTUAL_ENV",
@@ -448,7 +450,11 @@ class RouterRuntimeProcessManager:
             )
 
     async def _stop_locked(
-        self, managed: ManagedRuntimeProcess, *, report: bool
+        self,
+        managed: ManagedRuntimeProcess,
+        *,
+        report: bool,
+        timeout: Optional[float] = None,
     ) -> None:
         process = managed.process
         managed.stopping = True
@@ -475,10 +481,9 @@ class RouterRuntimeProcessManager:
                 process.terminate()
             except OSError:
                 pass
+            stop_timeout = self.drain_timeout_seconds if timeout is None else timeout
             try:
-                await asyncio.wait_for(
-                    process.wait(), timeout=self.drain_timeout_seconds
-                )
+                await asyncio.wait_for(process.wait(), timeout=stop_timeout)
             except asyncio.TimeoutError:
                 try:
                     process.kill()
@@ -513,7 +518,13 @@ class RouterRuntimeProcessManager:
         async with self._lock:
             runtimes = list(self._processes.values())
             self._processes.clear()
+            shutdown_timeout = min(
+                self.drain_timeout_seconds, _SHUTDOWN_DRAIN_TIMEOUT_SECONDS
+            )
             await asyncio.gather(
-                *(self._stop_locked(item, report=True) for item in runtimes),
+                *(
+                    self._stop_locked(item, report=True, timeout=shutdown_timeout)
+                    for item in runtimes
+                ),
                 return_exceptions=True,
             )

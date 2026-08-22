@@ -361,6 +361,58 @@ async def test_shutdown_stops_runtime_when_status_report_fails(
 
 
 @pytest.mark.asyncio
+async def test_reconcile_uses_configured_graceful_timeout(monkeypatch, tmp_path):
+    manager = _manager(tmp_path, drain_timeout_seconds=37)
+    monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
+    process = _FakeProcess(ignore_terminate=True)
+
+    async def create_subprocess_exec(*args, **kwargs):
+        return process
+
+    timeouts = []
+
+    async def capture_timeout(awaitable, timeout):
+        timeouts.append(timeout)
+        awaitable.close()
+        raise asyncio.TimeoutError
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
+    await manager.reconcile([_assignment()])
+    monkeypatch.setattr(asyncio, "wait_for", capture_timeout)
+    await manager.reconcile([])
+
+    assert timeouts == [37]
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_caps_graceful_timeout(monkeypatch, tmp_path):
+    manager = _manager(tmp_path, drain_timeout_seconds=7200)
+    monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
+    process = _FakeProcess(ignore_terminate=True)
+
+    async def create_subprocess_exec(*args, **kwargs):
+        return process
+
+    timeouts = []
+
+    async def capture_timeout(awaitable, timeout):
+        timeouts.append(timeout)
+        awaitable.close()
+        raise asyncio.TimeoutError
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
+    await manager.reconcile([_assignment()])
+    monkeypatch.setattr(asyncio, "wait_for", capture_timeout)
+    await manager.shutdown()
+
+    assert timeouts == [10.0]
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_shutdown_kills_runtime_after_graceful_timeout(monkeypatch, tmp_path):
     manager = _manager(tmp_path, drain_timeout_seconds=0.01)
     monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
