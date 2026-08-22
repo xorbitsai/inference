@@ -3,9 +3,9 @@ name: Python CI
 on:
   push:
     branches:
-      - '*'
+      - main
   pull_request:
-    types: ['opened', 'reopened', 'synchronize']
+    types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,6 +13,9 @@ concurrency:
 
 jobs:
   lint:
+    # A push event cannot tell whether its branch belongs to a draft PR, so
+    # branch CI is driven by pull_request events and push is limited to main.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -59,6 +62,7 @@ jobs:
 
 
   changes:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     outputs:
       gpu: ${{ steps.gpu.outputs.gpu }}

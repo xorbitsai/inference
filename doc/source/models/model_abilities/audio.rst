@@ -57,8 +57,6 @@ Audio to text
 * :ref:`whisper-medium.en <models_builtin_whisper-medium.en>`
 * :ref:`whisper-large-v3 <models_builtin_whisper-large-v3>`
 * :ref:`whisper-large-v3-turbo <models_builtin_whisper-large-v3-turbo>`
-* :ref:`Belle-distilwhisper-large-v2-zh <models_builtin_belle-distilwhisper-large-v2-zh>`
-* :ref:`Belle-whisper-large-v2-zh <models_builtin_belle-whisper-large-v2-zh>`
 * :ref:`Belle-whisper-large-v3-zh <models_builtin_belle-whisper-large-v3-zh>`
 * :ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`
 * :ref:`Paraformer-zh <models_builtin_paraformer-zh>`
