@@ -311,6 +311,75 @@ def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
     assert calls["main_kwargs"]["supervisor_endpoint"] == "http://127.0.0.1:9997"
 
 
+def test_worker_command_retries_until_supervisor_ready(monkeypatch):
+    runner = CliRunner()
+    calls = {"attempts": 0}
+
+    class FlakyRESTfulClient:
+        def __init__(self, base_url):
+            calls["attempts"] += 1
+            if calls["attempts"] < 3:
+                raise ConnectionError("connection refused")
+
+        def _get_supervisor_internal_address(self):
+            return "test://supervisor-internal"
+
+    def fake_main(**kwargs):
+        calls["main_kwargs"] = kwargs
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", FlakyRESTfulClient)
+    monkeypatch.setattr(cmdline_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr("xinference.deploy.worker.main", fake_main)
+
+    result = runner.invoke(
+        worker,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--host",
+            "127.0.0.1",
+            "--worker-port",
+            "12345",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls["attempts"] == 3
+    assert calls["main_kwargs"]["supervisor_address"] == "test://supervisor-internal"
+
+
+def test_worker_command_fails_after_exhausting_retries(monkeypatch):
+    runner = CliRunner()
+    calls = {"attempts": 0}
+
+    class UnreachableRESTfulClient:
+        def __init__(self, base_url):
+            calls["attempts"] += 1
+            raise ConnectionError("connection refused")
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", UnreachableRESTfulClient)
+    monkeypatch.setattr(cmdline_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        cmdline_module, "_SUPERVISOR_CONNECT_MAX_ATTEMPTS", 4, raising=True
+    )
+
+    result = runner.invoke(
+        worker,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--host",
+            "127.0.0.1",
+            "--worker-port",
+            "12345",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert isinstance(result.exception, ConnectionError)
+    assert calls["attempts"] == 4
+
+
 def test_rotate_logs(setup_with_file_logging):
     endpoint, _, log_file = setup_with_file_logging
     client = Client(endpoint)
