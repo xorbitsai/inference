@@ -2652,8 +2652,6 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/ace-step/ACE-Step-1.5.git@14c0211d5a0653b0f63e27686f4c3f151b4d8629",
-        "nano-vllm @ git+https://github.com/ace-step/ACE-Step-1.5.git@14c0211d5a0653b0f63e27686f4c3f151b4d8629#subdirectory=acestep/third_parts/nano-vllm ; sys_platform != 'darwin' or platform_machine != 'arm64'",
         "transformers>=4.51.0,<4.58.0",
         "diffusers>=0.37.0,<0.40.0",
         "accelerate>=1.12.0",
