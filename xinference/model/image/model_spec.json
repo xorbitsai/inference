@@ -404,8 +404,8 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1785233836,
-    "featured": true,
+    "updated_at": 1787386982,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -463,8 +463,8 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1769418358,
-    "featured": true,
+    "updated_at": 1787386982,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -553,8 +553,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1769418360,
-    "featured": true,
+    "updated_at": 1787386982,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -846,8 +846,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1769418366,
-    "featured": true
+    "updated_at": 1787386983,
+    "featured": false
   },
   {
     "version": 2,
@@ -1414,8 +1414,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387632,
-    "featured": true
+    "updated_at": 1787386983,
+    "featured": false
   },
   {
     "version": 2,
@@ -1616,8 +1616,8 @@
       ],
       "no_build_isolation": true
     },
-    "featured": true,
-    "updated_at": 1786683386
+    "featured": false,
+    "updated_at": 1787386983
   },
   {
     "version": 2,
@@ -1756,8 +1756,8 @@
         "model_revision": "master"
       }
     },
-    "featured": true,
-    "updated_at": 1785233837
+    "featured": false,
+    "updated_at": 1787386983
   },
   {
     "model_name": "FLUX.2-klein-4B",
@@ -1854,8 +1854,8 @@
         "model_revision": "master"
       }
     },
-    "featured": false,
-    "updated_at": 1781512046
+    "featured": true,
+    "updated_at": 1787386984
   },
   {
     "version": 2,
