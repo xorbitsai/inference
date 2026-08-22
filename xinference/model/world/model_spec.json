@@ -183,7 +183,6 @@
         "torchvision",
         "cupy-cuda12x",
         "transformers==4.46.2",
-        "controlnet-aux==0.0.7",
         "imageio[ffmpeg]",
         "safetensors",
         "einops",

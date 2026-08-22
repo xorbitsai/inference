@@ -102,6 +102,20 @@ def test_world_engine_can_be_prepared_in_virtualenv(
     assert engines["PyTorch"][0]["virtualenv_required"] is True
 
 
+def test_astra_does_not_install_unused_controlnet_runtime():
+    model_spec = BUILTIN_WORLD_MODELS["Astra"][0]
+
+    # Astra's inference entry point imports the annotator class but never
+    # instantiates it.  Installing controlnet-aux would unnecessarily make uv
+    # resolve torch from the package index, which breaks when the inherited
+    # CUDA torch build has a local version suffix such as ``+cu130``.
+    assert model_spec.virtualenv is not None
+    assert not any(
+        package.startswith("controlnet-aux")
+        for package in model_spec.virtualenv.packages
+    )
+
+
 def test_generic_model_factory_preserves_world_engine_selection():
     model = create_model_instance(
         "world-uid",
