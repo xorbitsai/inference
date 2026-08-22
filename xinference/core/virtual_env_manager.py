@@ -1136,6 +1136,7 @@ def _run_uv_install_with_source_fallback(
     allow_public_install: bool = True,
 ) -> subprocess.CompletedProcess:
     """Run uv with configured sources before consulting public fallbacks."""
+    source_conf = conf
     if (
         allow_public_install
         and public_index_urls
@@ -1156,9 +1157,14 @@ def _run_uv_install_with_source_fallback(
             "Post-install requirements were not satisfied by configured package "
             "sources; retrying with the allowed public fallback"
         )
+        # Retry against the hook-specific fallback independently. With uv's
+        # first-index semantics, retaining a configured index that contains the
+        # project at a different version would prevent the fallback from ever
+        # being considered.
+        source_conf = {}
 
     cmd = base_cmd + build_uv_source_options(
-        conf,
+        source_conf,
         public_index_urls=public_index_urls,
         allow_public_install=allow_public_install,
     )

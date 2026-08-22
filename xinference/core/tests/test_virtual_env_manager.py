@@ -45,24 +45,26 @@ from ..virtual_env_manager import (
 )
 
 
-def _create_test_wheel(tmp_path: Path, package_name: str) -> Path:
+def _create_test_wheel(
+    tmp_path: Path, package_name: str, version: str = "1.0.0"
+) -> Path:
     module_name = package_name.replace("-", "_")
-    wheel_name = f"{module_name}-1.0.0-py3-none-any.whl"
+    wheel_name = f"{module_name}-{version}-py3-none-any.whl"
     wheel_path = tmp_path / wheel_name
     with zipfile.ZipFile(wheel_path, "w") as wheel:
-        wheel.writestr(f"{module_name}/__init__.py", '__version__ = "1.0.0"\n')
+        wheel.writestr(f"{module_name}/__init__.py", f'__version__ = "{version}"\n')
         wheel.writestr(
-            f"{module_name}-1.0.0.dist-info/METADATA",
-            f"Metadata-Version: 2.1\nName: {package_name}\nVersion: 1.0.0\n",
+            f"{module_name}-{version}.dist-info/METADATA",
+            f"Metadata-Version: 2.1\nName: {package_name}\nVersion: {version}\n",
         )
         wheel.writestr(
-            f"{module_name}-1.0.0.dist-info/WHEEL",
+            f"{module_name}-{version}.dist-info/WHEEL",
             "Wheel-Version: 1.0\n"
             "Generator: xinference-test\n"
             "Root-Is-Purelib: true\n"
             "Tag: py3-none-any\n",
         )
-        wheel.writestr(f"{module_name}-1.0.0.dist-info/RECORD", "")
+        wheel.writestr(f"{module_name}-{version}.dist-info/RECORD", "")
     return wheel_path
 
 
@@ -358,8 +360,94 @@ class TestBuildUvSourceOptions:
         assert public_fallback not in configured_cmd
         assert "--no-index" not in fallback_cmd
         assert public_fallback in fallback_cmd
-        find_links_pos = fallback_cmd.index("--find-links")
-        assert fallback_cmd[find_links_pos + 1] == "/srv/wheels"
+        assert "--find-links" not in fallback_cmd
+
+    def test_configured_version_miss_uses_public_fallback(self, tmp_path):
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            pytest.skip("uv is required for the resolver-level fallback test")
+
+        package_name = "xinference-version-miss-fallback-test"
+        private_dir = tmp_path / "private-files"
+        public_dir = tmp_path / "public-files"
+        private_dir.mkdir()
+        public_dir.mkdir()
+        private_wheel = _create_test_wheel(private_dir, package_name, "0.9.0")
+        public_wheel = _create_test_wheel(public_dir, package_name, "1.0.0")
+        private_requests = []
+        public_requests = []
+
+        class SourceHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == f"/private/simple/{package_name}/":
+                    private_requests.append(self.path)
+                    wheel_path = private_wheel
+                elif self.path == f"/public/simple/{package_name}/":
+                    public_requests.append(self.path)
+                    wheel_path = public_wheel
+                elif self.path == f"/files/{private_wheel.name}":
+                    wheel_path = private_wheel
+                    self._send_wheel(wheel_path)
+                    return
+                elif self.path == f"/files/{public_wheel.name}":
+                    wheel_path = public_wheel
+                    self._send_wheel(wheel_path)
+                    return
+                else:
+                    self.send_error(404)
+                    return
+
+                body = (
+                    f'<a href="/files/{wheel_path.name}">{wheel_path.name}</a>'
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _send_wheel(self, wheel_path):
+                body = wheel_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SourceHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            result = _run_uv_install_with_source_fallback(
+                [
+                    uv_path,
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--no-cache",
+                    "--no-deps",
+                    "--python",
+                    sys.executable,
+                ],
+                [f"{package_name}==1.0.0"],
+                {
+                    "index_url": f"http://127.0.0.1:{port}/private/simple",
+                    "index_strategy": "unsafe-best-match",
+                },
+                public_index_urls=[f"http://127.0.0.1:{port}/public/simple"],
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        assert result.returncode == 0, result.stderr
+        assert len(private_requests) == 1
+        assert len(public_requests) == 1
 
     def test_find_links_resolves_before_unavailable_public_fallback(self, tmp_path):
         uv_path = shutil.which("uv")
@@ -705,8 +793,7 @@ class TestApplyFlashinferAotPostInstall:
             )
         assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
 
-    def test_extra_index_url_merged_from_conf(self, fake_venv_manager):
-        """conf['extra_index_url'] should be merged with flashinfer.ai URL."""
+    def test_extra_index_url_used_before_public_fallback(self, fake_venv_manager):
         configured_result = mock.MagicMock(returncode=1, stderr="package missing")
         fallback_result = mock.MagicMock(returncode=0)
         with mock.patch(
@@ -720,13 +807,17 @@ class TestApplyFlashinferAotPostInstall:
                 {"extra_index_url": ["https://wheels.vllm.ai/0.19.0/cu130"]},
                 "13.0",
             )
-            cmd = run_mock.call_args_list[1][0][0]
-            cmd_str = " ".join(cmd)
-            assert "wheels.vllm.ai" in cmd_str
-            assert "flashinfer.ai" in cmd_str
 
-    def test_extra_index_url_string_form(self, fake_venv_manager):
-        """conf['extra_index_url'] as string should also be handled."""
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        assert "wheels.vllm.ai" in " ".join(configured_cmd)
+        assert "flashinfer.ai" not in " ".join(configured_cmd)
+        assert "wheels.vllm.ai" not in " ".join(fallback_cmd)
+        assert "flashinfer.ai" in " ".join(fallback_cmd)
+
+    def test_extra_index_url_string_used_before_public_fallback(
+        self, fake_venv_manager
+    ):
         configured_result = mock.MagicMock(returncode=1, stderr="package missing")
         fallback_result = mock.MagicMock(returncode=0)
         with mock.patch(
@@ -740,10 +831,13 @@ class TestApplyFlashinferAotPostInstall:
                 {"extra_index_url": "https://wheels.vllm.ai/0.19.0/cu130"},
                 "13.0",
             )
-            cmd = run_mock.call_args_list[1][0][0]
-            cmd_str = " ".join(cmd)
-            assert "wheels.vllm.ai" in cmd_str
-            assert "flashinfer.ai" in cmd_str
+
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        assert "wheels.vllm.ai" in " ".join(configured_cmd)
+        assert "flashinfer.ai" not in " ".join(configured_cmd)
+        assert "wheels.vllm.ai" not in " ".join(fallback_cmd)
+        assert "flashinfer.ai" in " ".join(fallback_cmd)
 
     def test_configured_source_success_skips_public_fallback(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0)
@@ -764,7 +858,9 @@ class TestApplyFlashinferAotPostInstall:
         assert "--no-index" in cmd
         assert FLASHINFER_AOT_WHEEL_URL not in cmd
 
-    def test_reuses_configured_source_options(self, fake_venv_manager):
+    def test_reuses_configured_source_options_before_public_fallback(
+        self, fake_venv_manager
+    ):
         configured_result = mock.MagicMock(returncode=1, stderr="package missing")
         fallback_result = mock.MagicMock(returncode=0)
         conf = {
@@ -785,20 +881,27 @@ class TestApplyFlashinferAotPostInstall:
                 "13.0",
             )
 
-        cmd = run_mock.call_args_list[1][0][0]
-        private_index_pos = cmd.index("--index")
-        public_fallback_pos = cmd.index("--default-index")
-        assert cmd[private_index_pos + 1] == "https://packages.example/simple"
-        assert cmd[public_fallback_pos + 1] == FLASHINFER_AOT_WHEEL_URL
-        assert private_index_pos < public_fallback_pos
-        assert "--find-links" in cmd
-        assert "/srv/wheels" in cmd
-        assert "--trusted-host" in cmd
-        assert "packages.example" in cmd
-        assert "--index-strategy" in cmd
-        assert "first-index" in cmd
-        assert "unsafe-best-match" not in cmd
-        assert FLASHINFER_AOT_WHEEL_URL in cmd
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        configured_index_pos = configured_cmd.index("--default-index")
+        assert (
+            configured_cmd[configured_index_pos + 1]
+            == "https://packages.example/simple"
+        )
+        assert "--find-links" in configured_cmd
+        assert "/srv/wheels" in configured_cmd
+        assert "--trusted-host" in configured_cmd
+        assert "packages.example" in configured_cmd
+        assert "--index-strategy" in configured_cmd
+        assert "unsafe-best-match" in configured_cmd
+        assert FLASHINFER_AOT_WHEEL_URL not in configured_cmd
+
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        fallback_index_pos = fallback_cmd.index("--default-index")
+        assert fallback_cmd[fallback_index_pos + 1] == FLASHINFER_AOT_WHEEL_URL
+        assert "https://packages.example/simple" not in fallback_cmd
+        assert "--find-links" not in fallback_cmd
+        assert "--trusted-host" not in fallback_cmd
+        assert "--index-strategy" not in fallback_cmd
 
     def test_offline_mode_uses_configured_find_links(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0)
