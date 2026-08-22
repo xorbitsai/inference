@@ -26,6 +26,27 @@ if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
 
 
+_ACE_STEP_VENDOR_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../../thirdparty/ace_step_1_5")
+)
+_NANO_VLLM_VENDOR_ROOT = os.path.join(
+    _ACE_STEP_VENDOR_ROOT, "acestep", "third_parts", "nano-vllm"
+)
+
+
+def _ensure_vendored_source_paths() -> None:
+    """Expose ACE-Step and its bundled nano-vllm as top-level packages."""
+
+    for source_path in (_ACE_STEP_VENDOR_ROOT, _NANO_VLLM_VENDOR_ROOT):
+        if not os.path.isdir(source_path):
+            raise RuntimeError(
+                f"ACE-Step 1.5 vendored source directory is missing: {source_path}"
+            )
+        if source_path in sys.path:
+            sys.path.remove(source_path)
+        sys.path.insert(0, source_path)
+
+
 def is_ace_step_python_supported() -> bool:
     """ACE-Step 1.5 currently publishes dependencies for Python 3.11-3.12."""
 
@@ -191,6 +212,7 @@ class AceStepModel:
         if not is_ace_step_python_supported():
             raise RuntimeError("ACE-Step 1.5 requires Python 3.11 or 3.12.")
 
+        _ensure_vendored_source_paths()
         try:
             from acestep.handler import AceStepHandler
             from acestep.inference import (
@@ -200,9 +222,8 @@ class AceStepModel:
             )
         except ImportError as e:
             raise ImportError(
-                "ACE-Step 1.5 requires the upstream 'ace-step' package. "
-                "Enable the model virtual environment or install the dependencies "
-                "declared in its built-in model specification."
+                "ACE-Step 1.5 vendored runtime failed to import. Install the "
+                "dependencies declared in its built-in model specification."
             ) from e
 
         config = self._load_config()

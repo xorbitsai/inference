@@ -1,0 +1,196 @@
+"""Diffusion-related handler helpers."""
+
+from typing import Any, Dict, Optional
+
+import torch
+from acestep.models.mlx.dit_generate import mlx_generate_diffusion
+
+
+class DiffusionMixin:
+    """Mixin containing diffusion execution helpers.
+
+    Required host attributes:
+    - ``mlx_decoder``: MLX decoder object passed to ``mlx_generate_diffusion``.
+    - ``device``: torch device string used for output tensor placement.
+    - ``dtype``: torch dtype used for output tensor conversion.
+    """
+
+    def _mlx_run_diffusion(
+        self,
+        encoder_hidden_states,
+        encoder_attention_mask,
+        context_latents,
+        src_latents,
+        seed,
+        infer_method: str = "ode",
+        shift: float = 3.0,
+        timesteps=None,
+        infer_steps: Optional[int] = None,
+        guidance_scale: float = 1.0,
+        null_condition_emb: Optional[torch.Tensor] = None,
+        cfg_interval_start: float = 0.0,
+        cfg_interval_end: float = 1.0,
+        audio_cover_strength: float = 1.0,
+        encoder_hidden_states_non_cover=None,
+        encoder_attention_mask_non_cover=None,
+        context_latents_non_cover=None,
+        retake_seed: Optional[object] = None,
+        retake_variance: float = 0.0,
+        disable_tqdm: bool = False,
+        sampler_mode: str = "euler",
+        velocity_norm_threshold: float = 0.0,
+        velocity_ema_factor: float = 0.0,
+        dcw_enabled: bool = True,
+        dcw_mode: str = "double",
+        dcw_scaler: float = 0.05,
+        dcw_high_scaler: float = 0.02,
+        dcw_wavelet: str = "haar",
+        repaint_mask: Optional[torch.Tensor] = None,
+        clean_src_latents: Optional[torch.Tensor] = None,
+        repaint_crossfade_frames: int = 10,
+        repaint_injection_ratio: float = 0.5,
+    ) -> Dict[str, Any]:
+        """Run the MLX diffusion loop and return generated latents.
+
+        Args:
+            encoder_hidden_states: Prompt conditioning tensor.
+            encoder_attention_mask: Unused; accepted for API compatibility.
+            context_latents: Context/reference latent tensor.
+            src_latents: Source latent tensor used for shape and initialization.
+            seed: Random seed used by MLX diffusion.
+            infer_method: Diffusion method, one of ``"ode"`` or ``"sde"``.
+            shift: Timestep shift value.
+            timesteps: Optional iterable or tensor-like custom timesteps.
+            infer_steps: Number of diffusion steps (overrides fixed 8-step table).
+            guidance_scale: CFG guidance strength (>1.0 enables CFG).
+            null_condition_emb: Null condition embedding tensor for CFG.
+            cfg_interval_start: Timestep ratio below which CFG is disabled.
+            cfg_interval_end: Timestep ratio above which CFG is disabled.
+            audio_cover_strength: Blend factor for cover conditioning.
+            encoder_hidden_states_non_cover: Optional non-cover conditioning tensor.
+            encoder_attention_mask_non_cover: Unused; accepted for API compatibility.
+            context_latents_non_cover: Optional non-cover context latent tensor.
+            disable_tqdm: If True, suppress the diffusion progress bar.
+            sampler_mode: Sampler algorithm — ``"euler"`` or ``"heun"``.
+            velocity_norm_threshold: Velocity norm clamping threshold (0 = disabled).
+            velocity_ema_factor: Velocity EMA smoothing factor (0 = disabled).
+            dcw_enabled: Enable Differential Correction in Wavelet domain
+                (CVPR 2026, arXiv:2604.16044) on the MLX path.  Off by default.
+            dcw_mode: ``"low"`` / ``"high"`` / ``"double"`` / ``"pix"``.
+            dcw_scaler: Low-band (or single-band) correction strength.
+            dcw_high_scaler: High-band strength — only used when
+                ``dcw_mode == "double"``.
+            dcw_wavelet: Wavelet basis. MLX path currently only implements
+                ``"haar"`` natively; other values warn once and fall back
+                to Haar.
+
+        Returns:
+            Dict[str, Any]: ``{"target_latents": torch.Tensor, "time_costs": dict}``.
+        """
+        import numpy as np
+
+        _ = encoder_attention_mask, encoder_attention_mask_non_cover
+
+        for required_attr in ("mlx_decoder", "device", "dtype"):
+            if not hasattr(self, required_attr):
+                raise AttributeError(f"DiffusionMixin host is missing required attribute '{required_attr}'")
+
+        if infer_method not in {"ode", "sde"}:
+            raise ValueError(f"Unsupported infer_method '{infer_method}'. Expected 'ode' or 'sde'.")
+
+        if timesteps is not None and not (hasattr(timesteps, "__iter__") or hasattr(timesteps, "tolist")):
+            raise TypeError("timesteps must be iterable, tensor-like, or None")
+
+        if encoder_hidden_states.shape[0] != context_latents.shape[0]:
+            raise ValueError(
+                "Batch dimension mismatch: encoder_hidden_states and context_latents must share dim 0"
+            )
+        if encoder_hidden_states.shape[0] != src_latents.shape[0]:
+            raise ValueError(
+                "Batch dimension mismatch: encoder_hidden_states and src_latents must share dim 0"
+            )
+        if encoder_hidden_states_non_cover is not None and encoder_hidden_states_non_cover.shape[0] != encoder_hidden_states.shape[0]:
+            raise ValueError(
+                "Batch dimension mismatch: encoder_hidden_states_non_cover must share dim 0 with encoder_hidden_states"
+            )
+        if context_latents_non_cover is not None and context_latents_non_cover.shape[0] != context_latents.shape[0]:
+            raise ValueError(
+                "Batch dimension mismatch: context_latents_non_cover must share dim 0 with context_latents"
+            )
+
+        enc_np = encoder_hidden_states.detach().cpu().float().numpy()
+        ctx_np = context_latents.detach().cpu().float().numpy()
+        src_shape = (src_latents.shape[0], src_latents.shape[1], src_latents.shape[2])
+
+        enc_nc_np = (
+            encoder_hidden_states_non_cover.detach().cpu().float().numpy()
+            if encoder_hidden_states_non_cover is not None else None
+        )
+        ctx_nc_np = (
+            context_latents_non_cover.detach().cpu().float().numpy()
+            if context_latents_non_cover is not None else None
+        )
+
+        repaint_mask_np = (
+            repaint_mask.detach().cpu().numpy().astype(bool)
+            if repaint_mask is not None else None
+        )
+        clean_src_np = (
+            clean_src_latents.detach().cpu().float().numpy()
+            if clean_src_latents is not None else None
+        )
+
+        null_cond_np = (
+            null_condition_emb.detach().cpu().float().numpy()
+            if null_condition_emb is not None else None
+        )
+
+        ts_list = None
+        if timesteps is not None:
+            if hasattr(timesteps, "tolist"):
+                ts_list = timesteps.tolist()
+            else:
+                ts_list = list(timesteps)
+
+        result = mlx_generate_diffusion(
+            mlx_decoder=self.mlx_decoder,
+            encoder_hidden_states_np=enc_np,
+            context_latents_np=ctx_np,
+            src_latents_shape=src_shape,
+            seed=seed,
+            infer_method=infer_method,
+            shift=shift,
+            timesteps=ts_list,
+            infer_steps=infer_steps,
+            guidance_scale=guidance_scale,
+            null_condition_emb_np=null_cond_np,
+            cfg_interval_start=cfg_interval_start,
+            cfg_interval_end=cfg_interval_end,
+            audio_cover_strength=audio_cover_strength,
+            encoder_hidden_states_non_cover_np=enc_nc_np,
+            context_latents_non_cover_np=ctx_nc_np,
+            retake_seed=retake_seed,
+            retake_variance=retake_variance,
+            compile_model=getattr(self, "mlx_dit_compiled", False),
+            disable_tqdm=disable_tqdm,
+            sampler_mode=sampler_mode,
+            velocity_norm_threshold=velocity_norm_threshold,
+            velocity_ema_factor=velocity_ema_factor,
+            dcw_enabled=dcw_enabled,
+            dcw_mode=dcw_mode,
+            dcw_scaler=dcw_scaler,
+            dcw_high_scaler=dcw_high_scaler,
+            dcw_wavelet=dcw_wavelet,
+            repaint_mask_np=repaint_mask_np,
+            clean_src_latents_np=clean_src_np,
+            repaint_crossfade_frames=repaint_crossfade_frames,
+            repaint_injection_ratio=repaint_injection_ratio,
+        )
+
+        target_np = result["target_latents"]
+        target_tensor = torch.from_numpy(target_np).to(device=self.device, dtype=self.dtype)
+
+        return {
+            "target_latents": target_tensor,
+            "time_costs": result["time_costs"],
+        }
