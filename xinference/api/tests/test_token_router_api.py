@@ -1173,3 +1173,42 @@ async def test_disabled_feature_rejects_public_and_internal_apis(
             "code": "TOKEN_ROUTER_DISABLED",
             "message": "Token Router feature is disabled",
         }
+
+
+@pytest.mark.asyncio
+async def test_public_router_responses_normalize_sparse_configs_without_persisting(
+    tmp_path,
+) -> None:
+    supervisor = make_supervisor(tmp_path)
+    legacy_config = supervisor._token_router_store.create(
+        "legacy-sparse",
+        {"virtual_model_uid": "legacy-virtual", "backends": {}},
+    )
+    typed_config = supervisor._token_router_store.create(
+        "typed-sparse",
+        {
+            "virtual_model_uid": "typed-virtual",
+            "config_version": 2,
+            "backends": [],
+            "routing": {},
+        },
+    )
+
+    legacy = await supervisor.get_token_router("legacy-sparse")
+    typed = await supervisor.get_token_router("typed-sparse")
+    assert legacy is not None and typed is not None
+    assert legacy["model_aliases"] == []
+    assert legacy["tokenization"]["executor"] == "process"
+    assert legacy["backends"]["short"]["admission"]["max_queue"] == 0
+    assert legacy["routing"]["overflow_policy"] == "reject"
+    assert legacy["deployment"]["management_mode"] == "external"
+    assert typed["config_version"] == 2
+    assert typed["backends"] == []
+    assert typed["routing"]["rules"] == []
+    assert typed["routing"]["default_action"] == {
+        "type": "reject",
+        "reason": "configuration_error",
+    }
+    assert typed["deployment"]["management_mode"] == "external"
+    assert supervisor._token_router_store.get("legacy-sparse") == legacy_config
+    assert supervisor._token_router_store.get("typed-sparse") == typed_config

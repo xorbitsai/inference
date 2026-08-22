@@ -1112,7 +1112,9 @@ class RESTfulAPI(CancelMixin):
 
     async def describe_model(self, model_uid: str) -> JSONResponse:
         try:
-            data = await (await self._get_supervisor_ref()).describe_model(model_uid)
+            data = await (await self._get_supervisor_ref()).describe_running_model(
+                model_uid
+            )
             return JSONResponse(content=data)
         except ModelNotReadyError as e:
             raise HTTPException(
