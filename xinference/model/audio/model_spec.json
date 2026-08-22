@@ -807,8 +807,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1780041428,
-    "featured": true
+    "updated_at": 1787386831,
+    "featured": false
   },
   {
     "version": 2,
@@ -976,8 +976,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387084,
-    "featured": true
+    "updated_at": 1787386831,
+    "featured": false
   },
   {
     "version": 2,
@@ -999,8 +999,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912365,
-    "featured": true,
+    "updated_at": 1787386831,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "loguru",
@@ -1601,8 +1601,8 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1784865150,
-    "featured": true
+    "updated_at": 1787386831,
+    "featured": false
   },
   {
     "model_name": "Fun-ASR-Nano-2512",
