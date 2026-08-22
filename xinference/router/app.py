@@ -321,8 +321,6 @@ def create_app(config: RouterConfig) -> FastAPI:
         backend_started: float | None = None
         backend_model_uid = ""
 
-        await metrics.request_started(metric_config.router_uid, current_pool)
-
         async def finish_request(
             result: str, pool: str, *, backend_result: str | None = None
         ) -> None:
@@ -375,6 +373,8 @@ def create_app(config: RouterConfig) -> FastAPI:
         metric_config = config
 
         try:
+            await metrics.request_started(metric_config.router_uid, current_pool)
+
             if not _authorized(request, config):
                 await finish_request("auth_rejected", current_pool)
                 logger.warning(
@@ -464,7 +464,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                 )
             capabilities = config.tokenizer_asset_capabilities
             if bool(payload.get("tools")) and "tools" not in capabilities:
-                await metrics.increment("tools_not_allowed", "none")
+                await finish_request("tools_not_allowed", current_pool)
                 return _error(
                     400,
                     "Tool requests are not supported by this Tokenizer asset",
@@ -472,7 +472,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                     headers={"x-request-id": request_id},
                 )
             if "thinking" not in capabilities and _payload_thinking(payload):
-                await metrics.increment("thinking_not_allowed", "none")
+                await finish_request("thinking_not_allowed", current_pool)
                 return _error(
                     400,
                     "Thinking-mode requests are not supported by this "
@@ -490,7 +490,7 @@ def create_app(config: RouterConfig) -> FastAPI:
                     stream=stream,
                 )
                 if budget.enable_thinking and "thinking" not in capabilities:
-                    await metrics.increment("thinking_not_allowed", "none")
+                    await finish_request("thinking_not_allowed", current_pool)
                     return _error(
                         400,
                         "Thinking-mode requests are not supported by this "

@@ -210,6 +210,24 @@ async def call_router(
     return response, active, metrics
 
 
+def assert_rejection_metrics(metrics: str, *, router_uid: str, result: str) -> None:
+    assert (
+        "xinference_token_router_route_requests_total"
+        f'{{router_uid="{router_uid}",result="{result}",'
+        'route_mode="non_stream",pool="none"} 1' in metrics
+    )
+    assert (
+        f'xinference_token_router_requests_total{{event="{result}",pool="none"}} 1'
+        in metrics
+    )
+    assert 'result="router_error"' not in metrics
+    assert 'event="router_error",pool="none"' not in metrics
+    assert (
+        "xinference_token_router_requests_in_flight"
+        f'{{router_uid="{router_uid}",pool="none"}} 0' in metrics
+    )
+
+
 @pytest.mark.asyncio
 async def test_stream_connect_error_releases_gate(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
@@ -570,6 +588,55 @@ async def test_auth_rejection_releases_runtime_snapshot(
 
 
 @pytest.mark.asyncio
+async def test_cancelled_runtime_acquire_does_not_leak_in_flight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = create_app(make_config(tmp_path))
+    runtime = app.state.runtime
+    acquire_started = asyncio.Event()
+    original_acquire = runtime.acquire
+
+    async def tracked_acquire():
+        acquire_started.set()
+        return await original_acquire()
+
+    monkeypatch.setattr(runtime, "acquire", tracked_acquire)
+
+    async with app.router.lifespan_context(app):
+        await runtime._lock.acquire()
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://router"
+            ) as client:
+                request_task = asyncio.create_task(
+                    client.post(
+                        "/v1/chat/completions",
+                        headers={"authorization": "Bearer secret"},
+                        json={
+                            "model": "router-model",
+                            "messages": [{"role": "user", "content": "hello"}],
+                            "max_tokens": 8,
+                        },
+                    )
+                )
+                await asyncio.wait_for(acquire_started.wait(), timeout=1)
+                request_task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await request_task
+        finally:
+            runtime._lock.release()
+
+        metrics = await app.state.metrics.render()
+        in_flight = [
+            float(line.rsplit(" ", 1)[1])
+            for line in metrics.splitlines()
+            if line.startswith("xinference_token_router_requests_in_flight{")
+        ]
+        assert all(value == 0 for value in in_flight)
+        assert runtime.current.active_requests == 0
+
+
+@pytest.mark.asyncio
 async def test_v2_tools_rule_routes_to_dynamic_backend_and_sets_headers(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -678,9 +745,13 @@ async def test_tools_request_rejected_when_asset_lacks_tools_capability(
                     "max_tokens": 8,
                 },
             )
+            metrics = (await client.get("/metrics")).text
 
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "tools_not_allowed"
+    assert_rejection_metrics(
+        metrics, router_uid=config.router_uid, result="tools_not_allowed"
+    )
 
 
 @pytest.mark.asyncio
@@ -712,15 +783,19 @@ async def test_thinking_request_is_rejected_before_tokenization(
                     "max_tokens": 8,
                 },
             )
+            metrics = (await client.get("/metrics")).text
 
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "thinking_not_allowed"
     estimate.assert_not_awaited()
+    assert_rejection_metrics(
+        metrics, router_uid=config.router_uid, result="thinking_not_allowed"
+    )
 
 
 @pytest.mark.asyncio
 async def test_thinking_request_rejected_when_asset_lacks_thinking_capability(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from dataclasses import replace
 
@@ -729,6 +804,17 @@ async def test_thinking_request_rejected_when_asset_lacks_thinking_capability(
         tokenizer_asset_capabilities=("chat", "tools"),
     )
     app = create_app(config)
+    tokenization = app.state.runtime.current.tokenization
+    estimate = AsyncMock(
+        return_value=TokenBudget(
+            prompt_tokens=1,
+            output_tokens=8,
+            reserve_tokens=0,
+            total_tokens=9,
+            enable_thinking=True,
+        )
+    )
+    monkeypatch.setattr(tokenization, "estimate", estimate)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://router"
@@ -739,10 +825,14 @@ async def test_thinking_request_rejected_when_asset_lacks_thinking_capability(
                 json={
                     "model": "router-model",
                     "messages": [{"role": "user", "content": "hello"}],
-                    "chat_template_kwargs": {"enable_thinking": True},
                     "max_tokens": 8,
                 },
             )
+            metrics = (await client.get("/metrics")).text
 
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "thinking_not_allowed"
+    estimate.assert_awaited_once()
+    assert_rejection_metrics(
+        metrics, router_uid=config.router_uid, result="thinking_not_allowed"
+    )
