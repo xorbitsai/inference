@@ -403,6 +403,7 @@ const en = {
     imageModels: 'Image Models',
     audioModels: 'Audio Models',
     videoModels: 'Video Models',
+    worldModels: 'World Models',
     customModels: 'Custom Models',
     flexibleModels: 'Flexible Models',
   },

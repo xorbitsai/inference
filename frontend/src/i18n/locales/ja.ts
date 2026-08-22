@@ -389,6 +389,7 @@ const ja = {
     imageModels: '画像モデル',
     audioModels: '音声モデル',
     videoModels: '動画モデル',
+    worldModels: 'ワールドモデル',
     customModels: 'カスタムモデル',
     flexibleModels: 'フレキシブルモデル',
   },

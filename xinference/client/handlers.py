@@ -16,6 +16,9 @@ from .restful.async_restful_client import (  # noqa: F401
 from .restful.async_restful_client import (  # noqa: F401
     AsyncRESTfulVideoModelHandle as AsyncVideoModelHandle,
 )
+from .restful.async_restful_client import (  # noqa: F401
+    AsyncRESTfulWorldModelHandle as AsyncWorldModelHandle,
+)
 from .restful.restful_client import (  # noqa: F401
     RESTfulAudioModelHandle as AudioModelHandle,
 )
@@ -33,4 +36,7 @@ from .restful.restful_client import (  # noqa: F401
 )
 from .restful.restful_client import (  # noqa: F401
     RESTfulVideoModelHandle as VideoModelHandle,
+)
+from .restful.restful_client import (  # noqa: F401
+    RESTfulWorldModelHandle as WorldModelHandle,
 )

@@ -46,7 +46,15 @@ const toDash = (value: unknown) => {
 
 const padDatePart = (value: number) => String(value).padStart(2, '0');
 
-const permissionTypeValues = new Set(['LLM', 'embedding', 'rerank', 'image', 'video', 'audio']);
+const permissionTypeValues = new Set([
+  'LLM',
+  'embedding',
+  'rerank',
+  'image',
+  'video',
+  'world',
+  'audio',
+]);
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();

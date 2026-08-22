@@ -7,6 +7,7 @@ export const LAUNCH_MODEL_ROUTE_TABS = [
   { key: ModelType.Image, path: 'image', labelKey: 'model.imageModels' },
   { key: ModelType.Audio, path: 'audio', labelKey: 'model.audioModels' },
   { key: ModelType.Video, path: 'video', labelKey: 'model.videoModels' },
+  { key: ModelType.World, path: 'world', labelKey: 'model.worldModels' },
   { key: ModelType.Custom, path: 'custom', labelKey: 'model.customModels' },
 ] as const;
 
@@ -17,6 +18,7 @@ export const LAUNCH_MODEL_UPDATE_OPTIONS = [
   { label: 'Image', value: ModelType.Image },
   { label: 'Audio', value: ModelType.Audio },
   { label: 'Video', value: ModelType.Video },
+  { label: 'World', value: ModelType.World },
 ];
 
 export const COLLECTION_STORAGE_KEY = 'collectionArr';

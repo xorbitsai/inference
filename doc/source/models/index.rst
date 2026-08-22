@@ -70,6 +70,12 @@ The following ``MODEL_TYPE`` is supported by Xinference:
 
       Video models
 
+    .. grid-item-card::  world
+      :link: models_world_index
+      :link-type: ref
+
+      World generation models
+
 .. grid:: 2
 
     .. grid-item-card::  flexible

@@ -1132,6 +1132,96 @@ export default function LaunchDialog({
         content: <CollapsibleConfig form={form} modelType={modelType} />,
       },
     ],
+    [ModelType.World]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        rules: [{ required: true }],
+        fieldProps: { options: modelEngineOptions },
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPUDevice'),
+        fieldProps: nGpuFieldProps,
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: GPU_IDX_PATTERN,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+      {
+        name: 'download_hub',
+        type: 'select',
+        label: t('launchModel.downloadHub'),
+        placeholder: t('launchModel.downloadHubPlaceholder'),
+        fieldProps: { options: downloadHubOptions },
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
+      },
+      {
+        name: 'worker_ip',
+        type: 'multi-select',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+        fieldProps: workerIpFieldProps,
+        normalize: (v) => v || undefined,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ],
     [ModelType.Video]: [
       {
         name: 'model_uid',

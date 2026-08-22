@@ -1234,6 +1234,12 @@ class WorkerActor(xo.StatelessActor):
             register_video,
             unregister_video,
         )
+        from ..model.world import (
+            CustomWorldModelFamilyV1,
+            generate_world_description,
+            register_world,
+            unregister_world,
+        )
 
         self._custom_register_type_to_cls: Dict[str, Tuple] = {  # type: ignore
             "LLM": (
@@ -1277,6 +1283,12 @@ class WorkerActor(xo.StatelessActor):
                 register_video,
                 unregister_video,
                 generate_video_description,
+            ),
+            "world": (
+                CustomWorldModelFamilyV1,
+                register_world,
+                unregister_world,
+                generate_world_description,
             ),
         }
 
@@ -1513,6 +1525,7 @@ class WorkerActor(xo.StatelessActor):
             from ..model.llm import get_llm_version_infos
             from ..model.rerank import get_rerank_model_descriptions
             from ..model.video import get_video_model_descriptions
+            from ..model.world import get_world_model_descriptions
 
             model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
             model_version_infos.update(get_llm_version_infos())
@@ -1521,6 +1534,7 @@ class WorkerActor(xo.StatelessActor):
             model_version_infos.update(get_image_model_descriptions())
             model_version_infos.update(get_audio_model_descriptions())
             model_version_infos.update(get_video_model_descriptions())
+            model_version_infos.update(get_world_model_descriptions())
             model_version_infos.update(get_flexible_model_descriptions())
             await xo.wait_for(
                 cache_tracker_ref.record_model_version(
@@ -2321,6 +2335,10 @@ class WorkerActor(xo.StatelessActor):
                     from ..model.video import register_builtin_model
 
                     register_builtin_model()
+                elif model_type.lower() == "world":
+                    from ..model.world import register_builtin_model
+
+                    register_builtin_model()
                 else:
                     logger.warning(
                         f"No dynamic loading available for model type: {model_type}"
@@ -2651,6 +2669,41 @@ class WorkerActor(xo.StatelessActor):
 
             ret.sort(key=sort_helper)
             return ret
+        elif model_type == "world":
+            from ..model.cache_manager import CacheManager
+            from ..model.world import BUILTIN_WORLD_MODELS
+
+            for model_name, families in BUILTIN_WORLD_MODELS.items():
+                if not families:
+                    continue
+                if detailed:
+                    model_specs = []
+                    download_hubs = []
+                    for family in families:
+                        if family.model_hub not in download_hubs:
+                            download_hubs.append(family.model_hub)
+                        cache_manager = CacheManager(family)
+                        model_specs.append(
+                            {
+                                "model_format": family.model_format,
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": cache_manager.get_cache_status(),
+                            }
+                        )
+                    ret.append(
+                        {
+                            **families[0].dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
+
+            ret.sort(key=sort_helper)
+            return ret
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.cache_manager import RerankCacheManager
@@ -2788,6 +2841,16 @@ class WorkerActor(xo.StatelessActor):
                     if f.model_hub == "huggingface":
                         return f
             return None
+        elif model_type == "world":
+            from ..model.world import BUILTIN_WORLD_MODELS
+
+            if model_name in BUILTIN_WORLD_MODELS:
+                families = BUILTIN_WORLD_MODELS[model_name]
+                return next(
+                    (f for f in families if f.model_hub == "huggingface"),
+                    families[0],
+                )
+            return None
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
             from ..model.rerank.custom import get_user_defined_reranks
@@ -2837,7 +2900,7 @@ class WorkerActor(xo.StatelessActor):
         }
         if model_type in ability_map:
             return ability_map[model_type]
-        if model_type in {"image", "audio", "video"}:
+        if model_type in {"image", "audio", "video", "world"}:
             return model.model_ability
         assert model_type == "LLM"
         assert isinstance(model, LLM)
@@ -3517,6 +3580,11 @@ class WorkerActor(xo.StatelessActor):
             from ..model.image.core import resolve_image_model_engine
 
             model_engine = resolve_image_model_engine(model_name, model_engine)
+            launch_args["model_engine"] = model_engine
+        elif model_type.lower() == "world":
+            from ..model.world.core import resolve_world_model_engine
+
+            model_engine = resolve_world_model_engine(model_name, model_engine)
             launch_args["model_engine"] = model_engine
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 

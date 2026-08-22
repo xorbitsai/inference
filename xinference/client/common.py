@@ -12,8 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import json
+import os
 from typing import Any, AsyncIterator, Iterator, Union
+
+
+def encode_world_reference(reference: Union[str, bytes], media_type: str) -> str:
+    if isinstance(reference, str) and not os.path.isfile(reference):
+        return reference
+    if isinstance(reference, str):
+        with open(reference, "rb") as reference_file:
+            data = reference_file.read()
+    elif isinstance(reference, bytes):
+        data = reference
+    else:
+        raise TypeError("World generation references must be strings or bytes")
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{media_type};base64,{encoded}"
 
 
 def convert_float_to_int_or_str(model_size: float) -> Union[int, str]:

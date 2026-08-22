@@ -74,6 +74,7 @@ _INFERENCE_PREFIXES = (
     "/v1/images/",
     "/v1/audio/",
     "/v1/video/",
+    "/v1/worlds/",
     "/v1/sdapi/",
 )
 
