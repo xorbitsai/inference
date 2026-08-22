@@ -25,6 +25,7 @@ import subprocess
 import sys
 import threading
 import zipfile
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -34,6 +35,7 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_PACKAGES,
     FLASHINFER_AOT_WHEEL_URL,
     FLASHINFER_CUBIN_WHEEL_URL,
+    _run_uv_install_with_source_fallback,
     apply_flashinfer_aot_post_install,
     build_uv_source_options,
     ensure_flashinfer_cubin_matches_post_install,
@@ -41,6 +43,27 @@ from ..virtual_env_manager import (
     get_engine_critical_dependency_specs,
     needs_flashinfer_aot,
 )
+
+
+def _create_test_wheel(tmp_path: Path, package_name: str) -> Path:
+    module_name = package_name.replace("-", "_")
+    wheel_name = f"{module_name}-1.0.0-py3-none-any.whl"
+    wheel_path = tmp_path / wheel_name
+    with zipfile.ZipFile(wheel_path, "w") as wheel:
+        wheel.writestr(f"{module_name}/__init__.py", '__version__ = "1.0.0"\n')
+        wheel.writestr(
+            f"{module_name}-1.0.0.dist-info/METADATA",
+            f"Metadata-Version: 2.1\nName: {package_name}\nVersion: 1.0.0\n",
+        )
+        wheel.writestr(
+            f"{module_name}-1.0.0.dist-info/WHEEL",
+            "Wheel-Version: 1.0\n"
+            "Generator: xinference-test\n"
+            "Root-Is-Purelib: true\n"
+            "Tag: py3-none-any\n",
+        )
+        wheel.writestr(f"{module_name}-1.0.0.dist-info/RECORD", "")
+    return wheel_path
 
 
 class TestNeedsFlashinferAot:
@@ -208,7 +231,23 @@ class TestBuildUvSourceOptions:
             allow_public_install=False,
         )
 
-        assert options == ["--find-links", "/srv/wheels"]
+        assert options == ["--find-links", "/srv/wheels", "--no-index"]
+
+    def test_configured_only_extra_index_replaces_implicit_public_default(self):
+        options = build_uv_source_options(
+            {
+                "extra_index_url": "https://packages.example/simple",
+                "index_strategy": "unsafe-best-match",
+            },
+            allow_public_install=False,
+        )
+
+        assert options == [
+            "--default-index",
+            "https://packages.example/simple",
+            "--index-strategy",
+            "unsafe-best-match",
+        ]
 
     def test_deduplicates_public_fallback(self):
         options = build_uv_source_options(
@@ -227,27 +266,8 @@ class TestBuildUvSourceOptions:
             pytest.skip("uv is required for the resolver-level source priority test")
 
         package_name = "xinference-source-priority-test"
-        wheel_name = "xinference_source_priority_test-1.0.0-py3-none-any.whl"
-        wheel_path = tmp_path / wheel_name
-        with zipfile.ZipFile(wheel_path, "w") as wheel:
-            wheel.writestr(
-                "xinference_source_priority_test/__init__.py",
-                '__version__ = "1.0.0"\n',
-            )
-            wheel.writestr(
-                "xinference_source_priority_test-1.0.0.dist-info/METADATA",
-                "Metadata-Version: 2.1\n"
-                "Name: xinference-source-priority-test\n"
-                "Version: 1.0.0\n",
-            )
-            wheel.writestr(
-                "xinference_source_priority_test-1.0.0.dist-info/WHEEL",
-                "Wheel-Version: 1.0\n"
-                "Generator: xinference-test\n"
-                "Root-Is-Purelib: true\n"
-                "Tag: py3-none-any\n",
-            )
-            wheel.writestr("xinference_source_priority_test-1.0.0.dist-info/RECORD", "")
+        wheel_path = _create_test_wheel(tmp_path, package_name)
+        wheel_name = wheel_path.name
         wheel_bytes = wheel_path.read_bytes()
         fallback_requests = []
 
@@ -305,6 +325,83 @@ class TestBuildUvSourceOptions:
                 check=False,
                 capture_output=True,
                 text=True,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        assert result.returncode == 0, result.stderr
+        assert fallback_requests == []
+
+    def test_find_links_miss_retries_with_public_fallback(self):
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
+        public_fallback = "https://public.example/simple"
+
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
+        ) as run_mock:
+            result = _run_uv_install_with_source_fallback(
+                ["uv", "pip", "install"],
+                ["example-package==1.0.0"],
+                {"find_links": "/srv/wheels"},
+                public_index_urls=[public_fallback],
+            )
+
+        assert result is fallback_result
+        assert run_mock.call_count == 2
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        assert "--no-index" in configured_cmd
+        assert public_fallback not in configured_cmd
+        assert "--no-index" not in fallback_cmd
+        assert public_fallback in fallback_cmd
+        find_links_pos = fallback_cmd.index("--find-links")
+        assert fallback_cmd[find_links_pos + 1] == "/srv/wheels"
+
+    def test_find_links_resolves_before_unavailable_public_fallback(self, tmp_path):
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            pytest.skip("uv is required for the resolver-level source priority test")
+
+        package_name = "xinference-find-links-priority-test"
+        _create_test_wheel(tmp_path, package_name)
+        fallback_requests = []
+
+        class FallbackHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                fallback_requests.append(self.path)
+                self.send_error(503, "public fallback unavailable")
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FallbackHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            public_fallback = (
+                f"http://127.0.0.1:{server.server_address[1]}/fallback/simple"
+            )
+            result = _run_uv_install_with_source_fallback(
+                [
+                    uv_path,
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--no-cache",
+                    "--no-deps",
+                    "--python",
+                    sys.executable,
+                ],
+                [f"{package_name}==1.0.0"],
+                {
+                    "find_links": str(tmp_path),
+                    "index_strategy": "unsafe-best-match",
+                },
+                public_index_urls=[public_fallback],
             )
         finally:
             server.shutdown()
@@ -415,6 +512,7 @@ class TestEnsureFlashinferCubinMatchesPostInstall:
 
         cmd = run_mock.call_args[0][0]
         assert ["--find-links", "/srv/wheels"] == cmd[7:9]
+        assert "--no-index" in cmd
         assert FLASHINFER_CUBIN_WHEEL_URL not in cmd
         assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
 
@@ -609,10 +707,11 @@ class TestApplyFlashinferAotPostInstall:
 
     def test_extra_index_url_merged_from_conf(self, fake_venv_manager):
         """conf['extra_index_url'] should be merged with flashinfer.ai URL."""
-        result = mock.MagicMock()
-        result.returncode = 0
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
         with mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
         ) as run_mock:
             apply_flashinfer_aot_post_install(
                 "vllm",
@@ -621,17 +720,18 @@ class TestApplyFlashinferAotPostInstall:
                 {"extra_index_url": ["https://wheels.vllm.ai/0.19.0/cu130"]},
                 "13.0",
             )
-            cmd = run_mock.call_args[0][0]
+            cmd = run_mock.call_args_list[1][0][0]
             cmd_str = " ".join(cmd)
             assert "wheels.vllm.ai" in cmd_str
             assert "flashinfer.ai" in cmd_str
 
     def test_extra_index_url_string_form(self, fake_venv_manager):
         """conf['extra_index_url'] as string should also be handled."""
-        result = mock.MagicMock()
-        result.returncode = 0
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
         with mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
         ) as run_mock:
             apply_flashinfer_aot_post_install(
                 "vllm",
@@ -640,13 +740,33 @@ class TestApplyFlashinferAotPostInstall:
                 {"extra_index_url": "https://wheels.vllm.ai/0.19.0/cu130"},
                 "13.0",
             )
-            cmd = run_mock.call_args[0][0]
+            cmd = run_mock.call_args_list[1][0][0]
             cmd_str = " ".join(cmd)
             assert "wheels.vllm.ai" in cmd_str
             assert "flashinfer.ai" in cmd_str
 
-    def test_reuses_configured_source_options(self, fake_venv_manager):
+    def test_configured_source_success_skips_public_fallback(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0)
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {"find_links": "/srv/wheels"},
+                "13.0",
+            )
+
+        run_mock.assert_called_once()
+        cmd = run_mock.call_args[0][0]
+        assert ["--find-links", "/srv/wheels"] == cmd[8:10]
+        assert "--no-index" in cmd
+        assert FLASHINFER_AOT_WHEEL_URL not in cmd
+
+    def test_reuses_configured_source_options(self, fake_venv_manager):
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
         conf = {
             "index_url": "https://packages.example/simple",
             "find_links": "/srv/wheels",
@@ -654,7 +774,8 @@ class TestApplyFlashinferAotPostInstall:
             "index_strategy": "unsafe-best-match",
         }
         with mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
         ) as run_mock:
             apply_flashinfer_aot_post_install(
                 "vllm",
@@ -664,7 +785,7 @@ class TestApplyFlashinferAotPostInstall:
                 "13.0",
             )
 
-        cmd = run_mock.call_args[0][0]
+        cmd = run_mock.call_args_list[1][0][0]
         private_index_pos = cmd.index("--index")
         public_fallback_pos = cmd.index("--default-index")
         assert cmd[private_index_pos + 1] == "https://packages.example/simple"
@@ -696,6 +817,7 @@ class TestApplyFlashinferAotPostInstall:
         cmd = run_mock.call_args[0][0]
         assert "--find-links" in cmd
         assert "/srv/wheels" in cmd
+        assert "--no-index" in cmd
         assert FLASHINFER_AOT_WHEEL_URL not in cmd
 
     def test_offline_mode_without_source_skips_install(self, fake_venv_manager):

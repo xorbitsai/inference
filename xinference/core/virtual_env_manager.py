@@ -1080,6 +1080,12 @@ def build_uv_source_options(
     if public_fallback_urls:
         priority_index_urls = configured_index_urls + public_fallback_urls[:-1]
         default_index_url = public_fallback_urls[-1]
+    elif not allow_public_install and configured_index_urls:
+        # Avoid uv's implicit PyPI default during a configured-source-only
+        # attempt. Keep the final configured URL as the explicit default while
+        # preserving the effective priority of the preceding URLs.
+        priority_index_urls = configured_index_urls[:-1]
+        default_index_url = configured_index_urls[-1]
     else:
         # Preserve uv's existing configured-source semantics when no public
         # fallback is added: extra_index_url entries outrank index_url.
@@ -1091,8 +1097,14 @@ def build_uv_source_options(
     if default_index_url:
         options += ["--default-index", default_index_url]
 
-    for link in _as_uv_option_values(conf.get("find_links")):
+    find_links = _as_uv_option_values(conf.get("find_links"))
+    for link in find_links:
         options += ["--find-links", link]
+    # ``--find-links`` supplements registry indexes; it does not disable uv's
+    # implicit default index. A configured-source-only attempt must therefore
+    # opt out explicitly when find-links is the only configured source.
+    if not allow_public_install and find_links and not configured_index_urls:
+        options.append("--no-index")
     for host in _as_uv_option_values(conf.get("trusted_host")):
         options += ["--trusted-host", host]
 
@@ -1113,6 +1125,49 @@ def build_uv_source_options(
 
 def _has_configured_package_source(conf: Dict[str, Any]) -> bool:
     return any(conf.get(key) for key in ("index_url", "extra_index_url", "find_links"))
+
+
+def _run_uv_install_with_source_fallback(
+    base_cmd: List[str],
+    packages: List[str],
+    conf: Dict[str, Any],
+    *,
+    public_index_urls: Optional[List[str]] = None,
+    allow_public_install: bool = True,
+) -> subprocess.CompletedProcess:
+    """Run uv with configured sources before consulting public fallbacks."""
+    if (
+        allow_public_install
+        and public_index_urls
+        and _has_configured_package_source(conf)
+    ):
+        configured_cmd = base_cmd + build_uv_source_options(
+            conf, allow_public_install=False
+        )
+        result = subprocess.run(
+            configured_cmd + packages,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result
+        logger.info(
+            "Post-install requirements were not satisfied by configured package "
+            "sources; retrying with the allowed public fallback"
+        )
+
+    cmd = base_cmd + build_uv_source_options(
+        conf,
+        public_index_urls=public_index_urls,
+        allow_public_install=allow_public_install,
+    )
+    return subprocess.run(
+        cmd + packages,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
 
 
 def ensure_flashinfer_cubin_matches_post_install(
@@ -1174,14 +1229,14 @@ def ensure_flashinfer_cubin_matches_post_install(
             "--no-deps",
             "--upgrade",
         ]
-        cmd += build_uv_source_options(
-            conf,
-            public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
-            allow_public_install=allow_public_install,
-        )
-        cmd.append(f"flashinfer-cubin=={python_version}")
         try:
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            result = _run_uv_install_with_source_fallback(
+                cmd,
+                [f"flashinfer-cubin=={python_version}"],
+                conf,
+                public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
+                allow_public_install=allow_public_install,
+            )
             if result.returncode == 0:
                 repaired_version = _get_virtualenv_distribution_version(
                     virtual_env_manager, "flashinfer-cubin"
@@ -1294,15 +1349,14 @@ def apply_flashinfer_aot_post_install(
         "--upgrade",
         "--color=always",
     ]
-    cmd += build_uv_source_options(
-        conf,
-        public_index_urls=[FLASHINFER_AOT_WHEEL_URL],
-        allow_public_install=allow_public_install,
-    )
-    cmd += FLASHINFER_AOT_PACKAGES
-
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        result = _run_uv_install_with_source_fallback(
+            cmd,
+            FLASHINFER_AOT_PACKAGES,
+            conf,
+            public_index_urls=[FLASHINFER_AOT_WHEEL_URL],
+            allow_public_install=allow_public_install,
+        )
         if result.returncode == 0:
             logger.info(
                 "Post-install: flashinfer AOT upgrade SUCCEEDED — "
