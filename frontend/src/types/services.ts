@@ -128,6 +128,14 @@ export interface AddReplicaResponse {
   worker_address: string;
 }
 
+export interface RunningModelDeploymentSummary {
+  management_mode?: 'external' | 'managed' | string;
+  desired_state?: 'running' | 'stopped' | string;
+  desired_replicas?: number;
+  ready_replicas?: number;
+  pending_replicas?: number;
+}
+
 export interface RunningModelItem {
   id: string;
   object: string;
@@ -141,6 +149,16 @@ export interface RunningModelItem {
   model_ability: ModelAbility[];
   model_description: string;
   model_engine?: string;
+  model_kind?: string;
+  virtual_model_type?: string;
+  router_uid?: string;
+  router_status?: string;
+  route_profile?: string;
+  runtime_instances?: number;
+  online_instances?: number;
+  ready_instances?: number;
+  backend_count?: number;
+  deployment?: RunningModelDeploymentSummary;
   model_format: string;
   model_size_in_billions: number;
   model_family: string;
@@ -164,6 +182,17 @@ export interface RunningModelDetail {
   model_lang: string[];
   model_ability: ModelAbility[];
   model_description: string;
+  model_engine?: string;
+  model_kind?: string;
+  virtual_model_type?: string;
+  router_uid?: string;
+  router_status?: string;
+  route_profile?: string;
+  runtime_instances?: number;
+  online_instances?: number;
+  ready_instances?: number;
+  backend_count?: number;
+  deployment?: RunningModelDeploymentSummary;
   model_format: string;
   model_size_in_billions: number;
   model_family: string;
@@ -657,6 +686,7 @@ export interface TokenRouterRuntimeInstance {
   assignment_id?: string;
   assignment_generation?: number;
   node_id?: string;
+  node_address?: string | null;
   instance_id: string;
   endpoint: string;
   status?: string;
