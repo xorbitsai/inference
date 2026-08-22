@@ -140,9 +140,13 @@ class RouterRuntimeProcessManager:
             for key in _ALLOWED_ENVIRONMENT
             if (value := os.environ.get(key)) is not None
         }
+        data_plane_token = (
+            os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN") or self.internal_token
+        )
         asset = assignment.get("tokenizer_asset", {})
         env.update(
             {
+                "XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN": data_plane_token,
                 "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN": self.internal_token,
                 "XINFERENCE_TOKEN_ROUTER_ASSIGNMENT_ID": str(
                     assignment["assignment_id"]

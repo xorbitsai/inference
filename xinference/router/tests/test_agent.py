@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -18,6 +20,7 @@ from xinference.router.agent.process_manager import (
     RouterRuntimeProcessManager,
 )
 from xinference.router.agent.service import RouterAgent, RouterAgentConfig
+from xinference.router.backend import request_headers
 
 
 class _ControlPlane:
@@ -253,6 +256,25 @@ def test_runtime_child_environment_is_allowlisted(monkeypatch, tmp_path):
     assert env["XINFERENCE_LOG_MAX_BYTES"] == "4096"
     assert env["XINFERENCE_LOG_BACKUP_COUNT"] == "4"
     assert "UNRELATED_SECRET" not in env
+
+
+def test_runtime_child_environment_preserves_data_plane_credential(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", "data-plane-secret")
+    manager = _manager(tmp_path)
+
+    env = manager._child_environment(_assignment())
+
+    assert env["XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN"] == "data-plane-secret"
+    assert env["XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"] == "internal-secret"
+    with patch.dict(os.environ, env, clear=True):
+        headers = request_headers(
+            [(b"authorization", b"Bearer data-plane-secret")],
+            backend_api_key="",
+            request_id="request-a",
+        )
+    assert "authorization" not in headers
 
 
 @pytest.mark.asyncio

@@ -269,6 +269,25 @@ def test_request_headers_does_not_forward_internal_token_without_backend_auth(
     assert "authorization" not in headers
 
 
+@pytest.mark.parametrize(
+    "authorization",
+    ["Bearer data-plane-token", "Bearer internal-token"],
+)
+def test_request_headers_does_not_forward_either_internal_token(
+    monkeypatch: pytest.MonkeyPatch, authorization: str
+) -> None:
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", "data-plane-token")
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", "internal-token")
+
+    headers = request_headers(
+        [(b"authorization", authorization.encode())],
+        backend_api_key="",
+        request_id="request-a",
+    )
+
+    assert "authorization" not in headers
+
+
 def test_request_headers_backend_api_key_has_highest_priority() -> None:
     headers = request_headers(
         [

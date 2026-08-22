@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import os
 from typing import Iterable
 
@@ -26,8 +27,13 @@ def request_headers(
 ) -> dict[str, str]:
     headers: dict[str, str] = {}
     backend_authorization = ""
-    internal_token = os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN") or os.getenv(
-        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"
+    internal_tokens = tuple(
+        token
+        for name in (
+            "XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN",
+            "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN",
+        )
+        if (token := os.getenv(name))
     )
     for key_bytes, value_bytes in incoming:
         key = key_bytes.decode("latin-1").lower()
@@ -35,10 +41,9 @@ def request_headers(
         if key == TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER:
             backend_authorization = value
         elif key in FORWARDED_REQUEST_HEADERS:
-            if (
-                key == "authorization"
-                and internal_token
-                and value == f"Bearer {internal_token}"
+            if key == "authorization" and any(
+                hmac.compare_digest(value, f"Bearer {token}")
+                for token in internal_tokens
             ):
                 continue
             headers[key] = value
