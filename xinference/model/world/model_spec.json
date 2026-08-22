@@ -54,6 +54,10 @@
       "huggingface": {
         "model_id": "Skywork/Matrix-Game-3.0",
         "model_revision": "382aa382a03cec057360755aa72c7735025770bb"
+      },
+      "modelscope": {
+        "model_id": "Skywork/Matrix-Game-3.0",
+        "model_revision": "master"
       }
     },
     "updated_at": 1787337600,
@@ -123,6 +127,11 @@
       "huggingface": {
         "model_id": "tencent/HY-WorldPlay",
         "model_revision": "f4c29235647707b571479a69b569e4166f9f5bf8"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/HY-WorldPlay",
+        "model_revision": "master",
+        "auxiliary_model_revision": "master"
       }
     },
     "updated_at": 1787337600,
@@ -164,7 +173,8 @@
     "cache_config": {
       "allow_patterns": [
         "models/Astra/checkpoints/diffusion_pytorch_model.ckpt",
-        "README.md"
+        "README.md",
+        "LICENSE"
       ]
     },
     "virtualenv": {
@@ -191,6 +201,11 @@
       "huggingface": {
         "model_id": "EvanEternal/Astra",
         "model_revision": "aef5d6d75a994fa67f3f05cf17f5824a53b1c52f"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/Astra",
+        "model_revision": "master",
+        "auxiliary_model_revision": "master"
       }
     },
     "updated_at": 1787337600,

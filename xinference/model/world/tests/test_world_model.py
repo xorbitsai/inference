@@ -22,7 +22,11 @@ from ...utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from .. import BUILTIN_WORLD_MODELS
-from ..core import create_world_model_instance, resolve_world_model_engine
+from ..core import (
+    create_world_model_instance,
+    match_world_model,
+    resolve_world_model_engine,
+)
 from ..engine import PyTorchAstraModel, PyTorchHYWorldPlayModel, PyTorchMatrixGameModel
 from ..engine_family import WORLD_ENGINES
 
@@ -109,6 +113,22 @@ def test_generic_model_factory_preserves_world_engine_selection():
     )
     assert isinstance(model, PyTorchMatrixGameModel)
     assert model.model_family.model_engine == "PyTorch"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_id"),
+    [
+        ("Matrix-Game-3.0-5B", "Skywork/Matrix-Game-3.0"),
+        ("HY-WorldPlay-5B", "Tencent-Hunyuan/HY-WorldPlay"),
+        ("Astra", "Xorbits/Astra"),
+    ],
+)
+def test_world_models_have_modelscope_sources(model_name, model_id):
+    model_spec = match_world_model(model_name, "modelscope")
+
+    assert model_spec.model_hub == "modelscope"
+    assert model_spec.model_id == model_id
+    assert model_spec.model_revision == "master"
 
 
 def test_matrix_game_generation_builds_official_runner_command(tmp_path, monkeypatch):
@@ -247,6 +267,46 @@ def test_astra_loads_pinned_wan_base_model(tmp_path, monkeypatch):
     assert captured == {
         "model_id": "Wan-AI/Wan2.1-T2V-1.3B",
         "revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+        "allow_patterns": [
+            "diffusion_pytorch_model.safetensors",
+            "models_t5_umt5-xxl-enc-bf16.pth",
+            "Wan2.1_VAE.pth",
+        ],
+    }
+
+
+def test_astra_loads_wan_base_model_from_modelscope(tmp_path, monkeypatch):
+    import modelscope.hub.snapshot_download as modelscope_snapshot_download
+
+    from .. import model as world_model_module
+
+    model_spec = match_world_model("Astra", "modelscope")
+    checkpoint = (
+        tmp_path / "models" / "Astra" / "checkpoints" / "diffusion_pytorch_model.ckpt"
+    )
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+    model = PyTorchAstraModel("astra", str(tmp_path), model_spec)
+    captured = {}
+
+    def fake_world_load(self):
+        self._code_path = "/code/astra"
+
+    def fake_snapshot_download(model_id, **kwargs):
+        captured.update(model_id=model_id, **kwargs)
+        return "/weights/wan-1.3b"
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    monkeypatch.setattr(
+        modelscope_snapshot_download, "snapshot_download", fake_snapshot_download
+    )
+
+    model.load()
+
+    assert model._base_model_path == "/weights/wan-1.3b"
+    assert captured == {
+        "model_id": "Wan-AI/Wan2.1-T2V-1.3B",
+        "revision": "master",
         "allow_patterns": [
             "diffusion_pytorch_model.safetensors",
             "models_t5_umt5-xxl-enc-bf16.pth",

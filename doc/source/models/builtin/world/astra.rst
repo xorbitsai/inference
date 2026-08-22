@@ -12,7 +12,8 @@ Astra
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** EvanEternal/Astra
+- **Hugging Face Model ID:** EvanEternal/Astra
+- **ModelScope Model ID:** Xorbits/Astra
 - **Source:** https://github.com/EternalEvan/Astra
 - **Officially documented hardware:** one 24 GB GPU, such as an RTX 3090
 
