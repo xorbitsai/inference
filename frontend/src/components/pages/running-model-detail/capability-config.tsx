@@ -182,9 +182,16 @@ function appendCommonVideoFormData(formData: FormData, context: TransformContext
 }
 
 async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | 'video') {
-  const { modelUid, values, requestId } = context;
+  const { modelUid, model, values, requestId } = context;
   const media = mediaKey ? firstUpload(values, mediaKey) : undefined;
   const extraBody = parseJsonObject(values.model_kwargs);
+
+  if (model.model_family === 'Astra' || model.model_name === 'Astra') {
+    const cameraMotion = Number(values.astra_camera_motion);
+    if (Number.isInteger(cameraMotion) && cameraMotion >= 1 && cameraMotion <= 7) {
+      extraBody.cam_type = cameraMotion;
+    }
+  }
 
   if (requestId) {
     extraBody.request_id = requestId;
@@ -201,6 +208,7 @@ async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | '
 
 const worldDefaults = {
   prompt: '',
+  astra_camera_motion: 1,
   generation_config: '{\n  "response_format": "b64_json"\n}',
   model_kwargs: '{}',
 };
