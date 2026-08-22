@@ -4374,6 +4374,10 @@ class SupervisorActor(xo.StatelessActor):
         except Exception:
             logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
 
+        # Autostart owns relaunching a dead model; this is its 4th trigger,
+        # alongside startup, upsert_autostart_model and add_worker.
+        self._schedule_autostart()
+
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
