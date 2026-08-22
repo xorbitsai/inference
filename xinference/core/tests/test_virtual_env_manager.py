@@ -126,11 +126,11 @@ class TestBuildUvSourceOptions:
         )
 
         assert options == [
-            "--index-url",
-            "https://packages.example/simple",
-            "--extra-index-url",
+            "--index",
             "https://cuda.example/simple",
-            "--extra-index-url",
+            "--index",
+            "https://packages.example/simple",
+            "--default-index",
             "https://public.example/simple",
             "--find-links",
             "/srv/wheels",
@@ -140,6 +140,40 @@ class TestBuildUvSourceOptions:
             "packages.example",
             "--index-strategy",
             "unsafe-best-match",
+        ]
+
+    def test_configured_index_precedes_public_fallback(self):
+        options = build_uv_source_options(
+            {"index_url": "https://packages.example/simple"},
+            public_index_urls=["https://public.example/simple"],
+        )
+
+        # uv prioritizes --index over --default-index. This verifies the
+        # configured corporate mirror is effective before the public fallback,
+        # rather than merely checking that both flags are present.
+        assert options == [
+            "--index",
+            "https://packages.example/simple",
+            "--default-index",
+            "https://public.example/simple",
+        ]
+
+    def test_multiple_public_fallbacks_follow_configured_sources(self):
+        options = build_uv_source_options(
+            {"index_url": "https://packages.example/simple"},
+            public_index_urls=[
+                "https://public-primary.example/simple",
+                "https://public-default.example/simple",
+            ],
+        )
+
+        assert options == [
+            "--index",
+            "https://packages.example/simple",
+            "--index",
+            "https://public-primary.example/simple",
+            "--default-index",
+            "https://public-default.example/simple",
         ]
 
     def test_offline_mode_omits_public_fallbacks(self):
@@ -158,7 +192,7 @@ class TestBuildUvSourceOptions:
         )
 
         assert options == [
-            "--extra-index-url",
+            "--index",
             "https://public.example/simple",
         ]
 
@@ -513,8 +547,11 @@ class TestApplyFlashinferAotPostInstall:
             )
 
         cmd = run_mock.call_args[0][0]
-        assert "--index-url" in cmd
-        assert "https://packages.example/simple" in cmd
+        private_index_pos = cmd.index("--index")
+        public_fallback_pos = cmd.index("--default-index")
+        assert cmd[private_index_pos + 1] == "https://packages.example/simple"
+        assert cmd[public_fallback_pos + 1] == FLASHINFER_AOT_WHEEL_URL
+        assert private_index_pos < public_fallback_pos
         assert "--find-links" in cmd
         assert "/srv/wheels" in cmd
         assert "--trusted-host" in cmd

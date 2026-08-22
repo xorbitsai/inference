@@ -1055,19 +1055,41 @@ def build_uv_source_options(
     """
     options: List[str] = []
     index_url = conf.get("index_url")
-    if index_url:
-        options += ["--index-url", index_url]
-
     extra_index_urls = _as_uv_option_values(conf.get("extra_index_url"))
-    if allow_public_install:
-        configured_urls = {index_url, *extra_index_urls}
-        extra_index_urls.extend(
+
+    # uv gives every --index / --extra-index-url entry higher priority than
+    # --default-index / --index-url. Keep the configured sources in their
+    # original effective order (extra indexes before index_url), then place the
+    # hook-specific public indexes after all of them. The final public index is
+    # the default index so it is a true lowest-priority fallback.
+    configured_index_urls = [*extra_index_urls]
+    if index_url:
+        configured_index_urls.append(index_url)
+    configured_url_set = set(configured_index_urls)
+    public_fallback_urls = (
+        [
             url
             for url in (public_index_urls or [])
-            if url and url not in configured_urls
-        )
-    for url in extra_index_urls:
-        options += ["--extra-index-url", url]
+            if url and url not in configured_url_set
+        ]
+        if allow_public_install
+        else []
+    )
+
+    default_index_url: Optional[str]
+    if public_fallback_urls:
+        priority_index_urls = configured_index_urls + public_fallback_urls[:-1]
+        default_index_url = public_fallback_urls[-1]
+    else:
+        # Preserve uv's existing configured-source semantics when no public
+        # fallback is added: extra_index_url entries outrank index_url.
+        priority_index_urls = extra_index_urls
+        default_index_url = index_url
+
+    for url in priority_index_urls:
+        options += ["--index", url]
+    if default_index_url:
+        options += ["--default-index", default_index_url]
 
     for link in _as_uv_option_values(conf.get("find_links")):
         options += ["--find-links", link]
