@@ -1374,6 +1374,27 @@ def test_prepare_virtual_env_normal_pip_mirror_keeps_direct_wheel(monkeypatch):
     assert packages == [direct_wheel]
 
 
+def test_prepare_virtual_env_direct_reference_disables_skip_installed(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_reference = "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@abcdef"
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
+
+
 def test_prepare_virtual_env_offline_mirror_rewrites_direct_wheel(monkeypatch):
     manager = DummyVirtualEnvManager()
     direct_wheel = "https://example.invalid/" "pkg-1.0.0-py3-none-any.whl"

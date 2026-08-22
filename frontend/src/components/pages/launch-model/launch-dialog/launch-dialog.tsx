@@ -1140,6 +1140,29 @@ export default function LaunchDialog({
         placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        fieldProps: { options: modelEngineOptions },
+        show: !!modelEngineOptions.length,
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+        show: !!modelFormatOptions.length,
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        disabled: !modelFormatValue,
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
+      },
+      {
         name: 'replica',
         type: 'input',
         label: t('launchModel.replica'),
@@ -1245,6 +1268,7 @@ export default function LaunchDialog({
         type: 'switch',
         valuePropName: 'checked',
         tooltip: t('launchModel.CPUOffloadTip'),
+        show: !modelEngineValue || modelEngineValue.toLowerCase() === 'diffusers',
       },
       {
         name: 'collapsibleConfig',

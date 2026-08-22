@@ -573,19 +573,51 @@ def main():
     with open('../../xinference/model/video/model_spec.json', 'r') as file:
         models = json.load(file)
 
-        sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
-        output_dir = './models/builtin/video'
-        os.makedirs(output_dir, exist_ok=True)
+        models_by_name = {}
+        for model in models:
+            model_name = model['model_name']
+            rendered_model = models_by_name.setdefault(
+                model_name, {**model, 'engine_specs': []}
+            )
 
-        for model in sorted_models:
-            # Process model_src for template compatibility
             model_src = _extract_primary_model_src(model)
+            model_id = None
             if model_src:
                 primary_src = model_src.get('huggingface') or model_src.get('modelscope')
                 if primary_src:
-                    model['model_id'] = primary_src['model_id']
+                    model_id = primary_src['model_id']
                     if primary_src.get('lightning_model_id'):
-                        model['lightning_model_id'] = primary_src['lightning_model_id']
+                        rendered_model['lightning_model_id'] = primary_src['lightning_model_id']
+            rendered_model['engine_specs'].append(
+                {'engine': model.get('engine'), 'model_id': model_id}
+            )
+
+        sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
+        output_dir = './models/builtin/video'
+        os.makedirs(output_dir, exist_ok=True)
+        generated_files = set()
+
+        for model in sorted_models:
+            engine_specs = model['engine_specs']
+            if len(engine_specs) > 1:
+                model['specifications'] = '\n'.join(
+                    f"- **{spec['engine']} model ID:** {spec['model_id']}"
+                    for spec in engine_specs
+                )
+                model['launch_engine'] = engine_specs[0]['engine']
+                model['available_engines_section'] = (
+                    '\n\nAvailable engines\n'
+                    '^^^^^^^^^^^^^^^^^\n\n'
+                    + '\n'.join(
+                        f"* ``{spec['engine']}``" for spec in engine_specs
+                    )
+                )
+            else:
+                model['specifications'] = (
+                    f"- **Model ID:** {engine_specs[0]['model_id']}"
+                )
+                model['launch_engine'] = None
+                model['available_engines_section'] = ''
 
             if model.get('lightning_versions'):
                 model['lightning_versions'] = ", ".join(model['lightning_versions'])
@@ -593,7 +625,12 @@ def main():
             rendered = env.get_template('video.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered)
+                output_file.write(rendered.rstrip('\n'))
+            generated_files.add(os.path.basename(output_file_path))
+
+        for filename in os.listdir(output_dir):
+            if filename.endswith('.rst') and filename not in generated_files and filename != 'index.rst':
+                os.remove(os.path.join(output_dir, filename))
 
         index_file_path = os.path.join(output_dir, "index.rst")
         with open(index_file_path, "w") as file:

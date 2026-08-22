@@ -2614,20 +2614,26 @@ class WorkerActor(xo.StatelessActor):
             from ..model.cache_manager import CacheManager
             from ..model.video import BUILTIN_VIDEO_MODELS
 
-            # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
+            # Add one catalog entry per model and retain each engine/hub source
+            # as a launchable specification.
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
+                if not families:
+                    continue
                 download_hubs = []
                 for family in families:
                     if family.model_hub not in download_hubs:
                         download_hubs.append(family.model_hub)
-                for family in families:
-                    if detailed:
+                if detailed:
+                    model_specs = []
+                    for family in families:
                         video_cache_manager = CacheManager(family)
-                        model_specs = [
+                        model_specs.append(
                             {
-                                "model_format": "pytorch",
+                                "model_format": family.model_format or "diffusers",
+                                "model_engine": family.engine or "diffusers",
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
+                                "cache_name": family.cache_name,
                                 "cache_status": video_cache_manager.get_cache_status(),
                                 "gguf_model_id": family.gguf_model_id,
                                 "gguf_quantizations": family.gguf_quantizations,
@@ -2635,17 +2641,26 @@ class WorkerActor(xo.StatelessActor):
                                     family.gguf_model_file_name_template
                                 ),
                             }
-                        ]
-                        ret.append(
-                            {
-                                **family.dict(),
-                                "model_specs": model_specs,
-                                "is_builtin": True,
-                                "download_hubs": download_hubs,
-                            }
                         )
-                    else:
-                        ret.append({"model_name": model_name, "is_builtin": True})
+                    representative = next(
+                        (
+                            family
+                            for family in families
+                            if family.model_hub == "huggingface"
+                            and (family.engine or "diffusers").lower() == "diffusers"
+                        ),
+                        families[0],
+                    )
+                    ret.append(
+                        {
+                            **representative.dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
@@ -3306,6 +3321,20 @@ class WorkerActor(xo.StatelessActor):
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        direct_references = find_direct_reference_packages(packages)
+        if direct_references and conf.get("skip_installed"):
+            # xoscar's skip-installed optimization reconstructs an install list
+            # from ``uv pip install --dry-run`` output.  Direct references are
+            # reported as ``name @ URL`` rather than ``name==version`` and are
+            # therefore omitted from that reconstructed list, leaving only
+            # their dependencies installed.  Let uv handle the original
+            # requirements directly so the top-level package is installed too.
+            logger.info(
+                "Disabling skip-installed optimization for direct-reference "
+                "packages: %s",
+                direct_references,
+            )
+            conf["skip_installed"] = False
         if force_reinstall_xllamacpp:
             # Bypass the satisfied-package filter so uv is actually invoked with
             # the GPU index even when a same-version CPU wheel is already
@@ -3508,6 +3537,14 @@ class WorkerActor(xo.StatelessActor):
             from ..model.image.core import resolve_image_model_engine
 
             model_engine = resolve_image_model_engine(model_name, model_engine)
+            launch_args["model_engine"] = model_engine
+        elif model_type.lower() == "video":
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+            launch_args["model_name"] = model_name
             launch_args["model_engine"] = model_engine
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 

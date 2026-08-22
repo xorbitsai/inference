@@ -2026,6 +2026,28 @@ def _get_engine_params_by_name(
         )
         return engine_params
 
+    if model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        if model_name not in VIDEO_ENGINES:
+            return None
+
+        available_engines = deepcopy(VIDEO_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        return engine_params
+
     return None
 
 
@@ -2572,9 +2594,43 @@ def _get_engine_params_by_name_with_virtual_env(
 
         return engine_params
 
+    elif model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        if model_name not in VIDEO_ENGINES:
+            return None
+
+        available_engines = deepcopy(VIDEO_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        video_engine_markers: Set[str] = set()
+        for family in video_families:
+            video_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+            video_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_video_engines,
+            video_engine_markers,
+            enable_virtual_env,
+        )
+
+        return engine_params
+
     raise ValueError(
         "Cannot support model_engine for "
-        f"{model_type}, only available for LLM, embedding, rerank, image, audio"
+        f"{model_type}, only available for LLM, embedding, rerank, image, audio, video"
     )
 
 
