@@ -11,10 +11,6 @@ The following is a list of built-in audio models in Xinference:
    :maxdepth: 1
 
   
-   belle-distilwhisper-large-v2-zh
-  
-   belle-whisper-large-v2-zh
-  
    belle-whisper-large-v3-zh
   
    chattts

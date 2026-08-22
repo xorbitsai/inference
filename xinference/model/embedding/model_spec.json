@@ -248,47 +248,6 @@
   },
   {
     "version": 2,
-    "model_name": "bge-large-zh-noinstruct",
-    "dimensions": 1024,
-    "max_tokens": 512,
-    "language": [
-      "zh"
-    ],
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_src": {
-          "huggingface": {
-            "model_id": "BAAI/bge-large-zh-noinstruct",
-            "model_revision": "d971248454d6267756fab9caa431c2c2fc5f0f35",
-            "quantizations": [
-              "none"
-            ]
-          },
-          "modelscope": {
-            "model_id": "Xorbits/bge-large-zh-noinstruct",
-            "model_revision": "v0.0.1",
-            "quantizations": [
-              "none"
-            ]
-          }
-        }
-      }
-    ],
-    "updated_at": 1784543817,
-    "featured": false,
-    "virtualenv": {
-      "packages": [
-        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
-        "#system_torch# ; #engine# == \"sentence_transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#system_numpy# ; #engine# == \"vllm\""
-      ]
-    }
-  },
-  {
-    "version": 2,
     "model_name": "bge-base-zh",
     "dimensions": 768,
     "max_tokens": 512,
@@ -524,7 +483,7 @@
       }
     ],
     "updated_at": 1784543819,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
@@ -650,7 +609,7 @@
       }
     ],
     "updated_at": 1784543819,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
@@ -891,40 +850,6 @@
       }
     ],
     "updated_at": 1784543820,
-    "featured": false,
-    "virtualenv": {
-      "packages": [
-        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
-        "#system_torch# ; #engine# == \"sentence_transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#system_numpy# ; #engine# == \"vllm\""
-      ]
-    }
-  },
-  {
-    "version": 2,
-    "model_name": "text2vec-base-chinese-sentence",
-    "dimensions": 768,
-    "max_tokens": 256,
-    "language": [
-      "zh"
-    ],
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_src": {
-          "huggingface": {
-            "model_id": "shibing624/text2vec-base-chinese-sentence",
-            "model_revision": "e73a94e821f22c6163166bfab9408d03933a5525",
-            "quantizations": [
-              "none"
-            ]
-          }
-        }
-      }
-    ],
-    "updated_at": 1784543821,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -1247,7 +1172,7 @@
       }
     ],
     "updated_at": 1784543822,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
@@ -1416,7 +1341,7 @@
       }
     ],
     "updated_at": 1784543822,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
@@ -1527,7 +1452,7 @@
       }
     ],
     "updated_at": 1777384726,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "sentence_transformers",
@@ -1660,7 +1585,7 @@
       ]
     },
     "updated_at": 1785220954,
-    "featured": true
+    "featured": false
   },
   {
     "version": 2,
@@ -1789,7 +1714,7 @@
       ]
     },
     "updated_at": 1785220955,
-    "featured": false
+    "featured": true
   },
   {
     "version": 2,

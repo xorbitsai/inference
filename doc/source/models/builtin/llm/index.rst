@@ -61,16 +61,6 @@ The following is a list of built-in LLM in Xinference:
      - 65536
      - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
 
-   * - :ref:`codeshell <models_llm_codeshell>`
-     - generate
-     - 8194
-     - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University. 
-
-   * - :ref:`codeshell-chat <models_llm_codeshell-chat>`
-     - chat
-     - 8194
-     - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
-
    * - :ref:`codestral-v0.1 <models_llm_codestral-v0.1>`
      - generate
      - 32768
@@ -285,11 +275,6 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 1048576
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
-
-   * - :ref:`gorilla-openfunctions-v2 <models_llm_gorilla-openfunctions-v2>`
-     - chat
-     - 4096
-     - OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.
 
    * - :ref:`gpt-2 <models_llm_gpt-2>`
      - generate
@@ -771,16 +756,6 @@ The following is a list of built-in LLM in Xinference:
      - 524288
      - Seed-OSS is a series of open-source large language models developed by ByteDance's Seed Team, designed for powerful long-context, reasoning, agent and general capabilities, and versatile developer-friendly features. Although trained with only 12T tokens, Seed-OSS achieves excellent performance on several popular open benchmarks.
 
-   * - :ref:`skywork <models_llm_skywork>`
-     - generate
-     - 4096
-     - Skywork is a series of large models developed by the Kunlun Group · Skywork team.
-
-   * - :ref:`skywork-math <models_llm_skywork-math>`
-     - generate
-     - 4096
-     - Skywork is a series of large models developed by the Kunlun Group · Skywork team.
-
    * - :ref:`skywork-or1 <models_llm_skywork-or1>`
      - chat
      - 131072
@@ -806,30 +781,10 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - VibeThinker is a series of dense reasoning language models developed by WeiboAI. Built on the Qwen2 architecture with a post-training methodology centered on the Spectrum-to-Signal Principle (SSP), VibeThinker demonstrates strong reasoning capabilities in mathematics and coding despite its compact size.
 
-   * - :ref:`wizardcoder-python-v1.0 <models_llm_wizardcoder-python-v1.0>`
-     - chat
-     - 100000
-     - 
-
-   * - :ref:`wizardmath-v1.0 <models_llm_wizardmath-v1.0>`
-     - chat
-     - 2048
-     - WizardMath is an open-source LLM trained by fine-tuning Llama2 with Evol-Instruct, specializing in math.
-
    * - :ref:`xiyansql-qwencoder-2504 <models_llm_xiyansql-qwencoder-2504>`
      - chat, tools
      - 32768
      - The XiYanSQL-QwenCoder models, as multi-dialect SQL base models, demonstrating robust SQL generation capabilities.
-
-   * - :ref:`xverse <models_llm_xverse>`
-     - generate
-     - 2048
-     - XVERSE is a multilingual large language model, independently developed by Shenzhen Yuanxiang Technology.
-
-   * - :ref:`xverse-chat <models_llm_xverse-chat>`
-     - chat
-     - 2048
-     - XVERSEB-Chat is the aligned version of model XVERSE.
 
    * - :ref:`yi <models_llm_yi>`
      - generate
@@ -883,10 +838,6 @@ The following is a list of built-in LLM in Xinference:
    codeqwen1.5
   
    codeqwen1.5-chat
-  
-   codeshell
-  
-   codeshell-chat
   
    codestral-v0.1
   
@@ -973,8 +924,6 @@ The following is a list of built-in LLM in Xinference:
    glm4-chat
   
    glm4-chat-1m
-  
-   gorilla-openfunctions-v2
   
    gpt-2
   
@@ -1168,10 +1117,6 @@ The following is a list of built-in LLM in Xinference:
   
    seed-oss
   
-   skywork
-  
-   skywork-math
-  
    skywork-or1
   
    skywork-or1-preview
@@ -1182,15 +1127,7 @@ The following is a list of built-in LLM in Xinference:
   
    vibethinker
   
-   wizardcoder-python-v1.0
-  
-   wizardmath-v1.0
-  
    xiyansql-qwencoder-2504
-  
-   xverse
-  
-   xverse-chat
   
    yi
   

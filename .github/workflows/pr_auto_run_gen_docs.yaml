@@ -2,7 +2,7 @@ name: Auto run gen_docs.py and commit changes to PR
 
 on:
   pull_request_target:
-    types: [opened, synchronize]
+    types: [opened, synchronize, ready_for_review]
     paths:
       - 'xinference/model/llm/llm_family.json'
       - 'xinference/model/embedding/model_spec.json'
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   run-gen-docs-and-commit:
-    if: startsWith(github.event.pull_request.head.ref, 'chore/models-sync/')
+    if: github.event.pull_request.draft == false && startsWith(github.event.pull_request.head.ref, 'chore/models-sync/')
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR metadata

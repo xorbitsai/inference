@@ -236,7 +236,7 @@
       }
     },
     "updated_at": 1786790280,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "transformers",
@@ -267,57 +267,7 @@
       }
     },
     "updated_at": 1786790280,
-    "featured": false,
-    "virtualenv": {
-      "packages": [
-        "transformers",
-        "accelerate",
-        "#system_torch#",
-        "#system_numpy#"
-      ]
-    }
-  },
-  {
-    "version": 2,
-    "model_name": "Belle-distilwhisper-large-v2-zh",
-    "model_family": "whisper",
-    "model_ability": [
-      "audio2text"
-    ],
-    "multilingual": false,
-    "model_src": {
-      "huggingface": {
-        "model_id": "BELLE-2/Belle-distilwhisper-large-v2-zh",
-        "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8"
-      }
-    },
-    "updated_at": 1783912317,
-    "featured": false,
-    "virtualenv": {
-      "packages": [
-        "transformers",
-        "accelerate",
-        "#system_torch#",
-        "#system_numpy#"
-      ]
-    }
-  },
-  {
-    "version": 2,
-    "model_name": "Belle-whisper-large-v2-zh",
-    "model_family": "whisper",
-    "model_ability": [
-      "audio2text"
-    ],
-    "multilingual": false,
-    "model_src": {
-      "huggingface": {
-        "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
-        "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9"
-      }
-    },
-    "updated_at": 1783912319,
-    "featured": false,
+    "featured": true,
     "virtualenv": {
       "packages": [
         "transformers",
@@ -899,7 +849,7 @@
       }
     },
     "updated_at": 1780041428,
-    "featured": true
+    "featured": false
   },
   {
     "version": 2,
@@ -1068,7 +1018,7 @@
       }
     },
     "updated_at": 1766387084,
-    "featured": true
+    "featured": false
   },
   {
     "version": 2,
@@ -1091,7 +1041,7 @@
       }
     },
     "updated_at": 1783912365,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "loguru",
@@ -1805,7 +1755,7 @@
       }
     },
     "updated_at": 1784865150,
-    "featured": true
+    "featured": false
   },
   {
     "model_name": "Fun-ASR-Nano-2512",
@@ -1942,7 +1892,7 @@
         "#system_pandas#"
       ]
     },
-    "featured": false,
+    "featured": true,
     "updated_at": 1785233762
   },
   {
@@ -2006,7 +1956,7 @@
         "#system_pandas#"
       ]
     },
-    "featured": false,
+    "featured": true,
     "updated_at": 1785233762
   },
   {
@@ -2066,7 +2016,7 @@
         "#system_pandas#"
       ]
     },
-    "featured": false,
+    "featured": true,
     "updated_at": 1775717134
   },
   {
@@ -2306,7 +2256,7 @@
         "#system_pandas#"
       ]
     },
-    "featured": false,
+    "featured": true,
     "updated_at": 1775717207
   },
   {

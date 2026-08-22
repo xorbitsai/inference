@@ -405,7 +405,7 @@
       }
     },
     "updated_at": 1785233836,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -464,7 +464,7 @@
       }
     },
     "updated_at": 1769418358,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -554,7 +554,7 @@
       }
     },
     "updated_at": 1769418360,
-    "featured": true,
+    "featured": false,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -847,7 +847,7 @@
       }
     },
     "updated_at": 1769418366,
-    "featured": true
+    "featured": false
   },
   {
     "version": 2,
@@ -1415,7 +1415,7 @@
       }
     },
     "updated_at": 1766387632,
-    "featured": true
+    "featured": false
   },
   {
     "version": 2,
@@ -1452,7 +1452,7 @@
       ],
       "no_build_isolation": true
     },
-    "featured": true,
+    "featured": false,
     "updated_at": 1769418378
   },
   {
@@ -1616,7 +1616,7 @@
       ],
       "no_build_isolation": true
     },
-    "featured": true,
+    "featured": false,
     "updated_at": 1786683386
   },
   {
@@ -1756,7 +1756,7 @@
         "model_revision": "master"
       }
     },
-    "featured": true,
+    "featured": false,
     "updated_at": 1785233837
   },
   {
@@ -1854,7 +1854,7 @@
         "model_revision": "master"
       }
     },
-    "featured": false,
+    "featured": true,
     "updated_at": 1781512046
   },
   {
@@ -1926,7 +1926,7 @@
         "#system_numpy# ; #engine# == \"transformers\""
       ]
     },
-    "featured": true,
+    "featured": false,
     "updated_at": 1787298897
   },
   {
@@ -1967,7 +1967,7 @@
       "no_build_isolation": true,
       "index_strategy": "unsafe-best-match"
     },
-    "featured": true,
+    "featured": false,
     "updated_at": 1787016251
   },
   {
