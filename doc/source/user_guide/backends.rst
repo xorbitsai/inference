@@ -175,8 +175,8 @@ Currently, supported model includes:
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
 - ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
 - ``GLM-4.7-Flash``
-- ``glm-5``, ``glm-5.1``
-- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``
+- ``glm-5``, ``glm-5.1``, ``glm-5.2``
+- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
 .. vllm_end
 
 Besides LLMs, vLLM can also serve embedding models. Model families whose

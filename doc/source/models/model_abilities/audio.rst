@@ -112,7 +112,7 @@ Text to audio (TTS)
 
 **Models supporting voice design** (natural-language voice description):
 
-* :ref:`FireRedTTS3-Instruct <models_builtin_fireredtts3>`
+* :ref:`FireRedTTS3-Instruct <models_builtin_fireredtts3-instruct>`
 
 Music generation
 ~~~~~~~~~~~~~~~~
@@ -131,7 +131,8 @@ Speaker embeddings
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
 * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
 * :ref:`F5-TTS <models_builtin_f5-tts>`
-* :ref:`FireRedTTS3-Base and FireRedTTS3-Instruct <models_builtin_fireredtts3>`
+* :ref:`FireRedTTS3-Base <models_builtin_fireredtts3-base>` and
+  :ref:`FireRedTTS3-Instruct <models_builtin_fireredtts3-instruct>`
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
 * :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
 

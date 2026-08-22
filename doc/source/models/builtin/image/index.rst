@@ -32,21 +32,21 @@ The following is a list of built-in image models in Xinference:
    flux.2-klein-9b
   
    glm-image
-
+  
    got-ocr2_0
   
    hidream-o1-image
-
+  
    hidream-o1-image-dev
-
+  
    hidream-o1-image-dev-2604
-
+  
    hunyuandit-v1.2
   
    hunyuandit-v1.2-distilled
   
    hunyuanocr
-
+  
    ideogram4
   
    kolors
@@ -79,6 +79,8 @@ The following is a list of built-in image models in Xinference:
   
    sdxl-turbo
   
+   sensenova-u1.5-8b-mot
+  
    stable-diffusion-2-inpainting
   
    stable-diffusion-inpainting
@@ -94,3 +96,4 @@ The following is a list of built-in image models in Xinference:
    z-image
   
    z-image-turbo
+  

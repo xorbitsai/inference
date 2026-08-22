@@ -28,3 +28,4 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name DeepSeek-V4-Flash-0731 --size-in-billions 304 --model-format fp8 --quantization ${quantization}
+

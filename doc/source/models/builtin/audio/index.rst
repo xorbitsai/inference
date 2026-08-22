@@ -29,8 +29,10 @@ The following is a list of built-in audio models in Xinference:
   
    f5-tts
   
-   fireredtts3
-
+   fireredtts3-base
+  
+   fireredtts3-instruct
+  
    fishspeech-1.5
   
    fun-asr-mlt-nano-2512
@@ -64,7 +66,7 @@ The following is a list of built-in audio models in Xinference:
    melotts-spanish
   
    minimax-music3
-
+  
    paraformer-zh
   
    paraformer-zh-hotword
@@ -116,3 +118,4 @@ The following is a list of built-in audio models in Xinference:
    whisper-tiny
   
    whisper-tiny.en
+  
