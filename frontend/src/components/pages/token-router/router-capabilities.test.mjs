@@ -15,6 +15,18 @@ test('keeps router controls hidden until global configuration is ready', () => {
   );
 });
 
+test('keeps router controls hidden when UI configuration is unavailable', () => {
+  assert.deepEqual(
+    resolveRouterCapabilities({
+      globalReady: true,
+      authAdvanced: undefined,
+      canWriteRouters: true,
+      canOperateRouters: true,
+    }),
+    { canWriteRouters: false, canOperateRouters: false }
+  );
+});
+
 test('allows all router controls when advanced auth is disabled', () => {
   assert.deepEqual(
     resolveRouterCapabilities({

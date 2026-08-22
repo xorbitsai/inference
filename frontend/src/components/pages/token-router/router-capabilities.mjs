@@ -19,10 +19,10 @@ export const resolveRouterCapabilities = ({
   canWriteRouters,
   canOperateRouters,
 }) => {
-  if (!globalReady) {
+  if (!globalReady || authAdvanced === undefined) {
     return { canWriteRouters: false, canOperateRouters: false };
   }
-  if (!authAdvanced) {
+  if (authAdvanced === false) {
     return { canWriteRouters: true, canOperateRouters: true };
   }
   return { canWriteRouters, canOperateRouters };
