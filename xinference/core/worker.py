@@ -2682,13 +2682,13 @@ class WorkerActor(xo.StatelessActor):
                     for family in families:
                         if family.model_hub not in download_hubs:
                             download_hubs.append(family.model_hub)
-                        cache_manager = CacheManager(family)
+                        world_cache_manager = CacheManager(family)
                         model_specs.append(
                             {
                                 "model_format": family.model_format,
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
-                                "cache_status": cache_manager.get_cache_status(),
+                                "cache_status": world_cache_manager.get_cache_status(),
                             }
                         )
                     ret.append(
