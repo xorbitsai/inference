@@ -1034,10 +1034,153 @@ def ensure_sglang_inherited_packages_compatible_post_install(
         )
 
 
+def _as_uv_option_values(value: Any) -> List[str]:
+    if not value:
+        return []
+    return [value] if isinstance(value, str) else list(value)
+
+
+def build_uv_source_options(
+    conf: Dict[str, Any],
+    *,
+    public_index_urls: Optional[List[str]] = None,
+    allow_public_install: bool = True,
+) -> List[str]:
+    """Build uv source options from the virtualenv install configuration.
+
+    Post-install hooks invoke ``uv`` directly, so they must explicitly reuse the
+    same package sources as the main virtualenv installation. Administrator-
+    supplied public indexes are appended as fallbacks only when public installs
+    are allowed.
+    """
+    options: List[str] = []
+    index_url = conf.get("index_url")
+    extra_index_urls = _as_uv_option_values(conf.get("extra_index_url"))
+
+    # uv gives every --index / --extra-index-url entry higher priority than
+    # --default-index / --index-url. Keep the configured sources in their
+    # original effective order (extra indexes before index_url), then place the
+    # hook-specific public indexes after all of them. The final public index is
+    # the default index so it is a true lowest-priority fallback.
+    configured_index_urls = [*extra_index_urls]
+    if index_url:
+        configured_index_urls.append(index_url)
+    configured_url_set = set(configured_index_urls)
+    public_fallback_urls = (
+        [
+            url
+            for url in (public_index_urls or [])
+            if url and url not in configured_url_set
+        ]
+        if allow_public_install
+        else []
+    )
+
+    default_index_url: Optional[str]
+    if public_fallback_urls:
+        priority_index_urls = configured_index_urls + public_fallback_urls[:-1]
+        default_index_url = public_fallback_urls[-1]
+    elif not allow_public_install and configured_index_urls:
+        # Avoid uv's implicit PyPI default during a configured-source-only
+        # attempt. Keep the final configured URL as the explicit default while
+        # preserving the effective priority of the preceding URLs.
+        priority_index_urls = configured_index_urls[:-1]
+        default_index_url = configured_index_urls[-1]
+    else:
+        # Preserve uv's existing configured-source semantics when no public
+        # fallback is added: extra_index_url entries outrank index_url.
+        priority_index_urls = extra_index_urls
+        default_index_url = index_url
+
+    for url in priority_index_urls:
+        options += ["--index", url]
+    if default_index_url:
+        options += ["--default-index", default_index_url]
+
+    find_links = _as_uv_option_values(conf.get("find_links"))
+    for link in find_links:
+        options += ["--find-links", link]
+    # ``--find-links`` supplements registry indexes; it does not disable uv's
+    # implicit default index. A configured-source-only attempt must therefore
+    # opt out explicitly when find-links is the only configured source.
+    if not allow_public_install and find_links and not configured_index_urls:
+        options.append("--no-index")
+    for host in _as_uv_option_values(conf.get("trusted_host")):
+        options += ["--trusted-host", host]
+
+    # ``unsafe-best-match`` queries every index even after a configured source
+    # provides the pinned package. An unavailable hook-specific public fallback
+    # would therefore still fail the whole install. Use first-index semantics
+    # whenever a public fallback is appended so configured sources remain
+    # authoritative; otherwise preserve the caller's existing strategy.
+    index_strategy = (
+        "first-index"
+        if configured_index_urls and public_fallback_urls
+        else conf.get("index_strategy")
+    )
+    if index_strategy:
+        options += ["--index-strategy", index_strategy]
+    return options
+
+
+def _has_configured_package_source(conf: Dict[str, Any]) -> bool:
+    return any(conf.get(key) for key in ("index_url", "extra_index_url", "find_links"))
+
+
+def _run_uv_install_with_source_fallback(
+    base_cmd: List[str],
+    packages: List[str],
+    conf: Dict[str, Any],
+    *,
+    public_index_urls: Optional[List[str]] = None,
+    allow_public_install: bool = True,
+) -> subprocess.CompletedProcess:
+    """Run uv with configured sources before consulting public fallbacks."""
+    source_conf = conf
+    if (
+        allow_public_install
+        and public_index_urls
+        and _has_configured_package_source(conf)
+    ):
+        configured_cmd = base_cmd + build_uv_source_options(
+            conf, allow_public_install=False
+        )
+        result = subprocess.run(
+            configured_cmd + packages,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result
+        logger.info(
+            "Post-install requirements were not satisfied by configured package "
+            "sources; retrying with the allowed public fallback"
+        )
+        # Retry against the hook-specific fallback independently. With uv's
+        # first-index semantics, retaining a configured index that contains the
+        # project at a different version would prevent the fallback from ever
+        # being considered.
+        source_conf = {}
+
+    cmd = base_cmd + build_uv_source_options(
+        source_conf,
+        public_index_urls=public_index_urls,
+        allow_public_install=allow_public_install,
+    )
+    return subprocess.run(
+        cmd + packages,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
 def ensure_flashinfer_cubin_matches_post_install(
     model_engine: Optional[str],
     virtual_env_manager: Any,
     allow_public_install: bool = True,
+    conf: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Keep FlashInfer's Python package and cubin package on the same version.
 
@@ -1072,7 +1215,8 @@ def ensure_flashinfer_cubin_matches_post_install(
         cubin_version or "not installed",
     )
 
-    if allow_public_install:
+    conf = conf or {}
+    if allow_public_install or _has_configured_package_source(conf):
         uv_path = None
         if hasattr(virtual_env_manager, "_get_uv_path"):
             try:
@@ -1090,12 +1234,15 @@ def ensure_flashinfer_cubin_matches_post_install(
             str(virtual_env_manager.env_path),
             "--no-deps",
             "--upgrade",
-            "--index-url",
-            FLASHINFER_CUBIN_WHEEL_URL,
-            f"flashinfer-cubin=={python_version}",
         ]
         try:
-            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            result = _run_uv_install_with_source_fallback(
+                cmd,
+                [f"flashinfer-cubin=={python_version}"],
+                conf,
+                public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
+                allow_public_install=allow_public_install,
+            )
             if result.returncode == 0:
                 repaired_version = _get_virtualenv_distribution_version(
                     virtual_env_manager, "flashinfer-cubin"
@@ -1152,6 +1299,7 @@ def apply_flashinfer_aot_post_install(
     virtual_env_manager: Any,
     conf: Dict[str, Any],
     cuda_version: Optional[str] = None,
+    allow_public_install: bool = True,
 ) -> None:
     """Post-install hook: force-upgrade flashinfer to AOT versions for sm_120.
 
@@ -1178,14 +1326,12 @@ def apply_flashinfer_aot_post_install(
         list(architectures or []),
     )
 
-    extra_urls = conf.get("extra_index_url") or []
-    if isinstance(extra_urls, str):
-        extra_urls = [extra_urls]
-    extra_urls = (
-        list(extra_urls) + [FLASHINFER_AOT_WHEEL_URL]
-        if extra_urls
-        else [FLASHINFER_AOT_WHEEL_URL]
-    )
+    if not allow_public_install and not _has_configured_package_source(conf):
+        logger.info(
+            "Skipping the FlashInfer AOT post-install because public installs "
+            "are disabled and no package source is configured"
+        )
+        return
 
     # Resolve uv path with a fallback. ``_get_uv_path`` is a private method
     # on xoscar's VirtualEnvManager and could be renamed/removed in future
@@ -1209,12 +1355,14 @@ def apply_flashinfer_aot_post_install(
         "--upgrade",
         "--color=always",
     ]
-    for url in extra_urls:
-        cmd += ["--extra-index-url", url]
-    cmd += FLASHINFER_AOT_PACKAGES
-
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        result = _run_uv_install_with_source_fallback(
+            cmd,
+            FLASHINFER_AOT_PACKAGES,
+            conf,
+            public_index_urls=[FLASHINFER_AOT_WHEEL_URL],
+            allow_public_install=allow_public_install,
+        )
         if result.returncode == 0:
             logger.info(
                 "Post-install: flashinfer AOT upgrade SUCCEEDED — "

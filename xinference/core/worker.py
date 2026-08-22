@@ -3372,23 +3372,20 @@ class WorkerActor(xo.StatelessActor):
                 ensure_sglang_inherited_packages_compatible_post_install(
                     model_engine, virtual_env_manager
                 )
-                if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
-                    logger.info(
-                        "Skipping the FlashInfer AOT post-install from its public "
-                        "wheel index in explicit offline-install mode"
-                    )
-                else:
-                    apply_flashinfer_aot_post_install(
-                        model_engine,
-                        architectures,
-                        virtual_env_manager,
-                        conf,
-                        cuda_version,
-                    )
+                allow_public_install = not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
+                apply_flashinfer_aot_post_install(
+                    model_engine,
+                    architectures,
+                    virtual_env_manager,
+                    conf,
+                    cuda_version,
+                    allow_public_install=allow_public_install,
+                )
                 ensure_flashinfer_cubin_matches_post_install(
                     model_engine,
                     virtual_env_manager,
-                    allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
+                    allow_public_install=allow_public_install,
+                    conf=conf,
                 )
 
                 # Apply engine-specific post-install patches.  These mutate files
