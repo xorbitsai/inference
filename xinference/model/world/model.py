@@ -15,6 +15,7 @@ import base64
 import binascii
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,13 +24,14 @@ import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_WORLD_DIR
 from ...types import Video, VideoList
 
 if TYPE_CHECKING:
+    from ...core.progress_tracker import Progressor
     from .core import WorldModelFamilyV1
 
 logger = logging.getLogger(__name__)
@@ -276,22 +278,36 @@ class WorldModel:
         ]
 
     def _run_command(
-        self, command: List[str], cwd: str, env: Dict[str, str], log_path: str
+        self,
+        command: List[str],
+        cwd: str,
+        env: Dict[str, str],
+        log_path: str,
+        progress_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
+        env = env.copy()
+        env.setdefault("PYTHONUNBUFFERED", "1")
         with open(log_path, "w", encoding="utf-8") as log_file:
-            result = subprocess.run(
+            process = subprocess.Popen(
                 command,
                 cwd=cwd,
                 env=env,
-                stdout=log_file,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                bufsize=1,
             )
-        if result.returncode != 0:
+            assert process.stdout is not None
+            for line in process.stdout:
+                log_file.write(line)
+                log_file.flush()
+                if progress_callback is not None:
+                    progress_callback(line)
+            returncode = process.wait()
+        if returncode != 0:
             output = _tail(log_path)
             raise RuntimeError(
-                f"World generation runner exited with code {result.returncode}.\n"
-                f"{output}"
+                f"World generation runner exited with code {returncode}.\n" f"{output}"
             )
 
     @staticmethod
@@ -339,6 +355,7 @@ class WorldModel:
         generation_config: Optional[Dict[str, Any]] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
+        progressor: Optional["Progressor"] = None,
     ) -> VideoList:
         raise NotImplementedError
 
@@ -377,6 +394,7 @@ class MatrixGameModel(WorldModel):
         generation_config: Optional[Dict[str, Any]] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
+        progressor: Optional["Progressor"] = None,
     ) -> VideoList:
         if self._code_path is None:
             raise RuntimeError("World model is not loaded")
@@ -473,6 +491,8 @@ class MatrixGameModel(WorldModel):
                 env["PYTHONPATH"] = os.pathsep.join(
                     [self._code_path, env.get("PYTHONPATH", "")]
                 ).rstrip(os.pathsep)
+                if progressor:
+                    progressor.set_progress(0.02, "Starting Matrix-Game runner")
                 self._run_command(
                     command,
                     self._code_path,
@@ -513,6 +533,7 @@ class HYWorldPlayModel(WorldModel):
         generation_config: Optional[Dict[str, Any]] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
+        progressor: Optional["Progressor"] = None,
     ) -> VideoList:
         if self._code_path is None or self._base_model_path is None:
             raise RuntimeError("World model is not loaded")
@@ -572,6 +593,8 @@ class HYWorldPlayModel(WorldModel):
                         env.get("PYTHONPATH", ""),
                     ]
                 ).rstrip(os.pathsep)
+                if progressor:
+                    progressor.set_progress(0.02, "Starting HY-WorldPlay runner")
                 self._run_command(
                     command,
                     self._code_path,
@@ -639,6 +662,7 @@ class AstraModel(WorldModel):
         generation_config: Optional[Dict[str, Any]] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
         request_id: Optional[str] = None,
+        progressor: Optional["Progressor"] = None,
     ) -> VideoList:
         if self._code_path is None or self._base_model_path is None:
             raise RuntimeError("World model is not loaded")
@@ -734,11 +758,48 @@ class AstraModel(WorldModel):
                 env["PYTHONPATH"] = os.pathsep.join(
                     [self._code_path, env.get("PYTHONPATH", "")]
                 ).rstrip(os.pathsep)
+                generation_count = (
+                    int(config["total_frames_to_generate"])
+                    + int(config["frames_per_generation"])
+                    - 1
+                ) // int(config["frames_per_generation"])
+                current_generation = 0
+
+                def update_progress(line: str) -> None:
+                    nonlocal current_generation
+                    if progressor is None:
+                        return
+                    if "Starting MoE FramePack" in line:
+                        progressor.set_progress(0.03, "Loading Astra weights")
+                    elif "Loading initial condition frames" in line:
+                        progressor.set_progress(0.10, "Encoding input image")
+                    elif match := re.search(r"Generation step (\d+)", line):
+                        current_generation = int(match.group(1))
+                        progressor.set_progress(
+                            0.15 + 0.75 * (current_generation - 1) / generation_count,
+                            f"Generating chunk {current_generation}/{generation_count}",
+                        )
+                    elif match := re.search(r"Denoising step (\d+)/(\d+)", line):
+                        step, total_steps = map(int, match.groups())
+                        completed = (current_generation - 1) + step / total_steps
+                        progressor.set_progress(
+                            0.15 + 0.75 * completed / generation_count,
+                            f"Denoising chunk {current_generation}/{generation_count}: "
+                            f"step {step}/{total_steps}",
+                        )
+                    elif "Decoding generated video" in line:
+                        progressor.set_progress(0.92, "Decoding video")
+                    elif "Saving video to" in line:
+                        progressor.set_progress(0.98, "Saving video")
+
+                if progressor:
+                    progressor.set_progress(0.01, "Starting Astra runner")
                 self._run_command(
                     command,
                     self._code_path,
                     env,
                     os.path.join(output_dir, "runner.log"),
+                    progress_callback=update_progress,
                 )
                 if not os.path.isfile(output_path):
                     raise RuntimeError("Astra runner did not produce a video")
