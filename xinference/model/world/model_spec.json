@@ -1,0 +1,199 @@
+[
+  {
+    "version": 1,
+    "model_name": "Matrix-Game-3.0-5B",
+    "model_family": "Matrix-Game-3.0",
+    "model_description": "A 5B image-conditioned interactive world model from Skywork AI.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "image2world"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "size": "704*1280",
+      "num_iterations": 12,
+      "num_inference_steps": 3,
+      "guidance_scale": 5.0,
+      "seed": 42,
+      "use_int8": true,
+      "compile_vae": true,
+      "lightvae_pruning_rate": 0.5,
+      "vae_type": "mg_lightvae",
+      "fa_version": "0",
+      "response_format": "url"
+    },
+    "source_url": "https://github.com/SkyworkAI/Matrix-Game.git",
+    "source_revision": "71c3cd7f741311f8100f6cf9cde942b6c1378d11",
+    "source_subdir": "Matrix-Game-3",
+    "virtualenv": {
+      "packages": [
+        "torch==2.10.0 ; #engine# == \"pytorch\"",
+        "torchvision==0.25.0",
+        "torchaudio==2.10.0",
+        "opencv-python==4.10.0.84",
+        "diffusers>=0.36.0",
+        "transformers==4.57.3",
+        "tokenizers>=0.20.3",
+        "accelerate>=1.1.1",
+        "tqdm",
+        "imageio[ffmpeg]",
+        "easydict",
+        "ftfy",
+        "imageio-ffmpeg",
+        "numpy==2.2.6",
+        "scipy",
+        "einops",
+        "pandas",
+        "decord",
+        "tensorboard",
+        "trimesh",
+        "safetensors==0.7.0"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Skywork/Matrix-Game-3.0",
+        "model_revision": "382aa382a03cec057360755aa72c7735025770bb"
+      }
+    },
+    "updated_at": 1787337600,
+    "featured": false
+  },
+  {
+    "version": 1,
+    "model_name": "HY-WorldPlay-5B",
+    "model_family": "HY-WorldPlay",
+    "model_description": "A 5B autoregressive world model from Tencent Hunyuan for long-horizon interactive video generation.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "text2world",
+      "image2world"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "num_frames": 961,
+      "num_inference_steps": 50,
+      "pose": "w-16",
+      "num_chunk": 4,
+      "response_format": "url"
+    },
+    "source_url": "https://github.com/Tencent-Hunyuan/HY-WorldPlay.git",
+    "source_revision": "1588e1336e842b03b0a7860c654ebd7c46bb065e",
+    "auxiliary_model_id": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+    "auxiliary_model_revision": "b8fff7315c768468a5333511427288870b2e9635",
+    "cache_config": {
+      "allow_patterns": [
+        "wan_transformer/*",
+        "wan_distilled_model/*",
+        "README.md",
+        "License.txt"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "torch>=2.6.0 ; #engine# == \"pytorch\"",
+        "torchvision==0.21.0",
+        "torchaudio==2.6.0",
+        "peft==0.17.0",
+        "einops==0.8.0",
+        "loguru==0.7.3",
+        "numpy==1.26.4",
+        "pillow==11.3.0",
+        "imageio==2.37.0",
+        "imageio-ffmpeg==0.6.0",
+        "omegaconf>=2.3.0",
+        "diffusers==0.35.0",
+        "safetensors==0.4.5",
+        "qwen-vl-utils==0.0.8",
+        "huggingface-hub==0.34.0",
+        "transformers[accelerate,tiktoken]==4.56.0",
+        "modelscope",
+        "ninja",
+        "pandas",
+        "scipy",
+        "protobuf",
+        "moviepy==1.0.3",
+        "cloudpickle",
+        "ftfy",
+        "remote-pdb",
+        "sageattention"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "tencent/HY-WorldPlay",
+        "model_revision": "f4c29235647707b571479a69b569e4166f9f5bf8"
+      }
+    },
+    "updated_at": 1787337600,
+    "featured": false
+  },
+  {
+    "version": 1,
+    "model_name": "Astra",
+    "model_family": "Astra",
+    "model_description": "An image-conditioned interactive world model based on Wan2.1 1.3B with controllable camera trajectories.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "image2world"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "start_frame": 0,
+      "initial_condition_frames": 1,
+      "frames_per_generation": 8,
+      "total_frames_to_generate": 24,
+      "max_history_frames": 100,
+      "modality_type": "sekai",
+      "cam_type": 1,
+      "camera_guidance_scale": 2.0,
+      "text_guidance_scale": 1.0,
+      "moe_num_experts": 3,
+      "moe_top_k": 1,
+      "response_format": "url"
+    },
+    "source_url": "https://github.com/EternalEvan/Astra.git",
+    "source_revision": "3fb82e1939bfcf87d6e27a7da57d8b55ff9cb393",
+    "auxiliary_model_id": "Wan-AI/Wan2.1-T2V-1.3B",
+    "auxiliary_model_revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+    "auxiliary_model_allow_patterns": [
+      "diffusion_pytorch_model.safetensors",
+      "models_t5_umt5-xxl-enc-bf16.pth",
+      "Wan2.1_VAE.pth"
+    ],
+    "cache_config": {
+      "allow_patterns": [
+        "models/Astra/checkpoints/diffusion_pytorch_model.ckpt",
+        "README.md"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "torch>=2.0.0 ; #engine# == \"pytorch\"",
+        "torchvision",
+        "cupy-cuda12x",
+        "transformers==4.46.2",
+        "controlnet-aux==0.0.7",
+        "imageio[ffmpeg]",
+        "safetensors",
+        "einops",
+        "sentencepiece",
+        "protobuf",
+        "modelscope",
+        "ftfy",
+        "numpy",
+        "pillow",
+        "scipy",
+        "tqdm"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "EvanEternal/Astra",
+        "model_revision": "aef5d6d75a994fa67f3f05cf17f5824a53b1c52f"
+      }
+    },
+    "updated_at": 1787337600,
+    "featured": false
+  }
+]

@@ -18,7 +18,11 @@ from urllib.parse import quote
 
 import aiohttp
 
-from ..common import async_streaming_response_iterator, convert_float_to_int_or_str
+from ..common import (
+    async_streaming_response_iterator,
+    convert_float_to_int_or_str,
+    encode_world_reference,
+)
 
 if TYPE_CHECKING:
     from ...types import (
@@ -790,6 +794,49 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
                 f"Failed to create the video from image, detail: {await _get_error_string(response)}"
             )
 
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
+
+class AsyncRESTfulWorldModelHandle(AsyncRESTfulModelHandle):
+    async def generate(
+        self,
+        prompt: str,
+        image: Optional[Union[str, bytes]] = None,
+        video: Optional[Union[str, bytes]] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        **model_kwargs,
+    ) -> "VideoList":
+        """Generate a world video from text and an optional image or video."""
+        if image is not None and video is not None:
+            raise ValueError("Only one of image and video may be provided")
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "image": (
+                encode_world_reference(image, "image/png")
+                if image is not None
+                else None
+            ),
+            "video": (
+                encode_world_reference(video, "video/mp4")
+                if video is not None
+                else None
+            ),
+            "generation_config": generation_config or {},
+            "extra_body": model_kwargs,
+        }
+        response = await self.session.post(
+            f"{self._base_url}/v1/worlds/generations",
+            json=request_body,
+            headers=self.auth_headers,
+        )
+        if response.status != 200:
+            raise RuntimeError(
+                "Failed to generate the world, detail: "
+                f"{await _get_error_string(response)}"
+            )
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -1729,6 +1776,10 @@ class AsyncClient:
             )
         elif desc["model_type"] == "video":
             return AsyncRESTfulVideoModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "world":
+            return AsyncRESTfulWorldModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":

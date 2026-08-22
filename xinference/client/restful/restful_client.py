@@ -17,7 +17,11 @@ from urllib.parse import quote
 
 import requests
 
-from ..common import convert_float_to_int_or_str, streaming_response_iterator
+from ..common import (
+    convert_float_to_int_or_str,
+    encode_world_reference,
+    streaming_response_iterator,
+)
 
 if TYPE_CHECKING:
     from ...types import (
@@ -708,6 +712,47 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
 
         response_data = response.json()
         return response_data
+
+
+class RESTfulWorldModelHandle(RESTfulModelHandle):
+    def generate(
+        self,
+        prompt: str,
+        image: Optional[Union[str, bytes]] = None,
+        video: Optional[Union[str, bytes]] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        **model_kwargs,
+    ) -> "VideoList":
+        """Generate a world video from text and an optional image or video."""
+        if image is not None and video is not None:
+            raise ValueError("Only one of image and video may be provided")
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "image": (
+                encode_world_reference(image, "image/png")
+                if image is not None
+                else None
+            ),
+            "video": (
+                encode_world_reference(video, "video/mp4")
+                if video is not None
+                else None
+            ),
+            "generation_config": generation_config or {},
+            "extra_body": model_kwargs,
+        }
+        response = self.session.post(
+            f"{self._base_url}/v1/worlds/generations",
+            json=request_body,
+            headers=self.auth_headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                "Failed to generate the world, detail: "
+                f"{_get_error_string(response)}"
+            )
+        return response.json()
 
 
 class RESTfulGenerateModelHandle(RESTfulModelHandle):
@@ -1596,6 +1641,10 @@ class Client:
             )
         elif desc["model_type"] == "video":
             return RESTfulVideoModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "world":
+            return RESTfulWorldModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":

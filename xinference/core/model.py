@@ -23,6 +23,7 @@ import types
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Callable,
     Dict,
@@ -292,7 +293,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         if model_type == "video":
             engine_label = model_engine or ""
             format_label = ""
-        elif model_type in ("audio", "image"):
+        elif model_type in ("audio", "image", "world"):
             engine_label = model_engine or ""
             format_label = ""
         else:
@@ -1358,6 +1359,34 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video from first-last-frame."
+        )
+
+    @request_limit
+    @log_async(logger=logger, ignore_kwargs=["image", "video"])
+    async def world_generate(
+        self,
+        prompt: str,
+        image: Optional[str] = None,
+        video: Optional[str] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "world_generate"):
+            return await self._call_wrapper_json(
+                self._model.world_generate,
+                prompt,
+                image,
+                video,
+                generation_config,
+                model_kwargs,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for world generation."
         )
 
     async def record_metrics(self, name, op, kwargs):

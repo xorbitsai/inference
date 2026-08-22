@@ -410,6 +410,7 @@ const ko = {
     imageModels: '이미지 모델',
     audioModels: '오디오 모델',
     videoModels: '비디오 모델',
+    worldModels: '월드 모델',
     customModels: '커스텀 모델',
     flexibleModels: '유연한 모델',
   },

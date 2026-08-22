@@ -403,6 +403,7 @@ const zh = {
     imageModels: '图像模型',
     audioModels: '音频模型',
     videoModels: '视频模型',
+    worldModels: '世界模型',
     customModels: '自定义模型',
     flexibleModels: '灵活模型',
   },

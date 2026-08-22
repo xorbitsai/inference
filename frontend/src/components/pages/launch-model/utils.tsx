@@ -38,6 +38,7 @@ export const MODEL_ENGINE_TYPES: RequestModelType[] = [
   ModelType.Image,
   ModelType.Audio,
   ModelType.Video,
+  ModelType.World,
 ];
 
 export function normalizeModelSize(value: unknown) {

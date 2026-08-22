@@ -108,6 +108,7 @@ from .schemas import (
     TextToImageRequest,
     TextToVideoRequest,
     UpdateModelRequest,
+    WorldGenerationRequest,
 )
 from .utils import get_request_route_path, require_model
 
@@ -3065,6 +3066,49 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=video_list, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id or 'unknown'}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
+        except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_world(self, request: Request) -> Response:
+        body = WorldGenerationRequest.parse_obj(await request.json())
+        model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("world")
+        self._check_model_access(request, model_uid, "world")
+        if body.image is not None and body.video is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Only one of image and video may be provided",
+            )
+
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
+        generation_config = dict(body.generation_config)
+        model_kwargs = dict(body.extra_body)
+        kwargs_request_id = model_kwargs.pop("request_id", None)
+        config_request_id = generation_config.pop("request_id", None)
+        request_id = kwargs_request_id or config_request_id
+        try:
+            self._add_running_task(request_id)
+            result = await model_ref.world_generate(
+                prompt=body.prompt,
+                image=body.image,
+                video=body.video,
+                generation_config=generation_config,
+                model_kwargs=model_kwargs,
+                request_id=request_id,
+            )
+            return Response(content=result, media_type="application/json")
         except asyncio.CancelledError:
             err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)

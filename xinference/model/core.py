@@ -40,6 +40,7 @@ def create_model_instance(
     from .rerank.core import create_rerank_model_instance
     from .utils import resolve_download_hub
     from .video.core import create_video_model_instance
+    from .world.core import create_world_model_instance
 
     # resolve_download_hub never returns "auto", so the narrowing cast is safe
     resolved_download_hub = cast(
@@ -123,6 +124,16 @@ def create_model_instance(
             model_engine=model_engine,
             model_format=model_format,
             quantization=quantization,
+            **kwargs,
+        )
+    elif model_type == "world":
+        kwargs.pop("trust_remote_code", None)
+        return create_world_model_instance(
+            model_uid,
+            model_name,
+            resolved_download_hub,
+            model_path,
+            model_engine=model_engine,
             **kwargs,
         )
     elif model_type == "flexible":
