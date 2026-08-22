@@ -168,7 +168,8 @@
     "auxiliary_model_allow_patterns": [
       "diffusion_pytorch_model.safetensors",
       "models_t5_umt5-xxl-enc-bf16.pth",
-      "Wan2.1_VAE.pth"
+      "Wan2.1_VAE.pth",
+      "google/umt5-xxl/*"
     ],
     "cache_config": {
       "allow_patterns": [
