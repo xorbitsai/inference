@@ -36,11 +36,14 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_WHEEL_URL,
     FLASHINFER_CUBIN_WHEEL_URL,
     _run_uv_install_with_source_fallback,
+    _validate_flash_attn_install,
+    apply_flash_attn_wheel_post_install,
     apply_flashinfer_aot_post_install,
     build_uv_source_options,
     ensure_flashinfer_cubin_matches_post_install,
     ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
+    is_flash_attn_requirement,
     merge_virtual_env_find_links,
     needs_flashinfer_aot,
     validate_virtual_env_find_links,
@@ -500,6 +503,206 @@ class TestBuildUvSourceOptions:
 
         assert result.returncode == 0, result.stderr
         assert fallback_requests == []
+
+
+class TestApplyFlashAttnWheelPostInstall:
+    @pytest.fixture
+    def fake_venv_manager(self):
+        manager = mock.MagicMock()
+        manager._get_uv_path.return_value = "/fake/uv"
+        manager.get_python_path.return_value = "/fake/venv/bin/python"
+        manager.env_path = "/fake/venv"
+        return manager
+
+    @pytest.mark.parametrize(
+        "requirement",
+        [
+            "flash_attn==2.8.3.post1+cvte1",
+            "flash-attn==2.8.3.post1+cvte1",
+            "Flash_Attn==2.8.3.post1+cvte1",
+        ],
+    )
+    def test_recognizes_canonical_requirement_names(self, requirement):
+        assert is_flash_attn_requirement(requirement)
+
+    @pytest.mark.parametrize(
+        "requirement",
+        ["my-flash-attn-wrapper", "not_flash_attn", "flashinfer-python"],
+    )
+    def test_does_not_match_unrelated_requirements(self, requirement):
+        assert not is_flash_attn_requirement(requirement)
+
+    def test_non_jina_model_is_noop(self, fake_venv_manager):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._validate_flash_attn_install"
+            ) as validate_mock,
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
+            apply_flash_attn_wheel_post_install(
+                "another-model",
+                ["flash-attn==2.8.3.post1+cvte1"],
+                fake_venv_manager,
+                {"find_links": ["/wheels"]},
+                True,
+            )
+
+        validate_mock.assert_not_called()
+        run_mock.assert_not_called()
+
+    def test_no_find_links_warns_and_uses_native_attention(
+        self, fake_venv_manager, caplog
+    ):
+        with mock.patch(
+            "xinference.core.virtual_env_manager._validate_flash_attn_install",
+            return_value=False,
+        ):
+            apply_flash_attn_wheel_post_install(
+                "jina-embeddings-v3",
+                ["flash-attn==2.8.3.post1+cvte1"],
+                fake_venv_manager,
+                {},
+                True,
+            )
+
+        assert "no Find Links source was configured" in caplog.text
+        assert "native attention" in caplog.text
+
+    def test_find_links_install_uses_binary_reinstall_and_validates(
+        self, fake_venv_manager
+    ):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._validate_flash_attn_install",
+                return_value=True,
+            ) as validate_mock,
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=mock.MagicMock(returncode=0),
+            ) as run_mock,
+        ):
+            apply_flash_attn_wheel_post_install(
+                "jina-embeddings-v3",
+                ["flash-attn==2.8.3.post1+cvte1"],
+                fake_venv_manager,
+                {
+                    "index_url": "https://mirror.example/simple",
+                    "find_links": ["/wheels/jina"],
+                },
+                True,
+            )
+
+        command = run_mock.call_args.args[0]
+        assert command[:5] == [
+            "/fake/uv",
+            "pip",
+            "install",
+            "--python",
+            "/fake/venv/bin/python",
+        ]
+        for option in ("--no-deps", "--reinstall", "--only-binary=:all:"):
+            assert option in command
+        assert command[command.index("--find-links") + 1] == "/wheels/jina"
+        assert "--no-index" not in command
+        assert command[-1] == "flash-attn==2.8.3.post1+cvte1"
+        validate_mock.assert_called_once_with(
+            fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+        )
+
+    def test_find_links_install_failure_is_fatal_and_redacts_output(
+        self, fake_venv_manager, caplog
+    ):
+        result = mock.MagicMock(
+            returncode=1,
+            stdout="Downloading https://user:password@example.com/wheel",
+            stderr="authentication failed: token=secret-token",
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run",
+            return_value=result,
+        ):
+            with pytest.raises(RuntimeError, match="installation failed") as exc_info:
+                apply_flash_attn_wheel_post_install(
+                    "jina-embeddings-v3",
+                    ["flash-attn==2.8.3.post1+cvte1"],
+                    fake_venv_manager,
+                    {"find_links": ["/wheels/jina"]},
+                    True,
+                )
+
+        message = str(exc_info.value)
+        assert "stdout=" in message
+        assert "stderr=" in message
+        assert "https://***@example.com/wheel" in message
+        assert "token=***" in message
+        assert "password" not in message
+        assert "secret-token" not in message
+        assert "https://***@example.com/wheel" in caplog.text
+        assert "secret-token" not in caplog.text
+
+    def test_validation_failure_after_install_is_fatal(self, fake_venv_manager):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=mock.MagicMock(returncode=0),
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager._validate_flash_attn_install",
+                return_value=False,
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="validation failed"):
+                apply_flash_attn_wheel_post_install(
+                    "jina-embeddings-v3",
+                    ["flash-attn==2.8.3.post1+cvte1"],
+                    fake_venv_manager,
+                    {"find_links": ["/wheels/jina"]},
+                    True,
+                )
+
+    def test_validation_uses_clean_process_and_checks_version(
+        self, fake_venv_manager, monkeypatch
+    ):
+        monkeypatch.setenv("VIRTUAL_ENV", "/parent/venv")
+        monkeypatch.setenv("PYTHONPATH", "/parent/pythonpath")
+        monkeypatch.setenv("PYTHONHOME", "/parent/pythonhome")
+        result = mock.MagicMock(
+            returncode=0,
+            stdout='{"version": "2.8.3.post1+cvte1"}\n',
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            assert _validate_flash_attn_install(
+                fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+            )
+
+        command = run_mock.call_args.args[0]
+        assert command[:2] == ["/fake/venv/bin/python", "-c"]
+        assert 'metadata.distribution("flash-attn")' in command[2]
+        assert "from flash_attn import flash_attn_func" in command[2]
+        child_env = run_mock.call_args.kwargs["env"]
+        assert "VIRTUAL_ENV" not in child_env
+        assert "PYTHONPATH" not in child_env
+        assert "PYTHONHOME" not in child_env
+
+    def test_validation_failure_logs_subprocess_output(self, fake_venv_manager, caplog):
+        result = mock.MagicMock(
+            returncode=1,
+            stdout="validation stdout",
+            stderr="ImportError: libcudart.so not found",
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ):
+            assert not _validate_flash_attn_install(
+                fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+            )
+
+        assert "validation stdout" in caplog.text
+        assert "ImportError: libcudart.so not found" in caplog.text
 
 
 class TestValidateVirtualEnvFindLinks:
