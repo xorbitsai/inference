@@ -266,6 +266,11 @@ The following is a list of built-in LLM in Xinference:
      - 202752
      - GLM-5.1 is our next-generation flagship model for agentic engineering, with significantly stronger coding capabilities than its predecessor. It achieves state-of-the-art performance on SWE-Bench Pro and leads GLM-5 by a wide margin on NL2Repo (repo generation) and Terminal-Bench 2.0 (real-world terminal tasks).
 
+   * - :ref:`glm-5.2 <models_llm_glm-5.2>`
+     - chat, tools, reasoning, hybrid
+     - 1048576
+     - We're introducing GLM-5.2, our latest flagship model for long-horizon tasks
+
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
      - 8192
@@ -966,6 +971,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-5.1
   
+   glm-5.2
+
    glm-edge-chat
   
    glm4-0414
