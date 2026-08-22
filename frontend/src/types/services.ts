@@ -20,6 +20,7 @@ export interface ClusterUIConfig {
   es_enabled: boolean;
   auth_advanced: boolean;
   oidc_enabled: boolean;
+  token_router_enabled?: boolean;
 }
 export interface ClusterInfo {
   node_type: 'Supervisor' | 'Worker';
@@ -284,14 +285,14 @@ export interface UserItem {
 
 export interface TokenizerAssetItem {
   asset_id: string;
-  origin: 'builtin' | 'external';
+  origin: 'builtin' | 'artifact' | 'shared_fs' | 'local' | 'external';
   display_name: string;
   model_family: string;
   model_name: string;
   revision: string;
   encoding_type: string;
   compatible_models: string[];
-  capabilities: Record<string, boolean>;
+  capabilities: Record<string, unknown>;
   enabled: boolean;
   status: 'available' | 'invalid' | 'disabled' | 'missing' | 'validating';
   valid: boolean;
@@ -299,6 +300,13 @@ export interface TokenizerAssetItem {
   errors: string[];
   checks?: Record<string, string>;
   validated_at?: string;
+  source?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  bindings?: number;
+  ready_bindings?: number;
+  binding_states?: Record<string, number>;
+  router_references?: string[];
+  binding_items?: TokenizerAssetBinding[];
 }
 
 export interface TokenizerAssetListResponse {
@@ -351,6 +359,103 @@ export interface TokenRouterRoutingRule {
   action: TokenRouterRoutingAction;
 }
 
+export interface TokenRouterDeployment {
+  router_uid: string;
+  management_mode: 'external' | 'managed';
+  desired_replicas: number;
+  desired_state: 'running' | 'stopped';
+  placement: Record<string, unknown>;
+  rollout: {
+    auto_failover?: boolean;
+    drain_timeout_seconds?: number;
+    [key: string]: unknown;
+  };
+  deployment_generation: number;
+  observed_ready_assignments: number;
+  effective_ready_runtimes: number;
+  controllable_ready_runtimes: number;
+  ready_replicas: number;
+  pending_replicas: number;
+  assignments: number;
+  failure_reason?: string;
+  recovery_state?: 'stable' | 'degraded' | 'recovering' | 'blocked';
+}
+
+export interface TokenRouterAssignment {
+  assignment_id: string;
+  router_uid: string;
+  replica_index: number;
+  node_id: string;
+  listen_host: string;
+  listen_port: number;
+  public_endpoint: string;
+  desired_state: 'running' | 'stopped';
+  observed_state: string;
+  assignment_generation: number;
+  config_revision: number;
+  pid?: number | null;
+  instance_id?: string | null;
+  last_error?: string;
+  management_state?: 'manageable' | 'node_suspected' | 'node_lost';
+  failure_reason?: string;
+  observed?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TokenizerAssetBinding {
+  asset_id: string;
+  node_id: string;
+  desired_state: 'present' | 'absent';
+  observed_state: string;
+  desired_revision: string;
+  desired_fingerprint: string;
+  observed_revision: string;
+  observed_fingerprint: string;
+  local_path: string;
+  binding_mode: 'manual' | 'on_demand' | 'legacy';
+  owner_type: string;
+  owner_id: string;
+  generation: number;
+  last_error_code: string;
+  last_error: string;
+  last_seen_at?: string | null;
+}
+
+export interface TokenRouterNode {
+  node_id: string;
+  advertise_host: string;
+  port_range_start: number;
+  port_range_end: number;
+  max_instances: number;
+  labels: Record<string, unknown>;
+  reported_labels: Record<string, unknown>;
+  managed_labels: Record<string, unknown>;
+  tokenizer_asset_bindings: TokenizerAssetBinding[];
+  capabilities: {
+    tokenizer_assets?: string[];
+    [key: string]: unknown;
+  };
+  software_version: string;
+  software_revision?: string | null;
+  desired_state: 'active' | 'cordoned' | 'draining' | 'disabled';
+  connectivity_status: 'online' | 'suspected' | 'offline';
+  management_state: 'active' | 'cordoned' | 'draining' | 'disabled';
+  suspected_at?: string | null;
+  offline_at?: string | null;
+  observed: Record<string, unknown>;
+  last_seen_at?: string | null;
+  heartbeat_age_seconds: number;
+  can_schedule: boolean;
+  failure_reason?: string;
+  online: boolean;
+  assignments: number;
+  used_ports: number[];
+  available_slots: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface TokenRouterItemBase {
   router_uid: string;
   virtual_model_uid: string;
@@ -376,9 +481,21 @@ interface TokenRouterItemBase {
   };
   enabled: boolean;
   revision: number;
-  status: 'draft' | 'disabled' | 'syncing' | 'ready' | 'degraded' | 'offline' | 'error';
+  status:
+    | 'draft'
+    | 'disabled'
+    | 'pending'
+    | 'starting'
+    | 'syncing'
+    | 'ready'
+    | 'degraded'
+    | 'offline'
+    | 'unavailable'
+    | 'draining'
+    | 'error';
   runtime_instances: number;
   online_instances: number;
+  deployment: TokenRouterDeployment;
   created_at: string;
   updated_at: string;
 }
@@ -449,8 +566,97 @@ export function isTypedTokenRouter(router: TokenRouterItem): router is TokenRout
   return router.config_version === 2 || Array.isArray(router.backends);
 }
 
+export type RouterClusterStatus =
+  | 'ready'
+  | 'syncing'
+  | 'degraded'
+  | 'config_error'
+  | 'heartbeat_timeout'
+  | 'not_running'
+  | 'disabled';
+
+export interface RouterRuntimeMetadata {
+  assignment_id?: string;
+  assignment_generation?: number;
+  node_id?: string;
+  hostname?: string;
+  python_version?: string;
+  platform?: string;
+  started_at?: number;
+}
+
+export interface RouterProcessResources {
+  cpu_percent?: number;
+  cpu_cores?: number;
+  cpu_count?: number;
+  rss_bytes?: number;
+  memory_total_bytes?: number;
+  main_process_rss_bytes?: number;
+  child_process_rss_bytes?: number;
+  child_process_count?: number;
+  thread_count?: number;
+  started_at?: number;
+  uptime_seconds?: number;
+  sampled_at?: number;
+}
+
+export interface RouterClusterInfo {
+  node_type: 'Router';
+  router_uid: string;
+  router_status: RouterClusterStatus;
+  instance_id: string;
+  endpoint: string;
+  online: boolean;
+  instance_status?: string | null;
+  acked_revision?: number | null;
+  config_revision?: number | null;
+  registered_at?: number | null;
+  last_heartbeat?: number | null;
+  heartbeat_age_seconds?: number | null;
+  version?: string;
+  protocol_version?: string;
+  software_version?: string;
+  software_revision?: string | null;
+  metadata?: RouterRuntimeMetadata;
+  config_error?: string;
+  metrics?: Record<string, unknown>;
+  backend_health?: Record<string, unknown>;
+  process?: {
+    pid?: number;
+    revision?: number;
+    resources?: RouterProcessResources;
+    tokenization?: {
+      worker_pids?: number[];
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+}
+
+export interface RouterNodeClusterInfo {
+  node_type: 'Router';
+  node_id: string;
+  ip_address: string;
+  online: boolean;
+  connectivity_status: 'online';
+  gpu_count: number;
+  gpu_vram_total: number;
+  cpu_available: number | null;
+  cpu_count: number | null;
+  mem_used: number | null;
+  mem_available: number | null;
+  mem_total: number | null;
+  software_version?: string;
+  software_revision?: string | null;
+}
+
+export type ClusterInformationItem = ClusterInfo | RouterNodeClusterInfo;
+
 export interface TokenRouterRuntimeInstance {
   router_uid: string;
+  assignment_id?: string;
+  assignment_generation?: number;
+  node_id?: string;
   instance_id: string;
   endpoint: string;
   status?: string;

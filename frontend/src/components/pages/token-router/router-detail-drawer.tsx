@@ -24,6 +24,7 @@ import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 import type {
   TokenizerAssetItem,
+  TokenRouterAssignment,
   TokenRouterItem,
   TokenRouterRoutingAction,
   TokenRouterRuleMatch,
@@ -67,6 +68,7 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
   const tokenizerAssetId = router?.tokenizer_asset_id;
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [instances, setInstances] = useState<TokenRouterRuntimeInstance[]>([]);
+  const [assignments, setAssignments] = useState<TokenRouterAssignment[]>([]);
   const [metrics, setMetrics] = useState<MetricsResponse>({});
   const [tokenizerAsset, setTokenizerAsset] = useState<TokenizerAssetItem | null>(null);
   const [tokenizerAssetLoading, setTokenizerAssetLoading] = useState(false);
@@ -103,12 +105,14 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
       if (mode === 'manual') setInstancesRefreshing(true);
 
       try {
-        const runtimeData = await request.get<TokenRouterRuntimeInstance[]>(
-          `/v1/token_routers/${routerUid}/instances`
-        );
+        const [runtimeData, assignmentData] = await Promise.all([
+          request.get<TokenRouterRuntimeInstance[]>(`/v1/token_routers/${routerUid}/instances`),
+          request.get<TokenRouterAssignment[]>(`/v1/token_routers/${routerUid}/assignments`),
+        ]);
         if (!isCurrentRequest(generation, routerUid)) return;
 
         setInstances(Array.isArray(runtimeData) ? runtimeData : []);
+        setAssignments(Array.isArray(assignmentData) ? assignmentData : []);
         setInstancesLoaded(true);
         setInstancesUpdatedAt(new Date());
       } catch {
@@ -190,6 +194,7 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
     metricsRequestRef.current = null;
     setActiveTab('overview');
     setInstances([]);
+    setAssignments([]);
     setMetrics({});
     setTokenizerAsset(null);
     setTokenizerAssetLoading(false);
@@ -759,6 +764,84 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
                 lastUpdatedLabel={t('tokenRouter.lastUpdated')}
                 notUpdatedLabel={t('tokenRouter.notUpdated')}
               />
+
+              {(router?.deployment.management_mode === 'managed' || assignments.length > 0) && (
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold">{t('tokenRouter.assignments')}</h3>
+                    <span className="text-xs text-muted-foreground">
+                      {t('tokenRouter.assignmentCount', { count: assignments.length })}
+                    </span>
+                  </div>
+                  {assignments.length === 0 ? (
+                    <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                      {t('tokenRouter.noAssignments')}
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 xl:grid-cols-2">
+                      {assignments.map((assignment) => (
+                        <article
+                          key={assignment.assignment_id}
+                          className="min-w-0 rounded-xl border p-4 text-sm"
+                        >
+                          <div className="flex min-w-0 items-start justify-between gap-3">
+                            <CopyableValue
+                              value={assignment.assignment_id}
+                              label={t('tokenRouter.assignmentId')}
+                              copyLabel={t('tokenRouter.copyValue')}
+                              onCopy={copyValue}
+                              className="font-mono text-xs font-medium"
+                            />
+                            <RouterStatusBadge status={assignment.observed_state} />
+                          </div>
+                          <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-muted/30 p-3">
+                            <DetailItem
+                              label={t('tokenRouter.nodeId')}
+                              value={assignment.node_id}
+                              mono
+                            />
+                            <DetailItem
+                              label={t('tokenRouter.processId')}
+                              value={assignment.pid ?? '—'}
+                            />
+                            <DetailItem
+                              label={t('tokenRouter.assignmentGeneration')}
+                              value={assignment.assignment_generation}
+                            />
+                            <DetailItem
+                              label={t('tokenRouter.configRevision')}
+                              value={assignment.config_revision}
+                            />
+                            <DetailItem
+                              label={t('tokenRouter.desiredState')}
+                              value={assignment.desired_state}
+                            />
+                            <DetailItem
+                              label={t('tokenRouter.listenPort')}
+                              value={assignment.listen_port}
+                            />
+                          </div>
+                          <div className="mt-4">
+                            <CopyableValue
+                              value={assignment.public_endpoint}
+                              label={t('tokenRouter.endpoint')}
+                              copyLabel={t('tokenRouter.copyValue')}
+                              onCopy={copyValue}
+                              className="font-mono text-xs text-muted-foreground"
+                            />
+                          </div>
+                          {assignment.last_error && (
+                            <div className="mt-4 whitespace-pre-wrap break-words rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                              <div className="mb-1 font-medium">{t('tokenRouter.lastError')}</div>
+                              {assignment.last_error}
+                            </div>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
 
               {instancesInitialLoading && !instancesLoaded ? (
                 <LoadingState label={t('tokenRouter.loading')} />

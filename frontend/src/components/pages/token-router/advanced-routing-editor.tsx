@@ -15,11 +15,16 @@ import type {
   TokenRouterRoutingRule,
 } from '@/types/services';
 
+import { BackendModelSelect } from './backend-model-select';
 import type { TypedRouterDraft } from './router-config-normalizer';
 
 interface Props {
   value: TypedRouterDraft;
   candidates: TokenRouterBackendCandidate[];
+  candidatesLoading?: boolean;
+  candidatesLoadFailed?: boolean;
+  candidateErrors?: string[];
+  tokenizerCompatibilityVerified?: boolean;
   onChange: (value: TypedRouterDraft) => void;
 }
 
@@ -34,17 +39,17 @@ const conditionOptions = (anyLabel: string, trueLabel: string, falseLabel: strin
   { value: 'false', label: falseLabel },
 ];
 
-export function AdvancedRoutingEditor({ value, candidates, onChange }: Props) {
+export function AdvancedRoutingEditor({
+  value,
+  candidates,
+  candidatesLoading = false,
+  candidatesLoadFailed = false,
+  candidateErrors = [],
+  tokenizerCompatibilityVerified = true,
+  onChange,
+}: Props) {
   const { t } = useI18n();
   const backendIds = value.backends.map((backend) => backend.id).filter(Boolean);
-  const candidateOptions = candidates.map((candidate) => ({
-    value: candidate.model_uid,
-    label: `${candidate.model_uid}${candidate.model_engine ? ` · ${candidate.model_engine}` : ''}`,
-    description: candidate.eligible
-      ? candidate.compatibility_reason
-      : candidate.ineligible_reasons.join('; '),
-    disabled: !candidate.eligible,
-  }));
 
   const updateBackend = (index: number, patch: Partial<TokenRouterDynamicBackendConfig>) => {
     const backends = value.backends.map((backend, itemIndex) =>
@@ -176,11 +181,13 @@ export function AdvancedRoutingEditor({ value, candidates, onChange }: Props) {
                     />
                   </EditorField>
                   <EditorField label={t('tokenRouter.backendModel')}>
-                    <Select
+                    <BackendModelSelect
                       value={backend.model_uid}
-                      options={candidateOptions}
-                      showSearch
-                      allowClear={false}
+                      candidates={candidates}
+                      loading={candidatesLoading}
+                      loadFailed={candidatesLoadFailed}
+                      candidateErrors={candidateErrors}
+                      tokenizerCompatibilityVerified={tokenizerCompatibilityVerified}
                       onChange={(modelUid) =>
                         updateBackend(index, { model_uid: String(modelUid || '') })
                       }

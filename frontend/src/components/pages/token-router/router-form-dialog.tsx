@@ -20,7 +20,6 @@ import { useI18n, type TFunc } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import type {
-  RunningModelItem,
   TokenizerAssetItem,
   TokenizerAssetListResponse,
   TokenRouterBackendCandidate,
@@ -31,6 +30,7 @@ import type {
 import { isTypedTokenRouter } from '@/types/services';
 
 import { AdvancedRoutingEditor } from './advanced-routing-editor';
+import { BackendModelSelect } from './backend-model-select';
 import {
   routerMode,
   typedDraftFromRouter,
@@ -70,6 +70,12 @@ type FormState = {
   tokenization_workers: number;
   tokenization_max_active: number;
   tokenization_max_queue: number;
+  management_mode: 'external' | 'managed';
+  desired_replicas: number;
+  placement_mode: 'auto' | 'node';
+  placement_node_id: string;
+  auto_failover: 'enabled' | 'disabled';
+  drain_timeout_seconds: number;
 };
 
 const EMPTY: FormState = {
@@ -97,12 +103,22 @@ const EMPTY: FormState = {
   tokenization_workers: 2,
   tokenization_max_active: 2,
   tokenization_max_queue: 8,
+  management_mode: 'external',
+  desired_replicas: 1,
+  placement_mode: 'auto',
+  placement_node_id: '',
+  auto_failover: 'disabled',
+  drain_timeout_seconds: 7200,
 };
 
 function fromRouter(router: TokenRouterItem): FormState {
   const typed = isTypedTokenRouter(router);
   const short = typed ? router.backends[0] : router.backends.short;
   const long = typed ? router.backends[1] || router.backends[0] : router.backends.long;
+  const configuredNodeIds = router.deployment?.placement?.node_ids;
+  const configuredNodeId =
+    (Array.isArray(configuredNodeIds) ? configuredNodeIds[0] : undefined) ||
+    router.deployment?.placement?.node_id;
   return {
     router_uid: router.router_uid,
     virtual_model_uid: router.virtual_model_uid,
@@ -131,6 +147,12 @@ function fromRouter(router: TokenRouterItem): FormState {
     tokenization_workers: router.tokenization.max_workers,
     tokenization_max_active: router.tokenization.max_active,
     tokenization_max_queue: router.tokenization.max_queue,
+    management_mode: router.deployment?.management_mode || 'external',
+    desired_replicas: router.deployment?.desired_replicas ?? 1,
+    placement_mode: configuredNodeId ? 'node' : 'auto',
+    placement_node_id: String(configuredNodeId || ''),
+    auto_failover: router.deployment?.rollout?.auto_failover ? 'enabled' : 'disabled',
+    drain_timeout_seconds: Number(router.deployment?.rollout?.drain_timeout_seconds ?? 7200),
   };
 }
 
@@ -164,8 +186,11 @@ function isBackendUrl(value: unknown) {
 export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props) {
   const { t } = useI18n();
   const [saving, setSaving] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
   const [candidates, setCandidates] = useState<TokenRouterBackendCandidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [candidatesLoadFailed, setCandidatesLoadFailed] = useState(false);
+  const [candidateErrors, setCandidateErrors] = useState<string[]>([]);
+  const [simpleBackendUids, setSimpleBackendUids] = useState({ short: '', long: '' });
   const [mode, setMode] = useState<RouterMode>(routerMode(router));
   const [typedDraft, setTypedDraft] = useState<TypedRouterDraft>(() =>
     typedDraftFromRouter(router)
@@ -181,6 +206,12 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
   const [tokenizerSource, setTokenizerSource] = useState<'asset' | 'custom'>('asset');
   const [selectedAssetId, setSelectedAssetId] = useState('');
   const [form] = useForm();
+  const managementMode = form.getFieldValue('management_mode') as
+    | FormState['management_mode']
+    | undefined;
+  const placementMode = form.getFieldValue('placement_mode') as
+    | FormState['placement_mode']
+    | undefined;
   const editing = Boolean(router);
   const canUseCustomPath = allowCustomPath || Boolean(router && !router.tokenizer_asset_id);
   const assetOptions = useMemo(() => {
@@ -220,26 +251,11 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
     setUseCustomBackend(false);
 
     const load = async () => {
-      const [modelsResult, assetsResult, defaultsResult] = await Promise.allSettled([
-        request.get<RunningModelItem[] | Record<string, RunningModelItem>>('/v1/models'),
+      const [assetsResult, defaultsResult] = await Promise.allSettled([
         request.get<TokenizerAssetListResponse>('/v1/tokenizer_assets'),
         request.get<TokenRouterDefaultsResponse>('/v1/token_routers/defaults'),
       ]);
       if (cancelled) return;
-
-      if (modelsResult.status === 'fulfilled') {
-        const items = Array.isArray(modelsResult.value)
-          ? modelsResult.value
-          : Object.values(modelsResult.value || {});
-        setModels(
-          items
-            .filter((item) => item.model_type === 'LLM')
-            .map((item) => item.id)
-            .filter(Boolean)
-        );
-      } else {
-        setModels([]);
-      }
 
       const assetResponse =
         assetsResult.status === 'fulfilled'
@@ -280,6 +296,10 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       setTypedDraft(typedDraftFromRouter(router));
       setTokenizerSource(values.tokenizer_source);
       setSelectedAssetId(values.tokenizer_asset_id);
+      setSimpleBackendUids({
+        short: values.short_model_uid,
+        long: values.long_model_uid,
+      });
       form.initialValues.current = values;
       form.resetFields();
       form.setFieldsValue(values);
@@ -300,13 +320,23 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
         : '';
 
     setCandidates([]);
+    setCandidatesLoading(true);
+    setCandidatesLoadFailed(false);
+    setCandidateErrors([]);
     void request
       .get<TokenRouterBackendCandidateResponse>(`/v1/token_routers/backend-candidates${assetQuery}`)
       .then((response) => {
-        if (!cancelled) setCandidates(response.items || []);
+        if (cancelled) return;
+        setCandidates(response.items || []);
+        setCandidateErrors(response.errors || []);
       })
       .catch(() => {
-        if (!cancelled) setCandidates([]);
+        if (cancelled) return;
+        setCandidates([]);
+        setCandidatesLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setCandidatesLoading(false);
       });
 
     return () => {
@@ -463,20 +493,42 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
             },
           };
 
+    const placement: Record<string, unknown> = {
+      ...(router?.deployment?.placement || {}),
+    };
+    delete placement.node_id;
+    delete placement.node_ids;
+    if (values.placement_mode === 'node') {
+      placement.node_ids = [values.placement_node_id.trim()];
+    }
+
     try {
+      const routerUid = router?.router_uid || values.router_uid.trim();
       if (router) {
         await request.put(`/v1/token_routers/${router.router_uid}`, {
           ...payload,
           revision: router.revision,
         });
-        toast.success(t('tokenRouter.updateSuccess'));
       } else {
         await request.post('/v1/token_routers', {
           ...payload,
-          router_uid: values.router_uid.trim(),
+          router_uid: routerUid,
         });
-        toast.success(t('tokenRouter.createSuccess'));
       }
+      await request.put(`/v1/token_routers/${routerUid}/deployment`, {
+        management_mode: values.management_mode,
+        desired_replicas: values.desired_replicas,
+        placement,
+        rollout: {
+          ...(router?.deployment?.rollout || {}),
+          auto_failover: values.auto_failover === 'enabled',
+          drain_timeout_seconds: values.drain_timeout_seconds,
+        },
+        ...(router?.deployment?.deployment_generation
+          ? { deployment_generation: router.deployment.deployment_generation }
+          : {}),
+      });
+      toast.success(t(router ? 'tokenRouter.updateSuccess' : 'tokenRouter.createSuccess'));
       onOpenChange(false);
       onSaved();
     } finally {
@@ -506,12 +558,6 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
         <DialogHeader>
           <DialogTitle>{editing ? t('tokenRouter.edit') : t('tokenRouter.create')}</DialogTitle>
         </DialogHeader>
-
-        <datalist id="token-router-models">
-          {models.map((uid) => (
-            <option key={uid} value={uid} />
-          ))}
-        </datalist>
 
         <Form form={form} onFinish={handleSave} className="space-y-6">
           <FormSection title={t('tokenRouter.sections.basic')}>
@@ -762,7 +808,20 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
                   label={t('tokenRouter.shortBackend')}
                   rules={[requiredRule]}
                 >
-                  <Input list="token-router-models" />
+                  <BackendModelSelect
+                    candidates={candidates}
+                    loading={candidatesLoading}
+                    loadFailed={candidatesLoadFailed}
+                    candidateErrors={candidateErrors}
+                    tokenizerCompatibilityVerified={tokenizerSource === 'asset'}
+                    excludedModelUids={[simpleBackendUids.long]}
+                    onChange={(modelUid) =>
+                      setSimpleBackendUids((current) => ({
+                        ...current,
+                        short: String(modelUid || ''),
+                      }))
+                    }
+                  />
                 </FormField>
                 <FormField
                   name="long_model_uid"
@@ -777,7 +836,20 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
                     },
                   ]}
                 >
-                  <Input list="token-router-models" />
+                  <BackendModelSelect
+                    candidates={candidates}
+                    loading={candidatesLoading}
+                    loadFailed={candidatesLoadFailed}
+                    candidateErrors={candidateErrors}
+                    tokenizerCompatibilityVerified={tokenizerSource === 'asset'}
+                    excludedModelUids={[simpleBackendUids.short]}
+                    onChange={(modelUid) =>
+                      setSimpleBackendUids((current) => ({
+                        ...current,
+                        long: String(modelUid || ''),
+                      }))
+                    }
+                  />
                 </FormField>
                 {numberField('short_max_context', t('tokenRouter.shortContext'))}
                 {numberField('long_max_context', t('tokenRouter.longContext'), false, [
@@ -829,10 +901,68 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
               <AdvancedRoutingEditor
                 value={typedDraft}
                 candidates={candidates}
+                candidatesLoading={candidatesLoading}
+                candidatesLoadFailed={candidatesLoadFailed}
+                candidateErrors={candidateErrors}
+                tokenizerCompatibilityVerified={tokenizerSource === 'asset'}
                 onChange={setTypedDraft}
               />
             </FormSection>
           )}
+
+          <FormSection title={t('tokenRouter.sections.deployment')}>
+            <FormField
+              name="management_mode"
+              label={t('tokenRouter.managementMode')}
+              rules={[requiredRule]}
+            >
+              <Select<FormState['management_mode']>
+                allowClear={false}
+                options={[
+                  { value: 'external', label: t('tokenRouter.managementModes.external') },
+                  { value: 'managed', label: t('tokenRouter.managementModes.managed') },
+                ]}
+              />
+            </FormField>
+            {numberField('desired_replicas', t('tokenRouter.desiredReplicas'), true)}
+            <FormField
+              name="placement_mode"
+              label={t('tokenRouter.placementMode')}
+              rules={[requiredRule]}
+            >
+              <Select<FormState['placement_mode']>
+                allowClear={false}
+                disabled={managementMode !== 'managed'}
+                options={[
+                  { value: 'auto', label: t('tokenRouter.placementModes.auto') },
+                  { value: 'node', label: t('tokenRouter.placementModes.node') },
+                ]}
+              />
+            </FormField>
+            {placementMode === 'node' && (
+              <FormField
+                name="placement_node_id"
+                label={t('tokenRouter.placementNodeId')}
+                rules={[requiredRule]}
+              >
+                <Input placeholder="t-xinference-router-001" />
+              </FormField>
+            )}
+            <FormField
+              name="auto_failover"
+              label={t('tokenRouter.autoFailover')}
+              rules={[requiredRule]}
+            >
+              <Select<FormState['auto_failover']>
+                allowClear={false}
+                options={[
+                  { value: 'disabled', label: t('tokenRouter.failoverModes.disabled') },
+                  { value: 'enabled', label: t('tokenRouter.failoverModes.enabled') },
+                ]}
+              />
+            </FormField>
+            {numberField('drain_timeout_seconds', t('tokenRouter.drainTimeout'), false)}
+          </FormSection>
 
           <FormSection title={t('tokenRouter.sections.tokenization')}>
             {numberField('tokenization_workers', t('tokenRouter.tokenWorkers'))}
