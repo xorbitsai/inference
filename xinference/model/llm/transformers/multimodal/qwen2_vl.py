@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
     "qwen3.8",
     "Nex-N2",
     "Ornith-1.5-35B-A3B",
+    "Ornith-1.5-397B",
 )
 @register_transformer
 @register_non_default_model(
