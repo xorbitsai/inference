@@ -155,7 +155,7 @@ const statusValues = [
   'user_disabled',
   'no_credentials',
 ];
-const modelTypeValues = ['LLM', 'embedding', 'rerank', 'image', 'video', 'audio'];
+const modelTypeValues = ['LLM', 'embedding', 'rerank', 'image', 'video', 'world', 'audio'];
 
 const toDash = (value: unknown) => {
   if (value === undefined || value === null || value === '') return '-';

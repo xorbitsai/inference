@@ -38,6 +38,7 @@ import {
 } from '../image-seed-utils';
 import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
 import type { CapabilityFormProps } from '../types';
+import { isJsonObject } from '../utils';
 
 const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
   (value) => ({ label: value, value })
@@ -55,6 +56,16 @@ const DOCUMENT_LANGUAGE_OPTIONS = [
 ];
 
 const DOCUMENT_OUTPUT_OPTIONS = ['markdown', 'json'].map((value) => ({ label: value, value }));
+
+const ASTRA_CAMERA_MOTION_OPTIONS = [
+  { label: '↑ Move forward', value: 1 },
+  { label: '↺ Rotate left in place', value: 2 },
+  { label: '↻ Rotate right in place', value: 3 },
+  { label: '↖ Move forward + turn left', value: 4 },
+  { label: '↗ Move forward + turn right', value: 5 },
+  { label: '∿ Follow an S-curve', value: 6 },
+  { label: '⇆ Rotate left, then right', value: 7 },
+];
 
 function normalizeNumberInput(value: unknown) {
   return value === '' ? '' : Number(value);
@@ -471,6 +482,84 @@ export function FirstLastFrameVideoPanel({ form }: CapabilityFormProps) {
       </div>
       <PromptFields />
       <VideoFields form={form} />
+    </>
+  );
+}
+
+const jsonObjectRule = {
+  validator: (value: unknown) => isJsonObject(value),
+  message: 'Enter a valid JSON object.',
+};
+
+function isAstraWorldModel(model: CapabilityFormProps['model']) {
+  return model.model_family === 'Astra' || model.model_name === 'Astra';
+}
+
+function WorldGenerationFields({ model }: Pick<CapabilityFormProps, 'model'>) {
+  return (
+    <>
+      <FormField name="prompt" label="Prompt" rules={[{ required: true }]}>
+        <Textarea className="min-h-24" placeholder="Describe the scene or action to generate..." />
+      </FormField>
+      {isAstraWorldModel(model) && (
+        <FormField
+          name="astra_camera_motion"
+          label="Camera motion"
+          extra="Controls the camera trajectory used by Astra."
+        >
+          <Select options={ASTRA_CAMERA_MOTION_OPTIONS} allowClear={false} />
+        </FormField>
+      )}
+      <FormField
+        name="generation_config"
+        label="Generation config (JSON)"
+        extra="Common generation settings shared by the world API."
+        rules={[jsonObjectRule]}
+      >
+        <Textarea className="min-h-28 font-mono text-xs" spellCheck={false} />
+      </FormField>
+      <FormField
+        name="model_kwargs"
+        label="Advanced model kwargs (JSON)"
+        extra="Optional low-level model controls; sent as extra_body."
+        rules={[jsonObjectRule]}
+      >
+        <Textarea className="min-h-28 font-mono text-xs" spellCheck={false} />
+      </FormField>
+    </>
+  );
+}
+
+export function TextToWorldPanel({ model }: CapabilityFormProps) {
+  return <WorldGenerationFields model={model} />;
+}
+
+export function ImageToWorldPanel({ model }: CapabilityFormProps) {
+  return (
+    <>
+      <FormField name="image" rules={[{ required: true }]}>
+        <FileUpload
+          accept="image/*"
+          label="Upload initial world image"
+          description="This image becomes the first frame of the generated world."
+        />
+      </FormField>
+      <WorldGenerationFields model={model} />
+    </>
+  );
+}
+
+export function VideoToWorldPanel({ model }: CapabilityFormProps) {
+  return (
+    <>
+      <FormField name="video" rules={[{ required: true }]}>
+        <FileUpload
+          accept="video/*"
+          label="Upload initial world video"
+          description="Use a short source video supported by the selected model."
+        />
+      </FormField>
+      <WorldGenerationFields model={model} />
     </>
   );
 }

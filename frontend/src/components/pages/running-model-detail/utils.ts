@@ -140,6 +140,43 @@ export function firstUpload(values: FormValues, key: string): FileUploadValue | 
   return Array.isArray(value) ? value[0] : undefined;
 }
 
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error(`Failed to encode ${file.name}`));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error(`Failed to read ${file.name}`));
+    reader.readAsDataURL(file);
+  });
+}
+
+export function parseJsonObject(value: unknown): Record<string, unknown> {
+  const source = stringValue(value).trim();
+  if (!source) return {};
+
+  const parsed: unknown = JSON.parse(source);
+  if (!isRecord(parsed)) {
+    throw new Error('Expected a JSON object');
+  }
+
+  return parsed;
+}
+
+export function isJsonObject(value: unknown): boolean {
+  try {
+    parseJsonObject(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function uploadList(values: FormValues, key: string): FileUploadValue[] {
   const value = values[key];
   return Array.isArray(value) ? value : [];

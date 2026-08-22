@@ -308,6 +308,9 @@ def parse_model_version(model_version: str, model_type: str) -> Tuple:
     elif model_type == "image":
         assert 2 >= len(results) >= 1, "Image model_version parses failed!"
         return tuple(results)
+    elif model_type == "world":
+        assert len(results) > 0, "World model_version parses failed!"
+        return (results[0],)
     else:
         raise ValueError(f"Not supported model_type: {model_type}")
 

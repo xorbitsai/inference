@@ -45,6 +45,7 @@ export type RouteModelType =
   | ModelType.Image
   | ModelType.Audio
   | ModelType.Video
+  | ModelType.World
   | ModelType.Custom;
 export type RequestModelType =
   | ModelType.LLM
@@ -53,6 +54,7 @@ export type RequestModelType =
   | ModelType.Image
   | ModelType.Audio
   | ModelType.Video
+  | ModelType.World
   | ModelType.Flexible;
 
 export type FormatIndex = {

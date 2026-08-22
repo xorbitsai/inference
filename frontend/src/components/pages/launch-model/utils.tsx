@@ -37,6 +37,7 @@ export const MODEL_ENGINE_TYPES: RequestModelType[] = [
   ModelType.Rerank,
   ModelType.Image,
   ModelType.Audio,
+  ModelType.World,
 ];
 
 export function normalizeModelSize(value: unknown) {

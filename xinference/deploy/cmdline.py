@@ -570,6 +570,25 @@ def list_model_registrations(
             ),
             file=sys.stderr,
         )
+    elif model_type in ("video", "world"):
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_family"],
+                    model_family["model_ability"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Family", "Ability", "Is-built-in"]
+            ),
+            file=sys.stderr,
+        )
     elif model_type == "flexible":
         for registration in registrations:
             model_name = registration["model_name"]
@@ -744,7 +763,7 @@ def remove_cache(
     "-en",
     type=str,
     default=None,
-    help="Specify the inference engine of the model when launching LLM.",
+    help="Specify the inference engine used to launch the model.",
 )
 @click.option(
     "--model-uid",
@@ -1088,6 +1107,7 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
     rerank_table = []
     image_table = []
     audio_table = []
+    media_table = []
     models = client.list_models()
     for model_uid, model_spec in models.items():
         if model_spec["model_type"] == "LLM":
@@ -1126,6 +1146,15 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
         elif model_spec["model_type"] == "audio":
             audio_table.append(
                 [model_uid, model_spec["model_type"], model_spec["model_name"]]
+            )
+        elif model_spec["model_type"] in ("video", "world"):
+            media_table.append(
+                [
+                    model_uid,
+                    model_spec["model_type"],
+                    model_spec["model_name"],
+                    model_spec.get("model_engine", ""),
+                ]
             )
     if llm_table:
         print(
@@ -1181,6 +1210,11 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
                 audio_table,
                 headers=["UID", "Type", "Name"],
             ),
+            file=sys.stderr,
+        )
+    if media_table:
+        print(
+            tabulate(media_table, headers=["UID", "Type", "Name", "Engine"]),
             file=sys.stderr,
         )
         print()
