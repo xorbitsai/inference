@@ -241,6 +241,25 @@ class WorldModel:
             self._source_path,
         )
 
+    def _download_auxiliary_model(
+        self, allow_patterns: Optional[List[str]] = None
+    ) -> str:
+        download_kwargs: Dict[str, Any] = {
+            "revision": self._model_spec.auxiliary_model_revision,
+        }
+        if allow_patterns:
+            download_kwargs["allow_patterns"] = allow_patterns
+
+        if self._model_spec.model_hub == "modelscope":
+            from modelscope.hub.snapshot_download import snapshot_download
+        else:
+            from huggingface_hub import snapshot_download
+
+        return snapshot_download(
+            self._model_spec.auxiliary_model_id,
+            **download_kwargs,
+        )
+
     def _gpu_count(self) -> int:
         import torch
 
@@ -484,12 +503,7 @@ class HYWorldPlayModel(WorldModel):
         super().load()
         if not self._model_spec.auxiliary_model_id:
             raise RuntimeError("HY-WorldPlay is missing its WAN base model")
-        from huggingface_hub import snapshot_download
-
-        self._base_model_path = snapshot_download(
-            self._model_spec.auxiliary_model_id,
-            revision=self._model_spec.auxiliary_model_revision,
-        )
+        self._base_model_path = self._download_auxiliary_model()
 
     def world_generate(
         self,
@@ -601,12 +615,8 @@ class AstraModel(WorldModel):
         super().load()
         if not self._model_spec.auxiliary_model_id:
             raise RuntimeError("Astra is missing its Wan2.1 base model")
-        from huggingface_hub import snapshot_download
-
-        self._base_model_path = snapshot_download(
-            self._model_spec.auxiliary_model_id,
-            revision=self._model_spec.auxiliary_model_revision,
-            allow_patterns=self._model_spec.auxiliary_model_allow_patterns,
+        self._base_model_path = self._download_auxiliary_model(
+            self._model_spec.auxiliary_model_allow_patterns,
         )
         checkpoint_path = self._checkpoint_path()
         if not os.path.isfile(checkpoint_path):

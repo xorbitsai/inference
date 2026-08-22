@@ -12,7 +12,8 @@ Matrix-Game-3.0-5B
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** Skywork/Matrix-Game-3.0
+- **Hugging Face Model ID:** Skywork/Matrix-Game-3.0
+- **ModelScope Model ID:** Skywork/Matrix-Game-3.0
 - **Source:** https://github.com/SkyworkAI/Matrix-Game
 
 Launch the model with::

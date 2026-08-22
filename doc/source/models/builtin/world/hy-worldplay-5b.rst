@@ -12,7 +12,8 @@ HY-WorldPlay-5B
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** tencent/HY-WorldPlay
+- **Hugging Face Model ID:** tencent/HY-WorldPlay
+- **ModelScope Model ID:** Tencent-Hunyuan/HY-WorldPlay
 - **Source:** https://github.com/Tencent-Hunyuan/HY-WorldPlay
 
 Launch the model with::
