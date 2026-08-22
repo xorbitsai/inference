@@ -2732,7 +2732,8 @@
         "#system_torch#",
         "#system_torchaudio#",
         "#system_numpy#"
-      ]
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "model_src": {
       "huggingface": {

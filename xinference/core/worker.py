@@ -3077,6 +3077,7 @@ class WorkerActor(xo.StatelessActor):
                 "vllm",
                 "sglang",
                 "diffusers",
+                "pytorch",
             )
         ):
             # Pydantic v1 compatibility: use copy() when model_copy is unavailable.
