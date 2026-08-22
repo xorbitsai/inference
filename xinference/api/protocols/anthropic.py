@@ -199,9 +199,9 @@ def _normalize_messages(raw_system: Any, raw_messages: Any) -> List[Dict[str, An
                 message["tool_calls"] = tool_calls
             normalized.append(message)
         else:
+            normalized.extend(tool_results)
             if text_parts:
                 normalized.append({"role": "user", "content": "\n".join(text_parts)})
-            normalized.extend(tool_results)
 
     if system_parts:
         normalized.insert(0, {"role": "system", "content": "\n".join(system_parts)})
@@ -332,6 +332,10 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
                 or thinking_budget <= 0
             ):
                 raise _invalid("Enabled thinking requires a positive budget_tokens")
+            if thinking_budget < 1024:
+                raise _invalid(
+                    "thinking.budget_tokens must be greater than or equal to 1024"
+                )
             if thinking_budget >= max_tokens:
                 raise _invalid("thinking.budget_tokens must be less than max_tokens")
 
@@ -371,9 +375,9 @@ def openai_to_anthropic(openai_response: Dict[str, Any], model: str) -> Dict[str
         choice = choices[0]
         finish_reason = choice.get("finish_reason") or "stop"
         message = choice.get("message") or {}
-        reasoning = message.get("reasoning_content")
-        if isinstance(reasoning, str) and reasoning:
-            content_blocks.append({"type": "thinking", "thinking": reasoning})
+        # OpenAI-compatible reasoning_content does not carry Anthropic's
+        # required opaque signature. Omitting it avoids emitting an invalid
+        # thinking block or exposing internal reasoning as ordinary text.
         content = message.get("content")
         if isinstance(content, str) and content:
             content_blocks.append({"type": "text", "text": content})
@@ -434,7 +438,9 @@ async def anthropic_stream_events(
     Anthropic content blocks are strictly sequential: a block must be stopped
     before the next block starts. OpenAI tool calls can be fragmented and even
     interleaved by index, so tool fragments are buffered and emitted as complete
-    sequential Anthropic blocks after text/reasoning streaming finishes.
+    sequential Anthropic blocks after text streaming finishes. Unsigned OpenAI
+    reasoning deltas are omitted because they cannot form valid Anthropic thinking
+    blocks.
     """
 
     message_id = f"msg_{uuid.uuid4().hex}"
@@ -495,31 +501,21 @@ async def anthropic_stream_events(
 
             choice = choices[0]
             delta = choice.get("delta") or {}
-            for kind, value, delta_type, field in (
-                (
-                    "thinking",
-                    delta.get("reasoning_content"),
-                    "thinking_delta",
-                    "thinking",
-                ),
-                ("text", delta.get("content"), "text_delta", "text"),
-            ):
-                if not isinstance(value, str) or not value:
-                    continue
-                if active_kind != kind:
+            value = delta.get("content")
+            if isinstance(value, str) and value:
+                if active_kind != "text":
                     if active_index is not None:
                         yield block_stop(active_index)
                     active_index = next_index
                     next_index += 1
-                    active_kind = kind
-                    content_block = {"type": kind, field: ""}
+                    active_kind = "text"
                     yield {
                         "event": "content_block_start",
                         "data": json.dumps(
                             {
                                 "type": "content_block_start",
                                 "index": active_index,
-                                "content_block": content_block,
+                                "content_block": {"type": "text", "text": ""},
                             }
                         ),
                     }
@@ -529,7 +525,7 @@ async def anthropic_stream_events(
                         {
                             "type": "content_block_delta",
                             "index": active_index,
-                            "delta": {"type": delta_type, field: value},
+                            "delta": {"type": "text_delta", "text": value},
                         }
                     ),
                 }

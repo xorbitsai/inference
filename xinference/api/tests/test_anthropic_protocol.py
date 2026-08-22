@@ -1,6 +1,17 @@
 import json
 
 import pytest
+from anthropic import NOT_GIVEN
+from anthropic.lib.streaming import MessageStream
+from anthropic.types import (
+    Message,
+    RawContentBlockDeltaEvent,
+    RawContentBlockStartEvent,
+    RawContentBlockStopEvent,
+    RawMessageDeltaEvent,
+    RawMessageStartEvent,
+    RawMessageStopEvent,
+)
 
 from xinference.api.protocols import (
     AnthropicProtocolError,
@@ -67,7 +78,8 @@ def test_parse_request_maps_system_stop_tools_and_thinking():
                 }
             ],
             tool_choice={"type": "tool", "name": "weather"},
-            thinking={"type": "enabled", "budget_tokens": 128},
+            max_tokens=2048,
+            thinking={"type": "enabled", "budget_tokens": 1024},
             stream=True,
         )
     )
@@ -101,9 +113,81 @@ def test_parse_request_maps_system_stop_tools_and_thinking():
     assert body["chat_template_kwargs"] == {
         "enable_thinking": True,
         "thinking": True,
-        "thinking_budget": 128,
+        "thinking_budget": 1024,
     }
     assert body["stream_options"] == {"include_usage": True}
+
+
+def test_parse_request_orders_tool_results_before_follow_up_text():
+    request = parse_anthropic_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "toolu_1",
+                            "name": "weather",
+                            "input": {"city": "Paris"},
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "toolu_1",
+                            "content": "sunny",
+                        },
+                        {"type": "text", "text": "Please summarize it."},
+                    ],
+                },
+            ]
+        )
+    )
+
+    assert request.messages == [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "toolu_1",
+                    "type": "function",
+                    "function": {
+                        "name": "weather",
+                        "arguments": '{"city": "Paris"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "toolu_1", "content": "sunny"},
+        {"role": "user", "content": "Please summarize it."},
+    ]
+
+
+def test_parse_request_enforces_minimum_thinking_budget():
+    with pytest.raises(AnthropicProtocolError) as exc_info:
+        parse_anthropic_request(
+            _base_request(
+                max_tokens=2048,
+                thinking={"type": "enabled", "budget_tokens": 1023},
+            )
+        )
+    assert (
+        exc_info.value.message
+        == "thinking.budget_tokens must be greater than or equal to 1024"
+    )
+
+    request = parse_anthropic_request(
+        _base_request(
+            max_tokens=2048,
+            thinking={"type": "enabled", "budget_tokens": 1024},
+        )
+    )
+    assert request.thinking_budget_tokens == 1024
 
 
 @pytest.mark.parametrize(
@@ -128,7 +212,7 @@ def test_parse_request_rejects_invalid_or_unsupported_fields(overrides, message)
     assert message in exc_info.value.message
 
 
-def test_openai_response_maps_text_thinking_tools_stop_and_usage():
+def test_openai_response_omits_unsigned_thinking_and_maps_text_tools():
     response = openai_to_anthropic(
         {
             "choices": [
@@ -158,7 +242,6 @@ def test_openai_response_maps_text_thinking_tools_stop_and_usage():
     assert response["model"] == "virtual-model"
     assert response["stop_reason"] == "tool_use"
     assert response["content"] == [
-        {"type": "thinking", "thinking": "reasoning"},
         {"type": "text", "text": "answer"},
         {
             "type": "tool_use",
@@ -168,6 +251,8 @@ def test_openai_response_maps_text_thinking_tools_stop_and_usage():
         },
     ]
     assert response["usage"] == {"input_tokens": 12, "output_tokens": 7}
+    sdk_message = Message(**response)
+    assert [block.type for block in sdk_message.content] == ["text", "tool_use"]
 
 
 @pytest.mark.parametrize(
@@ -207,7 +292,7 @@ def test_openai_response_defaults_invalid_tool_arguments_to_empty_object(argumen
 
 
 @pytest.mark.asyncio
-async def test_stream_maps_thinking_text_tool_and_usage_in_order():
+async def test_stream_omits_unsigned_thinking_and_maps_text_tool_usage():
     async def chunks():
         yield {
             "choices": [
@@ -263,9 +348,6 @@ async def test_stream_maps_thinking_text_tool_and_usage_in_order():
         "content_block_stop",
         "content_block_start",
         "content_block_delta",
-        "content_block_stop",
-        "content_block_start",
-        "content_block_delta",
         "content_block_delta",
         "content_block_stop",
         "message_delta",
@@ -299,6 +381,29 @@ async def test_stream_maps_thinking_text_tool_and_usage_in_order():
             assert payload["index"] == active_index
             active_index = None
     assert active_index is None
+
+    event_types = {
+        "message_start": RawMessageStartEvent,
+        "content_block_start": RawContentBlockStartEvent,
+        "content_block_delta": RawContentBlockDeltaEvent,
+        "content_block_stop": RawContentBlockStopEvent,
+        "message_delta": RawMessageDeltaEvent,
+        "message_stop": RawMessageStopEvent,
+    }
+    sdk_events = [event_types[payload["type"]](**payload) for payload in payloads]
+
+    class RawStream:
+        def __iter__(self):
+            return iter(sdk_events)
+
+        def close(self):
+            pass
+
+    sdk_message = MessageStream(
+        RawStream(), output_format=NOT_GIVEN
+    ).get_final_message()
+    assert [block.type for block in sdk_message.content] == ["text", "tool_use"]
+    assert sdk_message.content[0].text == "hello"
 
 
 @pytest.mark.asyncio
