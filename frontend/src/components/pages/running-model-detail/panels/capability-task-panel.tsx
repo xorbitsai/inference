@@ -146,11 +146,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       setResultValues(undefined);
 
       const values = form.getFieldsValue();
-      const body = config.transformValues({ modelUid, model, values, requestId });
-      const requestPromise = request.post(config.requestApi, body, {
-        ...(config.responseType === 'blob' ? { responseType: 'blob' as const } : {}),
-        noTimeout: true,
-      });
+      const requestPromise = Promise.resolve(
+        config.transformValues({ modelUid, model, values, requestId })
+      ).then((body) =>
+        request.post(config.requestApi, body, {
+          ...(config.responseType === 'blob' ? { responseType: 'blob' as const } : {}),
+          noTimeout: true,
+        })
+      );
       requestPromise
         .then((response) => {
           if (runTokenRef.current !== runToken) return;

@@ -93,6 +93,9 @@ function isVisualAbility(ability: ModelAbility) {
     ModelAbility.Text2video,
     ModelAbility.Image2video,
     ModelAbility.Firstlastframe2video,
+    ModelAbility.Text2world,
+    ModelAbility.Image2world,
+    ModelAbility.Video2world,
   ].includes(ability);
 }
 
@@ -106,9 +109,14 @@ function mediaTypeForAbility(ability: ModelAbility): MediaType {
   if (isAudioResultAbility(ability)) return 'audio';
 
   if (
-    [ModelAbility.Text2video, ModelAbility.Image2video, ModelAbility.Firstlastframe2video].includes(
-      ability
-    )
+    [
+      ModelAbility.Text2video,
+      ModelAbility.Image2video,
+      ModelAbility.Firstlastframe2video,
+      ModelAbility.Text2world,
+      ModelAbility.Image2world,
+      ModelAbility.Video2world,
+    ].includes(ability)
   ) {
     return 'video';
   }

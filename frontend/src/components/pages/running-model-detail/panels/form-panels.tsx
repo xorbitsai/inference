@@ -38,6 +38,7 @@ import {
 } from '../image-seed-utils';
 import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
 import type { CapabilityFormProps } from '../types';
+import { isJsonObject } from '../utils';
 
 const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
   (value) => ({ label: value, value })
@@ -471,6 +472,71 @@ export function FirstLastFrameVideoPanel({ form }: CapabilityFormProps) {
       </div>
       <PromptFields />
       <VideoFields form={form} />
+    </>
+  );
+}
+
+const jsonObjectRule = {
+  validator: (value: unknown) => isJsonObject(value),
+  message: 'Enter a valid JSON object.',
+};
+
+function WorldGenerationFields() {
+  return (
+    <>
+      <FormField name="prompt" label="Prompt" rules={[{ required: true }]}>
+        <Textarea className="min-h-24" placeholder="Describe the scene or action to generate..." />
+      </FormField>
+      <FormField
+        name="generation_config"
+        label="Generation config (JSON)"
+        extra="Common generation settings shared by the world API."
+        rules={[jsonObjectRule]}
+      >
+        <Textarea className="min-h-28 font-mono text-xs" spellCheck={false} />
+      </FormField>
+      <FormField
+        name="model_kwargs"
+        label="Model kwargs (JSON)"
+        extra="Model-specific controls; sent as extra_body."
+        rules={[jsonObjectRule]}
+      >
+        <Textarea className="min-h-28 font-mono text-xs" spellCheck={false} />
+      </FormField>
+    </>
+  );
+}
+
+export function TextToWorldPanel() {
+  return <WorldGenerationFields />;
+}
+
+export function ImageToWorldPanel() {
+  return (
+    <>
+      <FormField name="image" rules={[{ required: true }]}>
+        <FileUpload
+          accept="image/*"
+          label="Upload initial world image"
+          description="This image becomes the first frame of the generated world."
+        />
+      </FormField>
+      <WorldGenerationFields />
+    </>
+  );
+}
+
+export function VideoToWorldPanel() {
+  return (
+    <>
+      <FormField name="video" rules={[{ required: true }]}>
+        <FileUpload
+          accept="video/*"
+          label="Upload initial world video"
+          description="Use a short source video supported by the selected model."
+        />
+      </FormField>
+      <WorldGenerationFields />
     </>
   );
 }
