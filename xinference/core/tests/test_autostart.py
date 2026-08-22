@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from xinference.core.supervisor import SupervisorActor
+from xinference.core.supervisor import ReplicaInfo, SupervisorActor
 
 
 class _DummySupervisor:
@@ -144,6 +144,63 @@ async def test_autostart_transitional_model_preserves_retry_attempts(model_statu
         "message": f"Model is {model_status.lower()}.",
         "last_error": "previous failure",
     }
+
+
+class _DummyReplicaDeathSupervisor:
+    mark_replica_dead = SupervisorActor.mark_replica_dead
+    _get_model_uid_and_replica_index = staticmethod(
+        SupervisorActor._get_model_uid_and_replica_index
+    )
+    _refresh_replica_scheduler = staticmethod(
+        SupervisorActor._refresh_replica_scheduler
+    )
+
+    def __init__(self, remaining_after_evict: int):
+        self._unexpected_down_replicas: dict = {}
+        self._replica_model_uid_to_worker: dict = {"uid-1-rep0": object()}
+        self._replica_model_uid_to_worker_shards: dict = {}
+        self._model_uid_to_replica_info = {
+            "uid-1": ReplicaInfo(replica=1, scheduler=iter([]), active_replica_ids=[0])
+        }
+        self._status_guard_ref = MagicMock()
+        self._status_guard_ref.get_instance_info = AsyncMock(return_value=[])
+        self._status_guard_ref.remove_replica_status = AsyncMock(
+            return_value=remaining_after_evict
+        )
+        self._status_guard_ref.update_instance_info = AsyncMock()
+        self.autostart_scheduled = False
+
+    def _schedule_autostart(self, delay: float = 0.0):
+        self.autostart_scheduled = True
+
+    async def _cleanup_distributed_actors(self, base_uid, terminate_rank0_on_worker):
+        return None
+
+
+@pytest.mark.asyncio
+async def test_mark_replica_dead_reschedules_autostart_on_last_replica():
+    # A dead last replica must be handed back to Autostart, not left
+    # TERMINATED forever.
+    supervisor = _DummyReplicaDeathSupervisor(remaining_after_evict=0)
+
+    await supervisor.mark_replica_dead("uid-1-rep0")
+
+    assert supervisor.autostart_scheduled is True
+    supervisor._status_guard_ref.update_instance_info.assert_called_once_with(
+        "uid-1", {"status": "TERMINATED"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_mark_replica_dead_does_not_reschedule_autostart_when_degraded():
+    # A healthy replica remains after eviction: the model stays READY and
+    # Autostart, whose job is only to relaunch a fully-dead model, must not
+    # be woken.
+    supervisor = _DummyReplicaDeathSupervisor(remaining_after_evict=1)
+
+    await supervisor.mark_replica_dead("uid-1-rep0")
+
+    assert supervisor.autostart_scheduled is False
 
 
 @pytest.mark.asyncio
