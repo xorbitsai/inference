@@ -979,6 +979,80 @@ async def test_anthropic_virtual_uses_internal_router_token(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_anthropic_stream_background_closes_uniterated_upstream_once():
+    resolution = {
+        "matched": True,
+        "available": True,
+        "virtual_model_uid": "virtual-model",
+        "router_uid": "router-a",
+        "instance_id": "instance-a",
+        "endpoint": "http://router:10081",
+    }
+    api = make_rest_api(FakeSupervisor(resolution))
+    close_calls = 0
+
+    class UpstreamStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b"data: [DONE]\n\n"
+
+        async def aclose(self):
+            nonlocal close_calls
+            close_calls += 1
+
+    upstream_request = httpx.Request("POST", "http://router:10081/v1/chat/completions")
+    upstream_response = httpx.Response(
+        200,
+        headers={"content-type": "text/event-stream"},
+        stream=UpstreamStream(),
+        request=upstream_request,
+    )
+
+    class FakeClient:
+        def build_request(self, *args, **kwargs):
+            return upstream_request
+
+        async def send(self, request, *, stream):
+            assert stream is True
+            return upstream_response
+
+    api._get_token_router_client = lambda: FakeClient()
+    body = json.dumps(
+        {
+            "model": "virtual-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 32,
+            "stream": True,
+        }
+    ).encode()
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/messages",
+            "root_path": "",
+            "headers": [(b"anthropic-version", b"2023-06-01")],
+            "query_string": b"",
+            "scheme": "http",
+            "server": ("test", 80),
+            "client": ("127.0.0.1", 1234),
+        },
+        receive,
+    )
+
+    response = await api.create_message(request)
+
+    assert close_calls == 0
+    assert response.background is not None
+    await response.background()
+    await response.background()
+    assert close_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_anthropic_virtual_stream_returns_native_event_sequence(monkeypatch):
     resolution = {
         "matched": True,

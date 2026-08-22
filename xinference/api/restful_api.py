@@ -1889,6 +1889,13 @@ class RESTfulAPI(CancelMixin):
                 )
 
             if canonical.stream:
+                cleanup_task: asyncio.Task[None] | None = None
+
+                async def release_resources() -> None:
+                    nonlocal cleanup_task
+                    if cleanup_task is None:
+                        cleanup_task = asyncio.create_task(upstream_response.aclose())
+                    await asyncio.shield(cleanup_task)
 
                 async def router_chunks() -> AsyncIterator[Dict[str, Any]]:
                     try:
@@ -1904,12 +1911,13 @@ class RESTfulAPI(CancelMixin):
                         logger.exception("Anthropic Token Router stream failed")
                         yield {"error": {"type": "api_error", "message": str(exc)}}
                     finally:
-                        await upstream_response.aclose()
+                        await release_resources()
 
                 return EventSourceResponse(
                     anthropic_stream_events(router_chunks(), model_uid, request_id),
                     ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                     headers={"request-id": request_id},
+                    background=BackgroundTask(release_resources),
                 )
 
             try:
