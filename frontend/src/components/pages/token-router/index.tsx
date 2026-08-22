@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
@@ -39,6 +40,7 @@ import { isTypedTokenRouter } from '@/types/services';
 import { RouterDetailDrawer } from './router-detail-drawer';
 import { RouterFormDialog } from './router-form-dialog';
 import { RouterNodeSection } from './router-node-section';
+import { resolveRouterCapabilities } from './router-capabilities.mjs';
 import { routerBackendList } from './router-config-normalizer';
 import { RouterStatusBadge } from './router-status-badge';
 import { TokenizerAssetSection } from './tokenizer-asset-section';
@@ -52,7 +54,14 @@ type BusyAction = {
 
 export default function TokenRouterPage() {
   const { t } = useI18n();
+  const { clusterUIConfig, globalReady } = useGlobal();
   const auth = useMenuAuth();
+  const { canWriteRouters, canOperateRouters } = resolveRouterCapabilities({
+    globalReady,
+    authAdvanced: clusterUIConfig?.auth_advanced,
+    canWriteRouters: auth.canWriteRouters,
+    canOperateRouters: auth.canOperateRouters,
+  });
   const [routers, setRouters] = useState<TokenRouterItem[]>([]);
   const [routerNodes, setRouterNodes] = useState<TokenRouterNode[]>([]);
   const [tokenizerAssets, setTokenizerAssets] = useState<TokenizerAssetItem[]>([]);
@@ -167,7 +176,7 @@ export default function TokenRouterPage() {
             {!refreshing && <RefreshCw className="size-4" />}
             {t('common.refresh')}
           </Button>
-          {auth.canWriteRouters && (
+          {canWriteRouters && (
             <Button
               onClick={() => {
                 setEditing(null);
@@ -184,14 +193,15 @@ export default function TokenRouterPage() {
       <RouterNodeSection
         nodes={routerNodes}
         initialLoading={initialLoading}
-        canOperate={auth.canOperateRouters}
+        canOperate={canOperateRouters}
         onChanged={() => refreshAll('silent')}
       />
       <TokenizerAssetSection
         assets={tokenizerAssets}
         nodes={routerNodes}
         initialLoading={initialLoading}
-        canOperate={auth.canOperateRouters}
+        canWrite={canWriteRouters}
+        canOperate={canOperateRouters}
         onChanged={() => refreshAll('silent')}
       />
 
@@ -341,7 +351,7 @@ export default function TokenRouterPage() {
                           >
                             <Eye className="size-4" />
                           </Button>
-                          {auth.canWriteRouters && (
+                          {canWriteRouters && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -354,7 +364,7 @@ export default function TokenRouterPage() {
                               <Pencil className="size-4" />
                             </Button>
                           )}
-                          {auth.canOperateRouters && (
+                          {canOperateRouters && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -366,7 +376,7 @@ export default function TokenRouterPage() {
                               {!validating && <ShieldCheck className="size-4" />}
                             </Button>
                           )}
-                          {auth.canOperateRouters && (
+                          {canOperateRouters && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -387,7 +397,7 @@ export default function TokenRouterPage() {
                                 ))}
                             </Button>
                           )}
-                          {auth.canWriteRouters && (
+                          {canWriteRouters && (
                             <Button
                               size="icon"
                               variant="ghost"

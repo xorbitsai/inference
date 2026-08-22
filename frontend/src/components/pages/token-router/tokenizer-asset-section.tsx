@@ -27,6 +27,7 @@ interface Props {
   assets: TokenizerAssetItem[];
   nodes: TokenRouterNode[];
   initialLoading: boolean;
+  canWrite: boolean;
   canOperate: boolean;
   onChanged: () => Promise<void>;
 }
@@ -35,6 +36,7 @@ export function TokenizerAssetSection({
   assets,
   nodes,
   initialLoading,
+  canWrite,
   canOperate,
   onChanged,
 }: Props) {
@@ -177,32 +179,42 @@ export function TokenizerAssetSection({
                               {binding.last_error && (
                                 <div className="mt-1 text-destructive">{binding.last_error}</div>
                               )}
-                              {canOperate && (
+                              {(canWrite || canOperate) && (
                                 <div className="mt-2 flex flex-wrap gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={Boolean(busy)}
-                                    onClick={() => void updateBinding(binding, 'revalidate')}
-                                  >
-                                    {t('tokenRouter.revalidateAsset')}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={Boolean(busy) || binding.desired_state === 'absent'}
-                                    onClick={() => void updateBinding(binding, 'absent')}
-                                  >
-                                    {t('tokenRouter.removeAsset')}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    disabled={Boolean(busy) || binding.observed_state !== 'absent'}
-                                    onClick={() => void updateBinding(binding, 'delete')}
-                                  >
-                                    {t('common.delete')}
-                                  </Button>
+                                  {canOperate && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={Boolean(busy)}
+                                      onClick={() => void updateBinding(binding, 'revalidate')}
+                                    >
+                                      {t('tokenRouter.revalidateAsset')}
+                                    </Button>
+                                  )}
+                                  {canWrite && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={
+                                          Boolean(busy) || binding.desired_state === 'absent'
+                                        }
+                                        onClick={() => void updateBinding(binding, 'absent')}
+                                      >
+                                        {t('tokenRouter.removeAsset')}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="destructive"
+                                        disabled={
+                                          Boolean(busy) || binding.observed_state !== 'absent'
+                                        }
+                                        onClick={() => void updateBinding(binding, 'delete')}
+                                      >
+                                        {t('common.delete')}
+                                      </Button>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -211,7 +223,7 @@ export function TokenizerAssetSection({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {canOperate && (
+                      {canWrite && (
                         <div className="flex gap-2">
                           <select
                             className="h-9 min-w-44 rounded-md border bg-background px-2 text-sm"
