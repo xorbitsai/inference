@@ -17,7 +17,8 @@ from tokenizers import Tokenizer, models, pre_tokenizers
 
 from xinference.api.routers import token_routers
 from xinference.api.routers.token_routers import register_routes
-from xinference.constants import parse_env_bool
+from xinference.api.schemas.router import RouterNodeRegister
+from xinference.constants import parse_env_bool, parse_env_float
 from xinference.core.router_config_store import RouterConfigStore
 from xinference.core.router_orchestration import RouterOrchestrationController
 from xinference.core.router_registry import RouterRuntimeRegistry
@@ -298,6 +299,48 @@ def create_app(
     app.state.api = api
     app.include_router(api._router)
     return app
+
+
+def test_router_node_register_preserves_reported_labels_presence():
+    base = {
+        "node_id": "node-a",
+        "advertise_host": "127.0.0.1",
+        "port_range_start": 12080,
+        "port_range_end": 12089,
+        "max_instances": 5,
+        "labels": {"legacy": "value"},
+    }
+
+    omitted = RouterNodeRegister(**base).dict(exclude_unset=True)
+    explicit_empty = RouterNodeRegister(**base, reported_labels={}).dict(
+        exclude_unset=True
+    )
+
+    assert "reported_labels" not in omitted
+    assert explicit_empty["reported_labels"] == {}
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["invalid", "nan", "inf", "-inf"],
+)
+def test_parse_env_float_falls_back_for_invalid_or_non_finite_values(
+    monkeypatch, caplog, raw
+):
+    monkeypatch.setenv("XINFERENCE_TEST_FLOAT", raw)
+
+    with caplog.at_level("WARNING", logger="xinference.constants"):
+        assert parse_env_float("XINFERENCE_TEST_FLOAT", 2.5) == 2.5
+
+    assert "XINFERENCE_TEST_FLOAT" in caplog.text
+
+
+def test_parse_env_float_accepts_finite_values_and_defaults_when_unset(monkeypatch):
+    monkeypatch.setenv("XINFERENCE_TEST_FLOAT", " 2.5 ")
+    assert parse_env_float("XINFERENCE_TEST_FLOAT", 1.0) == 2.5
+
+    monkeypatch.delenv("XINFERENCE_TEST_FLOAT")
+    assert parse_env_float("XINFERENCE_TEST_FLOAT", 1.0) == 1.0
 
 
 @pytest.mark.asyncio

@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import math
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def parse_env_bool(name: str, default: bool) -> bool:
@@ -29,6 +33,32 @@ def parse_env_bool(name: str, default: bool) -> bool:
     raise ValueError(
         f"{name} must be one of true/false, 1/0, yes/no, or on/off; got {raw!r}"
     )
+
+
+def parse_env_float(name: str, default: float) -> float:
+    """Parse a finite float environment variable with a safe fallback."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        logger.warning(
+            "Environment variable %s is invalid (got %r); using default %s",
+            name,
+            raw,
+            default,
+        )
+        return default
+    if not math.isfinite(value):
+        logger.warning(
+            "Environment variable %s must be finite (got %r); using default %s",
+            name,
+            raw,
+            default,
+        )
+        return default
+    return value
 
 
 XINFERENCE_ENV_ENDPOINT = "XINFERENCE_ENDPOINT"
@@ -270,20 +300,20 @@ XINFERENCE_TOKEN_ROUTER_DB_PATH = os.environ.get(
     "XINFERENCE_TOKEN_ROUTER_DB_PATH",
     os.path.join(XINFERENCE_HOME, "token_routers.db"),
 )
-XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS = float(
-    os.environ.get("XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS", "90")
+XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS", 90.0
 )
-XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS = float(
-    os.environ.get("XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS", "30")
+XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS", 30.0
 )
-XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS = float(
-    os.environ.get("XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS", "45")
+XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS", 45.0
 )
-XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS = float(
-    os.environ.get("XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS", "5")
+XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS", 5.0
 )
-XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS = float(
-    os.environ.get("XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS", "300")
+XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS", 300.0
 )
 XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
     "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""

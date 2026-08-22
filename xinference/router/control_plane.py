@@ -10,6 +10,7 @@ import platform
 import socket
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, Optional
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -35,6 +36,14 @@ def _software_revision() -> Optional[str]:
             commit_id = None
         return commit_id.lstrip("g") if commit_id else None
     return full_revisionid or None
+
+
+def _default_instance_id_prefix(listen_host: str, endpoint: str) -> str:
+    host = str(listen_host or "").strip()
+    if host not in {"", "*", "0.0.0.0", "::", "[::]"}:
+        return host
+    endpoint_host = urlsplit(str(endpoint or "")).hostname
+    return endpoint_host or socket.gethostname()
 
 
 def _config_log_fields(config: Any) -> Dict[str, Any]:
@@ -78,7 +87,9 @@ class RouterControlPlaneClient:
         self.router_uid = router_uid
         self.internal_token = internal_token
         self.endpoint = endpoint
-        self.instance_id = instance_id or f"{socket.gethostname()}-{uuid.uuid4()}"
+        self.instance_id = instance_id or (
+            f"{_default_instance_id_prefix(listen_host, endpoint)}-{uuid.uuid4()}"
+        )
         self._revision = 0
         self.listen_host = listen_host
         self.listen_port = listen_port
