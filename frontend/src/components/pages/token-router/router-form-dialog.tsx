@@ -124,7 +124,7 @@ function fromRouter(router: TokenRouterItem): FormState {
     virtual_model_uid: router.virtual_model_uid,
     tokenizer_source: router.tokenizer_asset_id ? 'asset' : 'custom',
     tokenizer_asset_id: router.tokenizer_asset_id || '',
-    tokenizer_path: router.tokenizer_path,
+    tokenizer_path: router.tokenizer_path || '',
     backend_url: router.backend_url,
     model_aliases: router.model_aliases.join(', '),
     short_model_uid: short?.model_uid || '',
@@ -356,13 +356,15 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
 
   const handleSave = async (rawValues: Record<string, unknown>) => {
     const values = rawValues as FormState;
+    const tokenizerAssetId = (values.tokenizer_asset_id || '').trim();
+    const tokenizerPath = (values.tokenizer_path || '').trim();
     if (router) {
       const sourceChanged = values.tokenizer_source !== fromRouter(router).tokenizer_source;
       const tokenizerChanged =
         sourceChanged ||
         (values.tokenizer_source === 'asset'
-          ? values.tokenizer_asset_id.trim() !== (router.tokenizer_asset_id || '')
-          : values.tokenizer_path.trim() !== router.tokenizer_path);
+          ? tokenizerAssetId !== (router.tokenizer_asset_id || '')
+          : tokenizerPath !== (router.tokenizer_path || ''));
       if (tokenizerChanged && !window.confirm(t('tokenRouter.assetChangeWarning'))) return;
     }
 
@@ -430,8 +432,8 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       model_type: 'LLM' as const,
       route_profile: 'llm_chat' as const,
       ...(values.tokenizer_source === 'asset'
-        ? { tokenizer_asset_id: values.tokenizer_asset_id.trim() }
-        : { tokenizer_path: values.tokenizer_path.trim() }),
+        ? { tokenizer_asset_id: tokenizerAssetId }
+        : { tokenizer_path: tokenizerPath }),
       backend_url: values.backend_url.trim(),
       model_aliases: values.model_aliases
         .split(',')
@@ -564,6 +566,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
             <FormField
               name="router_uid"
               label={t('tokenRouter.routerUid')}
+              extra={t('tokenRouter.routerUidHint')}
               disabled={editing}
               rules={[requiredRule]}
             >
@@ -572,6 +575,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
             <FormField
               name="virtual_model_uid"
               label={t('tokenRouter.virtualModelUid')}
+              extra={t('tokenRouter.virtualModelUidHint')}
               rules={[requiredRule]}
             >
               <Input />

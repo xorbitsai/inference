@@ -28,8 +28,12 @@ const en = {
     description: 'Manage token-budget routing between short- and long-context model backends.',
     create: 'Create Router',
     edit: 'Edit Router',
-    routerUid: 'Router UID',
+    routerUid: 'Policy Name',
     virtualModelUid: 'Virtual Model UID',
+    routerUidHint:
+      'Uniquely identifies and manages this routing policy. It cannot be changed after creation; use the Virtual Model UID for client model requests.',
+    virtualModelUidHint:
+      'The logical model UID exposed by Token Router and used as the model parameter in client requests.',
     tokenizerPath: 'Tokenizer Path',
     tokenizerSource: 'Tokenizer Source',
     tokenizerAsset: 'Tokenizer Asset',
@@ -258,7 +262,7 @@ const en = {
     validate: 'Validate',
     disable: 'Disable',
     enable: 'Enable',
-    confirmDelete: 'Delete router {{routerUid}}? This action cannot be undone.',
+    confirmDelete: 'Delete policy "{{routerUid}}"? This action cannot be undone.',
     deleteTitle: 'Delete Token Router',
     deleteDisabledHint: 'Disable this Router before deleting it.',
     createSuccess: 'Token Router created successfully.',

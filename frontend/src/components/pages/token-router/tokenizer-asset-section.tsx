@@ -105,15 +105,35 @@ export function TokenizerAssetSection({
         </p>
       </div>
       <div className="overflow-hidden rounded-xl border border-border">
-        <Table className="min-w-[1100px] table-fixed">
+        <Table className="min-w-[1450px] table-fixed">
+          <colgroup>
+            <col className="w-[260px]" />
+            <col className="w-[180px]" />
+            <col className="w-[180px]" />
+            <col className="w-[260px]" />
+            <col className="w-[300px]" />
+            <col className="w-[270px]" />
+          </colgroup>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('tokenRouter.tokenizerAsset')}</TableHead>
-              <TableHead>{t('tokenRouter.tokenizerAssetOrigin')}</TableHead>
-              <TableHead>{t('tokenRouter.tokenizerAssetRevision')}</TableHead>
-              <TableHead>{t('tokenRouter.tokenizerAssetFingerprint')}</TableHead>
-              <TableHead>{t('tokenRouter.assetBindings')}</TableHead>
-              <TableHead>{t('common.actions')}</TableHead>
+              <TableHead className="break-words whitespace-normal leading-5">
+                {t('tokenRouter.tokenizerAsset')}
+              </TableHead>
+              <TableHead className="break-words whitespace-normal leading-5">
+                {t('tokenRouter.tokenizerAssetOrigin')}
+              </TableHead>
+              <TableHead className="break-words whitespace-normal leading-5">
+                {t('tokenRouter.tokenizerAssetRevision')}
+              </TableHead>
+              <TableHead className="break-words whitespace-normal leading-5">
+                {t('tokenRouter.tokenizerAssetFingerprint')}
+              </TableHead>
+              <TableHead className="break-words whitespace-normal leading-5">
+                {t('tokenRouter.assetBindings')}
+              </TableHead>
+              <TableHead className="break-words whitespace-normal leading-5">
+                {t('common.actions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -138,7 +158,7 @@ export function TokenizerAssetSection({
                 return (
                   <TableRow key={asset.asset_id}>
                     <TableCell>
-                      <div className="font-mono text-xs">{asset.asset_id}</div>
+                      <div className="break-all font-mono text-xs">{asset.asset_id}</div>
                       <Badge variant={asset.enabled ? 'default' : 'secondary'} className="mt-1">
                         {asset.enabled
                           ? t('tokenRouter.assetEnabled')
@@ -146,19 +166,24 @@ export function TokenizerAssetSection({
                       </Badge>
                     </TableCell>
                     <TableCell>{asset.origin}</TableCell>
-                    <TableCell className="font-mono text-xs">{asset.revision}</TableCell>
+                    <TableCell className="break-all font-mono text-xs">{asset.revision}</TableCell>
                     <TableCell className="font-mono text-xs" title={asset.fingerprint}>
                       {asset.fingerprint.slice(0, 20)}…
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top">
                       <div className="space-y-2">
                         {assetBindings.length === 0 ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
                           assetBindings.map((binding) => (
-                            <div key={binding.node_id} className="rounded border p-2 text-xs">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-mono">{binding.node_id}</span>
+                            <div
+                              key={binding.node_id}
+                              className="w-fit max-w-full space-y-2 rounded border p-2 text-xs"
+                            >
+                              <div className="break-all font-mono" title={binding.node_id}>
+                                {binding.node_id}
+                              </div>
+                              <div>
                                 <Badge
                                   variant={getBindingObservedStateBadgeVariant(
                                     binding.observed_state
@@ -177,10 +202,10 @@ export function TokenizerAssetSection({
                                 </Badge>
                               </div>
                               {binding.last_error && (
-                                <div className="mt-1 text-destructive">{binding.last_error}</div>
+                                <div className="text-destructive">{binding.last_error}</div>
                               )}
                               {(canWrite || canOperate) && (
-                                <div className="mt-2 flex flex-wrap gap-1">
+                                <div className="flex max-w-full flex-wrap gap-1">
                                   {canOperate && (
                                     <Button
                                       size="sm"
@@ -222,11 +247,11 @@ export function TokenizerAssetSection({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top">
                       {canWrite && (
-                        <div className="flex gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <select
-                            className="h-9 min-w-44 rounded-md border bg-background px-2 text-sm"
+                            className="h-9 min-w-[180px] flex-1 rounded-md border bg-background px-2 text-sm"
                             value={selectedNodes[asset.asset_id] || ''}
                             onChange={(event) =>
                               setSelectedNodes((current) => ({

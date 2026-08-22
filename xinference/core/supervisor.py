@@ -3754,7 +3754,9 @@ class SupervisorActor(xo.StatelessActor):
     async def _monitor_token_router_nodes(self) -> None:
         while True:
             try:
-                transitions = self._token_router_orchestration.sweep_nodes()
+                transitions = await asyncio.to_thread(
+                    self._token_router_orchestration.sweep_nodes
+                )
                 for transition in transitions:
                     logger.info(
                         "Router Agent state changed. node_id=%s previous=%s current=%s "

@@ -29,6 +29,7 @@ interface Props {
 }
 
 const toNumber = (value: string, fallback = 0) => {
+  if (value.trim() === '') return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };

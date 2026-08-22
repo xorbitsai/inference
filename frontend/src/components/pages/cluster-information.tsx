@@ -199,14 +199,15 @@ export default function ClusterInfoPage() {
           params: { detailed: true, include_routers: tokenRouterEnabled },
         });
         if (cancelled) return;
+        const dataList = Array.isArray(response) ? response : [];
         setLastUpdateTime(format(new Date(), 'yyyy-MM-dd HH:mm:ss'));
         setData({
-          supervisors: response.filter(
+          supervisors: dataList.filter(
             (item): item is ClusterInfo => item.node_type === 'Supervisor'
           ),
-          workers: response.filter((item): item is ClusterInfo => item.node_type === 'Worker'),
+          workers: dataList.filter((item): item is ClusterInfo => item.node_type === 'Worker'),
           routers: tokenRouterEnabled
-            ? response.filter(
+            ? dataList.filter(
                 (item): item is RouterNodeClusterInfo =>
                   item.node_type === 'Router' &&
                   item.online &&

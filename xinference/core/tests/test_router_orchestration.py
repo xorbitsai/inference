@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import threading
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from xinference.core.router_config_store import RouterConfigStore
 from xinference.core.router_orchestration import RouterOrchestrationController
+from xinference.core.supervisor import SupervisorActor
 
 
 def _config_store(tmp_path):
@@ -574,3 +577,34 @@ def test_router_agent_offline_auto_failover_moves_only_when_candidate_exists(tmp
     assert after["node_id"] == "node-b"
     assert after["desired_state"] == "running"
     assert after["assignment_generation"] == before["assignment_generation"] + 1
+
+
+@pytest.mark.asyncio
+async def test_monitor_token_router_nodes_offloads_sweep(monkeypatch):
+    main_thread_id = threading.get_ident()
+    sweep_thread_ids = []
+
+    class _Orchestration:
+        def sweep_nodes(self):
+            sweep_thread_ids.append(threading.get_ident())
+            return []
+
+    class _Supervisor:
+        _monitor_token_router_nodes = SupervisorActor._monitor_token_router_nodes
+
+        def __init__(self):
+            self._token_router_orchestration = _Orchestration()
+
+    class _StopMonitor(Exception):
+        pass
+
+    async def _stop_after_iteration(_delay):
+        raise _StopMonitor
+
+    monkeypatch.setattr(asyncio, "sleep", _stop_after_iteration)
+
+    with pytest.raises(_StopMonitor):
+        await _Supervisor()._monitor_token_router_nodes()
+
+    assert len(sweep_thread_ids) == 1
+    assert sweep_thread_ids[0] != main_thread_id
