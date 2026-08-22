@@ -580,6 +580,77 @@ def test_prepare_virtual_env_injects_engine_vars():
     assert kwargs["model_engine"] == "vllm"
 
 
+def test_prepare_virtual_env_merges_validated_find_links(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    requested = allowed / "requested"
+    requested.mkdir(parents=True)
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS",
+        (str(allowed),),
+    )
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0"],
+        inherit_pip_config=False,
+        find_links=["/admin/wheels"],
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="transformers",
+        virtual_env_find_links=[str(requested)],
+    )
+
+    _, kwargs = manager.calls[0]
+    assert kwargs["find_links"] == ["/admin/wheels", str(requested.resolve())]
+
+
+def test_prepare_virtual_env_vllm_request_find_links_are_isolated(
+    tmp_path, monkeypatch
+):
+    allowed = tmp_path / "allowed"
+    requested = allowed / "requested"
+    requested.mkdir(parents=True)
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS",
+        (str(allowed),),
+    )
+    settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0"],
+        inherit_pip_config=False,
+    )
+
+    first_manager = DummyVirtualEnvManager()
+    first_manager.env_path = str(tmp_path / "venv-1")
+    WorkerActor._prepare_virtual_env(
+        first_manager,
+        settings,
+        None,
+        model_engine="vllm",
+        virtual_env_find_links=[str(requested)],
+    )
+
+    _, first_kwargs = first_manager.calls[0]
+    assert first_kwargs["find_links"] == [str(requested.resolve())]
+    assert settings.find_links is None
+
+    second_manager = DummyVirtualEnvManager()
+    second_manager.env_path = str(tmp_path / "venv-2")
+    WorkerActor._prepare_virtual_env(
+        second_manager,
+        settings,
+        None,
+        model_engine="vllm",
+        virtual_env_find_links=None,
+    )
+
+    _, second_kwargs = second_manager.calls[0]
+    assert second_kwargs["find_links"] is None
+    assert settings.find_links is None
+
+
 def test_jina_v3_allocator_env_is_persisted_for_recovery(monkeypatch):
     monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
     monkeypatch.delenv("PYTORCH_ALLOC_CONF", raising=False)

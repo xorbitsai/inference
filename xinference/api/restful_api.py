@@ -1097,6 +1097,7 @@ class RESTfulAPI(CancelMixin):
         model_path = payload.get("model_path", None)
         enable_virtual_env = payload.get("enable_virtual_env", None)
         virtual_env_packages = payload.get("virtual_env_packages", None)
+        virtual_env_find_links = payload.get("virtual_env_find_links", None)
         envs = payload.get("envs", None)
         replica_config = _parse_replica_config(payload)
 
@@ -1118,6 +1119,7 @@ class RESTfulAPI(CancelMixin):
             "model_path",
             "enable_virtual_env",
             "virtual_env_packages",
+            "virtual_env_find_links",
             "envs",
             "replica_config",
         }
@@ -1171,6 +1173,7 @@ class RESTfulAPI(CancelMixin):
                 model_path=model_path,
                 enable_virtual_env=enable_virtual_env,
                 virtual_env_packages=virtual_env_packages,
+                virtual_env_find_links=virtual_env_find_links,
                 envs=envs,
                 replica_config=replica_config,
                 **kwargs,

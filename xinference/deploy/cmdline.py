@@ -877,6 +877,12 @@ def remove_cache(
     help="Packages to install in the virtual environment. Can be used multiple times.",
 )
 @click.option(
+    "--virtual-env-find-link",
+    multiple=True,
+    type=click.Path(path_type=str),
+    help="Worker-local wheel directory for virtualenv installs. Can be used multiple times.",
+)
+@click.option(
     "--env",
     "-ev",
     multiple=True,
@@ -909,6 +915,7 @@ def model_launch(
     enable_thinking: Optional[bool],
     enable_virtual_env: Optional[bool],
     virtual_env_package: Optional[Tuple[str]],
+    virtual_env_find_link: Optional[Tuple[str]],
     env: Optional[Tuple[Tuple[str, str]]],
 ):
     kwargs = {}
@@ -1014,6 +1021,9 @@ def model_launch(
         enable_thinking=enable_thinking,
         enable_virtual_env=enable_virtual_env,
         virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
+        virtual_env_find_links=(
+            list(virtual_env_find_link) if virtual_env_find_link else None
+        ),
         envs=dict(env) if env else None,
         **kwargs,
     )

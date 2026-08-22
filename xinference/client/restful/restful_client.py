@@ -1232,6 +1232,7 @@ class Client:
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -1287,6 +1288,8 @@ class Client:
             If enable virtual env.
         virtual_env_packages: Optional[List[str]]
             Packages to specify in virtual env, can be used to override builtin packages in virtual env.
+        virtual_env_find_links: Optional[List[str]]
+            Worker-local wheel directories to use when installing virtual env packages.
         envs: Optional[Dict[str, str]]
             Environment variables to pass when launching model.
 
@@ -1326,6 +1329,7 @@ class Client:
             "enable_thinking": enable_thinking,
             "enable_virtual_env": enable_virtual_env,
             "virtual_env_packages": virtual_env_packages,
+            "virtual_env_find_links": virtual_env_find_links,
             "envs": envs,
         }
 
