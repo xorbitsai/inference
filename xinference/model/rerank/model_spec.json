@@ -186,7 +186,7 @@
         }
       }
     ],
-    "featured": false,
+    "featured": true,
     "updated_at": 1784543900,
     "virtualenv": {
       "packages": [
@@ -463,7 +463,7 @@
         }
       }
     ],
-    "featured": false,
+    "featured": true,
     "updated_at": 1785221029,
     "virtualenv": {
       "packages": [
@@ -611,7 +611,7 @@
         }
       }
     ],
-    "featured": false,
+    "featured": true,
     "updated_at": 1785221029,
     "virtualenv": {
       "packages": [
@@ -696,7 +696,7 @@
       }
     ],
     "updated_at": 1785817121,
-    "featured": false,
+    "featured": true,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",

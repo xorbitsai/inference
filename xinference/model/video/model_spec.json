@@ -350,7 +350,7 @@
       }
     },
     "updated_at": 1766385308,
-    "featured": false
+    "featured": true
   },
   {
     "version": 2,
@@ -417,7 +417,7 @@
       }
     },
     "updated_at": 1766385310,
-    "featured": false
+    "featured": true
   },
   {
     "version": 2,
@@ -464,7 +464,7 @@
       }
     },
     "updated_at": 1786774456,
-    "featured": false
+    "featured": true
   },
   {
     "version": 2,
@@ -589,6 +589,6 @@
       }
     },
     "updated_at": 1786840547,
-    "featured": false
+    "featured": true
   }
 ]
