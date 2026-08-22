@@ -12,5 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER = "x-xinference-backend-authorization"
-TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD = "data_plane_token"
+from __future__ import annotations
+
+import os
+
+
+def token_router_data_plane_token() -> str:
+    """Return the credential selected by the Supervisor for Runtime requests."""
+
+    return (
+        os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN")
+        or os.getenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN")
+        or ""
+    )

@@ -13,6 +13,8 @@ from fastapi.responses import Response
 
 from ..._compat import BaseModel, ValidationError
 from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
+from ...router.constants import TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD
+from ...router.credentials import token_router_data_plane_token
 from ..dependencies import get_api
 from ..responses import JSONResponse
 from ..schemas.router import (
@@ -964,6 +966,9 @@ def register_routes(api: "RESTfulAPI") -> None:
             ) from exc
         if result is None:
             return Response(status_code=204)
+        data_plane_token = token_router_data_plane_token()
+        for assignment in result.get("assignments", []):
+            assignment[TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD] = data_plane_token
         return JSONResponse(content=result)
 
     async def watch_asset_bindings_handler(

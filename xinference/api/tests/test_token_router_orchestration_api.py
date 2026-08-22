@@ -13,11 +13,15 @@ from xinference.api.tests.test_token_router_api import (
     make_supervisor,
     router_payload,
 )
+from xinference.router.constants import TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD
 
 
 @pytest.mark.asyncio
 async def test_managed_router_agent_runtime_lifecycle(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN", "internal-secret")
+    monkeypatch.setenv(
+        "XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", "supervisor-hop-secret"
+    )
     app = create_app(make_supervisor(tmp_path))
     headers = {"Authorization": "Bearer internal-secret"}
     transport = httpx.ASGITransport(app=app)
@@ -71,6 +75,9 @@ async def test_managed_router_agent_runtime_lifecycle(tmp_path, monkeypatch) -> 
         assert snapshot.status_code == 200
         assert snapshot.json()["full_snapshot"] is True
         assignment = snapshot.json()["assignments"][0]
+        assert (
+            assignment[TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD] == "supervisor-hop-secret"
+        )
 
         starting = await client.put(
             f"/v1/internal/token-router/assignments/{assignment['assignment_id']}/status",
@@ -119,6 +126,8 @@ async def test_managed_router_agent_runtime_lifecycle(tmp_path, monkeypatch) -> 
         assert assignments.status_code == 200
         assert assignments.json()[0]["observed_state"] == "ready"
         assert assignments.json()[0]["instance_id"] == "instance-a"
+        assert TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD not in assignments.json()[0]
+        assert "supervisor-hop-secret" not in assignments.text
 
         for instance_id, changes in (
             (

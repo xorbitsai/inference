@@ -21,6 +21,7 @@ from xinference.router.agent.process_manager import (
 )
 from xinference.router.agent.service import RouterAgent, RouterAgentConfig
 from xinference.router.backend import request_headers
+from xinference.router.constants import TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD
 
 
 class _ControlPlane:
@@ -258,19 +259,24 @@ def test_runtime_child_environment_is_allowlisted(monkeypatch, tmp_path):
     assert "UNRELATED_SECRET" not in env
 
 
-def test_runtime_child_environment_preserves_data_plane_credential(
+def test_runtime_child_environment_uses_supervisor_data_plane_credential(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", "data-plane-secret")
+    monkeypatch.delenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN", raising=False)
     manager = _manager(tmp_path)
+    assignment = _assignment()
+    assignment[TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD] = "supervisor-data-plane-secret"
 
-    env = manager._child_environment(_assignment())
+    env = manager._child_environment(assignment)
 
-    assert env["XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN"] == "data-plane-secret"
+    assert (
+        env["XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN"]
+        == "supervisor-data-plane-secret"
+    )
     assert env["XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"] == "internal-secret"
     with patch.dict(os.environ, env, clear=True):
         headers = request_headers(
-            [(b"authorization", b"Bearer data-plane-secret")],
+            [(b"authorization", b"Bearer supervisor-data-plane-secret")],
             backend_api_key="",
             request_id="request-a",
         )
@@ -355,6 +361,39 @@ async def test_generation_replacement_and_snapshot_orphan_cleanup(
     await manager.reconcile([])
     assert second.terminate_calls == 1
     assert manager._processes == {}
+
+
+@pytest.mark.asyncio
+async def test_data_plane_credential_change_restarts_runtime(monkeypatch, tmp_path):
+    manager = _manager(tmp_path)
+    monkeypatch.setattr(manager, "_port_available", lambda host, port: True)
+    processes = [_FakeProcess(), _FakeProcess()]
+    environments: list[dict[str, str]] = []
+
+    async def create_subprocess_exec(*args, **kwargs):
+        environments.append(kwargs["env"])
+        return processes.pop(0)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", create_subprocess_exec)
+    first_assignment = _assignment()
+    first_assignment[TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD] = "first-hop-secret"
+    await manager.reconcile([first_assignment])
+    first = manager._processes["router-a-0"].process
+
+    second_assignment = _assignment()
+    second_assignment[TOKEN_ROUTER_DATA_PLANE_TOKEN_FIELD] = "second-hop-secret"
+    await manager.reconcile([second_assignment])
+    second = manager._processes["router-a-0"].process
+
+    assert first is not None and first.terminate_calls == 1
+    assert second is not None and second is not first
+    assert environments[0]["XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN"] == (
+        "first-hop-secret"
+    )
+    assert environments[1]["XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN"] == (
+        "second-hop-secret"
+    )
+    await manager.shutdown()
 
 
 @pytest.mark.asyncio

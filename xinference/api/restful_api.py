@@ -75,6 +75,7 @@ from ..core.replica_config import ReplicaConfig
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
+from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
 from .frontend_static import mount_frontend
 from .pdf_ocr import (
@@ -155,9 +156,7 @@ def _token_router_request_headers(
         if key.lower() in _TOKEN_ROUTER_REQUEST_HEADERS
         and key.lower() != "authorization"
     }
-    internal_token = os.getenv("XINFERENCE_TOKEN_ROUTER_DATA_PLANE_TOKEN") or os.getenv(
-        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN"
-    )
+    internal_token = token_router_data_plane_token()
     external_credential = (
         _request_credential(request) if forward_external_credential else ""
     )
