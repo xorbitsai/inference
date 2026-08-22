@@ -461,6 +461,7 @@ export function transformFormToFetch(values: FormValues) {
   applyNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_load_kwargs');
   applyNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_fuse_kwargs');
   transformOnlyValueFormListToArray(nextValues, 'virtual_env_packages');
+  transformOnlyValueFormListToArray(nextValues, 'virtual_env_find_links');
   deleteNestedEmptyArrayField(nextValues, 'peft_model_config', 'lora_list');
 
   if (nextValues?.enable_virtual_env === 'unset') {
@@ -545,6 +546,7 @@ export function transformFetchToForm(values: FormValues) {
   restoreFormListObject(nextValues, 'quantization_config');
   restoreFormListObject(nextValues, 'envs');
   transformArrayToOnlyValueFormList(nextValues, 'virtual_env_packages');
+  transformArrayToOnlyValueFormList(nextValues, 'virtual_env_find_links');
   restoreKwargsFormList(nextValues);
   restoreNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_load_kwargs');
   restoreNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_fuse_kwargs');
@@ -783,6 +785,12 @@ export function generateCommandLineStatement(params: FormValues) {
           .map((pkg) => `--virtual-env-package ${quoteCommandValue(pkg)}`);
       }
 
+      if (key === 'virtual_env_find_links' && Array.isArray(value)) {
+        return value
+          .filter((path) => !isEmptyCommandValue(path))
+          .map((path) => `--virtual-env-find-link ${quoteCommandValue(path)}`);
+      }
+
       if (key === 'enable_virtual_env') {
         if (value === true) return '--enable-virtual-env';
         if (value === false) return '--disable-virtual-env';
@@ -817,6 +825,7 @@ export function parseXinferenceCommand(command: string) {
   };
   const quantizationConfig: Record<string, unknown> = {};
   const virtualEnvPackages: string[] = [];
+  const virtualEnvFindLinks: string[] = [];
   const envs: Record<string, unknown> = {};
   const args =
     tokens[0] === 'xinference' && tokens[1] === 'launch'
@@ -898,6 +907,13 @@ export function parseXinferenceCommand(command: string) {
       continue;
     }
 
+    if (normalizedKey === 'virtual_env_find_link') {
+      if (value) {
+        virtualEnvFindLinks.push(value);
+      }
+      continue;
+    }
+
     if (normalizedKey === 'env') {
       setObjectPair(envs, valueTokens);
       continue;
@@ -925,6 +941,10 @@ export function parseXinferenceCommand(command: string) {
 
   if (virtualEnvPackages.length > 0) {
     params.virtual_env_packages = virtualEnvPackages;
+  }
+
+  if (virtualEnvFindLinks.length > 0) {
+    params.virtual_env_find_links = virtualEnvFindLinks;
   }
 
   if (Object.keys(envs).length > 0) {

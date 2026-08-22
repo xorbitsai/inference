@@ -551,6 +551,7 @@ const en = {
     virtualEnvConfig: 'Virtual Environments Config',
     modelVirtualEnv: 'Model Virtual Environments',
     virtualEnvPackage: 'Virtual Environment Packages',
+    virtualEnvFindLinks: 'Local Wheel Directories',
     envVariable: 'Environment Variables',
     envVariableConfig: 'Environment Variable Config',
     additionalQuantizationParametersForInferenceEngine:

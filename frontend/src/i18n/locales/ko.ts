@@ -536,6 +536,7 @@ const ko = {
     virtualEnvConfig: '가상 환경 설정',
     modelVirtualEnv: '모델 가상 환경',
     virtualEnvPackage: '가상 환경 패키지',
+    virtualEnvFindLinks: '로컬 Wheel 디렉터리',
     envVariable: '환경 변수',
     envVariableConfig: '환경 변수 설정',
     additionalQuantizationParametersForInferenceEngine: '추론 엔진에 전달되는 추가 양자화 매개변수',

@@ -529,6 +529,7 @@ const zh = {
     virtualEnvConfig: '虚拟空间配置',
     modelVirtualEnv: '模型虚拟空间',
     virtualEnvPackage: '虚拟空间安装包',
+    virtualEnvFindLinks: '本地 Wheel 目录',
     envVariable: '环境变量',
     envVariableConfig: '环境变量配置',
     additionalQuantizationParametersForInferenceEngine: '传递给推理引擎的量化参数',
