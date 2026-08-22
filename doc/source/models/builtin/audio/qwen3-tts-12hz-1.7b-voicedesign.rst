@@ -6,7 +6,7 @@ Qwen3-TTS-12Hz-1.7B-VoiceDesign
 
 - **Model Name:** Qwen3-TTS-12Hz-1.7B-VoiceDesign
 - **Model Family:** qwen3_tts
-- **Abilities:** ['text2audio']
+- **Abilities:** ['text2audio', 'text2audio_voice_design']
 - **Multilingual:** True
 
 Specifications

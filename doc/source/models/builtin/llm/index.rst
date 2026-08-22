@@ -256,6 +256,11 @@ The following is a list of built-in LLM in Xinference:
      - 202752
      - GLM-5.1 is our next-generation flagship model for agentic engineering, with significantly stronger coding capabilities than its predecessor. It achieves state-of-the-art performance on SWE-Bench Pro and leads GLM-5 by a wide margin on NL2Repo (repo generation) and Terminal-Bench 2.0 (real-world terminal tasks).
 
+   * - :ref:`glm-5.2 <models_llm_glm-5.2>`
+     - chat, tools, reasoning, hybrid
+     - 1048576
+     - We're introducing GLM-5.2, our latest flagship model for long-horizon tasks
+
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
      - 8192
@@ -550,6 +555,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision, tools, reasoning, hybrid
      - 262144
      - Ornith-1.0-35B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration). It combines hybrid linear/full attention, 256 routed experts (8 per token) plus a shared expert, multimodal RoPE, and multi-token prediction, with vision and video understanding via the Qwen3VL processor.
+
+   * - :ref:`ornith-1.5-35b-a3b <models_llm_ornith-1.5-35b-a3b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.5-35B-A3B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
 
    * - :ref:`ovis2 <models_llm_ovis2>`
      - chat, vision
@@ -882,7 +892,7 @@ The following is a list of built-in LLM in Xinference:
    deepseek-v4-flash
   
    deepseek-v4-flash-0731
-
+  
    deepseek-v4-pro
   
    deepseek-vl2
@@ -916,6 +926,8 @@ The following is a list of built-in LLM in Xinference:
    glm-5
   
    glm-5.1
+  
+   glm-5.2
   
    glm-edge-chat
   
@@ -1035,6 +1047,8 @@ The following is a list of built-in LLM in Xinference:
   
    ornith-1.0-35b
   
+   ornith-1.5-35b-a3b
+  
    ovis2
   
    ovisocr2
@@ -1100,9 +1114,9 @@ The following is a list of built-in LLM in Xinference:
    qwen3.6
   
    qwen3.8
-
+  
    qwen3.8-max
-
+  
    qwenlong-l1
   
    qwq-32b
@@ -1141,3 +1155,4 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
+

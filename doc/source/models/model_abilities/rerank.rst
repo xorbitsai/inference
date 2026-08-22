@@ -82,3 +82,22 @@ We can try Rerank API out either via cURL, OpenAI Client, or Xinference's python
             "document": "A woman is playing violin."
         }]
     }
+
+
+Multimodal reranking with jina-reranker-m0
+===========================================
+
+``jina-reranker-m0`` supports text and image reranking with a maximum context
+length of 10,240 tokens. Text documents use the standard rerank API shown
+above. To rerank image URLs or local image paths, pass ``doc_type="image"``::
+
+    model.rerank(
+        [
+            "https://example.com/document-1.png",
+            "https://example.com/document-2.png",
+        ],
+        "Which document describes a small language model?",
+        doc_type="image",
+    )
+
+For an image query, also pass ``query_type="image"``.
