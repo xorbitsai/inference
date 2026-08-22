@@ -1,0 +1,68 @@
+[
+  {
+    "version": 2,
+    "model_name": "LTX-2.5-Dev",
+    "model_description": "LTX-2.5 Dev is Lightricks' official full BF16 audio-video diffusion transformer with guided text-, image-, and keyframe-conditioned generation.",
+    "model_family": "LTX2",
+    "model_variant": "dev",
+    "engine": "diffusers",
+    "model_format": "diffusers",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "cpu_offload": true,
+      "sequential_cpu_offload": false
+    },
+    "default_generate_config": {
+      "width": 960,
+      "height": 544,
+      "num_frames": 121,
+      "fps": 24,
+      "num_inference_steps": 30,
+      "guidance_scale": 3.0,
+      "audio_guidance_scale": 7.0,
+      "stg_scale": 1.0,
+      "audio_stg_scale": 1.0,
+      "modality_scale": 3.0,
+      "audio_modality_scale": 3.0,
+      "guidance_rescale": 0.7,
+      "audio_guidance_rescale": 0.7
+    },
+    "cache_config": {
+      "ignore_patterns": [
+        "transformer/*",
+        "diffusion_decoder/*",
+        "latent_upsampler/*",
+        "connectors/diffusion_pytorch_model.safetensors",
+        "ltx-2.5-22b-distilled-lora-450-bf16.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers==0.40.0",
+        "transformers==5.14.1",
+        "accelerate>=0.31.0",
+        "safetensors>=0.8.0",
+        "av",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Lightricks/LTX-2.5-Diffusers",
+        "model_revision": "a6de4b5354f078db24d9cf4778c14846788aea3d"
+      },
+      "modelscope": {
+        "model_id": "Lightricks/LTX-2.5-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787369624,
+    "featured": false
+  }
+]
