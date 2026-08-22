@@ -285,6 +285,7 @@ def test_astra_loads_pinned_wan_base_model(tmp_path, monkeypatch):
             "diffusion_pytorch_model.safetensors",
             "models_t5_umt5-xxl-enc-bf16.pth",
             "Wan2.1_VAE.pth",
+            "google/umt5-xxl/*",
         ],
     }
 
@@ -325,6 +326,7 @@ def test_astra_loads_wan_base_model_from_modelscope(tmp_path, monkeypatch):
             "diffusion_pytorch_model.safetensors",
             "models_t5_umt5-xxl-enc-bf16.pth",
             "Wan2.1_VAE.pth",
+            "google/umt5-xxl/*",
         ],
     }
 
