@@ -249,7 +249,7 @@ const RunningModel = () => {
   const { t } = useI18n();
   const router = useRouter();
   const { clusterAuth } = useGlobal();
-  const { hasRouterRead, canAccessRouterPage } = useMenuAuth();
+  const { isAdmin, hasRouterRead, canAccessRouterPage } = useMenuAuth();
   const canReadRouterRuntime = clusterAuth?.auth === false || hasRouterRead;
   const canManageRouter = clusterAuth?.auth === false || canAccessRouterPage;
   const [loading, setLoading] = useState(false);
@@ -354,6 +354,11 @@ const RunningModel = () => {
   }, [activeModel, replicaLogs]);
 
   const fetchClusterWorkers = useCallback(() => {
+    if (!clusterAuth || (clusterAuth.auth && !isAdmin)) {
+      setClusterWorkerInfo(new Map());
+      return;
+    }
+
     request
       .get<ClusterInfoResponse>('/v1/cluster/info', { params: { detailed: true } })
       .then((data) => {
@@ -374,7 +379,7 @@ const RunningModel = () => {
       .catch(() => {
         // Silently ignore — model/replica-derived addresses still work as fallback
       });
-  }, []);
+  }, [clusterAuth, isAdmin]);
 
   const addReplicaWorkerOptions = useMemo(() => {
     // Primary source: cluster info (matching the launch dialog).
