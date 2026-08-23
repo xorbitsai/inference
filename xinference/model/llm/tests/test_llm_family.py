@@ -1704,6 +1704,7 @@ def test_ornith_15_397b_builtin_family_matches_modelscope_qwen3_5_moe():
         in family.virtualenv.packages
     )
     assert 'sglang>=0.5.9 ; #engine# == "sglang"' in family.virtualenv.packages
+    assert 'qwen-vl-utils!=0.0.9 ; #engine# == "sglang"' in family.virtualenv.packages
     assert 'vllm==0.21.0 ; #engine# == "vllm"' in family.virtualenv.packages
 
 

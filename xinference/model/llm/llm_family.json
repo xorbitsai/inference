@@ -35132,6 +35132,7 @@
     "virtualenv": {
       "packages": [
         "sglang>=0.5.9 ; #engine# == \"sglang\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"sglang\"",
         "transformers>=5.8.1 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
