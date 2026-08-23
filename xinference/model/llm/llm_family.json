@@ -2444,7 +2444,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1769418487,
+    "updated_at": 1787387058,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -18917,7 +18917,7 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1769418571,
+    "updated_at": 1787387058,
     "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
@@ -22730,7 +22730,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769418586,
+    "updated_at": 1787387059,
     "model_type": "glm4_moe"
   },
   {
@@ -24123,7 +24123,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1784394365,
+    "updated_at": 1787387059,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
@@ -25399,7 +25399,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": false,
-    "updated_at": 1770205932
+    "updated_at": 1787387059
   },
   {
     "version": 2,
@@ -25549,7 +25549,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1784296176
+    "updated_at": 1787387059
   },
   {
     "version": 2,
@@ -30625,9 +30625,8 @@
           "huggingface": {
             "model_id": "unsloth/Qwen3.8-27B-GGUF",
             "model_file_name_template": "Qwen3.8-27B-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3.8-27B-{quantization}-{part}.gguf",
+            "model_file_name_split_template": "Qwen3.8-27B-{quantization}-{part}.gguf",
             "quantizations": [
-              "BF16",
               "IQ4_NL",
               "IQ4_XS",
               "Q3_K_M",
@@ -30664,9 +30663,8 @@
           "modelscope": {
             "model_id": "unsloth/Qwen3.8-27B-GGUF",
             "model_file_name_template": "Qwen3.8-27B-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3.8-27B-{quantization}-{part}.gguf",
+            "model_file_name_split_template": "Qwen3.8-27B-{quantization}-{part}.gguf",
             "quantizations": [
-              "BF16",
               "IQ4_NL",
               "IQ4_XS",
               "Q3_K_M",
@@ -30731,15 +30729,12 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
-        "#mlx_dependencies# ; #engine# == \"MLX\"",
-        "mlx-vlm>=0.6.13 ; #engine# == \"MLX\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
         "audioread ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "vllm==0.21.0 ; #engine# == \"vllm\"",
         "ninja ; #engine# == \"vllm\"",
-        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
-        "xllamacpp>=2026.8.10229 ; #engine# == \"llama.cpp\""
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "architectures": [
@@ -30757,8 +30752,8 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "featured": true,
-    "updated_at": 1786815199
+    "featured": false,
+    "updated_at": 1786848525
   },
   {
     "model_name": "qwen3.8-max",
@@ -31533,7 +31528,7 @@
     "tool_parser": "qwen",
     "version": 2,
     "featured": false,
-    "updated_at": 1786811118,
+    "updated_at": 1786963009,
     "virtualenv": {
       "packages": [
         "transformers>=4.57.3 ; #engine# == \"Transformers\"",
@@ -32698,7 +32693,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1781600152
+    "updated_at": 1787387059
   },
   {
     "model_name": "DeepSeek-V4-Flash",
@@ -32846,8 +32841,8 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "featured": true,
-    "updated_at": 1786099285
+    "featured": false,
+    "updated_at": 1787132577
   },
   {
     "model_name": "DeepSeek-V4-Pro",
@@ -33031,7 +33026,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1781520055
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33133,7 +33128,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1781520056
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33211,7 +33206,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1781520058
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33970,7 +33965,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1786072259
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -34340,7 +34335,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1787287927
+    "updated_at": 1787372063
   },
   {
     "model_name": "glm-5.2",
@@ -35097,7 +35092,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1787308415
+    "updated_at": 1787395165
   },
   {
     "model_name": "Ornith-1.5-397B",
@@ -35158,6 +35153,685 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1787303700
+    "updated_at": 1787464209
+  },
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "gorilla-openfunctions-v2",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "gorilla-llm/gorilla-openfunctions-v2",
+            "model_revision": "0f91d705e64b77fb55e35a7eab5d03bf965c9b5c"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K"
+            ],
+            "model_id": "gorilla-llm//gorilla-openfunctions-v2-GGUF",
+            "model_file_name_template": "gorilla-openfunctions-v2.{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}\n{% set add_generation_prompt = false %}\n{% endif %}\n{%- set ns = namespace(found=false) -%}\n{%- for message in messages -%}\n    {%- if message['role'] == 'system' -%}\n        {%- set ns.found = true -%}\n    {%- endif -%}\n{%- endfor -%}\n{{'<｜begin▁of▁sentence｜>'}}{%- if not ns.found -%}\n{{'You are an AI programming assistant, utilizing the Gorilla LLM model, developed by Gorilla LLM, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n'}}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message['role'] == 'system' %}\n{{ message['content'] }}\n    {%- else %}\n        {%- if message['role'] == 'user' %}\n{{'### Instruction:\n' + message['content'] + '\n'}}\n        {%- else %}\n{{'### Response:\n' + message['content'] + '\n<|EOT|>\n'}}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{% if add_generation_prompt %}\n{{'### Response:'}}\n{% endif %}",
+    "stop_token_ids": [
+      100015,
+      100001
+    ],
+    "stop": [
+      "<|EOT|>",
+      "<｜end▁of▁sentence｜>"
+    ],
+    "model_type": "llama",
+    "updated_at": 1769418471,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "Skywork",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Skywork is a series of large models developed by the Kunlun Group · Skywork team.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "skywork/Skywork-13B-base",
+            "model_revision": "bc35915066fbbf15b77a1a4a74e9b574ab167816"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "skywork/Skywork-13B-base",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "model_type": "skywork",
+    "updated_at": 1769418489,
+    "featured": false,
+    "architectures": [
+      "SkyworkForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "Skywork-Math",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Skywork is a series of large models developed by the Kunlun Group · Skywork team.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "skywork/Skywork-13B-Math",
+            "model_revision": "70d1740208c8ba39f9ba250b22117ec25311ab33"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "skywork/Skywork-13B-Math",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "model_type": "skywork",
+    "updated_at": 1769418490,
+    "featured": false,
+    "architectures": [
+      "SkyworkForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 8194,
+    "model_name": "codeshell",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University. ",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WisdomShell/CodeShell-7B",
+            "model_revision": "1c79ab7fd316a62ab41d764facd3548a23fa5dee"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WisdomShell/CodeShell-7B",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "model_type": "kclgpt",
+    "updated_at": 1769418505,
+    "featured": false,
+    "architectures": [
+      "CodeShellForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 8194,
+    "model_name": "codeshell-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WisdomShell/CodeShell-7B-Chat",
+            "model_revision": "3cb06f589b7b1e2f8e728c77280b1114191d24de"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WisdomShell/CodeShell-7B-Chat",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if item['role'] == 'user' %}{{ '## human: ' + item['content'] + '|<end>|' }}{% elif item['role'] == 'assistant' %}{{ '## assistant: ' + item['content'] + '|<end>|' }}{% endif %}{% endfor %}{{ '## assistant: ' }}",
+    "stop_token_ids": [
+      70000
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "|||",
+      "|<end>|"
+    ],
+    "model_type": "codeshell",
+    "updated_at": 1769418506,
+    "featured": false,
+    "architectures": [
+      "CodeShellForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 100000,
+    "model_name": "wizardcoder-python-v1.0",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WizardLMTeam/WizardCoder-Python-13B-V1.0",
+            "model_revision": "5ac6748b1f5a4c282107ddc7d3b69fdc4a686d75"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/WizardCoder-Python-13B-V1.0",
+            "model_revision": "v1.0.0"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WizardLMTeam/WizardCoder-Python-34B-V1.0",
+            "model_revision": "897fc6d9e12136c68c441b2350d015902c144b20"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/WizardCoder-Python-34B-V1.0",
+            "model_revision": "v1.0.0"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/WizardCoder-Python-7B-V1.0-GGUF",
+            "model_file_name_template": "wizardcoder-python-7b-v1.0.{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/WizardCoder-Python-13B-V1.0-GGUF",
+            "model_file_name_template": "wizardcoder-python-13b-v1.0.{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/WizardCoder-Python-34B-V1.0-GGUF",
+            "model_file_name_template": "wizardcoder-python-34b-v1.0.{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n\n### ' }}{% elif loop.first %}{{ 'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### ' }}{% endif %}{% if item['role'] == 'user' %}{{ 'Instruction: ' + item['content'] + '\n\n### ' }}{% elif item['role'] == 'assistant' %}{{ 'Response: ' + item['content'] + '\n\n### ' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Response: Let\\'s think step by step.' }}{% endif %}",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ],
+    "model_type": "llama",
+    "updated_at": 1769418580,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 2048,
+    "model_name": "wizardmath-v1.0",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "WizardMath is an open-source LLM trained by fine-tuning Llama2 with Evol-Instruct, specializing in math.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WizardLMTeam/WizardMath-7B-V1.0",
+            "model_revision": "825a586f260d6c583b8aa9ceab6cdfaa3d9a4ddc"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Xorbits/WizardMath-7B-V1.0",
+            "model_revision": "v1.0.0"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "WizardLMTeam/WizardMath-70B-V1.0",
+            "model_revision": "4dd9f3fcd8c056561d67ec59ae011f7c146aebd2"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ item['content'] + '\n\n### ' }}{% elif loop.first %}{{ 'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### ' }}{% endif %}{% if item['role'] == 'user' %}{{ 'Instruction: ' + item['content'] + '\n\n### ' }}{% elif item['role'] == 'assistant' %}{{ 'Response: ' + item['content'] + '\n\n### ' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ 'Response: Let\\'s think step by step.' }}{% endif %}",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ],
+    "model_type": "llama",
+    "updated_at": 1769418581,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 2048,
+    "model_name": "xverse",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "XVERSE is a multilingual large language model, independently developed by Shenzhen Yuanxiang Technology.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-7B",
+            "model_revision": "3778b254def675586e9218ccb15b78d6ef66a3a7"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-7B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-13B",
+            "model_revision": "11ac840dda17af81046614229fdd0c658afff747"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-13B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 65,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-65B",
+            "model_revision": "7f1b7394f74c630f50612a19ba90bd021c373989"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-65B",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "model_type": "xverse",
+    "updated_at": 1769418582,
+    "featured": false,
+    "architectures": [
+      "XverseForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 2048,
+    "model_name": "xverse-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "XVERSEB-Chat is the aligned version of model XVERSE.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-7B-Chat",
+            "model_revision": "60acc8c453c067b54df88be98bfdf60585ab5441"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-7B-Chat",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-13B-Chat",
+            "model_revision": "1e4944aaa1d8c8d0cdca28bb8e3a003303d0781b"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "xverse/XVERSE-13B-Chat",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ '<|system|> \n' + item['content'] }}{% endif %}{% if item['role'] == 'user' %}{{ '<|user|> \n' + item['content'] }}{% elif item['role'] == 'assistant' %}{{ '<|assistant|> \n' + item['content'] }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% endif %}",
+    "stop_token_ids": [
+      3
+    ],
+    "stop": [
+      "<|endoftext|>"
+    ],
+    "model_type": "xverse",
+    "updated_at": 1769418583,
+    "featured": false,
+    "architectures": [
+      "XverseForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "speech_campplus_sv_zh-cn_16k-common",
+    "model_description": "CAMPPlus speaker embedding model for Chinese speech. It accepts 16 kHz speech and returns a 192-dimensional speaker identity vector for verification and identification.",
+    "model_family": "campplus",
+    "model_ability": [
+      "speaker_embedding"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "modelscope": {
+        "model_id": "iic/speech_campplus_sv_zh-cn_16k-common",
+        "model_revision": "v1.0.0"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "modelscope[framework]>=1.19.0",
+        "addict",
+        "attrs",
+        "datasets>=3,<5",
+        "einops",
+        "oss2",
+        "Pillow",
+        "python-dateutil>=2.1",
+        "simplejson>=3.3.0",
+        "sortedcontainers>=1.5.9",
+        "transformers",
+        "soundfile",
+        "scikit-learn>=1.3.2",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786078495
   }
 ]
