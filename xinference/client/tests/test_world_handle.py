@@ -58,6 +58,7 @@ async def test_async_world_handle_maps_video_bytes():
     handle._model_uid = "world-model"
     handle._base_url = "http://127.0.0.1:9997"
     handle.auth_headers = {}
+    handle.timeout = object()
     handle.session = MagicMock()
     response = MagicMock(status=200)
     response.json = AsyncMock(
@@ -74,6 +75,7 @@ async def test_async_world_handle_maps_video_bytes():
     assert result["data"][0]["b64_json"] == "dmlkZW8="
     _, kwargs = handle.session.post.call_args
     assert kwargs["json"]["video"] == "data:video/mp4;base64,dmlkZW8="
+    assert kwargs["timeout"] is handle.timeout
     response.release.assert_called_once()
     response.wait_for_close.assert_awaited_once()
 

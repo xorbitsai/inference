@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 
 import pytest
@@ -34,18 +35,26 @@ class _WorldModelRef:
 
     def __init__(self):
         self.kwargs = None
+        self.abort_request_ids = []
+        self.error = None
 
     async def world_generate(self, **kwargs):
         self.kwargs = kwargs
+        if self.error is not None:
+            raise self.error
         return json.dumps(
             {"created": 1, "data": [{"url": "/world.mp4", "b64_json": None}]}
         )
+
+    async def abort_request(self, request_id):
+        self.abort_request_ids.append(request_id)
 
 
 class _API:
     def __init__(self):
         self.model_type = None
         self.running_request_id = None
+        self.reported_errors = []
 
     def _set_trace_model(self, model_uid):
         self.model_uid = model_uid
@@ -60,7 +69,7 @@ class _API:
         raise AssertionError("require_model is patched in this test")
 
     async def _report_error_event(self, *args):
-        raise AssertionError("no error is expected")
+        self.reported_errors.append(args)
 
     def _add_running_task(self, request_id):
         self.running_request_id = request_id
@@ -126,3 +135,72 @@ async def test_create_world_rejects_image_and_video_together():
             ),
         )
     assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("image", "/etc/passwd"),
+        ("image", "http://127.0.0.1/private.png"),
+        ("video", "https://example.com/video.mp4"),
+    ],
+)
+async def test_create_world_rejects_public_paths_and_remote_urls(field, value):
+    api = _API()
+    with pytest.raises(HTTPException, match="must be a base64 data URL") as exc:
+        await RESTfulAPI.create_world(
+            api,
+            _Request(
+                {
+                    "model": "world-uid",
+                    "prompt": "move forward",
+                    field: value,
+                }
+            ),
+        )
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_world_maps_model_validation_errors_to_400(monkeypatch):
+    model_ref = _WorldModelRef()
+    model_ref.error = ValueError("unsupported world option")
+
+    async def fake_require_model(*args):
+        return model_ref
+
+    monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
+    api = _API()
+    with pytest.raises(HTTPException, match="unsupported world option") as exc:
+        await RESTfulAPI.create_world(
+            api,
+            _Request({"model": "world-uid", "prompt": "move forward"}),
+        )
+    assert exc.value.status_code == 400
+    assert api.reported_errors == [("world-uid", "unsupported world option")]
+
+
+@pytest.mark.asyncio
+async def test_create_world_stops_runner_when_request_is_cancelled(monkeypatch):
+    model_ref = _WorldModelRef()
+    model_ref.error = asyncio.CancelledError()
+
+    async def fake_require_model(*args):
+        return model_ref
+
+    monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
+    api = _API()
+    with pytest.raises(HTTPException, match="cancelled: cancel-me") as exc:
+        await RESTfulAPI.create_world(
+            api,
+            _Request(
+                {
+                    "model": "world-uid",
+                    "prompt": "move forward",
+                    "extra_body": {"request_id": "cancel-me"},
+                }
+            ),
+        )
+    assert exc.value.status_code == 409
+    assert model_ref.abort_request_ids == ["cancel-me"]

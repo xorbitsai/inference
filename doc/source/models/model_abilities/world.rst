@@ -46,9 +46,12 @@ Generate with cURL:
      -d '{
        "model": "<MODEL_UID>",
        "prompt": "move forward through the scene",
-       "image": "https://example.com/start.png",
-       "generation_config": {"response_format": "url"},
-       "extra_body": {"num_frames": 97}
+       "image": "data:image/png;base64,<BASE64_DATA>",
+       "generation_config": {"response_format": "b64_json"},
+       "extra_body": {
+         "num_frames": 97,
+         "request_id": "world-request-1"
+       }
      }'
 
 Generate with the Xinference Python client:
@@ -62,14 +65,52 @@ Generate with the Xinference Python client:
    result = model.generate(
        prompt="move forward through the scene",
        image="start.png",
-       generation_config={"response_format": "url"},
+       generation_config={"response_format": "b64_json"},
        num_frames=97,
+       request_id="world-request-1",
    )
 
 The response follows the existing video result shape and contains either a
-``url`` or ``b64_json`` value. ``Matrix-Game-3.0-5B`` and ``Astra`` require an
-image; ``HY-WorldPlay-5B`` accepts text-only or image-conditioned generation.
-None of the initial adapters accepts the reserved ``video`` input yet.
+``url`` or ``b64_json`` value. The public REST endpoint accepts uploaded media
+as base64 data URLs; the Python client converts local file paths or bytes to
+that representation. Remote HTTP URLs and server-local paths are intentionally
+not accepted by the public endpoint. ``Matrix-Game-3.0-5B`` and ``Astra``
+require an image; ``HY-WorldPlay-5B`` accepts text-only or image-conditioned
+generation. None of the initial adapters accepts the reserved ``video`` input
+yet.
+
+Progress and cancellation
+-------------------------
+
+Long-running requests can include a caller-generated ``request_id`` in
+``extra_body`` (or ``model_kwargs`` in the Python client). While that request
+is running, poll its progress::
+
+   client.get_progress("world-request-1")
+
+or use the REST endpoint::
+
+   GET /v1/requests/world-request-1/progress
+
+Abort the same request with::
+
+   client.abort_request("<MODEL_UID>", "world-request-1")
+
+or::
+
+   POST /v1/models/<MODEL_UID>/requests/world-request-1/abort
+   {"block_duration": 30}
+
+For remote clients, ``b64_json`` is directly consumable but materializes the
+complete result in the response. ``url`` currently returns a path on the
+serving deployment and is intended for clients that share that filesystem.
+Artifact storage, public download URLs, and continuous streaming are separate
+future capabilities rather than part of this synchronous first version.
+
+The first launch downloads the pinned adapter source and any auxiliary base
+weights required by the selected model. It therefore requires access to the
+configured source and model hubs. A fully managed air-gapped staging lifecycle
+for this complete dependency set is not part of the first version.
 
 For Astra, camera control remains model-specific and is passed through
 ``extra_body`` or ``model_kwargs``. For example, ``cam_type`` accepts values

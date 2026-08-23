@@ -597,6 +597,34 @@ def _apply_virtualenv_engine_overrides(
             engine_params[engine_name] = reason
 
 
+def _apply_engine_host_checks(
+    engine_params: Dict[str, Any],
+    supported_engines: Dict[str, List[Type[Any]]],
+) -> None:
+    """Reject engines whose non-installable host requirements are unmet."""
+
+    for engine_name, engine_classes in supported_engines.items():
+        if engine_name not in engine_params:
+            continue
+        host_reason: Optional[str] = None
+        host_available = False
+        for engine_class in engine_classes:
+            check_host = getattr(engine_class, "check_host", None)
+            host_ok, reason, _, _ = _normalize_match_result(
+                check_host() if callable(check_host) else True,
+                f"Engine {engine_name} is incompatible with this host",
+                "model_compatibility",
+            )
+            if host_ok:
+                host_available = True
+                break
+            host_reason = reason or host_reason
+        if not host_available:
+            engine_params[engine_name] = host_reason or (
+                f"Engine {engine_name} is incompatible with this host"
+            )
+
+
 def check_dependency_available(
     module_name: str, friendly_name: Optional[str] = None
 ) -> Union[bool, Tuple[bool, str]]:
@@ -2094,6 +2122,7 @@ def _get_engine_params_by_name(
         _collect_supported_image_engines(
             world_families, supported_world_engines, "world"
         )
+        _apply_engine_host_checks(engine_params, supported_world_engines)
         return engine_params
 
     return None
@@ -2731,6 +2760,7 @@ def _get_engine_params_by_name_with_virtual_env(
             world_engine_markers,
             enable_virtual_env,
         )
+        _apply_engine_host_checks(engine_params, supported_world_engines)
         return engine_params
 
     raise ValueError(

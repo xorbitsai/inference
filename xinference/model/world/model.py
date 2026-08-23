@@ -11,21 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import base64
 import binascii
 import logging
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional
-from urllib.parse import urlparse
 
 from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_WORLD_DIR
 from ...types import Video, VideoList
@@ -155,44 +157,29 @@ def _materialize_reference(
         yield None
         return
     if os.path.isfile(reference):
+        if os.path.getsize(reference) > _MAX_INPUT_BYTES:
+            raise ValueError("World generation input exceeds 512 MiB")
         yield os.path.realpath(reference)
         return
 
-    data: bytes
-    parsed = urlparse(reference)
-    if parsed.scheme in ("http", "https"):
-        import requests
-
-        with requests.get(reference, stream=True, timeout=30) as response:
-            response.raise_for_status()
-            chunks = []
-            size = 0
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                size += len(chunk)
-                if size > _MAX_INPUT_BYTES:
-                    raise ValueError("World generation input exceeds 512 MiB")
-                chunks.append(chunk)
-            data = b"".join(chunks)
-    else:
-        encoded = reference
-        if reference.startswith("data:"):
-            try:
-                header, encoded = reference.split(",", 1)
-            except ValueError:
-                raise ValueError(
-                    "Invalid data URL for world generation input"
-                ) from None
-            if ";base64" not in header:
-                raise ValueError("World generation data URLs must use base64")
+    encoded = reference
+    if reference.startswith("data:"):
         try:
-            data = base64.b64decode(encoded, validate=True)
-        except (binascii.Error, ValueError):
-            raise ValueError(
-                "World generation inputs must be a local path, HTTP(S) URL, "
-                "or base64-encoded data"
-            ) from None
-        if len(data) > _MAX_INPUT_BYTES:
-            raise ValueError("World generation input exceeds 512 MiB")
+            header, encoded = reference.split(",", 1)
+        except ValueError:
+            raise ValueError("Invalid data URL for world generation input") from None
+        if ";base64" not in header:
+            raise ValueError("World generation data URLs must use base64")
+    if len(encoded) > ((_MAX_INPUT_BYTES + 2) // 3) * 4:
+        raise ValueError("World generation input exceeds 512 MiB")
+    try:
+        data = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError):
+        raise ValueError(
+            "World generation inputs must be a local path or base64-encoded data"
+        ) from None
+    if len(data) > _MAX_INPUT_BYTES:
+        raise ValueError("World generation input exceeds 512 MiB")
 
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
         temp_file.write(data)
@@ -220,6 +207,9 @@ class WorldModel:
         self._source_path = kwargs.pop("model_code_path", None)
         self._kwargs = kwargs
         self._code_path: Optional[str] = None
+        self._process_lock = threading.Lock()
+        self._runner_lock = threading.Lock()
+        self._running_processes: Dict[str, subprocess.Popen] = {}
 
     @property
     def model_ability(self):
@@ -284,31 +274,81 @@ class WorldModel:
         env: Dict[str, str],
         log_path: str,
         progress_callback: Optional[Callable[[str], None]] = None,
+        request_id: Optional[str] = None,
     ) -> None:
         env = env.copy()
         env.setdefault("PYTHONUNBUFFERED", "1")
-        with open(log_path, "w", encoding="utf-8") as log_file:
-            process = subprocess.Popen(
-                command,
-                cwd=cwd,
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-            )
-            assert process.stdout is not None
-            for line in process.stdout:
-                log_file.write(line)
-                log_file.flush()
-                if progress_callback is not None:
-                    progress_callback(line)
-            returncode = process.wait()
+        process_key = request_id or f"anonymous-{uuid.uuid4().hex}"
+        with self._runner_lock:
+            with open(log_path, "w", encoding="utf-8") as log_file:
+                process = subprocess.Popen(
+                    command,
+                    cwd=cwd,
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    start_new_session=os.name == "posix",
+                )
+                with self._process_lock:
+                    self._running_processes[process_key] = process
+                try:
+                    assert process.stdout is not None
+                    for line in process.stdout:
+                        log_file.write(line)
+                        log_file.flush()
+                        if progress_callback is not None:
+                            progress_callback(line)
+                    returncode = process.wait()
+                finally:
+                    with self._process_lock:
+                        if self._running_processes.get(process_key) is process:
+                            self._running_processes.pop(process_key, None)
         if returncode != 0:
             output = _tail(log_path)
             raise RuntimeError(
                 f"World generation runner exited with code {returncode}.\n" f"{output}"
             )
+
+    @staticmethod
+    def _terminate_process(process: subprocess.Popen) -> None:
+        if process.poll() is not None:
+            process.wait()
+            return
+        try:
+            if os.name == "posix":
+                os.killpg(process.pid, signal.SIGTERM)
+            else:
+                process.terminate()
+            process.wait(timeout=5)
+        except ProcessLookupError:
+            process.wait()
+        except subprocess.TimeoutExpired:
+            if os.name == "posix":
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            else:
+                process.kill()
+            process.wait(timeout=5)
+
+    async def abort_request(self, request_id: str) -> str:
+        from ..scheduler.core import AbortRequestMessage
+
+        with self._process_lock:
+            process = self._running_processes.get(request_id)
+        if process is None:
+            return AbortRequestMessage.NO_OP.name
+        await asyncio.to_thread(self._terminate_process, process)
+        return AbortRequestMessage.DONE.name
+
+    def stop(self) -> None:
+        with self._process_lock:
+            processes = list(self._running_processes.values())
+        for process in processes:
+            self._terminate_process(process)
 
     @staticmethod
     def _make_response(video_path: str, response_format: str) -> VideoList:
@@ -327,6 +367,15 @@ class WorldModel:
                 f"{response_format}"
             )
         return VideoList(created=int(time.time()), data=[video])
+
+    @staticmethod
+    def _validate_response_format(response_format: Any) -> str:
+        value = str(response_format)
+        if value not in {"url", "b64_json"}:
+            raise ValueError(
+                "Unsupported response_format for world generation: " f"{value}"
+            )
+        return value
 
     @staticmethod
     def _merge_configs(
@@ -435,7 +484,9 @@ class MatrixGameModel(WorldModel):
                 + ", ".join(sorted(unknown))
             )
 
-        response_format = str(config.pop("response_format", "url"))
+        response_format = self._validate_response_format(
+            config.pop("response_format", "url")
+        )
         with tempfile.TemporaryDirectory(prefix="xinference-world-") as output_dir:
             with _materialize_reference(image, ".png") as image_path:
                 command = self._torchrun_command("generate.py")
@@ -466,6 +517,15 @@ class MatrixGameModel(WorldModel):
                     "fa_version": "--fa_version",
                     "async_vae_warmup_iters": "--async_vae_warmup_iters",
                 }
+                if self._gpu_count() > 1:
+                    config.setdefault("ulysses_size", self._gpu_count())
+                    if int(config["ulysses_size"]) <= 1:
+                        raise ValueError(
+                            "Matrix-Game ulysses_size must be greater than 1 "
+                            "when multiple GPUs are assigned"
+                        )
+                    config.setdefault("dit_fsdp", True)
+                    config.setdefault("t5_fsdp", True)
                 for key, option in value_options.items():
                     if config.get(key) is not None:
                         command.extend([option, str(config[key])])
@@ -480,9 +540,6 @@ class MatrixGameModel(WorldModel):
                     "use_int8": "--use_int8",
                     "verify_quant": "--verify_quant",
                 }
-                if self._gpu_count() > 1:
-                    config.setdefault("dit_fsdp", True)
-                    config.setdefault("t5_fsdp", True)
                 for key, option in flag_options.items():
                     if config.get(key):
                         command.append(option)
@@ -498,6 +555,7 @@ class MatrixGameModel(WorldModel):
                     self._code_path,
                     env,
                     os.path.join(output_dir, "runner.log"),
+                    request_id=request_id,
                 )
                 video_path = os.path.join(output_dir, "world.mp4")
                 if not os.path.isfile(video_path):
@@ -551,14 +609,18 @@ class HYWorldPlayModel(WorldModel):
                 "Unsupported HY-WorldPlay generation options: "
                 + ", ".join(sorted(unknown))
             )
-        response_format = str(config.pop("response_format", "url"))
+        response_format = self._validate_response_format(
+            config.pop("response_format", "url")
+        )
 
         with tempfile.TemporaryDirectory(prefix="xinference-world-") as output_dir:
             with _materialize_reference(image, ".png") as image_path:
-                command = self._torchrun_command("wan/generate.py")
+                command = self._torchrun_command(
+                    os.path.join(os.path.dirname(__file__), "hy_worldplay_runner.py")
+                )
                 command.extend(
                     [
-                        "--input",
+                        "--prompt",
                         prompt,
                         "--model_id",
                         self._base_model_path,
@@ -600,6 +662,7 @@ class HYWorldPlayModel(WorldModel):
                     self._code_path,
                     env,
                     os.path.join(output_dir, "runner.log"),
+                    request_id=request_id,
                 )
                 videos = list(Path(output_dir).glob("*.mp4"))
                 if len(videos) != 1:
@@ -706,7 +769,9 @@ class AstraModel(WorldModel):
         if int(config["max_history_frames"]) < 2:
             raise ValueError("Astra max_history_frames must be at least 2")
 
-        response_format = str(config.pop("response_format", "url"))
+        response_format = self._validate_response_format(
+            config.pop("response_format", "url")
+        )
         with tempfile.TemporaryDirectory(prefix="xinference-world-") as output_dir:
             with _materialize_reference(image, ".png") as image_path:
                 output_path = os.path.join(output_dir, "world.mp4")
@@ -800,6 +865,7 @@ class AstraModel(WorldModel):
                     env,
                     os.path.join(output_dir, "runner.log"),
                     progress_callback=update_progress,
+                    request_id=request_id,
                 )
                 if not os.path.isfile(output_path):
                     raise RuntimeError("Astra runner did not produce a video")

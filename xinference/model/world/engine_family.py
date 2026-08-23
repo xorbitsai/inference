@@ -47,6 +47,12 @@ class WorldEngineModel:
                 return False, f"Library '{lib}' is not installed"
         return True
 
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        """Check non-installable host requirements for this engine."""
+
+        return True
+
 
 # {world model name -> {engine name -> engine params}}
 WORLD_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
@@ -95,7 +101,16 @@ def check_engine_by_model_name_and_engine(
         )
     for param in WORLD_ENGINES[model_name][model_engine]:
         if param["model_name"] == model_name:
-            return param["world_class"]
+            model_class = param["world_class"]
+            host_result = model_class.check_host()
+            if host_result is not True:
+                reason = (
+                    host_result[1]
+                    if isinstance(host_result, tuple)
+                    else f"Engine {model_engine} is incompatible with this host"
+                )
+                raise ValueError(reason)
+            return model_class
     raise ValueError(
         f"World model {model_name} cannot be run on engine {model_engine}."
     )
@@ -122,6 +137,14 @@ def check_engine_by_model_name_and_engine_with_virtual_env(
                 continue
             for engine_class in engine_classes:
                 if engine_class.is_model_family_supported(model_family):
+                    host_result = engine_class.check_host()
+                    if host_result is not True:
+                        reason = (
+                            host_result[1]
+                            if isinstance(host_result, tuple)
+                            else f"Engine {model_engine} is incompatible with this host"
+                        )
+                        raise ValueError(reason)
                     logger.warning(
                         "Bypassing engine dependency checks for %s due to "
                         "virtualenv marker.",

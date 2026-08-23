@@ -185,11 +185,25 @@ async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | '
   const { modelUid, model, values, requestId } = context;
   const media = mediaKey ? firstUpload(values, mediaKey) : undefined;
   const extraBody = parseJsonObject(values.model_kwargs);
+  const generationConfig = parseJsonObject(values.generation_config);
 
   if (model.model_family === 'Astra' || model.model_name === 'Astra') {
     const cameraMotion = Number(values.astra_camera_motion);
     if (Number.isInteger(cameraMotion) && cameraMotion >= 1 && cameraMotion <= 7) {
-      extraBody.cam_type = cameraMotion;
+      const kwargsCameraMotion = extraBody.cam_type;
+      const configCameraMotion = generationConfig.cam_type;
+      if (kwargsCameraMotion !== undefined && configCameraMotion !== undefined) {
+        throw new Error('Set Astra cam_type in only one advanced JSON field.');
+      }
+      const advancedCameraMotion = kwargsCameraMotion ?? configCameraMotion;
+      if (advancedCameraMotion !== undefined && Number(advancedCameraMotion) !== cameraMotion) {
+        throw new Error(
+          'Astra cam_type conflicts with the selected Camera motion. Use the selector as the source of truth.'
+        );
+      }
+      if (advancedCameraMotion === undefined) {
+        extraBody.cam_type = cameraMotion;
+      }
     }
   }
 
@@ -201,7 +215,7 @@ async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | '
     model: modelUid,
     prompt: stringValue(values.prompt),
     ...(media && mediaKey ? { [mediaKey]: await fileToDataUrl(media.file) } : {}),
-    generation_config: parseJsonObject(values.generation_config),
+    generation_config: generationConfig,
     extra_body: extraBody,
   };
 }

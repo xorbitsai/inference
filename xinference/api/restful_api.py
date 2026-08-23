@@ -3089,6 +3089,22 @@ class RESTfulAPI(CancelMixin):
                 status_code=400,
                 detail="Only one of image and video may be provided",
             )
+        for media_type, reference in (("image", body.image), ("video", body.video)):
+            if reference is None:
+                continue
+            header, separator, _ = reference.partition(",")
+            if (
+                not separator
+                or not header.startswith(f"data:{media_type}/")
+                or ";base64" not in header
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"World generation {media_type} must be a base64 data URL. "
+                        "Use the Xinference client to encode local files."
+                    ),
+                )
 
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -3110,10 +3126,21 @@ class RESTfulAPI(CancelMixin):
             )
             return Response(content=result, media_type="application/json")
         except asyncio.CancelledError:
+            if request_id:
+                try:
+                    await asyncio.shield(model_ref.abort_request(request_id))
+                except Exception:
+                    logger.exception(
+                        "Failed to stop cancelled world request %s", request_id
+                    )
             err_str = f"The request has been cancelled: {request_id or 'unknown'}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except ValueError as e:
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)

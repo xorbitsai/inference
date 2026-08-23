@@ -26,10 +26,7 @@ class PyTorchWorldEngineModel(WorldEngineModel):
     required_libs = ("torch",)
 
     @classmethod
-    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        dependency_check = super().check_lib()
-        if dependency_check is not True:
-            return dependency_check
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
         if not has_cuda_device():
             return False, "The PyTorch world engine requires an NVIDIA CUDA GPU"
         return True

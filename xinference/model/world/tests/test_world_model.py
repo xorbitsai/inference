@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import sys
 from pathlib import Path
 
 import pytest
@@ -44,6 +46,7 @@ def test_world_model_engine_registry(model_name, model_class, monkeypatch):
     assert resolve_world_model_engine(model_name, "pytorch") == "PyTorch"
     assert WORLD_ENGINES[model_name]["PyTorch"][0]["world_class"] is model_class
     monkeypatch.setattr(model_class, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(model_class, "check_host", classmethod(lambda cls: True))
     assert get_engine_params_by_name("world", model_name, False) == {
         "PyTorch": [
             {
@@ -91,6 +94,7 @@ def test_world_engine_can_be_prepared_in_virtualenv(
         "check_lib",
         classmethod(lambda cls: (False, "torch is not installed")),
     )
+    monkeypatch.setattr(model_class, "check_host", classmethod(lambda cls: True))
 
     engines = get_engine_params_by_name_with_virtual_env(
         "world",
@@ -116,7 +120,10 @@ def test_astra_does_not_install_unused_controlnet_runtime():
     )
 
 
-def test_generic_model_factory_preserves_world_engine_selection():
+def test_generic_model_factory_preserves_world_engine_selection(monkeypatch):
+    monkeypatch.setattr(
+        PyTorchMatrixGameModel, "check_host", classmethod(lambda cls: True)
+    )
     model = create_model_instance(
         "world-uid",
         "world",
@@ -127,6 +134,29 @@ def test_generic_model_factory_preserves_world_engine_selection():
     )
     assert isinstance(model, PyTorchMatrixGameModel)
     assert model.model_family.model_engine == "PyTorch"
+
+
+def test_world_engine_rejects_cpu_only_host_before_virtualenv(monkeypatch):
+    reason = "The PyTorch world engine requires an NVIDIA CUDA GPU"
+    monkeypatch.setattr(
+        PyTorchMatrixGameModel,
+        "check_host",
+        classmethod(lambda cls: (False, reason)),
+    )
+
+    engines = get_engine_params_by_name_with_virtual_env(
+        "world", "Matrix-Game-3.0-5B", enable_virtual_env=True
+    )
+
+    assert engines["PyTorch"] == reason
+    with pytest.raises(ValueError, match="requires an NVIDIA CUDA GPU"):
+        create_world_model_instance(
+            "world-uid",
+            "Matrix-Game-3.0-5B",
+            model_path="/unused/model/path",
+            model_engine="PyTorch",
+            enable_virtual_env=True,
+        )
 
 
 @pytest.mark.parametrize(
@@ -157,23 +187,35 @@ def test_matrix_game_generation_builds_official_runner_command(tmp_path, monkeyp
     monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
     captured = {}
 
-    def fake_run(command, cwd, env, log_path):
-        captured.update(command=command, cwd=cwd, env=env, log_path=log_path)
+    def fake_run(command, cwd, env, log_path, request_id=None):
+        captured.update(
+            command=command,
+            cwd=cwd,
+            env=env,
+            log_path=log_path,
+            request_id=request_id,
+        )
         output_dir = command[command.index("--output_dir") + 1]
         Path(output_dir, "world.mp4").write_bytes(b"video")
 
     monkeypatch.setattr(model, "_run_command", fake_run)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 2)
     result = model.world_generate(
         "move forward",
         image=str(image_path),
         generation_config={"num_frames": 97},
         model_kwargs={"sample_shift": 4.0},
+        request_id="matrix-request",
     )
 
     command = captured["command"]
     assert command[command.index("--num_iterations") + 1] == "2"
     assert command[command.index("--sample_shift") + 1] == "4.0"
     assert command[command.index("--prompt") + 1] == "move forward"
+    assert command[command.index("--ulysses_size") + 1] == "2"
+    assert "--dit_fsdp" in command
+    assert "--t5_fsdp" in command
+    assert captured["request_id"] == "matrix-request"
     assert result["data"][0]["url"] is not None
     assert Path(result["data"][0]["url"]).read_bytes() == b"video"
 
@@ -189,21 +231,32 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
     captured = {}
 
-    def fake_run(command, cwd, env, log_path):
-        captured.update(command=command, cwd=cwd, env=env, log_path=log_path)
+    def fake_run(command, cwd, env, log_path, request_id=None):
+        captured.update(
+            command=command,
+            cwd=cwd,
+            env=env,
+            log_path=log_path,
+            request_id=request_id,
+        )
         output_dir = command[command.index("--out") + 1]
         Path(output_dir, "generated.mp4").write_bytes(b"worldplay")
 
     monkeypatch.setattr(model, "_run_command", fake_run)
     result = model.world_generate(
-        "explore the city",
+        "README.md@example.com",
         model_kwargs={"pose": "d-8", "num_chunk": 2},
+        request_id="worldplay-request",
     )
 
     command = captured["command"]
+    assert any(part.endswith("hy_worldplay_runner.py") for part in command)
+    assert "--input" not in command
+    assert command[command.index("--prompt") + 1] == "README.md@example.com"
     assert command[command.index("--pose") + 1] == "d-8"
     assert command[command.index("--num_chunk") + 1] == "2"
     assert command[command.index("--model_id") + 1] == "/weights/wan"
+    assert captured["request_id"] == "worldplay-request"
     assert result["data"][0]["url"] is not None
     assert Path(result["data"][0]["url"]).read_bytes() == b"worldplay"
 
@@ -233,8 +286,14 @@ def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch
         def set_progress(self, progress, info=None):
             progress_updates.append((progress, info))
 
-    def fake_run(command, cwd, env, log_path, progress_callback=None):
-        captured.update(command=command, cwd=cwd, env=env, log_path=log_path)
+    def fake_run(command, cwd, env, log_path, progress_callback=None, request_id=None):
+        captured.update(
+            command=command,
+            cwd=cwd,
+            env=env,
+            log_path=log_path,
+            request_id=request_id,
+        )
         assert progress_callback is not None
         for line in (
             "Starting MoE FramePack sliding window generation...\n",
@@ -256,6 +315,7 @@ def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch
         image=str(image_path),
         generation_config={"total_frames_to_generate": 16},
         model_kwargs={"cam_type": 4, "add_icons": True},
+        request_id="astra-request",
         progressor=FakeProgressor(),
     )
 
@@ -267,6 +327,7 @@ def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch
     assert command[command.index("--wan_model_path") + 1] == "/weights/wan-1.3b"
     assert command[command.index("--dit_path") + 1] == str(checkpoint)
     assert "--add_icons" in command
+    assert captured["request_id"] == "astra-request"
     assert Path(result["data"][0]["url"]).read_bytes() == b"astra"
     assert progress_updates[0] == (0.01, "Starting Astra runner")
     assert (0.92, "Decoding video") in progress_updates
@@ -381,3 +442,68 @@ def test_generation_config_and_model_kwargs_must_not_overlap():
             generation_config={"seed": 1},
             model_kwargs={"seed": 2},
         )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_class", "needs_image"),
+    [
+        ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel, True),
+        ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel, False),
+        ("Astra", PyTorchAstraModel, True),
+    ],
+)
+def test_invalid_response_format_is_rejected_before_runner(
+    model_name, model_class, needs_image, monkeypatch
+):
+    model_spec = BUILTIN_WORLD_MODELS[model_name][0]
+    model = model_class("world", "/weights/world", model_spec)
+    model._code_path = "/unused/code/path"
+    if isinstance(model, (PyTorchHYWorldPlayModel, PyTorchAstraModel)):
+        model._base_model_path = "/weights/wan"
+    monkeypatch.setattr(
+        model,
+        "_run_command",
+        lambda *args, **kwargs: pytest.fail("runner must not be called"),
+    )
+
+    with pytest.raises(ValueError, match="Unsupported response_format"):
+        model.world_generate(
+            "move forward",
+            image="unused" if needs_image else None,
+            generation_config={"response_format": "base64"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_world_runner_is_terminated_on_abort(tmp_path):
+    from ...scheduler.core import AbortRequestMessage
+
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    run_task = asyncio.create_task(
+        asyncio.to_thread(
+            model._run_command,
+            [
+                sys.executable,
+                "-c",
+                "import time; print('ready', flush=True); time.sleep(60)",
+            ],
+            str(tmp_path),
+            {},
+            str(tmp_path / "runner.log"),
+            request_id="abort-me",
+        )
+    )
+    for _ in range(100):
+        with model._process_lock:
+            if "abort-me" in model._running_processes:
+                break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("runner process was not registered")
+
+    assert await model.abort_request("abort-me") == AbortRequestMessage.DONE.name
+    with pytest.raises(RuntimeError, match="runner exited with code"):
+        await asyncio.wait_for(run_task, timeout=5)
+    with model._process_lock:
+        assert "abort-me" not in model._running_processes

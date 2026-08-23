@@ -831,6 +831,7 @@ class AsyncRESTfulWorldModelHandle(AsyncRESTfulModelHandle):
             f"{self._base_url}/v1/worlds/generations",
             json=request_body,
             headers=self.auth_headers,
+            timeout=self.timeout,
         )
         if response.status != 200:
             raise RuntimeError(
