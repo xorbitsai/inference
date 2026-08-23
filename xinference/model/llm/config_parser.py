@@ -1,6 +1,5 @@
 import json
 import os
-import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
@@ -188,9 +187,7 @@ def _extract_numeric_size(value: Any) -> Optional[float]:
     return None
 
 
-def _infer_model_size_in_billions(
-    config: Dict[str, Any], allow_architecture_estimate: bool = True
-) -> Optional[Union[int, str]]:
+def _infer_model_size_in_billions(config: Dict[str, Any]) -> Optional[Union[int, str]]:
     size_value = _get_first_value(
         config,
         "model_size_in_billions",
@@ -216,9 +213,6 @@ def _infer_model_size_in_billions(
             return _format_size_in_billions(param_value / 1e9)
         if param_value > 0:
             return _format_size_in_billions(param_value)
-
-    if not allow_architecture_estimate:
-        return None
 
     hidden_size = _get_first_value(config, "hidden_size", "d_model", "n_embd")
     num_layers = _get_first_value(config, "num_hidden_layers", "num_layers", "n_layer")
@@ -254,33 +248,6 @@ def _infer_model_size_in_billions(
     if calculated_size_in_billions <= 0:
         return None
     return _format_size_in_billions(calculated_size_in_billions)
-
-
-def _infer_model_size_from_path(model_path: str) -> Optional[Union[int, str]]:
-    """Infer model size from nearby path components such as 0_8b or 7B."""
-    path = os.path.abspath(model_path)
-    for _ in range(4):
-        basename = os.path.basename(path).lower()
-        if not basename:
-            break
-        if basename not in {"snapshots", "refs"} and not re.fullmatch(
-            r"[0-9a-f]{40}|[0-9a-f]{64}", basename
-        ):
-            matches = re.findall(
-                r"(?<![a-z0-9.])(a?)(\d+(?:[._]+\d+)?)b(?=$|[^a-z0-9.])",
-                basename,
-            )
-            if matches:
-                # Prefer a total-size token over an activated-size token like
-                # A3B, but accept the latter when it is the only size present.
-                total_sizes = [size for prefix, size in matches if not prefix]
-                size_text = total_sizes[-1] if total_sizes else matches[-1][1]
-                size_text = re.sub(r"[._]+", ".", size_text)
-                size_in_billions = _extract_numeric_size(size_text)
-                if size_in_billions:
-                    return _format_size_in_billions(size_in_billions)
-        path = os.path.dirname(path)
-    return None
 
 
 def _infer_quantization(config: Dict[str, Any], model_format: str) -> str:
@@ -364,15 +331,7 @@ def build_llm_registration_from_local_config(
                     model_ability.append("reasoning")
 
     context_length = _infer_context_length(inference_config)
-    model_size_in_billions = _infer_model_size_in_billions(
-        inference_config, allow_architecture_estimate=False
-    )
-    if model_size_in_billions is None:
-        model_size_in_billions = _infer_model_size_from_path(model_path)
-    if model_size_in_billions is None:
-        model_size_in_billions = _infer_model_size_from_path(model_dir)
-    if model_size_in_billions is None:
-        model_size_in_billions = _infer_model_size_in_billions(inference_config)
+    model_size_in_billions = _infer_model_size_in_billions(inference_config)
     if model_size_in_billions is None:
         raise ValueError("Unable to infer model_size_in_billions from config.json.")
 

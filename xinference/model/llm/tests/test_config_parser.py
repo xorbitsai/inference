@@ -3,7 +3,6 @@ import json
 import pytest
 
 from xinference.model.llm.config_parser import (
-    _infer_model_size_from_path,
     _resolve_config_and_dir,
     build_llm_registration_from_local_config,
 )
@@ -25,6 +24,7 @@ def test_auto_register_huggingface_cache_root(tmp_path, ref_name):
             "architectures": ["Qwen2ForCausalLM"],
             "text_config": {
                 "hidden_size": 3584,
+                "model_size_in_billions": 7,
                 "num_hidden_layers": 28,
                 "max_position_embeddings": 131072,
             },
@@ -48,14 +48,15 @@ def test_auto_register_huggingface_cache_root(tmp_path, ref_name):
     ]
 
 
-def test_auto_register_uses_cache_name_before_architecture_estimate(tmp_path):
-    model_dir = tmp_path / "qwen3_5-pytorch-0_8b-none"
+def test_auto_register_uses_config_before_architecture_estimate(tmp_path):
+    model_dir = tmp_path / "custom-qwen"
     _write_config(
         model_dir,
         {
             "max_position_embeddings": 4096,
             "text_config": {
                 "hidden_size": 2048,
+                "model_size_in_billions": 0.8,
                 "num_hidden_layers": 24,
                 "max_position_embeddings": 262144,
             },
@@ -68,40 +69,27 @@ def test_auto_register_uses_cache_name_before_architecture_estimate(tmp_path):
     assert result["model_specs"][0]["model_size_in_billions"] == "0_8"
 
 
-def test_auto_register_infers_size_from_snapshot_parent(tmp_path):
-    snapshot_dir = (
-        tmp_path
-        / "models--deepseek-ai--DeepSeek-R1-Distill-Qwen-7B"
-        / "snapshots"
-        / "916b56a44061fd5cd7d6a8fb632557ed4f724f60"
-    )
+@pytest.mark.parametrize(
+    "model_dir_name",
+    [
+        "ERNIE-4.5-300B-47B-PT-4bit",
+        "TinyLlama-1.1B-step-50K-105b-GGUF",
+    ],
+)
+def test_auto_register_does_not_infer_size_from_path(tmp_path, model_dir_name):
+    model_dir = tmp_path / model_dir_name
     _write_config(
-        snapshot_dir,
+        model_dir,
         {
-            "hidden_size": 3584,
-            "num_hidden_layers": 28,
-            "max_position_embeddings": 131072,
+            "hidden_size": 4096,
+            "num_hidden_layers": 32,
+            "num_parameters_in_billions": 6.6,
         },
     )
 
-    result = build_llm_registration_from_local_config(
-        str(snapshot_dir), "deepseek-r1-distill-qwen"
-    )
+    result = build_llm_registration_from_local_config(str(model_dir), "custom")
 
-    assert result["model_specs"][0]["model_size_in_billions"] == "7"
-
-
-@pytest.mark.parametrize(
-    ("model_path", "expected_size"),
-    [
-        ("Qwen1.5-MoE-A2.7B-Chat", "2_7"),
-        ("qwen1.5_7b_chat", 7),
-        ("Qwen3-30B-A3B", 30),
-        ("Qwen1.5-Chat", None),
-    ],
-)
-def test_infer_model_size_respects_token_boundaries(model_path, expected_size):
-    assert _infer_model_size_from_path(model_path) == expected_size
+    assert result["model_specs"][0]["model_size_in_billions"] == "6_6"
 
 
 def test_huggingface_cache_root_requires_unambiguous_snapshot(tmp_path):
