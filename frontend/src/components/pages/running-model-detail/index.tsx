@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FC, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Info, WandSparkles, Code } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -18,27 +18,36 @@ import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import { TryApiDrawer } from './components/try-api-drawer';
-import { getPrimaryModelAbilities, transformRunningModelDetail } from './utils';
+import { RouterStatusBadge } from '@/components/pages/token-router/router-status-badge';
+import { getPrimaryModelAbilities, isTokenRouterModel, transformRunningModelDetail } from './utils';
 
 interface RunningModelDetailProps {
   modelUid: string;
 }
 
-function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
+function DetailItem({ label, value }: { label: string; value?: ReactNode }) {
+  const content = value === undefined || value === null || value === '' ? '-' : value;
   return (
     <div className="min-w-0 rounded-2xl bg-muted/40 px-4 py-3">
       <div className="text-xs font-medium tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 truncate text-sm font-medium text-foreground">{value || '-'}</div>
+      <div className="mt-1 truncate text-sm font-medium text-foreground">{content}</div>
     </div>
   );
 }
 
 function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; modelUid: string }) {
+  const tokenRouterModel = isTokenRouterModel(model);
+  const deployment = model.deployment;
+
   return (
     <CollapsiblePanel
       defaultOpen={false}
-      title="Model Details"
-      description="Runtime metadata is collapsed by default so the capability workspace stays in focus."
+      title={tokenRouterModel ? 'Token Router Details' : 'Model Details'}
+      description={
+        tokenRouterModel
+          ? 'This virtual model routes chat requests to eligible physical model backends.'
+          : 'Runtime metadata is collapsed by default so the capability workspace stays in focus.'
+      }
       icon={<Info className="size-5 text-primary" />}
       className="rounded-xl"
       contentClassName="p-5"
@@ -47,13 +56,39 @@ function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; mode
         <DetailItem label="Model UID" value={modelUid} />
         <DetailItem label="Model Name" value={model.model_name} />
         <DetailItem label="Model Type" value={model.model_type} />
-        <DetailItem label="Model Engine" value={model.model_hub} />
-        <DetailItem label="Model Format" value={model.model_format} />
-        <DetailItem label="Model Size" value={model.model_size_in_billions} />
-        <DetailItem label="Quantization" value={model.quantization} />
-        <DetailItem label="Context" value={model.context_length} />
-        <DetailItem label="Replica" value={model.replica} />
-        <DetailItem label="Address" value={model.address} />
+        <DetailItem label="Model Engine" value={model.model_engine || model.model_hub} />
+        {tokenRouterModel ? (
+          <>
+            <DetailItem label="Model Kind" value="Virtual" />
+            <DetailItem label="Virtual Model Type" value={model.virtual_model_type} />
+            <DetailItem label="Model Ability" value={model.model_ability.join(', ')} />
+            <DetailItem label="Router UID" value={model.router_uid} />
+            <DetailItem
+              label="Router Status"
+              value={
+                model.router_status ? <RouterStatusBadge status={model.router_status} /> : undefined
+              }
+            />
+            <DetailItem label="Route Profile" value={model.route_profile} />
+            <DetailItem label="Management Mode" value={deployment?.management_mode} />
+            <DetailItem label="Backend Count" value={model.backend_count} />
+            <DetailItem label="Runtime Instances" value={model.runtime_instances} />
+            <DetailItem label="Online Instances" value={model.online_instances} />
+            <DetailItem label="Ready Instances" value={model.ready_instances} />
+            <DetailItem label="Desired Replicas" value={deployment?.desired_replicas} />
+            <DetailItem label="Ready Replicas" value={deployment?.ready_replicas} />
+            <DetailItem label="Pending Replicas" value={deployment?.pending_replicas} />
+          </>
+        ) : (
+          <>
+            <DetailItem label="Model Format" value={model.model_format} />
+            <DetailItem label="Model Size" value={model.model_size_in_billions} />
+            <DetailItem label="Quantization" value={model.quantization} />
+            <DetailItem label="Context" value={model.context_length} />
+            <DetailItem label="Replica" value={model.replica} />
+            <DetailItem label="Address" value={model.address} />
+          </>
+        )}
       </div>
       {!!model.model_description && (
         <div className="mt-4 rounded-2xl bg-muted/40 px-4 py-3 text-sm leading-6 text-muted-foreground">
@@ -78,6 +113,9 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const [model, setModel] = useState<RunningModelDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const isChat = (model?.model_ability || []).includes(ModelAbility.Chat);
+  const tokenRouterModel = isTokenRouterModel(model);
+  const routerCanServe =
+    !tokenRouterModel || ['ready', 'degraded'].includes(model?.router_status || '');
   const [selectAbility, setSelectAbility] = useState<ModelAbility | undefined>(undefined);
   const [tryApiOpen, setTryApiOpen] = useState(false);
   const capabilityTaskPanelRef = useRef<CapabilityTaskPanelMethod>(null);
@@ -183,6 +221,13 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
       {model && (
         <div className="space-y-5">
           <ModelDetails model={model} modelUid={modelUid} />
+          {!routerCanServe && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+              {t('runningModels.routerRequestUnavailable', {
+                status: model.router_status || 'unavailable',
+              })}
+            </div>
+          )}
           {renderCapability()}
         </div>
       )}

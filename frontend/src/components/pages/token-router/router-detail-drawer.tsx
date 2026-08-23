@@ -31,7 +31,14 @@ import type {
   TokenRouterRuntimeInstance,
 } from '@/types/services';
 import { isTypedTokenRouter } from '@/types/services';
-import { routerBackendList, routerRuleList } from './router-config-normalizer';
+import {
+  normalizeTokenRouterAssignments,
+  normalizeTokenRouterItem,
+  normalizeTokenRouterRuntimeInstances,
+  normalizeTokenizerAsset,
+  routerBackendList,
+  routerRuleList,
+} from './router-config-normalizer';
 import { RouterStatusBadge } from './router-status-badge';
 
 interface Props {
@@ -62,8 +69,9 @@ interface MetricsSummary {
 
 const POLL_INTERVAL_MS = 10000;
 
-export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
+export function RouterDetailDrawer({ router: routerProp, open, onOpenChange }: Props) {
   const { locale, t } = useI18n();
+  const router = useMemo(() => normalizeTokenRouterItem(routerProp), [routerProp]);
   const routerUid = router?.router_uid;
   const tokenizerAssetId = router?.tokenizer_asset_id;
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
@@ -73,6 +81,9 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
   const [tokenizerAsset, setTokenizerAsset] = useState<TokenizerAssetItem | null>(null);
   const [tokenizerAssetLoading, setTokenizerAssetLoading] = useState(false);
   const [tokenizerAssetLoadFailed, setTokenizerAssetLoadFailed] = useState(false);
+  const [instancesLoadFailed, setInstancesLoadFailed] = useState(false);
+  const [assignmentsLoadFailed, setAssignmentsLoadFailed] = useState(false);
+  const [metricsLoadFailed, setMetricsLoadFailed] = useState(false);
   const [instancesInitialLoading, setInstancesInitialLoading] = useState(false);
   const [instancesRefreshing, setInstancesRefreshing] = useState(false);
   const [metricsInitialLoading, setMetricsInitialLoading] = useState(false);
@@ -105,18 +116,28 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
       if (mode === 'manual') setInstancesRefreshing(true);
 
       try {
-        const [runtimeData, assignmentData] = await Promise.all([
+        const [runtimeResult, assignmentResult] = await Promise.allSettled([
           request.get<TokenRouterRuntimeInstance[]>(`/v1/token_routers/${routerUid}/instances`),
           request.get<TokenRouterAssignment[]>(`/v1/token_routers/${routerUid}/assignments`),
         ]);
         if (!isCurrentRequest(generation, routerUid)) return;
 
-        setInstances(Array.isArray(runtimeData) ? runtimeData : []);
-        setAssignments(Array.isArray(assignmentData) ? assignmentData : []);
-        setInstancesLoaded(true);
-        setInstancesUpdatedAt(new Date());
-      } catch {
-        // The shared request interceptor displays the request error. Keep the last successful data.
+        if (runtimeResult.status === 'fulfilled') {
+          setInstances(normalizeTokenRouterRuntimeInstances(runtimeResult.value));
+          setInstancesLoaded(true);
+          setInstancesLoadFailed(false);
+        } else {
+          setInstancesLoadFailed(true);
+        }
+        if (assignmentResult.status === 'fulfilled') {
+          setAssignments(normalizeTokenRouterAssignments(assignmentResult.value));
+          setAssignmentsLoadFailed(false);
+        } else {
+          setAssignmentsLoadFailed(true);
+        }
+        if (runtimeResult.status === 'fulfilled' || assignmentResult.status === 'fulfilled') {
+          setInstancesUpdatedAt(new Date());
+        }
       } finally {
         if (instancesRequestRef.current === requestKey) {
           instancesRequestRef.current = null;
@@ -150,8 +171,10 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
 
         setMetrics(isRecord(metricData) ? metricData : {});
         setMetricsLoaded(true);
+        setMetricsLoadFailed(false);
         setMetricsUpdatedAt(new Date());
       } catch {
+        setMetricsLoadFailed(true);
         // The shared request interceptor displays the request error. Keep the last successful data.
       } finally {
         if (metricsRequestRef.current === requestKey) {
@@ -177,7 +200,7 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
         `/v1/tokenizer_assets/${encodeURIComponent(tokenizerAssetId)}`
       );
       if (!isCurrentRequest(generation, routerUid)) return;
-      setTokenizerAsset(asset);
+      setTokenizerAsset(normalizeTokenizerAsset(asset));
     } catch {
       if (!isCurrentRequest(generation, routerUid)) return;
       setTokenizerAssetLoadFailed(true);
@@ -199,6 +222,9 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
     setTokenizerAsset(null);
     setTokenizerAssetLoading(false);
     setTokenizerAssetLoadFailed(false);
+    setInstancesLoadFailed(false);
+    setAssignmentsLoadFailed(false);
+    setMetricsLoadFailed(false);
     setInstancesInitialLoading(false);
     setInstancesRefreshing(false);
     setMetricsInitialLoading(false);
@@ -765,7 +791,18 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
                 notUpdatedLabel={t('tokenRouter.notUpdated')}
               />
 
-              {(router?.deployment.management_mode === 'managed' || assignments.length > 0) && (
+              {instancesLoadFailed && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {t('tokenRouter.runtimeDetailsLoadFailed')}
+                </div>
+              )}
+              {assignmentsLoadFailed && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {t('tokenRouter.assignmentDetailsLoadFailed')}
+                </div>
+              )}
+
+              {(router?.deployment?.management_mode === 'managed' || assignments.length > 0) && (
                 <section className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold">{t('tokenRouter.assignments')}</h3>
@@ -778,7 +815,7 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
                       {t('tokenRouter.noAssignments')}
                     </div>
                   ) : (
-                    <div className="grid gap-3 xl:grid-cols-2">
+                    <div className="grid gap-3">
                       {assignments.map((assignment) => (
                         <article
                           key={assignment.assignment_id}
@@ -843,102 +880,125 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
                 </section>
               )}
 
-              {instancesInitialLoading && !instancesLoaded ? (
-                <LoadingState label={t('tokenRouter.loading')} />
-              ) : instances.length === 0 ? (
-                <EmptyState icon={<Server className="size-6 opacity-50" />}>
-                  {t('tokenRouter.noInstances')}
-                </EmptyState>
-              ) : (
-                <div className="grid gap-3 xl:grid-cols-2">
-                  {instances.map((item) => (
-                    <article
-                      key={item.instance_id}
-                      className="min-w-0 rounded-xl border p-4 text-sm"
-                    >
-                      <div className="flex min-w-0 items-start gap-3">
-                        <RouterStatusBadge
-                          status={item.online ? item.status || 'ready' : 'offline'}
-                        />
-                        <CopyableValue
-                          value={item.instance_id}
-                          label={t('tokenRouter.instanceId')}
-                          copyLabel={t('tokenRouter.copyValue')}
-                          onCopy={copyValue}
-                          className="font-mono text-xs font-medium"
-                        />
-                      </div>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold">{t('tokenRouter.runtimeInstances')}</h3>
+                  <span className="text-xs text-muted-foreground">
+                    {t('tokenRouter.runtimeInstanceCount')}: {displayedInstanceCount}
+                  </span>
+                </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-muted/30 p-3">
-                        <DetailItem
-                          label={t('tokenRouter.ackedRevision')}
-                          value={item.acked_revision}
-                        />
-                        <DetailItem
-                          label={t('tokenRouter.heartbeatAgeLabel')}
-                          value={t('tokenRouter.secondsValue', {
-                            seconds: item.heartbeat_age_seconds.toFixed(1),
-                          })}
-                        />
-                      </div>
-
-                      <div className="mt-4">
-                        <CopyableValue
-                          value={item.endpoint}
-                          label={t('tokenRouter.endpoint')}
-                          copyLabel={t('tokenRouter.copyValue')}
-                          onCopy={copyValue}
-                          className="font-mono text-xs text-muted-foreground"
-                        />
-                      </div>
-
-                      {item.process?.tokenizer_asset && (
-                        <div className="mt-4 rounded-lg border bg-muted/20 p-3">
-                          <div className="mb-3 text-xs font-medium text-muted-foreground">
-                            {t('tokenRouter.runtimeTokenizerAsset')}
-                          </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
+                {instancesInitialLoading && !instancesLoaded ? (
+                  <LoadingState label={t('tokenRouter.loading')} />
+                ) : instances.length === 0 ? (
+                  <EmptyState icon={<Server className="size-6 opacity-50" />}>
+                    {t('tokenRouter.noInstances')}
+                  </EmptyState>
+                ) : (
+                  <div className="grid gap-3">
+                    {instances.map((item) => (
+                      <article
+                        key={item.instance_id}
+                        className="min-w-0 rounded-xl border p-4 text-sm"
+                      >
+                        <div className="flex min-w-0 items-start gap-3">
+                          <RouterStatusBadge
+                            status={item.online ? item.status || 'ready' : 'offline'}
+                          />
+                          <div className="min-w-0 flex-1">
                             <DetailItem
-                              label={t('tokenRouter.tokenizerAsset')}
-                              value={item.process.tokenizer_asset.asset_id || '—'}
+                              label={t('tokenRouter.nodeAddress')}
+                              value={item.node_address || item.node_id || '—'}
                               mono
                             />
-                            <DetailItem
-                              label={t('tokenRouter.tokenizerAssetOrigin')}
-                              value={
-                                item.process.tokenizer_asset.origin
-                                  ? t(
-                                      `tokenRouter.assetOrigins.${item.process.tokenizer_asset.origin}`
-                                    )
-                                  : '—'
-                              }
-                            />
-                            <DetailItem
-                              label={t('tokenRouter.revision')}
-                              value={item.process.tokenizer_asset.revision || '—'}
-                              mono
-                            />
-                            <div className="sm:col-span-2">
-                              <DetailItem
-                                label={t('tokenRouter.tokenizerAssetFingerprint')}
-                                value={item.process.tokenizer_asset.fingerprint || '—'}
-                                mono
+                            <div className="mt-2">
+                              <CopyableValue
+                                value={item.instance_id}
+                                label={t('tokenRouter.instanceId')}
+                                copyLabel={t('tokenRouter.copyValue')}
+                                onCopy={copyValue}
+                                className="font-mono text-xs font-medium"
                               />
                             </div>
                           </div>
                         </div>
-                      )}
 
-                      {item.config_error && (
-                        <div className="mt-4 whitespace-pre-wrap break-words rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-                          <div className="mb-1 font-medium">{t('tokenRouter.configError')}</div>
-                          {item.config_error}
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-lg bg-muted/30 p-3">
+                          <DetailItem
+                            label={t('tokenRouter.nodeId')}
+                            value={item.node_id || '—'}
+                            mono
+                          />
+                          <DetailItem
+                            label={t('tokenRouter.ackedRevision')}
+                            value={item.acked_revision}
+                          />
+                          <DetailItem
+                            label={t('tokenRouter.heartbeatAgeLabel')}
+                            value={t('tokenRouter.secondsValue', {
+                              seconds: item.heartbeat_age_seconds.toFixed(1),
+                            })}
+                          />
                         </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
+
+                        <div className="mt-4">
+                          <CopyableValue
+                            value={item.endpoint}
+                            label={t('tokenRouter.endpoint')}
+                            copyLabel={t('tokenRouter.copyValue')}
+                            onCopy={copyValue}
+                            className="font-mono text-xs text-muted-foreground"
+                          />
+                        </div>
+
+                        {item.process?.tokenizer_asset && (
+                          <div className="mt-4 rounded-lg border bg-muted/20 p-3">
+                            <div className="mb-3 text-xs font-medium text-muted-foreground">
+                              {t('tokenRouter.runtimeTokenizerAsset')}
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <DetailItem
+                                label={t('tokenRouter.tokenizerAsset')}
+                                value={item.process.tokenizer_asset.asset_id || '—'}
+                                mono
+                              />
+                              <DetailItem
+                                label={t('tokenRouter.tokenizerAssetOrigin')}
+                                value={
+                                  item.process.tokenizer_asset.origin
+                                    ? t(
+                                        `tokenRouter.assetOrigins.${item.process.tokenizer_asset.origin}`
+                                      )
+                                    : '—'
+                                }
+                              />
+                              <DetailItem
+                                label={t('tokenRouter.revision')}
+                                value={item.process.tokenizer_asset.revision || '—'}
+                                mono
+                              />
+                              <div className="sm:col-span-2">
+                                <DetailItem
+                                  label={t('tokenRouter.tokenizerAssetFingerprint')}
+                                  value={item.process.tokenizer_asset.fingerprint || '—'}
+                                  mono
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {item.config_error && (
+                          <div className="mt-4 whitespace-pre-wrap break-words rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                            <div className="mb-1 font-medium">{t('tokenRouter.configError')}</div>
+                            {item.config_error}
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           </TabsContent>
 
@@ -951,6 +1011,12 @@ export function RouterDetailDrawer({ router, open, onOpenChange }: Props) {
                 lastUpdatedLabel={t('tokenRouter.lastUpdated')}
                 notUpdatedLabel={t('tokenRouter.notUpdated')}
               />
+
+              {metricsLoadFailed && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                  {t('tokenRouter.runtimeDetailsLoadFailed')}
+                </div>
+              )}
 
               {metricsInitialLoading && !metricsLoaded ? (
                 <LoadingState label={t('tokenRouter.loading')} />

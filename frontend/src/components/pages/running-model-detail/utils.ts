@@ -185,15 +185,24 @@ export function transformFileInfoForResult(message?: ChatChoicesMessage) {
   return undefined;
 }
 
+export function isTokenRouterModel(model: unknown): boolean {
+  if (!isRecord(model)) return false;
+  return (
+    model.model_kind === 'virtual' ||
+    model.virtual_model_type === 'token_router' ||
+    model.model_engine === 'token_router'
+  );
+}
+
 export function transformRunningModelDetail<T extends object>(detail: T) {
   if (!isRecord(detail) || !detail) return {};
   const modelType = typeof detail.model_type === 'string' ? detail.model_type : undefined;
-
+  const fallbackAbilities = isTokenRouterModel(detail)
+    ? [ModelAbility.Chat]
+    : (modelType && MODEL_TYPE_ABILITY_MAP[modelType]) || [];
   return {
     ...detail,
-    // fix model_ability was not returned when model_type was Rerank or Embedding.
-    model_ability: Array.isArray(detail.model_ability)
-      ? detail.model_ability
-      : (modelType && MODEL_TYPE_ABILITY_MAP[modelType]) || [],
+    // Older backends may omit abilities for capability-specific or virtual models.
+    model_ability: Array.isArray(detail.model_ability) ? detail.model_ability : fallbackAbilities,
   };
 }

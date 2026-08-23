@@ -1,5 +1,6 @@
 'use client';
 
+import axios from 'axios';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
@@ -77,6 +78,102 @@ type FormState = {
   auto_failover: 'enabled' | 'disabled';
   drain_timeout_seconds: number;
 };
+
+type AdvancedConfigValidationError = {
+  key: string;
+  vars?: Record<string, string | number>;
+};
+
+const ROUTER_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+
+function validateAdvancedConfig(draft: TypedRouterDraft): AdvancedConfigValidationError | null {
+  if (draft.backends.length < 1 || draft.backends.length > 16) {
+    return { key: 'tokenRouter.validation.advancedBackendCount' };
+  }
+  if (draft.rules.length < 1 || draft.rules.length > 64) {
+    return { key: 'tokenRouter.validation.advancedRuleCount' };
+  }
+
+  const backendIds = draft.backends.map((backend) => backend.id.trim());
+  for (const [index, backend] of draft.backends.entries()) {
+    const backendName = backend.id.trim() || `#${index + 1}`;
+    if (!ROUTER_ID_PATTERN.test(backend.id.trim())) {
+      return {
+        key: 'tokenRouter.validation.invalidBackendId',
+        vars: { backend: backendName },
+      };
+    }
+    if (!backend.model_uid.trim()) {
+      return {
+        key: 'tokenRouter.validation.missingBackendModel',
+        vars: { backend: backendName },
+      };
+    }
+    if (
+      backend.max_context_tokens < 1 ||
+      backend.admission.max_active < 1 ||
+      backend.admission.max_queue < 0
+    ) {
+      return {
+        key: 'tokenRouter.validation.invalidBackendLimits',
+        vars: { backend: backendName },
+      };
+    }
+  }
+  if (new Set(backendIds).size !== backendIds.length) {
+    return { key: 'tokenRouter.validation.duplicateBackendIds' };
+  }
+
+  const ruleIds = draft.rules.map((rule) => rule.id.trim());
+  const priorities = draft.rules.map((rule) => rule.priority);
+  for (const [index, rule] of draft.rules.entries()) {
+    const ruleName = rule.id.trim() || `#${index + 1}`;
+    if (!ROUTER_ID_PATTERN.test(rule.id.trim())) {
+      return { key: 'tokenRouter.validation.invalidRuleId', vars: { rule: ruleName } };
+    }
+    if (rule.priority < 1 || rule.priority > 10000) {
+      return {
+        key: 'tokenRouter.validation.invalidRulePriority',
+        vars: { rule: ruleName },
+      };
+    }
+    if (!Object.values(rule.match).some((value) => value !== undefined && value !== null)) {
+      return {
+        key: 'tokenRouter.validation.missingRuleCondition',
+        vars: { rule: ruleName },
+      };
+    }
+    if (
+      rule.match.total_tokens_gte !== undefined &&
+      rule.match.total_tokens_lte !== undefined &&
+      rule.match.total_tokens_gte > rule.match.total_tokens_lte
+    ) {
+      return {
+        key: 'tokenRouter.validation.invalidRuleTokenRange',
+        vars: { rule: ruleName },
+      };
+    }
+    const validAction =
+      rule.action.type === 'route'
+        ? backendIds.includes(rule.action.backend_id)
+        : Boolean(rule.action.reason.trim());
+    if (!validAction) {
+      return { key: 'tokenRouter.validation.invalidRuleAction', vars: { rule: ruleName } };
+    }
+  }
+  if (new Set(ruleIds).size !== ruleIds.length) {
+    return { key: 'tokenRouter.validation.duplicateRuleIds' };
+  }
+  if (new Set(priorities).size !== priorities.length) {
+    return { key: 'tokenRouter.validation.duplicateRulePriorities' };
+  }
+
+  const validDefaultAction =
+    draft.defaultAction.type === 'route'
+      ? backendIds.includes(draft.defaultAction.backend_id)
+      : Boolean(draft.defaultAction.reason.trim());
+  return validDefaultAction ? null : { key: 'tokenRouter.validation.invalidDefaultAction' };
+}
 
 const EMPTY: FormState = {
   router_uid: '',
@@ -377,55 +474,17 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       retry_after_seconds: 1,
     });
     if (mode === 'advanced') {
-      const backendIds = typedDraft.backends.map((backend) => backend.id.trim());
-      const ruleIds = typedDraft.rules.map((rule) => rule.id.trim());
-      const priorities = typedDraft.rules.map((rule) => rule.priority);
-      const invalidRule = typedDraft.rules.some((rule) => {
-        const hasCondition = Object.values(rule.match).some(
-          (value) => value !== undefined && value !== null
-        );
-        const invalidTokenRange =
-          rule.match.total_tokens_gte !== undefined &&
-          rule.match.total_tokens_lte !== undefined &&
-          rule.match.total_tokens_gte > rule.match.total_tokens_lte;
-        const invalidAction =
-          rule.action.type === 'route'
-            ? !backendIds.includes(rule.action.backend_id)
-            : !rule.action.reason.trim();
-        return !hasCondition || invalidTokenRange || invalidAction;
-      });
-      if (
-        typedDraft.backends.length < 1 ||
-        typedDraft.backends.length > 16 ||
-        typedDraft.rules.length < 1 ||
-        typedDraft.rules.length > 64 ||
-        typedDraft.backends.some(
-          (backend) =>
-            !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(backend.id.trim()) ||
-            !backend.model_uid.trim() ||
-            backend.max_context_tokens < 1 ||
-            backend.admission.max_active < 1 ||
-            backend.admission.max_queue < 0
-        ) ||
-        new Set(backendIds).size !== backendIds.length ||
-        typedDraft.rules.some(
-          (rule) =>
-            !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(rule.id.trim()) ||
-            rule.priority < 1 ||
-            rule.priority > 10000
-        ) ||
-        new Set(ruleIds).size !== ruleIds.length ||
-        new Set(priorities).size !== priorities.length ||
-        invalidRule ||
-        (typedDraft.defaultAction.type === 'route'
-          ? !backendIds.includes(typedDraft.defaultAction.backend_id)
-          : !typedDraft.defaultAction.reason.trim())
-      ) {
-        toast.error(t('tokenRouter.validation.invalidAdvancedConfig'));
+      const validationError = validateAdvancedConfig(typedDraft);
+      if (validationError) {
+        toast.error(t(validationError.key, validationError.vars));
         setSaving(false);
         return;
       }
     }
+
+    const backendUrl = useCustomBackend
+      ? (values.backend_url ?? '').trim()
+      : (backendDefaults?.backend_url ?? '');
 
     const commonPayload = {
       virtual_model_uid: values.virtual_model_uid.trim(),
@@ -434,7 +493,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       ...(values.tokenizer_source === 'asset'
         ? { tokenizer_asset_id: tokenizerAssetId }
         : { tokenizer_path: tokenizerPath }),
-      backend_url: values.backend_url.trim(),
+      backend_url: backendUrl,
       model_aliases: values.model_aliases
         .split(',')
         .map((item) => item.trim())
@@ -501,7 +560,7 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
     delete placement.node_id;
     delete placement.node_ids;
     if (values.placement_mode === 'node') {
-      placement.node_ids = [values.placement_node_id.trim()];
+      placement.node_ids = [(values.placement_node_id ?? '').trim()];
     }
 
     try {
@@ -533,6 +592,14 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       toast.success(t(router ? 'tokenRouter.updateSuccess' : 'tokenRouter.createSuccess'));
       onOpenChange(false);
       onSaved();
+    } catch (error) {
+      // Axios failures are surfaced by the global request interceptor, including
+      // network and timeout errors that do not have a response.
+      if (!axios.isAxiosError(error)) {
+        toast.error(
+          t('tokenRouter.saveFailed') + (error instanceof Error ? `: ${error.message}` : '')
+        );
+      }
     } finally {
       setSaving(false);
     }

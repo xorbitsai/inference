@@ -41,7 +41,7 @@ import { RouterDetailDrawer } from './router-detail-drawer';
 import { RouterFormDialog } from './router-form-dialog';
 import { RouterNodeSection } from './router-node-section';
 import { resolveRouterCapabilities } from './router-capabilities.mjs';
-import { routerBackendList } from './router-config-normalizer';
+import { normalizeTokenRouterList, routerBackendList } from './router-config-normalizer';
 import { RouterStatusBadge } from './router-status-badge';
 import { TokenizerAssetSection } from './tokenizer-asset-section';
 
@@ -95,7 +95,7 @@ export default function TokenRouterPage() {
         setTokenizerAssets(Array.isArray(assetResult.value.items) ? assetResult.value.items : []);
       }
       if (routerResult.status === 'fulfilled') {
-        setRouters(Array.isArray(routerResult.value) ? routerResult.value : []);
+        setRouters(normalizeTokenRouterList(routerResult.value));
       }
     } finally {
       if (requestId === refreshRequestId.current) {

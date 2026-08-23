@@ -14,6 +14,8 @@ import {
   Server,
   Code,
   RefreshCw,
+  Route,
+  ExternalLink,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -23,14 +25,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InfoTooltip } from '@/components/ui/tooltip';
-import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
-import { useMenuAuth } from '@/hooks/use-menu-auth';
 import type {
   RunningModelItem,
   ReplicaItem,
   AddReplicaRequest,
   ClusterInfoResponse,
+  TokenRouterRuntimeInstance,
 } from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
@@ -38,8 +39,13 @@ import {
   getTryApiAbility,
   TryApiDrawer,
 } from '@/components/pages/running-model-detail/components/try-api-drawer';
-import { transformRunningModelDetail } from '@/components/pages/running-model-detail/utils';
-import { formatReplicaRuntimeAddress } from './address-utils.mjs';
+import {
+  isTokenRouterModel,
+  transformRunningModelDetail,
+} from '@/components/pages/running-model-detail/utils';
+import { RouterStatusBadge } from '@/components/pages/token-router/router-status-badge';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { useGlobal } from '@/contexts/global-context';
 import AddReplicaDialog from './add-replica-dialog';
 
 interface EmptyStateProps {
@@ -112,12 +118,70 @@ const ContentItemInfo = ({ title, value }: ContentItemInfoProps) => {
   );
 };
 
+const HIDDEN_TOKEN_ROUTER_STATUSES = new Set(['unavailable', 'disabled']);
+
+const shouldHideTokenRouterModel = (model: RunningModelItem): boolean =>
+  isTokenRouterModel(model) &&
+  HIDDEN_TOKEN_ROUTER_STATUSES.has(String(model.router_status || '').toLowerCase());
+
 const formatGpuMemory = (bytes: number): string => {
   const gib = bytes / 1024 ** 3;
   if (gib >= 1) {
     return `${gib.toFixed(2)} GiB`;
   }
   return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
+};
+
+interface ParsedAddress {
+  host: string;
+  port?: string;
+}
+
+const parseAddress = (address: string): ParsedAddress => {
+  const normalized = address.trim();
+  if (normalized.startsWith('[')) {
+    const closingBracket = normalized.indexOf(']');
+    if (closingBracket >= 0) {
+      const host = normalized.slice(1, closingBracket);
+      const suffix = normalized.slice(closingBracket + 1);
+      const port = suffix.startsWith(':') ? suffix.slice(1) : '';
+      return {
+        host,
+        port: /^\d+$/.test(port) ? port : undefined,
+      };
+    }
+  }
+
+  // An unbracketed address with one colon is unambiguous host:port. An
+  // address with multiple colons is treated as a bare IPv6 host because an
+  // IPv6 address must be bracketed when a port is included.
+  const separator = normalized.lastIndexOf(':');
+  if (separator > 0 && normalized.indexOf(':') === separator) {
+    const port = normalized.slice(separator + 1);
+    if (/^\d+$/.test(port)) {
+      return { host: normalized.slice(0, separator), port };
+    }
+  }
+  return { host: normalized };
+};
+
+const formatAddress = (host: string, port: string): string => {
+  const normalizedHost = host.replace(/^\[|\]$/g, '');
+  return normalizedHost.includes(':') ? `[${normalizedHost}]:${port}` : `${normalizedHost}:${port}`;
+};
+
+const formatReplicaRuntimeAddress = (replica: ReplicaItem): string | undefined => {
+  const workerAddress = replica.worker_address?.trim();
+  const modelAddress = replica.model_address?.trim();
+  if (!modelAddress) return undefined;
+
+  const parsedModelAddress = parseAddress(modelAddress);
+  const modelPort = parsedModelAddress.port;
+  const workerHost = workerAddress ? parseAddress(workerAddress).host : parsedModelAddress.host;
+  if (modelPort && workerHost) {
+    return formatAddress(workerHost, modelPort);
+  }
+  return modelAddress;
 };
 
 interface ReplicaDeviceIndexes {
@@ -183,14 +247,20 @@ const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
 
 const RunningModel = () => {
   const { t } = useI18n();
-  const { clusterAuth } = useGlobal();
-  const { isAdmin } = useMenuAuth();
   const router = useRouter();
+  const { clusterAuth } = useGlobal();
+  const { isAdmin, hasRouterRead, canAccessRouterPage } = useMenuAuth();
+  const canReadRouterRuntime = clusterAuth?.auth === false || hasRouterRead;
+  const canManageRouter = clusterAuth?.auth === false || canAccessRouterPage;
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [models, setModels] = useState<RunningModelItem[]>([]);
   const [activeModel, setActiveModel] = useState<RunningModelItem | undefined>(undefined);
   const [replicaLogs, setReplicaLogs] = useState<Record<string, ReplicaItem[]>>({});
+  const [routerRuntimeLogs, setRouterRuntimeLogs] = useState<
+    Record<string, TokenRouterRuntimeInstance[]>
+  >({});
+  const [routerRuntimeLoadingIds, setRouterRuntimeLoadingIds] = useState<string[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
@@ -203,8 +273,9 @@ const RunningModel = () => {
     [activeModel?.model_ability]
   );
   const [clusterWorkerInfo, setClusterWorkerInfo] = useState<Map<string, number>>(new Map());
+  const activeModelIsTokenRouter = isTokenRouterModel(activeModel);
   const activeModelReplicaAddresses = useMemo(() => {
-    if (!activeModel) return [];
+    if (!activeModel || isTokenRouterModel(activeModel)) return [];
     const replicas = replicaLogs[activeModel.id];
     if (replicas && replicas.length > 0) {
       const replicaAddresses = Array.from(
@@ -220,7 +291,9 @@ const RunningModel = () => {
   }, [activeModel, replicaLogs]);
 
   const activeModelDeviceIndexes = useMemo<DeviceIndexAllocation>(() => {
-    if (!activeModel) return { showWorkerAddresses: false, groups: [] };
+    if (!activeModel || isTokenRouterModel(activeModel)) {
+      return { showWorkerAddresses: false, groups: [] };
+    }
 
     const replicas = replicaLogs[activeModel.id];
     if (replicas && replicas.length > 0) {
@@ -324,6 +397,7 @@ const RunningModel = () => {
     // Fallback: collect from all running models.
     const addresses = new Set<string>();
     for (const model of models) {
+      if (isTokenRouterModel(model)) continue;
       if (model.address) addresses.add(model.address);
       const reps = replicaLogs[model.id];
       if (reps) {
@@ -345,7 +419,8 @@ const RunningModel = () => {
       const matchesKeyword =
         !keyword ||
         model.model_name.toLowerCase().includes(keyword) ||
-        model.id.toLowerCase().includes(keyword);
+        model.id.toLowerCase().includes(keyword) ||
+        (model.router_uid || '').toLowerCase().includes(keyword);
       return matchesKeyword;
     });
 
@@ -357,9 +432,9 @@ const RunningModel = () => {
     request
       .get('/v1/models')
       .then((res) => {
-        const list = ((res?.data || []) as RunningModelItem[]).map(
-          (item) => transformRunningModelDetail(item) as RunningModelItem
-        );
+        const list = ((res?.data || []) as RunningModelItem[])
+          .map((item) => transformRunningModelDetail(item) as RunningModelItem)
+          .filter((item) => !shouldHideTokenRouterModel(item));
         setModels(list);
         setActiveModel((prev) => {
           if (!prev) {
@@ -390,7 +465,7 @@ const RunningModel = () => {
   }, []);
 
   const fetchReplicas = useCallback((modelUid: string) => {
-    request.get(`/v1/models/${modelUid}/replicas`).then((res) => {
+    request.get(`/v1/models/${encodeURIComponent(modelUid)}/replicas`).then((res) => {
       setReplicaLogs((prev) => ({
         ...prev,
         [modelUid]: Array.isArray(res) ? res : [],
@@ -398,17 +473,51 @@ const RunningModel = () => {
     });
   }, []);
 
+  const fetchRouterInstances = useCallback(
+    (model: RunningModelItem) => {
+      if (!canReadRouterRuntime || !model.router_uid) return;
+      setRouterRuntimeLoadingIds((prev) => (prev.includes(model.id) ? prev : [...prev, model.id]));
+      request
+        .get<TokenRouterRuntimeInstance[]>(
+          `/v1/token_routers/${encodeURIComponent(model.router_uid)}/instances`
+        )
+        .then((res) => {
+          setRouterRuntimeLogs((prev) => ({
+            ...prev,
+            [model.id]: Array.isArray(res) ? res : [],
+          }));
+        })
+        .catch(() => {
+          setRouterRuntimeLogs((prev) => ({ ...prev, [model.id]: [] }));
+        })
+        .finally(() => {
+          setRouterRuntimeLoadingIds((prev) => prev.filter((id) => id !== model.id));
+        });
+    },
+    [canReadRouterRuntime]
+  );
+
   const handleRefresh = useCallback(() => {
     fetchModels();
     fetchAutostartModels();
     fetchClusterWorkers();
-    if (activeModel?.id) {
+    if (activeModelIsTokenRouter && activeModel) {
+      fetchRouterInstances(activeModel);
+    } else if (activeModel?.id) {
       fetchReplicas(activeModel.id);
     }
-  }, [activeModel?.id, fetchAutostartModels, fetchClusterWorkers, fetchModels, fetchReplicas]);
+  }, [
+    activeModel,
+    activeModelIsTokenRouter,
+    fetchAutostartModels,
+    fetchClusterWorkers,
+    fetchModels,
+    fetchReplicas,
+    fetchRouterInstances,
+  ]);
 
   const handleDeleteModel = () => {
-    if (!activeModel) return;
+    if (!activeModel || isTokenRouterModel(activeModel)) return;
     setDeleteConfirmLoading(true);
     request
       .delete(`/v1/models/${activeModel?.id}`)
@@ -427,7 +536,7 @@ const RunningModel = () => {
       });
   };
   const handleDeleteReplica = () => {
-    if (!activeModel || !deleteReplicaId) return;
+    if (!activeModel || isTokenRouterModel(activeModel) || !deleteReplicaId) return;
     setDeleteReplicaLoading(true);
     request
       .delete(`/v1/models/${activeModel.id}/replicas/${deleteReplicaId}`)
@@ -444,7 +553,7 @@ const RunningModel = () => {
   };
 
   const handleAddReplica = (body: AddReplicaRequest) => {
-    if (!activeModel) return;
+    if (!activeModel || isTokenRouterModel(activeModel)) return;
     setAddReplicaLoading(true);
     request
       .post(`/v1/models/${encodeURIComponent(activeModel.id)}/replicas`, body)
@@ -528,11 +637,21 @@ const RunningModel = () => {
       >
         <div className="flex-1 min-w-0">
           <h4 className="mb-1 font-semibold truncate">{model.id}</h4>
-          <div className="text-muted-foreground text-xs truncate">{model.model_name}</div>
+          <div className="text-muted-foreground text-xs truncate">
+            {model.model_name || model.router_uid || '-'}
+          </div>
         </div>
-        <button className="shrink-0 rounded-full border border-primary/20 bg-primary/5 text-primary px-3 py-1 text-xs font-medium text-muted-foreground">
-          {model.model_type}
-        </button>
+        {isTokenRouterModel(model) ? (
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <span className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+              Token Router
+            </span>
+          </div>
+        ) : (
+          <button className="shrink-0 rounded-full border border-primary/20 bg-primary/5 text-primary px-3 py-1 text-xs font-medium text-muted-foreground">
+            {model.model_type}
+          </button>
+        )}
       </div>
     ));
   };
@@ -546,8 +665,11 @@ const RunningModel = () => {
         />
       );
     }
-    const isAutostart = autostartModelIds.includes(activeModel.id);
+    const tokenRouterModel = isTokenRouterModel(activeModel);
+    const isAutostart = !tokenRouterModel && autostartModelIds.includes(activeModel.id);
     const isAutostartBusy = autostartBusyIds.includes(activeModel.id);
+    const routerInstances = routerRuntimeLogs[activeModel.id] || [];
+    const routerInstancesLoading = routerRuntimeLoadingIds.includes(activeModel.id);
 
     return (
       <>
@@ -590,182 +712,378 @@ const RunningModel = () => {
             >
               <MessageCircleMore />
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => setDeleteConfirmOpen(true)}
-              className="h-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
-            >
-              <Trash2 />
-            </Button>
+            {tokenRouterModel && canManageRouter ? (
+              <InfoTooltip content={t('runningModels.manageTokenRouter')}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => router.push('/token-router')}
+                  className="h-8 text-muted-foreground"
+                >
+                  <ExternalLink />
+                </Button>
+              </InfoTooltip>
+            ) : !tokenRouterModel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="h-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
+              >
+                <Trash2 />
+              </Button>
+            ) : null}
           </div>
         </div>
-        <div className="p-6 space-y-3 overflow-y-auto">
-          <h3 className="font-medium">{t('runningModels.baseInfo')}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <ContentItemInfo title={t('runningModels.modelType')} value={activeModel.model_type} />
-            {'model_engine' in activeModel && (
+        {tokenRouterModel ? (
+          <div className="p-6 space-y-4 overflow-y-auto">
+            <h3 className="font-medium">{t('runningModels.virtualModelInfo')}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <ContentItemInfo
+                title={t('runningModels.modelType')}
+                value={activeModel.model_type}
+              />
               <ContentItemInfo
                 title={t('runningModels.modelEngine')}
-                value={activeModel.model_engine || '-'}
+                value={activeModel.model_engine || 'token_router'}
               />
-            )}
-            <ContentItemInfo
-              title={t('runningModels.modelFormat')}
-              value={activeModel.model_format || '-'}
-            />
-            {'model_size_in_billions' in activeModel && (
+              <ContentItemInfo title={t('runningModels.modelKind')} value="Virtual" />
               <ContentItemInfo
-                title={t('runningModels.modelSize')}
-                value={activeModel.model_size_in_billions ?? '-'}
+                title={t('runningModels.virtualModelType')}
+                value={activeModel.virtual_model_type || 'token_router'}
               />
-            )}
-
-            <ContentItemInfo
-              title={t('runningModels.quantization')}
-              value={activeModel.quantization || '-'}
-            />
-          </div>
-          <h3 className="font-medium">{t('runningModels.resources')}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <ContentItemInfo
-              title={t('runningModels.replicaAddress')}
-              value={
-                activeModelReplicaAddresses.length > 0 ? (
-                  <div className="flex flex-col gap-0.5 text-xs font-mono">
-                    {activeModelReplicaAddresses.map((address) => (
-                      <span key={address}>{address}</span>
-                    ))}
-                  </div>
-                ) : (
-                  '-'
-                )
-              }
-            />
-            <ContentItemInfo
-              title={t('runningModels.deviceIndexes')}
-              value={
-                activeModelDeviceIndexes.groups.length > 0 ? (
-                  <div className="flex flex-col gap-1.5 text-xs">
-                    {activeModelDeviceIndexes.groups.map((group, groupIndex) => (
-                      <div
-                        key={group.workerAddress || `device-group-${groupIndex}`}
-                        className="flex min-w-0 flex-wrap items-center gap-1"
-                      >
-                        {activeModelDeviceIndexes.showWorkerAddresses && (
-                          <span className="mr-1 break-all font-mono text-muted-foreground">
-                            {group.workerAddress || '-'}
-                          </span>
-                        )}
-                        {group.devices.length > 0 ? (
-                          group.devices.map((device) => (
-                            <span
-                              key={`${group.workerAddress}-${device}`}
-                              className="flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/5 px-1 py-0.5 text-primary"
-                            >
-                              <Cpu className="size-3" />
-                              {device}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  '-'
-                )
-              }
-            />
-            <ContentItemInfo
-              title={t('runningModels.gpuMemory')}
-              value={
-                activeModel?.gpu_memory && Object.keys(activeModel.gpu_memory).length > 0 ? (
-                  <div className="flex flex-col gap-0.5 text-xs">
-                    {Object.keys(activeModel.gpu_memory)
-                      .sort()
-                      .map((workerAddress, _, workers) => {
-                        const perGpu = activeModel.gpu_memory![workerAddress];
-                        const multiWorker = workers.length > 1;
-                        return Object.keys(perGpu)
-                          .map((k) => [Number(k), perGpu[k]] as [number, number])
-                          .sort((a, b) => a[0] - b[0])
-                          .map(([gpuIdx, bytes]) => (
-                            <span key={`${workerAddress}-${gpuIdx}`}>
-                              {multiWorker ? `${workerAddress} · ` : ''}
-                              GPU {gpuIdx}: {formatGpuMemory(bytes)}
-                            </span>
-                          ));
-                      })}
-                  </div>
-                ) : (
-                  '-'
-                )
-              }
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
-            <Button variant="outline" size="sm" onClick={() => setAddReplicaOpen(true)}>
-              <Plus className="size-3.5 mr-1" />
-              {t('runningModels.addReplica')}
-            </Button>
-          </div>
-          {(replicaLogs?.[activeModel.id] || []).map((replica) => (
-            <div key={replica.replica_model_uid} className="p-3 rounded-lg border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Server size={16} className="text-muted-foreground" />
-                  <span className="font-mono">{replica.replica_model_uid}</span>
-                  <div
-                    className={cn(
-                      'rounded-md border px-2 py-1 text-xs font-medium leading-none',
-                      replica.status === 'READY'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
-                        : replica.status === 'ERROR'
-                          ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
-                          : 'border-border bg-muted/40 text-muted-foreground'
-                    )}
-                  >
-                    {replica.status}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setDeleteReplicaId(String(replica.replica_id))}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {t('runningModels.workerAddress')}: {replica.worker_address}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t('runningModels.replicaAddress')}: {formatReplicaRuntimeAddress(replica) || '-'}
-              </p>
-              {replica.replica_uid && (
-                <p className="text-xs text-muted-foreground">
-                  {t('launchModel.replicaUid')}: {replica.replica_uid}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {t('runningModels.deviceIndexes')}: {formatReplicaDeviceIndexes(replica)}
-              </p>
+              <ContentItemInfo
+                title={t('runningModels.modelAbility')}
+                value={(activeModel.model_ability || []).join(', ') || 'chat'}
+              />
+              <ContentItemInfo
+                title={t('runningModels.routerUid')}
+                value={activeModel.router_uid || '-'}
+              />
+              <ContentItemInfo
+                title={t('runningModels.routerStatus')}
+                value={
+                  activeModel.router_status ? (
+                    <RouterStatusBadge status={activeModel.router_status} />
+                  ) : (
+                    '-'
+                  )
+                }
+              />
+              <ContentItemInfo
+                title={t('runningModels.routeProfile')}
+                value={activeModel.route_profile || '-'}
+              />
+              <ContentItemInfo
+                title={t('runningModels.managementMode')}
+                value={activeModel.deployment?.management_mode || '-'}
+              />
+              <ContentItemInfo
+                title={t('runningModels.backendCount')}
+                value={activeModel.backend_count ?? 0}
+              />
             </div>
-          ))}
-        </div>
+
+            <h3 className="font-medium">{t('runningModels.routerRuntimeSummary')}</h3>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+              <ContentItemInfo
+                title={t('runningModels.runtimeInstances')}
+                value={activeModel.runtime_instances ?? 0}
+              />
+              <ContentItemInfo
+                title={t('runningModels.onlineInstances')}
+                value={activeModel.online_instances ?? 0}
+              />
+              <ContentItemInfo
+                title={t('runningModels.readyInstances')}
+                value={activeModel.ready_instances ?? 0}
+              />
+              <ContentItemInfo
+                title={t('runningModels.desiredReplicas')}
+                value={activeModel.deployment?.desired_replicas ?? '-'}
+              />
+              <ContentItemInfo
+                title={t('runningModels.readyReplicas')}
+                value={activeModel.deployment?.ready_replicas ?? 0}
+              />
+              <ContentItemInfo
+                title={t('runningModels.pendingReplicas')}
+                value={activeModel.deployment?.pending_replicas ?? 0}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-medium">{t('runningModels.routerRuntimeInstances')}</h3>
+              {canManageRouter && (
+                <Button variant="outline" size="sm" onClick={() => router.push('/token-router')}>
+                  <ExternalLink className="mr-1 size-3.5" />
+                  {t('runningModels.manageTokenRouter')}
+                </Button>
+              )}
+            </div>
+            {!canReadRouterRuntime ? (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                {t('runningModels.routerRuntimePermissionRequired')}
+              </div>
+            ) : routerInstancesLoading ? (
+              <div className="flex items-center gap-2 rounded-lg border p-4 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                {t('runningModels.loadingRouterRuntimeInstances')}
+              </div>
+            ) : routerInstances.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                {t('runningModels.noRouterRuntimeInstances')}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {routerInstances.map((instance) => (
+                  <div key={instance.instance_id} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Route className="size-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <div
+                            className="truncate font-mono text-sm"
+                            title={
+                              instance.node_address || instance.node_id || instance.endpoint || '-'
+                            }
+                          >
+                            {instance.node_address || instance.node_id || instance.endpoint || '-'}
+                          </div>
+                          <div
+                            className="truncate text-xs text-muted-foreground"
+                            title={instance.instance_id}
+                          >
+                            {t('runningModels.runtimeInstanceId')}: {instance.instance_id}
+                          </div>
+                        </div>
+                      </div>
+                      <RouterStatusBadge
+                        status={instance.status || (instance.online ? 'ready' : 'offline')}
+                      />
+                    </div>
+                    <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                      <span>
+                        {t('runningModels.runtimeNodeAddress')}:{' '}
+                        {instance.node_address || instance.node_id || instance.endpoint || '-'}
+                      </span>
+                      <span>
+                        {t('runningModels.runtimeNode')}: {instance.node_id || '-'}
+                      </span>
+                      <span>
+                        {t('runningModels.runtimeOnline')}: {instance.online ? 'Yes' : 'No'}
+                      </span>
+                      <span>
+                        {t('runningModels.runtimeRevision')}: {instance.acked_revision ?? '-'}
+                      </span>
+                      <span>
+                        {t('runningModels.runtimeHeartbeatAge')}
+                        {': '}
+                        {Number.isFinite(instance.heartbeat_age_seconds)
+                          ? `${instance.heartbeat_age_seconds.toFixed(1)}s`
+                          : '-'}
+                      </span>
+                    </div>
+                    {instance.config_error && (
+                      <div className="mt-2 rounded-md bg-destructive/10 px-2 py-1 text-xs text-destructive">
+                        {instance.config_error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-6 space-y-3 overflow-y-auto">
+            <h3 className="font-medium">{t('runningModels.baseInfo')}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <ContentItemInfo
+                title={t('runningModels.modelType')}
+                value={activeModel.model_type}
+              />
+              {'model_engine' in activeModel && (
+                <ContentItemInfo
+                  title={t('runningModels.modelEngine')}
+                  value={activeModel.model_engine || '-'}
+                />
+              )}
+              <ContentItemInfo
+                title={t('runningModels.modelFormat')}
+                value={activeModel.model_format || '-'}
+              />
+              {'model_size_in_billions' in activeModel && (
+                <ContentItemInfo
+                  title={t('runningModels.modelSize')}
+                  value={activeModel.model_size_in_billions ?? '-'}
+                />
+              )}
+
+              <ContentItemInfo
+                title={t('runningModels.quantization')}
+                value={activeModel.quantization || '-'}
+              />
+            </div>
+            <h3 className="font-medium">{t('runningModels.resources')}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <ContentItemInfo
+                title={t('runningModels.replicaAddress')}
+                value={
+                  activeModelReplicaAddresses.length > 0 ? (
+                    <div className="flex flex-col gap-0.5 text-xs font-mono">
+                      {activeModelReplicaAddresses.map((address) => (
+                        <span key={address}>{address}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )
+                }
+              />
+              <ContentItemInfo
+                title={t('runningModels.deviceIndexes')}
+                value={
+                  activeModelDeviceIndexes.groups.length > 0 ? (
+                    <div className="flex flex-col gap-1.5 text-xs">
+                      {activeModelDeviceIndexes.groups.map((group, groupIndex) => (
+                        <div
+                          key={group.workerAddress || `device-group-${groupIndex}`}
+                          className="flex min-w-0 flex-wrap items-center gap-1"
+                        >
+                          {activeModelDeviceIndexes.showWorkerAddresses && (
+                            <span className="mr-1 break-all font-mono text-muted-foreground">
+                              {group.workerAddress || '-'}
+                            </span>
+                          )}
+                          {group.devices.length > 0 ? (
+                            group.devices.map((device) => (
+                              <span
+                                key={`${group.workerAddress}-${device}`}
+                                className="flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/5 px-1 py-0.5 text-primary"
+                              >
+                                <Cpu className="size-3" />
+                                {device}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )
+                }
+              />
+              <ContentItemInfo
+                title={t('runningModels.gpuMemory')}
+                value={
+                  activeModel?.gpu_memory && Object.keys(activeModel.gpu_memory).length > 0 ? (
+                    <div className="flex flex-col gap-0.5 text-xs">
+                      {Object.keys(activeModel.gpu_memory)
+                        .sort()
+                        .map((workerAddress, _, workers) => {
+                          const perGpu = activeModel.gpu_memory![workerAddress];
+                          const multiWorker = workers.length > 1;
+                          return Object.keys(perGpu)
+                            .map((k) => [Number(k), perGpu[k]] as [number, number])
+                            .sort((a, b) => a[0] - b[0])
+                            .map(([gpuIdx, bytes]) => (
+                              <span key={`${workerAddress}-${gpuIdx}`}>
+                                {multiWorker ? `${workerAddress} · ` : ''}
+                                GPU {gpuIdx}: {formatGpuMemory(bytes)}
+                              </span>
+                            ));
+                        })}
+                    </div>
+                  ) : (
+                    '-'
+                  )
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
+              <Button variant="outline" size="sm" onClick={() => setAddReplicaOpen(true)}>
+                <Plus className="size-3.5 mr-1" />
+                {t('runningModels.addReplica')}
+              </Button>
+            </div>
+            {(replicaLogs?.[activeModel.id] || []).map((replica) => (
+              <div key={replica.replica_model_uid} className="p-3 rounded-lg border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Server size={16} className="text-muted-foreground" />
+                    <span className="font-mono">{replica.replica_model_uid}</span>
+                    <div
+                      className={cn(
+                        'rounded-md border px-2 py-1 text-xs font-medium leading-none',
+                        replica.status === 'READY'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
+                          : replica.status === 'ERROR'
+                            ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300'
+                            : 'border-border bg-muted/40 text-muted-foreground'
+                      )}
+                    >
+                      {replica.status}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setDeleteReplicaId(String(replica.replica_id))}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t('runningModels.workerAddress')}: {replica.worker_address}
+                </p>
+                {replica.replica_uid && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('launchModel.replicaUid')}: {replica.replica_uid}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {t('runningModels.deviceIndexes')}: {formatReplicaDeviceIndexes(replica)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </>
     );
   };
   useEffect(() => {
-    if (activeModel && !replicaLogs[activeModel.id]) {
+    if (!activeModel) return;
+
+    if (isTokenRouterModel(activeModel)) {
+      if (
+        canReadRouterRuntime &&
+        !routerRuntimeLogs[activeModel.id] &&
+        !routerRuntimeLoadingIds.includes(activeModel.id)
+      ) {
+        fetchRouterInstances(activeModel);
+      }
+      return;
+    }
+
+    if (!replicaLogs[activeModel.id]) {
       fetchReplicas(activeModel.id);
     }
-  }, [activeModel, fetchReplicas, replicaLogs]);
+  }, [
+    activeModel,
+    canReadRouterRuntime,
+    fetchReplicas,
+    fetchRouterInstances,
+    replicaLogs,
+    routerRuntimeLoadingIds,
+    routerRuntimeLogs,
+  ]);
   useEffect(() => {
     fetchModels();
     fetchAutostartModels();
