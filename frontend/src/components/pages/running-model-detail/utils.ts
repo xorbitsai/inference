@@ -200,14 +200,8 @@ export function transformRunningModelDetail<T extends object>(detail: T) {
   const fallbackAbilities = isTokenRouterModel(detail)
     ? [ModelAbility.Chat]
     : (modelType && MODEL_TYPE_ABILITY_MAP[modelType]) || [];
-  const tokenRouterModelName =
-    isTokenRouterModel(detail) && typeof detail.router_uid === 'string' && detail.router_uid.trim()
-      ? detail.router_uid
-      : undefined;
-
   return {
     ...detail,
-    ...(tokenRouterModelName ? { model_name: tokenRouterModelName } : {}),
     // Older backends may omit abilities for capability-specific or virtual models.
     model_ability: Array.isArray(detail.model_ability) ? detail.model_ability : fallbackAbilities,
   };

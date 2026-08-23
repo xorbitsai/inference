@@ -1,5 +1,6 @@
 'use client';
 
+import axios from 'axios';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
@@ -592,10 +593,9 @@ export function RouterFormDialog({ open, router, onOpenChange, onSaved }: Props)
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      // HTTP errors (409/422) are surfaced by the global request interceptor;
-      // surface only unexpected errors here to avoid duplicate toasts.
-      const isHttpError = Boolean((error as { response?: unknown }).response);
-      if (!isHttpError) {
+      // Axios failures are surfaced by the global request interceptor, including
+      // network and timeout errors that do not have a response.
+      if (!axios.isAxiosError(error)) {
         toast.error(
           t('tokenRouter.saveFailed') + (error instanceof Error ? `: ${error.message}` : '')
         );
