@@ -267,10 +267,15 @@ def _infer_model_size_from_path(model_path: str) -> Optional[Union[int, str]]:
             r"[0-9a-f]{40}|[0-9a-f]{64}", basename
         ):
             matches = re.findall(
-                r"(?<![a-z0-9])(\d+(?:[._]+\d+)?)b(?=$|[^a-z0-9])", basename
+                r"(?<![a-z0-9.])(a?)(\d+(?:[._]+\d+)?)b(?=$|[^a-z0-9.])",
+                basename,
             )
             if matches:
-                size_text = re.sub(r"[._]+", ".", matches[-1])
+                # Prefer a total-size token over an activated-size token like
+                # A3B, but accept the latter when it is the only size present.
+                total_sizes = [size for prefix, size in matches if not prefix]
+                size_text = total_sizes[-1] if total_sizes else matches[-1][1]
+                size_text = re.sub(r"[._]+", ".", size_text)
                 size_in_billions = _extract_numeric_size(size_text)
                 if size_in_billions:
                     return _format_size_in_billions(size_in_billions)

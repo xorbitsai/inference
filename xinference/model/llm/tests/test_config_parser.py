@@ -3,6 +3,7 @@ import json
 import pytest
 
 from xinference.model.llm.config_parser import (
+    _infer_model_size_from_path,
     _resolve_config_and_dir,
     build_llm_registration_from_local_config,
 )
@@ -88,6 +89,19 @@ def test_auto_register_infers_size_from_snapshot_parent(tmp_path):
     )
 
     assert result["model_specs"][0]["model_size_in_billions"] == "7"
+
+
+@pytest.mark.parametrize(
+    ("model_path", "expected_size"),
+    [
+        ("Qwen1.5-MoE-A2.7B-Chat", "2_7"),
+        ("qwen1.5_7b_chat", 7),
+        ("Qwen3-30B-A3B", 30),
+        ("Qwen1.5-Chat", None),
+    ],
+)
+def test_infer_model_size_respects_token_boundaries(model_path, expected_size):
+    assert _infer_model_size_from_path(model_path) == expected_size
 
 
 def test_huggingface_cache_root_requires_unambiguous_snapshot(tmp_path):
