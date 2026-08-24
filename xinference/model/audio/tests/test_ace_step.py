@@ -54,12 +54,12 @@ def _install_fake_acestep_runtime(monkeypatch, handler_cls) -> None:
     package.__path__ = []
 
     handler_module = ModuleType("acestep.handler")
-    handler_module.AceStepHandler = handler_cls
+    setattr(handler_module, "AceStepHandler", handler_cls)
 
     inference_module = ModuleType("acestep.inference")
-    inference_module.GenerationConfig = Mock(name="GenerationConfig")
-    inference_module.GenerationParams = Mock(name="GenerationParams")
-    inference_module.generate_music = Mock(name="generate_music")
+    setattr(inference_module, "GenerationConfig", Mock(name="GenerationConfig"))
+    setattr(inference_module, "GenerationParams", Mock(name="GenerationParams"))
+    setattr(inference_module, "generate_music", Mock(name="generate_music"))
 
     monkeypatch.setitem(sys.modules, "acestep", package)
     monkeypatch.setitem(sys.modules, "acestep.handler", handler_module)
@@ -167,9 +167,7 @@ def test_load_cleans_workspace_and_environment_after_initialization_failure(
     assert os.environ["ACESTEP_PROJECT_ROOT"] == "original-project"
 
 
-def test_prepare_runtime_checkpoint_isolates_mutable_model_files(
-    tmp_path, model_spec
-):
+def test_prepare_runtime_checkpoint_isolates_mutable_model_files(tmp_path, model_spec):
     model_path = tmp_path / "model"
     model_path.mkdir()
     source_config = model_path / "config.py"
@@ -196,7 +194,7 @@ def test_prepare_runtime_checkpoint_isolates_mutable_model_files(
 
 
 @pytest.mark.parametrize(
-    ("request", "message"),
+    ("speech_kwargs", "message"),
     [
         (
             {"input": "", "instruct": "piano"},
@@ -244,9 +242,9 @@ def test_prepare_runtime_checkpoint_isolates_mutable_model_files(
         ),
     ],
 )
-def test_speech_validates_requests(loaded_model, request, message):
+def test_speech_validates_requests(loaded_model, speech_kwargs, message):
     with pytest.raises(ValueError, match=re.escape(message)):
-        loaded_model.speech(**request)
+        loaded_model.speech(**speech_kwargs)
 
     loaded_model._generate_music.assert_not_called()
 
