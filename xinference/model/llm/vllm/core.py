@@ -429,6 +429,11 @@ def _update_vllm_supported_lists() -> None:
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniMaxM3SparseForConditionalGeneration"
         )
 
+    if effective_version >= version.parse("0.27.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "KimiK3ForConditionalGeneration"
+        )
+
 
 _update_vllm_supported_lists()
 

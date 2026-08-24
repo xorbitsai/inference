@@ -35163,7 +35163,7 @@
   {
     "model_name": "Kimi-K3",
     "model_description": "Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date.",
-    "context_length": 262144,
+    "context_length": 1048576,
     "model_lang": [
       "en",
       "zh"
