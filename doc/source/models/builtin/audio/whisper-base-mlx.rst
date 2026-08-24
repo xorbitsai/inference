@@ -1,10 +1,10 @@
-.. _models_builtin_whisper-base:
+.. _models_builtin_whisper-base-mlx:
 
-============
-whisper-base
-============
+================
+whisper-base-mlx
+================
 
-- **Model Name:** whisper-base
+- **Model Name:** whisper-base-mlx
 - **Model Family:** whisper
 - **Abilities:** ['audio2text']
 - **Multilingual:** True
@@ -16,4 +16,4 @@ Specifications
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name whisper-base --model-type audio
+   xinference launch --model-name whisper-base-mlx --model-type audio

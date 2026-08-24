@@ -1,10 +1,10 @@
-.. _models_builtin_f5-tts:
+.. _models_builtin_f5-tts-mlx:
 
-======
-F5-TTS
-======
+==========
+F5-TTS-MLX
+==========
 
-- **Model Name:** F5-TTS
+- **Model Name:** F5-TTS-MLX
 - **Model Family:** F5-TTS-MLX
 - **Abilities:** ['text2audio', 'text2audio_zero_shot', 'text2audio_voice_cloning']
 - **Multilingual:** True
@@ -16,4 +16,4 @@ Specifications
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name F5-TTS --model-type audio
+   xinference launch --model-name F5-TTS-MLX --model-type audio

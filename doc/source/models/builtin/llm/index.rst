@@ -561,6 +561,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Ornith-1.5-35B-A3B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
 
+   * - :ref:`ornith-1.5-397b <models_llm_ornith-1.5-397b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.5-397B is a 397B-total Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
+
    * - :ref:`ovis2 <models_llm_ovis2>`
      - chat, vision
      - 32768
@@ -1048,6 +1053,8 @@ The following is a list of built-in LLM in Xinference:
    ornith-1.0-35b
   
    ornith-1.5-35b-a3b
+  
+   ornith-1.5-397b
   
    ovis2
   
