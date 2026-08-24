@@ -5,6 +5,37 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
+def _resolve_huggingface_snapshot(model_dir: str) -> Optional[str]:
+    """Resolve a Hugging Face repository cache root to one snapshot."""
+    snapshots_dir = os.path.join(model_dir, "snapshots")
+    if not os.path.isdir(snapshots_dir):
+        return None
+
+    for ref_name in ("main", "master"):
+        ref_path = os.path.join(model_dir, "refs", ref_name)
+        if os.path.isfile(ref_path):
+            with open(ref_path, "r", encoding="utf-8") as file:
+                revision = file.read().strip()
+            if revision:
+                snapshot = os.path.join(snapshots_dir, revision)
+                if os.path.isfile(os.path.join(snapshot, "config.json")):
+                    return snapshot
+
+    candidates = sorted(
+        os.path.join(snapshots_dir, revision)
+        for revision in os.listdir(snapshots_dir)
+        if os.path.isfile(os.path.join(snapshots_dir, revision, "config.json"))
+    )
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        raise ValueError(
+            f"Multiple Hugging Face snapshots found under {model_dir}; "
+            "specify one snapshots/<revision> directory explicitly."
+        )
+    return None
+
+
 def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
     if os.path.isdir(model_path):
         config_path = os.path.join(model_path, "config.json")
@@ -14,6 +45,11 @@ def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
         if os.path.basename(model_path) == "config.json":
             config_path = model_path
         else:
+            config_path = os.path.join(model_dir, "config.json")
+    if not os.path.exists(config_path) and os.path.isdir(model_dir):
+        snapshot_dir = _resolve_huggingface_snapshot(model_dir)
+        if snapshot_dir is not None:
+            model_dir = snapshot_dir
             config_path = os.path.join(model_dir, "config.json")
     if not os.path.exists(config_path):
         raise ValueError(f"config.json not found under {model_path}.")
@@ -47,6 +83,17 @@ def _get_first_value(config: Dict[str, Any], *keys: str) -> Optional[Any]:
         if value is not None:
             return value
     return None
+
+
+def _with_text_config_fallback(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Expose nested text-model fields while preserving top-level values."""
+    text_config = config.get("text_config")
+    if not isinstance(text_config, dict):
+        return config
+
+    merged_config = dict(text_config)
+    merged_config.update(config)
+    return merged_config
 
 
 def _infer_context_length(config: Dict[str, Any]) -> int:
@@ -255,9 +302,9 @@ def _infer_model_format(config: Dict[str, Any]) -> str:
 def build_llm_registration_from_local_config(
     model_path: str, model_family: str
 ) -> Dict[str, Any]:
-
     config_path, model_dir = _resolve_config_and_dir(model_path)
     config = _load_json_file(config_path)
+    inference_config = _with_text_config_fallback(config)
     tokenizer_config = _load_tokenizer_config(model_dir)
     chat_template_file = _load_chat_template_file(model_dir)
 
@@ -283,8 +330,8 @@ def build_llm_registration_from_local_config(
                 if "reasoning" not in model_ability:
                     model_ability.append("reasoning")
 
-    context_length = _infer_context_length(config)
-    model_size_in_billions = _infer_model_size_in_billions(config)
+    context_length = _infer_context_length(inference_config)
+    model_size_in_billions = _infer_model_size_in_billions(inference_config)
     if model_size_in_billions is None:
         raise ValueError("Unable to infer model_size_in_billions from config.json.")
 
@@ -298,7 +345,7 @@ def build_llm_registration_from_local_config(
     model_spec = {
         "model_uri": model_dir,
         "model_format": model_format,
-        "model_size_in_billions": model_size_in_billions,
+        "model_size_in_billions": str(model_size_in_billions),
         "quantization": quantization,
     }
 
