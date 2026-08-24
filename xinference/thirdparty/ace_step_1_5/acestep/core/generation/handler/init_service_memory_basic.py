@@ -97,19 +97,32 @@ class InitServiceMemoryBasicMixin:
         if tensor is None:
             return True
         try:
-            if isinstance(target_device, torch.device):
-                target_type = target_device.type
-            else:
-                target_type = torch.device(str(target_device)).type
+            target = (
+                target_device
+                if isinstance(target_device, torch.device)
+                else torch.device(str(target_device))
+            )
         except Exception:
-            target_type = str(target_device).strip().lower().split(":", 1)[0]
-            if not target_type:
-                logger.warning(
-                    "[_is_on_target_device] Malformed target device value: {!r}",
-                    target_device,
-                )
-                return False
-        return tensor.device.type == target_type
+            logger.warning(
+                "[_is_on_target_device] Malformed target device value: {!r}",
+                target_device,
+            )
+            return False
+
+        tensor_device = tensor.device
+        if tensor_device.type != target.type:
+            return False
+        if target.index is not None:
+            return tensor_device.index == target.index
+        if target.type == "cuda":
+            current_index = torch.cuda.current_device() if torch.cuda.is_available() else 0
+            tensor_index = (
+                tensor_device.index
+                if tensor_device.index is not None
+                else current_index
+            )
+            return tensor_index == current_index
+        return True
 
     @staticmethod
     def _get_affine_quantized_tensor_class():

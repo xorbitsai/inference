@@ -21,6 +21,7 @@ from acestep.gpu_config import (
     get_dit_type_from_path,
     get_effective_free_vram_gb,
 )
+from acestep.core.generation.handler.memory_utils import _cuda_device_index
 
 
 def _resolve_repaint_config(
@@ -152,7 +153,7 @@ class GenerateMusicMixin:
         duration_factor = max(1.0, duration_s / 60.0)
         needed_gb = per_batch_gb * actual_batch_size * duration_factor + VRAM_SAFETY_MARGIN_GB
 
-        free_gb = get_effective_free_vram_gb()
+        free_gb = get_effective_free_vram_gb(_cuda_device_index(self.device))
         logger.info(
             "[generate_music] VRAM pre-flight: {:.2f} GB free, ~{:.2f} GB needed "
             "(batch={}, duration={:.0f}s, mode={}).",

@@ -9,6 +9,10 @@ import torch
 from loguru import logger
 
 from acestep import gpu_config
+from acestep.core.generation.handler.memory_utils import (
+    _cuda_device_index,
+    _is_cuda_device,
+)
 
 _ROCM_DTYPE_MAP = {
     "float32": torch.float32,
@@ -75,6 +79,9 @@ class InitServiceOrchestratorMixin:
             self.device = resolved_device
             self.offload_to_cpu = offload_to_cpu
             self.offload_dit_to_cpu = offload_dit_to_cpu
+            is_cuda_device = _is_cuda_device(resolved_device)
+            if is_cuda_device:
+                torch.cuda.set_device(_cuda_device_index(resolved_device))
 
             normalized_compile, normalized_quantization, mlx_compile_requested = self._configure_initialize_runtime(
                 device=resolved_device,
@@ -82,13 +89,13 @@ class InitServiceOrchestratorMixin:
                 quantization=quantization,
             )
             self.compiled = normalized_compile
-            if resolved_device == "cuda" and gpu_config.is_rocm_available():
+            if is_cuda_device and gpu_config.is_rocm_available():
                 self.dtype = _resolve_rocm_dtype()
                 logger.info(
                     f"[initialize_service] ROCm/HIP device detected: using dtype={self.dtype} "
                     "(set ACESTEP_ROCM_DTYPE=bfloat16 or float16 to override)"
                 )
-            elif resolved_device == "cuda":
+            elif is_cuda_device:
                 if gpu_config.cuda_supports_bfloat16():
                     self.dtype = torch.bfloat16
                 else:

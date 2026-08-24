@@ -73,7 +73,7 @@ class ConditioningTextMixin:
         is_lego_sft = (
             hasattr(self, "model")
             and self.model is not None
-            and getattr(self.model.config, "is_lego_sft", False)
+            and getattr(getattr(self.model, "config", None), "is_lego_sft", False)
         )
 
         text_inputs = []

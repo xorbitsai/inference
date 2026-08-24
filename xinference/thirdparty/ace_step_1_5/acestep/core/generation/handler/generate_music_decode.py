@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from loguru import logger
 
+from acestep.core.generation.handler.memory_utils import _cuda_device_index
 from acestep.gpu_config import get_effective_free_vram_gb
 
 
@@ -150,7 +151,9 @@ class GenerateMusicDecodeMixin:
                                 "(unified memory), keeping VAE on MPS"
                             )
                         else:
-                            effective_free = get_effective_free_vram_gb()
+                            effective_free = get_effective_free_vram_gb(
+                                _cuda_device_index(self.device)
+                            )
                             logger.info(
                                 "[generate_music] Effective free VRAM before VAE decode: "
                                 f"{effective_free:.2f} GB"

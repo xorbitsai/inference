@@ -27,11 +27,19 @@ def _is_cuda_device(device: object) -> bool:
 def _cuda_device_index(device: object) -> int:
     """Return the CUDA device index implied by a device identifier."""
     if isinstance(device, torch.device):
-        return 0 if device.index is None else device.index
+        if device.type == "cuda" and device.index is not None:
+            return device.index
+        if device.type == "cuda" and torch.cuda.is_available():
+            return torch.cuda.current_device()
+        return 0
     try:
         parsed = torch.device(str(device))
         if parsed.type == "cuda":
-            return 0 if parsed.index is None else parsed.index
+            if parsed.index is not None:
+                return parsed.index
+            if torch.cuda.is_available():
+                return torch.cuda.current_device()
+            return 0
     except (TypeError, RuntimeError, ValueError):
         pass
     if isinstance(device, str) and device.startswith("cuda:"):
@@ -88,6 +96,11 @@ class MemoryUtilsMixin:
                     return value
             except ValueError:
                 pass
+            logger.warning(
+                "[_get_auto_decode_chunk_size] Invalid "
+                "ACESTEP_VAE_DECODE_CHUNK_SIZE={!r}; using automatic sizing.",
+                override,
+            )
 
         max_chunk = self.VAE_DECODE_MAX_CHUNK_SIZE
 

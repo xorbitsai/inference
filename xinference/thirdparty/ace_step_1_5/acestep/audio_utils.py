@@ -474,7 +474,7 @@ def get_lora_weights_hash(dit_handler) -> str:
     found_any = False
 
     for adapter_name in sorted(lora_service.registry.keys()):
-        meta = lora_service.registry[adapter_name]
+        meta = lora_service.registry.get(adapter_name) or {}
         lora_path = meta.get("path")
         if not lora_path:
             continue
