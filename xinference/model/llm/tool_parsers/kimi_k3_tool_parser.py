@@ -157,7 +157,7 @@ class KimiK3ToolParser(ToolParser):
             previous = previous_text[-1] if previous_text else ""
             previous_content, previous_calls = self._parse(previous)
             current_content, current_calls = self._parse(current_text)
-            events = []
+            events: List[Any] = []
             if current_content.startswith(previous_content):
                 content_delta = current_content[len(previous_content) :]
             else:

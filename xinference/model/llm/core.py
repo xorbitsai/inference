@@ -213,7 +213,9 @@ class LLM(abc.ABC):
             )
         abilities = self.model_family.model_ability or []
         if self.model_family.model_name == "Kimi-K3":
-            self.reasoning_parser = KimiK3ReasoningParser(reasoning_content)
+            self.reasoning_parser = KimiK3ReasoningParser(  # type: ignore
+                reasoning_content
+            )
             return
         auto_insert_start_tag = "hybrid" not in abilities
         # Initialize reasoning parser if model has reasoning ability
