@@ -320,6 +320,17 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     assert Path(result["data"][0]["url"]).read_bytes() == b"worldplay"
 
 
+@pytest.mark.parametrize("pose", ["forward", "x-4", "w-0", "w-four"])
+def test_worldplay_rejects_malformed_pose(tmp_path, pose):
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+    model = PyTorchHYWorldPlayModel("worldplay", "/weights/worldplay", model_spec)
+    model._code_path = str(tmp_path)
+    model._base_model_path = "/weights/wan"
+
+    with pytest.raises(ValueError, match="action-duration"):
+        model.world_generate("explore", model_kwargs={"pose": pose})
+
+
 def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch):
     from .. import model as world_model_module
 

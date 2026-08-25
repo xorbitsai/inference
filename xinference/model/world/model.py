@@ -15,6 +15,7 @@ import asyncio
 import base64
 import binascii
 import logging
+import math
 import os
 import re
 import shutil
@@ -589,6 +590,8 @@ class MatrixGameModel(WorldModel):
                 self._require_bool(config, key)
         for key in ("size", "vae_type", "fa_version"):
             self._require_string(config, key)
+        if re.fullmatch(r"[1-9]\d*\*[1-9]\d*", config["size"]) is None:
+            raise ValueError("Matrix-Game size must use the HEIGHT*WIDTH format")
         if config.get("use_async_vae"):
             raise ValueError(
                 "Matrix-Game use_async_vae is not supported because its extra "
@@ -734,9 +737,20 @@ class HYWorldPlayModel(WorldModel):
             )
         for key in ("num_chunk", "num_frames", "num_inference_steps"):
             self._require_int(config, key, 1)
-        self._require_string(config, "pose")
+        pose = self._require_string(config, "pose")
+        for pose_command in pose.split(","):
+            match = re.fullmatch(
+                r"\s*(w|s|a|d|up|down|left|right)-([0-9]+(?:\.[0-9]+)?)\s*",
+                pose_command,
+            )
+            if match is None or float(match.group(2)) <= 0:
+                raise ValueError(
+                    "HY-WorldPlay pose must be comma-separated "
+                    "action-duration commands"
+                )
         if "negative_prompt" in config:
-            self._require_string(config, "negative_prompt")
+            if not isinstance(config["negative_prompt"], str):
+                raise ValueError("negative_prompt must be a string")
         response_format = self._validate_response_format(
             config.pop("response_format", "url")
         )
@@ -887,7 +901,9 @@ class AstraModel(WorldModel):
         if "moe_hidden_dim" in config:
             self._require_int(config, "moe_hidden_dim", 1)
         for key in ("camera_guidance_scale", "text_guidance_scale"):
-            self._require_number(config, key)
+            value = self._require_number(config, key)
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"Astra {key} must be a finite non-negative number")
         for key in ("add_icons", "use_camera_cfg", "use_gt_prompt"):
             if key in config:
                 self._require_bool(config, key)
