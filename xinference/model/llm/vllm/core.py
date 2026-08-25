@@ -2325,6 +2325,27 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                                             f"Failed to decode base64 file: {e}"
                                         )
 
+    async def _get_chat_template_and_tokenizer(
+        self, model_family: str
+    ) -> Tuple[Optional[str], Any]:
+        chat_template: Optional[str] = self.model_family.chat_template
+        tokenizer = None
+        if not chat_template:
+            tokenizer = await self._get_tokenizer(None)
+            if tokenizer is not None:
+                chat_template = getattr(tokenizer, "chat_template", None)
+        if not chat_template:
+            supports_native_renderer = (
+                model_family in KIMI_K3_TOOL_CALL_FAMILY
+                and tokenizer is not None
+                and callable(getattr(tokenizer, "apply_chat_template", None))
+            )
+            if not supports_native_renderer:
+                raise ValueError(
+                    f"chat_template is required for model {self.model_uid}, but none was provided."
+                )
+        return chat_template, tokenizer
+
     @vllm_check
     async def async_chat(
         self,
@@ -2370,17 +2391,11 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
 
-            # Handle empty chat_template by falling back to tokenizer's chat_template
-            chat_template: Optional[str] = self.model_family.chat_template
-            tokenizer = None
-            if not chat_template:
-                tokenizer = await self._get_tokenizer(None)
-                if tokenizer is not None:
-                    chat_template = getattr(tokenizer, "chat_template", None)
-            if not chat_template:
-                raise ValueError(
-                    f"chat_template is required for model {self.model_uid}, but none was provided."
-                )
+            # Kimi-K3 has no Jinja template and renders through its tokenizer's
+            # custom Python apply_chat_template implementation.
+            chat_template, tokenizer = await self._get_chat_template_and_tokenizer(
+                model_family
+            )
 
             if "omni" in self.model_family.model_ability:
                 audios, images, videos, video_kwargs = process_mm_info(

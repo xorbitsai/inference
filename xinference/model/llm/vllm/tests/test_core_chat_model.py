@@ -32,6 +32,49 @@ def filter_ids_and_created(data):
     return data
 
 
+class TestVLLMMultiModelChatTemplate:
+    @pytest.mark.asyncio
+    async def test_kimi_k3_uses_tokenizer_native_renderer_without_jinja(self):
+        from ..core import VLLMMultiModel
+
+        class NativeTokenizer:
+            chat_template = None
+
+            def apply_chat_template(self, messages, **kwargs):
+                assert "chat_template" not in kwargs
+                assert kwargs["add_generation_prompt"] is True
+                assert kwargs["tools"] == [{"type": "function"}]
+                return "native-kimi-k3-prompt"
+
+        model = object.__new__(VLLMMultiModel)
+        model.model_uid = "kimi-k3-test"
+        model.model_family = MagicMock()
+        model.model_family.model_name = "Kimi-K3"
+        model.model_family.model_family = None
+        model.model_family.model_ability = ["chat", "vision", "reasoning", "tools"]
+        model.model_family.chat_template = ""
+        tokenizer = NativeTokenizer()
+
+        async def get_tokenizer(_):
+            return tokenizer
+
+        model._get_tokenizer = get_tokenizer
+        chat_template, resolved_tokenizer = (
+            await model._get_chat_template_and_tokenizer("Kimi-K3")
+        )
+        assert chat_template is None
+        assert resolved_tokenizer is tokenizer
+        assert (
+            model.get_full_context(
+                [{"role": "user", "content": "hello"}],
+                chat_template,
+                tokenizer=resolved_tokenizer,
+                tools=[{"type": "function"}],
+            )
+            == "native-kimi-k3-prompt"
+        )
+
+
 class TestVLLMChatModel:
 
     @pytest.fixture
