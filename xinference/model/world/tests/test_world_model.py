@@ -25,7 +25,7 @@ from ...utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
-from .. import BUILTIN_WORLD_MODELS
+from .. import BUILTIN_WORLD_MODELS, register_world, unregister_world
 from ..core import (
     check_world_model_host,
     create_world_model_instance,
@@ -34,6 +34,13 @@ from ..core import (
 )
 from ..engine import PyTorchAstraModel, PyTorchHYWorldPlayModel, PyTorchMatrixGameModel
 from ..engine_family import WORLD_ENGINES
+
+
+def test_custom_world_registration_fails_cleanly():
+    with pytest.raises(ValueError, match="not supported"):
+        register_world(None)
+    with pytest.raises(ValueError, match="not supported"):
+        unregister_world("custom-world")
 
 
 def test_materialize_reference_rejects_malformed_data_url():

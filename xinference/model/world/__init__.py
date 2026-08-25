@@ -32,11 +32,11 @@ class CustomWorldModelFamilyV1(WorldModelFamilyV1):
 
 
 def register_world(model_family, persist=True):
-    raise NotImplementedError("Custom world models are not supported yet")
+    raise ValueError("Custom world models are not supported yet")
 
 
 def unregister_world(model_name, version=None):
-    raise NotImplementedError("Custom world models are not supported yet")
+    raise ValueError("Custom world models are not supported yet")
 
 
 def register_builtin_model():
