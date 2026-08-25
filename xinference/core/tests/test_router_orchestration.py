@@ -19,7 +19,6 @@ def _config_store(tmp_path):
         "router-a",
         {
             "logical_model": "logical",
-            "tokenizer_asset_id": "asset-a",
         },
     )
     return store
@@ -39,8 +38,8 @@ def _node(
         "port_range_start": start,
         "port_range_end": start + port_count - 1,
         "max_instances": max_instances,
-        "labels": {"zone": "a"},
-        "capabilities": {"tokenizer_assets": ["asset-a"]},
+        "reported_labels": {"zone": "a"},
+        "capabilities": {},
         "software_version": "test",
     }
 
@@ -246,7 +245,7 @@ def test_stopping_assignment_keeps_capacity_and_port_reserved(tmp_path):
     store = _config_store(tmp_path)
     store.create(
         "router-b",
-        {"logical_model": "logical-b", "tokenizer_asset_id": "asset-a"},
+        {"logical_model": "logical-b"},
     )
     controller = RouterOrchestrationController(str(tmp_path / "routers.db"), store)
     controller.register_node(
@@ -417,6 +416,57 @@ def test_scheduler_tolerates_null_node_capabilities(tmp_path):
     )
 
 
+@pytest.mark.parametrize(
+    "legacy_capability",
+    [
+        pytest.param(["asset-a"], id="string"),
+        pytest.param(
+            [
+                {
+                    "asset_id": "asset-a",
+                    "revision": "v1",
+                    "fingerprint": "sha256:" + "a" * 64,
+                }
+            ],
+            id="structured",
+        ),
+    ],
+)
+def test_static_tokenizer_asset_capability_cannot_replace_binding(
+    tmp_path, legacy_capability
+):
+    store = _config_store(tmp_path)
+    store.update(
+        "router-a",
+        {
+            "logical_model": "logical",
+            "tokenizer_asset_id": "asset-a",
+            "tokenizer_asset_revision": "v1",
+            "tokenizer_asset_fingerprint": "sha256:" + "a" * 64,
+        },
+    )
+    controller = RouterOrchestrationController(str(tmp_path / "routers.db"), store)
+    controller.create_tokenizer_asset(
+        {
+            "asset_id": "asset-a",
+            "origin": "shared_fs",
+            "revision": "v1",
+            "fingerprint": "sha256:" + "a" * 64,
+            "source": {"type": "shared_fs", "path": "/assets/asset-a"},
+        },
+        "admin",
+    )
+    node = _node("node-a", "127.0.0.1", 12080)
+    node["capabilities"] = {"tokenizer_assets": legacy_capability}
+
+    registered = controller.register_node(node)
+
+    assert controller.list_tokenizer_asset_bindings(node_id="node-a") == []
+    assert (
+        controller.scheduler._node_has_asset(registered, store.get("router-a")) is False
+    )
+
+
 def test_asset_binding_readiness_gates_assignment_and_stale_preserves_runtime(tmp_path):
     store = _config_store(tmp_path)
     store.update(
@@ -438,9 +488,7 @@ def test_asset_binding_readiness_gates_assignment_and_stale_preserves_runtime(tm
             "source": {"type": "shared_fs", "path": "/assets/asset-a"},
         }
     )
-    node = _node("node-a", "127.0.0.1", 12080)
-    node["capabilities"] = {}
-    controller.register_node(node)
+    controller.register_node(_node("node-a", "127.0.0.1", 12080))
     controller.update_deployment(
         "router-a", {"management_mode": "managed", "desired_replicas": 1}
     )
@@ -488,7 +536,7 @@ def test_managed_labels_survive_agent_reregistration(tmp_path):
     controller.set_node_labels("node-a", {"environment": "test"})
 
     updated = _node("node-a", "127.0.0.1", 12080)
-    updated["labels"] = {"zone": "b"}
+    updated["reported_labels"] = {"zone": "b"}
     node = controller.register_node(updated)
 
     assert node["reported_labels"] == {"zone": "b"}

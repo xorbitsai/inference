@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -197,6 +198,40 @@ def test_agent_config_reads_node_scope_environment(monkeypatch, tmp_path):
     assert config.port_range_start == 12080
     assert config.port_range_end == 12089
     assert not hasattr(config, "router_uid")
+
+
+def test_agent_registration_ignores_removed_legacy_environment(monkeypatch, caplog):
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_NODE_LABELS", "zone=legacy")
+    monkeypatch.setenv("XINFERENCE_TOKEN_ROUTER_TOKENIZER_ASSETS", "asset-a")
+    monkeypatch.setattr(agent_service.socket, "gethostname", lambda: "router-host")
+    monkeypatch.setattr(agent_service, "_software_revision", lambda: "revision-a")
+    agent = object.__new__(RouterAgent)
+    agent.config = SimpleNamespace(
+        node_id="node-a",
+        node_host="127.0.0.1",
+        port_range_start=12080,
+        port_range_end=12089,
+        max_instances=5,
+    )
+
+    with caplog.at_level(logging.WARNING, logger=agent_service.__name__):
+        registration = agent._node_registration()
+
+    assert registration == {
+        "node_id": "node-a",
+        "advertise_host": "127.0.0.1",
+        "port_range_start": 12080,
+        "port_range_end": 12089,
+        "max_instances": 5,
+        "software_version": agent_service.__version__,
+        "software_revision": "revision-a",
+        "reported_labels": {"system.hostname": "router-host"},
+        "capabilities": {"hostname": "router-host"},
+    }
+    assert "labels" not in registration
+    assert "tokenizer_assets" not in registration["capabilities"]
+    assert "XINFERENCE_TOKEN_ROUTER_NODE_LABELS" not in caplog.text
+    assert "XINFERENCE_TOKEN_ROUTER_TOKENIZER_ASSETS" not in caplog.text
 
 
 def test_agent_gathers_host_cpu_and_memory_resources(monkeypatch):

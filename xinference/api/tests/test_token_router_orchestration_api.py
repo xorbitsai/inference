@@ -29,7 +29,8 @@ async def test_managed_router_agent_runtime_lifecycle(tmp_path, monkeypatch) -> 
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         created = await client.post("/v1/token_routers", json=router_payload())
         assert created.status_code == 201
-        revision = created.json()["revision"]
+        config = created.json()
+        revision = config["revision"]
 
         unauthorized = await client.post(
             "/v1/internal/token-router/nodes/register", json={}
@@ -45,13 +46,39 @@ async def test_managed_router_agent_runtime_lifecycle(tmp_path, monkeypatch) -> 
                 "port_range_start": 12080,
                 "port_range_end": 12089,
                 "max_instances": 5,
-                "labels": {"zone": "a"},
-                "capabilities": {"tokenizer_assets": [ASSET_ID]},
+                "reported_labels": {"zone": "a"},
+                "capabilities": {},
                 "software_version": "test",
             },
         )
         assert registered_node.status_code == 200
         assert registered_node.json()["online"] is True
+
+        created_bindings = await client.post(
+            f"/v1/tokenizer_assets/{ASSET_ID}/bindings",
+            json={
+                "node_ids": ["node-a"],
+                "desired_state": "present",
+                "binding_mode": "manual",
+            },
+        )
+        assert created_bindings.status_code == 201
+        binding = created_bindings.json()[0]
+        assert binding["binding_mode"] == "manual"
+
+        ready_binding = await client.post(
+            "/v1/internal/token-router/nodes/node-a/asset-bindings/status",
+            headers=headers,
+            json={
+                "asset_id": ASSET_ID,
+                "generation": binding["generation"],
+                "observed_state": "ready",
+                "observed_revision": config["tokenizer_asset_revision"],
+                "observed_fingerprint": config["tokenizer_asset_fingerprint"],
+                "local_path": f"/assets/{ASSET_ID}",
+            },
+        )
+        assert ready_binding.status_code == 200
 
         deployment = await client.put(
             "/v1/token_routers/router-a/deployment",
@@ -201,7 +228,7 @@ async def test_managed_router_enable_creates_binding_for_clean_agent(
                 "port_range_start": 12080,
                 "port_range_end": 12089,
                 "max_instances": 5,
-                "labels": {"zone": "a"},
+                "reported_labels": {"zone": "a"},
                 "capabilities": {},
                 "software_version": "test",
             },

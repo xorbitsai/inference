@@ -175,33 +175,9 @@ class RouterAgent:
         self._stop_event.set()
 
     def _node_registration(self) -> Dict[str, Any]:
-        legacy_assets = [
-            value.strip()
-            for value in os.getenv(
-                "XINFERENCE_TOKEN_ROUTER_TOKENIZER_ASSETS", ""
-            ).split(",")
-            if value.strip()
-        ]
-        legacy_labels: Dict[str, str] = {}
-        for item in os.getenv("XINFERENCE_TOKEN_ROUTER_NODE_LABELS", "").split(","):
-            if "=" in item:
-                key, value = item.split("=", 1)
-                if key.strip():
-                    legacy_labels[key.strip()] = value.strip()
-        if legacy_assets:
-            logger.warning(
-                "XINFERENCE_TOKEN_ROUTER_TOKENIZER_ASSETS is deprecated; "
-                "migrate Assets to persistent Asset-Agent Bindings"
-            )
-        if legacy_labels:
-            logger.warning(
-                "XINFERENCE_TOKEN_ROUTER_NODE_LABELS is deprecated; "
-                "manage Router Agent labels through the control plane"
-            )
         reported_labels: Dict[str, str] = {
             "system.hostname": socket.gethostname(),
         }
-        reported_labels.update(legacy_labels)
         return {
             "node_id": self.config.node_id,
             "advertise_host": self.config.node_host,
@@ -210,11 +186,8 @@ class RouterAgent:
             "max_instances": self.config.max_instances,
             "software_version": __version__,
             "software_revision": _software_revision(),
-            "labels": reported_labels,
             "reported_labels": reported_labels,
             "capabilities": {
-                # Compatibility for one migration release only.
-                "tokenizer_assets": legacy_assets,
                 "hostname": socket.gethostname(),
             },
         }

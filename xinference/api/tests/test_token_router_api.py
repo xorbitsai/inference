@@ -301,21 +301,23 @@ def create_app(
     return app
 
 
-def test_router_node_register_preserves_reported_labels_presence():
+def test_router_node_register_uses_only_reported_labels():
     base = {
         "node_id": "node-a",
         "advertise_host": "127.0.0.1",
         "port_range_start": 12080,
         "port_range_end": 12089,
         "max_instances": 5,
-        "labels": {"legacy": "value"},
     }
 
-    omitted = RouterNodeRegister(**base).dict(exclude_unset=True)
+    omitted = RouterNodeRegister(**base, labels={"legacy": "value"}).dict(
+        exclude_unset=True
+    )
     explicit_empty = RouterNodeRegister(**base, reported_labels={}).dict(
         exclude_unset=True
     )
 
+    assert "labels" not in omitted
     assert "reported_labels" not in omitted
     assert explicit_empty["reported_labels"] == {}
 
