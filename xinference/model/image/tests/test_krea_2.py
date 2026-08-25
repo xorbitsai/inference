@@ -44,9 +44,7 @@ def test_krea_2_model_metadata(krea_families):
                 in spec.virtualenv.packages
             )
             assert all(
-                not package.startswith(
-                    "git+https://github.com/huggingface/diffusers"
-                )
+                not package.startswith("git+https://github.com/huggingface/diffusers")
                 for package in spec.virtualenv.packages
             )
             assert (
