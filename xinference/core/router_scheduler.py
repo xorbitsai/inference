@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Set
 
@@ -12,8 +11,6 @@ from .router_config_store import RouterConfigStore
 from .router_deployment_store import RouterDeploymentStore
 from .router_node_store import RouterNodeStore
 from .tokenizer_asset_store import TokenizerAssetStore
-
-logger = logging.getLogger(__name__)
 
 
 class RouterScheduler:
@@ -75,39 +72,16 @@ class RouterScheduler:
         if not asset_id:
             return True
         binding = self._asset_store.get_binding(asset_id, node["node_id"])
-        if binding is not None:
-            return (
-                binding["desired_state"] == "present"
-                and binding["observed_state"] == "ready"
-                and binding["observed_revision"]
-                == str(config.get("tokenizer_asset_revision") or "")
-                and binding["observed_fingerprint"].lower()
-                == str(config.get("tokenizer_asset_fingerprint") or "").lower()
-            )
-
-        # Compatibility window only: old Agents may still publish a static
-        # tokenizer_assets capability. Registration imports it into a legacy
-        # Binding whenever the Catalog contains the Asset.
-        capabilities = node.get("capabilities") or {}
-        assets = capabilities.get("tokenizer_assets") or []
-        if assets:
-            logger.warning(
-                "Using deprecated Router Agent tokenizer_assets capability for node %s",
-                node["node_id"],
-            )
-        for asset in assets:
-            if isinstance(asset, str) and asset == asset_id:
-                return True
-            if (
-                isinstance(asset, dict)
-                and asset.get("asset_id") == asset_id
-                and str(asset.get("revision") or "")
-                == str(config.get("tokenizer_asset_revision") or "")
-                and str(asset.get("fingerprint") or "").lower()
-                == str(config.get("tokenizer_asset_fingerprint") or "").lower()
-            ):
-                return True
-        return False
+        if binding is None:
+            return False
+        return (
+            binding["desired_state"] == "present"
+            and binding["observed_state"] == "ready"
+            and binding["observed_revision"]
+            == str(config.get("tokenizer_asset_revision") or "")
+            and binding["observed_fingerprint"].lower()
+            == str(config.get("tokenizer_asset_fingerprint") or "").lower()
+        )
 
     @staticmethod
     def _placement_matches(node: Dict[str, Any], placement: Dict[str, Any]) -> bool:

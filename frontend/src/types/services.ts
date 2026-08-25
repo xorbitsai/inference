@@ -442,7 +442,7 @@ export interface TokenizerAssetBinding {
   observed_revision: string;
   observed_fingerprint: string;
   local_path: string;
-  binding_mode: 'manual' | 'on_demand' | 'legacy';
+  binding_mode: 'manual' | 'on_demand';
   owner_type: string;
   owner_id: string;
   generation: number;
@@ -462,7 +462,6 @@ export interface TokenRouterNode {
   managed_labels: Record<string, unknown>;
   tokenizer_asset_bindings: TokenizerAssetBinding[];
   capabilities: {
-    tokenizer_assets?: string[];
     [key: string]: unknown;
   };
   software_version: string;

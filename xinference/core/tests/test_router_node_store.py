@@ -10,18 +10,22 @@ def _node(node_id: str) -> dict:
         "port_range_start": 12080,
         "port_range_end": 12089,
         "max_instances": 5,
-        "labels": {"legacy": "value"},
+        "reported_labels": {"zone": "a"},
         "capabilities": {},
     }
 
 
-def test_register_uses_legacy_labels_only_when_reported_labels_is_omitted(tmp_path):
+def test_register_ignores_legacy_labels_when_reported_labels_is_omitted(tmp_path):
     store = RouterNodeStore(str(tmp_path / "nodes.db"))
+    legacy_only = _node("legacy-only")
+    legacy_only.pop("reported_labels")
+    legacy_only["labels"] = {"legacy": "value"}
 
-    legacy = store.register(_node("legacy"))
+    registered = store.register(legacy_only)
     explicit_empty = store.register({**_node("explicit-empty"), "reported_labels": {}})
 
-    assert legacy["reported_labels"] == {"legacy": "value"}
+    assert registered["reported_labels"] == {}
+    assert registered["labels"] == {}
     assert explicit_empty["reported_labels"] == {}
     assert explicit_empty["labels"] == {}
 

@@ -153,9 +153,7 @@ class RouterNodeStore:
             raise ValueError("max_instances must be greater than zero")
         if maximum > end - start + 1:
             raise ValueError("max_instances exceeds the Router node port range")
-        labels = data.get("reported_labels")
-        if labels is None:
-            labels = data.get("labels", {})
+        labels = data.get("reported_labels", {})
         if not isinstance(labels, dict):
             raise ValueError("reported_labels must be an object")
         if not isinstance(data.get("capabilities", {}), dict):
@@ -168,10 +166,7 @@ class RouterNodeStore:
         now = self._now()
         desired_state = current["desired_state"] if current else "active"
         created_at = current["created_at"] if current else now
-        reported_labels_value = data.get("reported_labels")
-        if reported_labels_value is None:
-            reported_labels_value = data.get("labels", {})
-        reported_labels = dict(reported_labels_value)
+        reported_labels = dict(data.get("reported_labels") or {})
         managed_labels = current.get("managed_labels", {}) if current else {}
         merged_labels = {**reported_labels, **managed_labels}
         with self._lock, self._connect() as conn:

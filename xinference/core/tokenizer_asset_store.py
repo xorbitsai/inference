@@ -31,7 +31,7 @@ class TokenizerAssetStore:
         "absent",
         "stale",
     }
-    _BINDING_MODES = {"manual", "on_demand", "legacy"}
+    _BINDING_MODES = {"manual", "on_demand"}
 
     def __init__(self, db_path: str) -> None:
         self._db_path = db_path
@@ -94,7 +94,7 @@ class TokenizerAssetStore:
                     FOREIGN KEY(asset_id) REFERENCES tokenizer_assets(asset_id),
                     FOREIGN KEY(node_id) REFERENCES token_router_nodes(node_id),
                     CHECK (desired_state IN ('present', 'absent')),
-                    CHECK (binding_mode IN ('manual', 'on_demand', 'legacy')),
+                    CHECK (binding_mode IN ('manual', 'on_demand')),
                     CHECK (generation >= 1)
                 )"""
             )
