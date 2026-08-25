@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 # https://docs.sglang.io/docs/sglang-diffusion/compatibility_matrix
 SGLANG_SUPPORTED_IMAGE_MODELS = (
     "GLM-Image",
+    "Krea-2-Raw",
+    "Krea-2-Turbo",
     "Qwen-Image",
     "Qwen-Image-2512",
     "Z-Image",
@@ -175,6 +177,14 @@ class SGLangDiffusionModel:
             # xinference behavior of generating a new image every call
             seed = random.randint(0, 2**31 - 1)
         params = dict(generate_config)
+        if (
+            self._model_spec
+            and self._model_spec.model_name in ("Krea-2-Raw", "Krea-2-Turbo")
+            and params.get("guidance_scale") is not None
+        ):
+            # Krea's reference CFG is cond + cfg * (cond - uncond), while
+            # SGLang uses uncond + scale * (cond - uncond).
+            params["guidance_scale"] += 1.0
         params.update(
             prompt=prompt,
             width=width,

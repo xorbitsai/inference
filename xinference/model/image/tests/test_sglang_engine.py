@@ -50,6 +50,10 @@ def test_match_on_linux_with_cuda():
         assert SGLangImageModel.match(_get_spec("sd3-medium")) is False
 
 
+def test_krea_2_models_are_registered():
+    assert {"Krea-2-Raw", "Krea-2-Turbo"} <= set(SGLANG_SUPPORTED_IMAGE_MODELS)
+
+
 def test_match_rejects_non_linux():
     with (
         patch.object(engine_platform, "system", return_value="Darwin"),
@@ -168,6 +172,20 @@ def test_build_sampling_params(fake_sglang_sampling_params):
     assert params["save_output"] is False
     assert params["return_frames"] is True
     assert "true_cfg_scale" not in params
+
+
+@pytest.mark.parametrize(
+    ("model_name", "xinference_scale", "sglang_scale"),
+    [("Krea-2-Turbo", 0.0, 1.0), ("Krea-2-Raw", 3.5, 4.5)],
+)
+def test_krea_2_guidance_scale_translation(
+    fake_sglang_sampling_params, model_name, xinference_scale, sglang_scale
+):
+    model = SGLangDiffusionModel("uid", "/path", model_spec=_get_spec(model_name))
+    params = model._build_sampling_params(
+        "a cat", 1, 1024, 1024, {"guidance_scale": xinference_scale}
+    )
+    assert params["guidance_scale"] == sglang_scale
 
 
 def test_build_sampling_params_stringifies_uuid(fake_sglang_sampling_params):
