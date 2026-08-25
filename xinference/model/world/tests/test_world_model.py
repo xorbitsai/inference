@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import base64
 import importlib
 import sys
 from pathlib import Path
@@ -33,6 +34,40 @@ from ..core import (
 )
 from ..engine import PyTorchAstraModel, PyTorchHYWorldPlayModel, PyTorchMatrixGameModel
 from ..engine_family import WORLD_ENGINES
+
+
+def test_materialize_reference_rejects_malformed_data_url():
+    from ..model import _materialize_reference
+
+    with pytest.raises(ValueError, match="Invalid data URL"):
+        with _materialize_reference("data:image/png;base64", ".png"):
+            pass
+    with pytest.raises(ValueError, match="base64-encoded data"):
+        with _materialize_reference("%%%%", ".png"):
+            pass
+
+
+def test_materialize_reference_enforces_encoded_and_decoded_limits(monkeypatch):
+    from .. import model as world_model_module
+
+    monkeypatch.setattr(world_model_module, "_MAX_INPUT_BYTES", 2)
+    with pytest.raises(ValueError, match="exceeds 512 MiB"):
+        with world_model_module._materialize_reference("AAAAA", ".bin"):
+            pass
+    with pytest.raises(ValueError, match="exceeds 512 MiB"):
+        with world_model_module._materialize_reference(
+            base64.b64encode(b"abc").decode(), ".bin"
+        ):
+            pass
+
+
+def test_materialize_reference_removes_temporary_file():
+    from ..model import _materialize_reference
+
+    with _materialize_reference(base64.b64encode(b"image").decode(), ".png") as path:
+        assert path is not None
+        assert Path(path).read_bytes() == b"image"
+    assert not Path(path).exists()
 
 
 @pytest.mark.parametrize(

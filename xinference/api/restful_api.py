@@ -114,6 +114,9 @@ from .utils import get_request_route_path, require_model
 
 logger = logging.getLogger(__name__)
 
+# One base64-encoded 512 MiB media reference plus bounded JSON/config overhead.
+_MAX_WORLD_REQUEST_BYTES = ((512 * 1024 * 1024 + 2) // 3) * 4 + 1024 * 1024
+
 _TOKEN_ROUTER_HOP_BY_HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -3080,7 +3083,27 @@ class RESTfulAPI(CancelMixin):
 
     async def create_world(self, request: Request) -> Response:
         try:
-            body = WorldGenerationRequest.parse_obj(await request.json())
+            content_length = request.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    if int(content_length) > _MAX_WORLD_REQUEST_BYTES:
+                        raise HTTPException(
+                            status_code=413,
+                            detail="World generation request is too large",
+                        )
+                except ValueError:
+                    raise HTTPException(
+                        status_code=400, detail="Invalid Content-Length header"
+                    ) from None
+
+            raw_body = bytearray()
+            async for chunk in request.stream():
+                if len(raw_body) + len(chunk) > _MAX_WORLD_REQUEST_BYTES:
+                    raise HTTPException(
+                        status_code=413, detail="World generation request is too large"
+                    )
+                raw_body.extend(chunk)
+            body = WorldGenerationRequest.parse_obj(json.loads(raw_body))
         except (TypeError, ValueError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid request body: {e}")
         model_uid = body.model
@@ -3116,7 +3139,7 @@ class RESTfulAPI(CancelMixin):
         model_kwargs = dict(body.extra_body)
         kwargs_request_id = model_kwargs.pop("request_id", None)
         config_request_id = generation_config.pop("request_id", None)
-        request_id = kwargs_request_id or config_request_id
+        request_id = kwargs_request_id or config_request_id or uuid.uuid4().hex
         try:
             self._add_running_task(request_id)
             result = await model_ref.world_generate(

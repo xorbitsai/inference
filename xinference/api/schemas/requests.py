@@ -117,6 +117,9 @@ class WorldGenerationRequest(BaseModel):
     extra_body: Dict[str, Any] = Field(default_factory=dict)
     user: Optional[str] = None
 
+    class Config:
+        extra = "forbid"
+
 
 class SpeechRequest(BaseModel):
     model: str

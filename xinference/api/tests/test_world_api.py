@@ -26,9 +26,10 @@ from ..restful_api import RESTfulAPI
 class _Request:
     def __init__(self, body):
         self._body = body
+        self.headers = {}
 
-    async def json(self):
-        return self._body
+    async def stream(self):
+        yield json.dumps(self._body).encode()
 
 
 class _WorldModelRef:
@@ -121,6 +122,29 @@ async def test_create_world_forwards_common_and_model_specific_config(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_create_world_generates_internal_request_id(monkeypatch):
+    model_ref = _WorldModelRef()
+
+    async def fake_require_model(*args):
+        return model_ref
+
+    class _UUID:
+        hex = "generated-request-id"
+
+    monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
+    monkeypatch.setattr(restful_api_module.uuid, "uuid4", lambda: _UUID())
+    api = _API()
+
+    await RESTfulAPI.create_world(
+        api,
+        _Request({"model": "world-uid", "prompt": "move forward"}),
+    )
+
+    assert api.running_request_id == "generated-request-id"
+    assert model_ref.kwargs["request_id"] == "generated-request-id"
+
+
+@pytest.mark.asyncio
 async def test_create_world_rejects_image_and_video_together():
     api = _API()
     with pytest.raises(HTTPException, match="Only one of image and video") as exc:
@@ -185,7 +209,14 @@ async def test_create_world_maps_model_validation_errors_to_400(monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("content", "content_type"),
-    [(b"{", "application/json"), (b'{"prompt": 1}', "application/json")],
+    [
+        (b"{", "application/json"),
+        (b'{"prompt": 1}', "application/json"),
+        (
+            b'{"model":"world","prompt":"go","response_format":"b64_json"}',
+            "application/json",
+        ),
+    ],
 )
 async def test_create_world_route_rejects_malformed_body(content, content_type):
     api = RESTfulAPI.__new__(RESTfulAPI)
@@ -204,6 +235,26 @@ async def test_create_world_route_rejects_malformed_body(content, content_type):
 
     assert response.status_code == 400
     assert response.json()["detail"].startswith("Invalid request body:")
+
+
+@pytest.mark.asyncio
+async def test_create_world_route_rejects_oversized_body(monkeypatch):
+    monkeypatch.setattr(restful_api_module, "_MAX_WORLD_REQUEST_BYTES", 32)
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    app = FastAPI()
+    router = APIRouter()
+    router.add_api_route("/v1/worlds/generations", api.create_world, methods=["POST"])
+    app.include_router(router)
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/worlds/generations",
+            json={"model": "world", "prompt": "x" * 64},
+        )
+
+    assert response.status_code == 413
+    assert response.json()["detail"] == "World generation request is too large"
 
 
 @pytest.mark.asyncio

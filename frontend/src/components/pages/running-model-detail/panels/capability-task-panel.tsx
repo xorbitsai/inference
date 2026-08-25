@@ -71,6 +71,12 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const [resultValues, setResultValues] = useState<FormValues | undefined>();
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState<number | undefined>();
+    const showLiveProgress = Boolean(
+      config.showProgress &&
+      (model.model_type !== ModelType.World ||
+        model.model_family === 'Astra' ||
+        model.model_name === 'Astra')
+    );
 
     const showCopyResult = useMemo(() => {
       return (
@@ -169,7 +175,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
         activeRequestRef.current = { modelUid, requestId, runToken };
       }
       setLoading(true);
-      setProgress(config.showProgress ? 0 : undefined);
+      setProgress(showLiveProgress ? 0 : undefined);
       setResult(undefined);
       setResultValues(undefined);
 
@@ -220,7 +226,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           }
         });
 
-      if (config.showProgress && requestId) {
+      if (showLiveProgress && requestId) {
         void trackProgress(requestId, runToken, () => finished);
       }
     };
@@ -274,6 +280,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
                 variant="secondary"
                 size="icon"
                 className="size-11 rounded-full"
+                disabled={loading && !config.showProgress}
                 onClick={reset}
               >
                 <RotateCcw className="size-4" />
