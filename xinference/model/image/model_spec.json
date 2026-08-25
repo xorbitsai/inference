@@ -404,7 +404,7 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1785233836,
+    "updated_at": 1787386982,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -463,7 +463,7 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1769418358,
+    "updated_at": 1787386982,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -553,7 +553,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1769418360,
+    "updated_at": 1787386982,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -846,7 +846,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1769418366,
+    "updated_at": 1787386983,
     "featured": false
   },
   {
@@ -1414,7 +1414,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387632,
+    "updated_at": 1787386983,
     "featured": false
   },
   {
@@ -1452,8 +1452,8 @@
       ],
       "no_build_isolation": true
     },
-    "featured": false,
-    "updated_at": 1769418378
+    "featured": true,
+    "updated_at": 1787199739
   },
   {
     "version": 2,
@@ -1617,7 +1617,7 @@
       "no_build_isolation": true
     },
     "featured": false,
-    "updated_at": 1786683386
+    "updated_at": 1787386983
   },
   {
     "version": 2,
@@ -1757,7 +1757,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1785233837
+    "updated_at": 1787386983
   },
   {
     "model_name": "FLUX.2-klein-4B",
@@ -1855,7 +1855,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1781512046
+    "updated_at": 1787386984
   },
   {
     "version": 2,
@@ -1882,7 +1882,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1786072489
+    "updated_at": 1786874764
   },
   {
     "version": 2,
@@ -1909,9 +1909,9 @@
       "device_map": "auto"
     },
     "default_generate_config": {
-      "cfg_scale": 4.0,
+      "cfg_scale": 4,
       "cfg_norm": "none",
-      "timestep_shift": 3.0,
+      "timestep_shift": 3,
       "num_steps": 50
     },
     "virtualenv": {
@@ -1926,8 +1926,8 @@
         "#system_numpy# ; #engine# == \"transformers\""
       ]
     },
-    "featured": false,
-    "updated_at": 1787298897
+    "featured": true,
+    "updated_at": 1787306111
   },
   {
     "version": 2,
@@ -1967,8 +1967,8 @@
       "no_build_isolation": true,
       "index_strategy": "unsafe-best-match"
     },
-    "featured": false,
-    "updated_at": 1787016251
+    "featured": true,
+    "updated_at": 1787133005
   },
   {
     "version": 2,
@@ -1995,8 +1995,8 @@
     },
     "default_generate_config": {
       "num_inference_steps": 50,
-      "guidance_scale": 5.0,
-      "shift": 3.0,
+      "guidance_scale": 5,
+      "shift": 3,
       "seed": 32,
       "noise_scale_start": 7.5,
       "noise_scale_end": 7.5,
@@ -2017,7 +2017,7 @@
       "no_build_isolation": true
     },
     "featured": false,
-    "updated_at": 1786985658
+    "updated_at": 1787190235
   },
   {
     "version": 2,
@@ -2044,8 +2044,8 @@
     },
     "default_generate_config": {
       "num_inference_steps": 28,
-      "guidance_scale": 0.0,
-      "shift": 1.0,
+      "guidance_scale": 0,
+      "shift": 1,
       "seed": 32,
       "noise_scale_start": 7.5,
       "noise_scale_end": 7.5,
@@ -2066,7 +2066,7 @@
       "no_build_isolation": true
     },
     "featured": false,
-    "updated_at": 1786985658
+    "updated_at": 1787190236
   },
   {
     "version": 2,
@@ -2092,12 +2092,12 @@
     },
     "default_generate_config": {
       "num_inference_steps": 28,
-      "guidance_scale": 0.0,
-      "shift": 1.0,
+      "guidance_scale": 0,
+      "shift": 1,
       "seed": 42,
-      "noise_scale_start": 8.0,
-      "noise_scale_end": 8.0,
-      "noise_clip_std": 8.0
+      "noise_scale_start": 8,
+      "noise_scale_end": 8,
+      "noise_clip_std": 8
     },
     "virtualenv": {
       "packages": [
@@ -2114,7 +2114,7 @@
       "no_build_isolation": true
     },
     "featured": false,
-    "updated_at": 1786985658
+    "updated_at": 1787190237
   },
   {
     "version": 2,
@@ -2159,7 +2159,52 @@
       ]
     },
     "featured": true,
-    "updated_at": 1787142695
+    "updated_at": 1787219706
+  },
+  {
+    "version": 2,
+    "model_name": "SenseNova-U1.5-8B-MoT-Preview",
+    "model_description": "SenseNova-U1.5-8B-MoT-Preview is a natively unified multimodal model for text-to-image generation and single- or multi-reference image editing, with native 4K generation support.",
+    "model_family": "sensenova_u1",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "sensenova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "SenseNova/SenseNova-U1.5-8B-MoT-Preview",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "device_map": "auto"
+    },
+    "default_generate_config": {
+      "cfg_scale": 4,
+      "cfg_norm": "none",
+      "timestep_shift": 3,
+      "num_steps": 50
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.1,<6 ; #engine# == \"transformers\"",
+        "accelerate>=1.1,<2 ; #engine# == \"transformers\"",
+        "huggingface-hub>=0.34,<2 ; #engine# == \"transformers\"",
+        "safetensors>=0.4.3,<1 ; #engine# == \"transformers\"",
+        "sentencepiece==0.2.1 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1787139482
   },
   {
     "version": 2,
@@ -2205,7 +2250,7 @@
       "index_strategy": "unsafe-best-match"
     },
     "featured": false,
-    "updated_at": 1787576957
+    "updated_at": 1787649134
   },
   {
     "version": 2,
@@ -2230,7 +2275,7 @@
     },
     "default_generate_config": {
       "num_inference_steps": 8,
-      "guidance_scale": 0.0
+      "guidance_scale": 0
     },
     "virtualenv": {
       "packages": [
@@ -2251,6 +2296,6 @@
       "index_strategy": "unsafe-best-match"
     },
     "featured": true,
-    "updated_at": 1787576958
+    "updated_at": 1787649136
   }
 ]
