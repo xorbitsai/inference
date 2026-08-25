@@ -59,9 +59,7 @@ class KimiK3ToolParser(ToolParser):
 
     def _attrs(self, text: str) -> Dict[str, str]:
         return {
-            match["key"]: match["value"]
-            .replace("&quot;", '"')
-            .replace("&amp;", "&")
+            match["key"]: match["value"].replace("&quot;", '"').replace("&amp;", "&")
             for match in self._attr_re.finditer(text)
         }
 
@@ -109,9 +107,7 @@ class KimiK3ToolParser(ToolParser):
         text = self._message_close_re.sub("", text)
         return text
 
-    def _parse(
-        self, model_output: str
-    ) -> Tuple[str, List[Tuple[str, Dict[str, Any]]]]:
+    def _parse(self, model_output: str) -> Tuple[str, List[Tuple[str, Dict[str, Any]]]]:
         tools_match = self._tools_open_re.search(model_output)
         before_tools = (
             model_output[: tools_match.start()] if tools_match else model_output

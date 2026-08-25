@@ -26,8 +26,7 @@ def test_extract_response_and_typed_tool_call():
 def test_extract_response_without_tools():
     parser = KimiK3ToolParser()
     output = (
-        "<|open|>response<|sep|>hello"
-        "<|close|>response<|sep|><|close|>message<|sep|>"
+        "<|open|>response<|sep|>hello" "<|close|>response<|sep|><|close|>message<|sep|>"
     )
     assert parser.extract_tool_calls(output) == [("hello", None, None)]
 
@@ -53,6 +52,9 @@ def test_streaming_buffers_incomplete_tool_call():
 
 def test_streaming_does_not_leak_partial_tools_marker():
     parser = KimiK3ToolParser()
-    assert parser.extract_tool_calls_streaming(
-        ["answer"], "answer<|open|>too", "<|open|>too"
-    ) is None
+    assert (
+        parser.extract_tool_calls_streaming(
+            ["answer"], "answer<|open|>too", "<|open|>too"
+        )
+        is None
+    )

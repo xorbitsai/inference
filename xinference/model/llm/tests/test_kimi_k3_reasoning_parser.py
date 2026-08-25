@@ -36,11 +36,6 @@ def test_streaming_does_not_leak_split_xtml_markers():
     first = parser.extract_reasoning_content_streaming("", "reason<|cl", "reason<|cl")
     assert first == {"reasoning_content": "reason", "content": None}
 
-    current = (
-        "reason<|close|>think<|sep|>"
-        "<|open|>response<|sep|>answer<|close|>res"
-    )
-    second = parser.extract_reasoning_content_streaming(
-        "reason<|cl", current, current
-    )
+    current = "reason<|close|>think<|sep|>" "<|open|>response<|sep|>answer<|close|>res"
+    second = parser.extract_reasoning_content_streaming("reason<|cl", current, current)
     assert second == {"content": "answer"}
