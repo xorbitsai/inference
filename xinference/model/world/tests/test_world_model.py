@@ -26,6 +26,7 @@ from ...utils import (
 )
 from .. import BUILTIN_WORLD_MODELS
 from ..core import (
+    check_world_model_host,
     create_world_model_instance,
     match_world_model,
     resolve_world_model_engine,
@@ -151,6 +152,12 @@ def test_world_engine_rejects_cpu_only_host_before_virtualenv(monkeypatch):
 
     assert engines["PyTorch"] == reason
     with pytest.raises(ValueError, match="requires an NVIDIA CUDA GPU"):
+        check_world_model_host(
+            "Matrix-Game-3.0-5B",
+            "PyTorch",
+            enable_virtual_env=True,
+        )
+    with pytest.raises(ValueError, match="requires an NVIDIA CUDA GPU"):
         create_world_model_instance(
             "world-uid",
             "Matrix-Game-3.0-5B",
@@ -219,6 +226,57 @@ def test_matrix_game_generation_builds_official_runner_command(tmp_path, monkeyp
     assert captured["request_id"] == "matrix-request"
     assert result["data"][0]["url"] is not None
     assert Path(result["data"][0]["url"]).read_bytes() == b"video"
+
+
+@pytest.mark.parametrize(
+    ("config", "message"),
+    [
+        ({"use_int8": "true"}, "use_int8 must be a boolean"),
+        ({"num_inference_steps": 1.5}, "num_inference_steps must be an integer"),
+        ({"use_async_vae": True}, "extra CUDA device is not reserved"),
+        ({"ulysses_size": 3}, "must divide the assigned GPU count"),
+    ],
+)
+def test_matrix_game_rejects_unsafe_or_malformed_config(
+    tmp_path, monkeypatch, config, message
+):
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    model._code_path = str(tmp_path)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 2)
+
+    with pytest.raises(ValueError, match=message):
+        model.world_generate(
+            "move forward",
+            image="data:image/png;base64,aW1hZ2U=",
+            model_kwargs=config,
+        )
+
+
+@pytest.mark.asyncio
+async def test_world_abort_marks_request_before_runner_registration(
+    tmp_path, monkeypatch
+):
+    from .. import model as world_model_module
+
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    model.register_request("request-1")
+    assert await model.abort_request("request-1") == "DONE"
+
+    def unexpected_popen(*args, **kwargs):
+        raise AssertionError("cancelled request must not spawn a subprocess")
+
+    monkeypatch.setattr(world_model_module.subprocess, "Popen", unexpected_popen)
+    with pytest.raises(RuntimeError, match="was cancelled"):
+        model._run_command(
+            ["runner"],
+            str(tmp_path),
+            {},
+            str(tmp_path / "runner.log"),
+            request_id="request-1",
+        )
+    model.unregister_request("request-1")
 
 
 def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch):

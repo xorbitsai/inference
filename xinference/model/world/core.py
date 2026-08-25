@@ -127,6 +127,33 @@ def resolve_world_model_engine(
     )
 
 
+def check_world_model_host(
+    model_name: str,
+    model_engine: Optional[str],
+    download_hub: Optional[
+        Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+    ] = None,
+    enable_virtual_env: Optional[bool] = None,
+) -> None:
+    """Validate non-installable engine requirements without creating artifacts."""
+    from .engine_family import (
+        check_engine_by_model_name_and_engine,
+        check_engine_by_model_name_and_engine_with_virtual_env,
+    )
+
+    resolved_engine = resolve_world_model_engine(model_name, model_engine)
+    if resolved_engine is None:
+        raise ValueError(f"World model {model_name} has no available engine.")
+    resolved_download_hub = None if download_hub == "auto" else download_hub
+    model_spec = match_world_model(model_name, resolved_download_hub)
+    if enable_virtual_env:
+        check_engine_by_model_name_and_engine_with_virtual_env(
+            resolved_engine, model_name, model_family=model_spec
+        )
+    else:
+        check_engine_by_model_name_and_engine(resolved_engine, model_name)
+
+
 def create_world_model_instance(
     model_uid: str,
     model_name: str,

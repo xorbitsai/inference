@@ -210,6 +210,7 @@ class WorldModel:
         self._process_lock = threading.Lock()
         self._runner_lock = threading.Lock()
         self._running_processes: Dict[str, subprocess.Popen] = {}
+        self._request_cancellations: Dict[str, threading.Event] = {}
 
     @property
     def model_ability(self):
@@ -279,7 +280,21 @@ class WorldModel:
         env = env.copy()
         env.setdefault("PYTHONUNBUFFERED", "1")
         process_key = request_id or f"anonymous-{uuid.uuid4().hex}"
+
+        def request_cancelled() -> bool:
+            if request_id is None:
+                return False
+            with self._process_lock:
+                event = self._request_cancellations.get(request_id)
+                return event is not None and event.is_set()
+
+        if request_cancelled():
+            raise RuntimeError(f"World generation request {request_id} was cancelled")
         with self._runner_lock:
+            if request_cancelled():
+                raise RuntimeError(
+                    f"World generation request {request_id} was cancelled"
+                )
             with open(log_path, "w", encoding="utf-8") as log_file:
                 process = subprocess.Popen(
                     command,
@@ -293,7 +308,14 @@ class WorldModel:
                 )
                 with self._process_lock:
                     self._running_processes[process_key] = process
+                    cancel_event = (
+                        self._request_cancellations.get(request_id)
+                        if request_id is not None
+                        else None
+                    )
                 try:
+                    if cancel_event is not None and cancel_event.is_set():
+                        self._terminate_process(process)
                     assert process.stdout is not None
                     for line in process.stdout:
                         log_file.write(line)
@@ -310,6 +332,14 @@ class WorldModel:
             raise RuntimeError(
                 f"World generation runner exited with code {returncode}.\n" f"{output}"
             )
+
+    def register_request(self, request_id: str) -> None:
+        with self._process_lock:
+            self._request_cancellations[request_id] = threading.Event()
+
+    def unregister_request(self, request_id: str) -> None:
+        with self._process_lock:
+            self._request_cancellations.pop(request_id, None)
 
     @staticmethod
     def _terminate_process(process: subprocess.Popen) -> None:
@@ -338,14 +368,23 @@ class WorldModel:
         from ..scheduler.core import AbortRequestMessage
 
         with self._process_lock:
+            event = self._request_cancellations.get(request_id)
+            if event is not None:
+                event.set()
             process = self._running_processes.get(request_id)
         if process is None:
-            return AbortRequestMessage.NO_OP.name
+            return (
+                AbortRequestMessage.DONE.name
+                if event is not None
+                else AbortRequestMessage.NO_OP.name
+            )
         await asyncio.to_thread(self._terminate_process, process)
         return AbortRequestMessage.DONE.name
 
     def stop(self) -> None:
         with self._process_lock:
+            for event in self._request_cancellations.values():
+                event.set()
             processes = list(self._running_processes.values())
         for process in processes:
             self._terminate_process(process)
@@ -395,6 +434,38 @@ class WorldModel:
         config.update(generation_config)
         config.update(model_kwargs)
         return config
+
+    @staticmethod
+    def _require_int(
+        config: Dict[str, Any], key: str, minimum: Optional[int] = None
+    ) -> int:
+        value = config[key]
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{key} must be an integer")
+        if minimum is not None and value < minimum:
+            raise ValueError(f"{key} must be at least {minimum}")
+        return value
+
+    @staticmethod
+    def _require_number(config: Dict[str, Any], key: str) -> float:
+        value = config[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{key} must be a number")
+        return float(value)
+
+    @staticmethod
+    def _require_bool(config: Dict[str, Any], key: str) -> bool:
+        value = config[key]
+        if not isinstance(value, bool):
+            raise ValueError(f"{key} must be a boolean")
+        return value
+
+    @staticmethod
+    def _require_string(config: Dict[str, Any], key: str) -> str:
+        value = config[key]
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{key} must be a non-empty string")
+        return value
 
     def world_generate(
         self,
@@ -471,7 +542,8 @@ class MatrixGameModel(WorldModel):
         elif "guidance_scale" in config:
             config["sample_guide_scale"] = config.pop("guidance_scale")
         if "num_frames" in config:
-            num_frames = int(config.pop("num_frames"))
+            num_frames = self._require_int(config, "num_frames", 57)
+            config.pop("num_frames")
             if num_frames < 57 or (num_frames - 57) % 40:
                 raise ValueError(
                     "Matrix-Game num_frames must equal 57 + 40 * k for k >= 0"
@@ -483,6 +555,66 @@ class MatrixGameModel(WorldModel):
                 "Unsupported Matrix-Game generation options: "
                 + ", ".join(sorted(unknown))
             )
+
+        for key in (
+            "num_iterations",
+            "num_inference_steps",
+        ):
+            self._require_int(config, key, 1)
+        for key in ("seed",):
+            self._require_int(config, key)
+        if "async_vae_warmup_iters" in config:
+            self._require_int(config, "async_vae_warmup_iters", 0)
+        for key in (
+            "sample_guide_scale",
+            "sample_shift",
+            "lightvae_pruning_rate",
+        ):
+            if key in config:
+                self._require_number(config, key)
+        if not 0 <= self._require_number(config, "lightvae_pruning_rate") <= 1:
+            raise ValueError("lightvae_pruning_rate must be between 0 and 1")
+        for key in (
+            "compile_vae",
+            "convert_model_dtype",
+            "dit_fsdp",
+            "t5_cpu",
+            "t5_fsdp",
+            "use_async_vae",
+            "use_base_model",
+            "use_int8",
+            "verify_quant",
+        ):
+            if key in config:
+                self._require_bool(config, key)
+        for key in ("size", "vae_type", "fa_version"):
+            self._require_string(config, key)
+        if config.get("use_async_vae"):
+            raise ValueError(
+                "Matrix-Game use_async_vae is not supported because its extra "
+                "CUDA device is not reserved by Xinference"
+            )
+        gpu_count = self._gpu_count()
+        config.setdefault("ulysses_size", gpu_count)
+        ulysses_size = self._require_int(config, "ulysses_size", 1)
+        if gpu_count > 1:
+            if ulysses_size <= 1:
+                raise ValueError(
+                    "Matrix-Game ulysses_size must be greater than 1 "
+                    "when multiple GPUs are assigned"
+                )
+            if gpu_count % ulysses_size:
+                raise ValueError(
+                    "Matrix-Game ulysses_size must divide the assigned GPU count"
+                )
+            config.setdefault("dit_fsdp", True)
+            config.setdefault("t5_fsdp", True)
+        elif ulysses_size != 1:
+            raise ValueError(
+                "Matrix-Game ulysses_size must be 1 when one GPU is assigned"
+            )
+        if gpu_count == 1 and (config.get("dit_fsdp") or config.get("t5_fsdp")):
+            raise ValueError("Matrix-Game FSDP options require multiple assigned GPUs")
 
         response_format = self._validate_response_format(
             config.pop("response_format", "url")
@@ -517,15 +649,6 @@ class MatrixGameModel(WorldModel):
                     "fa_version": "--fa_version",
                     "async_vae_warmup_iters": "--async_vae_warmup_iters",
                 }
-                if self._gpu_count() > 1:
-                    config.setdefault("ulysses_size", self._gpu_count())
-                    if int(config["ulysses_size"]) <= 1:
-                        raise ValueError(
-                            "Matrix-Game ulysses_size must be greater than 1 "
-                            "when multiple GPUs are assigned"
-                        )
-                    config.setdefault("dit_fsdp", True)
-                    config.setdefault("t5_fsdp", True)
                 for key, option in value_options.items():
                     if config.get(key) is not None:
                         command.extend([option, str(config[key])])
@@ -609,6 +732,11 @@ class HYWorldPlayModel(WorldModel):
                 "Unsupported HY-WorldPlay generation options: "
                 + ", ".join(sorted(unknown))
             )
+        for key in ("num_chunk", "num_frames", "num_inference_steps"):
+            self._require_int(config, key, 1)
+        self._require_string(config, "pose")
+        if "negative_prompt" in config:
+            self._require_string(config, "negative_prompt")
         response_format = self._validate_response_format(
             config.pop("response_format", "url")
         )
@@ -745,10 +873,29 @@ class AstraModel(WorldModel):
                 "Unsupported Astra generation options: " + ", ".join(sorted(unknown))
             )
 
-        cam_type = int(config.get("cam_type", 1))
+        for key in (
+            "cam_type",
+            "start_frame",
+            "initial_condition_frames",
+            "frames_per_generation",
+            "total_frames_to_generate",
+            "max_history_frames",
+            "moe_num_experts",
+            "moe_top_k",
+        ):
+            self._require_int(config, key)
+        if "moe_hidden_dim" in config:
+            self._require_int(config, "moe_hidden_dim", 1)
+        for key in ("camera_guidance_scale", "text_guidance_scale"):
+            self._require_number(config, key)
+        for key in ("add_icons", "use_camera_cfg", "use_gt_prompt"):
+            if key in config:
+                self._require_bool(config, key)
+
+        cam_type = config.get("cam_type", 1)
         if cam_type not in range(1, 8):
             raise ValueError("Astra cam_type must be between 1 and 7")
-        modality_type = str(config.get("modality_type", "sekai"))
+        modality_type = self._require_string(config, "modality_type")
         if modality_type not in self._MODALITY_TYPES:
             raise ValueError(
                 "Astra modality_type must be one of: "
@@ -762,12 +909,18 @@ class AstraModel(WorldModel):
             "moe_top_k",
         )
         for key in positive_options:
-            if int(config[key]) <= 0:
+            if config[key] <= 0:
                 raise ValueError(f"Astra {key} must be greater than 0")
-        if int(config["start_frame"]) < 0:
+        if config["start_frame"] < 0:
             raise ValueError("Astra start_frame must not be negative")
-        if int(config["max_history_frames"]) < 2:
+        if config["max_history_frames"] < 2:
             raise ValueError("Astra max_history_frames must be at least 2")
+        if config["moe_top_k"] > config["moe_num_experts"]:
+            raise ValueError("Astra moe_top_k must not exceed moe_num_experts")
+        if config["initial_condition_frames"] > config["max_history_frames"]:
+            raise ValueError(
+                "Astra initial_condition_frames must not exceed max_history_frames"
+            )
 
         response_format = self._validate_response_format(
             config.pop("response_format", "url")

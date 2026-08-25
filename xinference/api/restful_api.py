@@ -3079,7 +3079,10 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_world(self, request: Request) -> Response:
-        body = WorldGenerationRequest.parse_obj(await request.json())
+        try:
+            body = WorldGenerationRequest.parse_obj(await request.json())
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid request body: {e}")
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("world")

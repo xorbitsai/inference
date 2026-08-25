@@ -53,6 +53,7 @@ export const MODEL_TYPE_OPTIONS = [
   { value: 'rerank', label: 'Rerank' },
   { value: 'image', label: 'Image' },
   { value: 'video', label: 'Video' },
+  { value: 'world', label: 'World' },
   { value: 'audio', label: 'Audio' },
 ];
 

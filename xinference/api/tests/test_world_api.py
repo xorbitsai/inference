@@ -15,8 +15,9 @@
 import asyncio
 import json
 
+import httpx
 import pytest
-from fastapi import HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 
 from .. import restful_api as restful_api_module
 from ..restful_api import RESTfulAPI
@@ -179,6 +180,30 @@ async def test_create_world_maps_model_validation_errors_to_400(monkeypatch):
         )
     assert exc.value.status_code == 400
     assert api.reported_errors == [("world-uid", "unsupported world option")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content", "content_type"),
+    [(b"{", "application/json"), (b'{"prompt": 1}', "application/json")],
+)
+async def test_create_world_route_rejects_malformed_body(content, content_type):
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    app = FastAPI()
+    router = APIRouter()
+    router.add_api_route("/v1/worlds/generations", api.create_world, methods=["POST"])
+    app.include_router(router)
+    transport = httpx.ASGITransport(app=app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/worlds/generations",
+            content=content,
+            headers={"content-type": content_type},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"].startswith("Invalid request body:")
 
 
 @pytest.mark.asyncio

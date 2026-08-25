@@ -3662,10 +3662,22 @@ class WorkerActor(xo.StatelessActor):
             launch_args["model_name"] = model_name
             launch_args["model_engine"] = model_engine
         elif model_type.lower() == "world":
-            from ..model.world.core import resolve_world_model_engine
+            from ..model.world.core import (
+                check_world_model_host,
+                resolve_world_model_engine,
+            )
 
             model_engine = resolve_world_model_engine(model_name, model_engine)
             launch_args["model_engine"] = model_engine
+            # Host requirements (notably CUDA) are knowable from the registry.
+            # Reject before virtualenv creation, downloads, GPU reservation, or
+            # subpool startup can leave launch side effects behind.
+            check_world_model_host(
+                model_name,
+                model_engine,
+                download_hub=download_hub,
+                enable_virtual_env=enable_virtual_env,
+            )
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:

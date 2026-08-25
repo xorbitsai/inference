@@ -811,19 +811,21 @@ class AsyncRESTfulWorldModelHandle(AsyncRESTfulModelHandle):
         """Generate a world video from text and an optional image or video."""
         if image is not None and video is not None:
             raise ValueError("Only one of image and video may be provided")
+        encoded_image = (
+            await asyncio.to_thread(encode_world_reference, image, "image/png")
+            if image is not None
+            else None
+        )
+        encoded_video = (
+            await asyncio.to_thread(encode_world_reference, video, "video/mp4")
+            if video is not None
+            else None
+        )
         request_body = {
             "model": self._model_uid,
             "prompt": prompt,
-            "image": (
-                encode_world_reference(image, "image/png")
-                if image is not None
-                else None
-            ),
-            "video": (
-                encode_world_reference(video, "video/mp4")
-                if video is not None
-                else None
-            ),
+            "image": encoded_image,
+            "video": encoded_video,
             "generation_config": generation_config or {},
             "extra_body": model_kwargs,
         }

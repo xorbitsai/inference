@@ -1,13 +1,22 @@
 'use client';
 
-import { useMemo, useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+  useEffect,
+  useCallback,
+} from 'react';
 import { Copy, RotateCcw, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
-import { ModelAbility, ModelType } from '@/constants';
+import { ModelAbility, ModelType, RequestEvents } from '@/constants';
 import { createForm } from '@/hooks/use-form';
 import request from '@/lib/request';
+import { eventBus } from '@/lib/event-bus';
 import { cn, copyToClipboard, sleep } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
 import type {
@@ -52,6 +61,9 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
   ({ config, model, modelUid }, ref) => {
     const form = useMemo(() => createForm(), []);
     const runTokenRef = useRef(0);
+    const activeRequestRef = useRef<
+      { modelUid: string; requestId: string; runToken: number } | undefined
+    >(undefined);
     const ResultPanel = config.resultPanel;
     const FormPanel = config.formPanel;
     const Icon = config.icon;
@@ -134,26 +146,44 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       }
     };
 
+    const abortActiveRequest = useCallback(() => {
+      const activeRequest = activeRequestRef.current;
+      activeRequestRef.current = undefined;
+      if (!activeRequest) return;
+
+      void request
+        .post(
+          `/v1/models/${encodeURIComponent(activeRequest.modelUid)}/requests/${encodeURIComponent(activeRequest.requestId)}/abort`,
+          { block_duration: 30 }
+        )
+        .catch(() => undefined);
+    }, []);
+
     const submit = () => {
       const runToken = runTokenRef.current + 1;
       const requestId = config.showProgress ? createId('request') : undefined;
       let finished = false;
 
       runTokenRef.current = runToken;
+      if (requestId) {
+        activeRequestRef.current = { modelUid, requestId, runToken };
+      }
       setLoading(true);
       setProgress(config.showProgress ? 0 : undefined);
       setResult(undefined);
       setResultValues(undefined);
 
       const values = form.getFieldsValue();
+      let requestStarted = false;
       const requestPromise = Promise.resolve(
         config.transformValues({ modelUid, model, values, requestId })
-      ).then((body) =>
-        request.post(config.requestApi, body, {
+      ).then((body) => {
+        requestStarted = true;
+        return request.post(config.requestApi, body, {
           ...(config.responseType === 'blob' ? { responseType: 'blob' as const } : {}),
           noTimeout: true,
-        })
-      );
+        });
+      });
       requestPromise
         .then((response) => {
           if (runTokenRef.current !== runToken) return;
@@ -167,8 +197,22 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           );
           setResultValues(values);
         })
+        .catch((error: unknown) => {
+          // HTTP errors are already reported by the shared request interceptor.
+          // File conversion and advanced-JSON errors happen before that boundary.
+          if (!requestStarted && runTokenRef.current === runToken) {
+            eventBus.emit(
+              RequestEvents.SERVER_ERROR,
+              error instanceof Error ? error.message : String(error)
+            );
+          }
+        })
         .finally(() => {
           finished = true;
+
+          if (activeRequestRef.current?.runToken === runToken) {
+            activeRequestRef.current = undefined;
+          }
 
           if (runTokenRef.current === runToken) {
             setLoading(false);
@@ -181,6 +225,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       }
     };
     const reset = () => {
+      abortActiveRequest();
       runTokenRef.current += 1;
       form.resetFields();
       setResult(undefined);
@@ -191,9 +236,10 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
 
     useEffect(() => {
       return () => {
+        abortActiveRequest();
         runTokenRef.current += 1;
       };
-    }, []);
+    }, [abortActiveRequest, config.ability, modelUid]);
     useImperativeHandle(ref, () => ({
       reset,
     }));
@@ -228,7 +274,6 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
                 variant="secondary"
                 size="icon"
                 className="size-11 rounded-full"
-                disabled={loading}
                 onClick={reset}
               >
                 <RotateCcw className="size-4" />

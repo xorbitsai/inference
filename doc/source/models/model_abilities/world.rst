@@ -70,8 +70,10 @@ Generate with the Xinference Python client:
        request_id="world-request-1",
    )
 
-The response follows the existing video result shape and contains either a
-``url`` or ``b64_json`` value. The public REST endpoint accepts uploaded media
+The response follows the existing video result shape. The generated item is
+``result["data"][0]`` and contains either a ``url`` or ``b64_json`` value.
+``b64_json`` is the raw base64 payload without a ``data:video/...`` prefix.
+The public REST endpoint accepts uploaded media
 as base64 data URLs; the Python client converts local file paths or bytes to
 that representation. Remote HTTP URLs and server-local paths are intentionally
 not accepted by the public endpoint. ``Matrix-Game-3.0-5B`` and ``Astra``
@@ -92,6 +94,10 @@ or use the REST endpoint::
 
    GET /v1/requests/world-request-1/progress
 
+The progress response is ``{"progress": <float>}``, where the value ranges
+from 0 to 1. Completed progress records are retained for five minutes by
+default (configurable with ``XINFERENCE_REMOVE_PROGRESS_INTERVAL``).
+
 Abort the same request with::
 
    client.abort_request("<MODEL_UID>", "world-request-1")
@@ -103,14 +109,17 @@ or::
 
 For remote clients, ``b64_json`` is directly consumable but materializes the
 complete result in the response. ``url`` currently returns a path on the
-serving deployment and is intended for clients that share that filesystem.
+worker that ran the model and is intended for clients that share that
+filesystem. Xinference does not currently copy or clean up these files.
 Artifact storage, public download URLs, and continuous streaming are separate
 future capabilities rather than part of this synchronous first version.
 
-The first launch downloads the pinned adapter source and any auxiliary base
-weights required by the selected model. It therefore requires access to the
-configured source and model hubs. A fully managed air-gapped staging lifecycle
-for this complete dependency set is not part of the first version.
+The first launch downloads the pinned adapter source from its GitHub revision
+and any auxiliary base weights required by the selected model. Selecting
+ModelScope changes the model-weight source; it does not mirror the adapter
+source checkout. Launch therefore requires access to both configured sources.
+A fully managed air-gapped staging lifecycle for this complete dependency set
+is not part of the first version.
 
 For Astra, camera control remains model-specific and is passed through
 ``extra_body`` or ``model_kwargs``. For example, ``cam_type`` accepts values
