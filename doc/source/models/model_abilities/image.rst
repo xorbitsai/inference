@@ -56,6 +56,8 @@ The Text-to-image API is supported with the following models in Xinference:
 * HiDream-O1-Image
 * HiDream-O1-Image-Dev
 * HiDream-O1-Image-Dev-2604
+* Krea-2-Raw
+* Krea-2-Turbo
 
 Image-to-image supported models:
 
@@ -108,6 +110,8 @@ for faster inference:
 
 * FLUX.1-dev
 * GLM-Image (SGLang only)
+* Krea-2-Raw (SGLang only)
+* Krea-2-Turbo (SGLang only)
 * Qwen-Image
 * Qwen-Image-2512
 * Z-Image

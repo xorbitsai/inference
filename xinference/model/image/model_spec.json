@@ -2160,5 +2160,97 @@
     },
     "featured": true,
     "updated_at": 1787142695
+  },
+  {
+    "version": 2,
+    "model_name": "Krea-2-Raw",
+    "model_family": "stable_diffusion",
+    "model_description": "Krea 2 Raw is the undistilled base checkpoint for diverse text-to-image generation, fine-tuning, and post-training.",
+    "model_ability": [
+      "text2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "krea/Krea-2-Raw",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "krea/Krea-2-Raw",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 52,
+      "guidance_scale": 3.5
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.39.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.2.0,<6 ; #engine# == \"diffusers\"",
+        "accelerate>=1.0.0 ; #engine# == \"diffusers\"",
+        "peft>=0.18.0 ; #engine# == \"diffusers\"",
+        "sentencepiece ; #engine# == \"diffusers\"",
+        "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
+        "numpy<2.3 ; #engine# == \"SGLang\"",
+        "pandas<3 ; #engine# == \"SGLang\"",
+        "sglang[diffusion]>=0.5.15 ; #engine# == \"SGLang\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": false,
+      "index_strategy": "unsafe-best-match"
+    },
+    "featured": false,
+    "updated_at": 1787576957
+  },
+  {
+    "version": 2,
+    "model_name": "Krea-2-Turbo",
+    "model_family": "stable_diffusion",
+    "model_description": "Krea 2 Turbo is the distilled 8-step Krea 2 checkpoint for fast, high-quality text-to-image generation.",
+    "model_ability": [
+      "text2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "krea/Krea-2-Turbo",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "krea/Krea-2-Turbo",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 8,
+      "guidance_scale": 0.0
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.39.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.2.0,<6 ; #engine# == \"diffusers\"",
+        "accelerate>=1.0.0 ; #engine# == \"diffusers\"",
+        "peft>=0.18.0 ; #engine# == \"diffusers\"",
+        "sentencepiece ; #engine# == \"diffusers\"",
+        "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
+        "numpy<2.3 ; #engine# == \"SGLang\"",
+        "pandas<3 ; #engine# == \"SGLang\"",
+        "sglang[diffusion]>=0.5.15 ; #engine# == \"SGLang\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": false,
+      "index_strategy": "unsafe-best-match"
+    },
+    "featured": true,
+    "updated_at": 1787576958
   }
 ]
