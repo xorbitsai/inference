@@ -536,3 +536,123 @@ class ReasoningParser:
             )
 
         return chunks
+
+
+class KimiK3ReasoningParser(ReasoningParser):
+    """Split Kimi-K3 XTML think/response channels.
+
+    Kimi-K3 may consume the opening think marker as a generation prefix, so a
+    missing opening marker still means that text before the closing marker is
+    reasoning.  Response wrappers are removed while tool-channel text is kept
+    for ``KimiK3ToolParser``.
+    """
+
+    THINK_OPEN = "<|open|>think<|sep|>"
+    THINK_CLOSE = "<|close|>think<|sep|>"
+    RESPONSE_OPEN = "<|open|>response<|sep|>"
+    RESPONSE_CLOSE = "<|close|>response<|sep|>"
+    MESSAGE_CLOSE = "<|close|>message<|sep|>"
+
+    def __init__(self, reasoning_content: bool = False, **kwargs):
+        super().__init__(
+            reasoning_content=reasoning_content,
+            reasoning_start_tag=self.THINK_OPEN,
+            reasoning_end_tag=self.THINK_CLOSE,
+            enable_thinking=True,
+            auto_insert_start_tag=False,
+        )
+
+    @staticmethod
+    def _hold_partial_marker(text: str, markers: Tuple[str, ...]) -> str:
+        overlap = 0
+        for marker in markers:
+            for length in range(min(len(text), len(marker) - 1), 0, -1):
+                if text.endswith(marker[:length]):
+                    overlap = max(overlap, length)
+                    break
+        return text[:-overlap] if overlap else text
+
+    @classmethod
+    def _reasoning_text_ready(cls, text: str) -> str:
+        if cls.THINK_OPEN in text:
+            text = text.split(cls.THINK_OPEN, 1)[1]
+        elif cls.THINK_OPEN.startswith(text):
+            return ""
+        if cls.THINK_CLOSE in text:
+            return text.split(cls.THINK_CLOSE, 1)[0]
+        return cls._hold_partial_marker(text, (cls.THINK_OPEN, cls.THINK_CLOSE))
+
+    @classmethod
+    def _content_after_reasoning(cls, text: str) -> str:
+        if cls.THINK_CLOSE not in text:
+            return ""
+        return text.split(cls.THINK_CLOSE, 1)[1]
+
+    @classmethod
+    def _content_text_ready(cls, text: str) -> str:
+        if cls.RESPONSE_OPEN in text:
+            text = text.split(cls.RESPONSE_OPEN, 1)[1]
+        elif cls.RESPONSE_OPEN.startswith(text):
+            return ""
+        text = text.replace(cls.RESPONSE_CLOSE, "")
+        text = text.replace(cls.MESSAGE_CLOSE, "")
+        return cls._hold_partial_marker(
+            text,
+            (cls.RESPONSE_OPEN, cls.RESPONSE_CLOSE, cls.MESSAGE_CLOSE),
+        )
+
+    def extract_reasoning_content(
+        self, model_output: Union[str, CompletionChoice]
+    ) -> Tuple[Optional[str], Optional[str]]:
+        if not isinstance(model_output, str):
+            model_output = model_output["text"]
+        if self.THINK_CLOSE not in model_output:
+            if self.THINK_OPEN in model_output:
+                model_output = model_output.split(self.THINK_OPEN, 1)[1]
+            reasoning = model_output or None if self.reasoning_content else None
+            return reasoning, ""
+        before, after = model_output.split(self.THINK_CLOSE, 1)
+        if self.THINK_OPEN in before:
+            before = before.split(self.THINK_OPEN, 1)[1]
+        reasoning = before or None if self.reasoning_content else None
+        return reasoning, self._content_text_ready(after)
+
+    def check_content_parser(self) -> bool:
+        # Kimi-K3 always emits XTML channels. Even when callers do not request
+        # reasoning_content, the parser must run to suppress the think channel
+        # and unwrap the response channel.
+        return True
+
+    def extract_reasoning_content_streaming(
+        self,
+        previous_text: str,
+        current_text: str,
+        delta_text: str,
+    ) -> ChatCompletionChunkDelta:
+        delta = ChatCompletionChunkDelta()
+
+        previous_reasoning = self._reasoning_text_ready(previous_text)
+        current_reasoning = self._reasoning_text_ready(current_text)
+        if current_reasoning.startswith(previous_reasoning):
+            reasoning_delta = current_reasoning[len(previous_reasoning) :]
+        else:
+            reasoning_delta = current_reasoning
+        if reasoning_delta and self.reasoning_content:
+            delta["reasoning_content"] = reasoning_delta
+
+        previous_content = self._content_text_ready(
+            self._content_after_reasoning(previous_text)
+        )
+        current_content = self._content_text_ready(
+            self._content_after_reasoning(current_text)
+        )
+        if current_content.startswith(previous_content):
+            content_delta = current_content[len(previous_content) :]
+        else:
+            content_delta = current_content
+        if content_delta:
+            delta["content"] = content_delta
+        elif reasoning_delta and self.reasoning_content:
+            delta["content"] = None
+
+        return delta

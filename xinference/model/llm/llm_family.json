@@ -35170,7 +35170,9 @@
     ],
     "model_ability": [
       "chat",
-      "vision"
+      "vision",
+      "reasoning",
+      "tools"
     ],
     "model_specs": [
       {
@@ -35199,10 +35201,18 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/Kimi-K3-GGUF",
-            "model_file_name_template": "",
-            "model_file_name_split_template": "Kimi-K3-{quantization}-{part}.gguf",
+            "model_file_name_template": "Kimi-K3-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Kimi-K3-{quantization}-{part}.gguf",
             "quantizations": [
-              "none"
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_XXS",
+              "UD-Q1_0",
+              "UD-Q2_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0",
+              "UD-TQ2_0"
             ],
             "quantization_parts": {
               "UD-IQ1_M": [
@@ -35393,10 +35403,18 @@
           },
           "modelscope": {
             "model_id": "unsloth/Kimi-K3-GGUF",
-            "model_file_name_template": "",
-            "model_file_name_split_template": "Kimi-K3-{quantization}-{part}.gguf",
+            "model_file_name_template": "Kimi-K3-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Kimi-K3-{quantization}-{part}.gguf",
             "quantizations": [
-              "none"
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_XXS",
+              "UD-Q1_0",
+              "UD-Q2_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q8_K_XL",
+              "UD-TQ1_0",
+              "UD-TQ2_0"
             ],
             "quantization_parts": {
               "UD-IQ1_M": [
@@ -35591,6 +35609,9 @@
     "architectures": [
       "KimiK3ForConditionalGeneration"
     ],
+    "reasoning_start_tag": "<|open|>think<|sep|>",
+    "reasoning_end_tag": "<|close|>think<|sep|>",
+    "tool_parser": "kimi-k3",
     "chat_template": "",
     "stop_token_ids": [
       163586

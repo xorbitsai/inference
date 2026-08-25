@@ -1733,3 +1733,15 @@ def test_ornith_15_397b_matches_vllm_021_multimodal(monkeypatch):
         vllm_core.VLLM_SUPPORTED_MULTI_MODEL_LIST
     )
     assert vllm_core.VLLMMultiModel.match_json(family, spec, spec.quantization) is True
+
+
+def test_kimi_k3_tool_family_registration():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..utils import KIMI_K3_TOOL_CALL_FAMILY
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "Kimi-K3"
+    )
+    assert "tools" in family.model_ability
+    assert family.tool_parser == "kimi-k3"
+    assert family.model_name in KIMI_K3_TOOL_CALL_FAMILY
