@@ -3737,6 +3737,19 @@ class WorkerActor(xo.StatelessActor):
                 raise ValueError(
                     f"Invalid input. `model_path`: {model_path} File or directory does not exist."
                 )
+            # Defense-in-depth: restrict model_path to XINFERENCE_HOME
+            from xinference.constants import XINFERENCE_HOME
+            import logging
+            real_path = os.path.realpath(model_path)
+            allowed_root = os.path.realpath(XINFERENCE_HOME)
+            if not real_path.startswith(allowed_root + os.sep) and real_path != allowed_root:
+                logging.getLogger("xinference").warning(
+                    f"model_path {model_path} is outside XINFERENCE_HOME ({XINFERENCE_HOME})"
+                )
+                raise ValueError(
+                    f"model_path must be under XINFERENCE_HOME ({XINFERENCE_HOME}). "
+                    f"Got: {model_path}"
+                )
 
         assert model_uid not in self._model_uid_to_model
         self._check_model_is_valid(model_name, model_format)
