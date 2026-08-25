@@ -120,6 +120,9 @@ def create_model_instance(
             model_name,
             resolved_download_hub,
             model_path,
+            model_engine=model_engine,
+            model_format=model_format,
+            quantization=quantization,
             **kwargs,
         )
     elif model_type == "flexible":

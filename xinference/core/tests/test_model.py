@@ -45,6 +45,31 @@ class MockModel:
         yield {"test2": prompt}
 
 
+class _DescribedModelFamily:
+    def __init__(self, model_type: str):
+        self._model_type = model_type
+
+    def to_description(self) -> dict:
+        return {"model_type": self._model_type, "model_name": "test-video"}
+
+
+class _DescribedModel:
+    def __init__(self, model_type: str):
+        self.model_family = _DescribedModelFamily(model_type)
+
+
+def test_video_metrics_keep_selected_engine_label():
+    actor = ModelActor(
+        supervisor_address="test:123",
+        worker_address="test:345",
+        model=_DescribedModel("video"),  # type: ignore
+        replica_model_uid="test-video-0",
+        model_engine="MLX",
+    )
+
+    assert actor._metrics_labels["engine"] == "MLX"
+
+
 class MockModelActor(ModelActor):
     def __init__(
         self,

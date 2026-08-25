@@ -1809,6 +1809,31 @@ def _get_engine_params_by_name(
 
             for engine_class in supported_engines[engine_name]:
                 try:
+                    check_host = getattr(engine_class, "check_host", None)
+                    if callable(check_host):
+                        (
+                            host_ok,
+                            host_reason,
+                            host_error_type,
+                            host_details,
+                        ) = _normalize_match_result(
+                            check_host(),
+                            f"Engine {engine_name} is incompatible with the current host",
+                            "host_incompatible",
+                        )
+                        if not host_ok:
+                            _append_unavailable_engine(
+                                engine_name,
+                                host_reason,
+                                host_error_type,
+                                host_details,
+                            )
+                            # The engine was evaluated and rejected by a hard,
+                            # non-installable constraint. Do not let a
+                            # virtualenv marker turn it back into an option.
+                            matched = True
+                            break
+
                     match_func = getattr(engine_class, "match", None)
                     for family in families:
                         match_res = (
@@ -2023,6 +2048,29 @@ def _get_engine_params_by_name(
         )
         _collect_supported_image_engines(
             audio_families, supported_audio_engines, "audio"
+        )
+        return engine_params
+
+    if model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.core import VIDEO_REGISTRY_LOCK
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        with VIDEO_REGISTRY_LOCK:
+            if model_name not in VIDEO_ENGINES:
+                return None
+            available_engines = deepcopy(VIDEO_ENGINES[model_name])
+            video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
         )
         return engine_params
 
@@ -2277,6 +2325,30 @@ def _get_engine_params_by_name_with_virtual_env(
 
             for engine_class in supported_engines[engine_name]:
                 try:
+                    check_host = getattr(engine_class, "check_host", None)
+                    if callable(check_host):
+                        (
+                            host_ok,
+                            host_reason,
+                            host_error_type,
+                            host_details,
+                        ) = _normalize_match_result(
+                            check_host(),
+                            f"Engine {engine_name} is incompatible with the current host",
+                            "host_incompatible",
+                        )
+                        if not host_ok:
+                            _append_unavailable_engine(
+                                engine_name,
+                                host_reason,
+                                host_error_type,
+                                host_details,
+                            )
+                            # Hard host constraints cannot be repaired by
+                            # installing dependencies in a virtualenv.
+                            matched = True
+                            break
+
                     match_func = getattr(engine_class, "match", None)
                     for family in families:
                         match_res = (
@@ -2572,9 +2644,44 @@ def _get_engine_params_by_name_with_virtual_env(
 
         return engine_params
 
+    elif model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.core import VIDEO_REGISTRY_LOCK
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        with VIDEO_REGISTRY_LOCK:
+            if model_name not in VIDEO_ENGINES:
+                return None
+            available_engines = deepcopy(VIDEO_ENGINES[model_name])
+            video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        video_engine_markers: Set[str] = set()
+        for family in video_families:
+            video_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+            video_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_video_engines,
+            video_engine_markers,
+            enable_virtual_env,
+        )
+
+        return engine_params
+
     raise ValueError(
         "Cannot support model_engine for "
-        f"{model_type}, only available for LLM, embedding, rerank, image, audio"
+        f"{model_type}, only available for LLM, embedding, rerank, image, audio, video"
     )
 
 

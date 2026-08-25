@@ -3,6 +3,8 @@
     "version": 2,
     "model_name": "CogVideoX-2b",
     "model_family": "CogVideoX",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -15,7 +17,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -39,6 +41,8 @@
     "version": 2,
     "model_name": "CogVideoX-5b",
     "model_family": "CogVideoX",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -51,7 +55,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -75,6 +79,8 @@
     "version": 2,
     "model_name": "HunyuanVideo",
     "model_family": "HunyuanVideo",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -85,7 +91,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -143,6 +149,8 @@
     "version": 2,
     "model_name": "Wan2.1-1.3B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -152,7 +160,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -176,6 +184,8 @@
     "version": 2,
     "model_name": "Wan2.1-14B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -185,7 +195,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -209,6 +219,8 @@
     "version": 2,
     "model_name": "Wan2.1-i2v-14B-480p",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -223,7 +235,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -247,6 +259,8 @@
     "version": 2,
     "model_name": "Wan2.1-i2v-14B-720p",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -261,7 +275,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -285,6 +299,8 @@
     "version": 2,
     "model_name": "Wan2.1-flf2v-14B-720p",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "firstlastframe2video"
     ],
@@ -299,7 +315,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -323,6 +339,8 @@
     "version": 2,
     "model_name": "Wan2.2-A14B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -332,7 +350,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -356,6 +374,8 @@
     "version": 2,
     "model_name": "Wan2.2-i2v-A14B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -365,7 +385,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -389,6 +409,8 @@
     "version": 2,
     "model_name": "Wan2.2-ti2v-5B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video",
       "image2video"
@@ -399,7 +421,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -423,6 +445,8 @@
     "version": 2,
     "model_name": "Wan2.2-Animate-2-14B",
     "model_family": "WanAnimate2",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -439,7 +463,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head",
+        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head ; #engine# == \"diffusers\"",
         "transformers>=4.57.6",
         "accelerate>=1.13.0",
         "flash-attn",
@@ -470,6 +494,8 @@
     "version": 2,
     "model_name": "Wan2.2-Animate-2-14B-Distilled",
     "model_family": "WanAnimate2",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -486,7 +512,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head",
+        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head ; #engine# == \"diffusers\"",
         "transformers>=4.57.6",
         "accelerate>=1.13.0",
         "flash-attn",
@@ -517,6 +543,8 @@
     "version": 2,
     "model_name": "MiniMax-H3",
     "model_family": "MiniMax-H3",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video",
       "image2video",
@@ -558,7 +586,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
+        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86 ; #engine# == \"diffusers\"",
         "transformers>=5.15.0,<6.0",
         "peft==0.20.0",
         "huggingface-hub>=1.23.0,<2.0",
@@ -590,5 +618,393 @@
     },
     "updated_at": 1786840547,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.1-1.3B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.1-1.3B-mlx",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 832,
+      "height": 480,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "diffusion_pytorch_model*.safetensors*",
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_torch# ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.1-T2V-1.3B",
+        "model_revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.1-14B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.1-14B-mlx",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 1280,
+      "height": 704,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "diffusion_pytorch_model*.safetensors*",
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_torch# ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.1-T2V-14B",
+        "model_revision": "a064a6c71f5be440641209c07bf2a5ce7a2ff5e4"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-A14B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.2-A14B-mlx",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 1280,
+      "height": 704,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "high_noise_model.safetensors",
+        "low_noise_model.safetensors",
+        "t5_encoder.safetensors",
+        "tokenizer.json",
+        "vae.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "SceneWorks/wan2.2-t2v-a14b-mlx",
+        "model_revision": "991eb255c544bbb2e1f1e07da4355c2f0a5337b7"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/wan2.2-t2v-a14b-mlx",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-i2v-A14B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.2-i2v-A14B-mlx",
+    "model_ability": [
+      "image2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 1280,
+      "height": 704,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "high_noise_model.safetensors",
+        "low_noise_model.safetensors",
+        "t5_encoder.safetensors",
+        "tokenizer.json",
+        "vae.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "SceneWorks/wan2.2-i2v-a14b-mlx",
+        "model_revision": "c6c786170031eccc3a1fac0f98f1ad4ff988271e"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/wan2.2-i2v-a14b-mlx",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-ti2v-5B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.2-ti2v-5B-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 1280,
+      "height": 704,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "model.safetensors",
+        "t5_encoder.safetensors",
+        "tokenizer.json",
+        "vae.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "SceneWorks/wan2.2-ti2v-5b-mlx",
+        "model_revision": "bb1b055249614cf9d7cf4373fbdbc184b77dee88"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/wan2.2-ti2v-5b-mlx",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "LTX-2-distilled",
+    "model_family": "LTX-2",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "LTX-2-distilled-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 512,
+      "height": 512,
+      "num_frames": 33,
+      "fps": 24,
+      "pipeline": "distilled",
+      "verbose": false
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/LTX-2-distilled",
+        "model_revision": "60135212a1e96122922a15bf249356a3ff38cde0"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/LTX-2-distilled",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "LTX-2-dev",
+    "model_family": "LTX-2",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "LTX-2-dev-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 512,
+      "height": 512,
+      "num_frames": 33,
+      "fps": 24,
+      "pipeline": "dev",
+      "verbose": false
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/LTX-2-dev",
+        "model_revision": "98683cfe012c2f2a6343383674859de516f3d70b"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/LTX-2-dev",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "LTX-2.3-distilled",
+    "model_family": "LTX-2.3",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "LTX-2.3-distilled-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 512,
+      "height": 512,
+      "num_frames": 33,
+      "fps": 24,
+      "pipeline": "distilled",
+      "verbose": false
+    },
+    "text_encoder_model_id": "prince-canuma/LTX-2-distilled",
+    "text_encoder_model_revision": "60135212a1e96122922a15bf249356a3ff38cde0",
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/LTX-2.3-distilled",
+        "model_revision": "65b104b9387fb173d8e4b92fc5effc47625baf2a"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/LTX-2.3-distilled",
+        "model_revision": "master",
+        "text_encoder_model_id": "Xorbits/LTX-2-distilled",
+        "text_encoder_model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "LTX-2.3-dev",
+    "model_family": "LTX-2.3",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "LTX-2.3-dev-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 512,
+      "height": 512,
+      "num_frames": 33,
+      "fps": 24,
+      "pipeline": "dev",
+      "verbose": false
+    },
+    "text_encoder_model_id": "prince-canuma/LTX-2-distilled",
+    "text_encoder_model_revision": "60135212a1e96122922a15bf249356a3ff38cde0",
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/LTX-2.3-dev",
+        "model_revision": "5da7eb70a6a8a2691f6810454a31f2790e65d8ee"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/LTX-2.3-dev",
+        "model_revision": "master",
+        "text_encoder_model_id": "Xorbits/LTX-2-distilled",
+        "text_encoder_model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
   }
 ]

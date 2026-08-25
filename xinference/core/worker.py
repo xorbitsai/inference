@@ -103,6 +103,7 @@ from .utils import (
     build_subpool_envs_for_virtual_env,
     filter_virtualenv_packages_by_markers,
     find_direct_reference_packages,
+    find_remote_direct_reference_packages,
     log_async,
     log_sync,
     merge_virtual_env_packages,
@@ -2616,21 +2617,33 @@ class WorkerActor(xo.StatelessActor):
         elif model_type == "video":
             from ..model.cache_manager import CacheManager
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.core import VIDEO_REGISTRY_LOCK
 
-            # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
-            for model_name, families in BUILTIN_VIDEO_MODELS.items():
+            # Add one catalog entry per model and retain each engine/hub source
+            # as a launchable specification.
+            with VIDEO_REGISTRY_LOCK:
+                video_models = [
+                    (model_name, list(families))
+                    for model_name, families in BUILTIN_VIDEO_MODELS.items()
+                ]
+            for model_name, families in video_models:
+                if not families:
+                    continue
                 download_hubs = []
                 for family in families:
                     if family.model_hub not in download_hubs:
                         download_hubs.append(family.model_hub)
-                for family in families:
-                    if detailed:
+                if detailed:
+                    model_specs = []
+                    for family in families:
                         video_cache_manager = CacheManager(family)
-                        model_specs = [
+                        model_specs.append(
                             {
-                                "model_format": "pytorch",
+                                "model_format": family.model_format or "diffusers",
+                                "model_engine": family.engine or "diffusers",
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
+                                "cache_name": family.cache_name,
                                 "cache_status": video_cache_manager.get_cache_status(),
                                 "gguf_model_id": family.gguf_model_id,
                                 "gguf_quantizations": family.gguf_quantizations,
@@ -2638,17 +2651,26 @@ class WorkerActor(xo.StatelessActor):
                                     family.gguf_model_file_name_template
                                 ),
                             }
-                        ]
-                        ret.append(
-                            {
-                                **family.dict(),
-                                "model_specs": model_specs,
-                                "is_builtin": True,
-                                "download_hubs": download_hubs,
-                            }
                         )
-                    else:
-                        ret.append({"model_name": model_name, "is_builtin": True})
+                    representative = next(
+                        (
+                            family
+                            for family in families
+                            if family.model_hub == "huggingface"
+                            and (family.engine or "diffusers").lower() == "diffusers"
+                        ),
+                        families[0],
+                    )
+                    ret.append(
+                        {
+                            **representative.dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
@@ -2781,13 +2803,14 @@ class WorkerActor(xo.StatelessActor):
                     return f
         elif model_type == "video":
             from ..model.video import BUILTIN_VIDEO_MODELS
+            from ..model.video.core import VIDEO_REGISTRY_LOCK
 
             # Check built-in video models
-            if model_name in BUILTIN_VIDEO_MODELS:
-                families = BUILTIN_VIDEO_MODELS[model_name]
-                for f in families:
-                    if f.model_hub == "huggingface":
-                        return f
+            with VIDEO_REGISTRY_LOCK:
+                families = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+            for f in families:
+                if f.model_hub == "huggingface":
+                    return f
             return None
         elif model_type == "rerank":
             from ..model.rerank import BUILTIN_RERANK_MODELS
@@ -3295,7 +3318,7 @@ class WorkerActor(xo.StatelessActor):
             # index_url is present breaks online users whose mirror does not
             # carry the direct wheel.
             packages = rewrite_direct_url_packages_for_index(packages)
-            direct_references = find_direct_reference_packages(packages)
+            direct_references = find_remote_direct_reference_packages(packages)
             if direct_references:
                 raise ValueError(
                     "Offline virtualenv installation does not support "
@@ -3316,6 +3339,20 @@ class WorkerActor(xo.StatelessActor):
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        direct_references = find_direct_reference_packages(packages)
+        if direct_references and conf.get("skip_installed"):
+            # xoscar's skip-installed optimization reconstructs an install list
+            # from ``uv pip install --dry-run`` output.  Direct references are
+            # reported as ``name @ URL`` rather than ``name==version`` and are
+            # therefore omitted from that reconstructed list, leaving only
+            # their dependencies installed.  Let uv handle the original
+            # requirements directly so the top-level package is installed too.
+            logger.info(
+                "Disabling skip-installed optimization for direct-reference "
+                "packages: %s",
+                direct_references,
+            )
+            conf["skip_installed"] = False
         if force_reinstall_xllamacpp:
             # Bypass the satisfied-package filter so uv is actually invoked with
             # the GPU index even when a same-version CPU wheel is already
@@ -3553,6 +3590,14 @@ class WorkerActor(xo.StatelessActor):
 
             model_engine = resolve_image_model_engine(model_name, model_engine)
             launch_args["model_engine"] = model_engine
+        elif model_type.lower() == "video":
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+            launch_args["model_name"] = model_name
+            launch_args["model_engine"] = model_engine
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:
@@ -3656,6 +3701,29 @@ class WorkerActor(xo.StatelessActor):
                             f"Launch cancelled while waiting in queue: {model_uid}"
                         )
 
+                    # Video engine host/tuple/hub checks are side-effect-free.
+                    # Run them before even creating a same-interpreter venv so
+                    # incompatible Apple-Silicon/Python/source requests leave no
+                    # cache or virtualenv artifacts behind.
+                    if model_type.lower() == "video" and model_engine:
+                        from ..model.video.core import match_diffusion
+                        from ..model.video.engine_family import (
+                            check_engine_by_model_name_and_engine_with_virtual_env,
+                        )
+
+                        video_model_spec = match_diffusion(
+                            model_name,
+                            download_hub,
+                            model_engine=model_engine,
+                        )
+                        check_engine_by_model_name_and_engine_with_virtual_env(
+                            model_engine,
+                            model_name,
+                            model_format,
+                            quantization,
+                            model_family=video_model_spec,
+                        )
+
                     # virtualenv
                     virtual_env_name = kwargs.pop("virtual_env_name", None)
                     # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
@@ -3734,6 +3802,14 @@ class WorkerActor(xo.StatelessActor):
                         )
                         model_kwargs = kwargs.copy()
                         model_kwargs["enable_virtual_env"] = enable_virtual_env
+                        if (
+                            model_type.lower() == "video"
+                            and model_engine
+                            and model_engine.lower() == "mlx"
+                        ):
+                            model_kwargs["_xinference_virtual_env_packages"] = (
+                                virtual_env_packages
+                            )
                         if n_worker > 1:  # type: ignore
                             # for model across workers,
                             # add a few kwargs
@@ -4898,6 +4974,31 @@ class WorkerActor(xo.StatelessActor):
                 for root, _dirs, files in os.walk(draft_path):
                     paths.update(os.path.join(root, name) for name in files)
 
+        # MLX video converts official Wan checkpoints beside the registered
+        # cache entry. Keep this name-based and confined to the validated
+        # Xinference cache parent so a model_uri target is never traversed or
+        # removed. Known Wan MLX entries always include the lock path, even if
+        # it does not exist yet, closing the discovery-to-acquisition window.
+        converted_path = f"{path}.mlx-video"
+        conversion_lock_path = f"{converted_path}.lock"
+        is_wan_mlx_cache = model_version.lower().startswith(
+            "wan"
+        ) and model_version.lower().endswith("-mlx")
+        if (
+            WorkerActor._is_path_within(converted_path, cache_root)
+            and WorkerActor._is_path_within(conversion_lock_path, cache_root)
+            and (
+                is_wan_mlx_cache
+                or os.path.lexists(converted_path)
+                or os.path.lexists(conversion_lock_path)
+            )
+        ):
+            if os.path.lexists(converted_path):
+                paths.add(converted_path)
+            # Include the producer lock even if a concurrent conversion only
+            # created its output after the existence check above.
+            paths.add(conversion_lock_path)
+
         return list(paths)
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
@@ -4906,6 +5007,31 @@ class WorkerActor(xo.StatelessActor):
             logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
             return False
         paths = await self.list_deletable_models(model_version)
+
+        # Coordinate with Wan conversion using the producer's exact FileLock.
+        # Lock paths are added even when absent so a conversion cannot start in
+        # the gap between discovery and deletion. The zero-byte lock inode is
+        # intentionally retained after release: unlinking it permits old and new
+        # acquirers to lock different inodes and defeats cross-process exclusion.
+        from filelock import FileLock
+
+        conversion_lock_paths = sorted(
+            path for path in paths if path.endswith(".mlx-video.lock")
+        )
+        conversion_locks = [FileLock(path) for path in conversion_lock_paths]
+        acquired_conversion_locks = []
+        try:
+            for conversion_lock in conversion_locks:
+                await asyncio.to_thread(conversion_lock.acquire)
+                acquired_conversion_locks.append(conversion_lock)
+        except BaseException:
+            for conversion_lock in reversed(acquired_conversion_locks):
+                await asyncio.to_thread(conversion_lock.release)
+            raise
+        for lock_path in conversion_lock_paths:
+            converted_path = lock_path[: -len(".lock")]
+            if os.path.lexists(converted_path):
+                paths.append(converted_path)
 
         # Remember managed download parents before deleting their files. They are
         # pruned with ``rmdir`` afterwards, so non-empty/shared directories stop
@@ -4926,33 +5052,42 @@ class WorkerActor(xo.StatelessActor):
             is_directory = not os.path.islink(path) and os.path.isdir(path)
             return is_directory, -path.count(os.sep)
 
-        for path in sorted(paths, key=_deletion_order):
-            try:
-                if os.path.islink(path):
-                    os.unlink(path)
-                elif os.path.isfile(path):
-                    os.remove(path)
-                elif os.path.isdir(path):
-                    path_abs = os.path.abspath(path)
-                    managed_roots = (
-                        os.path.abspath(XINFERENCE_CACHE_DIR),
-                        os.path.abspath(XINFERENCE_TENSORIZER_DIR),
-                    )
-                    if any(path_abs == root for root in managed_roots) or not any(
-                        WorkerActor._is_path_within(path_abs, root)
-                        for root in managed_roots
-                    ):
-                        logger.error(f"Refusing to delete unmanaged directory: {path}")
-                        return False
-                    shutil.rmtree(path)
-                else:
-                    logger.debug(f"{path} is not a valid path.")
-            except FileNotFoundError:
-                # A parent directory or a concurrent cleanup already removed it.
-                continue
-            except Exception as e:
-                logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
-                return False
+        try:
+            for path in sorted(
+                (path for path in paths if path not in conversion_lock_paths),
+                key=_deletion_order,
+            ):
+                try:
+                    if os.path.islink(path):
+                        os.unlink(path)
+                    elif os.path.isfile(path):
+                        os.remove(path)
+                    elif os.path.isdir(path):
+                        path_abs = os.path.abspath(path)
+                        managed_roots = (
+                            os.path.abspath(XINFERENCE_CACHE_DIR),
+                            os.path.abspath(XINFERENCE_TENSORIZER_DIR),
+                        )
+                        if any(path_abs == root for root in managed_roots) or not any(
+                            WorkerActor._is_path_within(path_abs, root)
+                            for root in managed_roots
+                        ):
+                            logger.error(
+                                f"Refusing to delete unmanaged directory: {path}"
+                            )
+                            return False
+                        shutil.rmtree(path)
+                    else:
+                        logger.debug(f"{path} is not a valid path.")
+                except FileNotFoundError:
+                    # A parent directory or a concurrent cleanup already removed it.
+                    continue
+                except Exception as e:
+                    logger.error(f"Fail to delete {path} with error:{e}.")  # noqa: E231
+                    return False
+        finally:
+            for conversion_lock in reversed(conversion_locks):
+                await asyncio.to_thread(conversion_lock.release)
 
         if not WorkerActor._prune_empty_download_dirs(download_parent_dirs):
             return False

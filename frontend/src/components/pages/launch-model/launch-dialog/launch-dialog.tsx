@@ -112,8 +112,7 @@ export default function LaunchDialog({
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
   const modelFormatValue = toOptionValue(useWatch('model_format', form));
   const modelSizeInBillionsValue = useWatch('model_size_in_billions', form) as
-    | ModelEngineItem['model_size_in_billions']
-    | undefined;
+    ModelEngineItem['model_size_in_billions'] | undefined;
   const enableThinkingValue = useWatch('enable_thinking', form);
   const modelSizeInBillionsKey = toOptionValue(modelSizeInBillionsValue);
   const quantizationValue = toOptionValue(useWatch('quantization', form));
@@ -342,14 +341,25 @@ export default function LaunchDialog({
     };
   }, [gpuAvailable, modelType, form]);
 
-  const downloadHubOptions = useMemo(
-    () =>
-      ['auto', 'none', ...(model?.download_hubs || [])].map((item) => ({
-        label: item,
-        value: item,
-      })),
-    [model?.download_hubs]
-  );
+  const downloadHubOptions = useMemo(() => {
+    const engineHubs = Array.from(
+      new Set(
+        (model?.modelSpecs || [])
+          .filter(
+            (spec) =>
+              !modelEngineValue ||
+              toOptionValue(spec.model_engine).toLowerCase() === modelEngineValue.toLowerCase()
+          )
+          .map((spec) => toOptionValue(spec.model_hub))
+          .filter(Boolean)
+      )
+    );
+    const availableHubs = engineHubs.length > 0 ? engineHubs : model?.download_hubs || [];
+    return ['auto', 'none', ...availableHubs].map((item) => ({
+      label: item,
+      value: item,
+    }));
+  }, [model?.download_hubs, model?.modelSpecs, modelEngineValue]);
 
   const workerIpFieldProps = useMemo(
     () => ({
@@ -445,8 +455,7 @@ export default function LaunchDialog({
     if (!isCustomPlacement) return;
     const current =
       (form.getFieldValue('replica_config') as
-        | Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }>
-        | undefined) ?? [];
+        Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }> | undefined) ?? [];
     if (current.length === replicaValue) return;
     const next = Array.from(
       { length: replicaValue },
@@ -1140,6 +1149,29 @@ export default function LaunchDialog({
         placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        fieldProps: { options: modelEngineOptions },
+        show: !!modelEngineOptions.length,
+      },
+      {
+        name: 'model_format',
+        type: 'select',
+        label: t('launchModel.modelFormat'),
+        disabled: !modelEngineValue,
+        fieldProps: { options: modelFormatOptions },
+        show: !!modelFormatOptions.length,
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        disabled: !modelFormatValue,
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
+      },
+      {
         name: 'replica',
         type: 'input',
         label: t('launchModel.replica'),
@@ -1245,6 +1277,7 @@ export default function LaunchDialog({
         type: 'switch',
         valuePropName: 'checked',
         tooltip: t('launchModel.CPUOffloadTip'),
+        show: !modelEngineValue || modelEngineValue.toLowerCase() === 'diffusers',
       },
       {
         name: 'collapsibleConfig',

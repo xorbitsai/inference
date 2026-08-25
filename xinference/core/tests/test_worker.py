@@ -18,6 +18,7 @@ import json
 import os
 import shutil
 import threading
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
 
@@ -173,6 +174,76 @@ async def test_resolve_download_hub_uses_worker_local_model_src(monkeypatch):
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
 
     assert await WorkerActor.resolve_download_hub(None, None) == "modelscope"
+
+
+@pytest.mark.asyncio
+async def test_video_host_preflight_precedes_virtualenv_creation(monkeypatch):
+    from ...model.video.engine import MLXVideoEngineModel
+    from ...model.video.engine_family import VIDEO_ENGINES
+
+    class _Worker:
+        def __init__(self):
+            self.address = "127.0.0.1:0"
+            self._supervisor_address = "127.0.0.1:1"
+            self._event_collector_ref = None
+            self._model_uid_to_model = {}
+            self._model_uid_launching_guard = {}
+            self._launch_semaphore = asyncio.Semaphore(1)
+            self._launch_waiting = 0
+            self._launch_active = 0
+            self.venv_created = False
+
+        async def get_supervisor_ref(self, add_worker=False):
+            return object()
+
+        def _check_model_is_valid(self, model_name, model_format):
+            pass
+
+        def get_model_launch_status(self, model_uid):
+            return None
+
+        def _create_virtual_env_manager(self, *_args, **_kwargs):
+            self.venv_created = True
+            pytest.fail("virtualenv creation must not run before host preflight")
+
+    worker = _Worker()
+    monkeypatch.setattr(
+        MLXVideoEngineModel,
+        "check_host",
+        classmethod(lambda cls: (False, "requires Apple Silicon")),
+    )
+    # Linux and Windows intentionally omit MLX from their live engine matrix.
+    # Register the exact tuple under test so this ordering regression exercises
+    # the hard host preflight consistently on every CI platform.
+    monkeypatch.setitem(
+        VIDEO_ENGINES["Wan2.1-1.3B"],
+        "MLX",
+        [
+            {
+                "model_name": "Wan2.1-1.3B",
+                "model_format": "mlx",
+                "quantization": "none",
+                "video_class": MLXVideoEngineModel,
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="requires Apple Silicon"):
+        await WorkerActor.launch_builtin_model.__wrapped__(
+            worker,
+            model_uid="wan-mlx-0",
+            model_name="Wan2.1-1.3B",
+            model_size_in_billions=None,
+            model_format="mlx",
+            quantization="none",
+            model_engine="MLX",
+            model_type="video",
+            n_gpu=None,
+            enable_virtual_env=True,
+            download_hub="huggingface",
+        )
+
+    assert worker.venv_created is False
 
 
 class MockWorkerActorRealTerminate(MockWorkerActor):
@@ -1539,6 +1610,55 @@ def test_prepare_virtual_env_normal_pip_mirror_keeps_direct_wheel(monkeypatch):
     assert packages == [direct_wheel]
 
 
+def test_prepare_virtual_env_direct_reference_disables_skip_installed(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_reference = "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@abcdef"
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
+
+
+@pytest.mark.parametrize(
+    "direct_reference",
+    [
+        "package @ hg+https://example.invalid/repo",
+        "package @ svn+ssh://example.invalid/repo",
+        "package @ bzr+https://example.invalid/repo",
+        'package @ file:///tmp/package ; python_version >= "3.10"',
+    ],
+)
+def test_prepare_virtual_env_all_direct_references_disable_skip_installed(
+    monkeypatch, direct_reference
+):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(packages=[direct_reference], inherit_pip_config=False)
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
+
+
 def test_prepare_virtual_env_offline_mirror_rewrites_direct_wheel(monkeypatch):
     manager = DummyVirtualEnvManager()
     direct_wheel = "https://example.invalid/" "pkg-1.0.0-py3-none-any.whl"
@@ -1572,6 +1692,55 @@ def test_prepare_virtual_env_offline_mirror_rejects_git_source(monkeypatch):
         WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
 
     assert manager.calls == []
+
+
+@pytest.mark.parametrize(
+    "direct_reference",
+    [
+        "package @ hg+https://example.invalid/repo",
+        "package @ svn+ssh://example.invalid/repo",
+        "package @ bzr+https://example.invalid/repo",
+    ],
+)
+def test_prepare_virtual_env_offline_mirror_rejects_remote_vcs(
+    monkeypatch, direct_reference
+):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+
+    with pytest.raises(ValueError, match="non-wheel direct references"):
+        WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    assert manager.calls == []
+
+
+def test_prepare_virtual_env_offline_allows_local_file_reference(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_reference = "package @ file:///tmp/package"
+    settings = VirtualEnvSettings(
+        packages=[direct_reference],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine="mlx")
+
+    packages, kwargs = manager.calls[0]
+    assert packages == [direct_reference]
+    assert kwargs["skip_installed"] is False
 
 
 def test_prepare_virtual_env_offline_sglang_engine_dispatch(monkeypatch):
@@ -3122,6 +3291,141 @@ async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
     ]
     assert worker.launch_model_uid == replica_model_uid
     assert worker.wait_for_load_called_with == replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_removes_mlx_video_derived_artifacts(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "wan-mlx"
+    cache_dir.mkdir(parents=True)
+    converted_dir = Path(f"{cache_dir}.mlx-video")
+    converted_dir.mkdir()
+    (converted_dir / "model.safetensors").write_bytes(b"converted")
+    conversion_lock = Path(f"{converted_dir}.lock")
+    conversion_lock.write_text("")
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    worker = _Worker()
+    paths = await WorkerActor.list_deletable_models(worker, "wan-mlx")
+    assert str(converted_dir) in paths
+    assert str(conversion_lock) in paths
+
+    assert await WorkerActor.confirm_and_remove_model(worker, "wan-mlx")
+    assert not cache_dir.exists()
+    assert not converted_dir.exists()
+    assert conversion_lock.exists()
+
+
+@pytest.mark.asyncio
+async def test_remove_model_cache_waits_for_active_mlx_conversion(
+    tmp_path, monkeypatch
+):
+    from filelock import FileLock
+
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "wan-mlx"
+    cache_dir.mkdir(parents=True)
+    converted_dir = Path(f"{cache_dir}.mlx-video")
+    conversion_lock_path = Path(f"{converted_dir}.lock")
+    tensorizer_root = tmp_path / "tensorizer"
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setattr(
+        worker_module, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+    from ...model.llm.transformers import tensorizer_utils
+
+    monkeypatch.setattr(
+        tensorizer_utils, "XINFERENCE_TENSORIZER_DIR", str(tensorizer_root)
+    )
+
+    conversion_started = threading.Event()
+    finish_conversion = threading.Event()
+
+    def convert():
+        with FileLock(str(conversion_lock_path)):
+            conversion_started.set()
+            assert finish_conversion.wait(timeout=5)
+            converted_dir.mkdir()
+            (converted_dir / "model.safetensors").write_bytes(b"converted")
+
+    conversion_thread = threading.Thread(target=convert)
+    conversion_thread.start()
+    assert conversion_started.wait(timeout=5)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+        async def confirm_and_remove_model(self, model_version, address):
+            pass
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+        async def list_deletable_models(self, model_version):
+            return await WorkerActor.list_deletable_models(self, model_version)
+
+    remove_task = asyncio.create_task(
+        WorkerActor.confirm_and_remove_model(_Worker(), "wan-mlx")
+    )
+    await asyncio.sleep(0.05)
+    assert not remove_task.done()
+    finish_conversion.set()
+
+    assert await remove_task
+    conversion_thread.join(timeout=5)
+    assert not conversion_thread.is_alive()
+    assert not cache_dir.exists()
+    assert not converted_dir.exists()
+    assert conversion_lock_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_wan_mlx_deletion_always_reserves_conversion_lock(tmp_path, monkeypatch):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "Wan2.1-1.3B-mlx"
+    cache_dir.mkdir(parents=True)
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    class _Worker:
+        _cache_tracker_ref = _Tracker()
+        address = "127.0.0.1:0"
+
+    paths = await WorkerActor.list_deletable_models(_Worker(), "Wan2.1-1.3B-mlx")
+
+    assert f"{cache_dir}.mlx-video.lock" in paths
 
 
 @pytest.mark.asyncio

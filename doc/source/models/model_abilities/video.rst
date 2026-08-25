@@ -46,17 +46,62 @@ The text-to-video API is supported with the following models in Xinference:
 * :ref:`HunyuanVideo <models_builtin_hunyuanvideo>`
 * :ref:`Wan2.1-1.3B <models_builtin_wan2.1-1.3b>`
 * :ref:`Wan2.1-14B <models_builtin_wan2.1-14b>`
+* :ref:`Wan2.2-A14B <models_builtin_wan2.2-a14b>`
+* :ref:`Wan2.2-ti2v-5B <models_builtin_wan2.2-ti2v-5b>`
+* :ref:`LTX-2-distilled <models_builtin_ltx-2-distilled>`
+* :ref:`LTX-2-dev <models_builtin_ltx-2-dev>`
+* :ref:`LTX-2.3-distilled <models_builtin_ltx-2.3-distilled>`
+* :ref:`LTX-2.3-dev <models_builtin_ltx-2.3-dev>`
 
 The image-to-video API is supported with the following models in Xinference:
 
 * :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
 * :ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`
 * :ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`
+* :ref:`Wan2.2-i2v-A14B <models_builtin_wan2.2-i2v-a14b>`
+* :ref:`Wan2.2-ti2v-5B <models_builtin_wan2.2-ti2v-5b>`
+* :ref:`Wan2.2-Animate-2-14B <models_builtin_wan2.2-animate-2-14b>`
+* :ref:`Wan2.2-Animate-2-14B-Distilled <models_builtin_wan2.2-animate-2-14b-distilled>`
+* :ref:`LTX-2-distilled <models_builtin_ltx-2-distilled>`
+* :ref:`LTX-2-dev <models_builtin_ltx-2-dev>`
+* :ref:`LTX-2.3-distilled <models_builtin_ltx-2.3-distilled>`
+* :ref:`LTX-2.3-dev <models_builtin_ltx-2.3-dev>`
 
 The firstlastframe-to-video API is supported with the following models in Xinference:
 
 * :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
 * :ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`
+* :ref:`LTX-2-distilled <models_builtin_ltx-2-distilled>`
+* :ref:`LTX-2-dev <models_builtin_ltx-2-dev>`
+* :ref:`LTX-2.3-distilled <models_builtin_ltx-2.3-distilled>`
+* :ref:`LTX-2.3-dev <models_builtin_ltx-2.3-dev>`
+
+Video engines
+-------------
+
+Video runtimes are selected with ``--model-engine``. The ``diffusers`` engine
+remains the default for models that expose both runtimes. For example, launch
+Wan2.2-A14B with either engine explicitly:
+
+.. code-block:: bash
+
+    xinference launch --model-name Wan2.2-A14B --model-type video --model-engine diffusers
+    xinference launch --model-name Wan2.2-A14B --model-type video --model-engine MLX
+
+The ``MLX`` engine uses `Blaizzy/mlx-video
+<https://github.com/Blaizzy/mlx-video>`_ and is available on Apple Silicon with
+Python 3.11 or newer. It supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the
+LTX-2/LTX-2.3 distilled and dev models listed above. The LTX models are MLX-only
+in Xinference.
+
+Wan2.1's official checkpoints are converted to the native MLX layout on first
+load and the converted copy is reused by later launches. This first launch
+therefore needs additional time and disk space. Wan2.2 and LTX use
+pre-converted checkpoints.
+
+The Web UI obtains the engines supported by each model from the engine query
+API and presents them in the launch dialog. Additional video runtimes can be
+registered independently without changing the Video API.
 
 Quickstart
 ===================
