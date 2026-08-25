@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import importlib
 import sys
 from pathlib import Path
 
@@ -374,7 +375,9 @@ def test_astra_loads_pinned_wan_base_model(tmp_path, monkeypatch):
 
 
 def test_astra_loads_wan_base_model_from_modelscope(tmp_path, monkeypatch):
-    import modelscope.hub.snapshot_download as modelscope_snapshot_download
+    modelscope_snapshot_download = importlib.import_module(
+        "modelscope.hub.snapshot_download"
+    )
 
     from .. import model as world_model_module
 
@@ -494,13 +497,17 @@ async def test_world_runner_is_terminated_on_abort(tmp_path):
             request_id="abort-me",
         )
     )
-    for _ in range(100):
+    deadline = asyncio.get_running_loop().time() + 10
+    while True:
         with model._process_lock:
             if "abort-me" in model._running_processes:
                 break
-        await asyncio.sleep(0.01)
-    else:
-        pytest.fail("runner process was not registered")
+        if run_task.done():
+            await run_task
+            pytest.fail("runner exited before it was registered")
+        if asyncio.get_running_loop().time() >= deadline:
+            pytest.fail("runner process was not registered within 10 seconds")
+        await asyncio.sleep(0.05)
 
     assert await model.abort_request("abort-me") == AbortRequestMessage.DONE.name
     with pytest.raises(RuntimeError, match="runner exited with code"):
