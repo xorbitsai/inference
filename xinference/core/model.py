@@ -23,6 +23,7 @@ import types
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Callable,
     Dict,
@@ -292,7 +293,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         if model_type == "video":
             engine_label = model_engine or ""
             format_label = ""
-        elif model_type in ("audio", "image"):
+        elif model_type in ("audio", "image", "world"):
             engine_label = model_engine or ""
             format_label = ""
         else:
@@ -448,7 +449,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         return self._progress_tracker_ref
 
-    async def _get_progressor(self, request_id: str):
+    async def _get_progressor(self, request_id: Optional[str]):
         from .progress_tracker import Progressor
 
         progressor = Progressor(
@@ -748,12 +749,30 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
+        wait_for_sync_on_cancel = kwargs.pop("_wait_for_sync_on_cancel", False)
+
+        async def _invoke():
+            if inspect.iscoroutinefunction(fn):
+                return await fn(*args, **kwargs)
+            if not wait_for_sync_on_cancel:
+                return await asyncio.to_thread(fn, *args, **kwargs)
+
+            # World generation runs a synchronous subprocess adapter.  Keep the
+            # actor task (and therefore its request-limit slot) alive until the
+            # worker thread has observed cancellation and reaped that process.
+            thread_task = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
+            try:
+                return await asyncio.shield(thread_task)
+            except asyncio.CancelledError:
+                try:
+                    await asyncio.shield(thread_task)
+                except BaseException:
+                    pass
+                raise
+
         self._add_running_task(kwargs.get("request_id"))
         if self._lock is None:
-            if inspect.iscoroutinefunction(fn):
-                ret = await fn(*args, **kwargs)
-            else:
-                ret = await asyncio.to_thread(fn, *args, **kwargs)
+            ret = await _invoke()
 
             if inspect.isgenerator(ret):
                 gen = self._to_generator(output_type, ret)
@@ -763,10 +782,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 return gen
         else:
             async with self._lock:
-                if inspect.iscoroutinefunction(fn):
-                    ret = await fn(*args, **kwargs)
-                else:
-                    ret = await asyncio.to_thread(fn, *args, **kwargs)
+                ret = await _invoke()
 
                 stream_out: Union[queue.Queue, asyncio.Queue]
 
@@ -1358,6 +1374,46 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating video from first-last-frame."
+        )
+
+    @request_limit
+    @log_async(logger=logger, ignore_kwargs=["image", "video"])
+    async def world_generate(
+        self,
+        prompt: str,
+        image: Optional[str] = None,
+        video: Optional[str] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "world_generate"):
+            request_id = kwargs.get("request_id")
+            if request_id and hasattr(self._model, "register_request"):
+                self._model.register_request(request_id)
+            try:
+                progressor = kwargs["progressor"] = await self._get_progressor(
+                    request_id
+                )
+                with progressor:
+                    return await self._call_wrapper_json(
+                        self._model.world_generate,
+                        prompt,
+                        image,
+                        video,
+                        generation_config,
+                        model_kwargs,
+                        *args,
+                        _wait_for_sync_on_cancel=True,
+                        **kwargs,
+                    )
+            finally:
+                if request_id and hasattr(self._model, "unregister_request"):
+                    self._model.unregister_request(request_id)
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for world generation."
         )
 
     async def record_metrics(self, name, op, kwargs):

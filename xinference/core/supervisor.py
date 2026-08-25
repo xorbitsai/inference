@@ -106,7 +106,7 @@ ASYNC_LAUNCH_TASKS = {}  # type: ignore
 def _merge_audio_model_registrations(
     registrations: List[Dict[str, Any]], detailed: bool
 ) -> List[Dict[str, Any]]:
-    """Merge platform-local audio catalogs without losing engine variants."""
+    """Merge platform-local catalogs without losing engine variants."""
     merged: Dict[Tuple[str, bool], Dict[str, Any]] = {}
     for registration in registrations:
         key = (
@@ -2071,7 +2071,7 @@ class SupervisorActor(xo.StatelessActor):
         )
         for result in results:
             ret.extend(result)
-        if model_type.lower() == "audio":
+        if model_type.lower() in ("audio", "world"):
             ret = _merge_audio_model_registrations(ret, detailed)
 
         ret.sort(key=sort_helper)
@@ -2097,7 +2097,7 @@ class SupervisorActor(xo.StatelessActor):
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
-        if (model_type or "").lower() == "audio":
+        if (model_type or "").lower() in ("audio", "world"):
             worker_results = await asyncio.gather(
                 *[
                     worker.query_engines_by_model_name(
@@ -2623,6 +2623,10 @@ class SupervisorActor(xo.StatelessActor):
             model_name, model_engine = resolve_audio_model_name_and_engine(
                 model_name, model_engine
             )
+        elif (model_type or "").lower() == "world":
+            from ..model.world.core import resolve_world_model_engine
+
+            model_engine = resolve_world_model_engine(model_name, model_engine)
 
         if self.is_local_deployment() and n_worker > 1:  # type: ignore
             # ignore n_worker > 1 if local deployment

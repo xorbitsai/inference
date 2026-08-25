@@ -144,7 +144,7 @@ class Progressor:
 
     def __init__(
         self,
-        request_id: str,
+        request_id: Optional[str],
         progress_tracker_ref: xo.ActorRefType["ProgressTrackerActor"],
         loop: asyncio.AbstractEventLoop,
         upload_span: float = UPLOAD_PROGRESS_SPAN,

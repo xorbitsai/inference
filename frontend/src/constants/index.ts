@@ -38,6 +38,7 @@ export enum ModelType {
   Image = 'image',
   Audio = 'audio',
   Video = 'video',
+  World = 'world',
   Custom = 'custom',
   Flexible = 'flexible',
 }
@@ -63,6 +64,9 @@ export enum ModelAbility {
   Audio2audio = 'audio2audio',
   Text2video = 'text2video',
   Image2video = 'image2video',
+  Text2world = 'text2world',
+  Image2world = 'image2world',
+  Video2world = 'video2world',
   Ocr = 'ocr',
   Firstlastframe2video = 'firstlastframe2video',
   Text2audioVoiceCloning = 'text2audio_voice_cloning',

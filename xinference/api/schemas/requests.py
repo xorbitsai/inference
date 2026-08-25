@@ -6,7 +6,7 @@ FastAPI layer.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from ..._compat import BaseModel, Field
 from ...types import CreateCompletion
@@ -106,6 +106,19 @@ class TextToVideoRequest(BaseModel):
     n: Optional[int] = 1
     kwargs: Optional[str] = None
     user: Optional[str] = None
+
+
+class WorldGenerationRequest(BaseModel):
+    model: str
+    prompt: str
+    image: Optional[str] = None
+    video: Optional[str] = None
+    generation_config: Dict[str, Any] = Field(default_factory=dict)
+    extra_body: Dict[str, Any] = Field(default_factory=dict)
+    user: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
 
 
 class SpeechRequest(BaseModel):

@@ -20,6 +20,7 @@ import {
   AudioToTextPanel,
   DocumentParsingPanel,
   FirstLastFrameVideoPanel,
+  ImageToWorldPanel,
   ImageToImagePanel,
   ImageToVideoPanel,
   InpaintingPanel,
@@ -31,6 +32,8 @@ import {
   TextPromptPanel,
   TextToImagePanel,
   TextToVideoPanel,
+  TextToWorldPanel,
+  VideoToWorldPanel,
 } from './panels/form-panels';
 import { ResultPanels } from './panels/result-panels';
 import {
@@ -43,9 +46,11 @@ import {
   appendIfPresent,
   booleanValue,
   buildGenerationKwargs,
+  fileToDataUrl,
   firstUpload,
   formatOCRPrompt,
   numberValue,
+  parseJsonObject,
   sizeFromValues,
   stringValue,
   uploadList,
@@ -175,6 +180,56 @@ function appendCommonVideoFormData(formData: FormData, context: TransformContext
   appendIfPresent(formData, 'negative_prompt', values.negative_prompt);
   appendKwargsIfPresent(formData, kwargs);
 }
+
+async function commonWorldBody(context: TransformContext, mediaKey?: 'image' | 'video') {
+  const { modelUid, model, values, requestId } = context;
+  const media = mediaKey ? firstUpload(values, mediaKey) : undefined;
+  const extraBody = parseJsonObject(values.model_kwargs);
+  const generationConfig = parseJsonObject(values.generation_config);
+
+  if (model.model_family === 'Astra' || model.model_name === 'Astra') {
+    const cameraMotion = Number(values.astra_camera_motion);
+    if (Number.isInteger(cameraMotion) && cameraMotion >= 1 && cameraMotion <= 7) {
+      const kwargsCameraMotion = extraBody.cam_type;
+      const configCameraMotion = generationConfig.cam_type;
+      if (kwargsCameraMotion !== undefined && configCameraMotion !== undefined) {
+        throw new Error('Set Astra cam_type in only one advanced JSON field.');
+      }
+      const advancedCameraMotion = kwargsCameraMotion ?? configCameraMotion;
+      if (advancedCameraMotion !== undefined && Number(advancedCameraMotion) !== cameraMotion) {
+        throw new Error(
+          'Astra cam_type conflicts with the selected Camera motion. Use the selector as the source of truth.'
+        );
+      }
+      if (advancedCameraMotion === undefined) {
+        extraBody.cam_type = cameraMotion;
+      }
+    }
+  }
+
+  if (requestId) {
+    extraBody.request_id = requestId;
+  }
+
+  return {
+    model: modelUid,
+    prompt: stringValue(values.prompt),
+    ...(media && mediaKey ? { [mediaKey]: await fileToDataUrl(media.file) } : {}),
+    generation_config: generationConfig,
+    extra_body: extraBody,
+  };
+}
+
+const worldDefaults = {
+  prompt: '',
+  astra_camera_motion: 1,
+  generation_config: '{\n  "response_format": "b64_json"\n}',
+  model_kwargs: '{}',
+};
+
+const worldGenerationConfigExample = {
+  response_format: 'b64_json',
+};
 
 function audioTextFormData(context: TransformContext) {
   const { modelUid, values } = context;
@@ -635,6 +690,91 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       if (lastFrame) formData.append('last_frame', lastFrame.file);
       return formData;
     },
+  },
+  [ModelAbility.Text2world]: {
+    ability: ModelAbility.Text2world,
+    label: 'Text to World',
+    icon: Video,
+    requestApi: '/v1/worlds/generations',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'prompt',
+          required: true,
+          value: 'Move forward through the scene',
+        },
+        { key: 'generation_config', value: worldGenerationConfigExample },
+        { key: 'extra_body', value: {}, comment: 'Optional model-specific controls' },
+      ],
+    },
+    initialValues: worldDefaults,
+    showProgress: true,
+    formPanel: TextToWorldPanel,
+    resultPanel: ResultPanels.Universal,
+    transformValues: commonWorldBody,
+  },
+  [ModelAbility.Image2world]: {
+    ability: ModelAbility.Image2world,
+    label: 'Image to World',
+    icon: Video,
+    requestApi: '/v1/worlds/generations',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'prompt',
+          required: true,
+          value: 'Move forward through the scene',
+        },
+        {
+          key: 'image',
+          required: true,
+          value: 'data:image/png;base64,<BASE64_IMAGE>',
+        },
+        { key: 'generation_config', value: worldGenerationConfigExample },
+        { key: 'extra_body', value: {}, comment: 'Optional model-specific controls' },
+      ],
+    },
+    initialValues: { ...worldDefaults, image: [] },
+    showProgress: true,
+    formPanel: ImageToWorldPanel,
+    resultPanel: ResultPanels.Universal,
+    transformValues: (context) => commonWorldBody(context, 'image'),
+  },
+  [ModelAbility.Video2world]: {
+    ability: ModelAbility.Video2world,
+    label: 'Video to World',
+    icon: Video,
+    requestApi: '/v1/worlds/generations',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'prompt',
+          required: true,
+          value: 'Continue exploring the scene',
+        },
+        {
+          key: 'video',
+          required: true,
+          value: 'data:video/mp4;base64,<BASE64_VIDEO>',
+        },
+        { key: 'generation_config', value: worldGenerationConfigExample },
+        { key: 'extra_body', value: {}, comment: 'Optional model-specific controls' },
+      ],
+    },
+    initialValues: { ...worldDefaults, video: [] },
+    showProgress: true,
+    formPanel: VideoToWorldPanel,
+    resultPanel: ResultPanels.Universal,
+    transformValues: (context) => commonWorldBody(context, 'video'),
   },
   [ModelAbility.Audio2text]: {
     ability: ModelAbility.Audio2text,

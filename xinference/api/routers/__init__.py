@@ -19,6 +19,7 @@ from . import (
     rerank,
     token_routers,
     videos,
+    worlds,
 )
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ def register_all_routes(api: RESTfulAPI) -> None:
     audio.register_routes(api)
     images.register_routes(api)
     videos.register_routes(api)
+    worlds.register_routes(api)
     launch_history.register_routes(api)
     from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
 

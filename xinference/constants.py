@@ -153,6 +153,7 @@ XINFERENCE_LOG_DIR = os.environ.get(
 )
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
+XINFERENCE_WORLD_DIR = os.path.join(XINFERENCE_HOME, "world")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
 
 

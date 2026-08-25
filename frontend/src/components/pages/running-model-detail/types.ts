@@ -42,7 +42,9 @@ export interface CapabilityConfig {
   submitLabel?: string;
   formPanel: ComponentType<CapabilityFormProps>;
   resultPanel: ComponentType<CapabilityResultProps>;
-  transformValues: (context: TransformContext) => BodyInit | Record<string, unknown>;
+  transformValues: (
+    context: TransformContext
+  ) => BodyInit | Record<string, unknown> | Promise<BodyInit | Record<string, unknown>>;
   responseType?: 'blob';
   codeExample?: CodeExampleConfig;
 }

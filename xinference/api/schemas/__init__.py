@@ -13,6 +13,7 @@ from .requests import (
     TextToImageRequest,
     TextToVideoRequest,
     UpdateModelRequest,
+    WorldGenerationRequest,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "TextToImageRequest",
     "TextToVideoRequest",
     "UpdateModelRequest",
+    "WorldGenerationRequest",
 ]
