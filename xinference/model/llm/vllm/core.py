@@ -40,6 +40,8 @@ from typing import (
 
 import xoscar as xo
 from packaging import version
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
 from typing_extensions import NotRequired
 from xoscar.utils import get_next_port
 
@@ -207,6 +209,49 @@ def _virtual_env_allows_missing_vllm() -> bool:
             return False
         return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
     return virtual_env_allows_missing_engine()
+
+
+def _get_virtualenv_vllm_version(
+    llm_family: "LLMFamilyV2",
+) -> Optional[version.Version]:
+    """Return the vLLM lower bound declared by a model virtualenv."""
+    virtualenv = getattr(llm_family, "virtualenv", None)
+    packages = getattr(virtualenv, "packages", None) or []
+    for package in packages:
+        requirement_text = package.split(";", 1)[0].strip()
+        try:
+            requirement = Requirement(requirement_text)
+        except InvalidRequirement:
+            continue
+        if canonicalize_name(requirement.name) != "vllm":
+            continue
+
+        lower_bounds: List[version.Version] = []
+        for specifier in requirement.specifier:
+            if specifier.operator not in {">=", ">", "~=", "=="}:
+                continue
+            if "*" in specifier.version:
+                continue
+            try:
+                lower_bounds.append(version.parse(specifier.version))
+            except version.InvalidVersion:
+                continue
+        if lower_bounds:
+            return max(lower_bounds)
+    return None
+
+
+def _get_effective_vllm_version_for_family(
+    llm_family: "LLMFamilyV2",
+) -> version.Version:
+    if _virtual_env_allows_missing_vllm():
+        declared_version = _get_virtualenv_vllm_version(llm_family)
+        if declared_version is not None:
+            return declared_version
+        return DEFAULT_VLLM_VERSION
+    if VLLM_VERSION is not None:
+        return VLLM_VERSION
+    return version.parse("0.0.0")
 
 
 GuidedDecodingParams: Optional[Type[Any]] = None
@@ -430,10 +475,7 @@ def _update_vllm_supported_lists() -> None:
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniMaxM3SparseForConditionalGeneration"
         )
 
-    if (
-        effective_version >= version.parse("0.27.0")
-        or _virtual_env_allows_missing_vllm()
-    ):
+    if effective_version >= version.parse("0.27.0"):
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "KimiK3ForConditionalGeneration"
         )
@@ -2151,9 +2193,11 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
-        if not llm_family.matches_supported_architectures(
-            VLLM_SUPPORTED_MULTI_MODEL_LIST
-        ):
+        supported_architectures = list(VLLM_SUPPORTED_MULTI_MODEL_LIST)
+        effective_version = _get_effective_vllm_version_for_family(llm_family)
+        if effective_version >= version.parse("0.27.0"):
+            _append_unique(supported_architectures, "KimiK3ForConditionalGeneration")
+        if not llm_family.matches_supported_architectures(supported_architectures):
             return (
                 False,
                 f"Model architectures {llm_family.architectures} are not supported by vLLM multimodal engine",
