@@ -5098,7 +5098,9 @@ class WorkerActor(xo.StatelessActor):
         conversion_lock_paths = sorted(
             path for path in paths if path.endswith(".mlx-video.lock")
         )
-        conversion_locks = [FileLock(path) for path in conversion_lock_paths]
+        conversion_locks = [
+            FileLock(path, preserve_lock_file=True) for path in conversion_lock_paths
+        ]
         acquired_conversion_locks = []
         try:
             for conversion_lock in conversion_locks:

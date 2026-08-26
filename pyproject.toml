@@ -47,6 +47,7 @@ dependencies = [
     "uvicorn",
     "PyYAML",
     "huggingface-hub>=0.19.4",
+    "filelock>=3.30.0",  # preserve_lock_file keeps Wan MLX conversion locks stable on Windows
     "typing_extensions",
     "modelscope>=1.19.0",
     "sse_starlette>=1.6.5",  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65

@@ -1131,6 +1131,7 @@
     "virtualenv": {
       "packages": [
         "f5-tts-mlx ; #engine# == \"MLX\"",
+        "mlx==0.32.1 ; #engine# == \"MLX\"",
         "vocos-mlx ; #engine# == \"MLX\"",
         "soundfile ; #engine# == \"MLX\"",
         "tomli ; #engine# == \"MLX\"",

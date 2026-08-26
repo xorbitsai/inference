@@ -85,6 +85,7 @@ def test_convert_wan_model_is_atomic_and_reused(tmp_path, monkeypatch):
 
     converted_path = MLXVideoModel._convert_wan_model(source_path)
     assert MLXVideoModel._is_wan_mlx_model_dir(converted_path)
+    assert Path(f"{converted_path}.lock").exists()
     assert calls == [(str(source_path), "bfloat16")]
 
     assert MLXVideoModel._convert_wan_model(source_path) == converted_path
