@@ -27,6 +27,7 @@ def test_f5tts_mlx(setup):
         model_type="audio",
         model_engine="MLX",
         download_hub="huggingface",
+        enable_virtual_env=True,
     )
     model = client.get_model(model_uid)
     input_string = (

@@ -252,7 +252,9 @@ jobs:
             pip install mlx-lm
             pip install "mlx-vlm>=0.3.4"
             pip install mlx-whisper
-            pip install f5-tts-mlx
+            # F5-TTS owns a model-specific MLX pin in its virtualenv recipe.
+            # Keep it out of the host env so the integration test exercises
+            # that isolated dependency set instead of inheriting this one.
             pip install qwen-vl-utils!=0.0.9
             pip install tomli
           else
