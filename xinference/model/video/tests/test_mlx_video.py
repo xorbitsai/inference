@@ -66,9 +66,16 @@ def _write_converted_wan_model(path: Path) -> None:
 
 
 def test_convert_wan_model_is_atomic_and_reused(tmp_path, monkeypatch):
+    from filelock import FileLock
+
     source_path = tmp_path / "raw-wan"
     source_path.mkdir()
     calls = []
+    preserve_lock_file_values = []
+
+    def file_lock(*args, **kwargs):
+        preserve_lock_file_values.append(kwargs.get("preserve_lock_file"))
+        return FileLock(*args, **kwargs)
 
     def convert(source, output, dtype):
         calls.append((source, dtype))
@@ -82,13 +89,15 @@ def test_convert_wan_model_is_atomic_and_reused(tmp_path, monkeypatch):
         return real_import_module(name)
 
     monkeypatch.setattr(mlx_video_module.importlib, "import_module", import_module)
+    monkeypatch.setattr("filelock.FileLock", file_lock)
 
     converted_path = MLXVideoModel._convert_wan_model(source_path)
     assert MLXVideoModel._is_wan_mlx_model_dir(converted_path)
-    assert Path(f"{converted_path}.lock").exists()
+    assert preserve_lock_file_values == [True]
     assert calls == [(str(source_path), "bfloat16")]
 
     assert MLXVideoModel._convert_wan_model(source_path) == converted_path
+    assert preserve_lock_file_values == [True, True]
     assert len(calls) == 1
 
 
