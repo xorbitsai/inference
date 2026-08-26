@@ -19,7 +19,11 @@ import json
 import os
 import shutil
 import subprocess
-import tomllib
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore[no-redef]
 
 import pytest
 
