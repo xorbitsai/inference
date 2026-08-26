@@ -56,6 +56,8 @@ class DeviceConfig(_PlacementConfigBase):
     def _validate_n_gpu(cls, value):
         if value != "auto" and (isinstance(value, bool) or not isinstance(value, int)):
             raise TypeError("n_gpu must be an integer or 'auto'")
+        if value != "auto" and value < 0:
+            raise ValueError("n_gpu must be a non-negative integer or 'auto'")
         return value
 
     @validator("gpu_idx", pre=True)

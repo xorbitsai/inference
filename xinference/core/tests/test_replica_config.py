@@ -77,6 +77,7 @@ def test_from_dict_roundtrip():
         ("n_gpu", 1.5),
         ("n_gpu", True),
         ("n_gpu", "1"),
+        ("n_gpu", -1),
         ("gpu_idx", [0.9]),
         ("gpu_idx", [True]),
         ("gpu_idx", [0, 0]),

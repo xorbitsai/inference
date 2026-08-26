@@ -751,9 +751,16 @@ function parseReplicaConfigCommandValue(value: string) {
         `replica_config[${replicaIndex}].devices[0].worker_ip must be a non-empty string.`
       );
     }
-    if (device.n_gpu !== undefined && device.n_gpu !== 'auto' && !Number.isInteger(device.n_gpu)) {
+    if (
+      device.n_gpu !== undefined &&
+      device.n_gpu !== null &&
+      device.n_gpu !== 'auto' &&
+      (typeof device.n_gpu !== 'number' ||
+        !Number.isInteger(device.n_gpu) ||
+        device.n_gpu < 0)
+    ) {
       throw new Error(
-        `replica_config[${replicaIndex}].devices[0].n_gpu must be an integer or "auto".`
+        `replica_config[${replicaIndex}].devices[0].n_gpu must be a non-negative integer or "auto".`
       );
     }
     if (
