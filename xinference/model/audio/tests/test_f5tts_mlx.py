@@ -15,9 +15,53 @@
 import os
 import tempfile
 
+import pytest
 
-def test_f5tts_mlx(setup):
-    endpoint, _ = setup
+
+@pytest.fixture
+def setup_real_cluster():
+    """Use a real actor pool so the model process can enter its virtualenv.
+
+    The shared ``setup`` fixture uses xoscar's in-process ``test://`` backend,
+    which accepts ``start_python`` but cannot switch interpreters for subpools.
+    """
+    import xoscar as xo
+
+    from ....api.restful_api import run_in_subprocess as run_restful_api
+    from ....conftest import TEST_LOGGING_CONF, api_health_check
+    from ....deploy.local import health_check
+    from ....deploy.local import run_in_subprocess as run_local_cluster
+
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+    supervisor_address = f"localhost:{xo.utils.get_next_port()}"
+    local_cluster = run_local_cluster(supervisor_address, None, None, TEST_LOGGING_CONF)
+    restful_api = None
+    try:
+        if not health_check(
+            address=supervisor_address, max_attempts=20, sleep_interval=1
+        ):
+            raise RuntimeError("Supervisor is not available after multiple attempts")
+
+        port = xo.utils.get_next_port()
+        endpoint = f"http://localhost:{port}"
+        restful_api = run_restful_api(
+            supervisor_address,
+            host="localhost",
+            port=port,
+            logging_conf=TEST_LOGGING_CONF,
+        )
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
+
+        yield endpoint, supervisor_address
+    finally:
+        if restful_api is not None:
+            restful_api.kill()
+        local_cluster.kill()
+
+
+def test_f5tts_mlx(setup_real_cluster):
+    endpoint, _ = setup_real_cluster
     from ....client import Client
 
     client = Client(endpoint)
