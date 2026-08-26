@@ -1,55 +1,98 @@
 'use client';
 
 import { FC, useState } from 'react';
-import { Terminal, Copy } from 'lucide-react';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Copy, Terminal } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
-  DialogHeader,
   DialogContent,
-  DialogTitle,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
 import { copyToClipboard } from '@/lib/utils';
 import type { FormInstance } from '@/types/form';
-import { transformFormToFetch, generateCommandLineStatement, transformFetchToForm, parseXinferenceCommand } from '../utils';
+import {
+  generateCommandLineStatement,
+  parseXinferenceCommand,
+  transformFetchToForm,
+  transformFormToFetch,
+  validateReplicaPlacement,
+} from '../utils';
 
 interface CommandLineProps {
   canCopyCommandLine: boolean;
   form: FormInstance;
 }
+
 const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form }) => {
   const [commandLineParsingOpen, setCommandLineParsingOpen] = useState(false);
   const [commandLineParsingValue, setCommandLineParsingValue] = useState('');
   const { t } = useI18n();
+
+  const showCommandLineError = (error: unknown) => {
+    toast.error(
+      t('launchModel.commandLineParsingFailed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
+  };
+
   const handleCopyCommandLine = () => {
     if (!canCopyCommandLine) return;
 
-    const params = transformFormToFetch(form.getFieldsValue());
+    try {
+      const values = form.getFieldsValue();
+      const placementError = validateReplicaPlacement(values);
+      if (placementError === 'incomplete') {
+        toast.error(t('launchModel.replicaPlacementIncomplete'));
+        return;
+      }
+      if (placementError === 'duplicate-alias') {
+        toast.error(t('launchModel.replicaAliasDuplicate'));
+        return;
+      }
 
-    copyToClipboard(generateCommandLineStatement(params));
+      const params = transformFormToFetch(values);
+
+      copyToClipboard(generateCommandLineStatement(params));
+    } catch (error) {
+      showCommandLineError(error);
+    }
   };
-  const onOpenChange = (open: boolean)=>{
-    if(!open) setCommandLineParsingValue('');
-    setCommandLineParsingOpen(open)
-  }
+
+  const onOpenChange = (open: boolean) => {
+    if (!open) setCommandLineParsingValue('');
+    setCommandLineParsingOpen(open);
+  };
+
   const handleClose = () => {
     setCommandLineParsingOpen(false);
     setCommandLineParsingValue('');
   };
+
   const handleCommandLineParsingConfirm = () => {
-    if(!commandLineParsingValue) {
-      setCommandLineParsingOpen(false);
-      return;
+    try {
+      if (!commandLineParsingValue.trim()) {
+        throw new Error('Command line cannot be empty.');
+      }
+
+      const params = parseXinferenceCommand(commandLineParsingValue);
+      const formData = transformFetchToForm(params);
+
+      // Parsing and conversion finish before this single merged write, so a
+      // malformed command never partially overwrites the current form.
+      form.setFieldsValue(formData);
+      handleClose();
+    } catch (error) {
+      showCommandLineError(error);
     }
-    const params = parseXinferenceCommand(commandLineParsingValue);
-    const formData = transformFetchToForm(params);
-    form.setFieldsValue(formData);
-    setCommandLineParsingOpen(false)
   };
+
   return (
     <>
       <TooltipProvider>
@@ -61,7 +104,7 @@ const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form }) => {
               size="icon"
               aria-label={t('launchModel.commandLineParsing')}
               onClick={() => setCommandLineParsingOpen(true)}
-              className='h-8'
+              className="h-8"
             >
               <Terminal />
             </Button>
@@ -77,7 +120,7 @@ const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form }) => {
                 size="icon"
                 aria-label={t('launchModel.copyToCommandLine')}
                 onClick={handleCopyCommandLine}
-                className='h-8'
+                className="h-8"
               >
                 <Copy />
               </Button>
@@ -101,13 +144,12 @@ const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form }) => {
             <Button variant="outline" onClick={handleClose}>
               {t('common.cancel')}
             </Button>
-            <Button  onClick={handleCommandLineParsingConfirm}>
-              {t('common.confirm')}
-            </Button>
+            <Button onClick={handleCommandLineParsingConfirm}>{t('common.confirm')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 };
+
 export default CommandLine;

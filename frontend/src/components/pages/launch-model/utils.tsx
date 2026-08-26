@@ -30,6 +30,11 @@ import type {
   WorkerOption,
 } from './types';
 import type { TFunc } from '@/contexts/i18n-context';
+import {
+  parseReplicaGpuIndexes,
+  transformReplicaConfigToFormRows,
+  transformReplicaFormRowsToConfig,
+} from './replica-config-utils.mjs';
 
 export const MODEL_ENGINE_TYPES: RequestModelType[] = [
   ModelType.LLM,
@@ -418,18 +423,8 @@ function normalizeNGPU(value?: string | number) {
 }
 export const GPU_IDX_PATTERN = /^\d+(?:\s*,\s*\d+)*$/;
 
-export const parseGpuIndexes = (value?: string): number[] | undefined => {
-  if (!value) return undefined;
-
-  const result = value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map(Number)
-    .filter((num) => !Number.isNaN(num));
-
-  return result.length ? result : undefined;
-};
+export const parseGpuIndexes = (value?: string): number[] | undefined =>
+  parseReplicaGpuIndexes(value);
 
 function transformWorkerIpToFetch(value: unknown) {
   if (!Array.isArray(value)) return value;
@@ -508,24 +503,10 @@ export function transformFormToFetch(values: FormValues) {
   delete nextValues.replica_placement_mode;
   if (placementMode === 'custom') {
     const rows = Array.isArray(nextValues.replica_config) ? nextValues.replica_config : [];
-    nextValues.replica_config = rows
-      .filter((row: unknown) => isRecord(row) && row.worker_ip)
-      .map((row: UnknownRecord) => {
-        const gpuIdx = parseGpuIndexes(row.gpu_idx as string);
-        return {
-          replica_uid:
-            typeof row.replica_uid === 'string' ? row.replica_uid.trim() || undefined : undefined,
-          devices: [
-            {
-              worker_ip: row.worker_ip,
-              n_gpu: gpuIdx ? gpuIdx.length : 'auto',
-              gpu_idx: gpuIdx,
-            },
-          ],
-        };
-      });
+    nextValues.replica_config = transformReplicaFormRowsToConfig(rows);
     // Mutual exclusion: the legacy global placement fields must not be sent
     // together with replica_config (the backend rejects this).
+    delete nextValues.n_worker;
     delete nextValues.worker_ip;
     delete nextValues.n_gpu;
     delete nextValues.gpu_idx;
@@ -561,19 +542,18 @@ export function transformFetchToForm(values: FormValues) {
   if ('worker_ip' in values) {
     nextValues.worker_ip = transformWorkerIpToForm(values.worker_ip);
   }
-  if (Array.isArray(nextValues.replica_config)) {
-    nextValues.replica_config = nextValues.replica_config.map((entry: unknown) => {
-      const device = isRecord(entry) && Array.isArray(entry.devices) ? entry.devices[0] : {};
-      const deviceRecord = isRecord(device) ? device : {};
-      return {
-        replica_uid: (isRecord(entry) && entry.replica_uid) || '',
-        worker_ip: deviceRecord.worker_ip || '',
-        gpu_idx: Array.isArray(deviceRecord.gpu_idx) ? deviceRecord.gpu_idx.join(',') : '',
-      };
-    });
+  if (Array.isArray(nextValues.replica_config) && nextValues.replica_config.length > 0) {
+    nextValues.replica_config = transformReplicaConfigToFormRows(nextValues.replica_config);
     nextValues.replica_placement_mode = 'custom';
+    nextValues.n_worker = undefined;
+    nextValues.worker_ip = undefined;
+    nextValues.n_gpu = undefined;
+    nextValues.gpu_idx = undefined;
   } else if (nextValues.replica_placement_mode === undefined) {
+    nextValues.replica_config = undefined;
     nextValues.replica_placement_mode = 'auto';
+  } else {
+    nextValues.replica_config = undefined;
   }
   return nextValues;
 }
@@ -705,17 +685,100 @@ function setObjectPair(target: Record<string, unknown>, values: string[]) {
   }
 }
 
+function parseReplicaConfigCommandValue(value: string) {
+  if (!value) {
+    throw new Error('--replica-config requires a JSON value.');
+  }
+
+  let replicaConfig: unknown;
+
+  try {
+    replicaConfig = JSON.parse(value);
+  } catch {
+    throw new Error('--replica-config must contain valid JSON.');
+  }
+
+  if (!Array.isArray(replicaConfig)) {
+    throw new Error('--replica-config must be a JSON array.');
+  }
+  if (replicaConfig.length === 0) {
+    throw new Error('--replica-config must be a non-empty JSON array.');
+  }
+
+  replicaConfig.forEach((entry, replicaIndex) => {
+    if (!isRecord(entry)) {
+      throw new Error(`replica_config[${replicaIndex}] must be an object.`);
+    }
+    if (!Array.isArray(entry.devices) || entry.devices.length !== 1) {
+      throw new Error(`replica_config[${replicaIndex}].devices must contain exactly one device.`);
+    }
+
+    const device = entry.devices[0];
+
+    if (!isRecord(device)) {
+      throw new Error(`replica_config[${replicaIndex}].devices[0] must be an object.`);
+    }
+    if (typeof device.worker_ip !== 'string' || !device.worker_ip.trim()) {
+      throw new Error(
+        `replica_config[${replicaIndex}].devices[0].worker_ip must be a non-empty string.`
+      );
+    }
+    if (
+      device.n_gpu !== undefined &&
+      device.n_gpu !== null &&
+      device.n_gpu !== 'auto' &&
+      (typeof device.n_gpu !== 'number' || !Number.isInteger(device.n_gpu) || device.n_gpu < 0)
+    ) {
+      throw new Error(
+        `replica_config[${replicaIndex}].devices[0].n_gpu must be a non-negative integer or "auto".`
+      );
+    }
+    if (
+      device.gpu_idx !== undefined &&
+      device.gpu_idx !== null &&
+      (!Array.isArray(device.gpu_idx) ||
+        device.gpu_idx.some((gpuIndex) => !Number.isInteger(gpuIndex) || gpuIndex < 0))
+    ) {
+      throw new Error(
+        `replica_config[${replicaIndex}].devices[0].gpu_idx must contain non-negative integers.`
+      );
+    }
+    if (entry.replica_uid !== undefined && typeof entry.replica_uid !== 'string') {
+      throw new Error(`replica_config[${replicaIndex}].replica_uid must be a string.`);
+    }
+  });
+
+  return replicaConfig;
+}
+
 export function generateCommandLineStatement(params: FormValues) {
-  const entries = Object.entries(params).filter(([, value]) => !isEmptyCommandValue(value));
+  let commandParams = params;
+
+  if (Array.isArray(params.replica_config)) {
+    if (params.replica_config.length === 0) {
+      throw new Error('replica_config must contain at least one replica.');
+    }
+
+    const replica =
+      params.replica === undefined ? params.replica_config.length : Number(params.replica);
+
+    if (!Number.isInteger(replica) || replica !== params.replica_config.length) {
+      throw new Error('replica must match the number of entries in replica_config.');
+    }
+
+    commandParams = { ...params, replica };
+  }
+
+  const entries = Object.entries(commandParams).filter(([, value]) => !isEmptyCommandValue(value));
 
   const args = [
     ...commandLeadingKeys.flatMap((leadingKey) => entries.filter(([key]) => key === leadingKey)),
     ...entries.filter(([key]) => !commandLeadingKeys.includes(key)),
   ]
     .flatMap(([key, value]) => {
-      // CLI has no --replica-config flag, so per-replica placement is not
-      // expressible on the command line. Skip these UI-only / unsupported keys.
-      if (key === 'replica_config' || key === 'replica_placement_mode') {
+      // `replica_placement_mode` is UI-only. replica_config is serialized as
+      // compact JSON by the generic command-value path below.
+      if (key === 'replica_placement_mode') {
         return [];
       }
       if (key === 'gpu_idx' && Array.isArray(value)) {
@@ -854,6 +917,11 @@ export function parseXinferenceCommand(command: string) {
     const normalizedKey = normalizeCommandKey(key);
     const value = valueTokens.join(' ');
 
+    if (normalizedKey === 'replica_config') {
+      params.replica_config = parseReplicaConfigCommandValue(value);
+      continue;
+    }
+
     if (normalizedKey === 'gpu_idx') {
       params.gpu_idx = value
         .split(',')
@@ -953,6 +1021,22 @@ export function parseXinferenceCommand(command: string) {
     params.envs = envs;
   }
 
+  if (Array.isArray(params.replica_config)) {
+    if (params.replica === undefined) {
+      params.replica = params.replica_config.length;
+    } else {
+      const replica = Number(params.replica);
+
+      if (!Number.isInteger(replica) || replica < 1) {
+        throw new Error('--replica must be a positive integer when --replica-config is used.');
+      }
+      if (replica !== params.replica_config.length) {
+        throw new Error('--replica must match the number of entries in --replica-config.');
+      }
+      params.replica = replica;
+    }
+  }
+
   return params;
 }
 
@@ -975,6 +1059,33 @@ export function normalizeReplicaStatuses(value: unknown): ReplicaItem[] {
       : [];
 
   return statuses.filter(isRecord) as unknown as ReplicaItem[];
+}
+
+export type ReplicaPlacementValidationError = 'incomplete' | 'duplicate-alias';
+
+export function validateReplicaPlacement(
+  values: FormValues
+): ReplicaPlacementValidationError | undefined {
+  if (values.replica_placement_mode !== 'custom') return undefined;
+
+  const rows = Array.isArray(values.replica_config) ? values.replica_config : [];
+  const replicaCount = Number(values.replica) || 1;
+  const hasInvalidPlacement =
+    rows.length !== replicaCount ||
+    rows.some((row) => {
+      const gpuIndexes = String(row?.gpu_idx ?? '').trim();
+      return (
+        !String(row?.worker_ip ?? '').trim() ||
+        (gpuIndexes !== '' && !GPU_IDX_PATTERN.test(gpuIndexes))
+      );
+    });
+
+  if (hasInvalidPlacement) return 'incomplete';
+
+  const aliases = rows.map((row) => String(row?.replica_uid ?? '').trim()).filter(Boolean);
+  if (new Set(aliases).size !== aliases.length) return 'duplicate-alias';
+
+  return undefined;
 }
 
 export function isEmptyLaunchValue(value: unknown) {

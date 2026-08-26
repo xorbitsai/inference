@@ -13,6 +13,7 @@ interface ReplicaConfigRow {
   replica_uid?: string;
   worker_ip: string;
   gpu_idx: string;
+  n_gpu?: number | 'auto';
 }
 
 interface ReplicaPlacementConfigProps {
@@ -76,7 +77,14 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerO
           <Input
             value={row?.gpu_idx ?? ''}
             placeholder={t('launchModel.GPUIdxPlaceholder')}
-            onChange={(e) => patchRow(index, { gpu_idx: e.target.value })}
+            onChange={(e) =>
+              patchRow(index, {
+                gpu_idx: e.target.value,
+                // Once the user edits GPU indexes, derive n_gpu from the new
+                // value instead of reusing metadata retained during import.
+                n_gpu: undefined,
+              })
+            }
           />
         </div>
       ))}

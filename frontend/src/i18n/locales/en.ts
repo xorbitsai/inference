@@ -503,6 +503,7 @@ const en = {
     confirmDeleteConfigCache: 'Delete this cached configuration? This action is irreversible.',
     invalidConfigCache: 'The model engine required by this cached configuration is unavailable.',
     commandLineParsing: 'Command Line Argument Parsing',
+    commandLineParsingFailed: 'Failed to process command line: {{error}}',
     copyToCommandLine: 'Copy as Command Line Command',
     modelEngine: 'Model Engine',
     modelFormat: 'Model Format',
