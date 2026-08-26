@@ -30,6 +30,11 @@ import type {
   WorkerOption,
 } from './types';
 import type { TFunc } from '@/contexts/i18n-context';
+import {
+  parseReplicaGpuIndexes,
+  transformReplicaConfigToFormRows,
+  transformReplicaFormRowsToConfig,
+} from './replica-config-utils.mjs';
 
 export const MODEL_ENGINE_TYPES: RequestModelType[] = [
   ModelType.LLM,
@@ -418,18 +423,8 @@ function normalizeNGPU(value?: string | number) {
 }
 export const GPU_IDX_PATTERN = /^\d+(?:\s*,\s*\d+)*$/;
 
-export const parseGpuIndexes = (value?: string): number[] | undefined => {
-  if (!value) return undefined;
-
-  const result = value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map(Number)
-    .filter((num) => !Number.isNaN(num));
-
-  return result.length ? result : undefined;
-};
+export const parseGpuIndexes = (value?: string): number[] | undefined =>
+  parseReplicaGpuIndexes(value);
 
 function transformWorkerIpToFetch(value: unknown) {
   if (!Array.isArray(value)) return value;
@@ -508,22 +503,7 @@ export function transformFormToFetch(values: FormValues) {
   delete nextValues.replica_placement_mode;
   if (placementMode === 'custom') {
     const rows = Array.isArray(nextValues.replica_config) ? nextValues.replica_config : [];
-    nextValues.replica_config = rows
-      .filter((row: unknown) => isRecord(row) && row.worker_ip)
-      .map((row: UnknownRecord) => {
-        const gpuIdx = parseGpuIndexes(row.gpu_idx as string);
-        return {
-          replica_uid:
-            typeof row.replica_uid === 'string' ? row.replica_uid.trim() || undefined : undefined,
-          devices: [
-            {
-              worker_ip: row.worker_ip,
-              n_gpu: gpuIdx ? gpuIdx.length : 'auto',
-              gpu_idx: gpuIdx,
-            },
-          ],
-        };
-      });
+    nextValues.replica_config = transformReplicaFormRowsToConfig(rows);
     // Mutual exclusion: the legacy global placement fields must not be sent
     // together with replica_config (the backend rejects this).
     delete nextValues.n_worker;
@@ -563,15 +543,7 @@ export function transformFetchToForm(values: FormValues) {
     nextValues.worker_ip = transformWorkerIpToForm(values.worker_ip);
   }
   if (Array.isArray(nextValues.replica_config) && nextValues.replica_config.length > 0) {
-    nextValues.replica_config = nextValues.replica_config.map((entry: unknown) => {
-      const device = isRecord(entry) && Array.isArray(entry.devices) ? entry.devices[0] : {};
-      const deviceRecord = isRecord(device) ? device : {};
-      return {
-        replica_uid: (isRecord(entry) && entry.replica_uid) || '',
-        worker_ip: deviceRecord.worker_ip || '',
-        gpu_idx: Array.isArray(deviceRecord.gpu_idx) ? deviceRecord.gpu_idx.join(',') : '',
-      };
-    });
+    nextValues.replica_config = transformReplicaConfigToFormRows(nextValues.replica_config);
     nextValues.replica_placement_mode = 'custom';
     nextValues.n_worker = undefined;
     nextValues.worker_ip = undefined;
@@ -755,9 +727,7 @@ function parseReplicaConfigCommandValue(value: string) {
       device.n_gpu !== undefined &&
       device.n_gpu !== null &&
       device.n_gpu !== 'auto' &&
-      (typeof device.n_gpu !== 'number' ||
-        !Number.isInteger(device.n_gpu) ||
-        device.n_gpu < 0)
+      (typeof device.n_gpu !== 'number' || !Number.isInteger(device.n_gpu) || device.n_gpu < 0)
     ) {
       throw new Error(
         `replica_config[${replicaIndex}].devices[0].n_gpu must be a non-negative integer or "auto".`

@@ -457,7 +457,12 @@ export default function LaunchDialog({
     if (!isCustomPlacement) return;
     const current =
       (form.getFieldValue('replica_config') as
-        | Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }>
+        | Array<{
+            replica_uid?: string;
+            worker_ip: string;
+            gpu_idx: string;
+            n_gpu?: number | 'auto';
+          }>
         | undefined) ?? [];
     if (current.length === replicaValue) return;
     const next = Array.from(
