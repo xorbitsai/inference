@@ -19,6 +19,7 @@ import json
 import os
 import shutil
 import subprocess
+import tomllib
 
 import pytest
 
@@ -225,3 +226,20 @@ def test_reports_entry_index_for_unnamed_invalid_llm_families(backend, tmp_path)
 
     message = str(exc_info.value)
     assert all(f"'entry {index}'" in message for index in range(3))
+
+
+def test_project_declares_router_dependencies_and_all_includes_router():
+    with open(os.path.join(_REPO_ROOT, "pyproject.toml"), "rb") as f:
+        project = tomllib.load(f)
+
+    metadata = project["project"]
+    dependencies = metadata["dependencies"]
+    optional_dependencies = metadata["optional-dependencies"]
+    scripts = metadata["scripts"]
+
+    assert "psutil>=5.9.0" in dependencies
+    assert optional_dependencies["router"] == ["tokenizers>=0.21.0,<0.23.0"]
+    assert "xinference[router]" in optional_dependencies["all"]
+
+    assert scripts["xinference-router"] == "xinference.deploy.router:main"
+    assert scripts["xinference-router-agent"] == "xinference.deploy.router_agent:main"
