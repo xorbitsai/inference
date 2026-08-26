@@ -35622,7 +35622,7 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "vllm_dependencies ; #engine# == \"vllm\"",
+        "vllm>=0.27.0 ; #engine# == \"vllm\"",
         "sglang_dependencies ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]

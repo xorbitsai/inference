@@ -1745,3 +1745,39 @@ def test_kimi_k3_tool_family_registration():
     assert "tools" in family.model_ability
     assert family.tool_parser == "kimi-k3"
     assert family.model_name in KIMI_K3_TOOL_CALL_FAMILY
+
+
+def test_kimi_k3_virtualenv_engine_discovery(monkeypatch):
+    import xinference.model.llm as llm_pkg
+    from xinference.model.llm.vllm import core as vllm_core
+
+    from ...utils import get_engine_params_by_name_with_virtual_env
+
+    llm_pkg._install()
+    monkeypatch.setattr(
+        vllm_core.VLLMMultiModel,
+        "_has_cuda_device",
+        classmethod(lambda cls: True),
+    )
+    monkeypatch.setattr(
+        vllm_core.VLLMMultiModel,
+        "_is_linux",
+        classmethod(lambda cls: True),
+    )
+    if "KimiK3ForConditionalGeneration" in vllm_core.VLLM_SUPPORTED_MULTI_MODEL_LIST:
+        vllm_core.VLLM_SUPPORTED_MULTI_MODEL_LIST.remove(
+            "KimiK3ForConditionalGeneration"
+        )
+
+    params = get_engine_params_by_name_with_virtual_env(
+        "LLM", "Kimi-K3", enable_virtual_env=True
+    )
+
+    assert params is not None
+    assert isinstance(params.get("vLLM"), list), params.get("vLLM")
+    family = next(
+        family
+        for family in llm_pkg.BUILTIN_LLM_FAMILIES
+        if family.model_name == "Kimi-K3"
+    )
+    assert 'vllm>=0.27.0 ; #engine# == "vllm"' in family.virtualenv.packages
