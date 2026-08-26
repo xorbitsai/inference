@@ -481,6 +481,7 @@ const zh = {
     confirmDeleteConfigCache: '确认删除这条配置缓存吗？此操作无法恢复。',
     invalidConfigCache: '这条配置缓存对应的模型引擎当前不可用。',
     commandLineParsing: '解析命令行参数',
+    commandLineParsingFailed: '命令行参数处理失败：{{error}}',
     copyToCommandLine: '复制为命令行指令',
     modelEngine: '模型引擎',
     modelFormat: '模型格式',

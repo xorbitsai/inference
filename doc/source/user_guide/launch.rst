@@ -91,11 +91,30 @@ each entry currently supports exactly one worker.
         ],
     )
 
+The same placement can be supplied to ``xinference launch`` as a JSON array:
+
+.. code-block:: bash
+
+    xinference launch \
+      --model-name qwen2.5-instruct \
+      --model-engine vLLM \
+      --replica 2 \
+      --replica-config '[{"replica_uid":"primary","devices":[{"worker_ip":"192.168.1.10:9978","n_gpu":1,"gpu_idx":[0]}]},{"replica_uid":"secondary","devices":[{"worker_ip":"192.168.1.11:9978","n_gpu":1,"gpu_idx":[0]}]}]'
+
+``--replica_config`` remains available as a compatibility alias, but
+``--replica-config`` is recommended. If ``--replica`` is omitted, the CLI
+derives it from the number of array entries. If it is supplied explicitly, it
+must equal that number.
+
 ``replica_config`` is mutually exclusive with the model-level ``worker_ip``,
-``n_gpu``, and ``gpu_idx`` arguments. If ``replica_uid`` is omitted, Xinference
-assigns the stable default ``{model_uid}-{replica_index}`` (for example,
-``my-model-0``). Omit ``gpu_idx`` and use ``n_gpu="auto"`` to let the selected
-worker allocate GPUs automatically.
+``n_gpu``, and ``gpu_idx`` arguments, and with ``n_worker > 1``. The CLI
+therefore rejects ``--replica-config`` together with ``--worker-ip``,
+``--gpu-idx``, a non-``auto`` ``--n-gpu``, or ``--n-worker`` greater than 1.
+Each replica currently targets exactly one worker. If ``replica_uid`` is
+omitted, Xinference assigns the stable default
+``{model_uid}-{replica_index}`` (for example, ``my-model-0``). Omit ``gpu_idx``
+and use ``n_gpu="auto"`` to let the selected worker allocate GPUs
+automatically.
 
 Running models can be scaled one replica at a time. Placement is optional; if
 omitted, the supervisor selects a worker automatically.

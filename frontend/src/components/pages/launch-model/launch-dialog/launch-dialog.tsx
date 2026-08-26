@@ -47,6 +47,7 @@ import {
   toOptionValue,
   transformFetchToForm,
   transformFormToFetch,
+  validateReplicaPlacement,
   normalizeProgress,
   normalizeReplicaStatuses,
   isEmptyLaunchValue,
@@ -112,7 +113,8 @@ export default function LaunchDialog({
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
   const modelFormatValue = toOptionValue(useWatch('model_format', form));
   const modelSizeInBillionsValue = useWatch('model_size_in_billions', form) as
-    ModelEngineItem['model_size_in_billions'] | undefined;
+    | ModelEngineItem['model_size_in_billions']
+    | undefined;
   const enableThinkingValue = useWatch('enable_thinking', form);
   const modelSizeInBillionsKey = toOptionValue(modelSizeInBillionsValue);
   const quantizationValue = toOptionValue(useWatch('quantization', form));
@@ -455,7 +457,8 @@ export default function LaunchDialog({
     if (!isCustomPlacement) return;
     const current =
       (form.getFieldValue('replica_config') as
-        Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }> | undefined) ?? [];
+        | Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }>
+        | undefined) ?? [];
     if (current.length === replicaValue) return;
     const next = Array.from(
       { length: replicaValue },
@@ -1454,11 +1457,11 @@ export default function LaunchDialog({
     ],
   };
 
-  // In custom placement mode (LLM only for now), hide the legacy global
-  // placement fields — they are mutually exclusive with replica_config and
-  // would only confuse the operator if shown alongside the per-replica editor.
+  // In custom placement mode, hide the legacy global placement fields. Each
+  // replica currently binds to exactly one worker, so n_worker is not editable.
   const currentLaunchFields = (modelTypeFields[modelType] || []).filter(
-    (field) => !isCustomPlacement || !['n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
+    (field) =>
+      !isCustomPlacement || !['n_worker', 'n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
   );
   // required fields is filled in
   const isReady = currentLaunchFields
@@ -1585,26 +1588,14 @@ export default function LaunchDialog({
   };
 
   const handleLaunch = async (values: FormValues) => {
-    if (values.replica_placement_mode === 'custom') {
-      const rows = Array.isArray(values.replica_config) ? values.replica_config : [];
-      const replicaCount = Number(values.replica) || 1;
-      const gpuIndexPattern = GPU_IDX_PATTERN;
-      const hasInvalidPlacement =
-        rows.length !== replicaCount ||
-        rows.some((row) => {
-          const gpuIndexes = String(row?.gpu_idx ?? '').trim();
-          return !row?.worker_ip || (gpuIndexes !== '' && !gpuIndexPattern.test(gpuIndexes));
-        });
-      if (hasInvalidPlacement) {
-        toast.error(t('launchModel.replicaPlacementIncomplete'));
-        return;
-      }
-
-      const aliases = rows.map((row) => String(row?.replica_uid ?? '').trim()).filter(Boolean);
-      if (new Set(aliases).size !== aliases.length) {
-        toast.error(t('launchModel.replicaAliasDuplicate'));
-        return;
-      }
+    const placementError = validateReplicaPlacement(values);
+    if (placementError === 'incomplete') {
+      toast.error(t('launchModel.replicaPlacementIncomplete'));
+      return;
+    }
+    if (placementError === 'duplicate-alias') {
+      toast.error(t('launchModel.replicaAliasDuplicate'));
+      return;
     }
 
     const newValues = transformFormToFetch(values);

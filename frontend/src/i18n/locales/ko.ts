@@ -489,6 +489,7 @@ const ko = {
     confirmDeleteConfigCache: '이 구성 캐시를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     invalidConfigCache: '이 구성 캐시에 필요한 모델 엔진을 현재 사용할 수 없습니다.',
     commandLineParsing: '명령줄 인수 파싱',
+    commandLineParsingFailed: '명령줄 처리에 실패했습니다: {{error}}',
     copyToCommandLine: '명령줄 명령으로 복사',
     modelEngine: '모델 엔진',
     modelFormat: '모델 형식',

@@ -490,6 +490,7 @@ const ja = {
     confirmDeleteConfigCache: 'この設定キャッシュを削除しますか？この操作は元に戻せません。',
     invalidConfigCache: 'この設定キャッシュに必要なモデルエンジンは現在利用できません。',
     commandLineParsing: 'コマンドライン引数解析',
+    commandLineParsingFailed: 'コマンドラインの処理に失敗しました: {{error}}',
     copyToCommandLine: 'コマンドラインコマンドとしてコピー',
     modelEngine: 'モデルエンジン',
     modelFormat: 'モデルフォーマット',

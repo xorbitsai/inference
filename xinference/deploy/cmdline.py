@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -21,6 +22,7 @@ import warnings
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import click
+from click.core import ParameterSource
 from tqdm.auto import tqdm
 from xoscar.utils import get_next_port
 
@@ -801,6 +803,14 @@ def remove_cache(
     help="The replica count of the model, default is 1.",
 )
 @click.option(
+    "--replica-config",
+    "--replica_config",
+    "replica_config",
+    default=None,
+    type=str,
+    help="Per-replica worker and GPU placement as a non-empty JSON array.",
+)
+@click.option(
     "--n-worker",
     default=1,
     type=int,
@@ -920,6 +930,7 @@ def model_launch(
     model_format: str,
     quantization: str,
     replica: int,
+    replica_config: Optional[str],
     n_worker: int,
     n_gpu: str,
     lora_modules: Optional[Tuple],
@@ -959,6 +970,50 @@ def model_launch(
 
     if model_type == "LLM" and model_engine is None:
         raise ValueError("--model-engine is required for LLM models.")
+
+    _replica_config: Optional[List[Dict]] = None
+    if replica_config is not None:
+        try:
+            parsed_replica_config = json.loads(replica_config)
+        except json.JSONDecodeError as e:
+            raise click.BadParameter(
+                f"must be valid JSON: {e.msg}", param_hint="--replica-config"
+            ) from e
+
+        if not isinstance(parsed_replica_config, list):
+            raise click.BadParameter(
+                "must be a JSON array", param_hint="--replica-config"
+            )
+        if not parsed_replica_config:
+            raise click.BadParameter(
+                "must be a non-empty JSON array", param_hint="--replica-config"
+            )
+
+        _replica_config = parsed_replica_config
+        replica_source = ctx.get_parameter_source("replica")
+        if replica_source == ParameterSource.COMMANDLINE:
+            if replica != len(_replica_config):
+                raise click.BadParameter(
+                    "must match the number of entries in --replica-config",
+                    param_hint="--replica",
+                )
+        else:
+            replica = len(_replica_config)
+
+        conflicting_options = []
+        if worker_ip is not None:
+            conflicting_options.append("--worker-ip")
+        if gpu_idx is not None:
+            conflicting_options.append("--gpu-idx")
+        if n_gpu != "auto":
+            conflicting_options.append("--n-gpu")
+        if n_worker > 1:
+            conflicting_options.append("--n-worker")
+        if conflicting_options:
+            raise click.BadParameter(
+                "cannot be used together with " + ", ".join(conflicting_options),
+                param_hint="--replica-config",
+            )
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
@@ -1030,6 +1085,7 @@ def model_launch(
         model_format=model_format,
         quantization=quantization,
         replica=replica,
+        replica_config=_replica_config,
         n_worker=n_worker,
         n_gpu=_n_gpu,
         peft_model_config=peft_model_config,
