@@ -520,6 +520,18 @@ def test_mlx_audio_specs_pin_isolated_runtime(apple_mlx_engines):
         assert all("#system_" not in package for package in packages)
 
 
+def test_f5_tts_mlx_pins_compatible_mlx_runtime(apple_mlx_engines):
+    """f5-tts-mlx 0.2.6 passes MLX scalars as shape dimensions.
+
+    MLX 0.32.2 rejects that call.
+    """
+    mlx_spec = next(
+        spec for spec in apple_mlx_engines["F5-TTS"] if spec.engine == "MLX"
+    )
+
+    assert 'mlx==0.32.1 ; #engine# == "MLX"' in mlx_spec.virtualenv.packages
+
+
 @pytest.mark.asyncio
 async def test_audio_catalog_groups_engine_variants(apple_mlx_engines):
     from ....core.worker import WorkerActor

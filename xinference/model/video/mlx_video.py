@@ -176,7 +176,7 @@ class MLXVideoModel:
 
         converted_path = Path(f"{source_path}.mlx-video")
         lock_path = Path(f"{converted_path}.lock")
-        with FileLock(str(lock_path)):
+        with FileLock(str(lock_path), preserve_lock_file=True):
             expected_manifest = {
                 "schema_version": _WAN_CONVERSION_SCHEMA,
                 "source": conversion_identity or {},

@@ -15,6 +15,7 @@
 import asyncio
 import base64
 import importlib
+import os
 import sys
 from pathlib import Path
 
@@ -603,7 +604,7 @@ async def test_world_runner_is_terminated_on_abort(tmp_path):
                 "import time; print('ready', flush=True); time.sleep(60)",
             ],
             str(tmp_path),
-            {},
+            os.environ.copy(),
             str(tmp_path / "runner.log"),
             request_id="abort-me",
         )

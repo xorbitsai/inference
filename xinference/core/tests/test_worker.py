@@ -3368,7 +3368,7 @@ async def test_remove_model_cache_waits_for_active_mlx_conversion(
     finish_conversion = threading.Event()
 
     def convert():
-        with FileLock(str(conversion_lock_path)):
+        with FileLock(str(conversion_lock_path), preserve_lock_file=True):
             conversion_started.set()
             assert finish_conversion.wait(timeout=5)
             converted_dir.mkdir()
