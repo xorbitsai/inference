@@ -33,6 +33,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
     "xoscar>=0.9.7",
+    "psutil>=5.9.0",
     "torch",
     "pillow",
     "click<8.2.0",
@@ -107,6 +108,7 @@ dev = [
     "sphinx-tabs",
     "sphinx-design",
     "pypdfium2",  # For PDF OCR tests
+    "tomli; python_version < '3.11'",
 ]
 otel = [
     "opentelemetry-api>=1.20.0",
@@ -115,6 +117,9 @@ otel = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
     "opentelemetry-instrumentation-fastapi>=0.41b0",
     "opentelemetry-instrumentation-httpx>=0.41b0",
+]
+router = [
+    "tokenizers>=0.21.0,<0.23.0",
 ]
 all = [
     "xinference[anthropic]",
@@ -127,6 +132,7 @@ all = [
     "xinference[image]",
     "xinference[video]",
     "xinference[audio]",
+    "xinference[router]",
 ]
 intel = [
     "torch==2.1.0a0",
