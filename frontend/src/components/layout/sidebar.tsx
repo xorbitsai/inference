@@ -20,6 +20,7 @@ import {
   Monitor,
   ScrollText,
   ShieldCheck,
+  Settings2,
   Users,
   UserRound,
   KeyRound,
@@ -274,6 +275,13 @@ export function Sidebar() {
             Icon: ShieldCheck,
             Extra: ChevronRight,
             show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
+          },
+          {
+            path: '/system-settings',
+            name: t('menu.systemSettings'),
+            Icon: Settings2,
+            Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || isAdmin,
           },
           {
             path: '/audit-center',
