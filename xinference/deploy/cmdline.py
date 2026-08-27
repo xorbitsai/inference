@@ -41,6 +41,7 @@ from ..constants import (
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
     XINFERENCE_LOG_RETENTION_DAYS,
+    XINFERENCE_SYSTEM_SETTINGS_PATH,
 )
 from .utils import (
     get_config_dict,
@@ -101,6 +102,9 @@ def start_local_cluster(
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from .local import main
 
     dict_config = get_config_dict(
@@ -266,6 +270,9 @@ def supervisor(
     port: int,
     supervisor_port: Optional[int],
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
@@ -331,6 +338,9 @@ def worker(
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.worker import main
 
     dict_config = get_config_dict(

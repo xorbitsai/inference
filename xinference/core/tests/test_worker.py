@@ -28,6 +28,7 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ...model.core import VirtualEnvSettings
+from .. import system_settings_store as system_settings_store_module
 from .. import worker as worker_module
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
@@ -574,6 +575,10 @@ class DummyReplicaWorkerRef(DummyActorRef):
     def __init__(self, address: str, models=None):
         super().__init__(address)
         self._models = models or {}
+        self.system_settings_updates = []
+
+    async def update_system_settings(self, settings):
+        self.system_settings_updates.append(settings)
 
     async def list_models(self):
         return dict(self._models)
@@ -1104,6 +1109,42 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
     assert "model-a-rank0" not in supervisor._replica_model_uid_to_worker
     assert replica_info.replica_to_worker_refs[0] == [worker_ref]
     assert replica_info.replica_to_worker_refs[1] == [worker_ref]
+    assert worker_ref.system_settings_updates == [
+        supervisor._system_settings,
+        supervisor._system_settings,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_propagates_system_settings(monkeypatch):
+    supervisor = SupervisorActor()
+    workers = {
+        "worker-1": DummyReplicaWorkerRef("worker-1"),
+        "worker-2": DummyReplicaWorkerRef("worker-2"),
+    }
+    supervisor._worker_address_to_worker.update(workers)
+    applied = []
+    monkeypatch.setattr(
+        system_settings_store_module,
+        "apply_system_settings",
+        lambda settings: applied.append(settings),
+    )
+    settings = {
+        "download_source": "modelscope",
+        "hf_endpoint": "https://hf.example.com",
+        "hf_token": "hf_abcdefgh12345678",
+        "pip_index_url": "https://pip.example.com/simple",
+        "download_max_attempts": 5,
+        "hub_detect_timeout": 4.5,
+        "model_download_workers": 6,
+    }
+
+    await supervisor.update_system_settings(settings)
+
+    assert applied[0].to_dict() == settings
+    assert supervisor._system_settings == settings
+    assert workers["worker-1"].system_settings_updates == [settings]
+    assert workers["worker-2"].system_settings_updates == [settings]
 
 
 @pytest.mark.asyncio

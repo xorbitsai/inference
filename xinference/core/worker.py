@@ -1027,6 +1027,12 @@ class WorkerActor(xo.StatelessActor):
     def default_uid(cls) -> str:
         return "worker"
 
+    def update_system_settings(self, settings: Dict[str, Any]) -> None:
+        """Apply settings to download tasks created after this call."""
+        from .system_settings_store import SystemSettings, apply_system_settings
+
+        apply_system_settings(SystemSettings.from_dict(settings))
+
     def _get_spec_dicts_with_cache_status(
         self, model_family: Any, cache_manager_cls: Type
     ) -> Tuple[List[dict], List[str]]:

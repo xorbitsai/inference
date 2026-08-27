@@ -1087,42 +1087,32 @@ const en = {
   systemSettings: {
     pageDescription:
       'Configure model download sources, mirrors, credentials, and download behavior.',
-    previewTitle: 'Interface preview',
-    previewDescription:
-      'This page currently demonstrates the settings interface. Changes are not saved or applied.',
     saveChanges: 'Save Changes',
-    saveUnavailable: 'Saving will be available after the backend API is connected',
+    saveSuccess: 'System settings saved and applied immediately.',
+    restoreSettings: 'Restore Defaults',
+    restoreTitle: 'Restore default settings?',
+    restoreDescription:
+      "Saved system settings will be removed and replaced with this service's default configuration.",
+    restoreConfirm: 'Restore',
+    restoreSuccess: 'Default settings restored and applied immediately.',
     modelDownload: 'Model Downloads',
     modelDownloadDescription: 'Set the default sources for model files and runtime dependencies.',
     downloadSource: 'Model Download Source',
-    downloadSourceDescription: 'Choose the preferred platform for downloading model files.',
+    autoSource: 'Automatic',
     huggingFace: 'Hugging Face',
-    huggingFaceDescription: 'Download models and related files from Hugging Face Hub.',
     modelScope: 'ModelScope',
-    modelScopeDescription: 'Download supported model files from ModelScope.',
     hfMirror: 'Hugging Face Mirror URL',
     hfMirrorPlaceholder: 'For example: https://hf-mirror.com',
-    hfMirrorDescription:
-      'Optional. Replaces the default Hugging Face Hub endpoint; leave blank to use the official service.',
     hfToken: 'Hugging Face Access Token',
     hfTokenPlaceholder: 'Enter an access token',
-    hfTokenDescription:
-      'Used to access private or gated models. The token will be treated as sensitive data.',
     pipMirror: 'PIP Package Index URL',
     pipMirrorPlaceholder: 'For example: https://pypi.org/simple',
-    pipMirrorDescription:
-      'Used to install Python dependencies required by model runtimes; leave blank to use the default index.',
     downloadPolicy: 'Download Policy',
     downloadPolicyDescription:
       'Control failed-download retries, source detection, and per-task download concurrency.',
     maxAttempts: 'Maximum Download Attempts',
-    maxAttemptsDescription:
-      'Total number of attempts allowed for a model file when its download fails.',
     detectTimeout: 'Source Detection Timeout',
-    detectTimeoutDescription: 'Maximum time to wait for a Hugging Face Hub connectivity probe.',
     downloadWorkers: 'Concurrent Download Threads',
-    downloadWorkersDescription:
-      'Number of download threads available to a single model download task.',
     attemptsUnit: 'attempts',
     secondsUnit: 'sec',
     threadsUnit: 'threads',
