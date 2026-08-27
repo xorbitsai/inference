@@ -1152,6 +1152,9 @@ const RunningModel = () => {
         modelName={activeModel?.model_name ?? ''}
         modelType={activeModel?.model_type ?? ''}
         modelEngine={activeModel?.model_engine}
+        modelFormat={activeModel?.model_format}
+        modelSizeInBillions={activeModel?.model_size_in_billions}
+        quantization={activeModel?.quantization}
         currentReplicaCount={
           activeModel ? (replicaLogs[activeModel.id]?.length ?? activeModel.replica ?? 0) : 0
         }

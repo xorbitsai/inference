@@ -19,6 +19,7 @@ import { Select, type SelectOption } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import type { AddReplicaRequest, ModelEngine } from '@/types/services';
+import { hasCompatibleEngineSpec } from './engine-compatibility.mjs';
 
 interface WorkerOption {
   label: string;
@@ -38,6 +39,9 @@ interface AddReplicaDialogProps {
   modelName: string;
   modelType: string;
   modelEngine?: string;
+  modelFormat?: string;
+  modelSizeInBillions?: string | number;
+  quantization?: string;
   currentReplicaCount: number;
   defaultDevice: DeviceValue;
 }
@@ -52,6 +56,9 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
   modelName,
   modelType,
   modelEngine,
+  modelFormat,
+  modelSizeInBillions,
+  quantization,
   currentReplicaCount,
   defaultDevice,
 }) => {
@@ -96,16 +103,26 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
   }, [defaultDevice, modelEngine, modelName, modelType, open]);
 
   const engineOptions = useMemo<SelectOption<string>[]>(() => {
-    const options: SelectOption<string>[] = Object.entries(engineMap).map(([engine, metadata]) => ({
-      label: typeof metadata === 'string' ? `${engine} (${metadata})` : engine,
-      value: engine,
-      disabled: typeof metadata === 'string' && engine !== modelEngine,
-    }));
+    const options: SelectOption<string>[] = Object.entries(engineMap)
+      .filter(
+        ([engine, metadata]) =>
+          engine === modelEngine ||
+          hasCompatibleEngineSpec(metadata, {
+            modelFormat,
+            modelSizeInBillions,
+            quantization,
+          })
+      )
+      .map(([engine, metadata]) => ({
+        label: typeof metadata === 'string' ? `${engine} (${metadata})` : engine,
+        value: engine,
+        disabled: typeof metadata === 'string' && engine !== modelEngine,
+      }));
     if (modelEngine && !options.some((option) => option.value === modelEngine)) {
       options.unshift({ label: modelEngine, value: modelEngine });
     }
     return options;
-  }, [engineMap, modelEngine]);
+  }, [engineMap, modelEngine, modelFormat, modelSizeInBillions, quantization]);
 
   const workerSelectOptions = [
     { label: t('runningModels.addReplicaAutoWorker'), value: '' },
