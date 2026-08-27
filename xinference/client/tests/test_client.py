@@ -662,3 +662,18 @@ def test_add_model_replica_sends_placement_config():
     client.add_model_replica("demo", replica_config=replica_config)
 
     assert client.session.last_json == {"replica_config": replica_config}
+
+
+def test_add_model_replica_sends_scale_overrides():
+    client = RESTfulClient.__new__(RESTfulClient)
+    client.base_url = "http://localhost:9997"
+    client._headers = {}
+    client.session = _DummySession()
+
+    client.add_model_replica("demo", replica=3, model_engine="vllm", n_gpu=1)
+
+    assert client.session.last_json == {
+        "replica": 3,
+        "model_engine": "vllm",
+        "n_gpu": 1,
+    }

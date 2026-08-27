@@ -1456,40 +1456,89 @@ class RESTfulAPI(CancelMixin):
     async def add_model_replica(
         self, model_uid: str, payload: Optional[dict[str, Any]] = None
     ) -> JSONResponse:
-        """Add a single new replica to a running model (scale-up).
+        """Add one or more replicas to a running model (scale-up).
 
-        Accepts an optional ``replica_config`` with a single device entry to
-        pin the new replica to a specific worker / GPU.  When omitted the
-        supervisor auto-selects the least-loaded worker.
+        ``replica`` controls how many replicas are added. ``model_engine`` and
+        ``n_gpu`` may override those launch settings for the new replicas only.
+        An optional ``replica_config`` dict applies to every new replica, while
+        a list can provide individual placement for each one.
         """
         try:
             payload = payload or {}
-            replica_config_raw = payload.get("replica_config", None)
-            replica_config: Optional[ReplicaConfig] = None
-            if replica_config_raw is not None:
-                if not isinstance(replica_config_raw, dict):
+            replica = payload.get("replica", 1)
+            if isinstance(replica, bool) or not isinstance(replica, int) or replica < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid replica: expected a positive integer.",
+                )
+
+            model_engine = payload.get("model_engine")
+            if model_engine is not None:
+                if not isinstance(model_engine, str) or not model_engine.strip():
                     raise HTTPException(
                         status_code=400,
-                        detail="Invalid replica_config: expected a dict with a single device entry.",
+                        detail="Invalid model_engine: expected a non-empty string.",
+                    )
+                model_engine = model_engine.strip()
+
+            n_gpu = payload.get("n_gpu")
+            if (
+                n_gpu is not None
+                and n_gpu != "auto"
+                and (isinstance(n_gpu, bool) or not isinstance(n_gpu, int) or n_gpu < 0)
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid n_gpu: expected a non-negative integer or 'auto'.",
+                )
+
+            replica_config_raw = payload.get("replica_config", None)
+            replica_configs: Optional[List[ReplicaConfig]] = None
+            if replica_config_raw is not None:
+                raw_configs = (
+                    replica_config_raw
+                    if isinstance(replica_config_raw, list)
+                    else [replica_config_raw] * replica
+                )
+                if len(raw_configs) != replica or any(
+                    not isinstance(config, dict) for config in raw_configs
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Invalid replica_config: expected a dict or a list "
+                            "with one entry per requested replica."
+                        ),
                     )
                 try:
-                    replica_config = ReplicaConfig.from_dict(replica_config_raw)
+                    replica_configs = [
+                        ReplicaConfig.from_dict(config) for config in raw_configs
+                    ]
                 except Exception as e:
                     raise HTTPException(
                         status_code=400,
                         detail=f"Invalid replica_config: {e}",
                     )
-                if len(replica_config.devices) != 1:
+                if any(len(config.devices) != 1 for config in replica_configs):
                     raise HTTPException(
                         status_code=400,
-                        detail="replica_config must contain exactly one device entry for scale-up.",
+                        detail=(
+                            "Each replica_config must contain exactly one device "
+                            "entry for scale-up."
+                        ),
                     )
 
-            result = await (await self._get_supervisor_ref()).add_model_replica(
+            results = await (await self._get_supervisor_ref()).add_model_replicas(
                 model_uid=model_uid,
-                replica_config=replica_config,
+                replica=replica,
+                replica_configs=replica_configs,
+                model_engine=model_engine,
+                n_gpu=n_gpu,
             )
-            return JSONResponse(content=result)
+            if replica == 1:
+                # Preserve the existing response shape for older callers.
+                return JSONResponse(content=results[0])
+            return JSONResponse(content={"replica": replica, "replicas": results})
         except HTTPException:
             raise
         except ValueError as ve:
