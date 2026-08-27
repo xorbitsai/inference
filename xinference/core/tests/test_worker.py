@@ -15,6 +15,7 @@ import asyncio
 import errno
 import itertools
 import json
+import logging
 import os
 import shutil
 import threading
@@ -1145,6 +1146,37 @@ async def test_supervisor_propagates_system_settings(monkeypatch):
     assert supervisor._system_settings == settings
     assert workers["worker-1"].system_settings_updates == [settings]
     assert workers["worker-2"].system_settings_updates == [settings]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_logs_system_settings_worker_failure(monkeypatch, caplog):
+    class FailingWorkerRef:
+        async def update_system_settings(self, _settings):
+            raise RuntimeError("worker update failed")
+
+    supervisor = SupervisorActor()
+    successful_worker = DummyReplicaWorkerRef("worker-1")
+    supervisor._worker_address_to_worker.update(
+        {
+            "worker-1": successful_worker,
+            "worker-2": FailingWorkerRef(),
+        }
+    )
+    monkeypatch.setattr(
+        system_settings_store_module,
+        "apply_system_settings",
+        lambda _: None,
+    )
+    settings = system_settings_store_module.get_system_settings_from_environment(
+        {}
+    ).to_dict()
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.supervisor"):
+        await supervisor.update_system_settings(settings)
+
+    assert successful_worker.system_settings_updates == [settings]
+    assert "Failed to apply system settings to worker worker-2" in caplog.text
+    assert "RuntimeError: worker update failed" in caplog.text
 
 
 @pytest.mark.asyncio

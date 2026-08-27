@@ -4800,6 +4800,7 @@ class SupervisorActor(xo.StatelessActor):
                 logger.warning(
                     "Failed to apply system settings to worker %s",
                     worker_address,
+                    exc_info=result,
                 )
 
     @log_async(logger=logger)

@@ -285,10 +285,43 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
 
 def test_invalid_saved_file_falls_back_to_startup(tmp_path):
     path = tmp_path / "system-settings.json"
-    path.write_text('{"version": 1, "settings": {"hf_token": "secret"}}')
+    path.write_text('{"version": 1, "settings": {"unknown": "value"}}')
 
     store = SystemSettingsStore(
         str(path), environ={"XINFERENCE_MODEL_SRC": "modelscope"}
     )
 
     assert store.get().download_source == "modelscope"
+
+
+def test_missing_saved_fields_use_startup_values(tmp_path):
+    path = tmp_path / "system-settings.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "settings": {
+                    "download_source": "modelscope",
+                    "hf_endpoint": "https://hf.example.com",
+                    "hf_token": "hf_abcdefgh12345678",
+                    "pip_index_url": "https://pip.example.com/simple",
+                    "download_max_attempts": 5,
+                    "hub_detect_timeout": 4.5,
+                },
+            }
+        )
+    )
+
+    store = SystemSettingsStore(
+        str(path), environ={"XINFERENCE_MODEL_DOWNLOAD_WORKERS": "6"}
+    )
+
+    assert store.get().to_dict() == {
+        "download_source": "modelscope",
+        "hf_endpoint": "https://hf.example.com",
+        "hf_token": "hf_abcdefgh12345678",
+        "pip_index_url": "https://pip.example.com/simple",
+        "download_max_attempts": 5,
+        "hub_detect_timeout": 4.5,
+        "model_download_workers": 6,
+    }

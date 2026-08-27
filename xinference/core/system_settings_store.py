@@ -297,7 +297,12 @@ class SystemSettingsStore:
             settings = payload.get("settings")
             if not isinstance(settings, dict):
                 raise ValueError("settings must be an object")
-            return SystemSettings.from_dict(settings)
+            startup_settings = self._startup.to_dict()
+            unknown = set(settings).difference(startup_settings)
+            if unknown:
+                raise ValueError(f"Unknown system setting fields: {sorted(unknown)}")
+            startup_settings.update(settings)
+            return SystemSettings.from_dict(startup_settings)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             logger.warning(
                 "Ignoring invalid system settings file %s: %s", self._path, exc
