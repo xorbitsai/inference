@@ -230,7 +230,7 @@ class SystemSettingsStore:
     @staticmethod
     def _parse_positive_int(environ: Mapping[str, str], name: str, default: int) -> int:
         raw = environ.get(name)
-        if raw in (None, ""):
+        if raw is None or raw == "":
             return default
         try:
             value = int(raw)
@@ -247,7 +247,7 @@ class SystemSettingsStore:
         environ: Mapping[str, str], name: str, default: float
     ) -> float:
         raw = environ.get(name)
-        if raw in (None, ""):
+        if raw is None or raw == "":
             return default
         try:
             value = float(raw)

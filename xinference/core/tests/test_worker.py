@@ -575,7 +575,7 @@ class DummyReplicaWorkerRef(DummyActorRef):
     def __init__(self, address: str, models=None):
         super().__init__(address)
         self._models = models or {}
-        self.system_settings_updates = []
+        self.system_settings_updates: List[dict[str, Any]] = []
 
     async def update_system_settings(self, settings):
         self.system_settings_updates.append(settings)
