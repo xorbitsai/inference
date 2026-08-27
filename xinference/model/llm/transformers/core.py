@@ -1031,6 +1031,11 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 False,
                 "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
+        if llm_family.has_architecture("KimiK3ForConditionalGeneration"):
+            return (
+                False,
+                "Kimi-K3 requires a dedicated multimodal Transformers adapter",
+            )
         if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
                 False,

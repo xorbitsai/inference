@@ -40,6 +40,8 @@ from typing import (
 
 import xoscar as xo
 from packaging import version
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.utils import canonicalize_name
 from typing_extensions import NotRequired
 from xoscar.utils import get_next_port
 
@@ -63,6 +65,7 @@ from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
     GLM5_TOOL_CALL_FAMILY,
+    KIMI_K3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -206,6 +209,49 @@ def _virtual_env_allows_missing_vllm() -> bool:
             return False
         return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
     return virtual_env_allows_missing_engine()
+
+
+def _get_virtualenv_vllm_version(
+    llm_family: "LLMFamilyV2",
+) -> Optional[version.Version]:
+    """Return the vLLM lower bound declared by a model virtualenv."""
+    virtualenv = getattr(llm_family, "virtualenv", None)
+    packages = getattr(virtualenv, "packages", None) or []
+    for package in packages:
+        requirement_text = package.split(";", 1)[0].strip()
+        try:
+            requirement = Requirement(requirement_text)
+        except InvalidRequirement:
+            continue
+        if canonicalize_name(requirement.name) != "vllm":
+            continue
+
+        lower_bounds: List[version.Version] = []
+        for specifier in requirement.specifier:
+            if specifier.operator not in {">=", ">", "~=", "=="}:
+                continue
+            if "*" in specifier.version:
+                continue
+            try:
+                lower_bounds.append(version.parse(specifier.version))
+            except version.InvalidVersion:
+                continue
+        if lower_bounds:
+            return max(lower_bounds)
+    return None
+
+
+def _get_effective_vllm_version_for_family(
+    llm_family: "LLMFamilyV2",
+) -> version.Version:
+    if _virtual_env_allows_missing_vllm():
+        declared_version = _get_virtualenv_vllm_version(llm_family)
+        if declared_version is not None:
+            return declared_version
+        return DEFAULT_VLLM_VERSION
+    if VLLM_VERSION is not None:
+        return VLLM_VERSION
+    return version.parse("0.0.0")
 
 
 GuidedDecodingParams: Optional[Type[Any]] = None
@@ -427,6 +473,11 @@ def _update_vllm_supported_lists() -> None:
     if effective_version >= version.parse("0.24.0"):
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniMaxM3SparseForConditionalGeneration"
+        )
+
+    if effective_version >= version.parse("0.27.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "KimiK3ForConditionalGeneration"
         )
 
 
@@ -2058,6 +2109,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
                 or model_family in GLM5_TOOL_CALL_FAMILY
+                or model_family in KIMI_K3_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
@@ -2141,9 +2193,11 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             else:
                 if "4" not in quantization:
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
-        if not llm_family.matches_supported_architectures(
-            VLLM_SUPPORTED_MULTI_MODEL_LIST
-        ):
+        supported_architectures = list(VLLM_SUPPORTED_MULTI_MODEL_LIST)
+        effective_version = _get_effective_vllm_version_for_family(llm_family)
+        if effective_version >= version.parse("0.27.0"):
+            _append_unique(supported_architectures, "KimiK3ForConditionalGeneration")
+        if not llm_family.matches_supported_architectures(supported_architectures):
             return (
                 False,
                 f"Model architectures {llm_family.architectures} are not supported by vLLM multimodal engine",
@@ -2318,6 +2372,27 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                                             f"Failed to decode base64 file: {e}"
                                         )
 
+    async def _get_chat_template_and_tokenizer(
+        self, model_family: str
+    ) -> Tuple[Optional[str], Any]:
+        chat_template: Optional[str] = self.model_family.chat_template
+        tokenizer = None
+        if not chat_template:
+            tokenizer = await self._get_tokenizer(None)
+            if tokenizer is not None:
+                chat_template = getattr(tokenizer, "chat_template", None)
+        if not chat_template:
+            supports_native_renderer = (
+                model_family in KIMI_K3_TOOL_CALL_FAMILY
+                and tokenizer is not None
+                and callable(getattr(tokenizer, "apply_chat_template", None))
+            )
+            if not supports_native_renderer:
+                raise ValueError(
+                    f"chat_template is required for model {self.model_uid}, but none was provided."
+                )
+        return chat_template, tokenizer
+
     @vllm_check
     async def async_chat(
         self,
@@ -2358,21 +2433,16 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in GLM5_TOOL_CALL_FAMILY
+                or model_family in KIMI_K3_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
 
-            # Handle empty chat_template by falling back to tokenizer's chat_template
-            chat_template: Optional[str] = self.model_family.chat_template
-            tokenizer = None
-            if not chat_template:
-                tokenizer = await self._get_tokenizer(None)
-                if tokenizer is not None:
-                    chat_template = getattr(tokenizer, "chat_template", None)
-            if not chat_template:
-                raise ValueError(
-                    f"chat_template is required for model {self.model_uid}, but none was provided."
-                )
+            # Kimi-K3 has no Jinja template and renders through its tokenizer's
+            # custom Python apply_chat_template implementation.
+            chat_template, tokenizer = await self._get_chat_template_and_tokenizer(
+                model_family
+            )
 
             if "omni" in self.model_family.model_ability:
                 audios, images, videos, video_kwargs = process_mm_info(

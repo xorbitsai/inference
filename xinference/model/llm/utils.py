@@ -210,6 +210,7 @@ GLM4_TOOL_CALL_FAMILY: Set[str] = set()
 LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
 QWEN_TOOL_CALL_FAMILY: Set[str] = set()
 GLM5_TOOL_CALL_FAMILY: Set[str] = set()
+KIMI_K3_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
@@ -335,7 +336,7 @@ class ChatModelMixin:
     def get_full_context(
         self,
         messages: List,
-        chat_template: str,
+        chat_template: Optional[str],
         tokenizer=None,
         tokenize=False,
         **kwargs,
@@ -380,12 +381,15 @@ class ChatModelMixin:
                 return prompt
             else:
                 try:
-                    full_context = tokenizer.apply_chat_template(
-                        messages,
-                        tokenize=tokenize,
-                        chat_template=chat_template,
-                        add_generation_prompt=True,
+                    template_kwargs = {
+                        "tokenize": tokenize,
+                        "add_generation_prompt": True,
                         **kwargs,
+                    }
+                    if chat_template is not None:
+                        template_kwargs["chat_template"] = chat_template
+                    full_context = tokenizer.apply_chat_template(
+                        messages, **template_kwargs
                     )
                     logger.debug("Prompt: %s", full_context)
                     return full_context
@@ -393,12 +397,17 @@ class ChatModelMixin:
                     logger.warning(
                         f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
                     )
+                    if chat_template is None:
+                        raise
+                    assert chat_template is not None
                     return self._build_from_raw_template(
                         messages, chat_template, **kwargs
                     )
         else:
             # build from jinja
             # Compilation function uses a cache to avoid recompiling the same template
+            if chat_template is None:
+                raise ValueError("chat_template is required when tokenizer is not set")
             return self._build_from_raw_template(messages, chat_template, **kwargs)
 
     @staticmethod

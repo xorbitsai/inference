@@ -336,6 +336,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
 
+   * - :ref:`kimi-k3 <models_llm_kimi-k3>`
+     - chat, vision
+     - 1048576
+     - Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date.
+
    * - :ref:`ling-3.0-flash <models_llm_ling-3.0-flash>`
      - chat, tools, reasoning, hybrid
      - 262144
@@ -560,6 +565,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision, tools, reasoning, hybrid
      - 262144
      - Ornith-1.5-35B-A3B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
+
+   * - :ref:`ornith-1.5-397b <models_llm_ornith-1.5-397b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.5-397B is a 397B-total Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
 
    * - :ref:`ovis2 <models_llm_ovis2>`
      - chat, vision
@@ -959,6 +969,8 @@ The following is a list of built-in LLM in Xinference:
   
    kimi-k2.5
   
+   kimi-k3
+  
    ling-3.0-flash
   
    ling-3.0-tiny
@@ -1048,6 +1060,8 @@ The following is a list of built-in LLM in Xinference:
    ornith-1.0-35b
   
    ornith-1.5-35b-a3b
+  
+   ornith-1.5-397b
   
    ovis2
   

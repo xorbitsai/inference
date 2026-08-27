@@ -58,6 +58,7 @@ from . import (
     gemma_tool_parser,
     glm4_tool_parser,
     glm5_tool_parser,
+    kimi_k3_tool_parser,
     llama3_tool_parser,
     minimax_m3_tool_parser,
     minimax_tool_parser,

@@ -51,6 +51,7 @@ from .utils import (
     GEMMA_TOOL_CALL_FAMILY,
     GLM4_TOOL_CALL_FAMILY,
     GLM5_TOOL_CALL_FAMILY,
+    KIMI_K3_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
 )
@@ -236,6 +237,8 @@ def load_model_family_from_json(json_filename, target_families):
                     LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser.startswith("deepseek"):
                     DEEPSEEK_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "kimi-k3":
+                    KIMI_K3_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 else:
                     warnings.warn(
                         f"Unknown tool parser {tool_parser} for model family {model_spec.model_name}"
