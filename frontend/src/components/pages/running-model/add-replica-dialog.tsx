@@ -72,14 +72,27 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     setSelectedWorker('');
     setGpuIdx('');
 
+    let active = true;
     const url =
       modelType.toLowerCase() === 'llm'
         ? `/v1/engines/${encodeURIComponent(modelName)}`
         : `/v1/engines/${encodeURIComponent(modelType)}/${encodeURIComponent(modelName)}`;
     request
       .get<ModelEngine>(url)
-      .then((result) => setEngineMap(result || {}))
-      .catch(() => setEngineMap({}));
+      .then((result) => {
+        if (active) {
+          setEngineMap(result || {});
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setEngineMap({});
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, [defaultDevice, modelEngine, modelName, modelType, open]);
 
   const engineOptions = useMemo<SelectOption<string>[]>(() => {
