@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 80 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 80
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers, SGLang
+- **Engines**: vLLM, Transformers
 - **Model ID:** Qwen/Qwen3-Next-80B-A3B-Instruct
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-Next-80B-A3B-Instruct>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 80 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 80
 - **Quantizations:** fp8
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM
 - **Model ID:** Qwen/Qwen3-Next-80B-A3B-Instruct-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3-Next-80B-A3B-Instruct-FP8>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 80 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 80
 - **Quantizations:** 4bit, 8bit
-- **Engines**: vLLM, Transformers, SGLang
+- **Engines**: vLLM, Transformers
 - **Model ID:** cpatonn/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/cpatonn/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}>`__, `ModelScope <https://modelscope.cn/models/cpatonn-mirror/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}>`__
 
