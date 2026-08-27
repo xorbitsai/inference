@@ -4070,6 +4070,7 @@ class SupervisorActor(xo.StatelessActor):
 
         # ---- 6. Resolve target worker / GPU --------------------------------------
         default_replica_uid = f"{model_uid}-{new_replica_id}"
+        target_n_gpu: Optional[Union[int, str]]
         if replica_config is not None:
             # normalize_replica_configs aligns defaults to the list index. Scale-up
             # resolves one item at a time, so supply the actual replica id default.
@@ -4101,6 +4102,12 @@ class SupervisorActor(xo.StatelessActor):
             target_worker_ref, target_gpu_idx = await self._select_worker_for_scale_up(
                 target_n_gpu
             )
+
+        # The placement/API layer uses 0 to express an explicit CPU choice,
+        # while WorkerActor follows the launch API convention that CPU is
+        # represented by None and rejects non-positive integer GPU counts.
+        if target_n_gpu == 0:
+            target_n_gpu = None
 
         existing_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
         existing_replica_uids = {

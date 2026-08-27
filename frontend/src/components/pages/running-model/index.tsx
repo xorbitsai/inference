@@ -1155,7 +1155,9 @@ const RunningModel = () => {
         currentReplicaCount={
           activeModel ? (replicaLogs[activeModel.id]?.length ?? activeModel.replica ?? 0) : 0
         }
-        defaultDevice={activeModel?.accelerators?.length ? 'GPU' : 'CPU'}
+        defaultDevice={
+          activeModel?.accelerators?.some((value) => /^\d+$/.test(String(value))) ? 'GPU' : 'CPU'
+        }
       />
       <TryApiDrawer
         open={tryApiOpen}

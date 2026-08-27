@@ -114,6 +114,8 @@ class _FakeScaleWorker:
         }
 
     async def launch_builtin_model(self, **kwargs):
+        if isinstance(kwargs.get("n_gpu"), int) and kwargs["n_gpu"] <= 0:
+            raise ValueError("The parameter `n_gpu` must be greater than 0")
         self.launches.append(kwargs)
         if self.launch_started is not None:
             self.launch_started.set()
@@ -200,12 +202,24 @@ async def test_scale_up_multiple_replicas_overrides_engine_and_device():
 
     assert [result["replica_id"] for result in results] == [1, 2]
     assert [launch["model_engine"] for launch in worker.launches] == ["vllm", "vllm"]
-    assert [launch["n_gpu"] for launch in worker.launches] == [0, 0]
+    assert [launch["n_gpu"] for launch in worker.launches] == [None, None]
+
+
+@pytest.mark.asyncio
+async def test_scale_up_cpu_placement_normalizes_zero_gpu_count():
+    launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    config = ReplicaConfig(devices=[DeviceConfig(worker_ip=worker.address, n_gpu=0)])
+
+    await supervisor.add_model_replica("demo", config)
+
+    assert worker.launches[0]["n_gpu"] is None
 
 
 @pytest.mark.asyncio
 async def test_scale_up_multiple_replicas_rolls_back_partial_failure():
-    launch_args = {"n_gpu": 0, "gpu_idx": None, "n_worker": 1}
+    launch_args = {"n_gpu": None, "gpu_idx": None, "n_worker": 1}
     worker = _FakeScaleWorker("worker-0:9978", launch_args)
     supervisor = _make_supervisor([worker], launch_args)
     original_launch = worker.launch_builtin_model
