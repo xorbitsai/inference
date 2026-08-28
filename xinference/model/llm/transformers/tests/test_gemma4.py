@@ -13,11 +13,17 @@
 # limitations under the License.
 
 import asyncio
+import json
+from pathlib import Path
 from threading import Event
 
 import torch
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 from .....core.model import XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
+from .....core.utils import filter_virtualenv_packages_by_markers
+from .....core.virtual_env_manager import expand_engine_dependency_placeholders
 from ....scheduler.request import InferenceRequest
 from ...llm_family import LLMFamilyV2, PytorchLLMSpecV2
 from ..core import NON_DEFAULT_MODEL_LIST
@@ -120,6 +126,25 @@ def test_gemma4_registers_transformers_and_batching_support():
     assert "gemma-4" in XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 
 
+def test_gemma4_virtualenv_uses_supported_transformers():
+    family_path = Path(__file__).parents[2] / "llm_family.json"
+    families = json.loads(family_path.read_text())
+    gemma4 = next(x for x in families if x["model_name"] == "gemma-4")
+
+    packages = expand_engine_dependency_placeholders(
+        gemma4["virtualenv"]["packages"], "transformers"
+    )
+    packages = filter_virtualenv_packages_by_markers(packages, "transformers", "13.0")
+    requirements = {
+        Requirement(package).name: Requirement(package) for package in packages
+    }
+
+    transformers_requirement = requirements["transformers"]
+    assert Version("5.10.0") in transformers_requirement.specifier
+    assert Version("5.9.9") not in transformers_requirement.specifier
+    assert "accelerate" in requirements
+
+
 def test_gemma4_match_json_accepts_gemma4_conditional_generation():
     family = _family(["Gemma4ForConditionalGeneration"])
     spec = family.model_specs[0]
@@ -193,10 +218,15 @@ def _direct_model(monkeypatch):
 
 def test_gemma4_direct_chat_streaming_returns_iterator(monkeypatch):
     model = _direct_model(monkeypatch)
+    generate_config = {
+        "stream": True,
+        "max_tokens": 8,
+        "stream_options": {"include_usage": True},
+    }
     iterator = asyncio.run(
         model._direct_chat(
             [{"role": "user", "content": "你好"}],
-            {"stream": True, "max_tokens": 8},
+            generate_config,
         )
     )
 
@@ -207,6 +237,9 @@ def test_gemma4_direct_chat_streaming_returns_iterator(monkeypatch):
     assert chunks[0]["choices"][0]["delta"]["content"] == "你"
     assert chunks[1]["choices"][0]["delta"]["content"] == "好"
     assert chunks[2]["choices"][0]["finish_reason"] == "stop"
+    assert chunks[3]["choices"] == []
+    assert chunks[3]["usage"]["completion_tokens"] == 2
+    assert generate_config["stream_options"] == {"include_usage": True}
 
 
 def test_gemma4_direct_chat_non_streaming_returns_completion(monkeypatch):
@@ -220,3 +253,40 @@ def test_gemma4_direct_chat_non_streaming_returns_completion(monkeypatch):
 
     assert completion["object"] == "chat.completion"
     assert completion["choices"][0]["message"]["content"] == "你好"
+    assert completion["usage"]["prompt_tokens"] == 3
+    assert completion["usage"]["completion_tokens"] == 2
+    assert completion["usage"]["total_tokens"] == 5
+
+
+def test_gemma4_direct_inputs_forward_tools_to_chat_template():
+    captured = {}
+
+    class _ToolProcessor:
+        def apply_chat_template(self, messages, **kwargs):
+            captured.update(kwargs)
+            return _Batch(
+                {
+                    "input_ids": torch.tensor([[1, 2, 3]]),
+                    "attention_mask": torch.tensor([[1, 1, 1]]),
+                }
+            )
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+    model = Gemma4ChatModel.__new__(Gemma4ChatModel)
+    model._processor = _ToolProcessor()
+    model._device = torch.device("cpu")
+    model.reasoning_parser = None
+
+    model.build_inputs_from_messages(
+        [{"role": "user", "content": "天气如何？"}], {"tools": tools}
+    )
+
+    assert captured["tools"] == tools
