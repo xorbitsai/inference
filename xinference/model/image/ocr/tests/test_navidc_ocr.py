@@ -53,9 +53,7 @@ def test_navidc_ocr_metadata_and_engine_registration():
     assert specs["modelscope"].model_revision == "master"
     assert all(spec.model_ability == ["ocr"] for spec in families)
     assert all(NaviDCOCRModel.match(spec) for spec in families)
-    assert all(
-        "transformers==4.57.1" in spec.virtualenv.packages for spec in families
-    )
+    assert all("transformers==4.57.1" in spec.virtualenv.packages for spec in families)
     assert all("pillow>=11,<12" in spec.virtualenv.packages for spec in families)
     assert all(
         'accelerate==1.12.0 ; #engine# == "transformers"' in spec.virtualenv.packages
@@ -307,9 +305,7 @@ def test_navidc_ocr_vllm_runs_on_actor_loop():
     loop_thread = threading.Thread(target=_run_loop)
     loop_thread.start()
     try:
-        loop_thread_id = asyncio.run_coroutine_threadsafe(
-            _attach_loop(), loop
-        ).result()
+        loop_thread_id = asyncio.run_coroutine_threadsafe(_attach_loop(), loop).result()
         assert model._run_on_actor_loop(threading.get_ident) == loop_thread_id
         assert loop_thread_id != threading.get_ident()
     finally:

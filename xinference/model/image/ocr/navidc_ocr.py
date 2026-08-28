@@ -38,9 +38,7 @@ class NaviDCOCRModel(OCRModel):
     _LEGACY_PROMPT_MAP = {
         "OCR": DEFAULT_PROMPT,
         "<image>\nFree OCR.": DEFAULT_PROMPT,
-        (
-            "<image>\nFree OCR. Extract all text content from the image."
-        ): DEFAULT_PROMPT,
+        ("<image>\nFree OCR. Extract all text content from the image."): DEFAULT_PROMPT,
         (
             "<image>\nConvert this document to clean markdown format. "
             "Extract the text content and format it properly using markdown syntax. "

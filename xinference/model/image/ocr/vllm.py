@@ -420,9 +420,7 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         kwargs.pop("use_cache", None)
         kwargs.setdefault("max_new_tokens", 4096)
         sampling_params = _build_sampling_params(kwargs)
-        outputs = self._run_on_actor_loop(
-            self._model.generate, inputs, sampling_params
-        )
+        outputs = self._run_on_actor_loop(self._model.generate, inputs, sampling_params)
         texts = _extract_text(outputs)
         return texts[0] if texts else ""
 
