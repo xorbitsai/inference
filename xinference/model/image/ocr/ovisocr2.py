@@ -42,6 +42,49 @@ class OvisOCR2Model(OCRModel):
         "Preserve the original text without translation or paraphrasing."
     )
 
+    @staticmethod
+    def _clean_truncated_repeats(
+        text: str,
+        min_text_len: int = 8000,
+        max_period: int = 200,
+        min_period: int = 1,
+        min_repeat_chars: int = 100,
+        min_repeat_times: int = 5,
+    ) -> str:
+        n = len(text)
+        if n < min_text_len:
+            return text
+
+        max_period = min(max_period, n - 1)
+        for unit_len in range(min_period, max_period + 1):
+            if text[n - 1] != text[n - 1 - unit_len]:
+                continue
+
+            match_len = 1
+            idx = n - 2
+            while idx >= unit_len and text[idx] == text[idx - unit_len]:
+                match_len += 1
+                idx -= 1
+
+            total_len = match_len + unit_len
+            repeat_times = total_len // unit_len
+            tail_len = total_len % unit_len
+            if repeat_times >= min_repeat_times and total_len >= min_repeat_chars:
+                return text[: n - total_len + unit_len] + text[n - tail_len :]
+
+        return text
+
+    @classmethod
+    def _postprocess_output(cls, text: str, filter_imgtags: bool = True) -> str:
+        text = text.strip()
+        if filter_imgtags:
+            text = "\n\n".join(
+                block
+                for block in text.split("\n\n")
+                if not block.strip().startswith('<img src="images/bbox_')
+            )
+        return cls._clean_truncated_repeats(text)
+
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_name == "OvisOCR2"
@@ -95,6 +138,7 @@ class OvisOCR2Model(OCRModel):
         self,
         image: PIL.Image.Image,
         prompt: Optional[str] = None,
+        filter_imgtags: bool = True,
         **kwargs,
     ) -> str:
         if self._model is None or self._processor is None:
@@ -142,4 +186,4 @@ class OvisOCR2Model(OCRModel):
         if not output_texts:
             logger.warning("OvisOCR2 returned empty decoded output.")
             return ""
-        return output_texts[0].strip()
+        return self._postprocess_output(output_texts[0], filter_imgtags)

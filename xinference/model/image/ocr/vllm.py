@@ -473,6 +473,7 @@ class VLLMOvisOCR2Model(OvisOCR2Model):
         self,
         image: PIL.Image.Image,
         prompt: Optional[str] = None,
+        filter_imgtags: bool = True,
         **kwargs,
     ) -> str:
         if self._model is None or self._tokenizer is None:
@@ -500,7 +501,7 @@ class VLLMOvisOCR2Model(OvisOCR2Model):
         sampling_params = _build_sampling_params(kwargs)
         outputs = self._model.generate(inputs, sampling_params)
         texts = _extract_text(outputs)
-        return texts[0] if texts else ""
+        return self._postprocess_output(texts[0], filter_imgtags) if texts else ""
 
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
