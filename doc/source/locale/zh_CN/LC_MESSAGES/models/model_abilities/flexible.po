@@ -20,8 +20,8 @@ msgstr ""
 "Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/flexible.rst:5
-msgid "Traditional ML models (Experimental)"
-msgstr "传统机器学习模型（实验性质）"
+msgid "Traditional ML models"
+msgstr "传统机器学习模型"
 
 #: ../../source/models/model_abilities/flexible.rst:7
 msgid ""
@@ -267,4 +267,3 @@ msgid ""
 msgstr "Xinference 内置的灵活模型 launcher 可以在  "
 "`Github <https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_ 找到，"
 "欢迎贡献更多传统机器学习模型的支持！"
-
