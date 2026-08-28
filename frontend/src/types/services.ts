@@ -113,13 +113,17 @@ export interface ReplicaItem {
 }
 
 export interface AddReplicaRequest {
-  replica_config?: {
+  replica: number;
+  model_engine?: string;
+  n_gpu?: number | 'auto';
+  replica_config?: Array<{
     replica_uid?: string;
     devices: Array<{
       worker_ip?: string;
+      n_gpu?: number | 'auto';
       gpu_idx?: number[];
     }>;
-  };
+  }>;
 }
 
 export interface AddReplicaResponse {

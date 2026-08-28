@@ -3949,15 +3949,66 @@ class SupervisorActor(xo.StatelessActor):
         self,
         model_uid: str,
         replica_config: Optional[ReplicaConfig] = None,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
     ) -> Dict[str, Any]:
         """Add one replica while serializing scale changes for this model."""
         async with self._get_model_replica_lock(model_uid):
-            return await self._add_model_replica(model_uid, replica_config)
+            return await self._add_model_replica(
+                model_uid, replica_config, model_engine=model_engine, n_gpu=n_gpu
+            )
+
+    @log_async(logger=logger)
+    async def add_model_replicas(
+        self,
+        model_uid: str,
+        replica: int = 1,
+        replica_configs: Optional[List[ReplicaConfig]] = None,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Add multiple replicas as one serialized, rollback-safe operation."""
+        if replica < 1:
+            raise ValueError("The replica count to add must be at least 1")
+        if replica_configs is not None and len(replica_configs) != replica:
+            raise ValueError("replica_configs length must match replica")
+
+        async with self._get_model_replica_lock(model_uid):
+            results: List[Dict[str, Any]] = []
+            try:
+                for index in range(replica):
+                    config = (
+                        replica_configs[index] if replica_configs is not None else None
+                    )
+                    results.append(
+                        await self._add_model_replica(
+                            model_uid,
+                            config,
+                            model_engine=model_engine,
+                            n_gpu=n_gpu,
+                        )
+                    )
+            except Exception:
+                for result in reversed(results):
+                    try:
+                        await self._terminate_model_replica(
+                            model_uid, result["replica_id"], suppress_exception=True
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Failed to roll back replica %s after scale-up failure",
+                            result.get("replica_model_uid"),
+                            exc_info=True,
+                        )
+                raise
+            return results
 
     async def _add_model_replica(
         self,
         model_uid: str,
         replica_config: Optional[ReplicaConfig] = None,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
     ) -> Dict[str, Any]:
         """Add a new replica to an already-running model (scale-up).
 
@@ -4019,6 +4070,7 @@ class SupervisorActor(xo.StatelessActor):
 
         # ---- 6. Resolve target worker / GPU --------------------------------------
         default_replica_uid = f"{model_uid}-{new_replica_id}"
+        target_n_gpu: Optional[Union[int, str]]
         if replica_config is not None:
             # normalize_replica_configs aligns defaults to the list index. Scale-up
             # resolves one item at a time, so supply the actual replica id default.
@@ -4034,7 +4086,9 @@ class SupervisorActor(xo.StatelessActor):
             replica_uid_label = _replica_uid_map.get(0)
         else:
             replica_uid_label = default_replica_uid
-            target_n_gpu = launch_args.get("n_gpu", "auto")
+            target_n_gpu = (
+                n_gpu if n_gpu is not None else launch_args.get("n_gpu", "auto")
+            )
             cached_gpu_idx = launch_args.get("gpu_idx")
             if (
                 target_n_gpu == "auto"
@@ -4048,6 +4102,12 @@ class SupervisorActor(xo.StatelessActor):
             target_worker_ref, target_gpu_idx = await self._select_worker_for_scale_up(
                 target_n_gpu
             )
+
+        # The placement/API layer uses 0 to express an explicit CPU choice,
+        # while WorkerActor follows the launch API convention that CPU is
+        # represented by None and rejects non-positive integer GPU counts.
+        if target_n_gpu == 0:
+            target_n_gpu = None
 
         existing_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
         existing_replica_uids = {
@@ -4068,6 +4128,8 @@ class SupervisorActor(xo.StatelessActor):
         modified_args: Dict[str, Any] = dict(launch_args)
         modified_args["model_uid"] = new_replica_uid
         modified_args["n_gpu"] = target_n_gpu
+        if model_engine is not None:
+            modified_args["model_engine"] = model_engine
         # Always overwrite gpu_idx so a placement config without explicit GPUs
         # does not inherit an old replica's pinned indexes.
         modified_args["gpu_idx"] = target_gpu_idx

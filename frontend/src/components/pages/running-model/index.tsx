@@ -557,14 +557,9 @@ const RunningModel = () => {
     setAddReplicaLoading(true);
     request
       .post(`/v1/models/${encodeURIComponent(activeModel.id)}/replicas`, body)
-      .then((res) => {
+      .then(() => {
         setAddReplicaOpen(false);
-        toast.success(
-          t('runningModels.addReplicaSuccess', {
-            replicaModelUid: res?.replica_model_uid ?? '',
-            workerAddress: res?.worker_address ?? '',
-          })
-        );
+        toast.success(t('runningModels.addReplicaSuccess', { count: body.replica }));
         fetchReplicas(activeModel.id);
         fetchModels();
       })
@@ -1154,6 +1149,18 @@ const RunningModel = () => {
         loading={addReplicaLoading}
         workerOptions={addReplicaWorkerOptions}
         modelUid={activeModel?.id ?? ''}
+        modelName={activeModel?.model_name ?? ''}
+        modelType={activeModel?.model_type ?? ''}
+        modelEngine={activeModel?.model_engine}
+        modelFormat={activeModel?.model_format}
+        modelSizeInBillions={activeModel?.model_size_in_billions}
+        quantization={activeModel?.quantization}
+        currentReplicaCount={
+          activeModel ? (replicaLogs[activeModel.id]?.length ?? activeModel.replica ?? 0) : 0
+        }
+        defaultDevice={
+          activeModel?.accelerators?.some((value) => /^\d+$/.test(String(value))) ? 'GPU' : 'CPU'
+        }
       />
       <TryApiDrawer
         open={tryApiOpen}

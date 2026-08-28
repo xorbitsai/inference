@@ -116,12 +116,22 @@ omitted, Xinference assigns the stable default
 and use ``n_gpu="auto"`` to let the selected worker allocate GPUs
 automatically.
 
-Running models can be scaled one replica at a time. Placement is optional; if
-omitted, the supervisor selects a worker automatically.
+Running models can be scaled by one or more replicas in a single operation.
+The new replicas reuse the existing launch configuration by default. You can
+override their model engine and device allocation without changing existing
+replicas. Placement is optional; if omitted, the supervisor selects a worker
+automatically.
 
 .. code-block:: python
 
     result = client.add_model_replica(model_uid)
+
+    scale_result = client.add_model_replica(
+        model_uid,
+        replica=2,
+        model_engine="vllm",
+        n_gpu=1,
+    )
 
     result = client.add_model_replica(
         model_uid,
@@ -140,6 +150,10 @@ omitted, the supervisor selects a worker automatically.
     remaining = client.terminate_model_replica(
         model_uid, replica_id=result["replica_id"]
     )
+
+For multiple replicas, ``replica_config`` may also be a list with one placement
+entry per new replica. If any replica in a multi-replica scale-up fails to
+launch, Xinference rolls back the replicas created by that operation.
 
 Scale-up is not supported for Xavier-distributed models or models launched with
 ``n_worker > 1``. Deleting the last replica terminates the running model.

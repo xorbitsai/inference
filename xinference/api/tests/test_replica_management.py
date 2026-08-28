@@ -33,19 +33,60 @@ def replica_api():
 @pytest.mark.asyncio
 async def test_add_model_replica_accepts_empty_body(replica_api):
     supervisor = AsyncMock()
-    supervisor.add_model_replica.return_value = {
-        "replica_id": 1,
-        "replica_model_uid": "demo-rep1",
-        "worker_address": "127.0.0.1:9978",
-    }
+    supervisor.add_model_replicas.return_value = [
+        {
+            "replica_id": 1,
+            "replica_model_uid": "demo-rep1",
+            "worker_address": "127.0.0.1:9978",
+        }
+    ]
     replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
 
     response = await replica_api.add_model_replica("demo")
 
     assert response.status_code == 200
-    assert json.loads(response.body) == supervisor.add_model_replica.return_value
-    supervisor.add_model_replica.assert_awaited_once_with(
-        model_uid="demo", replica_config=None
+    assert json.loads(response.body) == supervisor.add_model_replicas.return_value[0]
+    supervisor.add_model_replicas.assert_awaited_once_with(
+        model_uid="demo",
+        replica=1,
+        replica_configs=None,
+        model_engine=None,
+        n_gpu=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_add_model_replicas_forwards_count_engine_and_device(replica_api):
+    supervisor = AsyncMock()
+    supervisor.add_model_replicas.return_value = [
+        {
+            "replica_id": replica_id,
+            "replica_model_uid": f"demo-rep{replica_id}",
+            "worker_address": "127.0.0.1:9978",
+        }
+        for replica_id in (1, 2)
+    ]
+    replica_api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    response = await replica_api.add_model_replica(
+        "demo",
+        {
+            "replica": 2,
+            "model_engine": "vllm",
+            "n_gpu": 1,
+        },
+    )
+
+    assert json.loads(response.body) == {
+        "replica": 2,
+        "replicas": supervisor.add_model_replicas.return_value,
+    }
+    supervisor.add_model_replicas.assert_awaited_once_with(
+        model_uid="demo",
+        replica=2,
+        replica_configs=None,
+        model_engine="vllm",
+        n_gpu=1,
     )
 
 
@@ -56,6 +97,11 @@ async def test_add_model_replica_accepts_empty_body(replica_api):
         {"replica_config": []},
         {"replica_config": {"devices": []}},
         {"replica_config": {"devices": [{"gpu_idx": [0]}]}},
+        {"replica": 0},
+        {"replica": True},
+        {"model_engine": "  "},
+        {"n_gpu": -1},
+        {"replica": 2, "replica_config": [{"devices": []}]},
     ],
 )
 async def test_add_model_replica_rejects_invalid_config(replica_api, payload):

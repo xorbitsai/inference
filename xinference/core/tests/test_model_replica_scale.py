@@ -114,6 +114,8 @@ class _FakeScaleWorker:
         }
 
     async def launch_builtin_model(self, **kwargs):
+        if isinstance(kwargs.get("n_gpu"), int) and kwargs["n_gpu"] <= 0:
+            raise ValueError("The parameter `n_gpu` must be greater than 0")
         self.launches.append(kwargs)
         if self.launch_started is not None:
             self.launch_started.set()
@@ -181,6 +183,62 @@ async def test_concurrent_scale_up_requests_get_distinct_replica_ids():
         build_replica_model_uid("demo", 1),
         build_replica_model_uid("demo", 2),
     ]
+
+
+@pytest.mark.asyncio
+async def test_scale_up_multiple_replicas_overrides_engine_and_device():
+    launch_args = {
+        "model_engine": "transformers",
+        "n_gpu": "auto",
+        "gpu_idx": None,
+        "n_worker": 1,
+    }
+    worker = _FakeScaleWorker("worker-0:9978", launch_args, total=(0, 1))
+    supervisor = _make_supervisor([worker], launch_args)
+
+    results = await supervisor.add_model_replicas(
+        "demo", replica=2, model_engine="vllm", n_gpu=0
+    )
+
+    assert [result["replica_id"] for result in results] == [1, 2]
+    assert [launch["model_engine"] for launch in worker.launches] == ["vllm", "vllm"]
+    assert [launch["n_gpu"] for launch in worker.launches] == [None, None]
+
+
+@pytest.mark.asyncio
+async def test_scale_up_cpu_placement_normalizes_zero_gpu_count():
+    launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    config = ReplicaConfig(devices=[DeviceConfig(worker_ip=worker.address, n_gpu=0)])
+
+    await supervisor.add_model_replica("demo", config)
+
+    assert worker.launches[0]["n_gpu"] is None
+
+
+@pytest.mark.asyncio
+async def test_scale_up_multiple_replicas_rolls_back_partial_failure():
+    launch_args = {"n_gpu": None, "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    original_launch = worker.launch_builtin_model
+    launch_count = 0
+
+    async def fail_second_launch(**kwargs):
+        nonlocal launch_count
+        launch_count += 1
+        if launch_count == 2:
+            raise RuntimeError("boom")
+        await original_launch(**kwargs)
+
+    worker.launch_builtin_model = fail_second_launch
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await supervisor.add_model_replicas("demo", replica=2)
+
+    assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
+    assert build_replica_model_uid("demo", 1) in worker.terminations
 
 
 @pytest.mark.asyncio

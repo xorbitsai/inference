@@ -1590,15 +1590,18 @@ class AsyncClient:
     async def add_model_replica(
         self,
         model_uid: str,
-        replica_config: Optional[dict] = None,
+        replica_config: Optional[Union[dict, List[dict]]] = None,
+        replica: int = 1,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
     ) -> dict:
-        """Add a new replica to a running model (scale-up).
+        """Add one or more replicas to a running model (scale-up).
 
         Parameters
         ----------
         model_uid : str
             The UID of the running model to extend.
-        replica_config : Optional[dict]
+        replica_config : Optional[Union[dict, List[dict]]]
             Optional single-device placement config, e.g.::
 
                 {
@@ -1609,16 +1612,29 @@ class AsyncClient:
                 }
 
             Omit to let the supervisor auto-select a worker and GPU.
+        replica : int
+            Number of replicas to add, default is 1.
+        model_engine : Optional[str]
+            Override the model engine for the new replicas only.
+        n_gpu : Optional[Union[int, str]]
+            Override GPU usage for the new replicas. Use 0 for CPU or ``"auto"``.
 
         Returns
         -------
         dict
-            ``{"replica_id": int, "replica_model_uid": str, "worker_address": str}``
+            A single-replica result, or ``{"replica": int, "replicas": list}``
+            when more than one replica is requested.
         """
         url = f"{self.base_url}/v1/models/{model_uid}/replicas"
         payload: Dict[str, Any] = {}
         if replica_config is not None:
             payload["replica_config"] = replica_config
+        if replica != 1:
+            payload["replica"] = replica
+        if model_engine is not None:
+            payload["model_engine"] = model_engine
+        if n_gpu is not None:
+            payload["n_gpu"] = n_gpu
         response = await self.session.post(url, json=payload, headers=self._headers)
         if response.status != 200:
             raise RuntimeError(
