@@ -820,6 +820,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         },
         { key: 'voice', value: 'Voice ID', comment: 'Optional' },
         { key: 'speed', value: 1, comment: 'Optional' },
+        { key: 'response_format', value: 'mp3', comment: 'Optional' },
         {
           key: 'kwargs',
           value: { seed: 11 },
@@ -832,6 +833,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       input: '',
       voice: '',
       speed: 1,
+      response_format: 'mp3',
       seed: -1,
       prompt_speech: [],
       prompt_text: '',
@@ -852,6 +854,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       const promptText = stringValue(values.prompt_text).trim();
       const instruct = stringValue(values.instruct).trim();
       const seed = parseScalarSeed(values.seed);
+      const responseFormat = stringValue(values.response_format).trim().toLowerCase() || 'mp3';
 
       if (seed !== undefined) {
         kwargs.seed = seed;
@@ -885,7 +888,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         formData.append('input', stringValue(values.input));
         formData.append('voice', stringValue(values.voice));
         formData.append('speed', String(numberValue(values.speed, 1)));
-        formData.append('response_format', 'mp3');
+        formData.append('response_format', responseFormat);
         formData.append('stream', 'false');
         formData.append('prompt_speech', promptSpeech.file);
         appendKwargsIfPresent(formData, kwargs);
@@ -897,7 +900,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           input: stringValue(values.input),
           voice: values.voice || undefined,
           speed: numberValue(values.speed, 1),
-          response_format: 'mp3',
+          response_format: responseFormat,
           stream: false,
         },
         kwargs

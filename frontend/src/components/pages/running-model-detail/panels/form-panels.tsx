@@ -57,6 +57,11 @@ const DOCUMENT_LANGUAGE_OPTIONS = [
 
 const DOCUMENT_OUTPUT_OPTIONS = ['markdown', 'json'].map((value) => ({ label: value, value }));
 
+const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
+  label: value.toUpperCase(),
+  value,
+}));
+
 const ASTRA_CAMERA_MOTION_OPTIONS = [
   { label: '↑ Move forward', value: 1 },
   { label: '↺ Rotate left in place', value: 2 },
@@ -728,11 +733,18 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           </FormField>
         </div>
       )}
-      <div className={isMusicGeneration ? 'grid grid-cols-2 gap-3' : undefined}>
+      <div className="grid grid-cols-2 gap-3">
         <ScalarSeedField form={form} />
-        {isMusicGeneration && (
+        {isMusicGeneration ? (
           <FormField name="duration" label="Duration (seconds)" normalize={normalizeNumberInput}>
             <Input type="number" />
+          </FormField>
+        ) : (
+          <FormField
+            name="response_format"
+            label="Output Format"
+          >
+            <Select options={SPEECH_RESPONSE_FORMAT_OPTIONS} allowClear={false} />
           </FormField>
         )}
       </div>
