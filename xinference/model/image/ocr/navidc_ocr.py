@@ -32,7 +32,34 @@ class NaviDCOCRModel(OCRModel):
     required_libs = ("transformers",)
 
     DEFAULT_PROMPT = "Please output the text content from the image."
+    DEFAULT_LAYOUT_PROMPT = "Analyze the image layout."
     DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+    _IMAGE_PROMPT_PREFIX = "<image>\n"
+    _LEGACY_PROMPT_MAP = {
+        "OCR": DEFAULT_PROMPT,
+        "<image>\nFree OCR.": DEFAULT_PROMPT,
+        (
+            "<image>\nFree OCR. Extract all text content from the image."
+        ): DEFAULT_PROMPT,
+        (
+            "<image>\nConvert this document to clean markdown format. "
+            "Extract the text content and format it properly using markdown syntax. "
+            "Do not include any coordinate annotations or special formatting markers."
+        ): DEFAULT_PROMPT,
+        (
+            "<image>\n<|grounding|>Convert the document to markdown with "
+            "structure annotations. Include coordinate information for text regions "
+            "and maintain the document structure."
+        ): DEFAULT_LAYOUT_PROMPT,
+    }
+    NON_GENERATION_KWARGS = (
+        "model_size",
+        "test_compress",
+        "save_results",
+        "save_dir",
+        "eval_mode",
+        "request_id",
+    )
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
@@ -59,11 +86,23 @@ class NaviDCOCRModel(OCRModel):
     def model_ability(self):
         return self._abilities
 
+    @classmethod
+    def _normalize_prompt(cls, prompt: Optional[str]) -> str:
+        if not prompt:
+            return cls.DEFAULT_PROMPT
+        mapped_prompt = cls._LEGACY_PROMPT_MAP.get(prompt)
+        if mapped_prompt is not None:
+            return mapped_prompt
+        if prompt.startswith(cls._IMAGE_PROMPT_PREFIX):
+            return prompt[len(cls._IMAGE_PROMPT_PREFIX) :]
+        return prompt
+
     def load(self):
         from transformers import AutoModel, AutoProcessor
 
         device = self._device or get_available_device()
         model_kwargs = self._kwargs.copy()
+        model_kwargs.pop("cpu_offload", None)
         use_fast = model_kwargs.pop("use_fast", True)
         model_kwargs.setdefault(
             "trust_remote_code", allow_trust_remote_code(self.model_family)
@@ -94,6 +133,7 @@ class NaviDCOCRModel(OCRModel):
         if not isinstance(image, PIL.Image.Image):
             raise ValueError("Input must be a PIL Image")
         image = image.convert("RGB")
+        prompt = self._normalize_prompt(prompt)
 
         system_prompt = kwargs.pop("system_prompt", self.DEFAULT_SYSTEM_PROMPT)
         messages = [
@@ -102,7 +142,7 @@ class NaviDCOCRModel(OCRModel):
                 "role": "user",
                 "content": [
                     {"type": "image"},
-                    {"type": "text", "text": prompt or self.DEFAULT_PROMPT},
+                    {"type": "text", "text": prompt},
                 ],
             },
         ]
@@ -124,6 +164,8 @@ class NaviDCOCRModel(OCRModel):
         ).to(device=model.device, dtype=model.dtype)
 
         generation_kwargs = kwargs.copy()
+        for key in self.NON_GENERATION_KWARGS:
+            generation_kwargs.pop(key, None)
         generation_kwargs.setdefault("use_cache", True)
         generation_kwargs.setdefault("max_new_tokens", 4096)
         generation_kwargs.setdefault("do_sample", False)

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
+import threading
 from typing import Any, Dict, List, Optional, Union
 
 import PIL.Image
@@ -312,6 +314,27 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
 class VLLMNaviDCOCRModel(NaviDCOCRModel):
     required_libs = ("vllm",)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._actor_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._actor_loop_thread_id: Optional[int] = None
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._actor_loop = loop
+        self._actor_loop_thread_id = threading.get_ident()
+
+    def _run_on_actor_loop(self, fn, *args, **kwargs):
+        # vLLM's offline client must be created and called on the model actor's
+        # event-loop thread; moving either operation to asyncio.to_thread stalls.
+        loop = self._actor_loop
+        if loop is None or threading.get_ident() == self._actor_loop_thread_id:
+            return fn(*args, **kwargs)
+
+        async def _invoke():
+            return fn(*args, **kwargs)
+
+        return asyncio.run_coroutine_threadsafe(_invoke(), loop).result()
+
     def load(self):
         from transformers import AutoProcessor
 
@@ -325,18 +348,28 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         vllm_kwargs.setdefault(
             "trust_remote_code", allow_trust_remote_code(self.model_family)
         )
+        vllm_kwargs.setdefault("gpu_memory_utilization", 0.7)
+        vllm_kwargs.setdefault("max_model_len", 16384)
 
-        self._model = _load_vllm_model(self._model_path, vllm_kwargs)
-        self._processor = AutoProcessor.from_pretrained(
-            self._model_path,
-            trust_remote_code=allow_trust_remote_code(self.model_family),
-            use_fast=True,
-        )
+        try:
+            self._model = self._run_on_actor_loop(
+                _load_vllm_model, self._model_path, vllm_kwargs
+            )
+            self._processor = AutoProcessor.from_pretrained(
+                self._model_path,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
+                use_fast=True,
+            )
+        except Exception:
+            self.stop()
+            raise
 
     def stop(self):
-        _shutdown_vllm_model(self._model)
-        self._model = None
-        self._processor = None
+        try:
+            self._run_on_actor_loop(_shutdown_vllm_model, self._model)
+        finally:
+            self._model = None
+            self._processor = None
 
     def _build_prompt(self, prompt: str, system_prompt: str) -> str:
         processor = self._processor
@@ -370,10 +403,11 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         if not isinstance(image, PIL.Image.Image):
             raise ValueError("Input must be a PIL Image")
         image = image.convert("RGB")
+        prompt = self._normalize_prompt(prompt)
 
         system_prompt = kwargs.pop("system_prompt", self.DEFAULT_SYSTEM_PROMPT)
         chat_prompt = self._build_prompt(
-            prompt or self.DEFAULT_PROMPT,
+            prompt,
             system_prompt,
         )
         inputs = [
@@ -386,7 +420,9 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         kwargs.pop("use_cache", None)
         kwargs.setdefault("max_new_tokens", 4096)
         sampling_params = _build_sampling_params(kwargs)
-        outputs = self._model.generate(inputs, sampling_params)
+        outputs = self._run_on_actor_loop(
+            self._model.generate, inputs, sampling_params
+        )
         texts = _extract_text(outputs)
         return texts[0] if texts else ""
 

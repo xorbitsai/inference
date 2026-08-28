@@ -12,14 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import sys
+import threading
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import torch
 from PIL import Image
 
-from xinference.thirdparty.navidc_ocr import MODEL_ARCHITECTURE, MODEL_CLASS, register
+from xinference.thirdparty.navidc_ocr import (
+    COMPAT_MODEL_CLASS,
+    MODEL_ARCHITECTURE,
+    MODEL_CLASS,
+    _get_model_class,
+    register,
+)
 
 from ... import load_model_family_from_json
 from .. import register_builtin_ocr_engines
@@ -54,7 +62,7 @@ def test_navidc_ocr_metadata_and_engine_registration():
         for spec in families
     )
     assert all(
-        'vllm==0.11.0 ; #engine# == "vllm"' in spec.virtualenv.packages
+        'vllm>=0.23,<0.24 ; #engine# == "vllm"' in spec.virtualenv.packages
         for spec in families
     )
 
@@ -70,6 +78,27 @@ def test_navidc_ocr_metadata_and_engine_registration():
         OCR_ENGINES.pop("NaviDC-OCR", None)
         if previous is not None:
             OCR_ENGINES["NaviDC-OCR"] = previous
+
+
+def test_navidc_ocr_normalizes_legacy_prompts():
+    assert NaviDCOCRModel._normalize_prompt(None) == NaviDCOCRModel.DEFAULT_PROMPT
+    assert NaviDCOCRModel._normalize_prompt("OCR") == NaviDCOCRModel.DEFAULT_PROMPT
+    assert (
+        NaviDCOCRModel._normalize_prompt(
+            "<image>\nFree OCR. Extract all text content from the image."
+        )
+        == NaviDCOCRModel.DEFAULT_PROMPT
+    )
+    assert (
+        NaviDCOCRModel._normalize_prompt(
+            "<image>\n<|grounding|>Convert the document to markdown with "
+            "structure annotations. Include coordinate information for text regions "
+            "and maintain the document structure."
+        )
+        == NaviDCOCRModel.DEFAULT_LAYOUT_PROMPT
+    )
+    assert NaviDCOCRModel._normalize_prompt("<image>\nCustom task") == "Custom task"
+    assert NaviDCOCRModel._normalize_prompt("Custom task") == "Custom task"
 
 
 def test_navidc_ocr_load_and_infer(monkeypatch):
@@ -147,6 +176,7 @@ def test_navidc_ocr_load_and_infer(monkeypatch):
         model_path="/models/navidc",
         device="cpu",
         model_spec=model_spec,
+        cpu_offload=False,
     )
     model.load()
 
@@ -157,14 +187,21 @@ def test_navidc_ocr_load_and_infer(monkeypatch):
     }
     assert FakeAutoModel.kwargs["trust_remote_code"] is True
     assert FakeAutoModel.kwargs["torch_dtype"] is torch.float32
+    assert "cpu_offload" not in FakeAutoModel.kwargs
     assert loaded_model.to_device == "cpu"
     assert loaded_model.eval_called is True
 
     result = model.ocr(
         Image.new("RGBA", (8, 8)),
-        prompt="Read this document.",
+        prompt="<image>\nFree OCR. Extract all text content from the image.",
         system_prompt="System prompt",
         max_new_tokens=123,
+        model_size="gundam",
+        test_compress=False,
+        save_results=False,
+        save_dir=None,
+        eval_mode=True,
+        request_id="request-1",
     )
 
     assert result == "recognized text"
@@ -174,7 +211,7 @@ def test_navidc_ocr_load_and_infer(monkeypatch):
             "role": "user",
             "content": [
                 {"type": "image"},
-                {"type": "text", "text": "Read this document."},
+                {"type": "text", "text": NaviDCOCRModel.DEFAULT_PROMPT},
             ],
         },
     ]
@@ -186,6 +223,9 @@ def test_navidc_ocr_load_and_infer(monkeypatch):
     assert loaded_model.generate_kwargs["max_new_tokens"] == 123
     assert loaded_model.generate_kwargs["do_sample"] is False
     assert loaded_model.generate_kwargs["use_cache"] is True
+    assert not (
+        set(NaviDCOCRModel.NON_GENERATION_KWARGS) & loaded_model.generate_kwargs.keys()
+    )
     assert torch.equal(processor.decoded_ids, torch.tensor([[21, 22]]))
 
 
@@ -200,6 +240,9 @@ def test_navidc_ocr_vllm_plugin_registration(monkeypatch):
     vllm_module = ModuleType("vllm")
     vllm_module.ModelRegistry = FakeModelRegistry
     monkeypatch.setitem(sys.modules, "vllm", vllm_module)
+    monkeypatch.setattr(
+        "xinference.thirdparty.navidc_ocr.package_version", lambda _: "0.11.2"
+    )
 
     register()
 
@@ -209,6 +252,13 @@ def test_navidc_ocr_vllm_plugin_registration(monkeypatch):
         'xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"'
         in project_path.read_text()
     )
+
+
+def test_navidc_ocr_vllm_uses_compat_model_for_new_vllm(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.thirdparty.navidc_ocr.package_version", lambda _: "0.23.0+cu130"
+    )
+    assert _get_model_class() == COMPAT_MODEL_CLASS
 
 
 def test_navidc_ocr_vllm_install_dependencies():
@@ -225,12 +275,47 @@ def test_navidc_ocr_vllm_install_dependencies():
     prepared = filter_virtualenv_packages_by_markers(expanded, "vllm", None)
 
     assert [package for package in prepared if package.startswith("vllm")] == [
-        "vllm==0.11.0"
+        "vllm>=0.23,<0.24"
     ]
     assert [package for package in prepared if package.startswith("transformers")] == [
         "transformers==4.57.1"
     ]
     assert not any(package.startswith("accelerate") for package in prepared)
+
+
+def test_navidc_ocr_vllm_runs_on_actor_loop():
+    model_spec = SimpleNamespace(
+        model_name="NaviDC-OCR",
+        model_ability=["ocr"],
+        is_builtin=True,
+    )
+    model = VLLMNaviDCOCRModel(
+        model_uid="navidc-vllm-loop-test",
+        model_path="/models/navidc",
+        model_spec=model_spec,
+    )
+    loop = asyncio.new_event_loop()
+
+    def _run_loop():
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+
+    async def _attach_loop():
+        model.set_loop(asyncio.get_running_loop())
+        return threading.get_ident()
+
+    loop_thread = threading.Thread(target=_run_loop)
+    loop_thread.start()
+    try:
+        loop_thread_id = asyncio.run_coroutine_threadsafe(
+            _attach_loop(), loop
+        ).result()
+        assert model._run_on_actor_loop(threading.get_ident) == loop_thread_id
+        assert loop_thread_id != threading.get_ident()
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        loop_thread.join()
+        loop.close()
 
 
 def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
@@ -255,11 +340,13 @@ def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
 
     class FakeVLLMModel:
         def generate(self, inputs, sampling_params):
+            self.generate_thread = threading.get_ident()
             self.inputs = inputs
             self.sampling_params = sampling_params
             return [SimpleNamespace(outputs=[SimpleNamespace(text="  vllm text  ")])]
 
         def shutdown(self):
+            self.shutdown_thread = threading.get_ident()
             self.shutdown_called = True
 
     processor = FakeProcessor()
@@ -267,6 +354,7 @@ def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
     loaded = {}
 
     def fake_load(model_path, model_kwargs):
+        loaded["thread"] = threading.get_ident()
         loaded["model_path"] = model_path
         loaded["model_kwargs"] = model_kwargs
         return loaded_model
@@ -299,6 +387,8 @@ def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
         "architectures": [MODEL_ARCHITECTURE],
     }
     assert loaded["model_kwargs"]["trust_remote_code"] is True
+    assert loaded["model_kwargs"]["gpu_memory_utilization"] == 0.7
+    assert loaded["model_kwargs"]["max_model_len"] == 16384
     assert "torch_dtype" not in loaded["model_kwargs"]
     assert FakeAutoProcessor.model_path == "/models/navidc"
     assert FakeAutoProcessor.kwargs == {
@@ -308,7 +398,7 @@ def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
 
     result = model.ocr(
         Image.new("RGBA", (8, 8)),
-        prompt="Read with vLLM.",
+        prompt="OCR",
         system_prompt="vLLM system",
         max_new_tokens=123,
         use_cache=True,
@@ -321,7 +411,7 @@ def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
             "role": "user",
             "content": [
                 {"type": "image"},
-                {"type": "text", "text": "Read with vLLM."},
+                {"type": "text", "text": NaviDCOCRModel.DEFAULT_PROMPT},
             ],
         },
     ]
@@ -331,8 +421,10 @@ def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
         "max_tokens": 123,
         "temperature": 0.0,
     }
+    assert loaded_model.generate_thread == loaded["thread"]
 
     model.stop()
     assert loaded_model.shutdown_called is True
+    assert loaded_model.shutdown_thread == loaded["thread"]
     assert model._model is None
     assert model._processor is None

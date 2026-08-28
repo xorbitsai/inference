@@ -2267,7 +2267,7 @@
         "accelerate==1.12.0 ; #engine# == \"transformers\"",
         "#system_torch# ; #engine# == \"transformers\"",
         "#system_torchvision# ; #engine# == \"transformers\"",
-        "vllm==0.11.0 ; #engine# == \"vllm\"",
+        "vllm>=0.23,<0.24 ; #engine# == \"vllm\"",
         "#system_numpy#"
       ]
     },

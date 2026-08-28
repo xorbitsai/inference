@@ -14,15 +14,32 @@
 
 """Register the vendored NaviDC-OCR model implementation with vLLM."""
 
+from importlib.metadata import version as package_version
+
+from packaging.version import InvalidVersion, Version
+
 MODEL_ARCHITECTURE = "NaviOCRForConditionalGeneration"
 MODEL_CLASS = (
     "xinference.thirdparty.navidc_ocr.qwen2_5_vl:"
     "Qwen2_5_VLForConditionalGeneration"
 )
+COMPAT_MODEL_CLASS = (
+    "xinference.thirdparty.navidc_ocr.vllm_compat:"
+    "NaviOCRForConditionalGeneration"
+)
 UPSTREAM_COMMIT = "2e79d29bf32d4e8997b7cbd2ee619a12bfc8d616"
+
+
+def _get_model_class() -> str:
+    try:
+        if Version(package_version("vllm")) >= Version("0.23.0"):
+            return COMPAT_MODEL_CLASS
+    except (ImportError, InvalidVersion):
+        pass
+    return MODEL_CLASS
 
 
 def register() -> None:
     from vllm import ModelRegistry
 
-    ModelRegistry.register_model(MODEL_ARCHITECTURE, MODEL_CLASS)
+    ModelRegistry.register_model(MODEL_ARCHITECTURE, _get_model_class())
