@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from xinference.core.supervisor import ReplicaInfo, SupervisorActor
+from xinference.core.supervisor import ReplicaInfo, SupervisorActor, WorkerStatus
 
 
 class _DummySupervisor:
@@ -201,6 +201,76 @@ async def test_mark_replica_dead_does_not_reschedule_autostart_when_degraded():
     await supervisor.mark_replica_dead("uid-1-rep0")
 
     assert supervisor.autostart_scheduled is False
+
+
+class _StopCheckLoop(Exception):
+    """Breaks out of _check_dead_nodes' `while True` via its own sleep call."""
+
+
+class _DummyDeadWorkerSupervisor:
+    _get_model_uid_and_replica_index = staticmethod(
+        SupervisorActor._get_model_uid_and_replica_index
+    )
+    _refresh_replica_scheduler = staticmethod(
+        SupervisorActor._refresh_replica_scheduler
+    )
+    _record_unexpected_down_replicas = SupervisorActor._record_unexpected_down_replicas
+    _mark_affected_replicas_terminated = (
+        SupervisorActor._mark_affected_replicas_terminated
+    )
+    _reconcile_affected_model_statuses = (
+        SupervisorActor._reconcile_affected_model_statuses
+    )
+    _remove_worker_from_replica_mappings = (
+        SupervisorActor._remove_worker_from_replica_mappings
+    )
+    _handle_dead_worker = SupervisorActor._handle_dead_worker
+    _check_dead_nodes = SupervisorActor._check_dead_nodes
+
+    def __init__(self):
+        worker_ref = MagicMock()
+        worker_ref.address = "dead-worker:1000"
+        # update_time far in the past trips the heartbeat-timeout branch on
+        # the first loop iteration regardless of the real clock.
+        self._worker_status = {
+            "dead-worker:1000": WorkerStatus(
+                update_time=0.0, failure_remaining_count=1, status={}
+            )
+        }
+        self._worker_address_to_worker = {"dead-worker:1000": worker_ref}
+        self._worker_model_gpu_memory = {"dead-worker:1000": {}}
+        self._replica_model_uid_to_worker = {"uid-1-rep0": worker_ref}
+        self._replica_model_uid_to_worker_shards: dict = {}
+        self._model_uid_to_replica_info = {
+            "uid-1": ReplicaInfo(replica=1, scheduler=iter([]), active_replica_ids=[0])
+        }
+        self._unexpected_down_replicas: dict = {}
+        self._status_guard_ref = MagicMock()
+        self._status_guard_ref.get_instance_info = AsyncMock(return_value=[])
+        self._status_guard_ref.update_replica_status = AsyncMock()
+        self._status_guard_ref.update_instance_info = AsyncMock()
+        self.autostart_scheduled = False
+
+    def _schedule_autostart(self, delay: float = 0.0):
+        self.autostart_scheduled = True
+
+
+@pytest.mark.asyncio
+async def test_check_dead_nodes_reschedules_autostart_on_heartbeat_timeout():
+    # A worker going heartbeat-dead must relaunch its autostart-configured
+    # models the same way mark_replica_dead's auto-recover-exhaustion path
+    # does; previously only that path woke Autostart.
+    supervisor = _DummyDeadWorkerSupervisor()
+
+    with patch(
+        "xinference.core.supervisor.asyncio.sleep",
+        AsyncMock(side_effect=_StopCheckLoop),
+    ):
+        with pytest.raises(_StopCheckLoop):
+            await supervisor._check_dead_nodes()
+
+    assert supervisor.autostart_scheduled is True
+    assert "dead-worker:1000" not in supervisor._worker_status
 
 
 @pytest.mark.asyncio
