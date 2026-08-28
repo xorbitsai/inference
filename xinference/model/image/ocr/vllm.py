@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
+import concurrent.futures
 import logging
 import threading
 from typing import Any, Dict, List, Optional, Union
@@ -29,6 +29,7 @@ from .navidc_ocr import NaviDCOCRModel
 from .paddleocr_vl import PaddleOCRVLModel
 
 logger = logging.getLogger(__name__)
+_navidc_vllm_executor_lock = threading.Lock()
 
 
 def _load_vllm_model(model_path: str, model_kwargs: Dict[str, Any]):
@@ -316,24 +317,21 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._actor_loop: Optional[asyncio.AbstractEventLoop] = None
-        self._actor_loop_thread_id: Optional[int] = None
+        self._vllm_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
-    def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
-        self._actor_loop = loop
-        self._actor_loop_thread_id = threading.get_ident()
-
-    def _run_on_actor_loop(self, fn, *args, **kwargs):
-        # vLLM's offline client must be created and called on the model actor's
-        # event-loop thread; moving either operation to asyncio.to_thread stalls.
-        loop = self._actor_loop
-        if loop is None or threading.get_ident() == self._actor_loop_thread_id:
-            return fn(*args, **kwargs)
-
-        async def _invoke():
-            return fn(*args, **kwargs)
-
-        return asyncio.run_coroutine_threadsafe(_invoke(), loop).result()
+    def _run_on_vllm_thread(self, fn, *args, **kwargs):
+        # The offline client requires creation and inference on the same thread.
+        # A dedicated worker preserves that affinity without blocking the actor loop.
+        executor = self._vllm_executor
+        if executor is None:
+            with _navidc_vllm_executor_lock:
+                if self._vllm_executor is None:
+                    self._vllm_executor = concurrent.futures.ThreadPoolExecutor(
+                        max_workers=1,
+                        thread_name_prefix=f"navidc-vllm-{self._model_uid}",
+                    )
+                executor = self._vllm_executor
+        return executor.submit(fn, *args, **kwargs).result()
 
     def load(self):
         from transformers import AutoProcessor
@@ -352,7 +350,7 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         vllm_kwargs.setdefault("max_model_len", 16384)
 
         try:
-            self._model = self._run_on_actor_loop(
+            self._model = self._run_on_vllm_thread(
                 _load_vllm_model, self._model_path, vllm_kwargs
             )
             self._processor = AutoProcessor.from_pretrained(
@@ -366,12 +364,17 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
 
     def stop(self):
         try:
-            self._run_on_actor_loop(_shutdown_vllm_model, self._model)
+            self._run_on_vllm_thread(_shutdown_vllm_model, self._model)
         except Exception:
             logger.exception("Failed to shut down NaviDC-OCR vLLM model")
         finally:
             self._model = None
             self._processor = None
+            with _navidc_vllm_executor_lock:
+                executor = self._vllm_executor
+                self._vllm_executor = None
+            if executor is not None:
+                executor.shutdown(wait=False)
 
     def _build_prompt(self, prompt: str, system_prompt: str) -> str:
         processor = self._processor
@@ -405,11 +408,11 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         if not isinstance(image, PIL.Image.Image):
             raise ValueError("Input must be a PIL Image")
         image = image.convert("RGB")
-        prompt = self._normalize_prompt(prompt)
+        normalized_prompt = self._normalize_prompt(prompt)
 
         system_prompt = kwargs.pop("system_prompt", self.DEFAULT_SYSTEM_PROMPT)
         chat_prompt = self._build_prompt(
-            prompt,
+            normalized_prompt,
             system_prompt,
         )
         inputs = [
@@ -422,7 +425,9 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         kwargs.pop("use_cache", None)
         kwargs.setdefault("max_new_tokens", 4096)
         sampling_params = _build_sampling_params(kwargs)
-        outputs = self._run_on_actor_loop(self._model.generate, inputs, sampling_params)
+        outputs = self._run_on_vllm_thread(
+            self._model.generate, inputs, sampling_params
+        )
         texts = _extract_text(outputs)
         return texts[0] if texts else ""
 

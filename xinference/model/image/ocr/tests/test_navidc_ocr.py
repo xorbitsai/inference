@@ -300,7 +300,7 @@ def test_navidc_ocr_vllm_install_dependencies():
     assert not any(package.startswith("accelerate") for package in prepared)
 
 
-def test_navidc_ocr_vllm_runs_on_actor_loop():
+def test_navidc_ocr_vllm_runs_on_dedicated_thread():
     model_spec = SimpleNamespace(
         model_name="NaviDC-OCR",
         model_ability=["ocr"],
@@ -311,37 +311,54 @@ def test_navidc_ocr_vllm_runs_on_actor_loop():
         model_path="/models/navidc",
         model_spec=model_spec,
     )
-    loop = asyncio.new_event_loop()
-
-    def _run_loop():
-        asyncio.set_event_loop(loop)
-        loop.run_forever()
-
-    async def _attach_loop():
-        model.set_loop(asyncio.get_running_loop())
-        return threading.get_ident()
-
-    loop_thread = threading.Thread(target=_run_loop)
-    loop_thread.start()
     try:
-        loop_thread_id = asyncio.run_coroutine_threadsafe(_attach_loop(), loop).result()
-        assert model._run_on_actor_loop(threading.get_ident) == loop_thread_id
-        assert loop_thread_id != threading.get_ident()
+        first_thread_id = model._run_on_vllm_thread(threading.get_ident)
+        second_thread_id = model._run_on_vllm_thread(threading.get_ident)
+
+        assert first_thread_id == second_thread_id
+        assert first_thread_id != threading.get_ident()
     finally:
-        loop.call_soon_threadsafe(loop.stop)
-        loop_thread.join()
-        loop.close()
+        model.stop()
 
 
-def test_navidc_ocr_vllm_stop_clears_state_on_actor_loop_failure(monkeypatch):
+def test_navidc_ocr_vllm_does_not_block_actor_loop():
+    model = VLLMNaviDCOCRModel(model_uid="navidc-vllm-loop-test")
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocking_call():
+        started.set()
+        release.wait()
+
+    async def run_blocking_call():
+        task = asyncio.create_task(
+            asyncio.to_thread(model._run_on_vllm_thread, blocking_call)
+        )
+        fallback = threading.Timer(5, release.set)
+        fallback.start()
+        try:
+            assert await asyncio.to_thread(started.wait, 1)
+            assert not release.is_set()
+        finally:
+            release.set()
+            await task
+            fallback.cancel()
+
+    try:
+        asyncio.run(run_blocking_call())
+    finally:
+        model.stop()
+
+
+def test_navidc_ocr_vllm_stop_clears_state_on_owner_thread_failure(monkeypatch):
     model = VLLMNaviDCOCRModel(model_uid="navidc-vllm-stop-test")
     model._model = object()
     model._processor = object()
 
-    def fail_on_actor_loop(*args, **kwargs):
-        raise RuntimeError("actor loop is closed")
+    def fail_on_owner_thread(*args, **kwargs):
+        raise RuntimeError("owner thread is closed")
 
-    monkeypatch.setattr(model, "_run_on_actor_loop", fail_on_actor_loop)
+    monkeypatch.setattr(model, "_run_on_vllm_thread", fail_on_owner_thread)
 
     model.stop()
 
