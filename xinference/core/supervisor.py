@@ -3669,6 +3669,10 @@ class SupervisorActor(xo.StatelessActor):
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
                     self._worker_model_gpu_memory.pop(address, None)
+                if dead_nodes:
+                    # Autostart owns relaunching a model TERMINATED above, same
+                    # trigger as mark_replica_dead's last-replica-death path.
+                    self._schedule_autostart()
 
                 # ---- Reverse-channel probe ----
                 # Heartbeat only covers worker->supervisor; this probes
@@ -3743,6 +3747,7 @@ class SupervisorActor(xo.StatelessActor):
                             self._worker_status.pop(address, None)
                             self._worker_address_to_worker.pop(address, None)
                             self._worker_model_gpu_memory.pop(address, None)
+                            self._schedule_autostart()
                             dead_nodes.append(address)
                             self._reverse_ping_failures.pop(address, None)
                         else:
