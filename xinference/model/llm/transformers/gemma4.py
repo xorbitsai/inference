@@ -15,7 +15,7 @@ from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from ....core.model import register_batching_multimodal_models
-from ....types import ChatCompletion, ChatCompletionChunk
+from ....types import ChatCompletion, ChatCompletionChunk, PytorchGenerateConfig
 from ...scheduler.request import InferenceRequest
 from ...utils import cache_clean
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
@@ -179,7 +179,7 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
     async def _direct_chat(
         self,
         messages: List[Dict],
-        generate_config: Optional[Dict] = None,
+        generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         return self.build_direct_chat_result(messages, generate_config)
 

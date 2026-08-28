@@ -83,9 +83,9 @@ class PytorchDirectChatMixin(ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> ChatCompletion:
-        generate_config = dict(generate_config or {})
-        tools = generate_config.get("tools")
-        streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)
+        config: Dict[str, Any] = dict(generate_config or {})
+        tools = config.get("tools")
+        streamer, prompt_tokens = self.build_streaming_iter(messages, config)
         completion_tokens, total_tokens = 0, prompt_tokens
         response = ""
         for chunk_count, new_text in enumerate(streamer, start=1):
@@ -115,11 +115,11 @@ class PytorchDirectChatMixin(ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Iterator[CompletionChunk]:
-        generate_config = dict(generate_config or {})
-        tools = generate_config.get("tools")
+        config: Dict[str, Any] = dict(generate_config or {})
+        tools = config.get("tools")
         use_tool_calls = bool(tools and self.tool_parser)
-        streamer, prompt_tokens = self.build_streaming_iter(messages, generate_config)
-        stream_options = generate_config.get("stream_options")
+        streamer, prompt_tokens = self.build_streaming_iter(messages, config)
+        stream_options = config.get("stream_options")
         include_usage = (
             stream_options.get("include_usage", False)
             if isinstance(stream_options, dict)
