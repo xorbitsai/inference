@@ -358,7 +358,7 @@ export default function SystemSettings() {
                   >
                     <Input
                       id="hf-token"
-                      type="text"
+                      type="password"
                       value={form.hf_token}
                       onFocus={(event) => {
                         if (form.hf_token.includes('*')) event.currentTarget.select();
