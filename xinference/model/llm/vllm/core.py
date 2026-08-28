@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import copy
 import importlib
 import itertools
 import json
@@ -2223,12 +2224,9 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def _attach_video_metadata(
         videos: List[Any], fps_list: Optional[List[Any]]
     ) -> List[Any]:
-        if not fps_list:
-            return videos
-
         attached: List[Any] = []
         for idx, video in enumerate(videos):
-            fps = fps_list[idx] if idx < len(fps_list) else None
+            fps = fps_list[idx] if fps_list and idx < len(fps_list) else None
             data = video
             metadata: Dict[str, Any] = {}
             if (
@@ -2238,10 +2236,23 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             ):
                 data = video[0]
                 metadata = dict(video[1])
+
+            shape = getattr(data, "shape", None)
+            if not shape:
+                raise ValueError("Decoded video does not expose a frame dimension")
+            total_num_frames = int(shape[0])
+            if total_num_frames <= 0:
+                raise ValueError("Decoded video contains no frames")
+
+            metadata.setdefault("total_num_frames", total_num_frames)
+            metadata.setdefault("frames_indices", list(range(total_num_frames)))
             if fps is not None:
                 metadata.setdefault("fps", fps)
-                metadata.setdefault("video_fps", fps)
-            attached.append((data, metadata) if metadata else data)
+                metadata.setdefault("duration", total_num_frames / fps)
+            if len(shape) >= 3:
+                metadata.setdefault("height", int(shape[-2]))
+                metadata.setdefault("width", int(shape[-1]))
+            attached.append((data, metadata))
         return attached
 
     def _sanitize_model_config(
@@ -2325,52 +2336,80 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
         )
 
-    def _handle_base64_images(self, messages, temp_files):
+    def _handle_base64_media(self, messages, temp_dir):
         import base64
+        import binascii
+        import mimetypes
         import re
         import tempfile
+        from pathlib import Path
 
-        # Regex to match data URI scheme
+        # OpenAI-compatible image_url/video_url content parts carry the URL in
+        # a nested ``{"url": ...}`` object.  qwen_omni_utils can consume
+        # image data URIs directly, but its video readers require a path/URL,
+        # so materialize both modalities consistently before transforming the
+        # messages into Qwen's schema.
         data_uri_pattern = re.compile(
-            r"data:([a-zA-Z0-9]+/[a-zA-Z0-9-.+]+);base64,(.*)"
+            r"data:([a-zA-Z0-9]+/[a-zA-Z0-9.+-]+);base64,(.*)",
+            re.IGNORECASE | re.DOTALL,
         )
 
         for msg in messages:
             if isinstance(msg, dict) and isinstance(msg.get("content"), list):
                 for content in msg["content"]:
                     if isinstance(content, dict):
-                        # check image_url
-                        if "image_url" in content and isinstance(
-                            content["image_url"], dict
-                        ):
-                            url = content["image_url"].get("url", "")
-                            if isinstance(url, str) and url.startswith("data:"):
-                                match = data_uri_pattern.match(url)
-                                if match:
-                                    mime_type, b64_data = match.groups()
-                                    try:
-                                        # Create temp file
-                                        suffix = ".bin"
-                                        if "pdf" in mime_type:
-                                            suffix = ".pdf"
-                                        elif "png" in mime_type:
-                                            suffix = ".png"
-                                        elif "jpeg" in mime_type or "jpg" in mime_type:
-                                            suffix = ".jpg"
+                        media_key = next(
+                            (
+                                key
+                                for key in ("image_url", "video_url")
+                                if key in content
+                            ),
+                            None,
+                        )
+                        if media_key and isinstance(content[media_key], dict):
+                            url = content[media_key].get("url", "")
+                            if isinstance(url, str) and url[:5].lower() == "data:":
+                                match = data_uri_pattern.fullmatch(url)
+                                if match is None:
+                                    raise ValueError(
+                                        f"Invalid base64 data URI for {media_key}"
+                                    )
 
-                                        with tempfile.NamedTemporaryFile(
-                                            delete=False, suffix=suffix
-                                        ) as tmp:
-                                            tmp.write(base64.b64decode(b64_data))
-                                            content["image_url"]["url"] = tmp.name
-                                            temp_files.append(tmp.name)
-                                            logger.debug(
-                                                f"Decoded base64 content to temp file: {tmp.name}"
-                                            )
-                                    except Exception as e:
-                                        logger.error(
-                                            f"Failed to decode base64 file: {e}"
-                                        )
+                                mime_type, b64_data = match.groups()
+                                try:
+                                    decoded = base64.b64decode(b64_data, validate=True)
+                                except (binascii.Error, ValueError) as exc:
+                                    raise ValueError(
+                                        f"Invalid base64 data URI for {media_key}"
+                                    ) from exc
+                                if not decoded:
+                                    raise ValueError(
+                                        f"Empty base64 data URI for {media_key}"
+                                    )
+
+                                clean_mime_type = mime_type.lower()
+                                suffix = mimetypes.guess_extension(
+                                    clean_mime_type, strict=False
+                                )
+                                if clean_mime_type in ("image/jpeg", "image/jpg"):
+                                    suffix = ".jpg"
+                                elif not suffix:
+                                    suffix = ".bin"
+
+                                with tempfile.NamedTemporaryFile(
+                                    dir=temp_dir, delete=False, suffix=suffix
+                                ) as tmp:
+                                    tmp.write(decoded)
+                                    content[media_key]["url"] = (
+                                        Path(tmp.name).as_uri()
+                                        if media_key == "video_url"
+                                        else tmp.name
+                                    )
+                                    logger.debug(
+                                        "Decoded base64 %s content to temporary file: %s",
+                                        media_key,
+                                        tmp.name,
+                                    )
 
     async def _get_chat_template_and_tokenizer(
         self, model_family: str
@@ -2404,62 +2443,76 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
-        if "internvl" not in model_family.lower():
-            from qwen_omni_utils import (
-                process_audio_info,
-                process_mm_info,
-                process_vision_info,
-            )
-
-            # Pre-process messages to handle base64 data URIs BEFORE transform
-            temp_files: List[str] = []
-            if (
-                "vision" in self.model_family.model_ability
-                or "omni" in self.model_family.model_ability
-            ):
-                self._handle_base64_images(messages, temp_files)
-
-            messages = self._transform_messages(messages)
-
-            chat_template_kwargs = (
-                self._get_chat_template_kwargs_from_generate_config(
-                    generate_config, self.reasoning_parser
-                )
-                or {}
-            )
-            chat_context_var.set(chat_template_kwargs)
-            full_context_kwargs = chat_template_kwargs.copy()
-            if tools and (
-                model_family in QWEN_TOOL_CALL_FAMILY
-                or model_family in GEMMA_TOOL_CALL_FAMILY
-                or model_family in GLM5_TOOL_CALL_FAMILY
-                or model_family in KIMI_K3_TOOL_CALL_FAMILY
-            ):
-                full_context_kwargs["tools"] = tools
-            assert self.model_family.chat_template is not None
-
-            # Kimi-K3 has no Jinja template and renders through its tokenizer's
-            # custom Python apply_chat_template implementation.
-            chat_template, tokenizer = await self._get_chat_template_and_tokenizer(
-                model_family
-            )
-
-            if "omni" in self.model_family.model_ability:
-                audios, images, videos, video_kwargs = process_mm_info(
-                    messages, use_audio_in_video=True, return_video_kwargs=True
-                )
-            elif "audio" in self.model_family.model_ability:
-                audios = process_audio_info(messages, use_audio_in_video=False)
-            elif "vision" in self.model_family.model_ability:
-                images, videos, video_kwargs = process_vision_info(  # type: ignore
-                    messages, return_video_kwargs=True
+        temp_dir = None
+        try:
+            if "internvl" not in model_family.lower():
+                from qwen_omni_utils import (
+                    process_audio_info,
+                    process_mm_info,
+                    process_vision_info,
                 )
 
-            prompt = self.get_full_context(
-                messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
-            )
-        else:
-            prompt, images = self.get_specific_prompt(model_family, messages)
+                # Work on a copy so request messages never retain paths that are
+                # removed when the request-level temporary directory is cleaned.
+                messages = copy.deepcopy(messages)
+                if (
+                    "vision" in self.model_family.model_ability
+                    or "omni" in self.model_family.model_ability
+                ):
+                    import tempfile
+
+                    temp_dir = tempfile.TemporaryDirectory(prefix="xinference-vllm-")
+                    self._handle_base64_media(messages, temp_dir.name)
+
+                messages = self._transform_messages(messages)
+
+                chat_template_kwargs = (
+                    self._get_chat_template_kwargs_from_generate_config(
+                        generate_config, self.reasoning_parser
+                    )
+                    or {}
+                )
+                chat_context_var.set(chat_template_kwargs)
+                full_context_kwargs = chat_template_kwargs.copy()
+                if tools and (
+                    model_family in QWEN_TOOL_CALL_FAMILY
+                    or model_family in GEMMA_TOOL_CALL_FAMILY
+                    or model_family in GLM5_TOOL_CALL_FAMILY
+                    or model_family in KIMI_K3_TOOL_CALL_FAMILY
+                ):
+                    full_context_kwargs["tools"] = tools
+                assert self.model_family.chat_template is not None
+
+                # Kimi-K3 has no Jinja template and renders through its tokenizer's
+                # custom Python apply_chat_template implementation.
+                chat_template, tokenizer = await self._get_chat_template_and_tokenizer(
+                    model_family
+                )
+
+                if "omni" in self.model_family.model_ability:
+                    audios, images, videos, video_kwargs = process_mm_info(
+                        messages, use_audio_in_video=True, return_video_kwargs=True
+                    )
+                elif "audio" in self.model_family.model_ability:
+                    audios = process_audio_info(messages, use_audio_in_video=False)
+                elif "vision" in self.model_family.model_ability:
+                    images, videos, video_kwargs = process_vision_info(  # type: ignore
+                        messages, return_video_kwargs=True
+                    )
+
+                prompt = self.get_full_context(
+                    messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
+                )
+            else:
+                prompt, images = self.get_specific_prompt(model_family, messages)
+        finally:
+            if temp_dir is not None:
+                try:
+                    temp_dir.cleanup()
+                except Exception:
+                    logger.warning(
+                        "Failed to clean up temporary media directory", exc_info=True
+                    )
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
         if images:
             inputs["multi_modal_data"]["image"] = images
