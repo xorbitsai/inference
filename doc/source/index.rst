@@ -210,6 +210,12 @@ Explore the API
 
 .. grid:: 2
 
+    .. grid-item-card::  World
+      :link: world
+      :link-type: ref
+
+      Learn how to generate environment videos with world models in Xinference.
+
     .. grid-item-card::  Flexible
       :link: flexible
       :link-type: ref

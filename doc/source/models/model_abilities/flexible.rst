@@ -1,8 +1,8 @@
 .. _flexible:
 
-====================================
-Traditional ML models (Experimental)
-====================================
+=====================
+Traditional ML models
+=====================
 
 Learn how to inference traditional machine learning models with Xinference.
 These flexibly extensible models are referred to as **Flexible Models** within Xinference.
