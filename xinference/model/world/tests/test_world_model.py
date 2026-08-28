@@ -165,6 +165,33 @@ def test_astra_does_not_install_unused_controlnet_runtime():
     )
 
 
+def test_worldplay_inherits_compatible_host_torch_stack(monkeypatch):
+    from xoscar.virtualenv.core import VirtualEnvManager
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+
+    # Official WorldPlay requirements combine torch>=2.6 with companion
+    # packages pinned to torch 2.6.  Pinning those companions in the child
+    # environment conflicts with newer host builds required by platforms such
+    # as GB10/CUDA 13.  The inference path uses torchvision but never imports
+    # torchaudio, so inherit the host's matching torch/torchvision pair and do
+    # not resolve the unused audio companion.
+    assert model_spec.virtualenv is not None
+    packages = model_spec.virtualenv.packages
+    assert '#system_torch# ; #engine# == "pytorch"' in packages
+    assert "#system_torchvision#" in packages
+    assert not any(package.startswith("torchaudio") for package in packages)
+
+    host_versions = {"torch": "2.13.0", "torchvision": "0.28.0"}
+    monkeypatch.setattr(
+        "importlib.metadata.version", lambda package: host_versions[package]
+    )
+    processed = VirtualEnvManager.process_packages(packages, engine="pytorch")
+    assert "torch==2.13.0" in processed
+    assert "torchvision==0.28.0" in processed
+    assert not any(package.startswith("torchaudio") for package in processed)
+
+
 def test_generic_model_factory_preserves_world_engine_selection(monkeypatch):
     monkeypatch.setattr(
         PyTorchMatrixGameModel, "check_host", classmethod(lambda cls: True)
