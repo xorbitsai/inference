@@ -17,10 +17,10 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from ....core.model import register_batching_multimodal_models
 from ....types import ChatCompletion, ChatCompletionChunk, CompletionChunk
-from ...utils import cache_clean
 from ...scheduler.request import InferenceRequest
-from ..utils import generate_completion, generate_completion_chunk
+from ...utils import cache_clean
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
+from ..utils import generate_completion, generate_completion_chunk
 from .core import PytorchChatModel, register_non_default_model
 
 
