@@ -18,10 +18,12 @@ from typing import Any, Dict, List, Optional, Union
 import PIL.Image
 
 from ....device_utils import is_vacc_available
+from ....thirdparty.navidc_ocr import MODEL_ARCHITECTURE as NAVIDC_MODEL_ARCHITECTURE
 from ...utils import allow_trust_remote_code
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .navidc_ocr import NaviDCOCRModel
 from .paddleocr_vl import PaddleOCRVLModel
 
 logger = logging.getLogger(__name__)
@@ -304,6 +306,88 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
 
         if isinstance(image, list):
             return texts
+        return texts[0] if texts else ""
+
+
+class VLLMNaviDCOCRModel(NaviDCOCRModel):
+    required_libs = ("vllm",)
+
+    def load(self):
+        from transformers import AutoProcessor
+
+        vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
+        hf_overrides = vllm_kwargs.pop("hf_overrides", None) or {}
+        if not isinstance(hf_overrides, dict):
+            raise TypeError("NaviDC-OCR requires hf_overrides to be a dictionary")
+        hf_overrides = dict(hf_overrides)
+        hf_overrides["architectures"] = [NAVIDC_MODEL_ARCHITECTURE]
+        vllm_kwargs["hf_overrides"] = hf_overrides
+        vllm_kwargs.setdefault(
+            "trust_remote_code", allow_trust_remote_code(self.model_family)
+        )
+
+        self._model = _load_vllm_model(self._model_path, vllm_kwargs)
+        self._processor = AutoProcessor.from_pretrained(
+            self._model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
+            use_fast=True,
+        )
+
+    def stop(self):
+        _shutdown_vllm_model(self._model)
+        self._model = None
+        self._processor = None
+
+    def _build_prompt(self, prompt: str, system_prompt: str) -> str:
+        processor = self._processor
+        assert processor is not None
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": prompt},
+                ],
+            },
+        ]
+        return processor.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+    def ocr(
+        self,
+        image: PIL.Image.Image,
+        prompt: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        if self._model is None or self._processor is None:
+            self.load()
+        assert self._model is not None
+
+        if not isinstance(image, PIL.Image.Image):
+            raise ValueError("Input must be a PIL Image")
+        image = image.convert("RGB")
+
+        system_prompt = kwargs.pop("system_prompt", self.DEFAULT_SYSTEM_PROMPT)
+        chat_prompt = self._build_prompt(
+            prompt or self.DEFAULT_PROMPT,
+            system_prompt,
+        )
+        inputs = [
+            {
+                "prompt": chat_prompt,
+                "multi_modal_data": {"image": [image]},
+            }
+        ]
+
+        kwargs.pop("use_cache", None)
+        kwargs.setdefault("max_new_tokens", 4096)
+        sampling_params = _build_sampling_params(kwargs)
+        outputs = self._model.generate(inputs, sampling_params)
+        texts = _extract_text(outputs)
         return texts[0] if texts else ""
 
 

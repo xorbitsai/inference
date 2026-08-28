@@ -19,10 +19,13 @@ from types import ModuleType, SimpleNamespace
 import torch
 from PIL import Image
 
+from xinference.thirdparty.navidc_ocr import MODEL_ARCHITECTURE, MODEL_CLASS, register
+
 from ... import load_model_family_from_json
 from .. import register_builtin_ocr_engines
 from ..navidc_ocr import NaviDCOCRModel
 from ..ocr_family import OCR_ENGINES, generate_engine_config_by_model_name
+from ..vllm import VLLMNaviDCOCRModel
 
 
 def _load_navidc_families():
@@ -43,7 +46,15 @@ def test_navidc_ocr_metadata_and_engine_registration():
     assert all(spec.model_ability == ["ocr"] for spec in families)
     assert all(NaviDCOCRModel.match(spec) for spec in families)
     assert all(
+        "transformers==4.57.1" in spec.virtualenv.packages for spec in families
+    )
+    assert all("pillow>=11,<12" in spec.virtualenv.packages for spec in families)
+    assert all(
         'accelerate==1.12.0 ; #engine# == "transformers"' in spec.virtualenv.packages
+        for spec in families
+    )
+    assert all(
+        'vllm==0.11.0 ; #engine# == "vllm"' in spec.virtualenv.packages
         for spec in families
     )
 
@@ -53,6 +64,8 @@ def test_navidc_ocr_metadata_and_engine_registration():
         generate_engine_config_by_model_name(specs["huggingface"])
         engine_params = OCR_ENGINES["NaviDC-OCR"]["transformers"]
         assert engine_params[0]["ocr_class"] is NaviDCOCRModel
+        vllm_engine_params = OCR_ENGINES["NaviDC-OCR"]["vllm"]
+        assert vllm_engine_params[0]["ocr_class"] is VLLMNaviDCOCRModel
     finally:
         OCR_ENGINES.pop("NaviDC-OCR", None)
         if previous is not None:
@@ -174,3 +187,152 @@ def test_navidc_ocr_load_and_infer(monkeypatch):
     assert loaded_model.generate_kwargs["do_sample"] is False
     assert loaded_model.generate_kwargs["use_cache"] is True
     assert torch.equal(processor.decoded_ids, torch.tensor([[21, 22]]))
+
+
+def test_navidc_ocr_vllm_plugin_registration(monkeypatch):
+    class FakeModelRegistry:
+        registrations = []
+
+        @classmethod
+        def register_model(cls, architecture, model_class):
+            cls.registrations.append((architecture, model_class))
+
+    vllm_module = ModuleType("vllm")
+    vllm_module.ModelRegistry = FakeModelRegistry
+    monkeypatch.setitem(sys.modules, "vllm", vllm_module)
+
+    register()
+
+    assert FakeModelRegistry.registrations == [(MODEL_ARCHITECTURE, MODEL_CLASS)]
+    project_path = Path(__file__).parents[5] / "pyproject.toml"
+    assert (
+        'xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"'
+        in project_path.read_text()
+    )
+
+
+def test_navidc_ocr_vllm_install_dependencies():
+    from xinference.core.utils import filter_virtualenv_packages_by_markers
+    from xinference.core.virtual_env_manager import (
+        expand_engine_dependency_placeholders,
+    )
+
+    family = _load_navidc_families()[0]
+    expanded = expand_engine_dependency_placeholders(
+        family.virtualenv.packages,
+        "vllm",
+    )
+    prepared = filter_virtualenv_packages_by_markers(expanded, "vllm", None)
+
+    assert [package for package in prepared if package.startswith("vllm")] == [
+        "vllm==0.11.0"
+    ]
+    assert [package for package in prepared if package.startswith("transformers")] == [
+        "transformers==4.57.1"
+    ]
+    assert not any(package.startswith("accelerate") for package in prepared)
+
+
+def test_navidc_ocr_vllm_load_and_infer(monkeypatch):
+    from .. import vllm as vllm_ocr
+
+    class FakeProcessor:
+        def apply_chat_template(self, messages, **kwargs):
+            self.messages = messages
+            self.chat_template_kwargs = kwargs
+            return "rendered vllm prompt"
+
+    class FakeAutoProcessor:
+        @classmethod
+        def from_pretrained(cls, model_path, **kwargs):
+            cls.model_path = model_path
+            cls.kwargs = kwargs
+            return processor
+
+    class FakeSamplingParams:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeVLLMModel:
+        def generate(self, inputs, sampling_params):
+            self.inputs = inputs
+            self.sampling_params = sampling_params
+            return [SimpleNamespace(outputs=[SimpleNamespace(text="  vllm text  ")])]
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    processor = FakeProcessor()
+    loaded_model = FakeVLLMModel()
+    loaded = {}
+
+    def fake_load(model_path, model_kwargs):
+        loaded["model_path"] = model_path
+        loaded["model_kwargs"] = model_kwargs
+        return loaded_model
+
+    transformers_module = ModuleType("transformers")
+    transformers_module.AutoProcessor = FakeAutoProcessor
+    vllm_module = ModuleType("vllm")
+    vllm_module.SamplingParams = FakeSamplingParams
+    monkeypatch.setitem(sys.modules, "transformers", transformers_module)
+    monkeypatch.setitem(sys.modules, "vllm", vllm_module)
+    monkeypatch.setattr(vllm_ocr, "_load_vllm_model", fake_load)
+
+    model_spec = SimpleNamespace(
+        model_name="NaviDC-OCR",
+        model_ability=["ocr"],
+        is_builtin=True,
+    )
+    model = VLLMNaviDCOCRModel(
+        model_uid="navidc-vllm-test",
+        model_path="/models/navidc",
+        model_spec=model_spec,
+        torch_dtype=torch.bfloat16,
+        hf_overrides={"custom": "value"},
+    )
+    model.load()
+
+    assert loaded["model_path"] == "/models/navidc"
+    assert loaded["model_kwargs"]["hf_overrides"] == {
+        "custom": "value",
+        "architectures": [MODEL_ARCHITECTURE],
+    }
+    assert loaded["model_kwargs"]["trust_remote_code"] is True
+    assert "torch_dtype" not in loaded["model_kwargs"]
+    assert FakeAutoProcessor.model_path == "/models/navidc"
+    assert FakeAutoProcessor.kwargs == {
+        "trust_remote_code": True,
+        "use_fast": True,
+    }
+
+    result = model.ocr(
+        Image.new("RGBA", (8, 8)),
+        prompt="Read with vLLM.",
+        system_prompt="vLLM system",
+        max_new_tokens=123,
+        use_cache=True,
+    )
+
+    assert result == "vllm text"
+    assert processor.messages == [
+        {"role": "system", "content": "vLLM system"},
+        {
+            "role": "user",
+            "content": [
+                {"type": "image"},
+                {"type": "text", "text": "Read with vLLM."},
+            ],
+        },
+    ]
+    assert loaded_model.inputs[0]["prompt"] == "rendered vllm prompt"
+    assert loaded_model.inputs[0]["multi_modal_data"]["image"][0].mode == "RGB"
+    assert loaded_model.sampling_params.kwargs == {
+        "max_tokens": 123,
+        "temperature": 0.0,
+    }
+
+    model.stop()
+    assert loaded_model.shutdown_called is True
+    assert model._model is None
+    assert model._processor is None

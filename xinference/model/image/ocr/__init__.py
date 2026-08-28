@@ -25,6 +25,7 @@ from .vllm import (
     VLLMDeepSeekOCRModel,
     VLLMGotOCR2Model,
     VLLMHunyuanOCRModel,
+    VLLMNaviDCOCRModel,
     VLLMPaddleOCRVLModel,
 )
 
@@ -51,6 +52,7 @@ def register_builtin_ocr_engines() -> None:
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,
         VLLMHunyuanOCRModel,
+        VLLMNaviDCOCRModel,
     ]
     SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]
     # DeepDoc runs on onnxruntime via its own engine name
