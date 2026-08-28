@@ -1094,6 +1094,8 @@ const zh = {
     autoSource: '自动选择',
     huggingFace: 'Hugging Face',
     modelScope: 'ModelScope（魔搭社区）',
+    openMindHub: 'OpenMind Hub',
+    csgHub: 'CSGHub',
     hfMirror: 'Hugging Face 镜像地址',
     hfMirrorPlaceholder: '例如：https://hf-mirror.com',
     hfToken: 'Hugging Face 访问令牌',

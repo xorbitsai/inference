@@ -85,6 +85,16 @@ async def test_put_full_get_payload_preserves_token(mock_request, store):
     )
 
 
+@pytest.mark.parametrize("download_source", ["openmind_hub", "csghub"])
+def test_payload_accepts_existing_download_sources(store, download_source):
+    payload = store.get_public()
+    payload["download_source"] = download_source
+
+    body = system_settings.SystemSettingsPayload(**payload)
+
+    assert body.download_source == download_source
+
+
 @pytest.mark.asyncio
 async def test_put_replaces_and_clears_token(mock_request, store):
     payload = store.get_public()

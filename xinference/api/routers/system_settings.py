@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from fastapi import Body, HTTPException, Request, Security
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from ..responses import JSONResponse
 
@@ -14,9 +14,12 @@ if TYPE_CHECKING:
 
 
 class SystemSettingsPayload(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    class Config:
+        extra = "forbid"
 
-    download_source: Literal["auto", "huggingface", "modelscope"]
+    download_source: Literal[
+        "auto", "huggingface", "modelscope", "openmind_hub", "csghub"
+    ]
     hf_endpoint: str
     hf_token: str
     pip_index_url: str
@@ -43,7 +46,7 @@ async def update_system_settings(
 ) -> JSONResponse:
     store = request.app.state.system_settings_store
     try:
-        settings = store.save_public(body.model_dump())
+        settings = store.save_public(body.dict())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await _apply_system_settings_to_cluster(request)

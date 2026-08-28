@@ -1086,6 +1086,8 @@ const ja = {
     autoSource: '自動選択',
     huggingFace: 'Hugging Face',
     modelScope: 'ModelScope',
+    openMindHub: 'OpenMind Hub',
+    csgHub: 'CSGHub',
     hfMirror: 'Hugging Face ミラー URL',
     hfMirrorPlaceholder: '例：https://hf-mirror.com',
     hfToken: 'Hugging Face アクセストークン',

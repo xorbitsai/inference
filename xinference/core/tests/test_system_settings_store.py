@@ -85,6 +85,19 @@ def test_startup_baseline_uses_environment(tmp_path):
     assert store.get_public()["hf_token"] == "hf_a********5678"
 
 
+def test_startup_preserves_supported_download_sources(tmp_path):
+    for source in ("openmind_hub", "csghub"):
+        environ = {"XINFERENCE_MODEL_SRC": source}
+        store = SystemSettingsStore(
+            str(tmp_path / source / "system-settings.json"), environ=environ
+        )
+
+        store.apply_to_environment()
+
+        assert store.get().download_source == source
+        assert environ["XINFERENCE_MODEL_SRC"] == source
+
+
 def test_save_writes_full_plaintext_snapshot(tmp_path):
     path = tmp_path / "system-settings.json"
     environ = {}
@@ -241,10 +254,19 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
             "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
         ),
     )
+    hf_file_download = SimpleNamespace(
+        ENDPOINT="https://huggingface.co",
+        HUGGINGFACE_CO_URL_TEMPLATE=(
+            "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
+        ),
+    )
+    hf_api = SimpleNamespace(ENDPOINT="https://huggingface.co")
     monkeypatch.setitem(sys.modules, "xinference.constants", constants)
     monkeypatch.setitem(sys.modules, "xinference.model.utils", model_utils)
     monkeypatch.setitem(sys.modules, "xinference.core.worker", worker)
     monkeypatch.setitem(sys.modules, "huggingface_hub.constants", hf_constants)
+    monkeypatch.setitem(sys.modules, "huggingface_hub.file_download", hf_file_download)
+    monkeypatch.setitem(sys.modules, "huggingface_hub.hf_api", hf_api)
 
     store = SystemSettingsStore(str(tmp_path / "system-settings.json"), environ={})
     payload = store.get_public()
@@ -270,6 +292,11 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     assert hf_constants.HUGGINGFACE_CO_URL_TEMPLATE == (
         "https://hf.example.com/{repo_id}/resolve/{revision}/{filename}"
     )
+    assert hf_file_download.ENDPOINT == "https://hf.example.com"
+    assert hf_file_download.HUGGINGFACE_CO_URL_TEMPLATE == (
+        "https://hf.example.com/{repo_id}/resolve/{revision}/{filename}"
+    )
+    assert hf_api.ENDPOINT == "https://hf.example.com"
 
     store.reset()
 
@@ -281,6 +308,28 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     assert hf_constants.HUGGINGFACE_CO_URL_TEMPLATE == (
         "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
     )
+    assert hf_file_download.ENDPOINT == "https://huggingface.co"
+    assert hf_file_download.HUGGINGFACE_CO_URL_TEMPLATE == (
+        "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"
+    )
+    assert hf_api.ENDPOINT == "https://huggingface.co"
+
+
+def test_save_updates_imported_huggingface_url_builder(tmp_path):
+    from huggingface_hub import hf_hub_url
+
+    store = SystemSettingsStore(str(tmp_path / "system-settings.json"), environ={})
+    payload = store.get_public()
+    payload["hf_endpoint"] = "https://hf.example.com/"
+
+    try:
+        store.save_public(payload)
+
+        assert hf_hub_url("org/model", "config.json") == (
+            "https://hf.example.com/org/model/resolve/main/config.json"
+        )
+    finally:
+        store.reset()
 
 
 def test_invalid_saved_file_falls_back_to_startup(tmp_path):

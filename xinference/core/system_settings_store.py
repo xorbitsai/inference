@@ -31,7 +31,13 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_SETTINGS_VERSION = 1
 TOKEN_MASK = "********"
-DOWNLOAD_SOURCES = {"auto", "huggingface", "modelscope"}
+DOWNLOAD_SOURCES = {
+    "auto",
+    "huggingface",
+    "modelscope",
+    "openmind_hub",
+    "csghub",
+}
 
 ENV_MODEL_SOURCE = "XINFERENCE_MODEL_SRC"
 ENV_HF_ENDPOINT = "HF_ENDPOINT"
@@ -72,7 +78,8 @@ class SystemSettings:
         download_source = download_source.strip().lower()
         if download_source not in DOWNLOAD_SOURCES:
             raise ValueError(
-                "download_source must be one of: auto, huggingface, modelscope"
+                "download_source must be one of: auto, huggingface, modelscope, "
+                "openmind_hub, csghub"
             )
 
         strings: Dict[str, str] = {}
@@ -201,12 +208,17 @@ def apply_system_settings(
                 default_name,
                 "https://huggingface.co",
             )
-        setattr(hf_constants, "ENDPOINT", endpoint)
-        setattr(
-            hf_constants,
-            "HUGGINGFACE_CO_URL_TEMPLATE",
-            endpoint + "/{repo_id}/resolve/{revision}/{filename}",
-        )
+        url_template = endpoint + "/{repo_id}/resolve/{revision}/{filename}"
+        for module_name, module in tuple(sys.modules.items()):
+            if module is None or not (
+                module_name == "huggingface_hub"
+                or module_name.startswith("huggingface_hub.")
+            ):
+                continue
+            if hasattr(module, "ENDPOINT"):
+                setattr(module, "ENDPOINT", endpoint)
+            if hasattr(module, "HUGGINGFACE_CO_URL_TEMPLATE"):
+                setattr(module, "HUGGINGFACE_CO_URL_TEMPLATE", url_template)
 
 
 class SystemSettingsStore:

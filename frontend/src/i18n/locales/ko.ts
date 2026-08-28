@@ -1079,6 +1079,8 @@ const ko = {
     autoSource: '자동 선택',
     huggingFace: 'Hugging Face',
     modelScope: 'ModelScope',
+    openMindHub: 'OpenMind Hub',
+    csgHub: 'CSGHub',
     hfMirror: 'Hugging Face 미러 URL',
     hfMirrorPlaceholder: '예: https://hf-mirror.com',
     hfToken: 'Hugging Face 액세스 토큰',

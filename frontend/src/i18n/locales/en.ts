@@ -1101,6 +1101,8 @@ const en = {
     autoSource: 'Automatic',
     huggingFace: 'Hugging Face',
     modelScope: 'ModelScope',
+    openMindHub: 'OpenMind Hub',
+    csgHub: 'CSGHub',
     hfMirror: 'Hugging Face Mirror URL',
     hfMirrorPlaceholder: 'For example: https://hf-mirror.com',
     hfToken: 'Hugging Face Access Token',

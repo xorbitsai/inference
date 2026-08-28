@@ -15,7 +15,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 
-type DownloadSource = 'auto' | 'huggingface' | 'modelscope';
+type DownloadSource = 'auto' | 'huggingface' | 'modelscope' | 'openmind_hub' | 'csghub';
 type NumericValue = number | '';
 type NumericField = 'download_max_attempts' | 'hub_detect_timeout' | 'model_download_workers';
 
@@ -186,6 +186,18 @@ export default function SystemSettings() {
       label: t('systemSettings.modelScope'),
       tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-400',
     },
+    {
+      value: 'openmind_hub',
+      abbreviation: 'OM',
+      label: t('systemSettings.openMindHub'),
+      tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-400',
+    },
+    {
+      value: 'csghub',
+      abbreviation: 'CSG',
+      label: t('systemSettings.csgHub'),
+      tone: 'bg-rose-500/10 text-rose-700 dark:text-rose-400',
+    },
   ];
 
   const downloadPolicies: Array<{
@@ -279,7 +291,7 @@ export default function SystemSettings() {
                   <div
                     role="radiogroup"
                     aria-label={t('systemSettings.downloadSource')}
-                    className="grid gap-3 md:grid-cols-3"
+                    className="grid gap-3 md:grid-cols-3 xl:grid-cols-5"
                   >
                     {sources.map((source) => {
                       const selected = form.download_source === source.value;
