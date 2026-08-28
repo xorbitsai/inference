@@ -77,7 +77,7 @@ class NaviDCOCRModel(OCRModel):
         self._device = device
         self._model = None
         self._processor = None
-        self._abilities = model_spec.model_ability or []  # type: ignore
+        self._abilities = model_spec.model_ability if model_spec is not None else []
         self._kwargs = kwargs
 
     @property

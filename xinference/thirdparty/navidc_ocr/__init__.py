@@ -14,7 +14,7 @@
 
 """Register the vendored NaviDC-OCR model implementation with vLLM."""
 
-from importlib.metadata import version as package_version
+from importlib.metadata import PackageNotFoundError, version as package_version
 
 from packaging.version import InvalidVersion, Version
 
@@ -34,7 +34,7 @@ def _get_model_class() -> str:
     try:
         if Version(package_version("vllm")) >= Version("0.23.0"):
             return COMPAT_MODEL_CLASS
-    except (ImportError, InvalidVersion):
+    except (PackageNotFoundError, InvalidVersion):
         pass
     return MODEL_CLASS
 

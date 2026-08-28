@@ -15,6 +15,7 @@
 import asyncio
 import sys
 import threading
+from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -97,6 +98,12 @@ def test_navidc_ocr_normalizes_legacy_prompts():
     )
     assert NaviDCOCRModel._normalize_prompt("<image>\nCustom task") == "Custom task"
     assert NaviDCOCRModel._normalize_prompt("Custom task") == "Custom task"
+
+
+def test_navidc_ocr_allows_missing_model_spec():
+    model = NaviDCOCRModel(model_uid="navidc-test")
+
+    assert model.model_ability == []
 
 
 def test_navidc_ocr_load_and_infer(monkeypatch):
@@ -259,6 +266,18 @@ def test_navidc_ocr_vllm_uses_compat_model_for_new_vllm(monkeypatch):
     assert _get_model_class() == COMPAT_MODEL_CLASS
 
 
+def test_navidc_ocr_vllm_falls_back_when_vllm_is_missing(monkeypatch):
+    def raise_package_not_found(_):
+        raise PackageNotFoundError
+
+    monkeypatch.setattr(
+        "xinference.thirdparty.navidc_ocr.package_version",
+        raise_package_not_found,
+    )
+
+    assert _get_model_class() == MODEL_CLASS
+
+
 def test_navidc_ocr_vllm_install_dependencies():
     from xinference.core.utils import filter_virtualenv_packages_by_markers
     from xinference.core.virtual_env_manager import (
@@ -312,6 +331,22 @@ def test_navidc_ocr_vllm_runs_on_actor_loop():
         loop.call_soon_threadsafe(loop.stop)
         loop_thread.join()
         loop.close()
+
+
+def test_navidc_ocr_vllm_stop_clears_state_on_actor_loop_failure(monkeypatch):
+    model = VLLMNaviDCOCRModel(model_uid="navidc-vllm-stop-test")
+    model._model = object()
+    model._processor = object()
+
+    def fail_on_actor_loop(*args, **kwargs):
+        raise RuntimeError("actor loop is closed")
+
+    monkeypatch.setattr(model, "_run_on_actor_loop", fail_on_actor_loop)
+
+    model.stop()
+
+    assert model._model is None
+    assert model._processor is None
 
 
 def test_navidc_ocr_vllm_load_and_infer(monkeypatch):

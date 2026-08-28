@@ -367,6 +367,8 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
     def stop(self):
         try:
             self._run_on_actor_loop(_shutdown_vllm_model, self._model)
+        except Exception:
+            logger.exception("Failed to shut down NaviDC-OCR vLLM model")
         finally:
             self._model = None
             self._processor = None
