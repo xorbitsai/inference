@@ -289,6 +289,11 @@ XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "monitor_config.db"),
 )
 
+XINFERENCE_SYSTEM_SETTINGS_PATH = os.environ.get(
+    "XINFERENCE_SYSTEM_SETTINGS_PATH",
+    os.path.join(XINFERENCE_HOME, "system-settings.json"),
+)
+
 XINFERENCE_TOKEN_ROUTER_ENABLED = parse_env_bool(
     "XINFERENCE_TOKEN_ROUTER_ENABLED", True
 )

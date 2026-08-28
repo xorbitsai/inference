@@ -62,6 +62,7 @@ from ..constants import (
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+    XINFERENCE_SYSTEM_SETTINGS_PATH,
     XINFERENCE_TOKEN_ROUTER_ENABLED,
     get_auth_encryption_key,
     get_auth_jwt_secret_key,
@@ -399,6 +400,12 @@ class RESTfulAPI(CancelMixin):
 
         self._monitor_config_store = MonitorConfigStore(
             XINFERENCE_MONITOR_CONFIG_DB_PATH
+        )
+
+        from ..core.system_settings_store import initialize_system_settings
+
+        self._system_settings_store = initialize_system_settings(
+            XINFERENCE_SYSTEM_SETTINGS_PATH
         )
 
         self._router = APIRouter()
@@ -839,6 +846,7 @@ class RESTfulAPI(CancelMixin):
         self._app.state.api = self
         self._app.state.advanced_auth = self._advanced_auth_service
         self._app.state.monitor_config_store = self._monitor_config_store
+        self._app.state.system_settings_store = self._system_settings_store
 
         # Register all domain routes from routers/ modules
         from .routers import register_all_routes

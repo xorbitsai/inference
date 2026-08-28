@@ -33,6 +33,11 @@ necessary files such as logs and models, where ``<HOME>`` is the home
 path of current user. You can change this directory by configuring this environment
 variable.
 
+XINFERENCE_SYSTEM_SETTINGS_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the JSON file that stores system settings configured through the Web UI.
+Default value is ``<XINFERENCE_HOME>/system-settings.json``.
+
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The maximum number of failed health checks tolerated at Xinference startup.
