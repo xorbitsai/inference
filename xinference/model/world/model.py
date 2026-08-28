@@ -823,22 +823,33 @@ class HYWorldPlayModel(WorldModel):
                     nonlocal current_chunk
                     if progressor is None:
                         return
-                    if match := re.search(r"XINFERENCE_PROGRESS:([0-9.]+):(.+)", line):
-                        progressor.set_progress(float(match.group(1)), match.group(2))
-                    elif match := re.search(
-                        r"Generate time for chunk\s+(\d+)\s+is", line
-                    ):
-                        current_chunk = int(match.group(1))
-                        completed = (current_chunk + 0.7) / num_chunks
-                        progressor.set_progress(
-                            0.18 + 0.72 * completed,
-                            f"Generated chunk {current_chunk + 1}/{num_chunks}",
-                        )
-                    elif "Decode latent 0:" in line and current_chunk >= 0:
-                        completed = (current_chunk + 1) / num_chunks
-                        progressor.set_progress(
-                            0.18 + 0.72 * completed,
-                            f"Decoded chunk {current_chunk + 1}/{num_chunks}",
+                    try:
+                        if match := re.search(
+                            r"XINFERENCE_PROGRESS:([0-9.]+):(.+)", line
+                        ):
+                            progressor.set_progress(
+                                float(match.group(1)), match.group(2)
+                            )
+                        elif match := re.search(
+                            r"Generate time for chunk\s+(\d+)\s+is", line
+                        ):
+                            current_chunk = int(match.group(1))
+                            completed = (current_chunk + 0.7) / num_chunks
+                            progressor.set_progress(
+                                0.18 + 0.72 * completed,
+                                f"Generated chunk {current_chunk + 1}/{num_chunks}",
+                            )
+                        elif "Decode latent 0:" in line and current_chunk >= 0:
+                            completed = (current_chunk + 1) / num_chunks
+                            progressor.set_progress(
+                                0.18 + 0.72 * completed,
+                                f"Decoded chunk {current_chunk + 1}/{num_chunks}",
+                            )
+                    except Exception:
+                        logger.warning(
+                            "Failed to parse HY-WorldPlay progress output: %r",
+                            line[:200],
+                            exc_info=True,
                         )
 
                 if progressor:

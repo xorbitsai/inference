@@ -365,7 +365,9 @@ async def test_world_abort_marks_request_before_runner_registration(
     model.unregister_request("request-1")
 
 
-def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch):
+def test_worldplay_generation_passes_model_specific_kwargs(
+    tmp_path, monkeypatch, caplog
+):
     from .. import model as world_model_module
 
     model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
@@ -391,6 +393,7 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
         )
         assert progress_callback is not None
         for line in (
+            "XINFERENCE_PROGRESS:1.2.3:malformed progress\n",
             "XINFERENCE_PROGRESS:0.05:Loading HY-WorldPlay weights\n",
             "XINFERENCE_PROGRESS:0.15:HY-WorldPlay weights loaded\n",
             "XINFERENCE_PROGRESS:0.18:Generating 2 chunk(s)\n",
@@ -424,6 +427,7 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     assert result["data"][0]["url"] is not None
     assert Path(result["data"][0]["url"]).read_bytes() == b"worldplay"
     assert progress_updates[0] == (0.02, "Starting HY-WorldPlay runner")
+    assert "Failed to parse HY-WorldPlay progress output" in caplog.text
     assert (0.54, "Decoded chunk 1/2") in progress_updates
     assert progress_updates[-1] == (0.98, "Saving HY-WorldPlay video")
     assert [progress for progress, _ in progress_updates] == sorted(
