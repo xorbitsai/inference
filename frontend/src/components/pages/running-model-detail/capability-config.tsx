@@ -940,6 +940,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       instruct: '',
       seed: -1,
       duration: 60,
+      response_format: 'wav',
     },
     formPanel: SpeechPanel,
     resultPanel: ResultPanels.Universal,
@@ -948,7 +949,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       model: modelUid,
       input: stringValue(values.input),
       voice: 'default',
-      response_format: 'wav',
+      response_format: stringValue(values.response_format).trim().toLowerCase() || 'wav',
       kwargs: JSON.stringify({
         instruct: stringValue(values.instruct),
         seed: parseScalarSeed(values.seed) ?? -1,

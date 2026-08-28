@@ -62,6 +62,11 @@ const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value)
   value,
 }));
 
+const MUSIC_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
+  label: value.toUpperCase(),
+  value,
+}));
+
 const ASTRA_CAMERA_MOTION_OPTIONS = [
   { label: '↑ Move forward', value: 1 },
   { label: '↺ Rotate left in place', value: 2 },
@@ -740,14 +745,16 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
             <Input type="number" />
           </FormField>
         ) : (
-          <FormField
-            name="response_format"
-            label="Output Format"
-          >
+          <FormField name="response_format" label="Output Format">
             <Select options={SPEECH_RESPONSE_FORMAT_OPTIONS} allowClear={false} />
           </FormField>
         )}
       </div>
+      {isMusicGeneration && (
+        <FormField name="response_format" label="Output Format">
+          <Select options={MUSIC_RESPONSE_FORMAT_OPTIONS} allowClear={false} />
+        </FormField>
+      )}
       {showPromptSpeech && (
         <FormField name="prompt_speech">
           <FileUpload
