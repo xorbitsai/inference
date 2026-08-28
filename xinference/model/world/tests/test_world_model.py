@@ -192,6 +192,22 @@ def test_worldplay_inherits_compatible_host_torch_stack(monkeypatch):
     assert not any(package.startswith("torchaudio") for package in processed)
 
 
+def test_world_model_is_serializable_for_actor_subprocess():
+    import cloudpickle
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+    model = PyTorchHYWorldPlayModel("worldplay", "/weights/worldplay", model_spec)
+
+    restored = cloudpickle.loads(cloudpickle.dumps(model))
+
+    assert restored._process_lock.acquire(blocking=False)
+    restored._process_lock.release()
+    assert restored._runner_lock.acquire(blocking=False)
+    restored._runner_lock.release()
+    assert restored._running_processes == {}
+    assert restored._request_cancellations == {}
+
+
 def test_generic_model_factory_preserves_world_engine_selection(monkeypatch):
     monkeypatch.setattr(
         PyTorchMatrixGameModel, "check_host", classmethod(lambda cls: True)

@@ -213,6 +213,24 @@ class WorldModel:
         self._running_processes: Dict[str, subprocess.Popen] = {}
         self._request_cancellations: Dict[str, threading.Event] = {}
 
+    def __getstate__(self):
+        # Model instances are serialized when handed to the actor subprocess.
+        # Synchronization primitives and live process state cannot cross that
+        # boundary; the instance has not started serving requests at this point.
+        state = self.__dict__.copy()
+        state["_process_lock"] = None
+        state["_runner_lock"] = None
+        state["_running_processes"] = {}
+        state["_request_cancellations"] = {}
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._process_lock = threading.Lock()
+        self._runner_lock = threading.Lock()
+        self._running_processes = {}
+        self._request_cancellations = {}
+
     @property
     def model_ability(self):
         return self._model_spec.model_ability
