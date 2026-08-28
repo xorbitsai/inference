@@ -375,8 +375,13 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     output_root = tmp_path / "responses"
     monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
     captured = {}
+    progress_updates = []
 
-    def fake_run(command, cwd, env, log_path, request_id=None):
+    class FakeProgressor:
+        def set_progress(self, progress, info=None):
+            progress_updates.append((progress, info))
+
+    def fake_run(command, cwd, env, log_path, progress_callback=None, request_id=None):
         captured.update(
             command=command,
             cwd=cwd,
@@ -384,6 +389,19 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
             log_path=log_path,
             request_id=request_id,
         )
+        assert progress_callback is not None
+        for line in (
+            "XINFERENCE_PROGRESS:0.05:Loading HY-WorldPlay weights\n",
+            "XINFERENCE_PROGRESS:0.15:HY-WorldPlay weights loaded\n",
+            "XINFERENCE_PROGRESS:0.18:Generating 2 chunk(s)\n",
+            "Generate time for chunk  0 is 10.0\n",
+            "Decode latent 0: 1.0 seconds\n",
+            "Generate time for chunk  1 is 9.0\n",
+            "Decode latent 0: 1.0 seconds\n",
+            "XINFERENCE_PROGRESS:0.94:Encoding HY-WorldPlay video\n",
+            "XINFERENCE_PROGRESS:0.98:Saving HY-WorldPlay video\n",
+        ):
+            progress_callback(line)
         output_dir = command[command.index("--out") + 1]
         Path(output_dir, "generated.mp4").write_bytes(b"worldplay")
 
@@ -392,6 +410,7 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
         "README.md@example.com",
         model_kwargs={"pose": "d-8", "num_chunk": 2},
         request_id="worldplay-request",
+        progressor=FakeProgressor(),
     )
 
     command = captured["command"]
@@ -404,6 +423,12 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     assert captured["request_id"] == "worldplay-request"
     assert result["data"][0]["url"] is not None
     assert Path(result["data"][0]["url"]).read_bytes() == b"worldplay"
+    assert progress_updates[0] == (0.02, "Starting HY-WorldPlay runner")
+    assert (0.54, "Decoded chunk 1/2") in progress_updates
+    assert progress_updates[-1] == (0.98, "Saving HY-WorldPlay video")
+    assert [progress for progress, _ in progress_updates] == sorted(
+        progress for progress, _ in progress_updates
+    )
 
 
 @pytest.mark.parametrize("pose", ["forward", "x-4", "w-0", "w-four"])

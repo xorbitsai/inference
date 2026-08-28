@@ -815,6 +815,32 @@ class HYWorldPlayModel(WorldModel):
                         env.get("PYTHONPATH", ""),
                     ]
                 ).rstrip(os.pathsep)
+
+                num_chunks = int(config["num_chunk"])
+                current_chunk = -1
+
+                def update_progress(line: str) -> None:
+                    nonlocal current_chunk
+                    if progressor is None:
+                        return
+                    if match := re.search(r"XINFERENCE_PROGRESS:([0-9.]+):(.+)", line):
+                        progressor.set_progress(float(match.group(1)), match.group(2))
+                    elif match := re.search(
+                        r"Generate time for chunk\s+(\d+)\s+is", line
+                    ):
+                        current_chunk = int(match.group(1))
+                        completed = (current_chunk + 0.7) / num_chunks
+                        progressor.set_progress(
+                            0.18 + 0.72 * completed,
+                            f"Generated chunk {current_chunk + 1}/{num_chunks}",
+                        )
+                    elif "Decode latent 0:" in line and current_chunk >= 0:
+                        completed = (current_chunk + 1) / num_chunks
+                        progressor.set_progress(
+                            0.18 + 0.72 * completed,
+                            f"Decoded chunk {current_chunk + 1}/{num_chunks}",
+                        )
+
                 if progressor:
                     progressor.set_progress(0.02, "Starting HY-WorldPlay runner")
                 self._run_command(
@@ -822,6 +848,7 @@ class HYWorldPlayModel(WorldModel):
                     self._code_path,
                     env,
                     os.path.join(output_dir, "runner.log"),
+                    progress_callback=update_progress,
                     request_id=request_id,
                 )
                 videos = list(Path(output_dir).glob("*.mp4"))
