@@ -2283,5 +2283,43 @@
     },
     "featured": false,
     "updated_at": 1787878771
+  },
+  {
+    "version": 2,
+    "model_name": "OvisOCR2",
+    "model_family": "ocr",
+    "model_description": "OvisOCR2 is a compact 0.8B end-to-end model for page-level document parsing. It converts document page images into Markdown in natural reading order, including text, formulas, tables, and visual regions.",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.2.0 ; #engine# == \"transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_numpy# ; #engine# == \"transformers\"",
+        "qwen_omni_utils==0.0.9 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "vllm==0.22.1 ; #engine# == \"vllm\"",
+        "transformers==4.57.6 ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.22.1/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "ATH-MaaS/OvisOCR2",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "ATH-MaaS/OvisOCR2",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1786731484
   }
 ]
