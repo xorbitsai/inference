@@ -211,7 +211,8 @@ class EmbeddingModel(abc.ABC):
         """
 
     def _fix_langchain_openai_inputs(
-        self, sentences: Union[str, List[str], Dict[str, str], List[Dict[str, str]]]
+        self,
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
     ):
         # Check if sentences is a two-dimensional list of integers
         if (
@@ -261,7 +262,7 @@ class EmbeddingModel(abc.ABC):
     @abstractmethod
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         """
@@ -269,9 +270,9 @@ class EmbeddingModel(abc.ABC):
 
         Parameters
         ----------
-        sentences: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]]
+            Text or multimodal input. To embed multiple inputs in one request,
+            pass a list of strings or multimodal dictionaries.
 
         Returns
         -------
@@ -282,7 +283,7 @@ class EmbeddingModel(abc.ABC):
     @extensible
     def create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
@@ -299,7 +300,7 @@ class EmbeddingModel(abc.ABC):
         # 1. Group by kwargs hash
         for i, (args, kwargs) in enumerate(zip(args_list, kwargs_list)):
             sentences, extra_kwargs = self._extract_sentences_kwargs(args, kwargs)
-            if isinstance(sentences, str):
+            if isinstance(sentences, (str, dict)):
                 sentences = [sentences]
 
             key = make_hashable(extra_kwargs)
@@ -399,8 +400,9 @@ class EmbeddingModel(abc.ABC):
             List[str],
             List[int],
             List[List[int]],
-            Dict[str, str],
-            List[Dict[str, str]],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+            List[Union[str, Dict[str, Any]]],
         ],
         truncate_prompt_tokens: Optional[int],
     ) -> Union[
@@ -408,8 +410,9 @@ class EmbeddingModel(abc.ABC):
         List[str],
         List[int],
         List[List[int]],
-        Dict[str, str],
-        List[Dict[str, str]],
+        Dict[str, Any],
+        List[Dict[str, Any]],
+        List[Union[str, Dict[str, Any]]],
     ]:
         """Truncate input to ``truncate_prompt_tokens`` tokens before encoding.
 
@@ -418,8 +421,8 @@ class EmbeddingModel(abc.ABC):
         empty (``max_length=0``), ``<0`` = cap at the model's own ``max_tokens``.
 
         Structure-preserving: token arrays (``List[int]`` / ``List[List[int]]``)
-        are sliced to N ids; multimodal dicts (``Dict[str, str]`` /
-        ``List[Dict[str, str]]``) keep their keys and non-text values, and only
+        are sliced to N ids; multimodal dicts (``Dict[str, Any]`` /
+        ``List[Dict[str, Any]]``) keep their keys and non-text values, and only
         the ``text`` field is truncated (``image`` / ``video`` / ``audio`` and
         other media fields are preserved verbatim). Plain ``str`` / ``List[str]`` are
         truncated token-based (sentence_transformers / flag / vllm) with a

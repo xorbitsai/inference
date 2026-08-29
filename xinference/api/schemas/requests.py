@@ -25,7 +25,13 @@ class CreateCompletionRequest(CreateCompletion):
 class CreateEmbeddingRequest(BaseModel):
     model: str
     input: Union[
-        str, List[str], List[int], List[List[int]], Dict[str, str], List[Dict[str, str]]
+        str,
+        List[str],
+        List[int],
+        List[List[int]],
+        Dict[str, Any],
+        List[Dict[str, Any]],
+        List[Union[str, Dict[str, Any]]],
     ] = Field(description="The input to embed.")
     user: Optional[str] = None
     # Truncate each input to this many tokens before encoding. Mirrors the
