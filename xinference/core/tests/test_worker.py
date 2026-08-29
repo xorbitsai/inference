@@ -4145,3 +4145,29 @@ async def test_list_deletable_models_rejects_unmanaged_source(tmp_path, monkeypa
 
     with pytest.raises(ValueError, match="outside the Xinference cache directory"):
         await WorkerActor.list_deletable_models(_Worker(), "flexible-model")
+
+
+@pytest.mark.asyncio
+async def test_update_cache_status_skips_when_cache_tracker_ref_is_none():
+    # get_supervisor_ref core init can fail and _clear_supervisor_refs leaves
+    # _cache_tracker_ref as None. update_cache_status must not AttributeError,
+    # matching list_cached_models / record_model_version.
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = None
+            self.address = "127.0.0.1:0"
+
+    worker = _Worker()
+    await WorkerActor.update_cache_status(
+        worker,
+        "bge-m3",
+        {
+            "model_version": "bge-m3",
+            "model_file_location": "/tmp/bge-m3",
+        },
+    )
+    await WorkerActor.update_cache_status(
+        worker,
+        "sdxl",
+        [{"model_file_location": "/tmp/sdxl"}],
+    )

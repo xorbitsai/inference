@@ -2937,6 +2937,15 @@ class WorkerActor(xo.StatelessActor):
         return model.model_family.model_ability  # type: ignore
 
     async def update_cache_status(self, model_name: str, version_info: Any):
+        # Defensive: _cache_tracker_ref may be None if get_supervisor_ref's core
+        # init failed and cleared all refs. Skip instead of raising AttributeError
+        # (which would fail model launch). See list_cached_models.
+        if self._cache_tracker_ref is None:
+            logger.warning(
+                "cache_tracker_ref is None, skipping cache status update for %s",
+                model_name,
+            )
+            return
         if isinstance(version_info, list):  # image model
             model_path = version_info[0]["model_file_location"]
             await self._cache_tracker_ref.update_cache_status(
