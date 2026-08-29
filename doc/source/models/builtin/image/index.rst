@@ -50,9 +50,9 @@ The following is a list of built-in image models in Xinference:
    ideogram4
   
    kolors
-
+  
    krea-2-raw
-
+  
    krea-2-turbo
   
    navidc-ocr
@@ -87,6 +87,8 @@ The following is a list of built-in image models in Xinference:
   
    sensenova-u1.5-8b-mot
   
+   sensenova-u1.5-8b-mot-preview
+  
    stable-diffusion-2-inpainting
   
    stable-diffusion-inpainting
@@ -102,3 +104,4 @@ The following is a list of built-in image models in Xinference:
    z-image
   
    z-image-turbo
+  
