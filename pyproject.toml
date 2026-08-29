@@ -84,6 +84,9 @@ xinference-router-agent = "xinference.deploy.router_agent:main"
 xinference-migrate-auth = "xinference.api.oauth2.advanced.migrate:main"
 xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:main"
 
+[project.entry-points."vllm.general_plugins"]
+xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
+
 [project.optional-dependencies]
 dev = [
     "cython>=0.29",

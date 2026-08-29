@@ -2252,5 +2252,36 @@
     },
     "featured": true,
     "updated_at": 1787576958
+  },
+  {
+    "version": 2,
+    "model_name": "NaviDC-OCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1",
+        "pillow>=11,<12",
+        "accelerate==1.12.0 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "vllm>=0.23,<0.24 ; #engine# == \"vllm\"",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "StarDoc-AI/NaviDC-OCR",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "jackpi/NaviDC-OCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1787878771
   }
 ]
