@@ -291,6 +291,8 @@ def test_builtin_catalog_has_huggingface_and_modelscope_sources():
         for spec in specs
     )
     assert all("#system_torchcodec#" in spec.virtualenv.packages for spec in specs)
+    assert all("flash-attn==2.8.3" in spec.virtualenv.packages for spec in specs)
+    assert all(spec.virtualenv.no_build_isolation for spec in specs)
 
 
 def test_create_audio_model_instance_dispatches_breeze(monkeypatch, model_spec):
