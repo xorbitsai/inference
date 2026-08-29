@@ -22,9 +22,18 @@ from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..wemm import WeMMInput, is_wemm_model, iter_wemm_media, normalize_wemm_inputs
 
 logger = logging.getLogger(__name__)
-SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3", "bce"]
+SUPPORTED_MODELS_PREFIXES = [
+    "bge",
+    "gte",
+    "text2vec",
+    "m3e",
+    "Qwen3",
+    "bce",
+    "WeMM",
+]
 
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
@@ -32,6 +41,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._context_length = None
+        self._chat_template = None
 
     def load(self):
         try:
@@ -68,7 +78,21 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     is_matryoshka=True,
                 )
 
-        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+        if is_wemm_model(self.model_family.model_name):
+            if Version(vllm_version) < Version("0.27.0"):
+                raise ValueError("WeMM-Embedding requires vLLM>=0.27.0")
+            template_path = os.path.join(
+                self._model_path, "embedding_chat_template.jinja"
+            )
+            if not os.path.isfile(template_path):
+                raise FileNotFoundError(
+                    f"Missing WeMM-Embedding chat template: {template_path}"
+                )
+            with open(template_path, encoding="utf-8") as template_file:
+                self._chat_template = template_file.read()
+            self._kwargs.setdefault("gpu_memory_utilization", 0.6)
+            self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
+        elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
             if Version(vllm_version) < Version("0.14.0"):
                 raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
@@ -87,7 +111,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         from packaging.version import Version
@@ -103,7 +127,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         assert self._model is not None
 
         # Check and truncate sentences that exceed context_length
-        if self._context_length is not None:
+        if self._context_length is not None and not is_wemm_model(
+            self.model_family.model_name
+        ):
             truncated_sentences = []
             for sentence in sentences if isinstance(sentences, list) else [sentences]:
                 # Use tokenizer to check token length
@@ -143,7 +169,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     f"Please upgrade to v0.10.1 or later."
                 )
             pool_params = PoolingParams(dimensions=dimensions)
-        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+        if is_wemm_model(self.model_family.model_name):
+            outputs = self._embed_wemm(sentences, pool_params)
+        elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
             outputs = self._embed_vl(sentences)
         else:
             outputs = self._model.embed(
@@ -172,6 +200,62 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         self._clean_cache_if_needed(all_token_nums)
 
         return result
+
+    def _embed_wemm(self, inputs: WeMMInput, pool_params):
+        from vllm.multimodal.utils import fetch_image, fetch_video
+
+        messages_batch = normalize_wemm_inputs(inputs)
+        assert self._model is not None
+        assert self._chat_template is not None
+
+        def _media_url(value: Any, modality: str) -> Any:
+            if not isinstance(value, str):
+                return value
+            if value.startswith(("http://", "https://", "data:", "file://")):
+                return value
+            path = os.path.abspath(value)
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"WeMM-Embedding {modality} not found: {path}")
+            return f"file://{path}"
+
+        vllm_inputs: List[Dict[str, Any]] = []
+        for messages in messages_batch:
+            prompt = self._tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=False,
+                chat_template=self._chat_template,
+            )
+            media: Dict[str, List[Any]] = {"image": [], "video": []}
+            for modality, value in iter_wemm_media(messages):
+                url_or_data = _media_url(value, modality)
+                if modality == "image":
+                    media[modality].append(
+                        fetch_image(url_or_data)
+                        if isinstance(url_or_data, str)
+                        else url_or_data
+                    )
+                else:
+                    media[modality].append(
+                        fetch_video(url_or_data)
+                        if isinstance(url_or_data, str)
+                        else url_or_data
+                    )
+            multi_modal_data = {
+                modality: values[0] if len(values) == 1 else values
+                for modality, values in media.items()
+                if values
+            }
+            item: Dict[str, Any] = {"prompt": prompt}
+            if multi_modal_data:
+                item["multi_modal_data"] = multi_modal_data
+            vllm_inputs.append(item)
+
+        return self._model.embed(
+            vllm_inputs,
+            use_tqdm=False,
+            pooling_params=pool_params,
+        )
 
     def _embed_vl(
         self, inputs: Union[str, List[str], Dict[str, Any], List[Dict[str, Any]]]
@@ -298,7 +382,12 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
 
-        if model_family.model_name.startswith("Qwen3-VL-Embedding"):
+        required_vllm_version = None
+        if is_wemm_model(model_family.model_name):
+            required_vllm_version = "0.27.0"
+        elif model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            required_vllm_version = "0.14.0"
+        if required_vllm_version is not None:
             # In virtualenv mode vLLM (and a compatible version) can be
             # installed on demand, so only the missing-library / old-version
             # rejection is exempt here; the format/prefix compatibility checks
@@ -316,10 +405,11 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             else:
                 if not allow_missing_env and version.parse(
                     vllm.__version__
-                ) < version.parse("0.14.0"):
+                ) < version.parse(required_vllm_version):
                     return (
                         False,
-                        f"Qwen3-VL embedding requires vLLM>=0.14.0, current: {vllm.__version__}",
+                        f"{model_family.model_name} requires "
+                        f"vLLM>={required_vllm_version}, current: {vllm.__version__}",
                     )
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM embedding engine only supports pytorch format"

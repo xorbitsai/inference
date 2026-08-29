@@ -76,15 +76,28 @@ class RESTfulModelHandle:
 
 
 class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
-    def create_embedding(self, input: Union[str, List[str]], **kwargs) -> "Embedding":
+    def create_embedding(
+        self,
+        input: Union[
+            str,
+            List[str],
+            List[int],
+            List[List[int]],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+            List[Union[str, Dict[str, Any]]],
+        ],
+        **kwargs,
+    ) -> "Embedding":
         """
         Create an Embedding from user input via RESTful APIs.
 
         Parameters
         ----------
-        input: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+        input: Union[str, List[str], List[int], List[List[int]], Dict[str, Any],
+                     List[Dict[str, Any]], List[Union[str, Dict[str, Any]]]]
+            Text, token IDs, or multimodal input. Multimodal dictionaries may
+            contain text, image, video, or interleaved role/content messages.
 
         Returns
         -------

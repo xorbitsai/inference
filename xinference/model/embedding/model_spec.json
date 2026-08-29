@@ -1878,5 +1878,137 @@
     },
     "featured": false,
     "updated_at": 1784276332
+  },
+  {
+    "version": 2,
+    "model_name": "WeMM-Embedding-2B",
+    "dimensions": 2048,
+    "max_tokens": 262144,
+    "language": [
+      "zh",
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "tencent/WeMM-Embedding-2B",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Tencent-Hunyuan/WeMM-Embedding-2B",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence-transformers==5.7.0 ; #engine# == \"sentence_transformers\"",
+        "transformers==5.2.0 ; #engine# == \"sentence_transformers\"",
+        "accelerate>=1.1.0 ; #engine# == \"sentence_transformers\"",
+        "qwen-vl-utils==0.0.14 ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "vllm>=0.27.0 ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1787982666
+  },
+  {
+    "version": 2,
+    "model_name": "WeMM-Embedding-4B",
+    "dimensions": 2560,
+    "max_tokens": 262144,
+    "language": [
+      "zh",
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "tencent/WeMM-Embedding-4B",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Tencent-Hunyuan/WeMM-Embedding-4B",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence-transformers==5.7.0 ; #engine# == \"sentence_transformers\"",
+        "transformers==5.2.0 ; #engine# == \"sentence_transformers\"",
+        "accelerate>=1.1.0 ; #engine# == \"sentence_transformers\"",
+        "qwen-vl-utils==0.0.14 ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "vllm>=0.27.0 ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1787982666
+  },
+  {
+    "version": 2,
+    "model_name": "WeMM-Embedding-9B",
+    "dimensions": 4096,
+    "max_tokens": 262144,
+    "language": [
+      "zh",
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "tencent/WeMM-Embedding-9B",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Tencent-Hunyuan/WeMM-Embedding-9B",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence-transformers==5.7.0 ; #engine# == \"sentence_transformers\"",
+        "transformers==5.2.0 ; #engine# == \"sentence_transformers\"",
+        "accelerate>=1.1.0 ; #engine# == \"sentence_transformers\"",
+        "qwen-vl-utils==0.0.14 ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "vllm>=0.27.0 ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1787982666
   }
 ]

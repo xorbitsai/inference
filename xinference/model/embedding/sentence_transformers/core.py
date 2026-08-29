@@ -26,8 +26,10 @@ from ...utils import (
     allow_trust_remote_code,
     check_dependency_available,
     is_flash_attn_available,
+    virtual_env_allows_missing_engine,
 )
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..wemm import ensure_wemm_video_reader, is_wemm_model, normalize_wemm_inputs
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
@@ -305,10 +307,21 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
+        if is_wemm_model(self.model_family.model_name) and dimensions is not None:
+            self._validate_wemm_dimensions(dimensions)
+
+    def _validate_wemm_dimensions(self, dimensions: int) -> None:
+        assert self._model is not None
+        config = self._model[0].auto_model.config
+        supported = getattr(config, "matryoshka_dimensions", None)
+        if supported is not None and dimensions not in supported:
+            raise ValueError(
+                f"WeMM-Embedding dimensions must be one of {list(supported)}, got {dimensions}."
+            )
 
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         if self._embedder is not None:
@@ -582,6 +595,45 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 objs,
                 **encode_kwargs,
             )
+        elif is_wemm_model(self.model_family.model_name):
+            # WeMM relies on Sentence Transformers 5.7's modality-aware
+            # ``encode`` path. The local text-only helper above bypasses its
+            # role/content conversion and vision preprocessing.
+            input_was_single = isinstance(sentences, (str, dict))
+            wemm_inputs = normalize_wemm_inputs(sentences)
+            ensure_wemm_video_reader()
+
+            wemm_kwargs = dict(kwargs)
+            wemm_kwargs.pop("convert_to_numpy", None)
+            wemm_kwargs.pop("return_sparse", None)
+            if "normalize_embedding" in wemm_kwargs:
+                wemm_kwargs["normalize_embeddings"] = wemm_kwargs.pop(
+                    "normalize_embedding"
+                )
+            dimensions = wemm_kwargs.pop("dimensions", None)
+            if dimensions is not None:
+                self._validate_wemm_dimensions(dimensions)
+                wemm_kwargs["truncate_dim"] = dimensions
+            wemm_kwargs.setdefault("batch_size", 1)
+
+            assert self._model is not None
+            with torch.inference_mode():
+                wemm_out = self._model.encode(
+                    wemm_inputs,
+                    convert_to_numpy=True,
+                    **wemm_kwargs,
+                )
+            if input_was_single:
+                if hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) > 1:
+                    all_embeddings = [wemm_out[0]]
+                else:
+                    all_embeddings = [wemm_out]
+                sentences = [sentences]
+            elif hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) == 1:
+                all_embeddings = [wemm_out]
+            else:
+                all_embeddings = list(wemm_out)
+            all_token_nums = len(wemm_inputs)
         elif "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
             # jina-embeddings-v5-omni accepts text, image, video and audio.
             # Per the model card, the SentenceTransformer wrapper auto-detects
@@ -772,6 +824,48 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if is_wemm_model(model_family.model_name):
+            if not virtual_env_allows_missing_engine():
+                dep_check = check_dependency_available(
+                    "sentence_transformers", "sentence-transformers"
+                )
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen-vl-utils")
+                if dep_check != True:
+                    return dep_check
+                from importlib.metadata import PackageNotFoundError, version
+
+                from packaging.version import Version
+                from sentence_transformers import __version__ as st_version
+                from transformers import __version__ as transformers_version
+
+                if Version(st_version) < Version("5.7.0"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires sentence-transformers>=5.7.0, "
+                        f"current: {st_version}",
+                    )
+                if Version(transformers_version) < Version("5.2.0"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires transformers>=5.2.0, "
+                        f"current: {transformers_version}",
+                    )
+                try:
+                    qwen_utils_version = version("qwen-vl-utils")
+                except PackageNotFoundError:
+                    return False, "Cannot determine the installed qwen-vl-utils version"
+                if Version(qwen_utils_version) < Version("0.0.14"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires qwen-vl-utils>=0.0.14, "
+                        f"current: {qwen_utils_version}",
+                    )
+            if model_spec.model_format != "pytorch":
+                return False, "WeMM-Embedding supports pytorch format only"
+            return True
+
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
         if model_family.model_name.startswith("Qwen3-VL-Embedding"):
