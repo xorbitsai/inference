@@ -107,7 +107,7 @@ def ensure_sample_rate(
 def audio_stream_generator(
     response_format: str,
     sample_rate: int,
-    output_generator: typing.Generator[typing.Any, None, None],
+    output_generator: typing.Iterator[typing.Any],
     output_chunk_transformer: Callable,
 ):
     import torch
