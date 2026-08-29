@@ -127,6 +127,7 @@ class BreezeTTS2Model:
                 and _FLASH_ATTN_PACKAGE not in virtualenv.packages
             ):
                 model_spec = deepcopy(model_spec)
+                assert model_spec.virtualenv is not None
                 model_spec.virtualenv.packages.append(_FLASH_ATTN_PACKAGE)
 
         self.model_family = model_spec
