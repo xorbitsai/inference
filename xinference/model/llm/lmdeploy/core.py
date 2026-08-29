@@ -362,7 +362,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
             f"session_id={session_id}, "  # type: ignore
             f"history_tokens={self._model.id2step[str(session_id)]}, "
             f"input_tokens={len(input_ids)}, "
-            f"max_new_tokens={generate_config.max_new_tokens}, "
+            f"max_new_tokens={generate_config.max_new_tokens}, "  # type: ignore[union-attr]
             f"seq_start={sequence_start}, seq_end={sequence_end}, "
             f"step={step}, prep={do_preprocess}"
         )
