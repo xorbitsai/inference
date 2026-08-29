@@ -58,6 +58,11 @@ def test_wemm_builtin_specs_have_both_sources_and_revisions():
             "quantizations": ["none"],
         }
         packages = item["virtualenv"]["packages"]
+        assert (
+            'sentence-transformers==5.7.0 ; #engine# == "sentence_transformers"'
+            in packages
+        )
+        assert 'transformers==5.2.0 ; #engine# == "sentence_transformers"' in packages
         assert any(package.startswith("qwen-vl-utils==0.0.14") for package in packages)
         assert any(package.startswith("#system_torch#") for package in packages)
         assert any(package.startswith("#system_torchvision#") for package in packages)

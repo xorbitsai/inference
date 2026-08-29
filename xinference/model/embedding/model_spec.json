@@ -1911,7 +1911,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence-transformers>=5.7.0 ; #engine# == \"sentence_transformers\"",
+        "sentence-transformers==5.7.0 ; #engine# == \"sentence_transformers\"",
         "transformers==5.2.0 ; #engine# == \"sentence_transformers\"",
         "accelerate>=1.1.0 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils==0.0.14 ; #engine# == \"sentence_transformers\"",
@@ -1955,7 +1955,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence-transformers>=5.7.0 ; #engine# == \"sentence_transformers\"",
+        "sentence-transformers==5.7.0 ; #engine# == \"sentence_transformers\"",
         "transformers==5.2.0 ; #engine# == \"sentence_transformers\"",
         "accelerate>=1.1.0 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils==0.0.14 ; #engine# == \"sentence_transformers\"",
@@ -1999,7 +1999,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence-transformers>=5.7.0 ; #engine# == \"sentence_transformers\"",
+        "sentence-transformers==5.7.0 ; #engine# == \"sentence_transformers\"",
         "transformers==5.2.0 ; #engine# == \"sentence_transformers\"",
         "accelerate>=1.1.0 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils==0.0.14 ; #engine# == \"sentence_transformers\"",
