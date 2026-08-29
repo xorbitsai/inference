@@ -262,7 +262,7 @@ class EmbeddingModel(abc.ABC):
     @abstractmethod
     def _create_embedding(
         self,
-        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
+        sentences: Any,
         **kwargs,
     ):
         """
