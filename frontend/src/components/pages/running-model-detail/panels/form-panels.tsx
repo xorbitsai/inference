@@ -62,6 +62,11 @@ const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value)
   value,
 }));
 
+const FISH_SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'pcm'].map((value) => ({
+  label: value.toUpperCase(),
+  value,
+}));
+
 const MUSIC_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
   label: value.toUpperCase(),
   value,
@@ -701,6 +706,10 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
 
 export function SpeechPanel({ form, model }: CapabilityFormProps) {
   const isMusicGeneration = model.model_ability.includes(ModelAbility.Text2music);
+  const speechResponseFormatOptions =
+    model.model_family === 'FishAudio'
+      ? FISH_SPEECH_RESPONSE_FORMAT_OPTIONS
+      : SPEECH_RESPONSE_FORMAT_OPTIONS;
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
   const supportsVoiceDesign = model.model_ability.includes(ModelAbility.Text2audioVoiceDesign);
   const promptSpeech = useWatch('prompt_speech', form);
@@ -746,7 +755,7 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           </FormField>
         ) : (
           <FormField name="response_format" label="Output Format">
-            <Select options={SPEECH_RESPONSE_FORMAT_OPTIONS} allowClear={false} />
+            <Select options={speechResponseFormatOptions} allowClear={false} />
           </FormField>
         )}
       </div>
