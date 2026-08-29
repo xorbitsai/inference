@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pickle
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event, Lock, Thread
 from types import SimpleNamespace
 
 import numpy as np
@@ -178,6 +180,16 @@ def test_load_rejects_non_cuda_runtime(monkeypatch, model_spec):
         model.load()
 
 
+def test_model_recreates_inference_lock_after_serialization(model_spec):
+    model = BreezeTTS2Model("breeze", "/models/breeze", model_spec)
+
+    restored = pickle.loads(pickle.dumps(model))
+
+    assert restored._inference_lock is not None
+    assert restored._inference_lock.acquire(blocking=False)
+    restored._inference_lock.release()
+
+
 def test_voice_design_non_streaming(monkeypatch, model_spec):
     captured = {}
     model = BreezeTTS2Model("breeze", "/models/breeze", model_spec)
@@ -272,6 +284,83 @@ def test_streaming_defers_seed_until_iteration(monkeypatch, model_spec):
     assert captured["stream"][0:2] == ("pcm", 24000)
 
 
+def test_streaming_serializes_runtime_until_generator_finishes(monkeypatch, model_spec):
+    captured = {}
+    model = BreezeTTS2Model("breeze", "/models/breeze", model_spec)
+    _install_fake_loaded_model(model, captured)
+
+    non_stream_entered = Event()
+    worker_started = Event()
+    worker_done = Event()
+
+    class MixedRuntime:
+        sample_rate = 24000
+
+        def __init__(self):
+            self._call_lock = Lock()
+            self._call_count = 0
+
+        def iter_audio_chunks(self, inputs, *, request_id):
+            with self._call_lock:
+                self._call_count += 1
+                call_number = self._call_count
+            if call_number == 2:
+                non_stream_entered.set()
+            yield SimpleNamespace(
+                audio=np.array([float(call_number)], dtype=np.float32),
+                sample_rate=self.sample_rate,
+            )
+            if call_number == 1:
+                yield SimpleNamespace(
+                    audio=np.array([1.5], dtype=np.float32),
+                    sample_rate=self.sample_rate,
+                )
+
+    model._runtime = MixedRuntime()
+
+    def stream_generator(response_format, sample_rate, chunks):
+        for index, _chunk in enumerate(chunks):
+            yield f"stream-{index}".encode()
+
+    monkeypatch.setattr(breeze_tts_module, "_audio_stream_generator", stream_generator)
+    monkeypatch.setattr(
+        breeze_tts_module,
+        "_audio_to_bytes",
+        lambda response_format, sample_rate, audio: b"non-stream",
+    )
+
+    stream = model.speech(input="Stream first.", voice="", stream=True)
+    assert next(stream) == b"stream-0"
+
+    worker_result = {}
+
+    def generate_non_streaming():
+        worker_started.set()
+        try:
+            worker_result["audio"] = model.speech(
+                input="Generate second.", voice="", stream=False
+            )
+        except Exception as exc:  # pragma: no cover - surfaced below
+            worker_result["error"] = exc
+        finally:
+            worker_done.set()
+
+    worker = Thread(target=generate_non_streaming, daemon=True)
+    worker.start()
+    assert worker_started.wait(timeout=1)
+    try:
+        assert not non_stream_entered.wait(timeout=0.2)
+        assert not worker_done.is_set()
+    finally:
+        assert list(stream) == [b"stream-1"]
+
+    assert worker_done.wait(timeout=2)
+    worker.join(timeout=1)
+    assert "error" not in worker_result
+    assert worker_result["audio"] == b"non-stream"
+    assert non_stream_entered.is_set()
+
+
 def test_builtin_catalog_has_huggingface_and_modelscope_sources():
     models = {}
     load_model_family_from_json("model_spec.json", models)
@@ -291,8 +380,27 @@ def test_builtin_catalog_has_huggingface_and_modelscope_sources():
         for spec in specs
     )
     assert all("#system_torchcodec#" in spec.virtualenv.packages for spec in specs)
-    assert all("flash-attn==2.8.3" in spec.virtualenv.packages for spec in specs)
+    assert all("flash-attn==2.8.3" not in spec.virtualenv.packages for spec in specs)
     assert all(spec.virtualenv.no_build_isolation for spec in specs)
+
+
+def test_flash_attention_dependency_is_added_only_when_requested():
+    models = {}
+    load_model_family_from_json("model_spec.json", models)
+
+    for spec in models["Breeze-TTS-2"]:
+        registered_packages = spec.virtualenv.packages.copy()
+        eager_model = BreezeTTS2Model("eager", "/models/breeze", spec)
+        flash_model = BreezeTTS2Model(
+            "flash",
+            "/models/breeze",
+            spec,
+            attn_implementation="flash_attention_2",
+        )
+
+        assert eager_model.model_family.virtualenv.packages == registered_packages
+        assert "flash-attn==2.8.3" in flash_model.model_family.virtualenv.packages
+        assert spec.virtualenv.packages == registered_packages
 
 
 def test_create_audio_model_instance_dispatches_breeze(monkeypatch, model_spec):

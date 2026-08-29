@@ -968,12 +968,14 @@ class BreezeForConditionalGeneration(BreezePreTrainedModel, BreezeGenerationMixi
                 )
 
             text_encoder_attn_implementation = getattr(
-                config.text_encoder_config,
-                "preferred_attn_implementation",
-                None,
+                config, "_attn_implementation", None
             )
             if text_encoder_attn_implementation is None:
-                text_encoder_attn_implementation = "flash_attention_2"
+                text_encoder_attn_implementation = getattr(
+                    config.text_encoder_config,
+                    "preferred_attn_implementation",
+                    "eager",
+                )
             config.text_encoder_config._attn_implementation = (
                 text_encoder_attn_implementation
             )

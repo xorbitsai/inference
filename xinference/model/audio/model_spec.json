@@ -2644,7 +2644,6 @@
       "packages": [
         "transformers==4.57.3",
         "qwen-tts==0.1.1",
-        "flash-attn==2.8.3",
         "soundfile>=0.13",
         "#system_torch#",
         "#system_torchaudio#",

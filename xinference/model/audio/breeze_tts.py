@@ -16,7 +16,9 @@ import logging
 import math
 import os
 import tempfile
+import threading
 import uuid
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, Optional
@@ -32,6 +34,7 @@ _DEFAULT_INSTRUCTION = "Speak clearly and naturally."
 _DEFAULT_MAX_NEW_TOKENS = 1500
 _DEFAULT_MAX_SEQ_LEN = 2048
 _DEFAULT_REPETITION_PENALTY = 1.1
+_FLASH_ATTN_PACKAGE = "flash-attn==2.8.3"
 _FAST_CONFIG = (
     Path(__file__).resolve().parents[2]
     / "thirdparty"
@@ -116,6 +119,16 @@ class BreezeTTS2Model:
         device: Optional[str] = None,
         **kwargs,
     ):
+        self._attn_implementation = kwargs.get("attn_implementation") or "eager"
+        if self._attn_implementation == "flash_attention_2":
+            virtualenv = getattr(model_spec, "virtualenv", None)
+            if (
+                virtualenv is not None
+                and _FLASH_ATTN_PACKAGE not in virtualenv.packages
+            ):
+                model_spec = deepcopy(model_spec)
+                model_spec.virtualenv.packages.append(_FLASH_ATTN_PACKAGE)
+
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
@@ -129,6 +142,16 @@ class BreezeTTS2Model:
         self._set_all_seeds = None
         self._get_template = None
         self._prepare_inputs = None
+        self._inference_lock = threading.Lock()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["_inference_lock"] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._inference_lock = threading.Lock()
 
     @property
     def model_ability(self):
@@ -161,7 +184,7 @@ class BreezeTTS2Model:
         self._tokenizer, self._model, self._audio_tokenizer = load_runtime(
             Path(self._model_path),
             device=device,
-            attn_implementation=self._kwargs.get("attn_implementation", "eager"),
+            attn_implementation=self._attn_implementation,
         )
         update_generation_config_for_breeze(self._model)
 
@@ -297,11 +320,12 @@ class BreezeTTS2Model:
     ):
         assert self._runtime is not None
         assert self._set_all_seeds is not None
-        self._set_all_seeds(seed)
-        chunks = self._runtime.iter_audio_chunks(inputs, request_id=request_id)
-        yield from _audio_stream_generator(
-            response_format, int(self._runtime.sample_rate), chunks
-        )
+        with self._inference_lock:
+            self._set_all_seeds(seed)
+            chunks = self._runtime.iter_audio_chunks(inputs, request_id=request_id)
+            yield from _audio_stream_generator(
+                response_format, int(self._runtime.sample_rate), chunks
+            )
 
     def _generate_audio(
         self,
@@ -315,17 +339,22 @@ class BreezeTTS2Model:
 
         assert self._runtime is not None
         assert self._set_all_seeds is not None
-        self._set_all_seeds(seed)
-        sample_rate = int(self._runtime.sample_rate)
-        audio_parts = []
-        for chunk in self._runtime.iter_audio_chunks(inputs, request_id=request_id):
-            if int(chunk.sample_rate) != sample_rate:
-                raise RuntimeError("Breeze-TTS-2 returned inconsistent sample rates.")
-            audio_parts.append(np.asarray(chunk.audio, dtype=np.float32).reshape(-1))
-        if not audio_parts:
-            raise RuntimeError("Breeze-TTS-2 returned no generated audio.")
-        audio = torch.from_numpy(np.concatenate(audio_parts)).unsqueeze(0)
-        return _audio_to_bytes(response_format, sample_rate, audio)
+        with self._inference_lock:
+            self._set_all_seeds(seed)
+            sample_rate = int(self._runtime.sample_rate)
+            audio_parts = []
+            for chunk in self._runtime.iter_audio_chunks(inputs, request_id=request_id):
+                if int(chunk.sample_rate) != sample_rate:
+                    raise RuntimeError(
+                        "Breeze-TTS-2 returned inconsistent sample rates."
+                    )
+                audio_parts.append(
+                    np.asarray(chunk.audio, dtype=np.float32).reshape(-1)
+                )
+            if not audio_parts:
+                raise RuntimeError("Breeze-TTS-2 returned no generated audio.")
+            audio = torch.from_numpy(np.concatenate(audio_parts)).unsqueeze(0)
+            return _audio_to_bytes(response_format, sample_rate, audio)
 
     def speech(
         self,
