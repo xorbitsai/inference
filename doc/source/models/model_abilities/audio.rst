@@ -378,7 +378,8 @@ generating an instrumental track.
 ``duration`` defaults to 60 seconds. It accepts ``-1`` for model-selected
 duration or a value from 10 through 600 seconds. ``seed=-1`` selects a random
 seed; non-negative integers provide reproducible generation. Supported output
-formats are ``aac``, ``flac``, ``mp3``, ``opus``, ``wav``, and ``wav32``.
+formats are ``aac``, ``flac``, ``mp3``, ``ogg``, ``opus``, ``wav``, and
+``wav32``.
 Generation is non-streaming, ``speed`` must be ``1.0``, and ``voice`` must be
 ``default``, an empty string, or null.
 
@@ -392,7 +393,8 @@ same ``kwargs`` channel.
 When the LM is loaded, ``thinking=false`` disables audio-code reasoning by
 default. An explicitly enabled ``use_cot_caption``, ``use_cot_language``, or
 ``use_cot_metas`` still uses the LM for that planning step. MP3, AAC, and Opus
-output require a working FFmpeg installation.
+output require a working FFmpeg installation. OGG output is generated as WAV
+and then encoded as OGG/Vorbis with libsndfile.
 
 Raw REST requests encode ``kwargs`` as a JSON string. The Xinference sync and
 async clients accept these names through their existing ``**kwargs`` argument.
@@ -446,14 +448,16 @@ put tags such as ``[Verse]`` and ``[Chorus]`` on their own lines.
 through 360 and its default is 60. Xinference passes it directly to the
 Diffusers pipeline as ``audio_duration``. The model may emit an end-of-audio
 token and finish before the limit.
-The initial integration only accepts ``response_format=wav``, ``stream=false``,
-``speed=1.0``, and ``voice`` set to ``default``, an empty string, or null.
+Supported output formats are ``flac``, ``mp3``, ``ogg``, and ``wav``; WAV is
+the default. Generation requires ``stream=false``, ``speed=1.0``, and
+``voice`` set to ``default``, an empty string, or null.
 Inference requires NVIDIA CUDA. Sampling steps and classifier-free guidance
 remain at the Diffusers defaults and are not request parameters.
 
 Xinference preserves the Diffusers pipeline's native 44.1 kHz stereo samples.
 It wraps them in an IEEE-float WAV container without resampling or integer PCM
-quantization.
+quantization. FLAC, MP3, and OGG responses are encoded from those samples
+with libsndfile.
 
 ``instruct``, ``seed``, and ``duration`` are model options passed through the
 existing ``kwargs`` channel rather than additional Speech API parameters. Raw

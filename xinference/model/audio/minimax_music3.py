@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 class MiniMaxMusic3Model:
     """Diffusers-backed MiniMax-Music3 text-to-music model."""
 
+    _response_formats = {"flac", "mp3", "ogg", "wav"}
+
     def __init__(
         self,
         model_uid: str,
@@ -157,7 +159,7 @@ class MiniMaxMusic3Model:
         seed: int,
         duration: float,
         kwargs: dict,
-    ) -> None:
+    ) -> str:
         if not isinstance(input, str) or not input.strip():
             raise ValueError("MiniMax-Music3 requires non-empty lyrics in `input`.")
         if not isinstance(instruct, str) or not instruct.strip():
@@ -170,9 +172,13 @@ class MiniMaxMusic3Model:
                 "MiniMax-Music3 only accepts `voice` as null, an empty string, "
                 "or 'default'."
             )
-        if response_format is None or response_format.lower() != "wav":
+        if response_format is not None and not isinstance(response_format, str):
+            raise ValueError("MiniMax-Music3 `response_format` must be a string.")
+        audio_format = (response_format or "wav").lower()
+        if audio_format not in MiniMaxMusic3Model._response_formats:
+            formats = ", ".join(sorted(MiniMaxMusic3Model._response_formats))
             raise ValueError(
-                "MiniMax-Music3 currently supports `response_format=wav` only."
+                f"MiniMax-Music3 supports these response formats: {formats}."
             )
         if speed != 1.0:
             raise ValueError("MiniMax-Music3 only supports `speed=1.0`.")
@@ -193,9 +199,10 @@ class MiniMaxMusic3Model:
                 "MiniMax-Music3 does not support speech parameter(s): "
                 + ", ".join(sorted(kwargs))
             )
+        return audio_format
 
     @staticmethod
-    def _audio_to_native_wav(audio, sample_rate: int) -> bytes:
+    def _normalize_audio(audio):
         import numpy as np
 
         if hasattr(audio, "detach"):
@@ -213,7 +220,11 @@ class MiniMaxMusic3Model:
                 "stereo output was expected."
             )
 
-        audio = np.ascontiguousarray(audio, dtype="<f4")
+        return np.ascontiguousarray(audio, dtype="<f4")
+
+    @classmethod
+    def _audio_to_native_wav(cls, audio, sample_rate: int) -> bytes:
+        audio = cls._normalize_audio(audio)
         channels = audio.shape[1]
         bytes_per_sample = audio.dtype.itemsize
         block_align = channels * bytes_per_sample
@@ -247,6 +258,25 @@ class MiniMaxMusic3Model:
             output.write(audio_bytes)
             return output.getvalue()
 
+    @classmethod
+    def _audio_to_bytes(cls, audio, sample_rate: int, response_format: str) -> bytes:
+        if response_format == "wav":
+            return cls._audio_to_native_wav(audio, sample_rate)
+
+        import soundfile
+
+        audio = cls._normalize_audio(audio)
+        with io.BytesIO() as output:
+            with soundfile.SoundFile(
+                output,
+                "w",
+                sample_rate,
+                audio.shape[1],
+                format=response_format.upper(),
+            ) as audio_file:
+                audio_file.write(audio)
+            return output.getvalue()
+
     def speech(
         self,
         input: str,
@@ -260,7 +290,7 @@ class MiniMaxMusic3Model:
         instruct = kwargs.pop("instruct", None)
         seed = kwargs.pop("seed", 0)
         duration = kwargs.pop("duration", 60.0)
-        self._validate_speech_request(
+        response_format = self._validate_speech_request(
             input,
             instruct,
             voice,
@@ -284,4 +314,4 @@ class MiniMaxMusic3Model:
         )
         audio = result[0]
         sample_rate = int(self._model.sampling_rate)
-        return self._audio_to_native_wav(audio, sample_rate)
+        return self._audio_to_bytes(audio, sample_rate, response_format)

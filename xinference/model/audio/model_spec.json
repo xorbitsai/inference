@@ -2533,6 +2533,7 @@
         "accelerate>=1.13.0",
         "huggingface-hub>=1.23.0,<2.0",
         "safetensors>=0.8.0",
+        "soundfile>=0.13.1",
         "#system_torch#",
         "#system_numpy#"
       ]
