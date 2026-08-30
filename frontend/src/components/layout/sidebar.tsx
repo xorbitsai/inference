@@ -282,7 +282,9 @@ export function Sidebar() {
             name: t('menu.systemSettings'),
             Icon: Settings2,
             Extra: ChevronRight,
-            show: !clusterUIConfig?.auth_advanced || hasSettingsRead,
+            show:
+              Object.keys(clusterUIConfig).length > 0 &&
+              (!clusterUIConfig.auth_advanced || hasSettingsRead),
           },
           {
             path: '/audit-center',
