@@ -488,11 +488,11 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     assert all("has_cuda" not in spec for spec in pin_specs)
     assert 'decord==0.6.0 ; platform_machine == "x86_64"' in pin_specs
     assert 'decord2==3.4.0 ; platform_machine == "aarch64"' in pin_specs
-    assert "flash-attn==2.8.3.post1+cvte1" not in pin_specs
+    assert "flash-attn==2.8.3.post1" not in pin_specs
     manifest = json.loads((out / "manifest.json").read_text())
     assert manifest["find_links_only_pins"] == [
         {
-            "spec": "flash-attn==2.8.3.post1+cvte1",
+            "spec": "flash-attn==2.8.3.post1",
             "sources": [
                 "embedding/model_spec.json:jina-embeddings-v3",
                 "embedding/model_spec.json:jina-embeddings-v3 (sentence_transformers)",
