@@ -123,7 +123,7 @@ def test_jina_v3_pins_custom_flash_attn_wheel():
     family = BUILTIN_EMBEDDING_MODELS["jina-embeddings-v3"][0]
 
     assert family.virtualenv is not None
-    assert "flash-attn==2.8.3.post1+cvte1" in family.virtualenv.packages
+    assert "flash-attn==2.8.3.post1" in family.virtualenv.packages
 
 
 def test_bce_embedding_vllm_engine_params_with_virtualenv():
