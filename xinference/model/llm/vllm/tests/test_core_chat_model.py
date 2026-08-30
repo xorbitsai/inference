@@ -158,6 +158,36 @@ class TestVLLMBase64Media:
 
         assert messages[0]["content"] == expected
 
+    def test_handle_base64_media_accepts_folded_base64(self, model):
+        media_data = b"folded-base64-video"
+        encoded = base64.b64encode(media_data).decode()
+        folded = "\r\n  ".join(
+            encoded[index : index + 4] for index in range(0, len(encoded), 4)
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "video_url",
+                        "video_url": {"url": f"data:video/mp4;base64,{folded}"},
+                    }
+                ],
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model._handle_base64_media(messages, temp_dir)
+
+            video_uri = messages[0]["content"][0]["video_url"]["url"]
+            video_path = Path(video_uri.removeprefix("file://"))
+            assert video_path.read_bytes() == media_data
+
+    @pytest.mark.parametrize("fps", [0, 0.0, -1.0])
+    def test_attach_video_metadata_rejects_non_positive_fps(self, model, fps):
+        with pytest.raises(ValueError, match="fps must be greater than 0"):
+            model._attach_video_metadata([self.FakeVideo()], [fps])
+
     @pytest.mark.parametrize(
         "data_uri",
         [

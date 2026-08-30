@@ -2247,6 +2247,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             metadata.setdefault("total_num_frames", total_num_frames)
             metadata.setdefault("frames_indices", list(range(total_num_frames)))
             if fps is not None:
+                if fps <= 0:
+                    raise ValueError("Video fps must be greater than 0")
                 metadata.setdefault("fps", fps)
                 metadata.setdefault("duration", total_num_frames / fps)
             if len(shape) >= 3:
@@ -2377,7 +2379,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
                                 mime_type, b64_data = match.groups()
                                 try:
-                                    decoded = base64.b64decode(b64_data, validate=True)
+                                    normalized_b64_data = "".join(b64_data.split())
+                                    decoded = base64.b64decode(
+                                        normalized_b64_data, validate=True
+                                    )
                                 except (binascii.Error, ValueError) as exc:
                                     raise ValueError(
                                         f"Invalid base64 data URI for {media_key}"
