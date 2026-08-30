@@ -1002,6 +1002,7 @@ const ko = {
       virtualenv: 'virtualenv',
       logs: 'logs',
       monitor: 'monitor',
+      settings: '시스템 설정',
       routers: '라우터',
     },
     permissionLabels: {
@@ -1019,6 +1020,8 @@ const ko = {
       'virtualenv:delete': '가상 환경 삭제',
       'logs:list': '로그 보기',
       'monitor:view': '모니터링 보기',
+      'settings:read': '시스템 설정 보기',
+      'settings:write': '시스템 설정 수정',
       'routers:list': 'Token Router 목록 보기',
       'routers:read': 'Token Router 세부 정보 읽기',
       'routers:write': 'Token Router 생성, 수정 및 삭제',
@@ -1076,6 +1079,7 @@ const ko = {
   },
   systemSettings: {
     pageDescription: '모델 다운로드 소스, 미러, 인증 정보와 다운로드 동작을 설정합니다.',
+    readOnly: '읽기 전용',
     saveChanges: '변경 사항 저장',
     saveSuccess: '시스템 설정을 저장하고 즉시 적용했습니다.',
     restoreSettings: '기본 설정 복원',

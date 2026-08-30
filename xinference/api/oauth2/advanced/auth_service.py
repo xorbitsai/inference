@@ -88,6 +88,8 @@ INITIAL_ADMIN_PERMISSIONS = [
     "virtualenv:delete",
     "logs:list",
     "monitor:view",
+    "settings:read",
+    "settings:write",
     "routers:list",
     "routers:read",
     "routers:write",

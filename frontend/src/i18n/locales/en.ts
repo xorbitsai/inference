@@ -1023,6 +1023,7 @@ const en = {
       virtualenv: 'virtualenv',
       logs: 'logs',
       monitor: 'monitor',
+      settings: 'system settings',
       routers: 'routers',
     },
     permissionLabels: {
@@ -1040,6 +1041,8 @@ const en = {
       'virtualenv:delete': 'Delete virtual environments',
       'logs:list': 'View logs',
       'monitor:view': 'View monitoring',
+      'settings:read': 'View system settings',
+      'settings:write': 'Modify system settings',
       'routers:list': 'View token router list',
       'routers:read': 'Read token router details',
       'routers:write': 'Create, update, and delete token routers',
@@ -1098,6 +1101,7 @@ const en = {
   systemSettings: {
     pageDescription:
       'Configure model download sources, mirrors, credentials, and download behavior.',
+    readOnly: 'Read-only access',
     saveChanges: 'Save Changes',
     saveSuccess: 'System settings saved and applied immediately.',
     restoreSettings: 'Restore Defaults',

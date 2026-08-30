@@ -13,10 +13,15 @@
 # limitations under the License.
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastapi import APIRouter, FastAPI, Header, HTTPException
+from fastapi.security import SecurityScopes
+from fastapi.testclient import TestClient
 
+from xinference.api.oauth2.advanced.auth_service import INITIAL_ADMIN_PERMISSIONS
 from xinference.api.routers import system_settings
 from xinference.core.system_settings_store import SystemSettingsStore
 
@@ -43,6 +48,98 @@ def mock_request(store):
     supervisor_ref = AsyncMock()
     request.app.state.api._get_supervisor_ref = AsyncMock(return_value=supervisor_ref)
     return request
+
+
+@pytest.fixture
+def scoped_client(store):
+    token_scopes = {
+        "reader": {"settings:read"},
+        "writer": {"settings:write"},
+    }
+
+    async def auth_service(
+        security_scopes: SecurityScopes,
+        authorization: str = Header(default=""),
+    ):
+        token = authorization.removeprefix("Bearer ")
+        scopes = token_scopes.get(token)
+        if scopes is None:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        if not set(security_scopes.scopes).issubset(scopes):
+            raise HTTPException(status_code=403, detail="Forbidden")
+        return {"username": token}
+
+    router = APIRouter()
+    api = SimpleNamespace(
+        _router=router,
+        _auth_service=auth_service,
+        _get_supervisor_ref=AsyncMock(return_value=AsyncMock()),
+        is_authenticated=lambda: True,
+    )
+    app = FastAPI()
+    app.state.api = api
+    app.state.system_settings_store = store
+    system_settings.register_routes(api)
+    app.include_router(router)
+    return TestClient(app)
+
+
+def _auth_headers(token):
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_initial_admin_permissions_include_system_settings():
+    assert "settings:read" in INITIAL_ADMIN_PERMISSIONS
+    assert "settings:write" in INITIAL_ADMIN_PERMISSIONS
+
+
+def test_get_requires_settings_read(scoped_client):
+    assert scoped_client.get("/v1/cluster/system_settings").status_code == 401
+    assert (
+        scoped_client.get(
+            "/v1/cluster/system_settings", headers=_auth_headers("writer")
+        ).status_code
+        == 403
+    )
+    assert (
+        scoped_client.get(
+            "/v1/cluster/system_settings", headers=_auth_headers("reader")
+        ).status_code
+        == 200
+    )
+
+
+def test_update_and_reset_require_settings_write(scoped_client, store):
+    payload = store.get_public()
+    payload["download_source"] = "modelscope"
+
+    assert (
+        scoped_client.put(
+            "/v1/cluster/system_settings",
+            headers=_auth_headers("reader"),
+            json=payload,
+        ).status_code
+        == 403
+    )
+    response = scoped_client.put(
+        "/v1/cluster/system_settings",
+        headers=_auth_headers("writer"),
+        json=payload,
+    )
+    assert response.status_code == 200
+    assert response.json()["download_source"] == "modelscope"
+
+    assert (
+        scoped_client.post(
+            "/v1/cluster/system_settings/reset", headers=_auth_headers("reader")
+        ).status_code
+        == 403
+    )
+    response = scoped_client.post(
+        "/v1/cluster/system_settings/reset", headers=_auth_headers("writer")
+    )
+    assert response.status_code == 200
+    assert response.json()["download_source"] == "auto"
 
 
 @pytest.mark.asyncio

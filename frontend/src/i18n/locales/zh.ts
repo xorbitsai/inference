@@ -1016,6 +1016,7 @@ const zh = {
       virtualenv: 'virtualenv',
       logs: 'logs',
       monitor: 'monitor',
+      settings: '系统设置',
       routers: '路由管理',
     },
     permissionLabels: {
@@ -1033,6 +1034,8 @@ const zh = {
       'virtualenv:delete': '删除虚拟环境',
       'logs:list': '查看日志',
       'monitor:view': '查看监控',
+      'settings:read': '查看系统设置',
+      'settings:write': '修改系统设置',
       'routers:list': '查看 Token Router 列表',
       'routers:read': '读取 Token Router 详情',
       'routers:write': '创建、修改和删除 Token Router',
@@ -1090,6 +1093,7 @@ const zh = {
   },
   systemSettings: {
     pageDescription: '统一配置模型下载源、镜像服务与下载任务策略。',
+    readOnly: '只读权限',
     saveChanges: '保存更改',
     saveSuccess: '系统设置已保存并立即生效',
     restoreSettings: '恢复默认配置',

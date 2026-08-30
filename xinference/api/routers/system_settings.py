@@ -63,25 +63,28 @@ async def reset_system_settings(request: Request) -> JSONResponse:
 def register_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth = api._auth_service
-    dependencies = (
-        [Security(auth, scopes=["admin"])] if api.is_authenticated() else None
+    read_dependencies = (
+        [Security(auth, scopes=["settings:read"])] if api.is_authenticated() else None
+    )
+    write_dependencies = (
+        [Security(auth, scopes=["settings:write"])] if api.is_authenticated() else None
     )
 
     router.add_api_route(
         "/v1/cluster/system_settings",
         get_system_settings,
         methods=["GET"],
-        dependencies=dependencies,
+        dependencies=read_dependencies,
     )
     router.add_api_route(
         "/v1/cluster/system_settings",
         update_system_settings,
         methods=["PUT"],
-        dependencies=dependencies,
+        dependencies=write_dependencies,
     )
     router.add_api_route(
         "/v1/cluster/system_settings/reset",
         reset_system_settings,
         methods=["POST"],
-        dependencies=dependencies,
+        dependencies=write_dependencies,
     )
