@@ -314,14 +314,28 @@ class BreezeTTS2Model:
 
     def _stream_audio(
         self,
-        inputs: dict,
-        request_id: str,
+        input: str,
+        voice: str,
+        prompt_speech: Optional[bytes],
+        prompt_text: Optional[str],
+        instruction: str,
+        cfg_scale: float,
+        speaker: str,
         response_format: str,
         seed: int,
     ):
         assert self._runtime is not None
         assert self._set_all_seeds is not None
         with self._inference_lock:
+            request_id, inputs = self._prepare_request(
+                input=input,
+                voice=voice,
+                prompt_speech=prompt_speech,
+                prompt_text=prompt_text,
+                instruction=instruction,
+                cfg_scale=cfg_scale,
+                speaker=speaker,
+            )
             self._set_all_seeds(seed)
             chunks = self._runtime.iter_audio_chunks(inputs, request_id=request_id)
             yield from _audio_stream_generator(
@@ -330,8 +344,13 @@ class BreezeTTS2Model:
 
     def _generate_audio(
         self,
-        inputs: dict,
-        request_id: str,
+        input: str,
+        voice: str,
+        prompt_speech: Optional[bytes],
+        prompt_text: Optional[str],
+        instruction: str,
+        cfg_scale: float,
+        speaker: str,
         response_format: str,
         seed: int,
     ) -> bytes:
@@ -341,6 +360,15 @@ class BreezeTTS2Model:
         assert self._runtime is not None
         assert self._set_all_seeds is not None
         with self._inference_lock:
+            request_id, inputs = self._prepare_request(
+                input=input,
+                voice=voice,
+                prompt_speech=prompt_speech,
+                prompt_text=prompt_text,
+                instruction=instruction,
+                cfg_scale=cfg_scale,
+                speaker=speaker,
+            )
             self._set_all_seeds(seed)
             sample_rate = int(self._runtime.sample_rate)
             audio_parts = []
@@ -406,7 +434,20 @@ class BreezeTTS2Model:
                 "Ignoring unsupported Breeze-TTS-2 speech kwargs: %s", kwargs
             )
 
-        request_id, inputs = self._prepare_request(
+        response_format = response_format or "mp3"
+        if stream:
+            return self._stream_audio(
+                input=input,
+                voice=voice,
+                prompt_speech=prompt_speech,
+                prompt_text=prompt_text,
+                instruction=instruction,
+                cfg_scale=cfg_scale,
+                speaker=speaker,
+                response_format=response_format,
+                seed=seed,
+            )
+        return self._generate_audio(
             input=input,
             voice=voice,
             prompt_speech=prompt_speech,
@@ -414,8 +455,6 @@ class BreezeTTS2Model:
             instruction=instruction,
             cfg_scale=cfg_scale,
             speaker=speaker,
+            response_format=response_format,
+            seed=seed,
         )
-        response_format = response_format or "mp3"
-        if stream:
-            return self._stream_audio(inputs, request_id, response_format, seed)
-        return self._generate_audio(inputs, request_id, response_format, seed)

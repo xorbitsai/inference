@@ -284,14 +284,35 @@ def test_streaming_defers_seed_until_iteration(monkeypatch, model_spec):
     assert captured["stream"][0:2] == ("pcm", 24000)
 
 
-def test_streaming_serializes_runtime_until_generator_finishes(monkeypatch, model_spec):
+def test_streaming_serializes_request_until_generator_finishes(monkeypatch, model_spec):
     captured = {}
     model = BreezeTTS2Model("breeze", "/models/breeze", model_spec)
     _install_fake_loaded_model(model, captured)
 
-    non_stream_entered = Event()
-    worker_started = Event()
+    second_prepare_entered = Event()
+    generation_started = Event()
     worker_done = Event()
+    prepare_call_lock = Lock()
+    prepare_call_count = 0
+    original_prepare_inputs = model._prepare_inputs
+
+    def prepare_inputs(*args, **kwargs):
+        nonlocal prepare_call_count
+        with prepare_call_lock:
+            prepare_call_count += 1
+            call_number = prepare_call_count
+        if call_number == 2:
+            second_prepare_entered.set()
+        return original_prepare_inputs(*args, **kwargs)
+
+    model._prepare_inputs = prepare_inputs
+    original_generate_audio = model._generate_audio
+
+    def generate_audio(*args, **kwargs):
+        generation_started.set()
+        return original_generate_audio(*args, **kwargs)
+
+    model._generate_audio = generate_audio
 
     class MixedRuntime:
         sample_rate = 24000
@@ -304,8 +325,6 @@ def test_streaming_serializes_runtime_until_generator_finishes(monkeypatch, mode
             with self._call_lock:
                 self._call_count += 1
                 call_number = self._call_count
-            if call_number == 2:
-                non_stream_entered.set()
             yield SimpleNamespace(
                 audio=np.array([float(call_number)], dtype=np.float32),
                 sample_rate=self.sample_rate,
@@ -335,7 +354,6 @@ def test_streaming_serializes_runtime_until_generator_finishes(monkeypatch, mode
     worker_result = {}
 
     def generate_non_streaming():
-        worker_started.set()
         try:
             worker_result["audio"] = model.speech(
                 input="Generate second.", voice="", stream=False
@@ -347,9 +365,9 @@ def test_streaming_serializes_runtime_until_generator_finishes(monkeypatch, mode
 
     worker = Thread(target=generate_non_streaming, daemon=True)
     worker.start()
-    assert worker_started.wait(timeout=1)
+    assert generation_started.wait(timeout=1)
     try:
-        assert not non_stream_entered.wait(timeout=0.2)
+        assert not second_prepare_entered.wait(timeout=0.2)
         assert not worker_done.is_set()
     finally:
         assert list(stream) == [b"stream-1"]
@@ -358,7 +376,7 @@ def test_streaming_serializes_runtime_until_generator_finishes(monkeypatch, mode
     worker.join(timeout=1)
     assert "error" not in worker_result
     assert worker_result["audio"] == b"non-stream"
-    assert non_stream_entered.is_set()
+    assert second_prepare_entered.is_set()
 
 
 def test_builtin_catalog_has_huggingface_and_modelscope_sources():
