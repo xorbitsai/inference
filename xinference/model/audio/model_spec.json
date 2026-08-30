@@ -2632,6 +2632,42 @@
   },
   {
     "version": 2,
+    "model_name": "Breeze-TTS-2",
+    "model_description": "Breeze TTS 2 supports bilingual voice design, voice cloning, voice direction, and low-latency streaming on NVIDIA CUDA GPUs. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
+    "model_family": "Breeze-TTS-2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.3",
+        "qwen-tts==0.1.1",
+        "soundfile>=0.13",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "BreezeBlue/Breeze-TTS-2",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "BreezeBlue/Breeze-TTS-2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787961433,
+    "featured": false
+  },
+  {
+    "version": 2,
     "model_name": "ACE-Step1.5",
     "model_family": "ace_step_1_5",
     "model_description": "ACE-Step 1.5 generates complete songs from lyrics and a music description. The default integration uses the bundled turbo DiT model and supports optional 5Hz LM reasoning.",
