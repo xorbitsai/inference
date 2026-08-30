@@ -562,7 +562,10 @@ class VLLMModel(LLM):
 
         configured_tp = (self._model_config or {}).get("tensor_parallel_size")
         configured_pp = (self._model_config or {}).get("pipeline_parallel_size")
-        return int(configured_tp or 1) * int(configured_pp or 1)
+        if configured_tp is not None or configured_pp is not None:
+            return int(configured_tp or 1) * int(configured_pp or 1)
+
+        return self._get_cuda_count()
 
     def _is_qwen4_exp(self) -> bool:
         return self.model_family.has_architecture("Qwen4ExpForConditionalGeneration")
@@ -625,10 +628,12 @@ class VLLMModel(LLM):
     def _get_native_mp_parallelism(self) -> Tuple[int, int]:
         device_count = self._get_allocated_device_count()
         model_config = self._model_config or {}
+        configured_tp = model_config.get("tensor_parallel_size")
+        configured_pp = model_config.get("pipeline_parallel_size")
         tensor_parallel_size = int(
-            model_config.get("tensor_parallel_size", device_count)
+            device_count if configured_tp is None else configured_tp
         )
-        pipeline_parallel_size = int(model_config.get("pipeline_parallel_size", 1))
+        pipeline_parallel_size = int(1 if configured_pp is None else configured_pp)
         if tensor_parallel_size <= 0 or pipeline_parallel_size <= 0:
             raise ValueError(
                 "native_mp tensor_parallel_size and pipeline_parallel_size "

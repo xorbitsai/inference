@@ -230,3 +230,46 @@ def test_native_mp_rejects_parallelism_not_matching_allocated_gpus(
 
     with pytest.raises(ValueError, match="to equal the allocated GPU count"):
         model._get_native_mp_parallelism()
+
+
+def test_allocated_device_count_falls_back_to_cuda_count():
+    model = _model()
+    model.model_family.accelerators = []
+    model._device_count = None
+    model._model_config = {}
+    model._get_cuda_count = lambda: 8
+
+    assert model._get_allocated_device_count() == 8
+    assert model._native_mp_route() == (
+        True,
+        "Qwen4Exp single-worker multi-GPU auto route",
+    )
+
+
+def test_native_mp_parallelism_treats_none_as_default():
+    model = _model(
+        model_config={
+            "tensor_parallel_size": None,
+            "pipeline_parallel_size": None,
+        }
+    )
+
+    assert model._get_native_mp_parallelism() == (8, 1)
+
+
+@pytest.mark.parametrize(
+    ("tensor_parallel_size", "pipeline_parallel_size"),
+    [(0, 1), (8, 0)],
+)
+def test_native_mp_parallelism_rejects_zero_values(
+    tensor_parallel_size, pipeline_parallel_size
+):
+    model = _model(
+        model_config={
+            "tensor_parallel_size": tensor_parallel_size,
+            "pipeline_parallel_size": pipeline_parallel_size,
+        }
+    )
+
+    with pytest.raises(ValueError, match="must both be positive integers"):
+        model._get_native_mp_parallelism()
