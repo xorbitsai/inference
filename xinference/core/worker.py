@@ -28,7 +28,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
@@ -5494,19 +5494,66 @@ class WorkerActor(xo.StatelessActor):
         model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
     ) -> bool:
-        """Remove a virtual environment for a specific model."""
-        with self._virtual_env_usage_lock:
-            active_model_uids_by_path = {
-                path: sorted(usage.active_model_uids | usage.preparing_model_uids)
-                for path, usage in self._virtual_env_usages.items()
-                if usage.active_model_uids or usage.preparing_model_uids
-            }
-        return self._virtual_env_manager.remove_virtual_env(
-            model_name,
-            model_engine,
-            python_version,
-            active_model_uids_by_path=active_model_uids_by_path,
-        )
+        """Remove virtual environments without racing concurrent setup."""
+        if python_version and not self._virtual_env_manager._is_valid_python_version(
+            python_version
+        ):
+            return self._virtual_env_manager.remove_virtual_env(
+                model_name, model_engine, python_version
+            )
+
+        model_engine = model_engine.lower() if model_engine else None
+        target_envs = [
+            env
+            for env in self._virtual_env_manager.list_virtual_envs(
+                model_name, model_engine
+            )
+            if python_version is None or env["python_version"] == python_version
+        ]
+
+        target_envs_by_path: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for env in target_envs:
+            path = os.path.realpath(os.path.normpath(env["path"]))
+            target_envs_by_path[path].append(env)
+        ordered_paths = sorted(target_envs_by_path)
+
+        # Launch/setup takes locks in path -> usage order. Use the same order
+        # here and keep every target path locked through both the usage check
+        # and deletion so no reservation can appear between them.
+        with ExitStack() as stack:
+            for path in ordered_paths:
+                stack.enter_context(_exclusive_venv_path_lock(path))
+
+            with self._virtual_env_usage_lock:
+                for path in ordered_paths:
+                    usage = self._virtual_env_usages.get(path)
+                    model_uids = (
+                        sorted(usage.active_model_uids | usage.preparing_model_uids)
+                        if usage is not None
+                        else []
+                    )
+                    if model_uids:
+                        raise VirtualEnvConflictError(
+                            "Virtual environment cannot be removed while models "
+                            f"are using it: path={path}, "
+                            f"active_model_uids={model_uids}"
+                        )
+
+            # Delete concrete leaves instead of recursively deleting an engine or
+            # model parent, which could remove a newly created, unenumerated child.
+            result = True
+            for path in ordered_paths:
+                for env in target_envs_by_path[path]:
+                    result = (
+                        self._virtual_env_manager.remove_virtual_env(
+                            env["model_name"],
+                            env["model_engine"],
+                            env["python_version"],
+                            active_model_uids_by_path={},
+                        )
+                        and result
+                    )
+            return result
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {
