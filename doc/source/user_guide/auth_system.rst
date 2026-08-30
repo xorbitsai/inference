@@ -131,6 +131,8 @@ Xinference defines the following interface permissions:
 * ``virtualenv:list`` / ``virtualenv:delete``: Permissions to list/delete per-model virtual environments.
 * ``logs:list``: Permission to view cluster logs.
 * ``monitor:view``: Permission to view the monitoring dashboards.
+* ``settings:read``: Permission to view system settings.
+* ``settings:write``: Permission to update and restore system settings.
 * ``admin``: Administrators have all of the above.
 
 A caller may only grant permissions they themselves hold — for example, a
@@ -241,6 +243,9 @@ Everything above is also available from dedicated pages in the web UI:
 * **Security Settings**: view and tune brute-force protection (login/API-key
   failure rate limits) and unban blocked IPs or keys (requires ``admin``).
   See :ref:`user_guide_audit_security` for details.
+* **System Settings**: view model download configuration with
+  ``settings:read``; saving changes or restoring defaults additionally
+  requires ``settings:write``.
 * **Audit Center**: browse recorded API activity (requires ``admin``). See
   :ref:`user_guide_audit_security`.
 

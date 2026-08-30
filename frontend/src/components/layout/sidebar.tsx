@@ -155,6 +155,7 @@ export function Sidebar() {
     canAccessKeysPage,
     hasLogsList,
     hasMonitorView,
+    hasSettingsRead,
     canRegisterModel,
     canAccessRouterPage,
   } = useMenuAuth();
@@ -281,7 +282,7 @@ export function Sidebar() {
             name: t('menu.systemSettings'),
             Icon: Settings2,
             Extra: ChevronRight,
-            show: !clusterUIConfig?.auth_advanced || isAdmin,
+            show: !clusterUIConfig?.auth_advanced || hasSettingsRead,
           },
           {
             path: '/audit-center',
@@ -342,6 +343,7 @@ export function Sidebar() {
     isAdmin,
     hasLogsList,
     hasMonitorView,
+    hasSettingsRead,
     canRegisterModel,
     canAccessRouterPage,
   ]);

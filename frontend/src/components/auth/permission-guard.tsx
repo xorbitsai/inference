@@ -9,6 +9,7 @@ interface PermissionGuardProps {
   scope:
     | 'monitor:view'
     | 'logs:list'
+    | 'settings:read'
     | 'models:register'
     | 'routers:list'
     | 'routers:read'
@@ -58,6 +59,7 @@ export function PermissionGuard({ scope, children }: PermissionGuardProps) {
   const scopeMap: Record<string, boolean> = {
     'monitor:view': auth.hasMonitorView,
     'logs:list': auth.hasLogsList,
+    'settings:read': auth.hasSettingsRead,
     'models:register': auth.canRegisterModel,
     'routers:list': auth.hasRouterList,
     'routers:read': auth.hasRouterRead,
