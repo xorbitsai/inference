@@ -148,6 +148,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         model_name = self._model_spec.model_name.lower().replace("_", "-")
         return model_name.startswith("glm-image")
 
+    def _is_joyai_image_model(self) -> bool:
+        if self._model_spec is None:
+            return False
+        model_name = self._model_spec.model_name.lower().replace("_", "-")
+        return model_name.startswith("joyai-image-edit")
+
+    def _is_joyai_image_edit_plus_model(self) -> bool:
+        if self._model_spec is None:
+            return False
+        model_name = self._model_spec.model_name.lower().replace("_", "-")
+        return model_name == "joyai-image-edit-plus"
+
     @staticmethod
     def _get_pipeline_type(ability: str) -> type:
         if ability == "text2image":
@@ -264,7 +276,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return getattr(module, class_name)
 
     def load(self):
-        if self._is_glm_image_model():
+        if self._is_joyai_image_model():
+            # JoyAI pipelines are image-edit-only and are not registered in
+            # Diffusers' AutoPipelineForText2Image mapping.
+            from diffusers import DiffusionPipeline as AutoPipelineModel
+        elif self._is_glm_image_model():
             from diffusers import GlmImagePipeline as AutoPipelineModel
         elif "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
@@ -995,12 +1011,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 raise RuntimeError(f"{self._model_uid} does not support image2image")
             model = self._get_model(ability)
 
-        # These pipelines consume all reference images through their ``image``
-        # argument. The OpenAI-compatible endpoint exposes the first upload as
-        # ``image`` and the remaining uploads as ``reference_images``.
+        # Multi-reference pipelines consume all uploaded images through one
+        # pipeline argument. The OpenAI-compatible endpoint exposes the first
+        # upload as ``image`` and the rest as ``reference_images``.
+        is_joyai_image_edit_plus = self._is_joyai_image_edit_plus_model()
         if kwargs.get("reference_images") and (
             type(model).__name__ == "QwenImageEditPlusPipeline"
             or self._is_glm_image_model()
+            or is_joyai_image_edit_plus
         ):
             reference_images = kwargs.pop("reference_images")
             primary_images = image if isinstance(image, list) else [image]
@@ -1010,6 +1028,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 else [reference_images]
             )
             image = primary_images + reference_images
+
+        # JoyImageEditPlusPipeline always expects a list, including one image.
+        if is_joyai_image_edit_plus and not isinstance(image, list):
+            image = [image]
 
         # GlmImagePipeline expects a list even for one conditioning image.
         if self._is_glm_image_model() and not isinstance(image, list):
@@ -1038,7 +1060,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             # SD3 image2image cannot accept width and height
             allow_width_height = model_accept_param(["width", "height"], model)
-            if allow_width_height:
+            if allow_width_height and not is_joyai_image_edit_plus:
                 if isinstance(image, list):
                     kwargs["width"], kwargs["height"] = image[0].size
                 else:
@@ -1052,12 +1074,15 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)
 
+        model_input = (
+            {"images": image} if is_joyai_image_edit_plus else {"image": image}
+        )
         return self._call_model(
-            image=image,
             prompt=prompt,
             num_images_per_prompt=n,
             response_format=response_format,
             model=model,
+            **model_input,
             **kwargs,
         )
 
