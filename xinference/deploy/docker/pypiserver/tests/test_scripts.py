@@ -364,6 +364,19 @@ def test_runtime_dockerfiles_keep_dependency_layers_source_independent():
         assert dependency_install < project_sources < project_install
 
 
+def test_runtime_docker_dependency_skeleton_defers_model_spec_validation():
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+
+    dependency_install = dockerfile.index('".[otel]" transformers accelerate')
+    project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+    validation_skip = dockerfile.index("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1")
+
+    assert validation_skip < dependency_install < project_sources
+    assert dockerfile.count("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1") == 1
+
+
 def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     monkeypatch, tmp_path
 ):
