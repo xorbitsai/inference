@@ -129,8 +129,8 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
                         <InfoTooltip
-                          content={<span className="whitespace-nowrap">{item?.real_path}</span>}
-                          contentClassName="max-w-none"
+                          content={item?.real_path}
+                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
                         >
                           <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
                         </InfoTooltip>
@@ -143,8 +143,8 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
                         <InfoTooltip
-                          content={<span className="whitespace-nowrap">{item?.path}</span>}
-                          contentClassName="max-w-none"
+                          content={item?.path}
+                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
                         >
                           <span className="min-w-0 flex-1 truncate">{item?.path}</span>
                         </InfoTooltip>
