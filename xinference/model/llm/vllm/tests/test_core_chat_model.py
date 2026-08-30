@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
+import sys
+import tempfile
+import types
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -73,6 +78,217 @@ class TestVLLMMultiModelChatTemplate:
             )
             == "native-kimi-k3-prompt"
         )
+
+
+class TestVLLMBase64Media:
+    class FakeVideo:
+        shape = (4, 3, 336, 336)
+
+    @pytest.fixture
+    def model(self):
+        from ..core import VLLMMultiModel
+
+        return object.__new__(VLLMMultiModel)
+
+    @pytest.mark.parametrize(
+        ("media_key", "mime_type", "expected_suffix", "expects_file_uri"),
+        [
+            ("image_url", "image/png", ".png", False),
+            ("image_url", "image/jpeg", ".jpg", False),
+            ("video_url", "video/mp4", ".mp4", True),
+            ("video_url", "application/x-xinference-test", ".bin", True),
+        ],
+    )
+    def test_handle_base64_media_uses_mime_suffix(
+        self, model, media_key, mime_type, expected_suffix, expects_file_uri
+    ):
+        media_data = f"{media_key}-{mime_type}".encode()
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": media_key,
+                        media_key: {
+                            "url": f"data:{mime_type};base64,"
+                            + base64.b64encode(media_data).decode()
+                        },
+                    }
+                ],
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model._handle_base64_media(messages, temp_dir)
+
+            materialized_url = messages[0]["content"][0][media_key]["url"]
+            assert materialized_url.startswith("file://") is expects_file_uri
+            media_path = Path(materialized_url.removeprefix("file://"))
+            assert media_path.is_absolute()
+            assert media_path.suffix == expected_suffix
+            assert media_path.read_bytes() == media_data
+
+        assert not media_path.exists()
+
+    def test_handle_base64_media_preserves_non_data_urls(self, model):
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/image.png"},
+                    },
+                    {
+                        "type": "video_url",
+                        "video_url": {"url": "https://example.com/video.mp4"},
+                    },
+                    {
+                        "type": "audio_url",
+                        "audio_url": {"url": "data:audio/wav;base64,YXVkaW8="},
+                    },
+                ],
+            }
+        ]
+        expected = [dict(item) for item in messages[0]["content"]]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model._handle_base64_media(messages, temp_dir)
+            assert list(Path(temp_dir).iterdir()) == []
+
+        assert messages[0]["content"] == expected
+
+    def test_handle_base64_media_accepts_folded_base64(self, model):
+        media_data = b"folded-base64-video"
+        encoded = base64.b64encode(media_data).decode()
+        folded = "\r\n  ".join(
+            encoded[index : index + 4] for index in range(0, len(encoded), 4)
+        )
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "video_url",
+                        "video_url": {"url": f"data:video/mp4;base64,{folded}"},
+                    }
+                ],
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model._handle_base64_media(messages, temp_dir)
+
+            video_uri = messages[0]["content"][0]["video_url"]["url"]
+            video_path = Path(video_uri.removeprefix("file://"))
+            assert video_path.read_bytes() == media_data
+
+    @pytest.mark.parametrize("fps", [0, 0.0, -1.0])
+    def test_attach_video_metadata_rejects_non_positive_fps(self, model, fps):
+        with pytest.raises(ValueError, match="fps must be greater than 0"):
+            model._attach_video_metadata([self.FakeVideo()], [fps])
+
+    @pytest.mark.parametrize(
+        "data_uri",
+        [
+            "data:video/mp4;base64,%%%not-base64%%%",
+            "data:video/mp4,dm lkZW8=",
+            "data:video/mp4;base64,",
+        ],
+    )
+    def test_handle_base64_media_rejects_invalid_data(self, model, data_uri):
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "video_url",
+                        "video_url": {"url": data_uri},
+                    }
+                ],
+            }
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with pytest.raises(ValueError, match="base64 data URI for video_url"):
+                model._handle_base64_media(messages, temp_dir)
+            assert list(Path(temp_dir).iterdir()) == []
+
+    @pytest.mark.asyncio
+    async def test_async_chat_cleans_materialized_video_after_processing(
+        self, model, monkeypatch
+    ):
+        video_data = b"mp4-video-content"
+        data_uri = "data:video/mp4;base64," + base64.b64encode(video_data).decode()
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "video_url",
+                        "video_url": {"url": data_uri},
+                    }
+                ],
+            }
+        ]
+        captured = {}
+
+        qwen_omni_utils = types.ModuleType("qwen_omni_utils")
+
+        def process_vision_info(transformed_messages, *, return_video_kwargs):
+            assert return_video_kwargs is True
+            video_uri = transformed_messages[0]["content"][0]["video"]
+            video_path = Path(video_uri.removeprefix("file://"))
+            assert video_uri.startswith("file://")
+            assert video_path.read_bytes() == video_data
+            captured["video_path"] = video_path
+            return None, [self.FakeVideo()], {"fps": [2.0]}
+
+        qwen_omni_utils.process_vision_info = process_vision_info
+        qwen_omni_utils.process_audio_info = MagicMock()
+        qwen_omni_utils.process_mm_info = MagicMock()
+        monkeypatch.setitem(sys.modules, "qwen_omni_utils", qwen_omni_utils)
+
+        model.model_uid = "test-model"
+        model.model_family = MagicMock()
+        model.model_family.model_family = "qwen2-vl"
+        model.model_family.model_name = "qwen2-vl"
+        model.model_family.model_ability = ["chat", "vision"]
+        model.model_family.chat_template = "chat-template"
+        model.reasoning_parser = None
+        model._get_chat_template_kwargs_from_generate_config = MagicMock(
+            return_value={}
+        )
+
+        async def get_chat_template_and_tokenizer(_model_family):
+            return "chat-template", None
+
+        model._get_chat_template_and_tokenizer = get_chat_template_and_tokenizer
+        model.get_full_context = MagicMock(return_value="prompt")
+        model._sanitize_chat_config = MagicMock(return_value={"stream": False})
+
+        async def async_generate(inputs, *_args, **_kwargs):
+            assert not captured["video_path"].exists()
+            [(video, metadata)] = inputs["multi_modal_data"]["video"]
+            assert isinstance(video, self.FakeVideo)
+            assert metadata == {
+                "total_num_frames": 4,
+                "frames_indices": [0, 1, 2, 3],
+                "fps": 2.0,
+                "duration": 2.0,
+                "height": 336,
+                "width": 336,
+            }
+            return {"completion": "ok"}
+
+        model.async_generate = async_generate
+        model._to_chat_completion = MagicMock(return_value={"result": "ok"})
+
+        result = await model.async_chat(messages, {})
+
+        assert result == {"result": "ok"}
+        assert messages[0]["content"][0]["video_url"]["url"] == data_uri
+        assert not captured["video_path"].exists()
 
 
 class TestVLLMChatModel:
