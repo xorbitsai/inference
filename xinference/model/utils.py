@@ -58,6 +58,8 @@ from ..constants import (
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
+from .oci_utils import SCHEME as OCI_SCHEME
+from .oci_utils import resolve_oci_model
 
 if TYPE_CHECKING:
     from .embedding.core import LlamaCppEmbeddingSpecV1
@@ -1102,6 +1104,39 @@ def is_valid_model_uri(model_uri: Optional[str]) -> bool:
         return True
 
 
+def is_remote_uri(model_uri: str) -> bool:
+    """Whether resolving ``model_uri`` needs the network."""
+    return parse_uri(model_uri)[0] == OCI_SCHEME
+
+
+def resolve_model_uri(model_uri: str, model_name: Optional[str] = None) -> str:
+    """The local directory a ``model_uri`` names, ready to be symlinked at.
+
+    Shared by every cache manager so all model types accept the same schemes.
+    A ``file://`` root is used as is; an ``oci://`` reference is pulled through
+    llmman into its content-addressed store.
+    """
+    src_scheme, src_root = parse_uri(model_uri)
+    if src_root.endswith("/"):
+        # remove trailing path separator.
+        src_root = src_root[:-1]
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
+        if not os.path.exists(src_root):
+            of_model = f" of model {model_name!r}" if model_name else ""
+            raise ValueError(
+                f"Model URI path does not exist: {src_root}. "
+                f"Please check the `model_uri`{of_model}."
+            )
+        return src_root
+    elif src_scheme == OCI_SCHEME:
+        return resolve_oci_model(src_root)
+    else:
+        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+
+
 def cache_from_uri(model_spec: CacheableModelSpec) -> str:
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
@@ -1111,21 +1146,10 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
         return cache_dir
 
     assert model_spec.model_uri is not None
-    src_scheme, src_root = parse_uri(model_spec.model_uri)
-    if src_root.endswith("/"):
-        # remove trailing path separator.
-        src_root = src_root[:-1]
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(
-                f"Model URI cannot be a relative path: {model_spec.model_uri}"
-            )
-        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
-    else:
-        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+    src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
+    os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
+    os.symlink(src_root, cache_dir, target_is_directory=True)
+    return cache_dir
 
 
 def select_device(device):

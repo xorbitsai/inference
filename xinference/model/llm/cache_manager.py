@@ -160,50 +160,41 @@ class LLMCacheManager(CacheManager):
         )
 
     def cache_uri(self) -> str:
-        from ..utils import parse_uri
+        from ..utils import is_remote_uri, resolve_model_uri
 
         cache_dir = self.get_cache_dir()
         assert self._model_uri is not None
-        src_scheme, src_root = parse_uri(self._model_uri)
-        if src_root.endswith("/"):
-            # remove trailing path separator.
-            src_root = src_root[:-1]
 
-        if src_scheme == "file":
-            if not os.path.isabs(src_root):
-                raise ValueError(
-                    f"Model URI cannot be a relative path: {self._model_uri}"
-                )
-            if not os.path.exists(src_root):
-                raise ValueError(
-                    f"Model URI path does not exist: {src_root}. "
-                    f"Please check the `model_uri` of model {self._model_name!r}."
-                )
-            if os.path.islink(cache_dir):
-                # ``os.path.exists`` follows the link, so a *dangling* symlink
-                # (its target was removed) reports ``False`` while the link
-                # entry itself still occupies ``cache_dir`` -- the ``os.symlink``
-                # call below would then raise ``FileExistsError``. Reuse the
-                # link if it already points at ``src_root``; otherwise drop the
-                # stale entry so we can recreate it.
-                if os.path.realpath(cache_dir) == os.path.realpath(src_root):
-                    logger.info(f"Cache {cache_dir} exists")
-                    return cache_dir
-                logger.info(f"Removing stale cache symlink {cache_dir}")
-                os.unlink(cache_dir)
-            elif os.path.exists(cache_dir):
+        if is_remote_uri(self._model_uri) and os.path.exists(cache_dir):
+            # Resolving a remote URI costs a network round trip; skip it.
+            logger.info(f"Cache {cache_dir} exists")
+            return cache_dir
+
+        src_root = resolve_model_uri(self._model_uri, self._model_name)
+
+        if os.path.islink(cache_dir):
+            # ``os.path.exists`` follows the link, so a *dangling* symlink
+            # (its target was removed) reports ``False`` while the link entry
+            # itself still occupies ``cache_dir`` -- the ``os.symlink`` call
+            # below would then raise ``FileExistsError``. Reuse the link if it
+            # already points at ``src_root``; otherwise drop the stale entry so
+            # we can recreate it.
+            if os.path.realpath(cache_dir) == os.path.realpath(src_root):
                 logger.info(f"Cache {cache_dir} exists")
                 return cache_dir
-
-            # The cache prefix directory is only created once per process
-            # (guarded by ``CacheManager.is_initialized``), so it may be
-            # missing here; ensure the parent exists before symlinking to
-            # avoid a cryptic ``FileNotFoundError: src -> dst``.
-            os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
-            os.symlink(src_root, cache_dir, target_is_directory=True)
+            logger.info(f"Removing stale cache symlink {cache_dir}")
+            os.unlink(cache_dir)
+        elif os.path.exists(cache_dir):
+            logger.info(f"Cache {cache_dir} exists")
             return cache_dir
-        else:
-            raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+
+        # The cache prefix directory is only created once per process (guarded
+        # by ``CacheManager.is_initialized``), so it may be missing here; ensure
+        # the parent exists before symlinking to avoid a cryptic
+        # ``FileNotFoundError: src -> dst``.
+        os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
+        os.symlink(src_root, cache_dir, target_is_directory=True)
+        return cache_dir
 
     def cache_from_huggingface(self) -> str:
         """

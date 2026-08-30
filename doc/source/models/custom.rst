@@ -317,6 +317,9 @@ Define a custom model based on the following templates:
 * cache_config: A string representing the parameters and rules for how the system stores and manages temporary data (cache).
 * virtualenv: A settings object for model dependency isolation. Please refer to :ref:`this document <virtualenv>` for details.
 
+.. note::
+   Besides ``file://``, ``model_uri`` accepts ``oci://<registry>/<repository>:<tag>`` for a model published as a `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ artifact in a container registry. Pulling one requires a running `llmman <https://github.com/llmmanorg/llmman>`_ daemon (``llmman serve``) and the ``llmman`` binary on ``PATH``. Set ``LLMMAN_HOST`` to reach a daemon elsewhere, or ``XINFERENCE_LLMMAN_BIN`` to point at a binary outside ``PATH``.
+
 Register a Custom Model
 ~~~~~~~~~~~~~~~~~~~~~~~
 

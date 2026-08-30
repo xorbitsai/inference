@@ -386,6 +386,10 @@ msgid ""
 "to :ref:`this document <virtualenv>` for details."
 msgstr ""
 
+#: ../../source/models/custom.rst:321
+msgid "Besides ``file://``, ``model_uri`` accepts ``oci://<registry>/<repository>:<tag>`` for a model published as a `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ artifact in a container registry. Pulling one requires a running `llmman <https://github.com/llmmanorg/llmman>`_ daemon (``llmman serve``) and the ``llmman`` binary on ``PATH``. Set ``LLMMAN_HOST`` to reach a daemon elsewhere, or ``XINFERENCE_LLMMAN_BIN`` to point at a binary outside ``PATH``."
+msgstr "Oltre a ``file://``, ``model_uri`` accetta ``oci://<registry>/<repository>:<tag>`` per un modello pubblicato come artefatto `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ in un registro di container. Il download richiede un demone `llmman <https://github.com/llmmanorg/llmman>`_ in esecuzione (``llmman serve``) e il binario ``llmman`` in ``PATH``. Impostare ``LLMMAN_HOST`` per raggiungere un demone altrove oppure ``XINFERENCE_LLMMAN_BIN`` per indicare un binario esterno a ``PATH``."
+
 #: ../../source/models/custom.rst:319
 msgid "Register a Custom Model"
 msgstr "Registra un modello personalizzato."
