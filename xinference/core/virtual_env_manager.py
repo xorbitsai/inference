@@ -1140,6 +1140,16 @@ def is_flash_attn_requirement(spec: str) -> bool:
     return canonicalize_name(requirement.name) == "flash-attn"
 
 
+def is_model_find_links_only_requirement(model_name: Optional[str], spec: str) -> bool:
+    """Return whether a model requirement is supplied only via Find Links.
+
+    These requirements are intentionally absent from package indexes.  The
+    runtime installs them from worker-local wheel directories when configured
+    and otherwise uses the model's documented fallback path.
+    """
+    return model_name == "jina-embeddings-v3" and is_flash_attn_requirement(spec)
+
+
 _SUBPROCESS_OUTPUT_LIMIT = 2048
 
 

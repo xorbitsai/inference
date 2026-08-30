@@ -121,7 +121,7 @@ from .virtual_env_manager import (
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
     is_cuda_compatible,
-    is_flash_attn_requirement,
+    is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
     pin_sentence_transformers_numpy_abi,
     resolve_virtualenv_python_path,
@@ -3448,22 +3448,16 @@ class WorkerActor(xo.StatelessActor):
             variables["model_engine"] = engine_value
 
         setup_packages = packages.copy()
-        if model_name == "jina-embeddings-v3":
-            flash_attn_packages = [
-                package
-                for package in setup_packages
-                if is_flash_attn_requirement(package)
-            ]
-            regular_packages = [
-                package
-                for package in setup_packages
-                if not is_flash_attn_requirement(package)
-            ]
-        else:
-            # flash-attn is a normal dependency for all other models. Only Jina
-            # uses the dedicated binary-only Find Links installation below.
-            flash_attn_packages = []
-            regular_packages = setup_packages
+        flash_attn_packages = [
+            package
+            for package in setup_packages
+            if is_model_find_links_only_requirement(model_name, package)
+        ]
+        regular_packages = [
+            package
+            for package in setup_packages
+            if not is_model_find_links_only_requirement(model_name, package)
+        ]
         flash_attn_cuda_available = bool(flash_attn_packages) and (
             cls._is_cuda_device_available()
         )

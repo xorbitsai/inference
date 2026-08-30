@@ -237,6 +237,11 @@ def main() -> None:
     engine_index_strategy: Dict[str, str] = (
         venv_manager.ENGINE_VIRTUALENV_INDEX_STRATEGY
     )
+    is_find_links_only_requirement = getattr(
+        venv_manager,
+        "is_model_find_links_only_requirement",
+        lambda _model_name, _spec: False,
+    )
 
     excluded_engines = {
         e.strip().lower() for e in args.exclude_engines.split(",") if e.strip()
@@ -252,6 +257,7 @@ def main() -> None:
     git_sources: Set[str] = set()
     pins: Dict[str, Set[str]] = {}  # spec -> sources
     excluded_pins: Set[str] = set()
+    find_links_only_pins: Dict[str, Set[str]] = {}
 
     def _add(spec: str, source: str) -> None:
         spec = normalize_mirror_spec(spec)
@@ -320,6 +326,13 @@ def main() -> None:
                 if sysname is not None:
                     spec = sysname
                 source = rel + ":" + model_name + (f" ({cand})" if cand else "")
+                # Worker-local Find Links dependencies do not exist on the
+                # configured package indexes.  The runtime installs them via a
+                # dedicated hook when supplied, so mirroring them here would
+                # make an otherwise valid offline image build fail.
+                if is_find_links_only_requirement(model_name, spec):
+                    find_links_only_pins.setdefault(spec, set()).add(source)
+                    continue
                 _add(spec, source)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
@@ -340,12 +353,17 @@ def main() -> None:
         "cuda_version": args.cuda_version,
         "excluded_engines": sorted(excluded_engines),
         "excluded_pins": sorted(excluded_pins),
+        "find_links_only_pins": [
+            {"spec": spec, "sources": sorted(sources)}
+            for spec, sources in sorted(find_links_only_pins.items())
+        ],
         "engines": engines_meta,
         "counts": {
             "engines": len(engines_meta),
             "pins": len(pins),
             "urls": len(urls),
             "git": len(git_sources),
+            "find_links_only": len(find_links_only_pins),
         },
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
