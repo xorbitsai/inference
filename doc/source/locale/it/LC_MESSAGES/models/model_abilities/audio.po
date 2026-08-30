@@ -873,6 +873,46 @@ msgstr ""
 msgid "When launching with Python client:"
 msgstr "Usando il client Python all'avvio:"
 
+#: ../../source/models/model_abilities/audio.rst:370
+msgid "ACE-Step1.5 Usage"
+msgstr "Utilizzo di ACE-Step1.5"
+
+#: ../../source/models/model_abilities/audio.rst:373
+msgid "The built-in registration uses the PyTorch engine and requires Python 3.11 or 3.12. It downloads the complete ACE-Step 1.5 checkpoint bundle from `Hugging Face <https://huggingface.co/ACE-Step/Ace-Step1.5>`_ or `ModelScope <https://modelscope.cn/models/ACE-Step/Ace-Step1.5>`_. The bundle contains the default ``acestep-v15-turbo`` DiT, ``vae``, ``Qwen3-Embedding-0.6B``, and ``acestep-5Hz-lm-1.7B``. Xinference uses the official `ACE-Step 1.5 Python API <https://github.com/ace-step/ACE-Step-1.5>`_ in a per-model virtual environment. ACE-Step is available under the `MIT license <https://github.com/ace-step/ACE-Step-1.5/blob/main/LICENSE>`_."
+msgstr "La registrazione integrata utilizza il motore PyTorch e richiede Python 3.11 o 3.12. Scarica il pacchetto completo dei checkpoint ACE-Step 1.5 da `Hugging Face <https://huggingface.co/ACE-Step/Ace-Step1.5>`_ o `ModelScope <https://modelscope.cn/models/ACE-Step/Ace-Step1.5>`_. Il pacchetto contiene il DiT predefinito ``acestep-v15-turbo``, ``vae``, ``Qwen3-Embedding-0.6B`` e ``acestep-5Hz-lm-1.7B``. Xinference utilizza l’`API Python ufficiale di ACE-Step 1.5 <https://github.com/ace-step/ACE-Step-1.5>`_ in un ambiente virtuale dedicato per ogni modello. ACE-Step è disponibile con `licenza MIT <https://github.com/ace-step/ACE-Step-1.5/blob/main/LICENSE>`_."
+
+#: ../../source/models/model_abilities/audio.rst:383
+msgid "This integration supports the bundled DiT, LM, and VAE checkpoints. Standalone checkpoint combinations cannot currently be selected through ``config_path`` or ``lm_model_path``. ACE-Step supports CUDA, ROCm, Apple Silicon, Intel XPU, and CPU; accelerator availability and performance depend on the system PyTorch build."
+msgstr "Questa integrazione supporta i checkpoint DiT, LM e VAE inclusi nel pacchetto. Attualmente non è possibile selezionare combinazioni di checkpoint autonome tramite ``config_path`` o ``lm_model_path``. ACE-Step supporta CUDA, ROCm, Apple Silicon, Intel XPU e CPU; la disponibilità e le prestazioni degli acceleratori dipendono dalla versione di PyTorch installata nel sistema."
+
+#: ../../source/models/model_abilities/audio.rst:389
+msgid "``ACE-Step1.5`` reuses the Speech endpoint for text-to-music generation. Put lyrics in ``input`` and the required music description in ``instruct`` inside the existing ``kwargs`` field. Use ``[Instrumental]`` as the lyrics when generating an instrumental track."
+msgstr "``ACE-Step1.5`` riutilizza l’endpoint Speech per generare musica dal testo. Inserire il testo della canzone in ``input`` e la descrizione musicale richiesta in ``instruct`` all’interno del campo ``kwargs`` esistente. Usare ``[Instrumental]`` come testo quando si genera una traccia strumentale."
+
+#: ../../source/models/model_abilities/audio.rst:394
+msgid "``duration`` defaults to 60 seconds. It accepts ``-1`` for model-selected duration or a value from 10 through 600 seconds. ``seed=-1`` selects a random seed; non-negative integers provide reproducible generation. Supported output formats are ``aac``, ``flac``, ``mp3``, ``opus``, ``wav``, and ``wav32``. Generation is non-streaming, ``speed`` must be ``1.0``, and ``voice`` must be ``default``, an empty string, or null."
+msgstr "Il valore predefinito di ``duration`` è 60 secondi. Accetta ``-1`` per lasciare al modello la scelta della durata oppure un valore compreso tra 10 e 600 secondi. ``seed=-1`` seleziona un seed casuale; gli interi non negativi consentono una generazione riproducibile. I formati di output supportati sono ``aac``, ``flac``, ``mp3``, ``opus``, ``wav`` e ``wav32``. La generazione non è in streaming, ``speed`` deve essere ``1.0`` e ``voice`` deve essere ``default``, una stringa vuota o null."
+
+#: ../../source/models/model_abilities/audio.rst:401
+msgid "Launch the default DiT-only configuration, where ``thinking`` is false::"
+msgstr "Avviare la configurazione predefinita con il solo DiT, in cui ``thinking`` è false::"
+
+#: ../../source/models/model_abilities/audio.rst:405
+msgid "To enable LM planning, metadata completion, and audio-code reasoning, load the bundled 1.7B LM::"
+msgstr "Per abilitare la pianificazione del LM, il completamento dei metadati e il ragionamento sui codici audio, caricare il LM 1.7B incluso::"
+
+#: ../../source/models/model_abilities/audio.rst:411
+msgid "This enables ``thinking=true`` and the related ``use_cot_*`` options. The LM uses its PyTorch backend by default. ``offload_to_cpu``, ``offload_dit_to_cpu``, ``quantization``, and ``compile_model`` can be supplied as launch options for supported hardware. ``lm_backend`` accepts ``pt``, ``vllm``, or ``mlx``; ``vllm`` requires CUDA for native execution, while ``mlx`` targets Apple Silicon. Other ACE-Step controls, including ``bpm``, ``keyscale``, ``timesignature``, ``inference_steps``, ``guidance_scale``, ``shift``, ``infer_method``, and ``timesteps``, can be supplied through the same ``kwargs`` channel."
+msgstr "In questo modo vengono abilitati ``thinking=true`` e le relative opzioni ``use_cot_*``. Il LM utilizza per impostazione predefinita il backend PyTorch. ``offload_to_cpu``, ``offload_dit_to_cpu``, ``quantization`` e ``compile_model`` possono essere forniti come opzioni di avvio sull’hardware supportato. ``lm_backend`` accetta ``pt``, ``vllm`` o ``mlx``; ``vllm`` richiede CUDA per l’esecuzione nativa, mentre ``mlx`` è destinato ad Apple Silicon. Gli altri controlli ACE-Step, tra cui ``bpm``, ``keyscale``, ``timesignature``, ``inference_steps``, ``guidance_scale``, ``shift``, ``infer_method`` e ``timesteps``, possono essere forniti attraverso lo stesso canale ``kwargs``."
+
+#: ../../source/models/model_abilities/audio.rst:421
+msgid "When the LM is loaded, ``thinking=false`` disables audio-code reasoning by default. An explicitly enabled ``use_cot_caption``, ``use_cot_language``, or ``use_cot_metas`` still uses the LM for that planning step. MP3, AAC, and Opus output require a working FFmpeg installation."
+msgstr "Quando il LM è caricato, ``thinking=false`` disabilita per impostazione predefinita il ragionamento sui codici audio. Se ``use_cot_caption``, ``use_cot_language`` o ``use_cot_metas`` viene abilitato esplicitamente, quel passaggio di pianificazione utilizza comunque il LM. L’output MP3, AAC e Opus richiede un’installazione funzionante di FFmpeg."
+
+#: ../../source/models/model_abilities/audio.rst:426
+msgid "Raw REST requests encode ``kwargs`` as a JSON string. The Xinference sync and async clients accept these names through their existing ``**kwargs`` argument."
+msgstr "Le richieste REST non elaborate codificano ``kwargs`` come stringa JSON. I client Xinference sincroni e asincroni accettano questi nomi tramite l’argomento ``**kwargs`` esistente."
+
 #~ msgid "**random sampling**"
 #~ msgstr ""
 
