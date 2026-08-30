@@ -307,6 +307,17 @@ class _IncrementalToolParser:
         return (None, "get_weather", {"city": "Beijing"}, 0)
 
 
+class _InterleavedIncrementalToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        events = {
+            "call0-start": (None, "get_weather", None, 0),
+            "call1-start": (None, "get_time", None, 1),
+            "call0-complete": (None, "get_weather", {"city": "Beijing"}, 0),
+            "call1-complete": (None, "get_time", {"timezone": "UTC+8"}, 1),
+        }
+        return events[delta_text]
+
+
 def test_post_process_completion_chunk_supports_multiple_tool_calls():
     mixin = ChatModelMixin()
     mixin.tool_parser = _MultiToolParser()
@@ -329,10 +340,12 @@ def test_post_process_completion_chunk_supports_multiple_tool_calls():
     choice = result["choices"][0]
     assert choice["finish_reason"] == "tool_calls"
     assert choice["delta"]["content"] == " tail"
-    assert [call["index"] for call in choice["delta"]["tool_calls"]] == [0, 1]
+    tool_calls = choice["delta"]["tool_calls"]
+    assert [call["index"] for call in tool_calls] == [0, 1]
+    assert all(call["id"].startswith("call_") for call in tool_calls)
+    assert all(call["type"] == "function" for call in tool_calls)
     assert [
-        (call["function"]["name"], call["function"]["arguments"])
-        for call in choice["delta"]["tool_calls"]
+        (call["function"]["name"], call["function"]["arguments"]) for call in tool_calls
     ] == [
         ("get_weather", '{"city": "Beijing"}'),
         ("get_time", '{"timezone": "UTC+8"}'),
@@ -408,7 +421,7 @@ def test_post_process_completion_chunk_preserves_absolute_tool_call_index():
     assert final["choices"][0]["finish_reason"] == "tool_calls"
 
 
-def test_post_process_completion_chunk_reuses_incremental_tool_call_id():
+def test_post_process_completion_chunk_emits_incremental_metadata_once():
     mixin = ChatModelMixin()
     mixin.tool_parser = _IncrementalToolParser()
     previous_texts = [""]
@@ -445,9 +458,66 @@ def test_post_process_completion_chunk_reuses_incremental_tool_call_id():
     assert complete is not None
     first_call = first["choices"][0]["delta"]["tool_calls"][0]
     complete_call = complete["choices"][0]["delta"]["tool_calls"][0]
-    assert first_call["id"] == complete_call["id"]
+    assert first_call["id"] == tool_call_state["call_ids"][0]
+    assert first_call["type"] == "function"
     assert first_call["function"] == {"name": "get_weather", "arguments": ""}
+    assert "id" not in complete_call
+    assert "type" not in complete_call
     assert complete_call["function"] == {"arguments": '{"city": "Beijing"}'}
+    assert tool_call_state["sent_metadata"] == {0}
+
+
+def test_post_process_completion_chunk_tracks_metadata_per_tool_call_index():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _InterleavedIncrementalToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    def process(delta_text):
+        result = mixin._post_process_completion_chunk(
+            "test-family",
+            "test-model",
+            {
+                "choices": [
+                    {
+                        "delta": {"content": delta_text},
+                        "finish_reason": None,
+                        "logprobs": None,
+                    }
+                ]
+            },
+            previous_texts=previous_texts,
+            tool_call_state=tool_call_state,
+        )
+        assert result is not None
+        return result["choices"][0]["delta"]["tool_calls"][0]
+
+    first_call0 = process("call0-start")
+    first_call1 = process("call1-start")
+    complete_call0 = process("call0-complete")
+    complete_call1 = process("call1-complete")
+
+    assert first_call0["index"] == 0
+    assert first_call1["index"] == 1
+    assert first_call0["id"] != first_call1["id"]
+    assert first_call0["type"] == first_call1["type"] == "function"
+    assert first_call0["function"] == {"name": "get_weather", "arguments": ""}
+    assert first_call1["function"] == {"name": "get_time", "arguments": ""}
+
+    assert complete_call0 == {
+        "index": 0,
+        "function": {"arguments": '{"city": "Beijing"}'},
+    }
+    assert complete_call1 == {
+        "index": 1,
+        "function": {"arguments": '{"timezone": "UTC+8"}'},
+    }
+    assert tool_call_state["call_ids"] == {
+        0: first_call0["id"],
+        1: first_call1["id"],
+    }
+    assert tool_call_state["sent_names"] == {0, 1}
+    assert tool_call_state["sent_metadata"] == {0, 1}
 
 
 def test_post_process_completion_chunk_preserves_length_finish_reason():

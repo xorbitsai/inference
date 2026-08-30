@@ -55,6 +55,7 @@ from ...types import (
     CompletionChunk,
     CompletionLogprobs,
     CompletionUsage,
+    ToolCallDelta,
 )
 from .core import chat_context_var
 from .reasoning_parser import ReasoningParser
@@ -604,7 +605,9 @@ class ChatModelMixin:
                 if reasoning_parser and reasoning_parser.check_content_parser():
                     delta["reasoning_content"] = None
             elif "tool_calls" in choice:
-                delta["tool_calls"] = choice["tool_calls"]
+                # CompletionChoice keeps its non-streaming public type for
+                # compatibility, while engine-provided chunks contain deltas.
+                delta["tool_calls"] = cast(List[ToolCallDelta], choice["tool_calls"])
             choices_list.append(
                 {
                     "index": i,
@@ -976,6 +979,7 @@ class ChatModelMixin:
                     continue
                 call_id = f"call_{str(uuid.uuid4())}"
                 function_name: Optional[str] = func
+                include_metadata = True
                 if tool_call_state is not None:
                     call_ids = tool_call_state.setdefault("call_ids", {})
                     call_id = call_ids.setdefault(tool_call_index, call_id)
@@ -984,6 +988,10 @@ class ChatModelMixin:
                         function_name = None
                     else:
                         sent_names.add(tool_call_index)
+                    sent_metadata = tool_call_state.setdefault("sent_metadata", set())
+                    include_metadata = tool_call_index not in sent_metadata
+                    if include_metadata:
+                        sent_metadata.add(tool_call_index)
 
                 function_delta: Dict[str, Any] = {
                     "arguments": (
@@ -992,14 +1000,14 @@ class ChatModelMixin:
                 }
                 if function_name is not None:
                     function_delta["name"] = function_name
-                tool_calls.append(
-                    {
-                        "index": tool_call_index,
-                        "id": call_id,
-                        "type": "function",
-                        "function": function_delta,
-                    }
-                )
+                tool_call_delta: Dict[str, Any] = {
+                    "index": tool_call_index,
+                    "function": function_delta,
+                }
+                if include_metadata:
+                    tool_call_delta["id"] = call_id
+                    tool_call_delta["type"] = "function"
+                tool_calls.append(tool_call_delta)
             elif parsed_content:
                 failed_contents.append(parsed_content)
 
