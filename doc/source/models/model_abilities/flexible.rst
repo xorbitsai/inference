@@ -8,7 +8,6 @@ Learn how to inference traditional machine learning models with Xinference.
 These flexibly extensible models are referred to as **Flexible Models** within Xinference.
 
 .. versionadded:: v1.7.1
-  This ability is public since v1.7.1, now the API is not stable and may change during evolving.
 
 
 Introduction

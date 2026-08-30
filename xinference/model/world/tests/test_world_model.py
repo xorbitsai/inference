@@ -192,6 +192,67 @@ def test_worldplay_inherits_compatible_host_torch_stack(monkeypatch):
     assert not any(package.startswith("torchaudio") for package in processed)
 
 
+def test_worldplay_accepts_compatible_host_torch_stack(monkeypatch):
+    host_versions = {"torch": "2.9.0+cu130", "torchvision": "0.24.0+cu130"}
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version",
+        lambda package: host_versions[package],
+    )
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.requires",
+        lambda package: ["torch==2.9.0"] if package == "torchvision" else [],
+    )
+
+    assert PyTorchHYWorldPlayModel.check_host() is True
+
+
+@pytest.mark.parametrize(
+    ("host_versions", "torchvision_requirements", "expected_reason"),
+    [
+        (
+            {"torch": "2.5.1", "torchvision": "0.20.1"},
+            ["torch==2.5.1"],
+            "requires host torch>=2.6.0",
+        ),
+        (
+            {"torch": "2.9.0"},
+            ["torch==2.9.0"],
+            "requires host torchvision",
+        ),
+        (
+            {"torch": "2.9.0", "torchvision": "0.20.1"},
+            ["torch==2.5.1"],
+            "requires a compatible host torch/torchvision pair",
+        ),
+    ],
+)
+def test_worldplay_rejects_incompatible_host_torch_stack(
+    monkeypatch, host_versions, torchvision_requirements, expected_reason
+):
+    from importlib import metadata
+
+    def get_host_version(package):
+        try:
+            return host_versions[package]
+        except KeyError:
+            raise metadata.PackageNotFoundError(package)
+
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version", get_host_version
+    )
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.requires",
+        lambda package: torchvision_requirements,
+    )
+
+    compatible, reason = PyTorchHYWorldPlayModel.check_host()
+
+    assert compatible is False
+    assert expected_reason in reason
+
+
 def test_world_model_is_serializable_for_actor_subprocess():
     import cloudpickle
 
