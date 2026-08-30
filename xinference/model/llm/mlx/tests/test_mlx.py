@@ -572,11 +572,16 @@ async def test_mlx_streaming_parses_multiple_qwen_tool_calls():
             )["query"]
             for index in sorted(calls_by_index)
         ] == ["Dario Amodei recent news", "Dario Amodei gossip"]
+        first_calls = {index: calls[0] for index, calls in calls_by_index.items()}
         assert all(
-            len({call["id"] for call in calls}) == 1
+            sum("id" in call for call in calls) == 1
+            and sum("type" in call for call in calls) == 1
+            and "id" in calls[0]
+            and calls[0]["type"] == "function"
+            and all("id" not in call and "type" not in call for call in calls[1:])
             for calls in calls_by_index.values()
         )
-        assert calls_by_index[0][0]["id"] != calls_by_index[1][0]["id"]
+        assert first_calls[0]["id"] != first_calls[1]["id"]
         assert results[-1]["choices"][0]["finish_reason"] == "tool_calls"
         assert (
             "".join(
