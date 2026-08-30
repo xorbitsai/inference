@@ -26,6 +26,7 @@ from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
 from .navidc_ocr import NaviDCOCRModel
+from .ovisocr2 import OvisOCR2Model
 from .paddleocr_vl import PaddleOCRVLModel
 
 logger = logging.getLogger(__name__)
@@ -430,6 +431,77 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         )
         texts = _extract_text(outputs)
         return texts[0] if texts else ""
+
+
+class VLLMOvisOCR2Model(OvisOCR2Model):
+    required_libs = ("vllm",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tokenizer = None
+
+    def load(self):
+        vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
+        self._model = _load_vllm_model(self._model_path, vllm_kwargs)
+        self._tokenizer = self._model.get_tokenizer()
+
+    def stop(self):
+        _shutdown_vllm_model(self._model)
+        self._model = None
+        self._tokenizer = None
+
+    def _build_prompt(self, prompt: str) -> str:
+        tokenizer = self._tokenizer
+        assert tokenizer is not None
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+
+    def ocr(
+        self,
+        image: PIL.Image.Image,
+        prompt: Optional[str] = None,
+        filter_imgtags: bool = True,
+        **kwargs,
+    ) -> str:
+        if self._model is None or self._tokenizer is None:
+            self.load()
+        assert self._model is not None
+
+        if not isinstance(image, PIL.Image.Image):
+            raise ValueError("Input must be a PIL Image")
+        image = image.convert("RGB")
+        text = self._build_prompt(prompt or self.DEFAULT_PROMPT)
+        inputs = [
+            {
+                "prompt": text,
+                "multi_modal_data": {"image": image},
+                "mm_processor_kwargs": {
+                    "images_kwargs": {
+                        "min_pixels": 448 * 448,
+                        "max_pixels": 2880 * 2880,
+                    }
+                },
+            }
+        ]
+
+        kwargs.setdefault("max_new_tokens", 16384)
+        sampling_params = _build_sampling_params(kwargs)
+        outputs = self._model.generate(inputs, sampling_params)
+        texts = _extract_text(outputs)
+        return self._postprocess_output(texts[0], filter_imgtags) if texts else ""
 
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):

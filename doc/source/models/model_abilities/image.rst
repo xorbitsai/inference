@@ -468,6 +468,29 @@ We can try OCR API out either via cURL, or Xinference's python client:
 
     <OCR result string>
 
+OvisOCR2 Usage
+~~~~~~~~~~~~~~
+
+:ref:`OvisOCR2 <models_builtin_ovisocr2>` is exposed through the image OCR API.
+Use the ``/v1/images/ocr`` endpoint above or Xinference's Python client instead
+of the OpenAI-compatible Chat Completions API:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    with open("document.jpg", "rb") as f:
+        markdown = model.ocr(f.read())
+
+OvisOCR2 uses deterministic decoding and allows up to 16384 new tokens by
+default. Its vLLM adapter also applies the recommended image pixel bounds.
+Visual-region ``<img src="images/bbox_*.jpg" />`` placeholders are removed
+because the OCR API does not create the referenced crops, and known repeated
+tails are cleaned. Pass ``filter_imgtags=False`` to ``model.ocr`` to retain the
+raw placeholders.
+
 PDF uploads are rasterized page by page (requires ``pypdfium2``, included in the
 ``image`` extra), OCR runs on each page, and the results are merged:
 

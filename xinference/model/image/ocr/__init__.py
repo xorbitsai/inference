@@ -19,6 +19,7 @@ from .hunyuan_ocr import HunyuanOCRModel
 from .mlx import MLXDeepSeekOCRModel
 from .navidc_ocr import NaviDCOCRModel
 from .ocr_family import SUPPORTED_ENGINES
+from .ovisocr2 import OvisOCR2Model
 from .paddleocr_vl import PaddleOCRVLModel
 from .unlimited_ocr import UnlimitedOCRModel
 from .vllm import (
@@ -26,6 +27,7 @@ from .vllm import (
     VLLMGotOCR2Model,
     VLLMHunyuanOCRModel,
     VLLMNaviDCOCRModel,
+    VLLMOvisOCR2Model,
     VLLMPaddleOCRVLModel,
 )
 
@@ -35,6 +37,7 @@ __all__ = [
     "GotOCR2Model",
     "HunyuanOCRModel",
     "NaviDCOCRModel",
+    "OvisOCR2Model",
     "PaddleOCRVLModel",
     "UnlimitedOCRModel",
 ]
@@ -46,6 +49,7 @@ def register_builtin_ocr_engines() -> None:
         GotOCR2Model,
         HunyuanOCRModel,
         NaviDCOCRModel,
+        OvisOCR2Model,
         PaddleOCRVLModel,
         UnlimitedOCRModel,
     ]
@@ -53,6 +57,7 @@ def register_builtin_ocr_engines() -> None:
         VLLMDeepSeekOCRModel,
         VLLMHunyuanOCRModel,
         VLLMNaviDCOCRModel,
+        VLLMOvisOCR2Model,
     ]
     SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]
     # DeepDoc runs on onnxruntime via its own engine name
