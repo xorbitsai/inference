@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogTrigger,
@@ -127,7 +128,12 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                     <TableCell>{item.quantization || '-'}</TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
+                        <InfoTooltip
+                          content={<span className="whitespace-nowrap">{item?.real_path}</span>}
+                          contentClassName="max-w-none"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
+                        </InfoTooltip>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
                           onClick={() => copyToClipboard(item?.real_path)}
@@ -136,7 +142,12 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                     </TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">{item?.path}</span>
+                        <InfoTooltip
+                          content={<span className="whitespace-nowrap">{item?.path}</span>}
+                          contentClassName="max-w-none"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{item?.path}</span>
+                        </InfoTooltip>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
                           onClick={() => copyToClipboard(item?.path)}
