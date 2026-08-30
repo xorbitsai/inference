@@ -1074,15 +1074,16 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)
 
-        model_input = (
-            {"images": image} if is_joyai_image_edit_plus else {"image": image}
-        )
+        if is_joyai_image_edit_plus:
+            kwargs["images"] = image
+            image = None
+
         return self._call_model(
+            image=image,
             prompt=prompt,
             num_images_per_prompt=n,
             response_format=response_format,
             model=model,
-            **model_input,
             **kwargs,
         )
 
