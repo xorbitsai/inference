@@ -14,6 +14,7 @@
 
 import asyncio
 import errno
+import hashlib
 import json
 import logging
 import os
@@ -33,6 +34,7 @@ from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     List,
     Literal,
@@ -114,6 +116,7 @@ from .utils import (
     purge_dir,
     rewrite_direct_url_packages_for_index,
 )
+from .virtual_env_manager import VirtualEnvConflictError
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     ensure_system_torch_pin,
@@ -145,20 +148,43 @@ logger = getLogger(__name__)
 # venv with the same package set, only the first one runs the full setup;
 # subsequent replicas skip it to avoid downgrade/upgrade churn that can
 # corrupt .so files while child subprocesses are importing torch/vllm.
-_venv_setup_done: Dict[str, int] = {}
+_venv_setup_done: Dict[str, str] = {}
 
 
-def _freeze(value):
-    """Recursively convert lists/dicts to hashable tuples for fingerprinting.
-
-    ``conf`` values such as ``extra_index_url`` and ``trusted_host`` are
-    ``List[str]``, which cannot be hashed directly.
-    """
+def _normalize_fingerprint_value(value: Any) -> Any:
     if isinstance(value, dict):
-        return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
-    if isinstance(value, list):
-        return tuple(_freeze(v) for v in value)
+        return {
+            str(key): _normalize_fingerprint_value(item) for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_normalize_fingerprint_value(item) for item in value]
+    if isinstance(value, set):
+        return sorted(_normalize_fingerprint_value(item) for item in value)
+    if isinstance(value, os.PathLike):
+        return os.fspath(value)
     return value
+
+
+def _fingerprint_payload(
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]],
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
+) -> Dict[str, Any]:
+    return {
+        "environment_format_version": 4,
+        "model_name": model_name,
+        "model_engine": model_engine.lower() if model_engine else None,
+        "python_version": python_version,
+        "packages": sorted(packages),
+        "conf": _normalize_fingerprint_value(conf),
+        "variables": _normalize_fingerprint_value(variables),
+        "architectures": sorted(architectures or []),
+    }
 
 
 def _make_fingerprint(
@@ -166,20 +192,44 @@ def _make_fingerprint(
     conf: dict,
     variables: dict,
     architectures: Optional[List[str]],
-) -> int:
-    """Return a hash fingerprint of every setup input that affects the result.
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
+) -> str:
+    """Return a stable SHA256 fingerprint of all environment setup inputs.
 
-    Includes the canonical package list, install configuration (conf),
-    template variables, and target architectures so a change to any of
-    them produces a different fingerprint and triggers a re-setup.
+    Includes the environment identity, canonical package list, install
+    configuration, template variables, and target architectures so a change
+    to any of them produces a different fingerprint and triggers a re-setup.
     """
-    key = (
-        tuple(sorted(packages)),
-        _freeze(conf),
-        _freeze(variables),
-        tuple(sorted(architectures) if architectures else ()),
+    payload = _fingerprint_payload(
+        packages,
+        conf,
+        variables,
+        architectures,
+        model_name=model_name,
+        model_engine=model_engine,
+        python_version=python_version,
     )
-    return hash(key)
+    serialized = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _read_venv_setup_marker(venv_path: str) -> Optional[Dict[str, Any]]:
+    marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    try:
+        with open(marker_path, encoding="utf-8") as marker_file:
+            marker = json.load(marker_file)
+    except (OSError, ValueError, TypeError):
+        return None
+    return marker if isinstance(marker, dict) else None
 
 
 def _should_skip_venv_setup(
@@ -188,23 +238,30 @@ def _should_skip_venv_setup(
     conf: dict,
     variables: dict,
     architectures: Optional[List[str]] = None,
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
 ) -> bool:
     """Return True if the venv was already set up with the given inputs.
 
-    Checks three conditions:
-    1. The path is in the process-local done dict.
-    2. The stored fingerprint matches the current inputs (packages, conf,
-       variables, and architectures).
-    3. The on-disk marker file exists (guards against external venv deletion
-       via ``remove_virtual_env`` during the same process lifetime).
+    The JSON marker is authoritative so a restarted Worker can safely reuse a
+    fully prepared environment. The process-local map is only a fast cache.
     """
-    marker_path = os.path.join(venv_path, ".xinference_setup_done")
-    fp = _make_fingerprint(packages, conf, variables, architectures)
-    return (
-        venv_path in _venv_setup_done
-        and _venv_setup_done[venv_path] == fp
-        and os.path.exists(marker_path)
+    fp = _make_fingerprint(
+        packages,
+        conf,
+        variables,
+        architectures,
+        model_name=model_name,
+        model_engine=model_engine,
+        python_version=python_version,
     )
+    marker = _read_venv_setup_marker(venv_path)
+    if marker is None or marker.get("fingerprint") != fp:
+        return False
+    _venv_setup_done[venv_path] = fp
+    return True
 
 
 def _mark_venv_setup_done(
@@ -213,20 +270,63 @@ def _mark_venv_setup_done(
     conf: dict,
     variables: dict,
     architectures: Optional[List[str]] = None,
+    *,
+    model_name: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    python_version: Optional[str] = None,
 ) -> None:
     """Record that *venv_path* has been set up with the given inputs."""
-    fp = _make_fingerprint(packages, conf, variables, architectures)
+    fp = _make_fingerprint(
+        packages,
+        conf,
+        variables,
+        architectures,
+        model_name=model_name,
+        model_engine=model_engine,
+        python_version=python_version,
+    )
     _venv_setup_done[venv_path] = fp
     marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    marker_tmp_path = f"{marker_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+    marker = {
+        "schema_version": 1,
+        "fingerprint": fp,
+        "model_name": model_name,
+        "model_engine": model_engine.lower() if model_engine else None,
+        "python_version": python_version,
+        "setup_inputs": _fingerprint_payload(
+            packages,
+            conf,
+            variables,
+            architectures,
+            model_name=model_name,
+            model_engine=model_engine,
+            python_version=python_version,
+        ),
+        "updated_at": int(time.time()),
+    }
     try:
-        with open(marker_path, "w") as f:
-            f.write(str(fp))
+        with open(marker_tmp_path, "w", encoding="utf-8") as marker_file:
+            json.dump(marker, marker_file, sort_keys=True, ensure_ascii=False)
+        os.replace(marker_tmp_path, marker_path)
     except OSError:
         logger.debug(
             "Failed to write .xinference_setup_done marker to %s",
             venv_path,
             exc_info=True,
         )
+        try:
+            os.unlink(marker_tmp_path)
+        except OSError:
+            pass
+
+
+@dataclass
+class VirtualEnvUsage:
+    env_path: str
+    fingerprint: str
+    active_model_uids: Set[str] = field(default_factory=set)
+    preparing_model_uids: Set[str] = field(default_factory=set)
 
 
 # Per-venv process-local locks so the check-and-setup sequence in
@@ -783,6 +883,9 @@ class WorkerActor(xo.StatelessActor):
 
         # Initialize virtual environment manager
         self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
+        self._virtual_env_usages: Dict[str, VirtualEnvUsage] = {}
+        self._model_uid_to_virtual_env_path: Dict[str, str] = {}
+        self._virtual_env_usage_lock = threading.Lock()
 
         self._lock = asyncio.Lock()
         self._persist_lock = asyncio.Lock()
@@ -3146,6 +3249,88 @@ class WorkerActor(xo.StatelessActor):
         resolved_model_format = getattr(model_spec, "model_format", None)
         return resolved_model_format or requested_model_format
 
+    def _reserve_virtual_env_usage(
+        self,
+        env_path: str,
+        fingerprint: str,
+        model_uid: str,
+        setup_required: bool = False,
+    ) -> None:
+        real_path = os.path.realpath(os.path.normpath(env_path))
+        with self._virtual_env_usage_lock:
+            existing_path = self._model_uid_to_virtual_env_path.get(model_uid)
+            if existing_path is not None and existing_path != real_path:
+                raise VirtualEnvConflictError(
+                    f"Model {model_uid} is already associated with virtual "
+                    f"environment {existing_path}, cannot also use {real_path}"
+                )
+
+            usage = self._virtual_env_usages.get(real_path)
+            users = (
+                sorted(usage.active_model_uids | usage.preparing_model_uids)
+                if usage is not None
+                else []
+            )
+            if usage is not None and usage.fingerprint != fingerprint:
+                if users:
+                    raise VirtualEnvConflictError(
+                        "Virtual environment is in use with a different setup "
+                        f"fingerprint: path={real_path}, active_model_uids={users}, "
+                        f"current_fingerprint={usage.fingerprint}, "
+                        f"requested_fingerprint={fingerprint}. Unload all models "
+                        "using this environment before changing dependencies."
+                    )
+                usage.fingerprint = fingerprint
+            elif usage is not None and users and setup_required:
+                raise VirtualEnvConflictError(
+                    "Virtual environment setup marker does not match while the "
+                    "environment is in use; refusing to mutate an active "
+                    f"environment: path={real_path}, active_model_uids={users}"
+                )
+            elif usage is None:
+                usage = VirtualEnvUsage(
+                    env_path=real_path,
+                    fingerprint=fingerprint,
+                )
+                self._virtual_env_usages[real_path] = usage
+
+            usage.preparing_model_uids.add(model_uid)
+            self._model_uid_to_virtual_env_path[model_uid] = real_path
+
+    def _activate_virtual_env_usage(
+        self, env_path: str, fingerprint: str, model_uid: str
+    ) -> None:
+        real_path = os.path.realpath(os.path.normpath(env_path))
+        with self._virtual_env_usage_lock:
+            usage = self._virtual_env_usages.get(real_path)
+            if usage is None or usage.fingerprint != fingerprint:
+                raise VirtualEnvConflictError(
+                    "Virtual environment usage reservation disappeared or changed "
+                    f"during setup: path={real_path}, model_uid={model_uid}"
+                )
+            usage.preparing_model_uids.discard(model_uid)
+            usage.active_model_uids.add(model_uid)
+
+    def _release_virtual_env_usage(
+        self, model_uid: str, env_path: Optional[str] = None
+    ) -> None:
+        with self._virtual_env_usage_lock:
+            real_path = (
+                os.path.realpath(os.path.normpath(env_path))
+                if env_path is not None
+                else self._model_uid_to_virtual_env_path.get(model_uid)
+            )
+            if real_path is None:
+                return
+            usage = self._virtual_env_usages.get(real_path)
+            if usage is not None:
+                usage.preparing_model_uids.discard(model_uid)
+                usage.active_model_uids.discard(model_uid)
+                if not usage.preparing_model_uids and not usage.active_model_uids:
+                    self._virtual_env_usages.pop(real_path, None)
+            if self._model_uid_to_virtual_env_path.get(model_uid) == real_path:
+                self._model_uid_to_virtual_env_path.pop(model_uid, None)
+
     @classmethod
     def _prepare_virtual_env(
         cls,
@@ -3157,7 +3342,10 @@ class WorkerActor(xo.StatelessActor):
         architectures: Optional[List[str]] = None,
         model_format: Optional[str] = None,
         virtual_env_find_links: Optional[List[str]] = None,
-    ):
+        model_uid: Optional[str] = None,
+        reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
+        release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
+    ) -> Optional[str]:
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
         )
@@ -3167,7 +3355,21 @@ class WorkerActor(xo.StatelessActor):
             and not engine_defaults
         ):
             # no settings or no packages
-            return
+            venv_path = str(virtual_env_manager.env_path)
+            python_version = pathlib.Path(venv_path).name
+            fingerprint = _make_fingerprint(
+                [],
+                {},
+                {},
+                architectures,
+                model_name=model_name,
+                model_engine=model_engine,
+                python_version=python_version,
+            )
+            with _exclusive_venv_path_lock(venv_path):
+                if reserve_usage is not None and model_uid is not None:
+                    reserve_usage(venv_path, fingerprint, model_uid, False)
+            return fingerprint
 
         if settings is None:
             settings = VirtualEnvSettings(packages=virtual_env_packages or [])
@@ -3469,104 +3671,147 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         venv_path = str(virtual_env_manager.env_path)
+        python_version = pathlib.Path(venv_path).name
         with _exclusive_venv_path_lock(venv_path):
-            if not _should_skip_venv_setup(
-                venv_path, setup_packages, conf, variables, architectures
-            ):
-                if modern_sglang_kernel:
-                    # SGLang 0.5.11 renamed the distribution while retaining the
-                    # same import package.  Remove the cached legacy owner before
-                    # the new wheel writes those files.
-                    cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
-                if force_reinstall_xllamacpp:
-                    cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
-                virtual_env_manager.install_packages(
-                    regular_packages, **conf, **variables
-                )
-
-                from .virtual_env_manager import apply_flash_attn_wheel_post_install
-
-                apply_flash_attn_wheel_post_install(
-                    model_name,
-                    flash_attn_packages,
-                    virtual_env_manager,
-                    conf,
-                    flash_attn_cuda_available,
-                )
-
-                # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
-                # and onnxruntime-gpu (extra). They install the same Python module,
-                # so a resolver may leave the CPU files in place even though the
-                # GPU distribution is present. Remove both distributions and put
-                # back only the GPU build after dependency resolution.
-                if model_name == "DeepDoc" and cls._is_cuda_device_available():
-                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
-                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime-gpu")
-                    gpu_conf = conf.copy()
-                    gpu_conf["skip_installed"] = False
+            fingerprint = _make_fingerprint(
+                setup_packages,
+                conf,
+                variables,
+                architectures,
+                model_name=model_name,
+                model_engine=model_engine,
+                python_version=python_version,
+            )
+            setup_matches = _should_skip_venv_setup(
+                venv_path,
+                setup_packages,
+                conf,
+                variables,
+                architectures,
+                model_name=model_name,
+                model_engine=model_engine,
+                python_version=python_version,
+            )
+            usage_reserved = False
+            try:
+                if reserve_usage is not None and model_uid is not None:
+                    reserve_usage(venv_path, fingerprint, model_uid, not setup_matches)
+                    usage_reserved = True
+                if not setup_matches:
+                    if modern_sglang_kernel:
+                        # SGLang 0.5.11 renamed the distribution while retaining the
+                        # same import package.  Remove the cached legacy owner before
+                        # the new wheel writes those files.
+                        cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
+                    if force_reinstall_xllamacpp:
+                        cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
                     virtual_env_manager.install_packages(
-                        ["onnxruntime-gpu>=1.19.2"], **gpu_conf, **variables
+                        regular_packages, **conf, **variables
                     )
 
-                # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
-                # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
-                # compilation failure on sm_120. Force-upgrade to AOT versions.
-                # Run under the same lock — uv pip install mutates the venv and
-                # must stay serialized with install_packages() and other AOT
-                # upgrades when multiple replicas/workers share this venv.
-                # See optimize/20260702/2026070209.md
-                from .virtual_env_manager import (
-                    apply_flashinfer_aot_post_install,
-                    ensure_flashinfer_cubin_matches_post_install,
-                    ensure_sglang_inherited_packages_compatible_post_install,
-                )
+                    from .virtual_env_manager import apply_flash_attn_wheel_post_install
 
-                ensure_sglang_inherited_packages_compatible_post_install(
-                    model_engine, virtual_env_manager
-                )
-                allow_public_install = not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
-                apply_flashinfer_aot_post_install(
-                    model_engine,
-                    architectures,
-                    virtual_env_manager,
-                    conf,
-                    cuda_version,
-                    allow_public_install=allow_public_install,
-                )
-                ensure_flashinfer_cubin_matches_post_install(
-                    model_engine,
-                    virtual_env_manager,
-                    allow_public_install=allow_public_install,
-                    conf=conf,
-                )
+                    apply_flash_attn_wheel_post_install(
+                        model_name,
+                        flash_attn_packages,
+                        virtual_env_manager,
+                        conf,
+                        flash_attn_cuda_available,
+                    )
 
-                # Apply engine-specific post-install patches.  These mutate files
-                # inside the shared virtualenv, so they must stay under the same
-                # lock and deduplication as install_packages and post-install
-                # hooks to avoid race conditions when multiple replicas share
-                # this venv.
-                if model_engine and model_engine.lower() == "vllm":
-                    try:
-                        from xinference.model.llm.vllm.patches import apply_vllm_patches
-                    except ImportError:
-                        pass
-                    else:
-                        apply_vllm_patches(
-                            env_path=venv_path,
-                            model_name=model_name,
-                            architectures=architectures,
+                    # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
+                    # and onnxruntime-gpu (extra). They install the same Python module,
+                    # so a resolver may leave the CPU files in place even though the
+                    # GPU distribution is present. Remove both distributions and put
+                    # back only the GPU build after dependency resolution.
+                    if model_name == "DeepDoc" and cls._is_cuda_device_available():
+                        cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
+                        cls._uninstall_venv_package(
+                            virtual_env_manager, "onnxruntime-gpu"
+                        )
+                        gpu_conf = conf.copy()
+                        gpu_conf["skip_installed"] = False
+                        virtual_env_manager.install_packages(
+                            ["onnxruntime-gpu>=1.19.2"], **gpu_conf, **variables
                         )
 
-                _mark_venv_setup_done(
-                    venv_path, setup_packages, conf, variables, architectures
-                )
-            else:
-                logger.info(
-                    "Virtual env %s already set up with current packages in "
-                    "this process; skipping install_packages and post-install "
-                    "hooks",
-                    venv_path,
-                )
+                    # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
+                    # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
+                    # compilation failure on sm_120. Force-upgrade to AOT versions.
+                    # Run under the same lock — uv pip install mutates the venv and
+                    # must stay serialized with install_packages() and other AOT
+                    # upgrades when multiple replicas/workers share this venv.
+                    # See optimize/20260702/2026070209.md
+                    from .virtual_env_manager import (
+                        apply_flashinfer_aot_post_install,
+                        ensure_flashinfer_cubin_matches_post_install,
+                        ensure_sglang_inherited_packages_compatible_post_install,
+                    )
+
+                    ensure_sglang_inherited_packages_compatible_post_install(
+                        model_engine, virtual_env_manager
+                    )
+                    allow_public_install = not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
+                    apply_flashinfer_aot_post_install(
+                        model_engine,
+                        architectures,
+                        virtual_env_manager,
+                        conf,
+                        cuda_version,
+                        allow_public_install=allow_public_install,
+                    )
+                    ensure_flashinfer_cubin_matches_post_install(
+                        model_engine,
+                        virtual_env_manager,
+                        allow_public_install=allow_public_install,
+                        conf=conf,
+                    )
+
+                    # Apply engine-specific post-install patches.  These mutate files
+                    # inside the shared virtualenv, so they must stay under the same
+                    # lock and deduplication as install_packages and post-install
+                    # hooks to avoid race conditions when multiple replicas share
+                    # this venv.
+                    if model_engine and model_engine.lower() == "vllm":
+                        try:
+                            from xinference.model.llm.vllm.patches import (
+                                apply_vllm_patches,
+                            )
+                        except ImportError:
+                            pass
+                        else:
+                            apply_vllm_patches(
+                                env_path=venv_path,
+                                model_name=model_name,
+                                architectures=architectures,
+                            )
+
+                    _mark_venv_setup_done(
+                        venv_path,
+                        setup_packages,
+                        conf,
+                        variables,
+                        architectures,
+                        model_name=model_name,
+                        model_engine=model_engine,
+                        python_version=python_version,
+                    )
+                else:
+                    logger.info(
+                        "Virtual env %s already matches setup fingerprint %s; "
+                        "skipping install_packages and post-install hooks",
+                        venv_path,
+                        fingerprint,
+                    )
+            except BaseException:
+                if (
+                    usage_reserved
+                    and release_usage is not None
+                    and model_uid is not None
+                ):
+                    release_usage(model_uid, venv_path)
+                raise
+            return fingerprint
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -4007,22 +4252,46 @@ class WorkerActor(xo.StatelessActor):
 
                         # install packages in virtual env
                         if virtual_env_manager:
-                            await asyncio.to_thread(
-                                self._prepare_virtual_env,
-                                virtual_env_manager,
-                                model.model_family.virtualenv,
-                                virtual_env_packages,
-                                model_engine,
-                                model_name=model_name,
-                                architectures=getattr(
-                                    model.model_family,
-                                    "_resolve_architectures",
-                                    lambda: None,
-                                )(),
-                                model_format=self._resolve_virtualenv_model_format(
-                                    model, model_format
-                                ),
-                                virtual_env_find_links=virtual_env_find_links,
+                            prepare_task = asyncio.create_task(
+                                asyncio.to_thread(
+                                    self._prepare_virtual_env,
+                                    virtual_env_manager,
+                                    model.model_family.virtualenv,
+                                    virtual_env_packages,
+                                    model_engine,
+                                    model_name=model_name,
+                                    architectures=getattr(
+                                        model.model_family,
+                                        "_resolve_architectures",
+                                        lambda: None,
+                                    )(),
+                                    model_format=self._resolve_virtualenv_model_format(
+                                        model, model_format
+                                    ),
+                                    virtual_env_find_links=virtual_env_find_links,
+                                    model_uid=model_uid,
+                                    reserve_usage=self._reserve_virtual_env_usage,
+                                    release_usage=self._release_virtual_env_usage,
+                                )
+                            )
+                            try:
+                                virtual_env_fingerprint = await asyncio.shield(
+                                    prepare_task
+                                )
+                            except asyncio.CancelledError:
+                                # asyncio.to_thread cannot stop the underlying
+                                # installer. Wait for it to leave the path lock
+                                # before releasing the usage reservation.
+                                try:
+                                    await prepare_task
+                                except Exception:
+                                    pass
+                                raise
+                            assert virtual_env_fingerprint is not None
+                            self._activate_virtual_env_usage(
+                                virtual_env_path,
+                                virtual_env_fingerprint,
+                                model_uid,
                             )
                             launch_info.virtual_env_manager = virtual_env_manager
 
@@ -4112,6 +4381,7 @@ class WorkerActor(xo.StatelessActor):
                     except (Exception, asyncio.CancelledError):
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
                         await self._update_model_state(model_uid, "error")
+                        self._release_virtual_env_usage(model_uid)
                         self.release_devices(model_uid=model_uid)
                         for addr in all_subpool_addresses:
                             try:
@@ -4409,8 +4679,7 @@ class WorkerActor(xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
-            # Clean up virtual environment tracking
-            # Virtual environment tracking is no longer needed
+            self._release_virtual_env_usage(model_uid)
 
             self._model_uid_to_model.pop(model_uid, None)
             self._model_uid_to_model_spec.pop(model_uid, None)
@@ -5226,8 +5495,17 @@ class WorkerActor(xo.StatelessActor):
         python_version: Optional[str] = None,
     ) -> bool:
         """Remove a virtual environment for a specific model."""
+        with self._virtual_env_usage_lock:
+            active_model_uids_by_path = {
+                path: sorted(usage.active_model_uids | usage.preparing_model_uids)
+                for path, usage in self._virtual_env_usages.items()
+                if usage.active_model_uids or usage.preparing_model_uids
+            }
         return self._virtual_env_manager.remove_virtual_env(
-            model_name, model_engine, python_version
+            model_name,
+            model_engine,
+            python_version,
+            active_model_uids_by_path=active_model_uids_by_path,
         )
 
     async def get_workers_info(self) -> Dict[str, Any]:

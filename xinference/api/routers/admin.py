@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from ... import __version__
 from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
+from ...core.virtual_env_manager import VirtualEnvConflictError
 from ..dependencies import get_api
 from ..responses import JSONResponse
 
@@ -246,6 +247,9 @@ async def remove_virtual_env(
             worker_ip=worker_ip,
         )
         return JSONResponse(content={"result": res})
+    except VirtualEnvConflictError as e:
+        logger.warning(e)
+        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as re:
         logger.error(re, exc_info=True)
         raise HTTPException(status_code=400, detail=str(re))

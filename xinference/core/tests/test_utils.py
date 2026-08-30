@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import pytest
 
 from ..utils import (
@@ -794,9 +796,27 @@ def test_mark_venv_setup_done_writes_marker(tmp_path):
     assert venv in worker_mod._venv_setup_done
     assert worker_mod._venv_setup_done[venv] == expected_fp
     assert os.path.exists(os.path.join(venv, ".xinference_setup_done"))
-    # Verify the marker file contains the fingerprint
+    # Verify the restart-safe structured marker contains all setup inputs.
+    import json
+
     with open(os.path.join(venv, ".xinference_setup_done")) as f:
-        assert f.read().strip() == str(expected_fp)
+        marker = json.load(f)
+    assert marker["schema_version"] == 1
+    assert marker["fingerprint"] == expected_fp
+    assert marker["model_name"] is None
+    assert marker["model_engine"] is None
+    assert marker["python_version"] is None
+    assert marker["setup_inputs"] == {
+        "environment_format_version": 4,
+        "model_name": None,
+        "model_engine": None,
+        "python_version": None,
+        "packages": packages,
+        "conf": {},
+        "variables": {},
+        "architectures": [],
+    }
+    assert isinstance(marker["updated_at"], int)
 
 
 def test_make_fingerprint_handles_list_valued_conf(tmp_path):
@@ -815,8 +835,10 @@ def test_make_fingerprint_handles_list_valued_conf(tmp_path):
     fp_a = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
     fp_b = worker_mod._make_fingerprint(packages, conf_b, variables, architectures)
 
-    assert isinstance(fp_a, int)
-    assert isinstance(fp_b, int)
+    assert isinstance(fp_a, str) and len(fp_a) == 64
+    assert isinstance(fp_b, str) and len(fp_b) == 64
+    int(fp_a, 16)
+    int(fp_b, 16)
     # Different list values → different fingerprints
     assert fp_a != fp_b
 
@@ -979,3 +1001,112 @@ def test_exclusive_venv_path_lock_serializes_concurrent_callers(tmp_path):
     assert (
         max_occupants == 1
     ), f"Lock failed to serialize: max_occupants={max_occupants}, expected 1"
+
+
+def test_make_fingerprint_is_order_independent_for_packages_and_architectures():
+    from .. import worker as worker_mod
+
+    fp_a = worker_mod._make_fingerprint(
+        ["vllm==0.28.0", "transformers==5.8.0"],
+        {"index_url": "https://example.invalid/simple"},
+        {"cuda_version": "13.0"},
+        ["ArchitectureB", "ArchitectureA"],
+    )
+    fp_b = worker_mod._make_fingerprint(
+        ["transformers==5.8.0", "vllm==0.28.0"],
+        {"index_url": "https://example.invalid/simple"},
+        {"cuda_version": "13.0"},
+        ["ArchitectureA", "ArchitectureB"],
+    )
+
+    assert fp_a == fp_b
+
+
+def test_should_skip_venv_setup_survives_worker_restart(tmp_path):
+    import os
+
+    from .. import worker as worker_mod
+
+    _clean_venv_setup_done()
+    venv = str(tmp_path / "restart-safe-venv")
+    packages = ["vllm==0.28.0"]
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(
+        venv, packages, {"index_strategy": "unsafe-best-match"}, {}, None
+    )
+
+    worker_mod._venv_setup_done.clear()
+
+    assert worker_mod._should_skip_venv_setup(
+        venv, packages, {"index_strategy": "unsafe-best-match"}, {}, None
+    )
+    assert venv in worker_mod._venv_setup_done
+
+
+def _usage_tracking_worker():
+    import threading
+
+    from ..worker import WorkerActor
+
+    worker = WorkerActor.__new__(WorkerActor)
+    worker._virtual_env_usages = {}
+    worker._model_uid_to_virtual_env_path = {}
+    worker._virtual_env_usage_lock = threading.Lock()
+    return worker
+
+
+def test_virtual_env_usage_shares_matching_fingerprint(tmp_path):
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+
+    usage = worker._virtual_env_usages[os.path.realpath(env_path)]
+    assert usage.active_model_uids == {"model-0", "model-1"}
+    assert not usage.preparing_model_uids
+
+
+def test_virtual_env_usage_rejects_dependency_mutation_while_active(tmp_path):
+    from ..virtual_env_manager import VirtualEnvConflictError
+
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="different setup fingerprint"):
+        worker._reserve_virtual_env_usage(env_path, "fingerprint-b", "model-1")
+
+
+def test_virtual_env_usage_rejects_mutation_when_marker_is_stale(tmp_path):
+    from ..virtual_env_manager import VirtualEnvConflictError
+
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="refusing to mutate"):
+        worker._reserve_virtual_env_usage(
+            env_path, "fingerprint-a", "model-1", setup_required=True
+        )
+
+
+def test_virtual_env_usage_final_release_clears_reference(tmp_path):
+    worker = _usage_tracking_worker()
+    env_path = str(tmp_path / "shared-venv")
+    real_path = os.path.realpath(env_path)
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-0")
+    worker._reserve_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+    worker._activate_virtual_env_usage(env_path, "fingerprint-a", "model-1")
+
+    worker._release_virtual_env_usage("model-0")
+    assert worker._virtual_env_usages[real_path].active_model_uids == {"model-1"}
+
+    worker._release_virtual_env_usage("model-1")
+    assert real_path not in worker._virtual_env_usages
+    assert not worker._model_uid_to_virtual_env_path
