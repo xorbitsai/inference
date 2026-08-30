@@ -75,7 +75,9 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       config.showProgress &&
       (model.model_type !== ModelType.World ||
         model.model_family === 'Astra' ||
-        model.model_name === 'Astra')
+        model.model_name === 'Astra' ||
+        model.model_family === 'HY-WorldPlay' ||
+        model.model_name === 'HY-WorldPlay-5B')
     );
 
     const showCopyResult = useMemo(() => {

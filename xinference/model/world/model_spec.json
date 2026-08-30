@@ -95,9 +95,8 @@
     },
     "virtualenv": {
       "packages": [
-        "torch>=2.6.0 ; #engine# == \"pytorch\"",
-        "torchvision==0.21.0",
-        "torchaudio==2.6.0",
+        "#system_torch# ; #engine# == \"pytorch\"",
+        "#system_torchvision#",
         "peft==0.17.0",
         "einops==0.8.0",
         "loguru==0.7.3",

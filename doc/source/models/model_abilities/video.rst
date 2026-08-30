@@ -1,8 +1,8 @@
 .. _video:
 
-====================
-Video (Experimental)
-====================
+=====
+Video
+=====
 
 Learn how to generate videos with Xinference.
 

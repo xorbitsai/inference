@@ -165,6 +165,110 @@ def test_astra_does_not_install_unused_controlnet_runtime():
     )
 
 
+def test_worldplay_inherits_compatible_host_torch_stack(monkeypatch):
+    from xoscar.virtualenv.core import VirtualEnvManager
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+
+    # Official WorldPlay requirements combine torch>=2.6 with companion
+    # packages pinned to torch 2.6.  Pinning those companions in the child
+    # environment conflicts with newer host builds required by platforms such
+    # as GB10/CUDA 13.  The inference path uses torchvision but never imports
+    # torchaudio, so inherit the host's matching torch/torchvision pair and do
+    # not resolve the unused audio companion.
+    assert model_spec.virtualenv is not None
+    packages = model_spec.virtualenv.packages
+    assert '#system_torch# ; #engine# == "pytorch"' in packages
+    assert "#system_torchvision#" in packages
+    assert not any(package.startswith("torchaudio") for package in packages)
+
+    host_versions = {"torch": "2.13.0", "torchvision": "0.28.0"}
+    monkeypatch.setattr(
+        "importlib.metadata.version", lambda package: host_versions[package]
+    )
+    processed = VirtualEnvManager.process_packages(packages, engine="pytorch")
+    assert "torch==2.13.0" in processed
+    assert "torchvision==0.28.0" in processed
+    assert not any(package.startswith("torchaudio") for package in processed)
+
+
+def test_worldplay_accepts_compatible_host_torch_stack(monkeypatch):
+    host_versions = {"torch": "2.9.0+cu130", "torchvision": "0.24.0+cu130"}
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version",
+        lambda package: host_versions[package],
+    )
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.requires",
+        lambda package: ["torch==2.9.0"] if package == "torchvision" else [],
+    )
+
+    assert PyTorchHYWorldPlayModel.check_host() is True
+
+
+@pytest.mark.parametrize(
+    ("host_versions", "torchvision_requirements", "expected_reason"),
+    [
+        (
+            {"torch": "2.5.1", "torchvision": "0.20.1"},
+            ["torch==2.5.1"],
+            "requires host torch>=2.6.0",
+        ),
+        (
+            {"torch": "2.9.0"},
+            ["torch==2.9.0"],
+            "requires host torchvision",
+        ),
+        (
+            {"torch": "2.9.0", "torchvision": "0.20.1"},
+            ["torch==2.5.1"],
+            "requires a compatible host torch/torchvision pair",
+        ),
+    ],
+)
+def test_worldplay_rejects_incompatible_host_torch_stack(
+    monkeypatch, host_versions, torchvision_requirements, expected_reason
+):
+    from importlib import metadata
+
+    def get_host_version(package):
+        try:
+            return host_versions[package]
+        except KeyError:
+            raise metadata.PackageNotFoundError(package)
+
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version", get_host_version
+    )
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.requires",
+        lambda package: torchvision_requirements,
+    )
+
+    compatible, reason = PyTorchHYWorldPlayModel.check_host()
+
+    assert compatible is False
+    assert expected_reason in reason
+
+
+def test_world_model_is_serializable_for_actor_subprocess():
+    import cloudpickle
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+    model = PyTorchHYWorldPlayModel("worldplay", "/weights/worldplay", model_spec)
+
+    restored = cloudpickle.loads(cloudpickle.dumps(model))
+
+    assert restored._process_lock.acquire(blocking=False)
+    restored._process_lock.release()
+    assert restored._runner_lock.acquire(blocking=False)
+    restored._runner_lock.release()
+    assert restored._running_processes == {}
+    assert restored._request_cancellations == {}
+
+
 def test_generic_model_factory_preserves_world_engine_selection(monkeypatch):
     monkeypatch.setattr(
         PyTorchMatrixGameModel, "check_host", classmethod(lambda cls: True)
@@ -322,7 +426,9 @@ async def test_world_abort_marks_request_before_runner_registration(
     model.unregister_request("request-1")
 
 
-def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch):
+def test_worldplay_generation_passes_model_specific_kwargs(
+    tmp_path, monkeypatch, caplog
+):
     from .. import model as world_model_module
 
     model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
@@ -332,8 +438,13 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     output_root = tmp_path / "responses"
     monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
     captured = {}
+    progress_updates = []
 
-    def fake_run(command, cwd, env, log_path, request_id=None):
+    class FakeProgressor:
+        def set_progress(self, progress, info=None):
+            progress_updates.append((progress, info))
+
+    def fake_run(command, cwd, env, log_path, progress_callback=None, request_id=None):
         captured.update(
             command=command,
             cwd=cwd,
@@ -341,6 +452,20 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
             log_path=log_path,
             request_id=request_id,
         )
+        assert progress_callback is not None
+        for line in (
+            "XINFERENCE_PROGRESS:1.2.3:malformed progress\n",
+            "XINFERENCE_PROGRESS:0.05:Loading HY-WorldPlay weights\n",
+            "XINFERENCE_PROGRESS:0.15:HY-WorldPlay weights loaded\n",
+            "XINFERENCE_PROGRESS:0.18:Generating 2 chunk(s)\n",
+            "Generate time for chunk  0 is 10.0\n",
+            "Decode latent 0: 1.0 seconds\n",
+            "Generate time for chunk  1 is 9.0\n",
+            "Decode latent 0: 1.0 seconds\n",
+            "XINFERENCE_PROGRESS:0.94:Encoding HY-WorldPlay video\n",
+            "XINFERENCE_PROGRESS:0.98:Saving HY-WorldPlay video\n",
+        ):
+            progress_callback(line)
         output_dir = command[command.index("--out") + 1]
         Path(output_dir, "generated.mp4").write_bytes(b"worldplay")
 
@@ -349,6 +474,7 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
         "README.md@example.com",
         model_kwargs={"pose": "d-8", "num_chunk": 2},
         request_id="worldplay-request",
+        progressor=FakeProgressor(),
     )
 
     command = captured["command"]
@@ -361,6 +487,13 @@ def test_worldplay_generation_passes_model_specific_kwargs(tmp_path, monkeypatch
     assert captured["request_id"] == "worldplay-request"
     assert result["data"][0]["url"] is not None
     assert Path(result["data"][0]["url"]).read_bytes() == b"worldplay"
+    assert progress_updates[0] == (0.02, "Starting HY-WorldPlay runner")
+    assert "Failed to parse HY-WorldPlay progress output" in caplog.text
+    assert (0.54, "Decoded chunk 1/2") in progress_updates
+    assert progress_updates[-1] == (0.98, "Saving HY-WorldPlay video")
+    assert [progress for progress, _ in progress_updates] == sorted(
+        progress for progress, _ in progress_updates
+    )
 
 
 @pytest.mark.parametrize("pose", ["forward", "x-4", "w-0", "w-four"])
