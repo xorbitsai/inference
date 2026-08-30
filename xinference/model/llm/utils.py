@@ -988,7 +988,9 @@ class ChatModelMixin:
                         function_name = None
                     else:
                         sent_names.add(tool_call_index)
-                    sent_metadata = tool_call_state.setdefault("sent_metadata", set())
+                    sent_metadata = tool_call_state.get("sent_metadata")
+                    if sent_metadata is None:
+                        sent_metadata = tool_call_state["sent_metadata"] = set()
                     include_metadata = tool_call_index not in sent_metadata
                     if include_metadata:
                         sent_metadata.add(tool_call_index)
