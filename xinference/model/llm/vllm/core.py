@@ -92,6 +92,7 @@ if TYPE_CHECKING:
 
 
 class VLLMModelConfig(TypedDict, total=False):
+    xinference_vllm_executor_backend: str
     tokenizer_mode: Optional[str]
     trust_remote_code: bool
     tensor_parallel_size: int
@@ -505,6 +506,9 @@ class VLLMModel(LLM):
         self._context_length: Optional[int] = None
         # distributed inference
         self._device_count = None
+        self._xinference_vllm_executor_backend = model_config.pop(  # type: ignore
+            "xinference_vllm_executor_backend", None
+        )
         self._address = model_config.pop("address", None)  # type: ignore
         self._n_worker = model_config.pop("n_worker", 1)  # type: ignore
         self._shard = model_config.pop("shard", 0)  # type: ignore
@@ -535,9 +539,113 @@ class VLLMModel(LLM):
     def driver_info(self) -> Optional[dict]:
         return self._driver_info
 
+    def _get_xinference_executor_backend(self) -> str:
+        backend = self._xinference_vllm_executor_backend
+        if backend is None:
+            backend = os.getenv("XINFERENCE_VLLM_EXECUTOR_BACKEND", "auto")
+        backend = str(backend).strip().lower()
+        if backend not in {"auto", "native_mp", "xoscar"}:
+            raise ValueError(
+                "Xinference vLLM executor backend must be one of "
+                "'auto', 'native_mp', or 'xoscar'; "
+                f"got {backend!r}"
+            )
+        return backend
+
+    def _get_allocated_device_count(self) -> int:
+        accelerators = getattr(self.model_family, "accelerators", None)
+        if accelerators:
+            return len(accelerators)
+
+        if self._device_count is not None:
+            return self._device_count
+
+        configured_tp = (self._model_config or {}).get("tensor_parallel_size")
+        configured_pp = (self._model_config or {}).get("pipeline_parallel_size")
+        return int(configured_tp or 1) * int(configured_pp or 1)
+
+    def _is_qwen4_exp(self) -> bool:
+        return self.model_family.has_architecture("Qwen4ExpForConditionalGeneration")
+
+    def _native_mp_route(self) -> Tuple[bool, str]:
+        backend = self._get_xinference_executor_backend()
+        if backend == "xoscar":
+            return False, "explicit xoscar backend"
+
+        if self._n_worker != 1:
+            if backend == "native_mp":
+                raise ValueError(
+                    "native_mp only supports n_worker=1; "
+                    "use xoscar for multi-worker deployment"
+                )
+            return False, "n_worker is not 1"
+
+        if self._xavier_config is not None:
+            if backend == "native_mp":
+                raise ValueError("native_mp is not supported with Xavier")
+            return False, "Xavier is enabled"
+
+        device_count = self._get_allocated_device_count()
+        if device_count <= 1:
+            if backend == "native_mp":
+                raise ValueError("native_mp requires more than one allocated GPU")
+            return False, "allocated GPU count is not greater than 1"
+
+        if VLLM_VERSION is None:
+            if backend == "native_mp":
+                raise ValueError(
+                    "Cannot select native_mp because vLLM version is unavailable "
+                    "in the model environment"
+                )
+            return False, "vLLM version is unavailable"
+
+        if not self._is_vllm_v1():
+            if backend == "native_mp":
+                raise ValueError("native_mp requires vLLM V1")
+            return False, "vLLM V1 is not enabled"
+
+        min_version = version.parse("0.28.0")
+        if VLLM_VERSION < min_version:
+            if backend == "native_mp":
+                raise ValueError("native_mp requires vLLM >= " f"{min_version}")
+            return False, f"vLLM version is lower than {min_version}"
+
+        if backend == "native_mp":
+            self._get_native_mp_parallelism()
+            return True, "explicit native_mp backend"
+        if self._is_qwen4_exp():
+            self._get_native_mp_parallelism()
+            return True, "Qwen4Exp single-worker multi-GPU auto route"
+        return False, "auto route is limited to Qwen4Exp architecture"
+
+    def _use_native_mp_executor(self) -> bool:
+        use_native_mp, _ = self._native_mp_route()
+        return use_native_mp
+
+    def _get_native_mp_parallelism(self) -> Tuple[int, int]:
+        device_count = self._get_allocated_device_count()
+        model_config = self._model_config or {}
+        tensor_parallel_size = int(
+            model_config.get("tensor_parallel_size", device_count)
+        )
+        pipeline_parallel_size = int(model_config.get("pipeline_parallel_size", 1))
+        if tensor_parallel_size <= 0 or pipeline_parallel_size <= 0:
+            raise ValueError(
+                "native_mp tensor_parallel_size and pipeline_parallel_size "
+                "must both be positive integers"
+            )
+        if tensor_parallel_size * pipeline_parallel_size != device_count:
+            raise ValueError(
+                "native_mp requires tensor_parallel_size * "
+                "pipeline_parallel_size to equal the allocated GPU count; "
+                f"got TP={tensor_parallel_size}, PP={pipeline_parallel_size}, "
+                f"allocated_gpu_count={device_count}"
+            )
+        return tensor_parallel_size, pipeline_parallel_size
+
     @property
-    def need_create_pools(self):
-        return True
+    def need_create_pools(self) -> bool:
+        return not self._use_native_mp_executor()
 
     def set_pool_addresses(self, pool_addresses: List[str]):
         self._pool_addresses = pool_addresses  # type: ignore
@@ -560,7 +668,7 @@ class VLLMModel(LLM):
         from vllm import envs
 
         # For vLLM >= 0.11.1, v1 is default
-        if VLLM_VERSION > version.parse("0.11.0"):
+        if VLLM_VERSION is not None and VLLM_VERSION > version.parse("0.11.0"):
             return True
 
         # For older versions, check the environment variable
@@ -661,6 +769,7 @@ class VLLMModel(LLM):
             f"Enable lora: {enable_lora}. Lora count: {max_loras}."
         )
 
+        use_native_mp, native_mp_reason = self._native_mp_route()
         if self._xavier_config is not None:
             from .xavier.engine import XavierEngine
 
@@ -681,8 +790,66 @@ class VLLMModel(LLM):
             self._engine = XavierEngine.from_engine_args(
                 engine_args, xavier_config=self._xavier_config
             )
+        elif use_native_mp:
+            tensor_parallel_size, pipeline_parallel_size = (
+                self._get_native_mp_parallelism()
+            )
+            configured_backend = self._model_config.get("distributed_executor_backend")
+            if configured_backend not in (None, "mp"):
+                logger.warning(
+                    "Overriding distributed_executor_backend=%r with 'mp' for "
+                    "Xinference native_mp route of model %s",
+                    configured_backend,
+                    self.model_uid,
+                )
+            self._model_config["tensor_parallel_size"] = tensor_parallel_size
+            self._model_config["pipeline_parallel_size"] = pipeline_parallel_size
+            self._model_config["distributed_executor_backend"] = "mp"
+            engine_args = AsyncEngineArgs(
+                model=self.model_path,
+                enable_lora=enable_lora,
+                max_loras=max_loras,
+                **self._model_config,
+            )
+            self._enable_v1_if_supported(engine_args)
+
+            def _load_native_mp():
+                os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+                architectures = getattr(
+                    self.model_family, "_resolve_architectures", lambda: None
+                )()
+                logger.info(
+                    "vLLM executor route: model_uid=%s, model_name=%s, "
+                    "requested_backend=%s, selected_backend=native_mp_local, "
+                    "reason=%s, architecture=%s, n_worker=%s, "
+                    "allocated_device_count=%s, vllm_version=%s, TP=%s, PP=%s, "
+                    "distributed_executor_backend=mp, multiproc_method=spawn, "
+                    "CUDA_VISIBLE_DEVICES=%s",
+                    self.model_uid,
+                    getattr(self.model_family, "model_name", None),
+                    self._get_xinference_executor_backend(),
+                    native_mp_reason,
+                    architectures,
+                    self._n_worker,
+                    self._get_allocated_device_count(),
+                    VLLM_VERSION,
+                    tensor_parallel_size,
+                    pipeline_parallel_size,
+                    os.environ.get("CUDA_VISIBLE_DEVICES"),
+                )
+                try:
+                    self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                except Exception:
+                    logger.exception("Creating vllm native mp engine failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load_native_mp)
+            self._loading_thread.start()
+            self._loading_thread.join(1)
         elif self._n_worker > 1 or (
-            self._device_count > 1 and VLLM_VERSION >= version.parse("0.7.0")
+            self._device_count > 1
+            and VLLM_VERSION is not None
+            and VLLM_VERSION >= version.parse("0.7.0")
         ):
             from vllm.config import VllmConfig
 
