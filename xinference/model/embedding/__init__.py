@@ -18,7 +18,7 @@ import os
 import warnings
 from typing import Any, Dict, List
 
-from ..engine_hooks import MODEL_TYPE_EMBEDDING, run_engine_registration_hooks
+from ...engine_hooks import MODEL_TYPE_EMBEDDING, run_engine_registration_hooks
 from ..utils import flatten_quantizations
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,

@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Startup hooks for distribution-specific inference engines."""
+"""Pre-bootstrap hooks for distribution-specific inference engines."""
 
 import logging
-from typing import Callable, Dict, List, MutableMapping
+from typing import Callable, Dict, List, MutableMapping, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ _VALID_MODEL_TYPES = (
 
 EngineTable = MutableMapping[str, List[type]]
 EngineRegistrationHook = Callable[[EngineTable], None]
+EngineTableSnapshot = Dict[str, Tuple[List[type], List[type]]]
 
 _ENGINE_REGISTRATION_HOOKS: Dict[str, List[EngineRegistrationHook]] = {}
 
@@ -44,15 +45,25 @@ def _validate_engine_table(target: EngineTable) -> None:
             raise TypeError(f"Engine {engine!r} entries must be classes")
 
 
+def _snapshot_engine_table(target: EngineTable) -> EngineTableSnapshot:
+    return {engine: (classes, list(classes)) for engine, classes in target.items()}
+
+
+def _restore_engine_table(target: EngineTable, snapshot: EngineTableSnapshot) -> None:
+    target.clear()
+    for engine, (original_classes, original_contents) in snapshot.items():
+        original_classes[:] = original_contents
+        target[engine] = original_classes
+
+
 def register_engine_registration_hook(
     model_type: str, hook: EngineRegistrationHook
 ) -> None:
-    """Register a callback that contributes engines for one model type.
+    """Register a callback before importing :mod:`xinference.model`.
 
     The callback receives a mapping of engine names to lists of engine classes.
-    Classes must implement the interface used by the corresponding model package;
-    LLM configuration queries ``match``, while embedding and rerank configuration
-    query ``match_json``.
+    Classes must implement the interface used by the corresponding model package,
+    including ``match`` and ``match_json`` where applicable.
     """
     if model_type not in _VALID_MODEL_TYPES:
         raise ValueError(
@@ -68,14 +79,14 @@ def register_engine_registration_hook(
 
 def run_engine_registration_hooks(model_type: str, target: EngineTable) -> None:
     """Run callbacks without letting one break or partially mutate bootstrap."""
+    _validate_engine_table(target)
     for hook in tuple(_ENGINE_REGISTRATION_HOOKS.get(model_type, ())):
-        snapshot = {engine: list(classes) for engine, classes in target.items()}
+        snapshot = _snapshot_engine_table(target)
         try:
             hook(target)
             _validate_engine_table(target)
         except Exception:
-            target.clear()
-            target.update(snapshot)
+            _restore_engine_table(target, snapshot)
             logger.exception(
                 "Failed to run %s engine registration hook %r", model_type, hook
             )

@@ -16,7 +16,7 @@ import json
 import os
 import warnings
 
-from ..engine_hooks import MODEL_TYPE_LLM, run_engine_registration_hooks
+from ...engine_hooks import MODEL_TYPE_LLM, run_engine_registration_hooks
 from ..utils import flatten_quantizations
 from .core import (
     LLM,

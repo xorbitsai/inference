@@ -19,7 +19,7 @@ import warnings
 from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
-from ..engine_hooks import MODEL_TYPE_RERANK, run_engine_registration_hooks
+from ...engine_hooks import MODEL_TYPE_RERANK, run_engine_registration_hooks
 from ..utils import flatten_quantizations
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
