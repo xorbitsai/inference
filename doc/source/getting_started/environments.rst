@@ -64,6 +64,12 @@ XINFERENCE_DOWNLOAD_MAX_ATTEMPTS
 Maximum download retry attempts for model files.
 Default value is 3.
 
+XINFERENCE_MODEL_DOWNLOAD_WORKERS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of concurrent file downloads used by Hugging Face and ModelScope
+snapshot downloads. An explicit ``max_workers`` argument takes precedence.
+Default value is 2.
+
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Enable continuous batching for text-to-image models by specifying the target image size

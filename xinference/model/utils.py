@@ -15,6 +15,7 @@
 import asyncio
 import functools
 import importlib
+import inspect
 import json
 import logging
 import math
@@ -55,6 +56,7 @@ from ..constants import (
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_ENV_MODEL_SRC,
     XINFERENCE_HUB_DETECT_TIMEOUT,
+    XINFERENCE_MODEL_DOWNLOAD_WORKERS,
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
@@ -972,6 +974,18 @@ def retry_download(
     *args,
     **kwargs,
 ):
+    # This wrapper is shared by snapshot and single-file download APIs. Inject
+    # the configured concurrency only when the callable explicitly supports it;
+    # single-file APIs such as hf_hub_download reject max_workers.
+    if "max_workers" not in kwargs:
+        try:
+            signature = inspect.signature(download_func)
+        except (TypeError, ValueError):
+            signature = None
+        parameter = signature.parameters.get("max_workers") if signature else None
+        if parameter and parameter.kind is not inspect.Parameter.POSITIONAL_ONLY:
+            kwargs["max_workers"] = XINFERENCE_MODEL_DOWNLOAD_WORKERS
+
     last_ex = None
     for current_attempt in range(1, XINFERENCE_DOWNLOAD_MAX_ATTEMPTS + 1):
         try:

@@ -38,6 +38,7 @@ from ..utils import (
     neutralize_broken_torchcodec,
     parse_uri,
     resolve_media_seed,
+    retry_download,
     symlink_local_file,
 )
 
@@ -71,6 +72,51 @@ def test_parse_uri():
     scheme, path = parse_uri("s3://bucket/dir")
     assert scheme == "s3"
     assert path == "bucket/dir"
+
+
+def test_retry_download_applies_default_max_workers():
+    from ...constants import XINFERENCE_MODEL_DOWNLOAD_WORKERS
+
+    received = {}
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["repo_id"] = repo_id
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert retry_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert received == {
+        "repo_id": "repo",
+        "max_workers": XINFERENCE_MODEL_DOWNLOAD_WORKERS,
+    }
+
+
+def test_retry_download_preserves_explicit_max_workers():
+    received = {}
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert (
+        retry_download(snapshot_download, "dummy", None, "repo", max_workers=6) == "ok"
+    )
+    assert received["max_workers"] == 6
+
+
+def test_retry_download_does_not_inject_max_workers_for_file_download():
+    received = {}
+
+    def file_download(repo_id, *, filename):
+        received["repo_id"] = repo_id
+        received["filename"] = filename
+        return "ok"
+
+    assert (
+        retry_download(file_download, "dummy", None, "repo", filename="config.json")
+        == "ok"
+    )
+    assert received == {"repo_id": "repo", "filename": "config.json"}
 
 
 def test_create_symlink_ignores_downloaded_cache_source_manifest(tmp_path, monkeypatch):
