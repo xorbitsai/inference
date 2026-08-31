@@ -297,7 +297,7 @@ class SystemSettingsStore:
                 environ, ENV_HUB_DETECT_TIMEOUT, 3.0
             ),
             model_download_workers=cls._parse_positive_int(
-                environ, ENV_MODEL_DOWNLOAD_WORKERS, 8
+                environ, ENV_MODEL_DOWNLOAD_WORKERS, 2
             ),
         )
 
