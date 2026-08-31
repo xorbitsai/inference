@@ -433,11 +433,11 @@ XINFERENCE_DISABLE_HEALTH_CHECK = bool(
     int(os.environ.get(XINFERENCE_ENV_DISABLE_HEALTH_CHECK, 0))
 )
 
-# Max concurrent download threads for huggingface_hub.snapshot_download.
-# Default 8 in hf_hub causes GIL contention that starves the actor event loop.
+# Max concurrent download threads for snapshot downloads. Keep the default
+# aligned with the native Hugging Face and ModelScope default.
 XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS = "XINFERENCE_MODEL_DOWNLOAD_WORKERS"
 XINFERENCE_MODEL_DOWNLOAD_WORKERS = int(
-    os.environ.get(XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS, 2)
+    os.environ.get(XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS, 8)
 )
 
 
