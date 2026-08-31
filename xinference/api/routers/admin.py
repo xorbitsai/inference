@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import signal
+import uuid
 from bisect import bisect_left
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 from ... import __version__
 from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
 from ...core.virtual_env_manager import VirtualEnvConflictError
+from ...types import PeftModelConfig
 from ..dependencies import get_api
 from ..responses import JSONResponse
 
@@ -162,6 +164,141 @@ async def list_cached_models(
     except ValueError as re:
         logger.error(re, exc_info=True)
         raise HTTPException(status_code=400, detail=str(re))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def cache_model(
+    request: Request,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    """Download model artifacts into one worker cache without deployment."""
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid input. Expected a JSON object.")
+
+        cache_uid = payload.get("cache_uid") or str(uuid.uuid4())
+        model_name = payload.get("model_name")
+        model_type = payload.get("model_type", "LLM")
+        model_engine = payload.get("model_engine")
+        if not isinstance(cache_uid, str):
+            raise ValueError("Invalid input. `cache_uid` must be a string.")
+        if not isinstance(model_name, str) or not model_name:
+            raise ValueError("Invalid input. Please specify the `model_name` field.")
+        if not isinstance(model_type, str) or not model_type:
+            raise ValueError("Invalid input. `model_type` must be a string.")
+        model_type = "LLM" if model_type.lower() == "llm" else model_type.lower()
+        if not model_engine and model_type == "LLM":
+            raise ValueError("Invalid input. Please specify the `model_engine` field.")
+
+        peft_model_config = payload.get("peft_model_config")
+        if peft_model_config is not None:
+            peft_model_config = PeftModelConfig.from_dict(peft_model_config)
+
+        explicit_keys = {
+            "cache_uid",
+            "model_name",
+            "model_type",
+            "model_engine",
+            "model_size_in_billions",
+            "model_format",
+            "quantization",
+            "peft_model_config",
+            "worker_ip",
+            "download_hub",
+            "model_path",
+            "enable_virtual_env",
+            "virtual_env_packages",
+        }
+        # Keep deployment-only controls out of the model constructor while
+        # forwarding model-specific artifact choices such as draft,
+        # multimodal-projector, ControlNet, GGUF, and lightning options.
+        deployment_only_keys = {
+            "model_uid",
+            "replica",
+            "replica_config",
+            "replica_placement_mode",
+            "n_gpu",
+            "gpu_idx",
+            "n_gpu_layers",
+            "n_worker",
+            "request_limits",
+            "enable_thinking",
+            "reasoning_content",
+            "cpu_offload",
+            "quantization_config",
+            "num_speculative_tokens",
+            "envs",
+            "virtual_env_find_links",
+            "save_autostart",
+        }
+        kwargs = {
+            key: value
+            for key, value in payload.items()
+            if key not in explicit_keys and key not in deployment_only_keys
+        }
+
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.cache_builtin_model(
+            cache_uid=cache_uid,
+            model_name=model_name,
+            model_size_in_billions=payload.get("model_size_in_billions"),
+            model_format=payload.get("model_format"),
+            quantization=payload.get("quantization"),
+            model_engine=model_engine,
+            model_type=model_type,
+            peft_model_config=peft_model_config,
+            worker_ip=payload.get("worker_ip"),
+            download_hub=payload.get("download_hub"),
+            model_path=payload.get("model_path"),
+            enable_virtual_env=payload.get("enable_virtual_env"),
+            virtual_env_packages=payload.get("virtual_env_packages"),
+            **kwargs,
+        )
+        return JSONResponse(content=result)
+    except ValueError as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=400, detail=str(e))
+    except asyncio.CancelledError:
+        logger.info("Cache operation was cancelled")
+        raise HTTPException(status_code=499, detail="Download cancelled")
+    except RuntimeError as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=503, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def get_cache_model_progress(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.get_cache_builtin_model_progress_details(
+            cache_uid
+        )
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def cancel_cache_model(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        await supervisor_ref.cancel_cache_builtin_model(cache_uid)
+        return JSONResponse(content=None)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -1523,6 +1660,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["cache:list"])] if is_auth else None),
     )
     router.add_api_route(
+        "/v1/cache/models",
+        cache_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/cache/models/files",
         list_model_files,
         methods=["GET"],
@@ -1533,6 +1676,18 @@ def register_routes(api: "RESTfulAPI") -> None:
         confirm_and_remove_model,
         methods=["DELETE"],
         dependencies=([Security(auth, scopes=["cache:delete"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cache/models/{cache_uid}/progress",
+        get_cache_model_progress,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cache/models/{cache_uid}/cancel",
+        cancel_cache_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
 
     router.add_api_route(

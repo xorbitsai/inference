@@ -510,6 +510,8 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
         model={selectedModel}
         modelType={requestType}
         gpuAvailable={gpuAvailable}
+        allowDownloadOnly={!isCustomRoute}
+        onCacheCompleted={() => fetchModels(requestType)}
         onOpenChange={(open) => !open && setSelectedModel(undefined)}
       />
     </PageContainer>
