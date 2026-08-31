@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 from threading import Event
 
+import pytest
 import torch
 from packaging.requirements import Requirement
 from packaging.version import Version
@@ -24,8 +25,16 @@ from packaging.version import Version
 from .....core.model import XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 from .....core.utils import filter_virtualenv_packages_by_markers
 from .....core.virtual_env_manager import expand_engine_dependency_placeholders
+from ....scheduler.batch import BatchScheduler
 from ....scheduler.request import InferenceRequest
-from ...llm_family import LLMFamilyV2, PytorchLLMSpecV2
+from ... import generate_engine_config_by_model_family
+from ...llm_family import (
+    LLM_ENGINES,
+    SUPPORTED_ENGINES,
+    LLMFamilyV2,
+    PytorchLLMSpecV2,
+    check_engine_by_spec_parameters_with_virtual_env,
+)
 from ..core import NON_DEFAULT_MODEL_LIST
 from ..gemma4 import Gemma4ChatModel
 
@@ -42,7 +51,11 @@ class _Batch(dict):
 
 
 class _Processor:
+    def __init__(self):
+        self.captured_kwargs = {}
+
     def apply_chat_template(self, prompts, **kwargs):
+        self.captured_kwargs.update(kwargs)
         assert kwargs["tokenize"] is True
         assert kwargs["add_generation_prompt"] is True
         assert kwargs["return_tensors"] == "pt"
@@ -93,14 +106,14 @@ class _Model:
         kwargs["streamer"].done.set()
 
 
-def _request():
-    return InferenceRequest([], None, True, "chat", None)
+def _request(generate_config=None):
+    return InferenceRequest([], None, True, "chat", generate_config)
 
 
-def _family(architectures, model_id="google/gemma-4-E4B-it"):
+def _family(architectures, model_id="google/gemma-4-E4B-it", model_size_in_billions=4):
     spec = PytorchLLMSpecV2(
         model_format="pytorch",
-        model_size_in_billions=4,
+        model_size_in_billions=model_size_in_billions,
         quantization="none",
         model_id=model_id,
         model_revision=None,
@@ -117,6 +130,7 @@ def _family(architectures, model_id="google/gemma-4-E4B-it"):
         stop_token_ids=None,
         stop=None,
         architectures=architectures,
+        virtualenv={"packages": ['transformers>=5.10.0 ; #engine# == "Transformers"']},
     )
 
 
@@ -128,7 +142,7 @@ def test_gemma4_registers_transformers_and_batching_support():
 
 def test_gemma4_virtualenv_uses_supported_transformers():
     family_path = Path(__file__).parents[2] / "llm_family.json"
-    families = json.loads(family_path.read_text())
+    families = json.loads(family_path.read_text(encoding="utf-8"))
     gemma4 = next(x for x in families if x["model_name"] == "gemma-4")
 
     packages = expand_engine_dependency_placeholders(
@@ -152,7 +166,7 @@ def test_gemma4_match_json_accepts_gemma4_conditional_generation():
     assert Gemma4ChatModel.match_json(family, spec, "none") is True
 
 
-def test_gemma4_match_json_rejects_unified_model_before_transformers_510(
+def test_gemma4_unified_selection_does_not_depend_on_host_transformers(
     monkeypatch,
 ):
     import transformers
@@ -163,15 +177,45 @@ def test_gemma4_match_json_rejects_unified_model_before_transformers_510(
     )
     spec = family.model_specs[0]
 
-    monkeypatch.setattr(transformers, "__version__", "5.9.0")
-    result = Gemma4ChatModel.match_json(family, spec, "none")
-    assert result == (
-        False,
-        "Gemma-4 unified Transformers backend requires transformers>=5.10.0",
+    monkeypatch.setattr(transformers, "__version__", "5.5.0")
+    assert Gemma4ChatModel.match_json(family, spec, "none") is True
+
+    family.model_specs[0].model_size_in_billions = 12
+    monkeypatch.setitem(SUPPORTED_ENGINES, "Transformers", [Gemma4ChatModel])
+    monkeypatch.setitem(LLM_ENGINES, "gemma-4", {})
+    generate_engine_config_by_model_family(family)
+
+    assert (
+        check_engine_by_spec_parameters_with_virtual_env(
+            "Transformers",
+            "gemma-4",
+            "pytorch",
+            12,
+            "none",
+            llm_family=family,
+        )
+        is Gemma4ChatModel
     )
 
+
+def test_gemma4_unified_checks_transformers_version_before_loading(monkeypatch):
+    import transformers
+
+    family = _family(
+        ["Gemma4ForConditionalGeneration", "Gemma4UnifiedForConditionalGeneration"],
+        model_id="google/gemma-4-12B-it",
+        model_size_in_billions=12,
+    )
+
+    monkeypatch.setattr(transformers, "__version__", "5.9.0")
+    with pytest.raises(
+        ImportError,
+        match="Gemma-4 unified Transformers backend requires transformers>=5.10.0",
+    ):
+        Gemma4ChatModel._ensure_model_spec_transformers_version(family.model_specs[0])
+
     monkeypatch.setattr(transformers, "__version__", "5.10.0")
-    assert Gemma4ChatModel.match_json(family, spec, "none") is True
+    Gemma4ChatModel._ensure_model_spec_transformers_version(family.model_specs[0])
 
 
 def test_gemma4_prefill_uses_attention_mask_for_left_padding():
@@ -197,6 +241,47 @@ def test_gemma4_prefill_uses_attention_mask_for_left_padding():
     assert second.padding_len == 2
     assert second.extra_kwargs["attention_mask_seq_len"] == 2
     assert second.extra_kwargs["max_position_id"] == 1
+
+
+def test_gemma4_batching_forwards_tools_and_chat_template_kwargs():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+    generate_config = {
+        "tools": tools,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    model = Gemma4ChatModel.__new__(Gemma4ChatModel)
+    model._processor = _Processor()
+    model._device = torch.device("cpu")
+    model.reasoning_parser = None
+
+    model.build_prefill_kwargs(
+        [["longer"], ["shorter"]],
+        [_request(generate_config), _request(dict(generate_config))],
+    )
+
+    assert model._processor.captured_kwargs["tools"] == tools
+    assert model._processor.captured_kwargs["enable_thinking"] is False
+
+
+def test_gemma4_scheduler_separates_incompatible_template_kwargs():
+    model = Gemma4ChatModel.__new__(Gemma4ChatModel)
+    model._pytorch_model_config = {"max_num_seqs": 4}
+    scheduler = BatchScheduler(model)
+    first = _request({"chat_template_kwargs": {"enable_thinking": False}})
+    second = _request({"chat_template_kwargs": {"enable_thinking": False}})
+    third = _request({"chat_template_kwargs": {"enable_thinking": True}})
+    scheduler._waiting_queue.extend([first, second, third])
+
+    assert scheduler._handle_request() == [first, second]
+    assert list(scheduler._waiting_queue) == [third]
 
 
 def _direct_model(monkeypatch):

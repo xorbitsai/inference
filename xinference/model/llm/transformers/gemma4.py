@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 from threading import Thread
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -68,18 +69,6 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
                 False,
                 f"Model architectures {model_family.architectures} are not Gemma-4-it",
             )
-        if cls._is_unified_model_spec(model_spec):
-            import transformers
-            from packaging.version import Version
-
-            if Version(transformers.__version__) < Version(
-                cls.GEMMA4_UNIFIED_MIN_TRANSFORMERS_VERSION
-            ):
-                return (
-                    False,
-                    "Gemma-4 unified Transformers backend requires "
-                    f"transformers>={cls.GEMMA4_UNIFIED_MIN_TRANSFORMERS_VERSION}",
-                )
         return True
 
     @classmethod
@@ -87,8 +76,26 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
         model_id = getattr(model_spec, "model_id", None) or ""
         return "gemma-4-12b" in model_id.lower()
 
+    @classmethod
+    def _ensure_model_spec_transformers_version(cls, model_spec: "LLMSpecV1") -> None:
+        if not cls._is_unified_model_spec(model_spec):
+            return
+
+        import transformers
+        from packaging.version import Version
+
+        if Version(transformers.__version__) < Version(
+            cls.GEMMA4_UNIFIED_MIN_TRANSFORMERS_VERSION
+        ):
+            raise ImportError(
+                "Gemma-4 unified Transformers backend requires "
+                f"transformers>={cls.GEMMA4_UNIFIED_MIN_TRANSFORMERS_VERSION}"
+            )
+
     def _load_model(self, **kwargs):
         from transformers import AutoModelForCausalLM, AutoProcessor
+
+        self._ensure_model_spec_transformers_version(self.model_spec)
 
         processor = AutoProcessor.from_pretrained(
             self.model_path,
@@ -122,21 +129,33 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         return self._transform_messages(messages)
 
+    def _get_processor_chat_template_kwargs(self, generate_config: Optional[Dict]):
+        template_kwargs = (
+            self._get_chat_template_kwargs_from_generate_config(
+                generate_config, getattr(self, "reasoning_parser", None)
+            )
+            or {}
+        )
+        tools = (generate_config or {}).get("tools")
+        if tools:
+            template_kwargs["tools"] = tools
+        return template_kwargs
+
+    def get_batching_prefill_compatibility_key(self, req: InferenceRequest) -> str:
+        generate_config = req.generate_config or {}
+        template_inputs = {
+            "tools": generate_config.get("tools"),
+            "chat_template_kwargs": generate_config.get("chat_template_kwargs"),
+        }
+        return json.dumps(template_inputs, sort_keys=True, default=repr)
+
     def build_inputs_from_messages(
         self,
         messages: List[Dict],
         generate_config: Dict,
     ):
         messages = self._transform_messages(messages)
-        template_kwargs = (
-            self._get_chat_template_kwargs_from_generate_config(
-                generate_config, self.reasoning_parser
-            )
-            or {}
-        )
-        tools = generate_config.get("tools")
-        if tools:
-            template_kwargs["tools"] = tools
+        template_kwargs = self._get_processor_chat_template_kwargs(generate_config)
         inputs = self._processor.apply_chat_template(
             messages,
             tokenize=True,
@@ -186,6 +205,9 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
     def build_prefill_kwargs(
         self, prompts: List, req_list: List[InferenceRequest]
     ) -> Dict:
+        template_kwargs = self._get_processor_chat_template_kwargs(
+            req_list[0].generate_config
+        )
         inputs = self._processor.apply_chat_template(
             prompts,
             tokenize=True,
@@ -193,6 +215,7 @@ class Gemma4ChatModel(PytorchDirectChatMixin, PytorchChatModel):
             return_tensors="pt",
             return_dict=True,
             padding=True,
+            **template_kwargs,
         ).to(self._device)
 
         for i, r in enumerate(req_list):
