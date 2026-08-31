@@ -143,6 +143,11 @@ async def test_list_model_downloads_includes_paused_persistent_task():
             "worker_address": "worker-0:9978",
             "status": "paused",
             "progress": 0.45,
+            "payload": {
+                "model_size_in_billions": 7,
+                "model_format": "pytorch",
+                "quantization": "none",
+            },
             "download_files": [{"name": "model.safetensors"}],
             "error": None,
             "created_at": 20,
@@ -157,6 +162,9 @@ async def test_list_model_downloads_includes_paused_persistent_task():
     assert result["stage"] == "paused"
     assert result["resumable"] is True
     assert result["progress"] == 0.45
+    assert result["model_size_in_billions"] == 7
+    assert result["model_format"] == "pytorch"
+    assert result["quantization"] == "none"
     assert result["download_files"] == [
         {
             "name": "model.safetensors",
@@ -299,6 +307,79 @@ async def test_cancel_resume_task_before_worker_assignment():
     assert resume_task.cancelled()
     supervisor._download_task_store.delete.assert_called_once_with("cache-qwen")
     assert "cache-qwen" not in supervisor._cache_cancel_requested
+
+
+@pytest.mark.asyncio
+async def test_delete_paused_download_removes_artifacts_before_task():
+    payload = {
+        "model_name": "qwen2.5-instruct",
+        "model_type": "LLM",
+        "_download_repositories": [
+            {"model_hub": "modelscope", "model_id": "Qwen/Qwen2.5-7B"}
+        ],
+    }
+    task = {
+        "cache_uid": "cache-qwen",
+        "status": "paused",
+        "worker_address": "worker-0:9978",
+        "payload": payload,
+    }
+    protected_payload = {
+        "model_name": "other",
+        "_download_repositories": [
+            {"model_hub": "modelscope", "model_id": "org/other"}
+        ],
+    }
+    worker = SimpleNamespace(
+        delete_cache_model_artifacts=AsyncMock(return_value={"removed_bytes": 1024})
+    )
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._download_task_store = MagicMock()
+    supervisor._download_task_store.get.return_value = task
+    supervisor._download_task_store.list_unfinished.return_value = [
+        task,
+        {
+            "cache_uid": "cache-other",
+            "worker_address": "worker-0:9978",
+            "payload": protected_payload,
+        },
+    ]
+    supervisor._cache_uid_to_worker = {}
+    supervisor._worker_address_to_worker = {"worker-0:9978": worker}
+
+    result = await SupervisorActor.delete_cache_builtin_model(supervisor, "cache-qwen")
+
+    assert result == {"removed_bytes": 1024}
+    worker.delete_cache_model_artifacts.assert_awaited_once_with(
+        payload, [protected_payload]
+    )
+    supervisor._download_task_store.delete.assert_called_once_with("cache-qwen")
+
+
+@pytest.mark.asyncio
+async def test_delete_download_keeps_task_when_artifact_cleanup_fails():
+    task = {
+        "cache_uid": "cache-qwen",
+        "status": "paused",
+        "worker_address": "worker-0:9978",
+        "payload": {"model_name": "qwen2.5-instruct"},
+    }
+    worker = SimpleNamespace(
+        delete_cache_model_artifacts=AsyncMock(
+            side_effect=RuntimeError("repository still in use")
+        )
+    )
+    supervisor = SupervisorActor.__new__(SupervisorActor)
+    supervisor._download_task_store = MagicMock()
+    supervisor._download_task_store.get.return_value = task
+    supervisor._download_task_store.list_unfinished.return_value = [task]
+    supervisor._cache_uid_to_worker = {}
+    supervisor._worker_address_to_worker = {"worker-0:9978": worker}
+
+    with pytest.raises(RuntimeError, match="still in use"):
+        await SupervisorActor.delete_cache_builtin_model(supervisor, "cache-qwen")
+
+    supervisor._download_task_store.delete.assert_not_called()
 
 
 @pytest.mark.asyncio

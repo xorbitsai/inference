@@ -49,6 +49,9 @@ def mock_supervisor():
         return_value={"progress": 0.5, "stage": "downloading"}
     )
     supervisor.cancel_cache_builtin_model = AsyncMock()
+    supervisor.delete_cache_builtin_model = AsyncMock(
+        return_value={"removed_bytes": 1024}
+    )
     supervisor.pause_cache_builtin_model = AsyncMock(
         return_value={"cache_uid": "cache-1", "status": "paused"}
     )
@@ -161,14 +164,19 @@ def test_cache_model_reuses_launch_model_permission(is_auth):
     admin_routes = capture_routes(admin.register_routes)
     launch_dependencies = model_routes[("/v1/models", ("POST",))]["dependencies"]
     cache_dependencies = admin_routes[("/v1/cache/models", ("POST",))]["dependencies"]
+    download_delete_dependencies = admin_routes[
+        ("/v1/downloads/{cache_uid}", ("DELETE",))
+    ]["dependencies"]
 
     if not is_auth:
         assert launch_dependencies is None
         assert cache_dependencies is None
+        assert download_delete_dependencies is None
         return
 
     assert launch_dependencies[0].scopes == ["models:write"]
     assert cache_dependencies[0].scopes == launch_dependencies[0].scopes
+    assert download_delete_dependencies[0].scopes == ["cache:delete"]
 
 
 @pytest.mark.asyncio
@@ -273,6 +281,12 @@ async def test_cache_model_progress_and_cancel(mock_api, mock_supervisor):
     cancel_response = await admin.cancel_cache_model(cache_uid="cache-1", api=mock_api)
     assert cancel_response.status_code == 200
     mock_supervisor.cancel_cache_builtin_model.assert_awaited_once_with("cache-1")
+
+    delete_response = await admin.delete_cache_download(
+        cache_uid="cache-1", api=mock_api
+    )
+    assert _json_body(delete_response) == {"removed_bytes": 1024}
+    mock_supervisor.delete_cache_builtin_model.assert_awaited_once_with("cache-1")
 
 
 @pytest.mark.asyncio

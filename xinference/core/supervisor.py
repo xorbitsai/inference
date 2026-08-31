@@ -2696,6 +2696,7 @@ class SupervisorActor(xo.StatelessActor):
         **kwargs,
     ) -> Dict[str, Any]:
         """Cache one model on one worker without creating a running instance."""
+        download_repositories = kwargs.pop("_download_repositories", None)
         cache_uid = cache_uid or f"cache-{gen_random_string(12)}"
         if not is_valid_model_uid(cache_uid):
             raise ValueError(
@@ -2751,6 +2752,11 @@ class SupervisorActor(xo.StatelessActor):
             "virtual_env_packages": virtual_env_packages,
             **kwargs,
         }
+        if download_repositories is None:
+            download_repositories = (
+                await worker_ref.resolve_model_download_repositories(payload)
+            )
+        payload["_download_repositories"] = download_repositories
         self._download_task_store.upsert(
             {
                 "cache_uid": cache_uid,
@@ -3897,6 +3903,55 @@ class SupervisorActor(xo.StatelessActor):
         self._download_task_store.delete(cache_uid)
         self._cache_cancel_requested.discard(cache_uid)
 
+    async def delete_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
+        """Stop a cache task and remove its task-owned Hub artifacts."""
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            raise RuntimeError(f"Cache operation {cache_uid} does not exist")
+
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        if task.get("status") in ACTIVE_DOWNLOAD_STATUSES:
+            await self.pause_cache_builtin_model(cache_uid)
+            task = self._download_task_store.get(cache_uid) or task
+
+        worker_address = task.get("worker_address")
+        if worker_ref is None and worker_address:
+            worker_ref = self._worker_address_to_worker.get(worker_address)
+        if worker_ref is None and worker_address:
+            worker_host = self._get_worker_host(worker_address)
+            same_host_workers = [
+                ref
+                for address, ref in self._worker_address_to_worker.items()
+                if self._get_worker_host(address) == worker_host
+            ]
+            if len(same_host_workers) == 1:
+                worker_ref = same_host_workers[0]
+        if worker_ref is None:
+            raise RuntimeError(
+                f"Worker for cache operation {cache_uid} is not available; "
+                "download files were not deleted"
+            )
+
+        protected_payloads = []
+        for other_task in self._download_task_store.list_unfinished():
+            if other_task.get("cache_uid") == cache_uid:
+                continue
+            other_address = other_task.get("worker_address")
+            if worker_address and other_address != worker_address:
+                continue
+            payload = other_task.get("payload")
+            if isinstance(payload, dict):
+                protected_payloads.append(payload)
+
+        payload = task.get("payload")
+        if not isinstance(payload, dict) or not payload:
+            raise RuntimeError(f"Cache operation {cache_uid} has no cleanup payload")
+        result = await worker_ref.delete_cache_model_artifacts(
+            payload, protected_payloads
+        )
+        self._download_task_store.delete(cache_uid)
+        return typing.cast(Dict[str, Any], result)
+
     async def list_model_downloads(self) -> List[Dict[str, Any]]:
         """Return active launches and resumable cache-only downloads."""
         infos = await self._status_guard_ref.get_instance_info()
@@ -3920,6 +3975,7 @@ class SupervisorActor(xo.StatelessActor):
             ]
             stage = str(task.get("status") or "pending")
             progress = float(task.get("progress") or 0)
+            payload = task.get("payload") or {}
             downloads.append(
                 {
                     "kind": "cache",
@@ -3929,6 +3985,9 @@ class SupervisorActor(xo.StatelessActor):
                     "model_version": task.get("model_version"),
                     "model_type": task.get("model_type"),
                     "model_engine": task.get("model_engine"),
+                    "model_size_in_billions": payload.get("model_size_in_billions"),
+                    "model_format": payload.get("model_format"),
+                    "quantization": payload.get("quantization"),
                     "status": stage,
                     "instance_created_ts": int(task.get("created_at") or 0),
                     "updated_at": task.get("updated_at"),

@@ -304,6 +304,23 @@ async def cancel_cache_model(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def delete_cache_download(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.delete_cache_builtin_model(cache_uid)
+        return JSONResponse(content=result)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 async def pause_cache_model(
     cache_uid: str,
     api: "RESTfulAPI" = Depends(get_api),
@@ -1748,6 +1765,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         resume_cache_model,
         methods=["POST"],
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads/{cache_uid}",
+        delete_cache_download,
+        methods=["DELETE"],
+        dependencies=([Security(auth, scopes=["cache:delete"])] if is_auth else None),
     )
 
     router.add_api_route(

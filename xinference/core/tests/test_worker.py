@@ -3415,6 +3415,94 @@ async def test_remove_model_cache_removes_mlx_video_derived_artifacts(
     assert conversion_lock.exists()
 
 
+def test_delete_incomplete_download_removes_exact_modelscope_repository(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    modelscope_root = tmp_path / "modelscope"
+    repository = modelscope_root / "models" / "google--gemma-4-E2B-it"
+    snapshot = repository / "snapshots" / "master"
+    snapshot.mkdir(parents=True)
+    incomplete = snapshot / "model.safetensors.incomplete"
+    incomplete.write_bytes(b"partial-weights")
+
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    payload = {
+        "_download_repositories": [
+            {
+                "model_hub": "modelscope",
+                "model_id": "google/gemma-4-E2B-it",
+            }
+        ]
+    }
+    paths = WorkerActor._download_repository_paths(payload)
+    result = WorkerActor._remove_download_repository_paths(paths, set())
+
+    assert not repository.exists()
+    assert result["removed_bytes"] == len(b"partial-weights")
+    assert result["removed_repositories"] == [str(repository)]
+
+
+def test_delete_incomplete_download_preserves_referenced_repository(
+    tmp_path, monkeypatch
+):
+    cache_root = tmp_path / "cache"
+    cache_dir = cache_root / "v2" / "shared-model"
+    cache_dir.mkdir(parents=True)
+    modelscope_root = tmp_path / "modelscope"
+    repository = modelscope_root / "models" / "org--shared-model"
+    snapshot = repository / "snapshots" / "master"
+    snapshot.mkdir(parents=True)
+    config = snapshot / "config.json"
+    config.write_text("{}")
+    incomplete = snapshot / "model.safetensors.incomplete"
+    incomplete.write_bytes(b"partial")
+    (cache_dir / "config.json").symlink_to(config)
+
+    monkeypatch.setattr(worker_module, "XINFERENCE_CACHE_DIR", str(cache_root))
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    payload = {
+        "_download_repositories": [
+            {"model_hub": "modelscope", "model_id": "org/shared-model"}
+        ]
+    }
+    paths = WorkerActor._download_repository_paths(payload)
+    result = WorkerActor._remove_download_repository_paths(paths, set())
+
+    assert repository.exists()
+    assert config.exists()
+    assert not incomplete.exists()
+    assert result["preserved_repositories"] == [str(repository)]
+
+
+def test_delete_incomplete_download_rejects_repository_used_by_other_task(
+    tmp_path, monkeypatch
+):
+    modelscope_root = tmp_path / "modelscope"
+    repository = modelscope_root / "models" / "org--shared-model"
+    repository.mkdir(parents=True)
+    monkeypatch.setenv("HUGGINGFACE_HUB_CACHE", str(tmp_path / "huggingface"))
+    monkeypatch.setenv("MODELSCOPE_CACHE", str(modelscope_root))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "openmind"))
+    monkeypatch.setenv("CSGHUB_CACHE", str(tmp_path / "csghub"))
+
+    with pytest.raises(RuntimeError, match="another download task"):
+        WorkerActor._remove_download_repository_paths(
+            {str(repository)}, {str(repository)}
+        )
+
+    assert repository.exists()
+
+
 @pytest.mark.asyncio
 async def test_remove_model_cache_waits_for_active_mlx_conversion(
     tmp_path, monkeypatch

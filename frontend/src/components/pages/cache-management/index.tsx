@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Ban,
   Box,
+  ChevronDown,
+  ChevronRight,
   CircleAlert,
   Copy,
   Database,
@@ -19,7 +21,7 @@ import { toast } from 'sonner';
 import DownloadProgressDetails from '@/components/pages/launch-model/launch-dialog/download-progress-details';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import PageContainer from '@/components/ui/page-container';
 import { Progress } from '@/components/ui/progress';
@@ -45,6 +47,7 @@ type TabValue = 'models' | 'environments';
 const ACTIVE_CACHE_DOWNLOAD_STAGES = new Set(['pending', 'resuming', 'downloading', 'pausing']);
 type PendingAction =
   | { kind: 'download'; item: ModelDownloadItem }
+  | { kind: 'downloadDelete'; item: ModelDownloadItem }
   | { kind: 'cache'; item: ModelCachedItem }
   | { kind: 'environment'; item: ModelEnvItem };
 
@@ -92,7 +95,7 @@ function PathCell({ path, copyLabel }: { path?: string; copyLabel: string }) {
   if (!path) return <>-</>;
 
   return (
-    <div className="flex min-w-[180px] max-w-[300px] items-center gap-2">
+    <div className="flex w-full items-center gap-2">
       <InfoTooltip content={path} contentClassName="max-w-[calc(100vw-2rem)] break-all">
         <span className="min-w-0 flex-1 truncate font-mono text-xs">{path}</span>
       </InfoTooltip>
@@ -128,6 +131,7 @@ export default function CacheManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [downloadActionUid, setDownloadActionUid] = useState<string>();
+  const [expandedDownloadUids, setExpandedDownloadUids] = useState<Set<string>>(() => new Set());
   const [pendingAction, setPendingAction] = useState<PendingAction>();
   const [lastUpdated, setLastUpdated] = useState<number>();
   const downloadsInFlight = useRef(false);
@@ -145,6 +149,17 @@ export default function CacheManagement() {
       setActiveTab(availableTabs[0]);
     }
   }, [activeTab, availableTabs]);
+
+  const toggleDownloadDetails = useCallback((modelUid: string) => {
+    setExpandedDownloadUids((current) => {
+      const next = new Set(current);
+
+      if (next.has(modelUid)) next.delete(modelUid);
+      else next.add(modelUid);
+
+      return next;
+    });
+  }, []);
 
   const loadDownloads = useCallback(async () => {
     if (!canViewDownloads || downloadsInFlight.current) return;
@@ -241,6 +256,11 @@ export default function CacheManagement() {
         await request.post(endpoint);
         toast.success(t('cacheManagement.cancelSuccess'));
         await loadDownloads();
+      } else if (pendingAction.kind === 'downloadDelete') {
+        if (!pendingAction.item.cache_uid) return;
+        await request.delete(`/v1/downloads/${encodeURIComponent(pendingAction.item.cache_uid)}`);
+        toast.success(t('cacheManagement.deleteDownloadSuccess'));
+        await loadDownloads();
       } else if (pendingAction.kind === 'cache') {
         const params = new URLSearchParams({
           model_version: pendingAction.item.model_version,
@@ -279,6 +299,10 @@ export default function CacheManagement() {
       item.model_name,
       item.model_uid,
       item.model_version,
+      item.model_engine,
+      item.model_format,
+      item.model_size_in_billions,
+      item.quantization,
       ...item.replicas.map((replica) => replica.worker_address)
     )
   );
@@ -288,6 +312,7 @@ export default function CacheManagement() {
       item.model_name,
       item.model_version,
       item.model_format,
+      item.model_size_in_billions,
       item.quantization,
       item.path,
       item.real_path,
@@ -314,15 +339,19 @@ export default function CacheManagement() {
             : 'cacheManagement.cancelDownloadConfirm',
           { model: pendingAction.item.model_uid }
         )
-      : pendingAction.kind === 'cache'
-        ? t('cacheManagement.deleteCacheConfirm', {
-            model: pendingAction.item.model_name,
-            worker: pendingAction.item.actor_ip_address,
+      : pendingAction.kind === 'downloadDelete'
+        ? t('cacheManagement.deleteDownloadConfirm', {
+            model: pendingAction.item.model_uid,
           })
-        : t('cacheManagement.deleteEnvironmentConfirm', {
-            model: pendingAction.item.model_name,
-            worker: pendingAction.item.actor_ip_address,
-          })
+        : pendingAction.kind === 'cache'
+          ? t('cacheManagement.deleteCacheConfirm', {
+              model: pendingAction.item.model_name,
+              worker: pendingAction.item.actor_ip_address,
+            })
+          : t('cacheManagement.deleteEnvironmentConfirm', {
+              model: pendingAction.item.model_name,
+              worker: pendingAction.item.actor_ip_address,
+            })
     : '';
 
   return (
@@ -399,10 +428,38 @@ export default function CacheManagement() {
           </div>
 
           {(canViewDownloads || canViewCache) && (
-            <TabsContent value="models" className="mt-4 space-y-4">
-              {canViewDownloads &&
-                (filteredDownloads.length ? (
-                  filteredDownloads.map((download) => {
+            <TabsContent value="models" className="mt-4 rounded-lg border">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-[8%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[8%]" />
+                  <col className="w-[6%]" />
+                  <col className="w-[5%]" />
+                  <col className="w-[6%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[9%]" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('cacheManagement.modelName')}</TableHead>
+                    <TableHead>{t('cacheManagement.modelVersion')}</TableHead>
+                    <TableHead>{t('cacheManagement.engine')}</TableHead>
+                    <TableHead>{t('cacheManagement.format')}</TableHead>
+                    <TableHead>{t('cacheManagement.size')}</TableHead>
+                    <TableHead>{t('cacheManagement.quantization')}</TableHead>
+                    <TableHead>{t('cacheManagement.statusAndProgress')}</TableHead>
+                    <TableHead>{t('cacheManagement.path')}</TableHead>
+                    <TableHead>{t('cacheManagement.realPath')}</TableHead>
+                    <TableHead>{t('cacheManagement.worker')}</TableHead>
+                    <TableHead className="text-center">{t('common.operation')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDownloads.map((download) => {
                     const percent = progressPercent(download.progress);
                     const isCacheDownload =
                       download.kind === 'cache' && Boolean(download.cache_uid);
@@ -425,19 +482,77 @@ export default function CacheManagement() {
                           .filter((worker): worker is string => Boolean(worker))
                       )
                     );
+                    const showDetails =
+                      download.download_files.length > 0 ||
+                      download.stage === 'interrupted' ||
+                      (download.stage === 'failed' && Boolean(download.error));
+                    const isDetailsExpanded =
+                      showDetails && expandedDownloadUids.has(download.model_uid);
+
                     return (
-                      <Card key={download.model_uid} className="gap-4 py-5 shadow-none">
-                        <CardHeader className="gap-3 px-5">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="min-w-0">
-                              <CardTitle className="truncate text-base">
+                      <Fragment key={`download:${download.model_uid}`}>
+                        <TableRow
+                          className={
+                            showDetails ? 'cursor-pointer bg-primary/[0.02]' : 'bg-primary/[0.02]'
+                          }
+                          aria-expanded={showDetails ? isDetailsExpanded : undefined}
+                          onClick={
+                            showDetails
+                              ? (event) => {
+                                  if (
+                                    (event.target as HTMLElement).closest(
+                                      'button, a, input, select, textarea'
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                  toggleDownloadDetails(download.model_uid);
+                                }
+                              : undefined
+                          }
+                        >
+                          <TableCell className="break-words">
+                            <div className="flex min-w-0 items-center gap-1">
+                              <div className="min-w-0 break-words font-medium">
                                 {download.model_name}
-                              </CardTitle>
-                              <div className="mt-1 truncate font-mono text-xs text-muted-foreground">
-                                {download.model_uid}
                               </div>
+                              {showDetails && (
+                                <InfoTooltip
+                                  content={t(isDetailsExpanded ? 'common.packUp' : 'common.unfold')}
+                                >
+                                  <button
+                                    type="button"
+                                    aria-label={t(
+                                      isDetailsExpanded ? 'common.packUp' : 'common.unfold'
+                                    )}
+                                    aria-expanded={isDetailsExpanded}
+                                    className="shrink-0 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleDownloadDetails(download.model_uid);
+                                    }}
+                                  >
+                                    {isDetailsExpanded ? (
+                                      <ChevronDown className="size-4" />
+                                    ) : (
+                                      <ChevronRight className="size-4" />
+                                    )}
+                                  </button>
+                                </InfoTooltip>
+                              )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                          </TableCell>
+                          <TableCell className="max-w-64 truncate font-mono text-xs">
+                            {download.model_version || '-'}
+                          </TableCell>
+                          <TableCell>{download.model_engine || '-'}</TableCell>
+                          <TableCell>{download.model_format || '-'}</TableCell>
+                          <TableCell className="font-semibold tabular-nums">
+                            {download.model_size_in_billions ?? '-'}
+                          </TableCell>
+                          <TableCell>{download.quantization || '-'}</TableCell>
+                          <TableCell>
+                            <div className="w-full space-y-2">
                               <Badge
                                 variant={
                                   ['interrupted', 'failed'].includes(download.stage)
@@ -447,153 +562,170 @@ export default function CacheManagement() {
                               >
                                 {stageLabel}
                               </Badge>
-                              {workers.map((worker) => (
-                                <Badge key={worker} variant="outline" className="font-mono">
-                                  {worker}
-                                </Badge>
-                              ))}
+                              <div className="flex items-center gap-2">
+                                <Progress value={percent} className="h-1.5 flex-1" />
+                                <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+                                  {Math.round(percent)}%
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>-</TableCell>
+                          <TableCell>
+                            <div className="space-y-1 break-all font-mono text-xs">
+                              {workers.length
+                                ? workers.map((worker) => <div key={worker}>{worker}</div>)
+                                : '-'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex flex-wrap items-center justify-center gap-1">
                               {canCancelDownloads && isActiveCacheDownload && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  loading={downloadActionUid === download.cache_uid}
-                                  onClick={() => void handleDownloadTaskAction(download, 'pause')}
-                                >
-                                  <Pause />
-                                  {t('cacheManagement.pauseDownload')}
-                                </Button>
+                                <InfoTooltip content={t('cacheManagement.pauseDownload')}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={t('cacheManagement.pauseDownload')}
+                                    loading={downloadActionUid === download.cache_uid}
+                                    onClick={() => void handleDownloadTaskAction(download, 'pause')}
+                                  >
+                                    {downloadActionUid !== download.cache_uid && <Pause />}
+                                  </Button>
+                                </InfoTooltip>
                               )}
                               {canCancelDownloads && isCacheDownload && download.resumable && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  loading={downloadActionUid === download.cache_uid}
-                                  onClick={() => void handleDownloadTaskAction(download, 'resume')}
-                                >
-                                  <Play />
-                                  {t('cacheManagement.resumeDownload')}
-                                </Button>
+                                <InfoTooltip content={t('cacheManagement.resumeDownload')}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={t('cacheManagement.resumeDownload')}
+                                    loading={downloadActionUid === download.cache_uid}
+                                    onClick={() =>
+                                      void handleDownloadTaskAction(download, 'resume')
+                                    }
+                                  >
+                                    {downloadActionUid !== download.cache_uid && <Play />}
+                                  </Button>
+                                </InfoTooltip>
                               )}
                               {canCancelDownloads && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    setPendingAction({ kind: 'download', item: download })
-                                  }
-                                >
-                                  <Ban />
-                                  {t('cacheManagement.cancelDownload')}
-                                </Button>
+                                <InfoTooltip content={t('cacheManagement.cancelDownload')}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={t('cacheManagement.cancelDownload')}
+                                    onClick={() =>
+                                      setPendingAction({ kind: 'download', item: download })
+                                    }
+                                  >
+                                    <Ban />
+                                  </Button>
+                                </InfoTooltip>
+                              )}
+                              {canDeleteCache && isCacheDownload && (
+                                <InfoTooltip content={t('cacheManagement.deleteDownload')}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={t('cacheManagement.deleteDownload')}
+                                    className="hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() =>
+                                      setPendingAction({ kind: 'downloadDelete', item: download })
+                                    }
+                                  >
+                                    <Trash2 />
+                                  </Button>
+                                </InfoTooltip>
                               )}
                             </div>
-                          </div>
-                          {download.stage === 'interrupted' && (
-                            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-                              <CircleAlert className="mt-0.5 size-4 shrink-0" />
-                              {t('cacheManagement.downloadInterruptedHint')}
-                            </div>
-                          )}
-                          {download.stage === 'failed' && download.error && (
-                            <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                              <CircleAlert className="mt-0.5 size-4 shrink-0" />
-                              <span className="break-all">{download.error}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-3">
-                            <Progress value={percent} className="flex-1" />
-                            <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
-                              {Math.round(percent)}%
-                            </span>
-                          </div>
-                        </CardHeader>
-                        {download.download_files.length > 0 && (
-                          <CardContent className="px-5">
-                            <DownloadProgressDetails files={download.download_files} />
-                          </CardContent>
-                        )}
-                      </Card>
-                    );
-                  })
-                ) : !canViewCache ? (
-                  <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed text-muted-foreground">
-                    <Download className="size-10" />
-                    <span>{t('cacheManagement.noDownloads')}</span>
-                  </div>
-                ) : null)}
-
-              {canViewCache && (
-                <div className="rounded-lg border">
-                  <Table className="min-w-[1250px]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('cacheManagement.modelName')}</TableHead>
-                        <TableHead>{t('cacheManagement.modelVersion')}</TableHead>
-                        <TableHead>{t('cacheManagement.format')}</TableHead>
-                        <TableHead>{t('cacheManagement.size')}</TableHead>
-                        <TableHead>{t('cacheManagement.quantization')}</TableHead>
-                        <TableHead>{t('cacheManagement.path')}</TableHead>
-                        <TableHead>{t('cacheManagement.realPath')}</TableHead>
-                        <TableHead>{t('cacheManagement.worker')}</TableHead>
-                        <TableHead className="w-20">{t('common.operation')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredCachedModels.length ? (
-                        filteredCachedModels.map((item) => (
-                          <TableRow
-                            key={`${item.model_version}:${item.actor_ip_address}:${item.path}`}
-                          >
-                            <TableCell className="font-medium">{item.model_name}</TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {item.model_version}
-                            </TableCell>
-                            <TableCell>{item.model_format || '-'}</TableCell>
-                            <TableCell>{item.model_size_in_billions ?? '-'}</TableCell>
-                            <TableCell>{item.quantization || '-'}</TableCell>
-                            <TableCell>
-                              <PathCell
-                                path={item.path}
-                                copyLabel={t('cacheManagement.copyPath')}
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <PathCell
-                                path={item.real_path}
-                                copyLabel={t('cacheManagement.copyPath')}
-                              />
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {item.actor_ip_address}
-                            </TableCell>
-                            <TableCell>
-                              {canDeleteCache ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label={t('cacheManagement.deleteCache')}
-                                  className="hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => setPendingAction({ kind: 'cache', item })}
-                                >
-                                  <Trash2 />
-                                </Button>
-                              ) : (
-                                '-'
+                          </TableCell>
+                        </TableRow>
+                        {isDetailsExpanded && (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={11} className="space-y-3 bg-muted/10 px-4 py-3">
+                              {download.stage === 'interrupted' && (
+                                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+                                  <CircleAlert className="mt-0.5 size-4 shrink-0" />
+                                  {t('cacheManagement.downloadInterruptedHint')}
+                                </div>
+                              )}
+                              {download.stage === 'failed' && download.error && (
+                                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                  <CircleAlert className="mt-0.5 size-4 shrink-0" />
+                                  <span className="break-all">{download.error}</span>
+                                </div>
+                              )}
+                              {download.download_files.length > 0 && (
+                                <DownloadProgressDetails files={download.download_files} />
                               )}
                             </TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={9} className="h-64 text-center text-muted-foreground">
-                            {t('cacheManagement.noCachedModels')}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+                        )}
+                      </Fragment>
+                    );
+                  })}
+
+                  {filteredCachedModels.map((item) => (
+                    <TableRow
+                      key={`cache:${item.model_version}:${item.actor_ip_address}:${item.path}`}
+                    >
+                      <TableCell className="break-words font-medium">{item.model_name}</TableCell>
+                      <TableCell className="break-all font-mono text-xs">
+                        {item.model_version}
+                      </TableCell>
+                      <TableCell>-</TableCell>
+                      <TableCell>{item.model_format || '-'}</TableCell>
+                      <TableCell className="font-semibold tabular-nums">
+                        {item.model_size_in_billions ?? '-'}
+                      </TableCell>
+                      <TableCell>{item.quantization || '-'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        >
+                          {t('cacheManagement.cachedState')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <PathCell path={item.path} copyLabel={t('cacheManagement.copyPath')} />
+                      </TableCell>
+                      <TableCell>
+                        <PathCell path={item.real_path} copyLabel={t('cacheManagement.copyPath')} />
+                      </TableCell>
+                      <TableCell className="break-all font-mono text-xs">
+                        {item.actor_ip_address}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {canDeleteCache ? (
+                          <InfoTooltip content={t('cacheManagement.deleteCache')}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={t('cacheManagement.deleteCache')}
+                              className="hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => setPendingAction({ kind: 'cache', item })}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </InfoTooltip>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+
+                  {filteredDownloads.length === 0 && filteredCachedModels.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={11} className="h-64 text-center text-muted-foreground">
+                        {t('cacheManagement.noModelCacheItems')}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </TabsContent>
           )}
 
@@ -632,15 +764,17 @@ export default function CacheManagement() {
                         <TableCell className="font-mono text-xs">{item.actor_ip_address}</TableCell>
                         <TableCell>
                           {canDeleteEnvironments ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={t('cacheManagement.deleteEnvironment')}
-                              className="hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setPendingAction({ kind: 'environment', item })}
-                            >
-                              <Trash2 />
-                            </Button>
+                            <InfoTooltip content={t('cacheManagement.deleteEnvironment')}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label={t('cacheManagement.deleteEnvironment')}
+                                className="hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => setPendingAction({ kind: 'environment', item })}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </InfoTooltip>
                           ) : (
                             '-'
                           )}

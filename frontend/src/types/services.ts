@@ -118,6 +118,9 @@ export interface ModelDownloadItem {
   model_version: string | null;
   model_type?: string | null;
   model_engine?: string | null;
+  model_size_in_billions?: number | string | null;
+  model_format?: string | null;
+  quantization?: string | null;
   status: string;
   instance_created_ts: number;
   updated_at?: number | null;
