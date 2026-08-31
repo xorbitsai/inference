@@ -35,6 +35,8 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_PACKAGES,
     FLASHINFER_AOT_WHEEL_URL,
     FLASHINFER_CUBIN_WHEEL_URL,
+    VirtualEnvConflictError,
+    VirtualEnvManager,
     _run_uv_install_with_source_fallback,
     _validate_flash_attn_install,
     apply_flash_attn_wheel_post_install,
@@ -44,6 +46,7 @@ from ..virtual_env_manager import (
     ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
     is_flash_attn_requirement,
+    is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
     needs_flashinfer_aot,
     validate_virtual_env_find_links,
@@ -531,6 +534,15 @@ class TestApplyFlashAttnWheelPostInstall:
     )
     def test_does_not_match_unrelated_requirements(self, requirement):
         assert not is_flash_attn_requirement(requirement)
+
+    def test_identifies_only_jina_flash_attn_as_find_links_only(self):
+        requirement = "flash-attn==2.8.3.post1+cvte1"
+
+        assert is_model_find_links_only_requirement("jina-embeddings-v3", requirement)
+        assert not is_model_find_links_only_requirement("another-model", requirement)
+        assert not is_model_find_links_only_requirement(
+            "jina-embeddings-v3", "sentence-transformers"
+        )
 
     def test_non_jina_model_is_noop(self, fake_venv_manager):
         with (
@@ -1364,3 +1376,41 @@ class TestGetEngineCriticalDependencySpecs:
                 ],
             )
         assert specs == ["transformers==4.57.1"]
+
+
+def test_remove_virtual_env_rejects_active_model(tmp_path, monkeypatch):
+    from xinference import constants
+
+    virtual_env_root = tmp_path / "virtualenv"
+    env_path = virtual_env_root / "v4" / "Qwen3.8-Flash-Next" / "vllm" / "3.12"
+    env_path.mkdir(parents=True)
+    monkeypatch.setattr(constants, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root))
+    manager = VirtualEnvManager("worker-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="models are using it"):
+        manager.remove_virtual_env(
+            "Qwen3.8-Flash-Next",
+            "vllm",
+            "3.12",
+            active_model_uids_by_path={str(env_path): ["qwen-rep0"]},
+        )
+
+    assert env_path.exists()
+
+
+def test_remove_virtual_env_allows_delete_after_final_release(tmp_path, monkeypatch):
+    from xinference import constants
+
+    virtual_env_root = tmp_path / "virtualenv"
+    env_path = virtual_env_root / "v4" / "Qwen3.8-Flash-Next" / "vllm" / "3.12"
+    env_path.mkdir(parents=True)
+    monkeypatch.setattr(constants, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root))
+    manager = VirtualEnvManager("worker-0")
+
+    assert manager.remove_virtual_env(
+        "Qwen3.8-Flash-Next",
+        "vllm",
+        "3.12",
+        active_model_uids_by_path={},
+    )
+    assert not env_path.exists()

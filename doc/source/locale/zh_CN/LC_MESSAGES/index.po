@@ -143,6 +143,15 @@ msgstr "视频"
 msgid "Learn how to generate video with Xinference."
 msgstr "学习如何使用Xinference生成视频。"
 
+#: ../../source/index.rst:213
+msgid "World"
+msgstr "世界模型"
+
+#: ../../source/index.rst:217
+msgid ""
+"Learn how to generate environment videos with world models in Xinference."
+msgstr "学习如何在 Xinference 中使用世界模型生成环境视频。"
+
 #: ../../source/index.rst:214
 msgid "Flexible"
 msgstr "灵活模型"

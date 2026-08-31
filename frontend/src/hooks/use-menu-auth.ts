@@ -24,6 +24,8 @@ export function useMenuAuth() {
     canAccessKeysPage: hasScope('admin', 'keys:create', 'keys:manage'),
     hasLogsList: hasScope('admin', 'logs:list'),
     hasMonitorView: hasScope('admin', 'monitor:view'),
+    hasSettingsRead: hasScope('admin', 'settings:read'),
+    canWriteSettings: hasScope('admin', 'settings:write'),
     canRegisterModel: hasScope('admin', 'models:register', 'models:add', 'models:unregister'),
     hasRouterList: hasScope('admin', 'routers:list'),
     hasRouterRead: hasScope('admin', 'routers:read'),

@@ -2533,6 +2533,7 @@
         "accelerate>=1.13.0",
         "huggingface-hub>=1.23.0,<2.0",
         "safetensors>=0.8.0",
+        "soundfile>=0.13.1",
         "#system_torch#",
         "#system_numpy#"
       ]
@@ -2627,6 +2628,42 @@
       }
     },
     "updated_at": 1786646013,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Breeze-TTS-2",
+    "model_description": "Breeze TTS 2 supports bilingual voice design, voice cloning, voice direction, and low-latency streaming on NVIDIA CUDA GPUs. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
+    "model_family": "Breeze-TTS-2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.3",
+        "qwen-tts==0.1.1",
+        "soundfile>=0.13",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "BreezeBlue/Breeze-TTS-2",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "BreezeBlue/Breeze-TTS-2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787961433,
     "featured": false
   },
   {

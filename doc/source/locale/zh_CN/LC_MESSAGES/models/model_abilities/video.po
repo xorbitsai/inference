@@ -20,8 +20,8 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 #: ../../source/models/model_abilities/video.rst:5
-msgid "Video (Experimental)"
-msgstr "视频（实验性质）"
+msgid "Video"
+msgstr "视频"
 
 #: ../../source/models/model_abilities/video.rst:7
 msgid "Learn how to generate videos with Xinference."
@@ -285,4 +285,3 @@ msgstr "此示例将需要 20GB 的显存。"
 
 #~ msgid "/v1/video/generations/image"
 #~ msgstr ""
-

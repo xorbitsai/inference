@@ -20,6 +20,7 @@ import {
   Monitor,
   ScrollText,
   ShieldCheck,
+  Settings2,
   Users,
   UserRound,
   KeyRound,
@@ -154,6 +155,7 @@ export function Sidebar() {
     canAccessKeysPage,
     hasLogsList,
     hasMonitorView,
+    hasSettingsRead,
     canRegisterModel,
     canAccessRouterPage,
   } = useMenuAuth();
@@ -276,6 +278,15 @@ export function Sidebar() {
             show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
           },
           {
+            path: '/system-settings',
+            name: t('menu.systemSettings'),
+            Icon: Settings2,
+            Extra: ChevronRight,
+            show:
+              Object.keys(clusterUIConfig).length > 0 &&
+              (!clusterUIConfig.auth_advanced || hasSettingsRead),
+          },
+          {
             path: '/audit-center',
             name: t('menu.auditCenter'),
             Icon: FileSearch,
@@ -334,6 +345,7 @@ export function Sidebar() {
     isAdmin,
     hasLogsList,
     hasMonitorView,
+    hasSettingsRead,
     canRegisterModel,
     canAccessRouterPage,
   ]);

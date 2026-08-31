@@ -32,7 +32,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "xoscar>=0.9.7",
+    "xoscar>=0.9.10",
     "psutil>=5.9.0",
     "torch",
     "pillow",
@@ -83,6 +83,9 @@ xinference-router = "xinference.deploy.router:main"
 xinference-router-agent = "xinference.deploy.router_agent:main"
 xinference-migrate-auth = "xinference.api.oauth2.advanced.migrate:main"
 xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:main"
+
+[project.entry-points."vllm.general_plugins"]
+xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
 
 [project.optional-dependencies]
 dev = [

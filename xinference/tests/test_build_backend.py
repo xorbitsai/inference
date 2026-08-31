@@ -232,6 +232,40 @@ def test_reports_entry_index_for_unnamed_invalid_llm_families(backend, tmp_path)
     assert all(f"'entry {index}'" in message for index in range(3))
 
 
+def test_pre_build_can_skip_model_validation_for_dependency_skeleton(
+    backend, monkeypatch
+):
+    calls = []
+    monkeypatch.setenv("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION", "1")
+    monkeypatch.setattr(
+        backend, "_validate_builtin_model_specs", lambda: calls.append("validate")
+    )
+    monkeypatch.setattr(
+        backend, "_record_full_revision", lambda: calls.append("record")
+    )
+    monkeypatch.setattr(backend, "build_web", lambda: calls.append("web"))
+
+    backend._pre_build()
+
+    assert calls == ["record", "web"]
+
+
+def test_pre_build_validates_model_specs_by_default(backend, monkeypatch):
+    calls = []
+    monkeypatch.delenv("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION", raising=False)
+    monkeypatch.setattr(
+        backend, "_validate_builtin_model_specs", lambda: calls.append("validate")
+    )
+    monkeypatch.setattr(
+        backend, "_record_full_revision", lambda: calls.append("record")
+    )
+    monkeypatch.setattr(backend, "build_web", lambda: calls.append("web"))
+
+    backend._pre_build()
+
+    assert calls == ["validate", "record", "web"]
+
+
 def test_project_declares_router_dependencies_and_all_includes_router():
     with open(os.path.join(_REPO_ROOT, "pyproject.toml"), "rb") as f:
         project = tomllib.load(f)

@@ -20,8 +20,8 @@ msgstr ""
 "Generated-By: Babel 2.14.0\n"
 
 #: ../../source/models/model_abilities/flexible.rst:5
-msgid "Traditional ML models (Experimental)"
-msgstr "传统机器学习模型（实验性质）"
+msgid "Traditional ML models"
+msgstr "传统机器学习模型"
 
 #: ../../source/models/model_abilities/flexible.rst:7
 msgid ""
@@ -30,13 +30,6 @@ msgid ""
 "**Flexible Models** within Xinference."
 msgstr ""
 "了解如何使用 Xinference 推理传统机器学习模型。在 Xinference 中，这些灵活可扩展的模型被称为 **灵活模型**。"
-
-#: ../../source/models/model_abilities/flexible.rst:10
-msgid ""
-"This ability is public since v1.7.1, now the API is not stable and may "
-"change during evolving."
-msgstr ""
-"该功能自 v1.7.1 版本起公开，目前 API 尚不稳定，可能会在后续迭代中发生变化。"
 
 #: ../../source/models/model_abilities/flexible.rst:15
 msgid "Introduction"
@@ -267,4 +260,3 @@ msgid ""
 msgstr "Xinference 内置的灵活模型 launcher 可以在  "
 "`Github <https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_ 找到，"
 "欢迎贡献更多传统机器学习模型的支持！"
-

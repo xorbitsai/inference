@@ -1,0 +1,58 @@
+# Chinese translations for Xinference package
+# Xinference 软件包的简体中文翻译.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-28 21:37+0800\n"
+"PO-Revision-Date: 2026-08-28 21:37+0800\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:5
+msgid "Matrix-Game-3.0-5B"
+msgstr "Matrix-Game-3.0-5B"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:7
+msgid "**Model Name:** Matrix-Game-3.0-5B"
+msgstr "**模型名称：** Matrix-Game-3.0-5B"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:8
+msgid "**Model Family:** Matrix-Game-3.0"
+msgstr "**模型家族：** Matrix-Game-3.0"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:9
+msgid "**Abilities:** image2world"
+msgstr "**能力：** image2world"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:10
+msgid "**Engine:** PyTorch"
+msgstr "**引擎：** PyTorch"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:13
+msgid "Specifications"
+msgstr "规格"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:15
+msgid "**Hugging Face Model ID:** Skywork/Matrix-Game-3.0"
+msgstr "**Hugging Face 模型 ID：** Skywork/Matrix-Game-3.0"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:16
+msgid "**ModelScope Model ID:** Skywork/Matrix-Game-3.0"
+msgstr "**ModelScope 模型 ID：** Skywork/Matrix-Game-3.0"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:17
+msgid "**Source:** https://github.com/SkyworkAI/Matrix-Game"
+msgstr "**源代码：** https://github.com/SkyworkAI/Matrix-Game"
+
+#: ../../source/models/builtin/world/matrix-game-3.0-5b.rst:19
+msgid "Launch the model with::"
+msgstr "使用以下命令启动模型::"

@@ -344,19 +344,29 @@ export default function LaunchDialog({
   }, [gpuAvailable, modelType, form]);
 
   const downloadHubOptions = useMemo(() => {
-    const engineHubs = Array.from(
+    const allSpecHubs = Array.from(
       new Set(
-        (model?.modelSpecs || [])
-          .filter(
-            (spec) =>
-              !modelEngineValue ||
-              toOptionValue(spec.model_engine).toLowerCase() === modelEngineValue.toLowerCase()
-          )
-          .map((spec) => toOptionValue(spec.model_hub))
-          .filter(Boolean)
+        (model?.modelSpecs || []).map((spec) => toOptionValue(spec.model_hub)).filter(Boolean)
       )
     );
-    const availableHubs = engineHubs.length > 0 ? engineHubs : model?.download_hubs || [];
+    const modelHubs = Array.from(
+      new Set((model?.download_hubs || []).map(toOptionValue).filter(Boolean))
+    );
+    const engineHubs = modelEngineValue
+      ? Array.from(
+          new Set(
+            (model?.modelSpecs || [])
+              .filter(
+                (spec) =>
+                  toOptionValue(spec.model_engine).toLowerCase() === modelEngineValue.toLowerCase()
+              )
+              .map((spec) => toOptionValue(spec.model_hub))
+              .filter(Boolean)
+          )
+        )
+      : [];
+    const availableHubs =
+      engineHubs.length > 0 ? engineHubs : modelHubs.length > 0 ? modelHubs : allSpecHubs;
     return ['auto', 'none', ...availableHubs].map((item) => ({
       label: item,
       value: item,

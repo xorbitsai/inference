@@ -85,6 +85,7 @@ from .utils import (
     parse_model_version,
     parse_replica_model_uid,
 )
+from .virtual_env_manager import VirtualEnvConflictError
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV2
@@ -293,6 +294,10 @@ class SupervisorActor(xo.StatelessActor):
         )
         self._sync_tokenizer_asset_catalog()
         self._token_router_runtime_cursors: Dict[str, int] = {}
+
+        from .system_settings_store import get_system_settings_from_environment
+
+        self._system_settings = get_system_settings_from_environment().to_dict()
 
     @classmethod
     def default_uid(cls) -> str:
@@ -4799,6 +4804,16 @@ class SupervisorActor(xo.StatelessActor):
             address=worker_address, uid=WorkerActor.default_uid()
         )
         self._worker_address_to_worker[worker_address] = worker_ref
+        try:
+            await worker_ref.update_system_settings(dict(self._system_settings))
+        except Exception:
+            # Preserve registration compatibility with an older worker during a
+            # rolling upgrade. A later settings save retries the propagation.
+            logger.warning(
+                "Failed to apply system settings to worker %s",
+                worker_address,
+                exc_info=True,
+            )
 
         normalized = self._normalize_replica_states(
             replica_states=replica_states,
@@ -4831,6 +4846,30 @@ class SupervisorActor(xo.StatelessActor):
         await self._reconcile_affected_model_statuses(base_uids_affected)
         logger.debug("Worker %s has been added successfully", worker_address)
         self._schedule_autostart()
+
+    async def update_system_settings(self, settings: Dict[str, Any]) -> None:
+        """Apply settings locally and fan them out to registered workers."""
+        from .system_settings_store import SystemSettings, apply_system_settings
+
+        parsed = SystemSettings.from_dict(settings)
+        self._system_settings = parsed.to_dict()
+        apply_system_settings(parsed)
+
+        workers = list(self._worker_address_to_worker.items())
+        results = await asyncio.gather(
+            *(
+                worker_ref.update_system_settings(dict(self._system_settings))
+                for _, worker_ref in workers
+            ),
+            return_exceptions=True,
+        )
+        for (worker_address, _), result in zip(workers, results):
+            if isinstance(result, Exception):
+                logger.warning(
+                    "Failed to apply system settings to worker %s",
+                    worker_address,
+                    exc_info=result,
+                )
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):
@@ -5106,17 +5145,26 @@ class SupervisorActor(xo.StatelessActor):
             except Exception as e:
                 logger.debug(f"Failed to check worker for virtual environment: {e}")
 
-        # Then remove from those workers
+        # Then remove from those workers. Preserve a conflict so the API can
+        # report that an active/preparing model still owns the environment.
+        conflict_error: Optional[VirtualEnvConflictError] = None
         for worker in workers_with_env:
             try:
                 result = await worker.remove_virtual_env(
                     model_name, model_engine, python_version
                 )
                 ret = ret and result
+            except VirtualEnvConflictError as e:
+                if conflict_error is None:
+                    conflict_error = e
+                logger.warning("Virtual environment is still in use on a worker: %s", e)
+                ret = False
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")
                 ret = False
 
+        if conflict_error is not None:
+            raise conflict_error
         return ret
 
     async def list_token_routers(self) -> List[Dict[str, Any]]:

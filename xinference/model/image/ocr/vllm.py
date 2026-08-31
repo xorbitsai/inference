@@ -12,19 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import concurrent.futures
 import logging
+import threading
 from typing import Any, Dict, List, Optional, Union
 
 import PIL.Image
 
 from ....device_utils import is_vacc_available
+from ....thirdparty.navidc_ocr import MODEL_ARCHITECTURE as NAVIDC_MODEL_ARCHITECTURE
 from ...utils import allow_trust_remote_code
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .navidc_ocr import NaviDCOCRModel
+from .ovisocr2 import OvisOCR2Model
 from .paddleocr_vl import PaddleOCRVLModel
 
 logger = logging.getLogger(__name__)
+_navidc_vllm_executor_lock = threading.Lock()
 
 
 def _load_vllm_model(model_path: str, model_kwargs: Dict[str, Any]):
@@ -305,6 +311,197 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
         if isinstance(image, list):
             return texts
         return texts[0] if texts else ""
+
+
+class VLLMNaviDCOCRModel(NaviDCOCRModel):
+    required_libs = ("vllm",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._vllm_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    def _run_on_vllm_thread(self, fn, *args, **kwargs):
+        # The offline client requires creation and inference on the same thread.
+        # A dedicated worker preserves that affinity without blocking the actor loop.
+        executor = self._vllm_executor
+        if executor is None:
+            with _navidc_vllm_executor_lock:
+                if self._vllm_executor is None:
+                    self._vllm_executor = concurrent.futures.ThreadPoolExecutor(
+                        max_workers=1,
+                        thread_name_prefix=f"navidc-vllm-{self._model_uid}",
+                    )
+                executor = self._vllm_executor
+        return executor.submit(fn, *args, **kwargs).result()
+
+    def load(self):
+        from transformers import AutoProcessor
+
+        vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
+        hf_overrides = vllm_kwargs.pop("hf_overrides", None) or {}
+        if not isinstance(hf_overrides, dict):
+            raise TypeError("NaviDC-OCR requires hf_overrides to be a dictionary")
+        hf_overrides = dict(hf_overrides)
+        hf_overrides["architectures"] = [NAVIDC_MODEL_ARCHITECTURE]
+        vllm_kwargs["hf_overrides"] = hf_overrides
+        vllm_kwargs.setdefault(
+            "trust_remote_code", allow_trust_remote_code(self.model_family)
+        )
+        vllm_kwargs.setdefault("gpu_memory_utilization", 0.7)
+        vllm_kwargs.setdefault("max_model_len", 16384)
+
+        try:
+            self._model = self._run_on_vllm_thread(
+                _load_vllm_model, self._model_path, vllm_kwargs
+            )
+            self._processor = AutoProcessor.from_pretrained(
+                self._model_path,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
+                use_fast=True,
+            )
+        except Exception:
+            self.stop()
+            raise
+
+    def stop(self):
+        try:
+            self._run_on_vllm_thread(_shutdown_vllm_model, self._model)
+        except Exception:
+            logger.exception("Failed to shut down NaviDC-OCR vLLM model")
+        finally:
+            self._model = None
+            self._processor = None
+            with _navidc_vllm_executor_lock:
+                executor = self._vllm_executor
+                self._vllm_executor = None
+            if executor is not None:
+                executor.shutdown(wait=False)
+
+    def _build_prompt(self, prompt: str, system_prompt: str) -> str:
+        processor = self._processor
+        assert processor is not None
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": prompt},
+                ],
+            },
+        ]
+        return processor.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+    def ocr(
+        self,
+        image: PIL.Image.Image,
+        prompt: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        if self._model is None or self._processor is None:
+            self.load()
+        assert self._model is not None
+
+        if not isinstance(image, PIL.Image.Image):
+            raise ValueError("Input must be a PIL Image")
+        image = image.convert("RGB")
+        normalized_prompt = self._normalize_prompt(prompt)
+
+        system_prompt = kwargs.pop("system_prompt", self.DEFAULT_SYSTEM_PROMPT)
+        chat_prompt = self._build_prompt(
+            normalized_prompt,
+            system_prompt,
+        )
+        inputs = [
+            {
+                "prompt": chat_prompt,
+                "multi_modal_data": {"image": [image]},
+            }
+        ]
+
+        kwargs.pop("use_cache", None)
+        kwargs.setdefault("max_new_tokens", 4096)
+        sampling_params = _build_sampling_params(kwargs)
+        outputs = self._run_on_vllm_thread(
+            self._model.generate, inputs, sampling_params
+        )
+        texts = _extract_text(outputs)
+        return texts[0] if texts else ""
+
+
+class VLLMOvisOCR2Model(OvisOCR2Model):
+    required_libs = ("vllm",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tokenizer = None
+
+    def load(self):
+        vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
+        self._model = _load_vllm_model(self._model_path, vllm_kwargs)
+        self._tokenizer = self._model.get_tokenizer()
+
+    def stop(self):
+        _shutdown_vllm_model(self._model)
+        self._model = None
+        self._tokenizer = None
+
+    def _build_prompt(self, prompt: str) -> str:
+        tokenizer = self._tokenizer
+        assert tokenizer is not None
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+        return tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
+        )
+
+    def ocr(
+        self,
+        image: PIL.Image.Image,
+        prompt: Optional[str] = None,
+        filter_imgtags: bool = True,
+        **kwargs,
+    ) -> str:
+        if self._model is None or self._tokenizer is None:
+            self.load()
+        assert self._model is not None
+
+        if not isinstance(image, PIL.Image.Image):
+            raise ValueError("Input must be a PIL Image")
+        image = image.convert("RGB")
+        text = self._build_prompt(prompt or self.DEFAULT_PROMPT)
+        inputs = [
+            {
+                "prompt": text,
+                "multi_modal_data": {"image": image},
+                "mm_processor_kwargs": {
+                    "images_kwargs": {
+                        "min_pixels": 448 * 448,
+                        "max_pixels": 2880 * 2880,
+                    }
+                },
+            }
+        ]
+
+        kwargs.setdefault("max_new_tokens", 16384)
+        sampling_params = _build_sampling_params(kwargs)
+        outputs = self._model.generate(inputs, sampling_params)
+        texts = _extract_text(outputs)
+        return self._postprocess_output(texts[0], filter_imgtags) if texts else ""
 
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):

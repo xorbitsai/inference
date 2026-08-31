@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from importlib import metadata
 from typing import TYPE_CHECKING, Tuple, Union
+
+from packaging.requirements import Requirement
+from packaging.version import InvalidVersion, Version
 
 from ..utils import has_cuda_device
 from .engine_family import SUPPORTED_ENGINES, WorldEngineModel
@@ -39,6 +43,50 @@ class PyTorchMatrixGameModel(MatrixGameModel, PyTorchWorldEngineModel):
 
 
 class PyTorchHYWorldPlayModel(HYWorldPlayModel, PyTorchWorldEngineModel):
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        host_result = super().check_host()
+        if host_result is not True:
+            return host_result
+
+        try:
+            torch_version = metadata.version("torch")
+        except metadata.PackageNotFoundError:
+            return False, "HY-WorldPlay requires host torch>=2.6.0"
+
+        try:
+            if Version(torch_version) < Version("2.6.0"):
+                return (
+                    False,
+                    "HY-WorldPlay requires host torch>=2.6.0; "
+                    f"found torch {torch_version}",
+                )
+        except InvalidVersion:
+            return False, f"HY-WorldPlay cannot validate host torch {torch_version!r}"
+
+        try:
+            torchvision_version = metadata.version("torchvision")
+            torchvision_requirements = metadata.requires("torchvision") or []
+        except metadata.PackageNotFoundError:
+            return False, "HY-WorldPlay requires host torchvision"
+
+        for requirement_text in torchvision_requirements:
+            requirement = Requirement(requirement_text)
+            if requirement.name.lower() != "torch":
+                continue
+            if requirement.marker is not None and not requirement.marker.evaluate():
+                continue
+            if not requirement.specifier.contains(torch_version, prereleases=True):
+                return (
+                    False,
+                    "HY-WorldPlay requires a compatible host torch/torchvision "
+                    f"pair; found torch {torch_version} and torchvision "
+                    f"{torchvision_version} (requires torch{requirement.specifier})",
+                )
+            break
+
+        return True
+
     @classmethod
     def match(cls, model_family: "WorldModelFamilyV1") -> bool:
         return model_family.model_family == "HY-WorldPlay"

@@ -28,6 +28,8 @@ export const ALL_PERMISSIONS = [
   'virtualenv:delete',
   'logs:list',
   'monitor:view',
+  'settings:read',
+  'settings:write',
 ];
 
 const PERMISSION_GROUPS = [
@@ -66,6 +68,10 @@ const PERMISSION_GROUPS = [
   {
     key: 'monitor',
     permissions: ['monitor:view'],
+  },
+  {
+    key: 'settings',
+    permissions: ['settings:read', 'settings:write'],
   },
 ];
 

@@ -22,7 +22,7 @@ from http.client import IncompleteRead
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
-from packaging.requirements import Requirement
+from packaging.requirements import InvalidRequirement, Requirement
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPT_DIR.parents[3]
@@ -130,6 +130,39 @@ def test_iter_virtualenv_packages_reads_json_as_utf8(monkeypatch, tmp_path):
         ("model.json", "中文模型", ["model-package"])
     ]
     assert encodings == ["utf-8"]
+
+
+def test_all_decord_requirements_are_scoped_to_supported_architectures():
+    generator = _load_script("generate_package_lists")
+    expected_machines = {
+        "decord": {"x86_64"},
+        "decord2": {"aarch64"},
+    }
+    seen = set()
+
+    for rel, model_name, packages in generator.iter_virtualenv_packages(
+        REPO_ROOT / "xinference" / "model"
+    ):
+        for spec in packages:
+            try:
+                requirement = Requirement(generator.normalize_mirror_spec(spec))
+            except InvalidRequirement:
+                continue
+            name = requirement.name.lower().replace("_", "-")
+            if name not in expected_machines:
+                continue
+            seen.add(name)
+            allowed_machines = {
+                machine
+                for machine in ("x86_64", "aarch64")
+                if requirement.marker is not None
+                and requirement.marker.evaluate({"platform_machine": machine})
+            }
+            assert (
+                allowed_machines == expected_machines[name]
+            ), f"{rel}:{model_name} uses incompatible requirement {spec!r}"
+
+    assert seen == set(expected_machines)
 
 
 def test_selfcheck_wheel_url_to_spec():
@@ -364,6 +397,19 @@ def test_runtime_dockerfiles_keep_dependency_layers_source_independent():
         assert dependency_install < project_sources < project_install
 
 
+def test_runtime_docker_dependency_skeleton_defers_model_spec_validation():
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+
+    dependency_install = dockerfile.index('".[otel]" transformers accelerate')
+    project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+    validation_skip = dockerfile.index("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1")
+
+    assert validation_skip < dependency_install < project_sources
+    assert dockerfile.count("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1") == 1
+
+
 def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     monkeypatch, tmp_path
 ):
@@ -442,6 +488,17 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     assert all("has_cuda" not in spec for spec in pin_specs)
     assert 'decord==0.6.0 ; platform_machine == "x86_64"' in pin_specs
     assert 'decord2==3.4.0 ; platform_machine == "aarch64"' in pin_specs
+    assert "flash-attn==2.8.3.post1" not in pin_specs
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["find_links_only_pins"] == [
+        {
+            "spec": "flash-attn==2.8.3.post1",
+            "sources": [
+                "embedding/model_spec.json:jina-embeddings-v3",
+                "embedding/model_spec.json:jina-embeddings-v3 (sentence_transformers)",
+            ],
+        }
+    ]
     for spec in pin_specs:
         Requirement(spec)
 
@@ -544,6 +601,7 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
         "pins": 1,
         "urls": 1,
         "git": 1,
+        "find_links_only": 0,
     }
 
 
