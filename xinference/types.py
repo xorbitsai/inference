@@ -201,6 +201,18 @@ class ToolCalls(TypedDict):
     function: ToolCallFunction
 
 
+class ToolCallDeltaFunction(TypedDict, total=False):
+    name: str
+    arguments: str
+
+
+class ToolCallDelta(TypedDict):
+    index: int
+    id: NotRequired[str]
+    type: NotRequired[Literal["function"]]
+    function: NotRequired[ToolCallDeltaFunction]
+
+
 class CompletionChoice(TypedDict):
     text: NotRequired[str]
     index: int
@@ -274,7 +286,7 @@ class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
     reasoning_content: NotRequired[Union[str, None]]
     content: NotRequired[Union[str, None]]
-    tool_calls: NotRequired[List[ToolCalls]]
+    tool_calls: NotRequired[List[ToolCallDelta]]
 
 
 class ChatCompletionChunkChoice(TypedDict):
