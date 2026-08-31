@@ -337,7 +337,7 @@ The following is a list of built-in LLM in Xinference:
      - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
 
    * - :ref:`kimi-k3 <models_llm_kimi-k3>`
-     - chat, vision
+     - chat, vision, reasoning, tools
      - 1048576
      - Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date.
 
@@ -575,6 +575,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 32768
      - Ovis (Open VISion) is a novel Multimodal Large Language Model (MLLM) architecture, designed to structurally align visual and textual embeddings.
+
+   * - :ref:`ovisocr2 <models_llm_ovisocr2>`
+     - chat, vision, reasoning, hybrid
+     - 262144
+     - OvisOCR2 is a compact 0.8B end-to-end model for page-level document parsing. It converts document page images into Markdown in natural reading order, including text, formulas, tables, and visual regions.
 
    * - :ref:`phi-2 <models_llm_phi-2>`
      - generate
@@ -1059,6 +1064,8 @@ The following is a list of built-in LLM in Xinference:
    ornith-1.5-397b
   
    ovis2
+  
+   ovisocr2
   
    phi-2
   
