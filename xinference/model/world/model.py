@@ -267,7 +267,12 @@ class WorldModel:
         else:
             from huggingface_hub import snapshot_download
 
-        return snapshot_download(
+        from ..utils import retry_snapshot_download
+
+        return retry_snapshot_download(
+            snapshot_download,
+            self._model_spec.auxiliary_model_id,
+            None,
             self._model_spec.auxiliary_model_id,
             **download_kwargs,
         )

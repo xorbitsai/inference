@@ -62,7 +62,11 @@ class CacheManager:
             raise ValueError(f"Unsupported URL scheme: {src_scheme}")
 
     def _cache(self) -> str:
-        from .utils import IS_NEW_HUGGINGFACE_HUB, create_symlink, retry_download
+        from .utils import (
+            IS_NEW_HUGGINGFACE_HUB,
+            create_symlink,
+            retry_snapshot_download,
+        )
 
         if (
             hasattr(self._model_family, "model_uri")
@@ -91,7 +95,7 @@ class CacheManager:
             elif isinstance(cache_config["ignore_file_pattern"], list):
                 cache_config["ignore_file_pattern"].append(".gitkeep")
 
-            download_dir = retry_download(
+            download_dir = retry_snapshot_download(
                 ms_download,
                 self._model_family.model_name,
                 None,
@@ -106,7 +110,7 @@ class CacheManager:
             use_symlinks = cache_config
             if not IS_NEW_HUGGINGFACE_HUB:
                 use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
-            download_dir = retry_download(
+            download_dir = retry_snapshot_download(
                 hf_download,
                 self._model_family.model_name,
                 None,

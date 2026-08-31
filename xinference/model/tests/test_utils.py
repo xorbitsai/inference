@@ -39,6 +39,7 @@ from ..utils import (
     parse_uri,
     resolve_media_seed,
     retry_download,
+    retry_snapshot_download,
     symlink_local_file,
 )
 
@@ -74,7 +75,7 @@ def test_parse_uri():
     assert path == "bucket/dir"
 
 
-def test_retry_download_applies_environment_max_workers(monkeypatch):
+def test_retry_snapshot_download_applies_environment_max_workers(monkeypatch):
     received = {}
     monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
@@ -83,14 +84,14 @@ def test_retry_download_applies_environment_max_workers(monkeypatch):
         received["max_workers"] = max_workers
         return "ok"
 
-    assert retry_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
     assert received == {
         "repo_id": "repo",
         "max_workers": 2,
     }
 
 
-def test_retry_download_preserves_explicit_max_workers(monkeypatch):
+def test_retry_snapshot_download_preserves_explicit_max_workers(monkeypatch):
     received = {}
     monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
@@ -99,12 +100,13 @@ def test_retry_download_preserves_explicit_max_workers(monkeypatch):
         return "ok"
 
     assert (
-        retry_download(snapshot_download, "dummy", None, "repo", max_workers=6) == "ok"
+        retry_snapshot_download(snapshot_download, "dummy", None, "repo", max_workers=6)
+        == "ok"
     )
     assert received["max_workers"] == 6
 
 
-def test_retry_download_does_not_inject_max_workers_for_file_download(monkeypatch):
+def test_retry_download_does_not_inject_snapshot_workers(monkeypatch):
     received = {}
     monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
@@ -120,7 +122,7 @@ def test_retry_download_does_not_inject_max_workers_for_file_download(monkeypatc
     assert received == {"repo_id": "repo", "filename": "config.json"}
 
 
-def test_retry_download_preserves_default_without_environment(monkeypatch):
+def test_retry_snapshot_download_preserves_default_without_environment(monkeypatch):
     received = {}
     monkeypatch.delenv("HF_HUB_DOWNLOAD_WORKERS", raising=False)
 
@@ -128,7 +130,7 @@ def test_retry_download_preserves_default_without_environment(monkeypatch):
         received["max_workers"] = max_workers
         return "ok"
 
-    assert retry_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
     assert received["max_workers"] == 8
 
 

@@ -15,7 +15,6 @@
 import asyncio
 import functools
 import importlib
-import inspect
 import json
 import logging
 import math
@@ -973,19 +972,6 @@ def retry_download(
     *args,
     **kwargs,
 ):
-    # This wrapper is shared by snapshot and single-file download APIs. Inject
-    # the configured concurrency only when the callable explicitly supports it;
-    # single-file APIs such as hf_hub_download reject max_workers.
-    download_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
-    if download_workers is not None and "max_workers" not in kwargs:
-        try:
-            signature = inspect.signature(download_func)
-        except (TypeError, ValueError):
-            signature = None
-        parameter = signature.parameters.get("max_workers") if signature else None
-        if parameter and parameter.kind is not inspect.Parameter.POSITIONAL_ONLY:
-            kwargs["max_workers"] = int(download_workers)
-
     last_ex = None
     for current_attempt in range(1, XINFERENCE_DOWNLOAD_MAX_ATTEMPTS + 1):
         try:
@@ -1029,6 +1015,19 @@ def retry_download(
             raise RuntimeError(
                 f"Failed to download model '{model_name}' after multiple retries"
             ) from last_ex
+
+
+def retry_snapshot_download(
+    download_func: Callable,
+    model_name: str,
+    model_info: Optional[Dict],
+    *args,
+    **kwargs,
+):
+    download_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+    if download_workers is not None:
+        kwargs.setdefault("max_workers", int(download_workers))
+    return retry_download(download_func, model_name, model_info, *args, **kwargs)
 
 
 def valid_model_revision(
