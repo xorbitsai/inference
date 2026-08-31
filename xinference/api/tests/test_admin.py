@@ -21,6 +21,7 @@ import pytest
 from fastapi import HTTPException
 
 from xinference.api.routers import admin
+from xinference.core.virtual_env_manager import VirtualEnvConflictError
 
 
 def _json_body(response):
@@ -256,6 +257,27 @@ async def test_remove_virtual_env_returns_result(mock_api, mock_supervisor):
     )
     assert response.status_code == 200
     assert _json_body(response) == {"result": True}
+
+
+@pytest.mark.asyncio
+async def test_remove_virtual_env_returns_conflict_for_active_model(
+    mock_api, mock_supervisor
+):
+    mock_supervisor.remove_virtual_env.side_effect = VirtualEnvConflictError(
+        "environment is used by qwen-rep0"
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.remove_virtual_env(
+            api=mock_api,
+            model_name="Qwen3.8-Flash-Next",
+            model_engine="vllm",
+            python_version="3.12",
+            worker_ip=None,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert "qwen-rep0" in exc_info.value.detail
 
 
 @pytest.mark.asyncio
