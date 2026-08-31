@@ -179,6 +179,11 @@ def apply_system_settings(
             "XINFERENCE_HUB_DETECT_TIMEOUT",
             settings.hub_detect_timeout,
         )
+        setattr(
+            model_utils,
+            "XINFERENCE_MODEL_DOWNLOAD_WORKERS",
+            settings.model_download_workers,
+        )
         detect_lock = getattr(model_utils, "_auto_detect_hub_lock", None)
         if detect_lock is None:
             setattr(model_utils, "_auto_detected_hub", None)
@@ -292,7 +297,7 @@ class SystemSettingsStore:
                 environ, ENV_HUB_DETECT_TIMEOUT, 3.0
             ),
             model_download_workers=cls._parse_positive_int(
-                environ, ENV_MODEL_DOWNLOAD_WORKERS, 2
+                environ, ENV_MODEL_DOWNLOAD_WORKERS, 8
             ),
         )
 

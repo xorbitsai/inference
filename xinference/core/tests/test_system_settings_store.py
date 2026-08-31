@@ -58,7 +58,7 @@ def test_defaults_without_saved_file(tmp_path):
         "pip_index_url": "",
         "download_max_attempts": 3,
         "hub_detect_timeout": 3.0,
-        "model_download_workers": 2,
+        "model_download_workers": 8,
     }
 
 
@@ -242,10 +242,11 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     model_utils = SimpleNamespace(
         XINFERENCE_DOWNLOAD_MAX_ATTEMPTS=3,
         XINFERENCE_HUB_DETECT_TIMEOUT=3.0,
+        XINFERENCE_MODEL_DOWNLOAD_WORKERS=8,
         _auto_detected_hub="huggingface",
         _auto_detect_hub_lock=threading.Lock(),
     )
-    worker = SimpleNamespace(XINFERENCE_MODEL_DOWNLOAD_WORKERS=2)
+    worker = SimpleNamespace(XINFERENCE_MODEL_DOWNLOAD_WORKERS=8)
     hf_constants = SimpleNamespace(
         _staging_mode=False,
         _HF_DEFAULT_ENDPOINT="https://huggingface.co",
@@ -286,6 +287,7 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     assert constants.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 6
     assert model_utils.XINFERENCE_DOWNLOAD_MAX_ATTEMPTS == 5
     assert model_utils.XINFERENCE_HUB_DETECT_TIMEOUT == 4.5
+    assert model_utils.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 6
     assert model_utils._auto_detected_hub is None
     assert worker.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 6
     assert hf_constants.ENDPOINT == "https://hf.example.com"
@@ -302,8 +304,9 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
 
     assert constants.XINFERENCE_DOWNLOAD_MAX_ATTEMPTS == 3
     assert constants.XINFERENCE_HUB_DETECT_TIMEOUT == 3.0
-    assert constants.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 2
-    assert worker.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 2
+    assert constants.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 8
+    assert model_utils.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 8
+    assert worker.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 8
     assert hf_constants.ENDPOINT == "https://huggingface.co"
     assert hf_constants.HUGGINGFACE_CO_URL_TEMPLATE == (
         "https://huggingface.co/{repo_id}/resolve/{revision}/{filename}"

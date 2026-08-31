@@ -154,7 +154,7 @@ async def test_get_returns_full_masked_settings(mock_request):
         "pip_index_url": "",
         "download_max_attempts": 3,
         "hub_detect_timeout": 3.0,
-        "model_download_workers": 2,
+        "model_download_workers": 8,
     }
 
 
