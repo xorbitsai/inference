@@ -792,6 +792,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self,
         response_format: str,
         model=None,
+        _num_pipeline_calls: int = 1,
         **kwargs,
     ):
         model = model if model is not None else self._model
@@ -799,9 +800,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         origin_size = kwargs.pop("origin_size", None)
         seed = kwargs.pop("seed", None)
         return_images = kwargs.pop("_return_images", None)
-        seeds = resolve_image_seed_list(
-            seed, int(kwargs.get("num_images_per_prompt", 1))
+        seed_count = (
+            _num_pipeline_calls
+            if _num_pipeline_calls > 1
+            else int(kwargs.get("num_images_per_prompt", 1))
         )
+        seeds = resolve_image_seed_list(seed, seed_count)
         if seeds is not None:
             kwargs["generator"] = [
                 torch.Generator(  # type: ignore
@@ -829,7 +833,19 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             if kwargs.get("guidance_scale", "unset") is None:
                 kwargs.pop("guidance_scale", None)
             self._filter_kwargs(model, kwargs)
-            images = model(**kwargs).images
+            if _num_pipeline_calls == 1:
+                images = model(**kwargs).images
+            else:
+                images = []
+                generators = kwargs.get("generator")
+                for call_index in range(_num_pipeline_calls):
+                    per_call_kwargs = kwargs
+                    if isinstance(generators, list):
+                        per_call_kwargs = {
+                            **kwargs,
+                            "generator": generators[call_index],
+                        }
+                    images.extend(model(**per_call_kwargs).images)
 
         if images and isinstance(images[0], (list, tuple)):
             images = list(itertools.chain.from_iterable(images))
@@ -1078,12 +1094,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             kwargs["images"] = image
             image = None
 
+        # JoyAI Image Edit Plus produces one image per pipeline invocation.
         return self._call_model(
             image=image,
             prompt=prompt,
-            num_images_per_prompt=n,
+            num_images_per_prompt=1 if is_joyai_image_edit_plus else n,
             response_format=response_format,
             model=model,
+            _num_pipeline_calls=n if is_joyai_image_edit_plus else 1,
             **kwargs,
         )
 

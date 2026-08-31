@@ -120,8 +120,9 @@ def test_joyai_image_loads_with_diffusion_pipeline(monkeypatch, model_name):
     }
 
 
-def test_joyai_image_edit_plus_uses_multi_image_pipeline_argument(monkeypatch):
+def test_joyai_image_edit_plus_uses_multi_image_input_and_honors_n(monkeypatch):
     calls = []
+    pipeline_seeds = []
 
     monkeypatch.setitem(
         sys.modules,
@@ -141,6 +142,8 @@ def test_joyai_image_edit_plus_uses_multi_image_pipeline_argument(monkeypatch):
             negative_prompt=None,
             generator=None,
         ):
+            if generator is not None:
+                pipeline_seeds.append(generator.initial_seed())
             calls.append(
                 {
                     "images": images,
@@ -182,9 +185,18 @@ def test_joyai_image_edit_plus_uses_multi_image_pipeline_argument(monkeypatch):
         reference_images=[reference_image],
         _return_images=True,
     )
+    repeated_result = model.image_to_image(
+        primary_image,
+        prompt="Create two images",
+        n=2,
+        seed=[11, 22],
+        response_format="b64_json",
+    )
 
     assert len(single_result) == 1
     assert len(multi_result) == 1
+    assert len(repeated_result["data"]) == 2
+    assert pipeline_seeds == [11, 22]
     assert calls == [
         {
             "images": [primary_image],
@@ -197,6 +209,22 @@ def test_joyai_image_edit_plus_uses_multi_image_pipeline_argument(monkeypatch):
         {
             "images": [primary_image, reference_image],
             "prompt": "Combine both images",
+            "height": None,
+            "width": None,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+        },
+        {
+            "images": [primary_image],
+            "prompt": "Create two images",
+            "height": None,
+            "width": None,
+            "num_inference_steps": 30,
+            "guidance_scale": 4.0,
+        },
+        {
+            "images": [primary_image],
+            "prompt": "Create two images",
             "height": None,
             "width": None,
             "num_inference_steps": 30,
