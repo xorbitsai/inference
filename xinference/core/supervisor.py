@@ -44,6 +44,7 @@ import xoscar as xo
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_DOWNLOAD_TASK_DB_PATH,
     XINFERENCE_ENABLE_OTEL,
     XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
@@ -68,6 +69,11 @@ from ..model.utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from ..types import PeftModelConfig
+from .download_task_store import (
+    ACTIVE_DOWNLOAD_STATUSES,
+    RESUMABLE_DOWNLOAD_STATUSES,
+    DownloadTaskStore,
+)
 from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
@@ -257,6 +263,16 @@ class SupervisorActor(xo.StatelessActor):
         # Active download-only operations, used only for dispatch cancellation.
         # Progress itself is retained by ProgressTrackerActor after completion.
         self._cache_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        self._cache_uid_to_task: Dict[str, asyncio.Task] = {}
+        self._cache_pause_requested: Set[str] = set()
+        self._cache_cancel_requested: Set[str] = set()
+        self._download_task_store = DownloadTaskStore(XINFERENCE_DOWNLOAD_TASK_DB_PATH)
+        interrupted_count = self._download_task_store.mark_active_interrupted()
+        if interrupted_count:
+            logger.warning(
+                "Marked %d unfinished model download(s) as interrupted",
+                interrupted_count,
+            )
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
             {}
         )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
@@ -310,8 +326,7 @@ class SupervisorActor(xo.StatelessActor):
         self, ip: str
     ) -> Optional[xo.ActorRefType["WorkerActor"]]:
         for addr, ref in self._worker_address_to_worker.items():
-            existing_ip = addr.split(":")[0]
-            if existing_ip == ip:
+            if addr == ip or self._get_worker_host(addr) == ip:
                 return ref
         return None
 
@@ -2594,6 +2609,71 @@ class SupervisorActor(xo.StatelessActor):
             )
         return resolved_hubs[0]
 
+    async def _snapshot_cache_download(
+        self, cache_uid: str, preserve_status: bool = False
+    ) -> Dict[str, Any]:
+        details = await self.get_cache_builtin_model_progress_details(cache_uid)
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            return details
+        if not preserve_status and task.get("status") in {"pausing", "paused"}:
+            return details
+
+        changes: Dict[str, Any] = {
+            "progress": float(details.get("progress") or 0),
+            "download_files": details.get("download_files") or [],
+        }
+        stage = str(details.get("stage") or "pending")
+        if not preserve_status:
+            changes["status"] = (
+                "downloading" if stage == "downloading" else task.get("status")
+            )
+        self._download_task_store.update(cache_uid, **changes)
+        return details
+
+    async def _monitor_cache_download(self, cache_uid: str) -> None:
+        while cache_uid in self._cache_uid_to_worker:
+            try:
+                await self._snapshot_cache_download(cache_uid)
+            except Exception:
+                logger.debug(
+                    "Failed to persist download progress for %s",
+                    cache_uid,
+                    exc_info=True,
+                )
+            await asyncio.sleep(1)
+
+    def _record_cache_download_error(
+        self, cache_uid: str, error: BaseException
+    ) -> None:
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            return
+        if cache_uid in self._cache_pause_requested or task.get("status") in {
+            "pausing",
+            "paused",
+        }:
+            self._download_task_store.update(cache_uid, status="paused", error=None)
+            return
+        if cache_uid in self._cache_cancel_requested:
+            self._download_task_store.delete(cache_uid)
+            return
+
+        interrupted = isinstance(
+            error,
+            (
+                asyncio.CancelledError,
+                ConnectionError,
+                xo.ActorNotExist,
+                xo.ServerClosed,
+            ),
+        )
+        self._download_task_store.update(
+            cache_uid,
+            status="interrupted" if interrupted else "failed",
+            error=str(error) or type(error).__name__,
+        )
+
     @log_async(logger=logger)
     async def cache_builtin_model(
         self,
@@ -2612,6 +2692,7 @@ class SupervisorActor(xo.StatelessActor):
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
+        _resume: bool = False,
         **kwargs,
     ) -> Dict[str, Any]:
         """Cache one model on one worker without creating a running instance."""
@@ -2644,13 +2725,54 @@ class SupervisorActor(xo.StatelessActor):
 
         if cache_uid in self._cache_uid_to_worker:
             raise ValueError(f"Cache operation {cache_uid} is already running")
+        existing_task = self._download_task_store.get(cache_uid)
+        if existing_task is not None and not _resume:
+            raise ValueError(
+                f"Cache operation {cache_uid} already exists; resume or cancel it"
+            )
+
         self._cache_uid_to_worker[cache_uid] = worker_ref
         worker_address = worker_ref.address
+        payload = {
+            "cache_uid": cache_uid,
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "model_format": model_format,
+            "quantization": quantization,
+            "model_engine": model_engine,
+            "model_type": model_type,
+            "peft_model_config": (
+                peft_model_config.to_dict() if peft_model_config is not None else None
+            ),
+            "worker_ip": worker_address,
+            "download_hub": download_hub,
+            "model_path": model_path,
+            "enable_virtual_env": enable_virtual_env,
+            "virtual_env_packages": virtual_env_packages,
+            **kwargs,
+        }
+        self._download_task_store.upsert(
+            {
+                "cache_uid": cache_uid,
+                "model_name": model_name,
+                "model_type": model_type,
+                "model_engine": model_engine,
+                "model_version": kwargs.get("model_version"),
+                "worker_address": worker_address,
+                "status": "resuming" if _resume else "pending",
+                "progress": (existing_task or {}).get("progress", 0),
+                "payload": payload,
+                "download_files": (existing_task or {}).get("download_files", []),
+                "error": None,
+                "created_at": (existing_task or {}).get("created_at"),
+            }
+        )
         self._workers_launching[worker_address] = (
             self._workers_launching.get(worker_address, 0) + 1
         )
+        monitor_task = asyncio.create_task(self._monitor_cache_download(cache_uid))
         try:
-            return await worker_ref.cache_builtin_model(
+            result = await worker_ref.cache_builtin_model(
                 cache_uid=cache_uid,
                 model_name=model_name,
                 model_size_in_billions=model_size_in_billions,
@@ -2665,8 +2787,23 @@ class SupervisorActor(xo.StatelessActor):
                 virtual_env_packages=virtual_env_packages,
                 **kwargs,
             )
+            self._download_task_store.delete(cache_uid)
+            return result
+        except asyncio.CancelledError as e:
+            self._record_cache_download_error(cache_uid, e)
+            raise
+        except Exception as e:
+            self._record_cache_download_error(cache_uid, e)
+            raise
         finally:
+            monitor_task.cancel()
+            try:
+                await monitor_task
+            except asyncio.CancelledError:
+                pass
             self._cache_uid_to_worker.pop(cache_uid, None)
+            self._cache_pause_requested.discard(cache_uid)
+            self._cache_cancel_requested.discard(cache_uid)
             active_count = self._workers_launching.get(worker_address, 1) - 1
             if active_count <= 0:
                 self._workers_launching.pop(worker_address, None)
@@ -3585,18 +3722,293 @@ class SupervisorActor(xo.StatelessActor):
         metadata = {"cache_uid": cache_uid}
         if worker_ref is not None:
             metadata["worker_address"] = worker_ref.address
-        return await self._get_operation_progress_details(
-            [(f"caching-{cache_uid}", metadata)],
-            target_key="targets",
-            default_stage="pending",
-        )
+        task = self._download_task_store.get(cache_uid)
+        if task is not None and worker_ref is None:
+            # A persisted paused/interrupted task must win over stale progress
+            # retained by ProgressTrackerActor from the previous process.
+            details = {"targets": []}
+        else:
+            details = await self._get_operation_progress_details(
+                [(f"caching-{cache_uid}", metadata)],
+                target_key="targets",
+                default_stage="pending",
+            )
+        if task is not None and not details["targets"]:
+            worker_address = task.get("worker_address")
+            return {
+                "progress": task.get("progress", 0),
+                "stage": task.get("status", "pending"),
+                "download_files": task.get("download_files", []),
+                "targets": [
+                    {
+                        "cache_uid": cache_uid,
+                        "worker_address": worker_address,
+                        "progress": task.get("progress", 0),
+                        "stage": task.get("status", "pending"),
+                        "info": task.get("error"),
+                        "updated_at": task.get("updated_at"),
+                        "download_files": task.get("download_files", []),
+                    }
+                ],
+            }
+        return details
+
+    async def pause_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            raise RuntimeError(f"Cache operation {cache_uid} does not exist")
+        if task.get("status") not in ACTIVE_DOWNLOAD_STATUSES:
+            raise RuntimeError(
+                f"Cache operation {cache_uid} cannot be paused from "
+                f"state {task.get('status')}"
+            )
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        if worker_ref is None:
+            resume_task = self._cache_uid_to_task.get(cache_uid)
+            if resume_task is not None and not resume_task.done():
+                self._cache_pause_requested.add(cache_uid)
+                self._download_task_store.update(
+                    cache_uid, status="pausing", error=None
+                )
+                resume_task.cancel()
+                try:
+                    await resume_task
+                except asyncio.CancelledError:
+                    pass
+                self._download_task_store.update(cache_uid, status="paused", error=None)
+                self._cache_pause_requested.discard(cache_uid)
+            else:
+                self._download_task_store.update(
+                    cache_uid,
+                    status="interrupted",
+                    error="Download worker is no longer available",
+                )
+            return typing.cast(Dict[str, Any], self._download_task_store.get(cache_uid))
+
+        try:
+            await self._snapshot_cache_download(cache_uid, preserve_status=True)
+        except Exception:
+            logger.debug(
+                "Failed to snapshot cache operation %s before pausing",
+                cache_uid,
+                exc_info=True,
+            )
+        self._cache_pause_requested.add(cache_uid)
+        self._download_task_store.update(cache_uid, status="pausing", error=None)
+        try:
+            await worker_ref.cancel_cache_model(cache_uid)
+        except Exception as e:
+            self._cache_pause_requested.discard(cache_uid)
+            self._download_task_store.update(
+                cache_uid, status="interrupted", error=str(e) or type(e).__name__
+            )
+            raise RuntimeError(
+                f"Failed to pause cache operation {cache_uid}; "
+                "it was marked interrupted"
+            ) from e
+        self._download_task_store.update(cache_uid, status="paused", error=None)
+        self._cache_pause_requested.discard(cache_uid)
+        return typing.cast(Dict[str, Any], self._download_task_store.get(cache_uid))
+
+    async def resume_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
+        task = self._download_task_store.get(cache_uid)
+        if task is None:
+            raise RuntimeError(f"Cache operation {cache_uid} does not exist")
+        if task.get("status") not in RESUMABLE_DOWNLOAD_STATUSES:
+            raise RuntimeError(
+                f"Cache operation {cache_uid} cannot be resumed from "
+                f"state {task.get('status')}"
+            )
+        active_task = self._cache_uid_to_task.get(cache_uid)
+        if cache_uid in self._cache_uid_to_worker or (
+            active_task is not None and not active_task.done()
+        ):
+            raise RuntimeError(f"Cache operation {cache_uid} is already running")
+
+        payload = dict(task.get("payload") or {})
+        if not payload:
+            raise RuntimeError(f"Cache operation {cache_uid} has no resume payload")
+        payload["cache_uid"] = cache_uid
+        peft_model_config = payload.get("peft_model_config")
+        if isinstance(peft_model_config, dict):
+            payload["peft_model_config"] = PeftModelConfig.from_dict(peft_model_config)
+
+        worker_address = task.get("worker_address")
+        if worker_address not in self._worker_address_to_worker:
+            worker_host = (
+                self._get_worker_host(worker_address) if worker_address else None
+            )
+            payload["worker_ip"] = (
+                worker_host
+                if worker_host
+                and any(
+                    self._get_worker_host(address) == worker_host
+                    for address in self._worker_address_to_worker
+                )
+                else None
+            )
+
+        self._download_task_store.update(cache_uid, status="resuming", error=None)
+
+        async def _resume_download() -> None:
+            try:
+                await self.cache_builtin_model(_resume=True, **payload)
+            except BaseException as e:
+                # Worker selection and hub resolution happen before
+                # cache_builtin_model installs its own error handler.
+                current = self._download_task_store.get(cache_uid)
+                if current is not None and current.get("status") == "resuming":
+                    self._record_cache_download_error(cache_uid, e)
+                raise
+
+        resume_task = asyncio.create_task(_resume_download())
+        self._cache_uid_to_task[cache_uid] = resume_task
+
+        def _consume_result(done_task: asyncio.Task) -> None:
+            self._cache_uid_to_task.pop(cache_uid, None)
+            if done_task.cancelled():
+                return
+            error = done_task.exception()
+            if error is not None:
+                logger.warning("Resumed model download %s failed: %s", cache_uid, error)
+
+        resume_task.add_done_callback(_consume_result)
+        return typing.cast(Dict[str, Any], self._download_task_store.get(cache_uid))
 
     async def cancel_cache_builtin_model(self, cache_uid: str):
-        try:
-            worker_ref = self._cache_uid_to_worker[cache_uid]
-        except KeyError:
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        if worker_ref is None:
+            resume_task = self._cache_uid_to_task.get(cache_uid)
+            if resume_task is not None and not resume_task.done():
+                self._cache_cancel_requested.add(cache_uid)
+                resume_task.cancel()
+                try:
+                    await resume_task
+                except asyncio.CancelledError:
+                    pass
+                self._download_task_store.delete(cache_uid)
+                self._cache_cancel_requested.discard(cache_uid)
+                return
+            if self._download_task_store.delete(cache_uid):
+                return
             raise RuntimeError(f"Cache operation {cache_uid} is not running")
+        self._cache_cancel_requested.add(cache_uid)
         await worker_ref.cancel_cache_model(cache_uid)
+        self._download_task_store.delete(cache_uid)
+        self._cache_cancel_requested.discard(cache_uid)
+
+    async def list_model_downloads(self) -> List[Dict[str, Any]]:
+        """Return active launches and resumable cache-only downloads."""
+        infos = await self._status_guard_ref.get_instance_info()
+        downloads: List[Dict[str, Any]] = []
+
+        for task in self._download_task_store.list_unfinished():
+            cache_uid = task["cache_uid"]
+            if cache_uid in self._cache_uid_to_worker:
+                try:
+                    await self._snapshot_cache_download(cache_uid)
+                    task = self._download_task_store.get(cache_uid) or task
+                except Exception:
+                    logger.debug(
+                        "Failed to refresh model download %s", cache_uid, exc_info=True
+                    )
+
+            worker_address = task.get("worker_address")
+            download_files = [
+                {**file_info, "worker_address": worker_address}
+                for file_info in task.get("download_files", [])
+            ]
+            stage = str(task.get("status") or "pending")
+            progress = float(task.get("progress") or 0)
+            downloads.append(
+                {
+                    "kind": "cache",
+                    "cache_uid": cache_uid,
+                    "model_name": task["model_name"],
+                    "model_uid": cache_uid,
+                    "model_version": task.get("model_version"),
+                    "model_type": task.get("model_type"),
+                    "model_engine": task.get("model_engine"),
+                    "status": stage,
+                    "instance_created_ts": int(task.get("created_at") or 0),
+                    "updated_at": task.get("updated_at"),
+                    "progress": progress,
+                    "stage": stage,
+                    "error": task.get("error"),
+                    "resumable": stage in RESUMABLE_DOWNLOAD_STATUSES,
+                    "download_files": download_files,
+                    "replicas": [
+                        {
+                            "replica_id": 0,
+                            "replica_model_uid": cache_uid,
+                            "progress": progress,
+                            "stage": stage,
+                            "info": task.get("error"),
+                            "updated_at": task.get("updated_at"),
+                            "worker_address": worker_address,
+                            "download_files": download_files,
+                        }
+                    ],
+                }
+            )
+
+        for info in infos:
+            if info.status not in {
+                LaunchStatus.CREATING.name,
+                LaunchStatus.LOADING.name,
+            }:
+                continue
+
+            details = await self.get_launch_builtin_model_progress_details(
+                info.model_uid
+            )
+            if details.get("stage") != "downloading":
+                continue
+
+            worker_by_replica = {
+                status.replica_model_uid: status.worker_address
+                for status in (info.replica_statuses or [])
+            }
+            replicas = []
+            for replica in details.get("replicas", []):
+                replica_info = dict(replica)
+                worker_address = worker_by_replica.get(
+                    replica_info.get("replica_model_uid")
+                )
+                replica_info["worker_address"] = worker_address
+                replica_info["download_files"] = [
+                    {**file_info, "worker_address": worker_address}
+                    for file_info in replica_info.get("download_files", [])
+                ]
+                replicas.append(replica_info)
+
+            download_files = [
+                file_info
+                for replica in replicas
+                for file_info in replica["download_files"]
+            ]
+            downloads.append(
+                {
+                    "kind": "launch",
+                    "cache_uid": None,
+                    "model_name": info.model_name,
+                    "model_uid": info.model_uid,
+                    "model_version": info.model_version,
+                    "status": info.status,
+                    "instance_created_ts": info.instance_created_ts,
+                    **details,
+                    "download_files": download_files,
+                    "replicas": replicas,
+                    "error": None,
+                    "resumable": False,
+                }
+            )
+
+        return sorted(
+            downloads,
+            key=lambda item: (item.get("instance_created_ts", 0), item["model_uid"]),
+            reverse=True,
+        )
 
     async def cancel_launch_builtin_model(self, model_uid: str):
         try:

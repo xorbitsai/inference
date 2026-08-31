@@ -14,19 +14,9 @@ import {
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
 import { formatFileSize } from '@/lib/utils';
+import type { DownloadProgressFile } from '@/types/services';
 
-export interface DownloadProgressFile {
-  name: string;
-  downloaded_bytes: number;
-  total_bytes: number | null;
-  progress: number | null;
-  speed_bytes_per_second: number | null;
-  elapsed_seconds: number;
-  eta_seconds: number | null;
-  status: string;
-  replica_id?: number;
-  replica_model_uid?: string;
-}
+export type { DownloadProgressFile } from '@/types/services';
 
 interface DownloadProgressDetailsProps {
   files: DownloadProgressFile[];

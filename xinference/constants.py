@@ -284,6 +284,11 @@ XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "launch_history.db"),
 )
 
+XINFERENCE_DOWNLOAD_TASK_DB_PATH = os.environ.get(
+    "XINFERENCE_DOWNLOAD_TASK_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "download_tasks.db"),
+)
+
 XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
     "XINFERENCE_MONITOR_CONFIG_DB_PATH",
     os.path.join(XINFERENCE_HOME, "monitor_config.db"),

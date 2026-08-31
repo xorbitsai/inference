@@ -64,6 +64,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
       const params = new URLSearchParams();
 
       params.set('model_version', pendingDeleteItem.model_version);
+      params.set('worker_ip', pendingDeleteItem.actor_ip_address);
       const response = await request.delete<DeleteCacheResponse>(
         `/v1/cache/models?${params.toString()}`
       );
@@ -122,7 +123,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
             <TableBody>
               {dataSource.length ? (
                 dataSource.map((item) => (
-                  <TableRow key={item.model_version}>
+                  <TableRow key={`${item.model_version}:${item.actor_ip_address}`}>
                     <TableCell>{item.model_format || '-'}</TableCell>
                     <TableCell>{item.model_size_in_billions || '-'}</TableCell>
                     <TableCell>{item.quantization || '-'}</TableCell>
@@ -132,12 +133,14 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                           content={item?.real_path}
                           contentClassName="max-w-[calc(100vw-2rem)] break-all"
                         >
-                          <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
+                          <span className="min-w-0 flex-1 truncate">{item.real_path || '-'}</span>
                         </InfoTooltip>
-                        <Copy
-                          className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyToClipboard(item?.real_path)}
-                        />
+                        {item.real_path && (
+                          <Copy
+                            className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+                            onClick={() => copyToClipboard(item.real_path || '')}
+                          />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[220px]">

@@ -49,6 +49,13 @@ def mock_supervisor():
         return_value={"progress": 0.5, "stage": "downloading"}
     )
     supervisor.cancel_cache_builtin_model = AsyncMock()
+    supervisor.pause_cache_builtin_model = AsyncMock(
+        return_value={"cache_uid": "cache-1", "status": "paused"}
+    )
+    supervisor.resume_cache_builtin_model = AsyncMock(
+        return_value={"cache_uid": "cache-1", "status": "resuming"}
+    )
+    supervisor.list_model_downloads = AsyncMock(return_value=[])
     supervisor.list_deletable_models = AsyncMock(return_value=[])
     supervisor.confirm_and_remove_model = AsyncMock(return_value=True)
     supervisor.list_virtual_envs = AsyncMock(return_value=[])
@@ -266,6 +273,29 @@ async def test_cache_model_progress_and_cancel(mock_api, mock_supervisor):
     cancel_response = await admin.cancel_cache_model(cache_uid="cache-1", api=mock_api)
     assert cancel_response.status_code == 200
     mock_supervisor.cancel_cache_builtin_model.assert_awaited_once_with("cache-1")
+
+
+@pytest.mark.asyncio
+async def test_list_model_downloads_returns_list(mock_api, mock_supervisor):
+    downloads = [{"model_uid": "qwen", "stage": "downloading"}]
+    mock_supervisor.list_model_downloads.return_value = downloads
+
+    response = await admin.list_model_downloads(api=mock_api)
+
+    assert response.status_code == 200
+    assert _json_body(response) == {"list": downloads}
+    mock_supervisor.list_model_downloads.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_pause_and_resume_cache_model(mock_api, mock_supervisor):
+    pause_response = await admin.pause_cache_model(cache_uid="cache-1", api=mock_api)
+    assert _json_body(pause_response)["status"] == "paused"
+    mock_supervisor.pause_cache_builtin_model.assert_awaited_once_with("cache-1")
+
+    resume_response = await admin.resume_cache_model(cache_uid="cache-1", api=mock_api)
+    assert _json_body(resume_response)["status"] == "resuming"
+    mock_supervisor.resume_cache_builtin_model.assert_awaited_once_with("cache-1")
 
 
 @pytest.mark.asyncio

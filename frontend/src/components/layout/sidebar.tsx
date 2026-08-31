@@ -24,6 +24,7 @@ import {
   Users,
   UserRound,
   KeyRound,
+  Database,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -158,6 +159,7 @@ export function Sidebar() {
     hasSettingsRead,
     canRegisterModel,
     canAccessRouterPage,
+    canAccessCacheManagement,
   } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
@@ -223,6 +225,16 @@ export function Sidebar() {
             Icon: Box,
             Extra: ChevronRight,
             show: !clusterUIConfig?.auth_advanced || canRegisterModel,
+          },
+          {
+            path: '/cache-management',
+            name: t('menu.cacheManagement'),
+            Icon: Database,
+            Extra: ChevronRight,
+            show:
+              clusterAuth?.auth === false ||
+              !clusterUIConfig?.auth_advanced ||
+              canAccessCacheManagement,
           },
         ],
       },
@@ -338,6 +350,7 @@ export function Sidebar() {
       .filter(({ items }) => items.length > 0);
   }, [
     clusterUIConfig,
+    clusterAuth,
     locale,
     t,
     usersManagePage,
@@ -348,6 +361,7 @@ export function Sidebar() {
     hasSettingsRead,
     canRegisterModel,
     canAccessRouterPage,
+    canAccessCacheManagement,
   ]);
 
   return (

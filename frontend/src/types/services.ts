@@ -67,12 +67,12 @@ export interface VirtualEnv {
 }
 export interface ModelCachedItem {
   model_name: string;
-  model_size_in_billions: number;
-  model_format: string;
-  quantization: string;
+  model_size_in_billions: number | string | null;
+  model_format: string | null;
+  quantization: string | null;
   model_version: string;
   path: string;
-  real_path: string;
+  real_path?: string;
   actor_ip_address: string;
 }
 
@@ -83,6 +83,50 @@ export interface ModelEnvItem {
   real_path: string;
   python_version: string;
   actor_ip_address: string;
+}
+
+export interface DownloadProgressFile {
+  name: string;
+  downloaded_bytes: number;
+  total_bytes: number | null;
+  progress: number | null;
+  speed_bytes_per_second: number | null;
+  elapsed_seconds: number;
+  eta_seconds: number | null;
+  status: string;
+  replica_id?: number;
+  replica_model_uid?: string;
+  worker_address?: string | null;
+}
+
+export interface ModelDownloadReplica {
+  replica_id: number;
+  replica_model_uid: string;
+  progress: number;
+  stage: string;
+  info: string | null;
+  updated_at: number | null;
+  worker_address: string | null;
+  download_files: DownloadProgressFile[];
+}
+
+export interface ModelDownloadItem {
+  kind: 'launch' | 'cache';
+  cache_uid: string | null;
+  model_name: string;
+  model_uid: string;
+  model_version: string | null;
+  model_type?: string | null;
+  model_engine?: string | null;
+  status: string;
+  instance_created_ts: number;
+  updated_at?: number | null;
+  progress: number;
+  stage: string;
+  error?: string | null;
+  resumable: boolean;
+  download_files: DownloadProgressFile[];
+  replicas: ModelDownloadReplica[];
 }
 
 export type ModelEngineItem = {

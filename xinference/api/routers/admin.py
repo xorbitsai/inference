@@ -304,6 +304,48 @@ async def cancel_cache_model(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def pause_cache_model(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.pause_cache_builtin_model(cache_uid)
+        return JSONResponse(content=result)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def resume_cache_model(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.resume_cache_builtin_model(cache_uid)
+        return JSONResponse(content=result)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def list_model_downloads(
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        data = await supervisor_ref.list_model_downloads()
+        return JSONResponse(content={"list": data})
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 async def list_model_files(
     api: "RESTfulAPI" = Depends(get_api),
     model_version: str = Query(None),
@@ -1686,6 +1728,24 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/cache/models/{cache_uid}/cancel",
         cancel_cache_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads",
+        list_model_downloads,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads/{cache_uid}/pause",
+        pause_cache_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads/{cache_uid}/resume",
+        resume_cache_model,
         methods=["POST"],
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
