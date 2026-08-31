@@ -74,10 +74,9 @@ def test_parse_uri():
     assert path == "bucket/dir"
 
 
-def test_retry_download_applies_default_max_workers():
-    from ...constants import XINFERENCE_MODEL_DOWNLOAD_WORKERS
-
+def test_retry_download_applies_environment_max_workers(monkeypatch):
     received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
     def snapshot_download(repo_id, *, max_workers=8):
         received["repo_id"] = repo_id
@@ -87,12 +86,13 @@ def test_retry_download_applies_default_max_workers():
     assert retry_download(snapshot_download, "dummy", None, "repo") == "ok"
     assert received == {
         "repo_id": "repo",
-        "max_workers": XINFERENCE_MODEL_DOWNLOAD_WORKERS,
+        "max_workers": 2,
     }
 
 
-def test_retry_download_preserves_explicit_max_workers():
+def test_retry_download_preserves_explicit_max_workers(monkeypatch):
     received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
     def snapshot_download(repo_id, *, max_workers=8):
         received["max_workers"] = max_workers
@@ -104,8 +104,9 @@ def test_retry_download_preserves_explicit_max_workers():
     assert received["max_workers"] == 6
 
 
-def test_retry_download_does_not_inject_max_workers_for_file_download():
+def test_retry_download_does_not_inject_max_workers_for_file_download(monkeypatch):
     received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
     def file_download(repo_id, *, filename):
         received["repo_id"] = repo_id
@@ -117,6 +118,18 @@ def test_retry_download_does_not_inject_max_workers_for_file_download():
         == "ok"
     )
     assert received == {"repo_id": "repo", "filename": "config.json"}
+
+
+def test_retry_download_preserves_default_without_environment(monkeypatch):
+    received = {}
+    monkeypatch.delenv("HF_HUB_DOWNLOAD_WORKERS", raising=False)
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert retry_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert received["max_workers"] == 8
 
 
 def test_create_symlink_ignores_downloaded_cache_source_manifest(tmp_path, monkeypatch):

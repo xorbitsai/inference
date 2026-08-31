@@ -242,7 +242,6 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     model_utils = SimpleNamespace(
         XINFERENCE_DOWNLOAD_MAX_ATTEMPTS=3,
         XINFERENCE_HUB_DETECT_TIMEOUT=3.0,
-        XINFERENCE_MODEL_DOWNLOAD_WORKERS=2,
         _auto_detected_hub="huggingface",
         _auto_detect_hub_lock=threading.Lock(),
     )
@@ -287,7 +286,6 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     assert constants.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 6
     assert model_utils.XINFERENCE_DOWNLOAD_MAX_ATTEMPTS == 5
     assert model_utils.XINFERENCE_HUB_DETECT_TIMEOUT == 4.5
-    assert model_utils.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 6
     assert model_utils._auto_detected_hub is None
     assert worker.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 6
     assert hf_constants.ENDPOINT == "https://hf.example.com"
@@ -305,7 +303,6 @@ def test_save_updates_loaded_download_consumers(monkeypatch, tmp_path):
     assert constants.XINFERENCE_DOWNLOAD_MAX_ATTEMPTS == 3
     assert constants.XINFERENCE_HUB_DETECT_TIMEOUT == 3.0
     assert constants.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 2
-    assert model_utils.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 2
     assert worker.XINFERENCE_MODEL_DOWNLOAD_WORKERS == 2
     assert hf_constants.ENDPOINT == "https://huggingface.co"
     assert hf_constants.HUGGINGFACE_CO_URL_TEMPLATE == (
