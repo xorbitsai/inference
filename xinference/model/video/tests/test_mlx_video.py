@@ -438,7 +438,7 @@ def test_ltx_audio_cleanup_error_does_not_mask_generation_error(tmp_path, monkey
         )
 
 
-def test_ltx_23_prepares_pinned_external_text_encoder(tmp_path):
+def test_ltx_23_prepares_pinned_external_text_encoder(tmp_path, monkeypatch):
     model_path = tmp_path / "ltx-model"
     model_path.mkdir()
     text_encoder_path = tmp_path / "text-encoder"
@@ -451,6 +451,7 @@ def test_ltx_23_prepares_pinned_external_text_encoder(tmp_path):
         text_encoder_model_revision="pinned-revision",
     )
     model = MLXVideoModel("uid", str(model_path), spec)
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
 
     with patch(
         "huggingface_hub.snapshot_download", return_value=str(text_encoder_path)
@@ -461,6 +462,7 @@ def test_ltx_23_prepares_pinned_external_text_encoder(tmp_path):
         "prince-canuma/LTX-2-distilled",
         revision="pinned-revision",
         allow_patterns=["text_encoder/**", "tokenizer/**"],
+        max_workers=2,
     )
     assert model._runtime_model_path == str(model_path)
     assert model._text_encoder_path == str(text_encoder_path)
