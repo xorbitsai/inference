@@ -4749,7 +4749,7 @@ class WorkerActor(xo.StatelessActor):
                 XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
             )
 
-    @log_sync(logger=logger, level=logging.INFO)
+    @log_async(logger=logger, level=logging.INFO)
     async def cancel_cache_model(self, cache_uid: str):
         try:
             download_info = self._cache_uid_to_download_info[cache_uid]

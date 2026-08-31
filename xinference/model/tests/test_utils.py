@@ -188,9 +188,7 @@ def test_tqdm_patch_recognizes_modelscope_file_counter():
         # Four concurrent files at 50% are half of four tasks, not one task at
         # 100%.
         tqdm(total=4, unit="file", file=io.StringIO())
-        file_bars = [
-            tqdm(total=100, unit="B", file=io.StringIO()) for _ in range(4)
-        ]
+        file_bars = [tqdm(total=100, unit="B", file=io.StringIO()) for _ in range(4)]
         for file_bar in file_bars:
             file_bar.update(50)
 

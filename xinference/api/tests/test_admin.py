@@ -153,9 +153,7 @@ def test_cache_model_reuses_launch_model_permission(is_auth):
     model_routes = capture_routes(models.register_routes)
     admin_routes = capture_routes(admin.register_routes)
     launch_dependencies = model_routes[("/v1/models", ("POST",))]["dependencies"]
-    cache_dependencies = admin_routes[("/v1/cache/models", ("POST",))][
-        "dependencies"
-    ]
+    cache_dependencies = admin_routes[("/v1/cache/models", ("POST",))]["dependencies"]
 
     if not is_auth:
         assert launch_dependencies is None
