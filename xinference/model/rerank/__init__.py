@@ -19,6 +19,7 @@ import warnings
 from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
+from ..engine_hooks import MODEL_TYPE_RERANK, run_engine_registration_hooks
 from ..utils import flatten_quantizations
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
@@ -195,6 +196,9 @@ def _install():
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
+
+    # Distribution-specific engines are appended after the built-ins.
+    run_engine_registration_hooks(MODEL_TYPE_RERANK, SUPPORTED_ENGINES)
 
     for model_spec_list in BUILTIN_RERANK_MODELS.values():
         for model_spec in model_spec_list:

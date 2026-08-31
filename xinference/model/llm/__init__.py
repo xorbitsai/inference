@@ -16,6 +16,7 @@ import json
 import os
 import warnings
 
+from ..engine_hooks import MODEL_TYPE_LLM, run_engine_registration_hooks
 from ..utils import flatten_quantizations
 from .core import (
     LLM,
@@ -268,6 +269,9 @@ def _install():
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CLASSES
     SUPPORTED_ENGINES["MLX"] = MLX_CLASSES
     SUPPORTED_ENGINES["LMDEPLOY"] = LMDEPLOY_CLASSES
+
+    # Distribution-specific engines are appended after the built-ins.
+    run_engine_registration_hooks(MODEL_TYPE_LLM, SUPPORTED_ENGINES)
 
     # Install models with intelligent merging based on timestamps
     # LLM models use a different structure (list instead of dict), so we need special handling

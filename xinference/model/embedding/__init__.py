@@ -18,6 +18,7 @@ import os
 import warnings
 from typing import Any, Dict, List
 
+from ..engine_hooks import MODEL_TYPE_EMBEDDING, run_engine_registration_hooks
 from ..utils import flatten_quantizations
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
@@ -222,6 +223,9 @@ def _install():
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
+
+    # Distribution-specific engines are appended after the built-ins.
+    run_engine_registration_hooks(MODEL_TYPE_EMBEDDING, SUPPORTED_ENGINES)
 
     # Init embedding engine
     for model_spec_list in BUILTIN_EMBEDDING_MODELS.values():
