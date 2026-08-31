@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from xinference.api.routers import admin
+from xinference.api.routers import admin, models
 from xinference.core.virtual_env_manager import VirtualEnvConflictError
 
 
@@ -133,6 +133,37 @@ async def test_is_cluster_authenticated_returns_auth_flag(mock_api):
     mock_api.is_authenticated.return_value = False
     response = await admin.is_cluster_authenticated(api=mock_api)
     assert _json_body(response) == {"auth": False}
+
+
+@pytest.mark.parametrize("is_auth", [False, True])
+def test_cache_model_reuses_launch_model_permission(is_auth):
+    def capture_routes(register_routes):
+        captured = {}
+
+        def add_api_route(path, endpoint, methods=None, **kwargs):
+            captured[(path, tuple(methods or []))] = kwargs
+
+        api = MagicMock()
+        api._router.add_api_route.side_effect = add_api_route
+        api._auth_service = MagicMock()
+        api.is_authenticated.return_value = is_auth
+        register_routes(api)
+        return captured
+
+    model_routes = capture_routes(models.register_routes)
+    admin_routes = capture_routes(admin.register_routes)
+    launch_dependencies = model_routes[("/v1/models", ("POST",))]["dependencies"]
+    cache_dependencies = admin_routes[("/v1/cache/models", ("POST",))][
+        "dependencies"
+    ]
+
+    if not is_auth:
+        assert launch_dependencies is None
+        assert cache_dependencies is None
+        return
+
+    assert launch_dependencies[0].scopes == ["models:write"]
+    assert cache_dependencies[0].scopes == launch_dependencies[0].scopes
 
 
 @pytest.mark.asyncio
