@@ -41,8 +41,16 @@ def _validate_engine_table(target: EngineTable) -> None:
             raise TypeError("Engine names must be strings")
         if not isinstance(classes, list):
             raise TypeError(f"Engine {engine!r} classes must be a list")
-        if not all(isinstance(engine_class, type) for engine_class in classes):
-            raise TypeError(f"Engine {engine!r} entries must be classes")
+        for engine_class in classes:
+            if not isinstance(engine_class, type):
+                raise TypeError(f"Engine {engine!r} entries must be classes")
+            if not callable(getattr(engine_class, "match", None)) or not callable(
+                getattr(engine_class, "match_json", None)
+            ):
+                raise TypeError(
+                    f"Engine {engine!r} classes must implement callable "
+                    "match and match_json methods"
+                )
 
 
 def _snapshot_engine_table(target: EngineTable) -> EngineTableSnapshot:
@@ -59,11 +67,17 @@ def _restore_engine_table(target: EngineTable, snapshot: EngineTableSnapshot) ->
 def register_engine_registration_hook(
     model_type: str, hook: EngineRegistrationHook
 ) -> None:
-    """Register a callback before importing :mod:`xinference.model`.
+    """Register a callback before the model installers run in this process.
 
     The callback receives a mapping of engine names to lists of engine classes.
     Classes must implement the interface used by the corresponding model package,
-    including ``match`` and ``match_json`` where applicable.
+    including callable ``match`` and ``match_json`` methods.
+
+    Registration is process-local. Every process that initializes
+    :mod:`xinference.model` must execute its distribution wiring before the model
+    installers run; spawned processes do not inherit this registry. Installers may
+    invoke a hook more than once, so callbacks must be idempotent. Prefer replacing
+    a distribution-owned entry over repeatedly extending its class list.
     """
     if model_type not in _VALID_MODEL_TYPES:
         raise ValueError(

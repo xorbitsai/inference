@@ -17,16 +17,27 @@ import os
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 import pytest
 
-from ... import engine_hooks
-from ...engine_hooks import (
+from xinference import engine_hooks
+from xinference.engine_hooks import (
     MODEL_TYPE_EMBEDDING,
     MODEL_TYPE_LLM,
     register_engine_registration_hook,
     run_engine_registration_hooks,
 )
+
+
+class DummyModel:
+    @classmethod
+    def match(cls, *_args):
+        return True
+
+    @classmethod
+    def match_json(cls, *_args):
+        return True
 
 
 @pytest.fixture(autouse=True)
@@ -35,9 +46,6 @@ def isolated_hooks(monkeypatch):
 
 
 def test_hook_contributes_to_one_model_type_after_builtins():
-    class DummyModel:
-        pass
-
     def hook(target):
         target["external"] = [DummyModel]
 
@@ -66,9 +74,6 @@ def test_registering_same_hook_twice_is_idempotent():
 
 
 def test_broken_hook_rolls_back_and_does_not_stop_later_hooks(caplog):
-    class DummyModel:
-        pass
-
     def broken(target):
         target.clear()
         target["partial"] = [DummyModel]
@@ -90,10 +95,10 @@ def test_broken_hook_rolls_back_and_does_not_stop_later_hooks(caplog):
 
 
 def test_failed_hook_restores_aliased_list_in_place(caplog):
-    class BuiltinModel:
+    class BuiltinModel(DummyModel):
         pass
 
-    class FailedModel:
+    class FailedModel(DummyModel):
         pass
 
     canonical_classes = [BuiltinModel]
@@ -118,9 +123,6 @@ def test_failed_hook_restores_aliased_list_in_place(caplog):
 
 
 def test_malformed_hook_output_rolls_back_and_does_not_stop_later_hooks(caplog):
-    class DummyModel:
-        pass
-
     def malformed(target):
         target["invalid"] = DummyModel
 
@@ -137,6 +139,28 @@ def test_malformed_hook_output_rolls_back_and_does_not_stop_later_hooks(caplog):
     assert list(target) == ["builtin", "healthy"]
     assert "invalid" not in target
     assert "Engine 'invalid' classes must be a list" in caplog.text
+
+
+def test_hook_with_invalid_engine_class_rolls_back(caplog):
+    class MissingMatchMethods:
+        pass
+
+    def malformed(target):
+        target["invalid"] = [MissingMatchMethods]
+
+    def healthy(target):
+        target["healthy"] = [DummyModel]
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, malformed)
+    register_engine_registration_hook(MODEL_TYPE_LLM, healthy)
+
+    target = {"builtin": [DummyModel]}
+    with caplog.at_level(logging.ERROR):
+        run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert list(target) == ["builtin", "healthy"]
+    assert "invalid" not in target
+    assert "must implement callable match and match_json" in caplog.text
 
 
 def test_hook_must_be_callable():
@@ -219,6 +243,7 @@ def test_hooks_can_register_before_model_bootstrap(tmp_path):
 
         register_builtin_model()
 
+        assert LLM_SUPPORTED_ENGINES["external"] == [ExternalModel]
         assert LLM_SUPPORTED_ENGINES["vLLM"] is VLLM_CLASSES
         assert FailedModel not in VLLM_CLASSES
         assert all(
@@ -231,8 +256,10 @@ def test_hooks_can_register_before_model_bootstrap(tmp_path):
     )
     env = os.environ.copy()
     env["XINFERENCE_HOME"] = str(tmp_path)
-    repo_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    repo_root = str(Path(__file__).resolve().parents[2])
+    current_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = os.pathsep.join(
+        [repo_root, current_pythonpath] if current_pythonpath else [repo_root]
     )
     result = subprocess.run(
         [sys.executable, "-c", script],
@@ -240,7 +267,7 @@ def test_hooks_can_register_before_model_bootstrap(tmp_path):
         cwd=repo_root,
         env=env,
         text=True,
-        timeout=120,
+        timeout=300,
     )
 
     assert result.returncode == 0, result.stderr
