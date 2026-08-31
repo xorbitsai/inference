@@ -28,6 +28,11 @@ from ..constants import (
 
 logger = logging.getLogger(__name__)
 
+
+class VirtualEnvConflictError(ValueError):
+    """Raised when an active model prevents virtual environment mutation."""
+
+
 ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "sglang": [
         "pybase64",
@@ -633,6 +638,7 @@ class VirtualEnvManager:
         model_name: str,
         model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
+        active_model_uids_by_path: Optional[Dict[str, List[str]]] = None,
     ) -> bool:
         """
         Remove a virtual environment for a specific model.
@@ -660,6 +666,30 @@ class VirtualEnvManager:
             )
 
         v4_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v4")
+
+        model_root = os.path.realpath(os.path.join(v4_env_dir, model_name))
+        for env_path, model_uids in (active_model_uids_by_path or {}).items():
+            if not model_uids:
+                continue
+            real_env_path = os.path.realpath(env_path)
+            try:
+                if os.path.commonpath([model_root, real_env_path]) != model_root:
+                    continue
+            except ValueError:
+                continue
+            relative_parts = Path(real_env_path).relative_to(model_root).parts
+            if model_engine and (
+                not relative_parts or relative_parts[0] != model_engine
+            ):
+                continue
+            if python_version and (
+                not relative_parts or relative_parts[-1] != python_version
+            ):
+                continue
+            raise VirtualEnvConflictError(
+                "Virtual environment cannot be removed while models are using it: "
+                f"path={real_env_path}, active_model_uids={sorted(model_uids)}"
+            )
 
         try:
             if python_version and not self._is_valid_python_version(python_version):
@@ -1138,6 +1168,16 @@ def is_flash_attn_requirement(spec: str) -> bool:
     except InvalidRequirement:
         return False
     return canonicalize_name(requirement.name) == "flash-attn"
+
+
+def is_model_find_links_only_requirement(model_name: Optional[str], spec: str) -> bool:
+    """Return whether a model requirement is supplied only via Find Links.
+
+    These requirements are intentionally absent from package indexes.  The
+    runtime installs them from worker-local wheel directories when configured
+    and otherwise uses the model's documented fallback path.
+    """
+    return model_name == "jina-embeddings-v3" and is_flash_attn_requirement(spec)
 
 
 _SUBPROCESS_OUTPUT_LIMIT = 2048

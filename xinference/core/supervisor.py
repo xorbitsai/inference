@@ -85,6 +85,7 @@ from .utils import (
     parse_model_version,
     parse_replica_model_uid,
 )
+from .virtual_env_manager import VirtualEnvConflictError
 
 if TYPE_CHECKING:
     from ..model.audio import AudioModelFamilyV2
@@ -5144,17 +5145,26 @@ class SupervisorActor(xo.StatelessActor):
             except Exception as e:
                 logger.debug(f"Failed to check worker for virtual environment: {e}")
 
-        # Then remove from those workers
+        # Then remove from those workers. Preserve a conflict so the API can
+        # report that an active/preparing model still owns the environment.
+        conflict_error: Optional[VirtualEnvConflictError] = None
         for worker in workers_with_env:
             try:
                 result = await worker.remove_virtual_env(
                     model_name, model_engine, python_version
                 )
                 ret = ret and result
+            except VirtualEnvConflictError as e:
+                if conflict_error is None:
+                    conflict_error = e
+                logger.warning("Virtual environment is still in use on a worker: %s", e)
+                ret = False
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")
                 ret = False
 
+        if conflict_error is not None:
+            raise conflict_error
         return ret
 
     async def list_token_routers(self) -> List[Dict[str, Any]]:

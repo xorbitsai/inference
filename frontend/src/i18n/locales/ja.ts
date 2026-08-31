@@ -1008,6 +1008,7 @@ const ja = {
       virtualenv: 'virtualenv',
       logs: 'logs',
       monitor: 'monitor',
+      settings: 'システム設定',
       routers: 'ルーター',
     },
     permissionLabels: {
@@ -1025,6 +1026,8 @@ const ja = {
       'virtualenv:delete': '仮想環境を削除',
       'logs:list': 'ログを表示',
       'monitor:view': '監視を表示',
+      'settings:read': 'システム設定を表示',
+      'settings:write': 'システム設定を変更',
       'routers:list': 'Token Router 一覧を表示',
       'routers:read': 'Token Router の詳細を読み取り',
       'routers:write': 'Token Router を作成、更新、削除',
@@ -1082,6 +1085,7 @@ const ja = {
   },
   systemSettings: {
     pageDescription: 'モデルのダウンロード元、ミラー、認証情報、ダウンロード動作を設定します。',
+    readOnly: '読み取り専用',
     saveChanges: '変更を保存',
     saveSuccess: 'システム設定を保存し、すぐに適用しました。',
     restoreSettings: 'デフォルト設定に戻す',

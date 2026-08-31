@@ -659,7 +659,9 @@ def main():
             end_label = '.. vllm_end'
             start = content.find(start_label) + len(start_label)
             end = content.find(end_label)
-            new_content = content[:start] + '\n\n' + vllm_model_str + '\n' + content[end:]
+            new_content = (
+                content[:start] + '\n\n' + vllm_model_str + '\n\n' + content[end:]
+            )
             with open(fn, 'w') as f:
                 f.write(new_content)
 

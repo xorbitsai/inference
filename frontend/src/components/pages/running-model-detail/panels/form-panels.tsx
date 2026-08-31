@@ -57,6 +57,21 @@ const DOCUMENT_LANGUAGE_OPTIONS = [
 
 const DOCUMENT_OUTPUT_OPTIONS = ['markdown', 'json'].map((value) => ({ label: value, value }));
 
+const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
+  label: value.toUpperCase(),
+  value,
+}));
+
+const FISH_SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'pcm'].map((value) => ({
+  label: value.toUpperCase(),
+  value,
+}));
+
+const MUSIC_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
+  label: value.toUpperCase(),
+  value,
+}));
+
 const ASTRA_CAMERA_MOTION_OPTIONS = [
   { label: '↑ Move forward', value: 1 },
   { label: '↺ Rotate left in place', value: 2 },
@@ -691,6 +706,10 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
 
 export function SpeechPanel({ form, model }: CapabilityFormProps) {
   const isMusicGeneration = model.model_ability.includes(ModelAbility.Text2music);
+  const speechResponseFormatOptions =
+    model.model_family === 'FishAudio'
+      ? FISH_SPEECH_RESPONSE_FORMAT_OPTIONS
+      : SPEECH_RESPONSE_FORMAT_OPTIONS;
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
   const supportsVoiceDesign = model.model_ability.includes(ModelAbility.Text2audioVoiceDesign);
   const promptSpeech = useWatch('prompt_speech', form);
@@ -728,14 +747,23 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           </FormField>
         </div>
       )}
-      <div className={isMusicGeneration ? 'grid grid-cols-2 gap-3' : undefined}>
+      <div className="grid grid-cols-2 gap-3">
         <ScalarSeedField form={form} />
-        {isMusicGeneration && (
+        {isMusicGeneration ? (
           <FormField name="duration" label="Duration (seconds)" normalize={normalizeNumberInput}>
             <Input type="number" />
           </FormField>
+        ) : (
+          <FormField name="response_format" label="Output Format">
+            <Select options={speechResponseFormatOptions} allowClear={false} />
+          </FormField>
         )}
       </div>
+      {isMusicGeneration && (
+        <FormField name="response_format" label="Output Format">
+          <Select options={MUSIC_RESPONSE_FORMAT_OPTIONS} allowClear={false} />
+        </FormField>
+      )}
       {showPromptSpeech && (
         <FormField name="prompt_speech">
           <FileUpload

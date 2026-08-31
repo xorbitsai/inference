@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
 import shutil
 import sys
@@ -78,7 +79,7 @@ class AceStepModel:
     _bundled_dit_model = "acestep-v15-turbo"
     _bundled_lm_model = "acestep-5Hz-lm-1.7B"
     _lm_backends = {"mlx", "pt", "vllm"}
-    _response_formats = {"aac", "flac", "mp3", "opus", "wav", "wav32"}
+    _response_formats = {"aac", "flac", "mp3", "ogg", "opus", "wav", "wav32"}
     _generation_options = {
         "bpm",
         "cfg_interval_end",
@@ -373,6 +374,25 @@ class AceStepModel:
             )
         return audio_format
 
+    @staticmethod
+    def _wav_file_to_ogg(audio_path: str) -> bytes:
+        import soundfile
+
+        audio, sample_rate = soundfile.read(
+            audio_path,
+            dtype="float32",
+            always_2d=True,
+        )
+        with io.BytesIO() as output:
+            soundfile.write(
+                output,
+                audio,
+                sample_rate,
+                format="OGG",
+                subtype="VORBIS",
+            )
+            return output.getvalue()
+
     def speech(
         self,
         input: str,
@@ -434,11 +454,12 @@ class AceStepModel:
             generation_kwargs.setdefault(name, thinking)
 
         params = self._generation_params_cls(**generation_kwargs)
+        generation_audio_format = "wav" if audio_format == "ogg" else audio_format
         generation_config = self._generation_config_cls(
             batch_size=1,
             use_random_seed=seed == -1,
             seeds=None if seed == -1 else [seed],
-            audio_format=audio_format,
+            audio_format=generation_audio_format,
         )
 
         with tempfile.TemporaryDirectory(prefix="xinference-ace-step-") as output_dir:
@@ -456,5 +477,7 @@ class AceStepModel:
             if len(result.audios) != 1 or not result.audios[0].get("path"):
                 raise RuntimeError("ACE-Step 1.5 returned no saved audio output.")
             audio_path = result.audios[0]["path"]
+            if audio_format == "ogg":
+                return self._wav_file_to_ogg(audio_path)
             with open(audio_path, "rb") as audio_file:
                 return audio_file.read()

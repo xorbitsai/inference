@@ -22,6 +22,7 @@ until the worker restarts — the next launch of the same uid then fails with
 """
 
 import asyncio
+import threading
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -43,6 +44,9 @@ def _make_worker():
     self._main_pool.remove_sub_pool = AsyncMock()
     self._model_uid_launching_guard = {}
     self._model_uid_to_model = {}
+    self._virtual_env_usages = {}
+    self._model_uid_to_virtual_env_path = {}
+    self._virtual_env_usage_lock = threading.Lock()
     self._launch_active = 0
     self._launch_waiting = 0
     self.release_devices = MagicMock()
@@ -55,6 +59,9 @@ def _make_worker():
     self._allocate_subpool_devices = AsyncMock(return_value=({}, [0]))
     self._upload_download_progress = MagicMock()
     self._prepare_virtual_env = AsyncMock()
+    self._release_virtual_env_usage = WorkerActor._release_virtual_env_usage.__get__(
+        self
+    )
     self.launch_builtin_model = WorkerActor.launch_builtin_model.__get__(self)
     self.cancel_launch_model = WorkerActor.cancel_launch_model.__get__(self)
     self.get_model_launch_status = WorkerActor.get_model_launch_status.__get__(self)

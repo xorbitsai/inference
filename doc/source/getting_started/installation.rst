@@ -123,6 +123,7 @@ Currently, supported models include:
 - ``GLM-4.7-Flash``
 - ``glm-5``, ``glm-5.1``, ``glm-5.2``
 - ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
+
 .. vllm_end
 
 To install Xinference and vLLM::

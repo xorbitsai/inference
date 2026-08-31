@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import copy
 import importlib
 import itertools
 import json
@@ -92,6 +93,7 @@ if TYPE_CHECKING:
 
 
 class VLLMModelConfig(TypedDict, total=False):
+    xinference_vllm_executor_backend: str
     tokenizer_mode: Optional[str]
     trust_remote_code: bool
     tensor_parallel_size: int
@@ -505,6 +507,9 @@ class VLLMModel(LLM):
         self._context_length: Optional[int] = None
         # distributed inference
         self._device_count = None
+        self._xinference_vllm_executor_backend = model_config.pop(  # type: ignore
+            "xinference_vllm_executor_backend", None
+        )
         self._address = model_config.pop("address", None)  # type: ignore
         self._n_worker = model_config.pop("n_worker", 1)  # type: ignore
         self._shard = model_config.pop("shard", 0)  # type: ignore
@@ -535,9 +540,118 @@ class VLLMModel(LLM):
     def driver_info(self) -> Optional[dict]:
         return self._driver_info
 
+    def _get_xinference_executor_backend(self) -> str:
+        backend = self._xinference_vllm_executor_backend
+        if backend is None:
+            backend = os.getenv("XINFERENCE_VLLM_EXECUTOR_BACKEND", "auto")
+        backend = str(backend).strip().lower()
+        if backend not in {"auto", "native_mp", "xoscar"}:
+            raise ValueError(
+                "Xinference vLLM executor backend must be one of "
+                "'auto', 'native_mp', or 'xoscar'; "
+                f"got {backend!r}"
+            )
+        return backend
+
+    def _get_allocated_device_count(self) -> int:
+        accelerators = getattr(self.model_family, "accelerators", None)
+        if accelerators:
+            return len(accelerators)
+
+        if self._device_count is not None:
+            return self._device_count
+
+        configured_tp = (self._model_config or {}).get("tensor_parallel_size")
+        configured_pp = (self._model_config or {}).get("pipeline_parallel_size")
+        if configured_tp is not None or configured_pp is not None:
+            return int(configured_tp or 1) * int(configured_pp or 1)
+
+        return self._get_cuda_count()
+
+    def _is_qwen4_exp(self) -> bool:
+        return self.model_family.has_architecture("Qwen4ExpForConditionalGeneration")
+
+    def _native_mp_route(self) -> Tuple[bool, str]:
+        backend = self._get_xinference_executor_backend()
+        if backend == "xoscar":
+            return False, "explicit xoscar backend"
+
+        if self._n_worker != 1:
+            if backend == "native_mp":
+                raise ValueError(
+                    "native_mp only supports n_worker=1; "
+                    "use xoscar for multi-worker deployment"
+                )
+            return False, "n_worker is not 1"
+
+        if self._xavier_config is not None:
+            if backend == "native_mp":
+                raise ValueError("native_mp is not supported with Xavier")
+            return False, "Xavier is enabled"
+
+        device_count = self._get_allocated_device_count()
+        if device_count <= 1:
+            if backend == "native_mp":
+                raise ValueError("native_mp requires more than one allocated GPU")
+            return False, "allocated GPU count is not greater than 1"
+
+        if VLLM_VERSION is None:
+            if backend == "native_mp":
+                raise ValueError(
+                    "Cannot select native_mp because vLLM version is unavailable "
+                    "in the model environment"
+                )
+            return False, "vLLM version is unavailable"
+
+        if not self._is_vllm_v1():
+            if backend == "native_mp":
+                raise ValueError("native_mp requires vLLM V1")
+            return False, "vLLM V1 is not enabled"
+
+        min_version = version.parse("0.28.0")
+        if VLLM_VERSION < min_version:
+            if backend == "native_mp":
+                raise ValueError("native_mp requires vLLM >= " f"{min_version}")
+            return False, f"vLLM version is lower than {min_version}"
+
+        if backend == "native_mp":
+            self._get_native_mp_parallelism()
+            return True, "explicit native_mp backend"
+        if self._is_qwen4_exp():
+            self._get_native_mp_parallelism()
+            return True, "Qwen4Exp single-worker multi-GPU auto route"
+        return False, "auto route is limited to Qwen4Exp architecture"
+
+    def _use_native_mp_executor(self) -> bool:
+        use_native_mp, _ = self._native_mp_route()
+        return use_native_mp
+
+    def _get_native_mp_parallelism(self) -> Tuple[int, int]:
+        device_count = self._get_allocated_device_count()
+        model_config = self._model_config or {}
+        configured_tp = model_config.get("tensor_parallel_size")
+        configured_pp = model_config.get("pipeline_parallel_size")
+        tensor_parallel_size = int(
+            device_count if configured_tp is None else configured_tp
+        )
+        pipeline_parallel_size = int(1 if configured_pp is None else configured_pp)
+        if tensor_parallel_size <= 0 or pipeline_parallel_size <= 0:
+            raise ValueError(
+                "native_mp tensor_parallel_size and pipeline_parallel_size "
+                "must both be positive integers"
+            )
+        if tensor_parallel_size * pipeline_parallel_size != device_count:
+            raise ValueError(
+                "native_mp requires tensor_parallel_size * "
+                "pipeline_parallel_size to equal the allocated GPU count; "
+                f"got TP={tensor_parallel_size}, PP={pipeline_parallel_size}, "
+                f"allocated_gpu_count={device_count}"
+            )
+        return tensor_parallel_size, pipeline_parallel_size
+
     @property
-    def need_create_pools(self):
-        return True
+    def need_create_pools(self) -> bool:
+        return not self._use_native_mp_executor()
 
     def set_pool_addresses(self, pool_addresses: List[str]):
         self._pool_addresses = pool_addresses  # type: ignore
@@ -560,7 +674,7 @@ class VLLMModel(LLM):
         from vllm import envs
 
         # For vLLM >= 0.11.1, v1 is default
-        if VLLM_VERSION > version.parse("0.11.0"):
+        if VLLM_VERSION is not None and VLLM_VERSION > version.parse("0.11.0"):
             return True
 
         # For older versions, check the environment variable
@@ -661,6 +775,7 @@ class VLLMModel(LLM):
             f"Enable lora: {enable_lora}. Lora count: {max_loras}."
         )
 
+        use_native_mp, native_mp_reason = self._native_mp_route()
         if self._xavier_config is not None:
             from .xavier.engine import XavierEngine
 
@@ -681,8 +796,66 @@ class VLLMModel(LLM):
             self._engine = XavierEngine.from_engine_args(
                 engine_args, xavier_config=self._xavier_config
             )
+        elif use_native_mp:
+            tensor_parallel_size, pipeline_parallel_size = (
+                self._get_native_mp_parallelism()
+            )
+            configured_backend = self._model_config.get("distributed_executor_backend")
+            if configured_backend not in (None, "mp"):
+                logger.warning(
+                    "Overriding distributed_executor_backend=%r with 'mp' for "
+                    "Xinference native_mp route of model %s",
+                    configured_backend,
+                    self.model_uid,
+                )
+            self._model_config["tensor_parallel_size"] = tensor_parallel_size
+            self._model_config["pipeline_parallel_size"] = pipeline_parallel_size
+            self._model_config["distributed_executor_backend"] = "mp"
+            engine_args = AsyncEngineArgs(
+                model=self.model_path,
+                enable_lora=enable_lora,
+                max_loras=max_loras,
+                **self._model_config,
+            )
+            self._enable_v1_if_supported(engine_args)
+
+            def _load_native_mp():
+                os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+                architectures = getattr(
+                    self.model_family, "_resolve_architectures", lambda: None
+                )()
+                logger.info(
+                    "vLLM executor route: model_uid=%s, model_name=%s, "
+                    "requested_backend=%s, selected_backend=native_mp_local, "
+                    "reason=%s, architecture=%s, n_worker=%s, "
+                    "allocated_device_count=%s, vllm_version=%s, TP=%s, PP=%s, "
+                    "distributed_executor_backend=mp, multiproc_method=spawn, "
+                    "CUDA_VISIBLE_DEVICES=%s",
+                    self.model_uid,
+                    getattr(self.model_family, "model_name", None),
+                    self._get_xinference_executor_backend(),
+                    native_mp_reason,
+                    architectures,
+                    self._n_worker,
+                    self._get_allocated_device_count(),
+                    VLLM_VERSION,
+                    tensor_parallel_size,
+                    pipeline_parallel_size,
+                    os.environ.get("CUDA_VISIBLE_DEVICES"),
+                )
+                try:
+                    self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                except Exception:
+                    logger.exception("Creating vllm native mp engine failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load_native_mp)
+            self._loading_thread.start()
+            self._loading_thread.join(1)
         elif self._n_worker > 1 or (
-            self._device_count > 1 and VLLM_VERSION >= version.parse("0.7.0")
+            self._device_count > 1
+            and VLLM_VERSION is not None
+            and VLLM_VERSION >= version.parse("0.7.0")
         ):
             from vllm.config import VllmConfig
 
@@ -2223,12 +2396,9 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
     def _attach_video_metadata(
         videos: List[Any], fps_list: Optional[List[Any]]
     ) -> List[Any]:
-        if not fps_list:
-            return videos
-
         attached: List[Any] = []
         for idx, video in enumerate(videos):
-            fps = fps_list[idx] if idx < len(fps_list) else None
+            fps = fps_list[idx] if fps_list and idx < len(fps_list) else None
             data = video
             metadata: Dict[str, Any] = {}
             if (
@@ -2238,10 +2408,25 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             ):
                 data = video[0]
                 metadata = dict(video[1])
+
+            shape = getattr(data, "shape", None)
+            if not shape:
+                raise ValueError("Decoded video does not expose a frame dimension")
+            total_num_frames = int(shape[0])
+            if total_num_frames <= 0:
+                raise ValueError("Decoded video contains no frames")
+
+            metadata.setdefault("total_num_frames", total_num_frames)
+            metadata.setdefault("frames_indices", list(range(total_num_frames)))
             if fps is not None:
+                if fps <= 0:
+                    raise ValueError("Video fps must be greater than 0")
                 metadata.setdefault("fps", fps)
-                metadata.setdefault("video_fps", fps)
-            attached.append((data, metadata) if metadata else data)
+                metadata.setdefault("duration", total_num_frames / fps)
+            if len(shape) >= 3:
+                metadata.setdefault("height", int(shape[-2]))
+                metadata.setdefault("width", int(shape[-1]))
+            attached.append((data, metadata))
         return attached
 
     def _sanitize_model_config(
@@ -2325,52 +2510,83 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
         )
 
-    def _handle_base64_images(self, messages, temp_files):
+    def _handle_base64_media(self, messages, temp_dir):
         import base64
+        import binascii
+        import mimetypes
         import re
         import tempfile
+        from pathlib import Path
 
-        # Regex to match data URI scheme
+        # OpenAI-compatible image_url/video_url content parts carry the URL in
+        # a nested ``{"url": ...}`` object.  qwen_omni_utils can consume
+        # image data URIs directly, but its video readers require a path/URL,
+        # so materialize both modalities consistently before transforming the
+        # messages into Qwen's schema.
         data_uri_pattern = re.compile(
-            r"data:([a-zA-Z0-9]+/[a-zA-Z0-9-.+]+);base64,(.*)"
+            r"data:([a-zA-Z0-9]+/[a-zA-Z0-9.+-]+);base64,(.*)",
+            re.IGNORECASE | re.DOTALL,
         )
 
         for msg in messages:
             if isinstance(msg, dict) and isinstance(msg.get("content"), list):
                 for content in msg["content"]:
                     if isinstance(content, dict):
-                        # check image_url
-                        if "image_url" in content and isinstance(
-                            content["image_url"], dict
-                        ):
-                            url = content["image_url"].get("url", "")
-                            if isinstance(url, str) and url.startswith("data:"):
-                                match = data_uri_pattern.match(url)
-                                if match:
-                                    mime_type, b64_data = match.groups()
-                                    try:
-                                        # Create temp file
-                                        suffix = ".bin"
-                                        if "pdf" in mime_type:
-                                            suffix = ".pdf"
-                                        elif "png" in mime_type:
-                                            suffix = ".png"
-                                        elif "jpeg" in mime_type or "jpg" in mime_type:
-                                            suffix = ".jpg"
+                        media_key = next(
+                            (
+                                key
+                                for key in ("image_url", "video_url")
+                                if key in content
+                            ),
+                            None,
+                        )
+                        if media_key and isinstance(content[media_key], dict):
+                            url = content[media_key].get("url", "")
+                            if isinstance(url, str) and url[:5].lower() == "data:":
+                                match = data_uri_pattern.fullmatch(url)
+                                if match is None:
+                                    raise ValueError(
+                                        f"Invalid base64 data URI for {media_key}"
+                                    )
 
-                                        with tempfile.NamedTemporaryFile(
-                                            delete=False, suffix=suffix
-                                        ) as tmp:
-                                            tmp.write(base64.b64decode(b64_data))
-                                            content["image_url"]["url"] = tmp.name
-                                            temp_files.append(tmp.name)
-                                            logger.debug(
-                                                f"Decoded base64 content to temp file: {tmp.name}"
-                                            )
-                                    except Exception as e:
-                                        logger.error(
-                                            f"Failed to decode base64 file: {e}"
-                                        )
+                                mime_type, b64_data = match.groups()
+                                try:
+                                    normalized_b64_data = "".join(b64_data.split())
+                                    decoded = base64.b64decode(
+                                        normalized_b64_data, validate=True
+                                    )
+                                except (binascii.Error, ValueError) as exc:
+                                    raise ValueError(
+                                        f"Invalid base64 data URI for {media_key}"
+                                    ) from exc
+                                if not decoded:
+                                    raise ValueError(
+                                        f"Empty base64 data URI for {media_key}"
+                                    )
+
+                                clean_mime_type = mime_type.lower()
+                                suffix = mimetypes.guess_extension(
+                                    clean_mime_type, strict=False
+                                )
+                                if clean_mime_type in ("image/jpeg", "image/jpg"):
+                                    suffix = ".jpg"
+                                elif not suffix:
+                                    suffix = ".bin"
+
+                                with tempfile.NamedTemporaryFile(
+                                    dir=temp_dir, delete=False, suffix=suffix
+                                ) as tmp:
+                                    tmp.write(decoded)
+                                    content[media_key]["url"] = (
+                                        Path(tmp.name).as_uri()
+                                        if media_key == "video_url"
+                                        else tmp.name
+                                    )
+                                    logger.debug(
+                                        "Decoded base64 %s content to temporary file: %s",
+                                        media_key,
+                                        tmp.name,
+                                    )
 
     async def _get_chat_template_and_tokenizer(
         self, model_family: str
@@ -2404,62 +2620,76 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
-        if "internvl" not in model_family.lower():
-            from qwen_omni_utils import (
-                process_audio_info,
-                process_mm_info,
-                process_vision_info,
-            )
-
-            # Pre-process messages to handle base64 data URIs BEFORE transform
-            temp_files: List[str] = []
-            if (
-                "vision" in self.model_family.model_ability
-                or "omni" in self.model_family.model_ability
-            ):
-                self._handle_base64_images(messages, temp_files)
-
-            messages = self._transform_messages(messages)
-
-            chat_template_kwargs = (
-                self._get_chat_template_kwargs_from_generate_config(
-                    generate_config, self.reasoning_parser
-                )
-                or {}
-            )
-            chat_context_var.set(chat_template_kwargs)
-            full_context_kwargs = chat_template_kwargs.copy()
-            if tools and (
-                model_family in QWEN_TOOL_CALL_FAMILY
-                or model_family in GEMMA_TOOL_CALL_FAMILY
-                or model_family in GLM5_TOOL_CALL_FAMILY
-                or model_family in KIMI_K3_TOOL_CALL_FAMILY
-            ):
-                full_context_kwargs["tools"] = tools
-            assert self.model_family.chat_template is not None
-
-            # Kimi-K3 has no Jinja template and renders through its tokenizer's
-            # custom Python apply_chat_template implementation.
-            chat_template, tokenizer = await self._get_chat_template_and_tokenizer(
-                model_family
-            )
-
-            if "omni" in self.model_family.model_ability:
-                audios, images, videos, video_kwargs = process_mm_info(
-                    messages, use_audio_in_video=True, return_video_kwargs=True
-                )
-            elif "audio" in self.model_family.model_ability:
-                audios = process_audio_info(messages, use_audio_in_video=False)
-            elif "vision" in self.model_family.model_ability:
-                images, videos, video_kwargs = process_vision_info(  # type: ignore
-                    messages, return_video_kwargs=True
+        temp_dir = None
+        try:
+            if "internvl" not in model_family.lower():
+                from qwen_omni_utils import (
+                    process_audio_info,
+                    process_mm_info,
+                    process_vision_info,
                 )
 
-            prompt = self.get_full_context(
-                messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
-            )
-        else:
-            prompt, images = self.get_specific_prompt(model_family, messages)
+                # Work on a copy so request messages never retain paths that are
+                # removed when the request-level temporary directory is cleaned.
+                messages = copy.deepcopy(messages)
+                if (
+                    "vision" in self.model_family.model_ability
+                    or "omni" in self.model_family.model_ability
+                ):
+                    import tempfile
+
+                    temp_dir = tempfile.TemporaryDirectory(prefix="xinference-vllm-")
+                    self._handle_base64_media(messages, temp_dir.name)
+
+                messages = self._transform_messages(messages)
+
+                chat_template_kwargs = (
+                    self._get_chat_template_kwargs_from_generate_config(
+                        generate_config, self.reasoning_parser
+                    )
+                    or {}
+                )
+                chat_context_var.set(chat_template_kwargs)
+                full_context_kwargs = chat_template_kwargs.copy()
+                if tools and (
+                    model_family in QWEN_TOOL_CALL_FAMILY
+                    or model_family in GEMMA_TOOL_CALL_FAMILY
+                    or model_family in GLM5_TOOL_CALL_FAMILY
+                    or model_family in KIMI_K3_TOOL_CALL_FAMILY
+                ):
+                    full_context_kwargs["tools"] = tools
+                assert self.model_family.chat_template is not None
+
+                # Kimi-K3 has no Jinja template and renders through its tokenizer's
+                # custom Python apply_chat_template implementation.
+                chat_template, tokenizer = await self._get_chat_template_and_tokenizer(
+                    model_family
+                )
+
+                if "omni" in self.model_family.model_ability:
+                    audios, images, videos, video_kwargs = process_mm_info(
+                        messages, use_audio_in_video=True, return_video_kwargs=True
+                    )
+                elif "audio" in self.model_family.model_ability:
+                    audios = process_audio_info(messages, use_audio_in_video=False)
+                elif "vision" in self.model_family.model_ability:
+                    images, videos, video_kwargs = process_vision_info(  # type: ignore
+                        messages, return_video_kwargs=True
+                    )
+
+                prompt = self.get_full_context(
+                    messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
+                )
+            else:
+                prompt, images = self.get_specific_prompt(model_family, messages)
+        finally:
+            if temp_dir is not None:
+                try:
+                    temp_dir.cleanup()
+                except Exception:
+                    logger.warning(
+                        "Failed to clean up temporary media directory", exc_info=True
+                    )
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
         if images:
             inputs["multi_modal_data"]["image"] = images

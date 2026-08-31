@@ -2,6 +2,313 @@
   {
     "version": 2,
     "model_name": "whisper-tiny",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-tiny",
+        "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-tiny.en",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-tiny.en",
+        "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-base",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-base",
+        "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-base.en",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-base.en",
+        "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-small",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-small",
+        "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-small.en",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-small.en",
+        "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-medium",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-medium",
+        "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-medium.en",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-medium.en",
+        "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-large-v3",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-large-v3",
+        "model_revision": "6cdf07a7e3ec3806e5d55f787915b85d4cd020b1"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/whisper-large-v3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-large-v3-turbo",
+    "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "openai/whisper-large-v3-turbo",
+        "model_revision": "41f01f3fe87f28c78e2fbf8b568835947dd65ed9"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/whisper-large-v3-turbo",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Belle-whisper-large-v3-zh",
+    "model_family": "whisper",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "huggingface": {
+        "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
+        "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/Belle-whisper-large-v3-zh",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1783912321,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "whisper-tiny",
     "cache_name": "whisper-tiny-mlx",
     "model_family": "whisper",
     "model_ability": [
@@ -261,29 +568,43 @@
   },
   {
     "version": 2,
-    "model_name": "Belle-whisper-large-v3-zh",
-    "model_family": "whisper",
+    "model_name": "SenseVoiceSmall",
+    "model_family": "funasr",
     "model_ability": [
       "audio2text"
     ],
-    "multilingual": false,
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "multilingual": true,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "vad_kwargs": {
+        "max_single_segment_time": 30000
+      }
+    },
+    "default_transcription_config": {
+      "use_itn": true,
+      "batch_size_s": 60,
+      "merge_vad": true,
+      "merge_length_s": 15
+    },
     "model_src": {
       "huggingface": {
-        "model_id": "BELLE-2/Belle-whisper-large-v3-zh",
-        "model_revision": "3bebc7247696b39f5ab9ed22db426943ac33f600"
+        "model_id": "FunAudioLLM/SenseVoiceSmall",
+        "model_revision": "3eb3b4eeffc2f2dde6051b853983753db33e35c3"
       },
       "modelscope": {
-        "model_id": "Xorbits/Belle-whisper-large-v3-zh",
+        "model_id": "iic/SenseVoiceSmall",
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912321,
-    "featured": false,
+    "updated_at": 1783912343,
+    "featured": true,
     "virtualenv": {
       "packages": [
-        "transformers",
-        "accelerate",
+        "funasr==1.2.7",
         "#system_torch#",
+        "#system_torchaudio#",
         "#system_numpy#"
       ]
     }
@@ -746,6 +1067,49 @@
   {
     "version": 2,
     "model_name": "F5-TTS",
+    "model_family": "F5-TTS",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "SWivid/F5-TTS",
+        "model_revision": "4dcc16f297f2ff98a17b3726b16f5de5a5e45672"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/F5-TTS",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "torchdiffeq",
+        "x_transformers>=1.31.14",
+        "pypinyin",
+        "tomli",
+        "vocos",
+        "librosa",
+        "jieba",
+        "pydub",
+        "soundfile",
+        "cached_path",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "F5-TTS",
     "cache_name": "F5-TTS-MLX",
     "model_family": "F5-TTS-MLX",
     "engine": "MLX",
@@ -767,10 +1131,59 @@
     "virtualenv": {
       "packages": [
         "f5-tts-mlx ; #engine# == \"MLX\"",
+        "mlx==0.32.1 ; #engine# == \"MLX\"",
         "vocos-mlx ; #engine# == \"MLX\"",
         "soundfile ; #engine# == \"MLX\"",
         "tomli ; #engine# == \"MLX\"",
         "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "MeloTTS-English",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "multilingual": false,
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-English",
+        "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef"
+      }
+    },
+    "updated_at": 1783912370,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
       ]
     }
   },
@@ -820,6 +1233,54 @@
       }
     },
     "updated_at": 1783912372,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "MeloTTS-English-v3",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "multilingual": false,
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-English-v3",
+        "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
+      }
+    },
+    "updated_at": 1783912375,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -1111,6 +1572,38 @@
   {
     "version": 2,
     "model_name": "Kokoro-82M",
+    "model_family": "Kokoro",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "hexgrad/Kokoro-82M"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/Kokoro-82M",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "kokoro>=0.7.15",
+        "misaki[en,zh]>=0.7.15",
+        "soundfile",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Kokoro-82M",
     "cache_name": "Kokoro-82M-MLX",
     "model_family": "Kokoro-MLX",
     "engine": "MLX",
@@ -1266,6 +1759,44 @@
     "featured": false
   },
   {
+    "model_name": "Fun-ASR-Nano-2512",
+    "model_description": "This is a custom model description.",
+    "multilingual": false,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "funasr",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "modelscope": {
+        "model_id": "FunAudioLLM/Fun-ASR-Nano-2512",
+        "model_revision": "master"
+      },
+      "huggingface": {
+        "model_id": "FunAudioLLM/Fun-ASR-Nano-2512",
+        "model_revision": "main"
+      }
+    },
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "vad_kwargs": {
+        "max_single_segment_time": 30000
+      }
+    },
+    "default_transcription_config": {
+      "batch_size": 1
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "funasr~=1.3.0"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1783413976
+  },
+  {
     "version": 2,
     "model_name": "Fun-ASR-Nano-2512",
     "cache_name": "Fun-ASR-Nano-2512-MLX",
@@ -1329,6 +1860,43 @@
     "updated_at": 1783413976
   },
   {
+    "model_name": "Qwen3-ASR-0.6B",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-ASR-0.6B",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-ASR-0.6B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "forced_aligner": "Qwen/Qwen3-ForcedAligner-0.6B"
+    },
+    "default_transcription_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-asr",
+        "qwen-asr[vllm] ; #engine# == \"vLLM\"",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1785233762
+  },
+  {
     "version": 2,
     "model_name": "Qwen3-ASR-0.6B",
     "cache_name": "Qwen3-ASR-0.6B-MLX",
@@ -1356,6 +1924,43 @@
     "updated_at": 1786949210
   },
   {
+    "model_name": "Qwen3-ASR-1.7B",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "engine": "transformers",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-ASR-1.7B",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-ASR-1.7B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "forced_aligner": "Qwen/Qwen3-ForcedAligner-0.6B"
+    },
+    "default_transcription_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-asr",
+        "qwen-asr[vllm] ; #engine# == \"vLLM\"",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1785233762
+  },
+  {
     "version": 2,
     "model_name": "Qwen3-ASR-1.7B",
     "cache_name": "Qwen3-ASR-1.7B-MLX",
@@ -1381,6 +1986,39 @@
     },
     "featured": false,
     "updated_at": 1786949210
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1775717134
   },
   {
     "version": 2,
@@ -1411,6 +2049,39 @@
     "updated_at": 1786949210
   },
   {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717083
+  },
+  {
     "version": 2,
     "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
     "cache_name": "Qwen3-TTS-12Hz-1.7B-Base-MLX",
@@ -1437,6 +2108,38 @@
     },
     "featured": false,
     "updated_at": 1786949210
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717182
   },
   {
     "version": 2,
@@ -1466,6 +2169,38 @@
     "updated_at": 1786949210
   },
   {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717158
+  },
+  {
     "version": 2,
     "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
     "cache_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice-MLX",
@@ -1491,6 +2226,39 @@
     },
     "featured": false,
     "updated_at": 1786949211
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design"
+    ],
+    "model_family": "qwen3_tts",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1775717207
   },
   {
     "version": 2,
@@ -1594,6 +2362,58 @@
     },
     "updated_at": 1786723193,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "VoxCPM2",
+    "model_family": "VoxCPM",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "voxcpm",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#",
+        "soundfile",
+        "librosa",
+        "transformers>=4.36.2",
+        "einops",
+        "huggingface-hub",
+        "modelscope>=1.22.0",
+        "datasets>=3,<4",
+        "inflect",
+        "addict",
+        "wetext",
+        "tqdm",
+        "simplejson",
+        "sortedcontainers",
+        "matplotlib",
+        "funasr",
+        "spaces",
+        "argbind",
+        "safetensors"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "openbmb/VoxCPM2",
+        "model_revision": "bffb3df5a29440629464e5e839f4d214c8714c3d"
+      },
+      "modelscope": {
+        "model_id": "OpenBMB/VoxCPM2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1781772400,
+    "featured": true
   },
   {
     "version": 2,
@@ -1713,6 +2533,7 @@
         "accelerate>=1.13.0",
         "huggingface-hub>=1.23.0,<2.0",
         "safetensors>=0.8.0",
+        "soundfile>=0.13.1",
         "#system_torch#",
         "#system_numpy#"
       ]
@@ -1811,6 +2632,42 @@
   },
   {
     "version": 2,
+    "model_name": "Breeze-TTS-2",
+    "model_description": "Breeze TTS 2 supports bilingual voice design, voice cloning, voice direction, and low-latency streaming on NVIDIA CUDA GPUs. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
+    "model_family": "Breeze-TTS-2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.3",
+        "qwen-tts==0.1.1",
+        "soundfile>=0.13",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "BreezeBlue/Breeze-TTS-2",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "BreezeBlue/Breeze-TTS-2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1788056467,
+    "featured": false
+  },
+  {
+    "version": 2,
     "model_name": "ACE-Step1.5",
     "model_family": "ace_step_1_5",
     "model_description": "ACE-Step 1.5 generates complete songs from lyrics and a music description. The default integration uses the bundled turbo DiT model and supports optional 5Hz LM reasoning.",
@@ -1876,41 +2733,5 @@
     },
     "updated_at": 1787582879,
     "featured": true
-  },
-  {
-    "version": 2,
-    "model_name": "Breeze-TTS-2",
-    "model_description": "Breeze TTS 2 supports bilingual voice design, voice cloning, voice direction, and low-latency streaming on NVIDIA CUDA GPUs. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
-    "model_family": "Breeze-TTS-2",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning"
-    ],
-    "multilingual": true,
-    "virtualenv": {
-      "packages": [
-        "transformers==4.57.3",
-        "qwen-tts==0.1.1",
-        "soundfile>=0.13",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ],
-      "no_build_isolation": true
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "BreezeBlue/Breeze-TTS-2",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "BreezeBlue/Breeze-TTS-2",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1788056467,
-    "featured": false
   }
 ]

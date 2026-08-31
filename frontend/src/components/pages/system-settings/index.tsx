@@ -11,7 +11,9 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PageContainer from '@/components/ui/page-container';
+import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 
@@ -89,11 +91,14 @@ function normalizeSettings(data: SystemSettingsData): SystemSettingsForm {
 
 export default function SystemSettings() {
   const { t } = useI18n();
+  const { clusterUIConfig } = useGlobal();
+  const { canWriteSettings } = useMenuAuth();
   const [form, setForm] = useState<SystemSettingsForm>(EMPTY_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const canEdit = !clusterUIConfig?.auth_advanced || canWriteSettings;
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -134,7 +139,7 @@ export default function SystemSettings() {
     form.model_download_workers >= 1;
 
   const saveSettings = async () => {
-    if (!isValid) return;
+    if (!canEdit || !isValid) return;
     setSaving(true);
     try {
       const data = await request.put<SystemSettingsData>('/v1/cluster/system_settings', {
@@ -151,6 +156,7 @@ export default function SystemSettings() {
   };
 
   const resetSettings = async () => {
+    if (!canEdit) return;
     setResetting(true);
     try {
       const data = await request.post<SystemSettingsData>('/v1/cluster/system_settings/reset');
@@ -244,20 +250,28 @@ export default function SystemSettings() {
         title={t('menu.systemSettings')}
         subTitle={t('systemSettings.pageDescription')}
         extraContent={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setResetOpen(true)}
-              disabled={loading || saving || resetting}
-            >
-              <RotateCcw className="h-4 w-4" />
-              {t('systemSettings.restoreSettings')}
-            </Button>
-            <Button onClick={saveSettings} disabled={loading || saving || resetting || !isValid}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {t('systemSettings.saveChanges')}
-            </Button>
-          </div>
+          canEdit ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setResetOpen(true)}
+                disabled={loading || saving || resetting}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t('systemSettings.restoreSettings')}
+              </Button>
+              <Button onClick={saveSettings} disabled={loading || saving || resetting || !isValid}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {t('systemSettings.saveChanges')}
+              </Button>
+            </div>
+          ) : (
+            <Badge variant="secondary">{t('systemSettings.readOnly')}</Badge>
+          )
         }
       >
         {loading ? (
@@ -302,10 +316,12 @@ export default function SystemSettings() {
                           type="button"
                           role="radio"
                           aria-checked={selected}
+                          disabled={!canEdit}
                           onClick={() => updateField('download_source', source.value)}
                           className={cn(
                             'relative flex min-h-20 items-center gap-4 rounded-lg border p-4 text-left outline-none transition-all',
                             'hover:border-primary/40 hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+                            'disabled:cursor-not-allowed disabled:opacity-60',
                             selected && 'border-primary bg-primary/[0.04] shadow-sm'
                           )}
                         >
@@ -346,6 +362,7 @@ export default function SystemSettings() {
                       id="hf-mirror"
                       type="url"
                       value={form.hf_endpoint}
+                      disabled={!canEdit}
                       onChange={(event) => updateField('hf_endpoint', event.target.value)}
                       placeholder={t('systemSettings.hfMirrorPlaceholder')}
                     />
@@ -360,6 +377,7 @@ export default function SystemSettings() {
                       id="hf-token"
                       type="password"
                       value={form.hf_token}
+                      disabled={!canEdit}
                       onFocus={(event) => {
                         if (form.hf_token.includes('*')) event.currentTarget.select();
                       }}
@@ -379,6 +397,7 @@ export default function SystemSettings() {
                         id="pip-mirror"
                         type="url"
                         value={form.pip_index_url}
+                        disabled={!canEdit}
                         onChange={(event) => updateField('pip_index_url', event.target.value)}
                         placeholder={t('systemSettings.pipMirrorPlaceholder')}
                       />
@@ -420,6 +439,7 @@ export default function SystemSettings() {
                         id={policy.id}
                         type="number"
                         value={form[policy.field]}
+                        disabled={!canEdit}
                         onChange={(event) => updateNumericField(policy.field, event.target.value)}
                         min={policy.min}
                         step={policy.step}

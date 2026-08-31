@@ -85,6 +85,14 @@ msgstr ""
 msgid "Video models"
 msgstr "视频模型"
 
+#: ../../source/models/index.rst:73
+msgid "world"
+msgstr "世界模型"
+
+#: ../../source/models/index.rst:77
+msgid "World generation models"
+msgstr "世界生成模型"
+
 #: ../../source/models/index.rst:75 ../../source/models/index.rst:240
 msgid "flexible"
 msgstr "灵活模型"
@@ -226,7 +234,15 @@ msgstr "视频"
 msgid "Learn how to generate video with Xinference."
 msgstr "学习如何使用Xinference生成视频。"
 
+#: ../../source/models/index.rst:246
+msgid "World"
+msgstr "世界模型"
+
+#: ../../source/models/index.rst:250
+msgid ""
+"Learn how to generate environment videos with world models in Xinference."
+msgstr "学习如何在 Xinference 中使用世界模型生成环境视频。"
+
 #: ../../source/models/index.rst:244
 msgid "Learn how to inference traditional ML models with Xinference."
 msgstr "了解如何使用 Xinference 推理传统机器学习模型。"
-
