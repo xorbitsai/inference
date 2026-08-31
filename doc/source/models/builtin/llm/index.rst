@@ -337,7 +337,7 @@ The following is a list of built-in LLM in Xinference:
      - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
 
    * - :ref:`kimi-k3 <models_llm_kimi-k3>`
-     - chat, vision, reasoning, tools
+     - chat, vision
      - 1048576
      - Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date.
 

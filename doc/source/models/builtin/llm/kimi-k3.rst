@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 2779_93 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2779_93
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM
 - **Model ID:** moonshotai/Kimi-K3
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/moonshotai/Kimi-K3>`__, `ModelScope <https://modelscope.cn/models/moonshotai/Kimi-K3>`__
 
@@ -44,4 +44,3 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name Kimi-K3 --size-in-billions 2779_93 --model-format ggufv2 --quantization ${quantization}
-

@@ -459,14 +459,16 @@ def _update_vllm_supported_lists() -> None:
     if effective_version >= version.parse("0.20.1"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
 
-    if effective_version >= version.parse("0.22.0"):
-        _append_unique(
-            VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_6ForConditionalGeneration"
-        )
+    if effective_version >= version.parse("0.21.0"):
         _append_unique(
             VLLM_SUPPORTED_CHAT_MODELS,
             "HunYuanDenseV1ForCausalLM",
             "HYV3ForCausalLM",
+        )
+
+    if effective_version >= version.parse("0.22.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_6ForConditionalGeneration"
         )
 
     if is_npu_available() and effective_version >= version.parse("0.18.0"):
@@ -2368,6 +2370,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         supported_architectures = list(VLLM_SUPPORTED_MULTI_MODEL_LIST)
         effective_version = _get_effective_vllm_version_for_family(llm_family)
+        if effective_version >= version.parse("0.22.0"):
+            _append_unique(
+                supported_architectures, "MiniCPMV4_6ForConditionalGeneration"
+            )
+        if effective_version >= version.parse("0.24.0"):
+            _append_unique(
+                supported_architectures, "MiniMaxM3SparseForConditionalGeneration"
+            )
         if effective_version >= version.parse("0.27.0"):
             _append_unique(supported_architectures, "KimiK3ForConditionalGeneration")
         if not llm_family.matches_supported_architectures(supported_architectures):

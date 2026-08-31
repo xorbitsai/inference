@@ -33965,8 +33965,9 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.24.0 ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "sglang>=0.5.16 ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
