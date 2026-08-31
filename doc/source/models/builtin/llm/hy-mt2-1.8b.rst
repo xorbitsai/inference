@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 2 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2
 - **Quantizations:** none
-- **Engines**: Transformers, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** tencent/Hy-MT2-1.8B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT2-1.8B>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 2 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 2
 - **Quantizations:** Q4_K_M, Q6_K, Q8_0
-- **Engines**: llama.cpp
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** tencent/Hy-MT2-1.8B-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF>`__
 
