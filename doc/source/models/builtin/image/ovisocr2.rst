@@ -17,6 +17,3 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name OvisOCR2 --model-type image
-
-
-

@@ -96,10 +96,9 @@ The following is a list of built-in embedding models in Xinference:
    text2vec-base-multilingual
   
    text2vec-large-chinese
-  
+
    wemm-embedding-2b
-  
+
    wemm-embedding-4b
-  
+
    wemm-embedding-9b
-  
