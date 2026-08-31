@@ -85,6 +85,33 @@ def test_broken_hook_rolls_back_and_does_not_stop_later_hooks(caplog):
     assert "Failed to run LLM engine registration hook" in caplog.text
 
 
+def test_malformed_hook_output_rolls_back_and_does_not_stop_later_hooks(caplog):
+    class DummyModel:
+        pass
+
+    def malformed(target):
+        target["invalid"] = DummyModel
+
+    def healthy(target):
+        target["healthy"] = [DummyModel]
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, malformed)
+    register_engine_registration_hook(MODEL_TYPE_LLM, healthy)
+
+    target = {"builtin": [DummyModel]}
+    with caplog.at_level(logging.ERROR):
+        run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert list(target) == ["builtin", "healthy"]
+    assert "invalid" not in target
+    assert "Engine 'invalid' classes must be a list" in caplog.text
+
+
 def test_hook_must_be_callable():
     with pytest.raises(TypeError, match="must be callable"):
         register_engine_registration_hook(MODEL_TYPE_LLM, None)  # type: ignore[arg-type]
+
+
+def test_model_type_must_be_valid():
+    with pytest.raises(ValueError, match="Invalid model type"):
+        register_engine_registration_hook("llm", lambda _target: None)
