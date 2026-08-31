@@ -1196,6 +1196,7 @@ class CancellableDownloader:
     _original_thread_pool_submit = None  # Tuple with original pool submit method
     _patch_lock = threading.Lock()  # Additional lock for patching operations
     _tqdm_owner_attr = "_xinference_downloader"
+    _main_progress_units = {"it", "file", "files"}
 
     def __init__(
         self,
@@ -1243,6 +1244,10 @@ class CancellableDownloader:
         if owner is not None:
             setattr(tqdm_instance, cls._tqdm_owner_attr, owner)
         return owner
+
+    @classmethod
+    def _is_main_progress_unit(cls, unit: Any) -> bool:
+        return str(unit or "").lower() in cls._main_progress_units
 
     def _remove_from_context(self) -> None:
         downloaders = list(_cancellable_downloaders_var.get())
@@ -1456,7 +1461,7 @@ class CancellableDownloader:
                     unit = getattr(tqdm_instance, "unit", "it")
                     progresses = (
                         downloader._main_progresses
-                        if unit == "it"
+                        if downloader._is_main_progress_unit(unit)
                         else downloader._download_progresses
                     )
                     with downloader._progress_lock:
@@ -1478,7 +1483,7 @@ class CancellableDownloader:
                         tqdm_instance, "disable", False
                     ):
                         unit = getattr(tqdm_instance, "unit", "it")
-                        if unit == "it":
+                        if downloader._is_main_progress_unit(unit):
                             progresses = getattr(downloader, "_main_progresses", None)
                         else:
                             progresses = getattr(
@@ -1495,7 +1500,7 @@ class CancellableDownloader:
                             result = original_update_plain(tqdm_instance, n)
                             current_n = getattr(tqdm_instance, "n", 0) or 0
 
-                            if unit == "it":
+                            if downloader._is_main_progress_unit(unit):
                                 newly_accounted = max(int(current_n - previous_n), 0)
                                 for _ in range(
                                     min(

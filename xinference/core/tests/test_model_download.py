@@ -72,6 +72,29 @@ def test_download_reporter_distinguishes_failure_from_completion():
     assert progressor.set_progress.call_args.args[2]["stage"] == "completed"
 
 
+def test_download_reporter_never_reports_terminal_progress_while_active():
+    from xinference.core.worker import WorkerActor
+
+    progressor = MagicMock()
+    downloader = MagicMock(cancelled=False)
+    type(downloader).done = property(MagicMock(side_effect=[False, True, True]))
+    downloader.get_progress.return_value = 1.0
+    succeeded_event = threading.Event()
+    succeeded_event.set()
+
+    WorkerActor._upload_download_progress(
+        progressor,
+        downloader,
+        completion_stage="completed",
+        succeeded_event=succeeded_event,
+    )
+
+    assert progressor.set_progress.call_args_list[0].args[0] == 0.99
+    assert progressor.set_progress.call_args_list[0].args[2]["stage"] == "downloading"
+    assert progressor.set_progress.call_args_list[-1].args[0] == 1.0
+    assert progressor.set_progress.call_args_list[-1].args[2]["stage"] == "completed"
+
+
 @pytest.mark.asyncio
 async def test_shared_download_helper_owns_cache_dispatch(monkeypatch):
     from xinference.core.worker import DownloadInfo, WorkerActor

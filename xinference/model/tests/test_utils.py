@@ -180,6 +180,23 @@ def test_tqdm_patch_uses_equal_file_weights():
         assert downloader.get_progress() == pytest.approx((1 + 15 / 30) / 3)
 
 
+def test_tqdm_patch_recognizes_modelscope_file_counter():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        # modelscope_hub labels its repository-level counter with unit="file".
+        # Four concurrent files at 50% are half of four tasks, not one task at
+        # 100%.
+        tqdm(total=4, unit="file", file=io.StringIO())
+        file_bars = [
+            tqdm(total=100, unit="B", file=io.StringIO()) for _ in range(4)
+        ]
+        for file_bar in file_bars:
+            file_bar.update(50)
+
+        assert downloader.get_progress() == pytest.approx(0.5)
+
+
 def test_tqdm_patch_preserves_completion_without_intermediate_poll():
     downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
 

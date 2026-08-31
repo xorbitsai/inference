@@ -3848,7 +3848,9 @@ class WorkerActor(xo.StatelessActor):
         succeeded_event: Optional[threading.Event] = None,
     ):
         while not downloader.done:
-            progress = downloader.get_progress()
+            # A live download must not look terminal to polling clients even if
+            # a third-party tqdm layout briefly yields a saturated estimate.
+            progress = min(downloader.get_progress(), 0.99)
             progressor.set_progress(
                 progress,
                 "Downloading model files",

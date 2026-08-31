@@ -87,6 +87,8 @@ interface LaunchProgressResponse {
   replicas?: LaunchProgressReplica[];
 }
 
+const DOWNLOAD_TERMINAL_STAGES = new Set(['completed', 'failed', 'cancelled']);
+
 const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
   'model_uid',
   'replica',
@@ -1552,16 +1554,19 @@ export default function LaunchDialog({
       const progressRes = await request.get<LaunchProgressResponse>(
         `/v1/cache/models/${encodeURIComponent(cacheUid)}/progress`
       );
-      const nextProgress = normalizeProgress(progressRes.progress);
+      const isTerminal = DOWNLOAD_TERMINAL_STAGES.has(progressRes.stage ?? '');
+      const reportedProgress = normalizeProgress(progressRes.progress);
+      const nextProgress = !isTerminal && reportedProgress >= 100 ? 99 : reportedProgress;
 
       setProgress(nextProgress);
       setProgressDetails(progressRes);
 
-      if (nextProgress >= 100) {
+      if (isTerminal) {
         stopPolling();
       }
     } catch {
-      stopPolling();
+      // The progress record is created asynchronously. Keep polling through
+      // transient startup/query failures; the operation request owns teardown.
     }
   }, [stopPolling]);
 
