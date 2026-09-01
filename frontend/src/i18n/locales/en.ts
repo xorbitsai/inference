@@ -73,7 +73,7 @@ const en = {
     deleteDownloadConfirm:
       'Stop and delete the download task and incomplete cached files for model {{model}}? This cannot be undone.',
     cancelDownloadConfirm: 'Cancel download and launch for model {{model}}?',
-    deleteCacheConfirm: 'Delete cache for model {{model}} on worker {{worker}}?',
+    deleteCacheConfirm: 'Delete cached files for model {{model}}? This cannot be undone.',
     deleteEnvironmentConfirm:
       'Delete the virtual environment for model {{model}} on worker {{worker}}?',
   },

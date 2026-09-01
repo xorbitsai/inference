@@ -4,7 +4,6 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import {
   Ban,
   Box,
-  ChevronDown,
   ChevronRight,
   CircleAlert,
   Copy,
@@ -22,6 +21,7 @@ import DownloadProgressDetails from '@/components/pages/launch-model/launch-dial
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import PageContainer from '@/components/ui/page-container';
 import { Progress } from '@/components/ui/progress';
@@ -40,7 +40,7 @@ import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
-import { copyToClipboard } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import type { ModelCachedItem, ModelDownloadItem, ModelEnvItem } from '@/types/services';
 
 type TabValue = 'models' | 'environments';
@@ -67,6 +67,20 @@ function progressPercent(progress: number): number {
   const value = Number(progress);
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(100, value <= 1 ? value * 100 : value));
+}
+
+function modelCacheLabel(item: ModelDownloadItem | ModelCachedItem): string {
+  const size = String(item.model_size_in_billions ?? '').trim();
+  const quantization = String(item.quantization ?? '').trim();
+  const details = [
+    size && size !== '-' ? (/b$/i.test(size) ? size : `${size}B`) : '',
+    item.model_format,
+    quantization.toLowerCase() === 'none' ? '' : quantization,
+  ]
+    .map((value) => String(value ?? '').trim())
+    .filter((value) => value && value !== '-');
+
+  return details.length ? `${item.model_name}（${details.join(' · ')}）` : item.model_name;
 }
 
 function includesQuery(query: string, ...values: unknown[]): boolean {
@@ -341,12 +355,11 @@ export default function CacheManagement() {
         )
       : pendingAction.kind === 'downloadDelete'
         ? t('cacheManagement.deleteDownloadConfirm', {
-            model: pendingAction.item.model_uid,
+            model: modelCacheLabel(pendingAction.item),
           })
         : pendingAction.kind === 'cache'
           ? t('cacheManagement.deleteCacheConfirm', {
-              model: pendingAction.item.model_name,
-              worker: pendingAction.item.actor_ip_address,
+              model: modelCacheLabel(pendingAction.item),
             })
           : t('cacheManagement.deleteEnvironmentConfirm', {
               model: pendingAction.item.model_name,
@@ -431,23 +444,21 @@ export default function CacheManagement() {
             <TabsContent value="models" className="mt-4 rounded-lg border">
               <Table className="table-fixed">
                 <colgroup>
-                  <col className="w-[8%]" />
-                  <col className="w-[13%]" />
-                  <col className="w-[8%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[15%]" />
                   <col className="w-[6%]" />
                   <col className="w-[5%]" />
-                  <col className="w-[6%]" />
-                  <col className="w-[13%]" />
+                  <col className="w-[4%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[8%]" />
                   <col className="w-[11%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[9%]" />
                 </colgroup>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('cacheManagement.modelName')}</TableHead>
                     <TableHead>{t('cacheManagement.modelVersion')}</TableHead>
-                    <TableHead>{t('cacheManagement.engine')}</TableHead>
                     <TableHead>{t('cacheManagement.format')}</TableHead>
                     <TableHead>{t('cacheManagement.size')}</TableHead>
                     <TableHead>{t('cacheManagement.quantization')}</TableHead>
@@ -532,11 +543,12 @@ export default function CacheManagement() {
                                       toggleDownloadDetails(download.model_uid);
                                     }}
                                   >
-                                    {isDetailsExpanded ? (
-                                      <ChevronDown className="size-4" />
-                                    ) : (
-                                      <ChevronRight className="size-4" />
-                                    )}
+                                    <ChevronRight
+                                      className={cn(
+                                        'size-4 transition-transform duration-300 ease-out motion-reduce:transition-none',
+                                        isDetailsExpanded && 'rotate-90'
+                                      )}
+                                    />
                                   </button>
                                 </InfoTooltip>
                               )}
@@ -545,7 +557,6 @@ export default function CacheManagement() {
                           <TableCell className="max-w-64 truncate font-mono text-xs">
                             {download.model_version || '-'}
                           </TableCell>
-                          <TableCell>{download.model_engine || '-'}</TableCell>
                           <TableCell>{download.model_format || '-'}</TableCell>
                           <TableCell className="font-semibold tabular-nums">
                             {download.model_size_in_billions ?? '-'}
@@ -641,24 +652,36 @@ export default function CacheManagement() {
                             </div>
                           </TableCell>
                         </TableRow>
-                        {isDetailsExpanded && (
-                          <TableRow className="hover:bg-transparent">
-                            <TableCell colSpan={11} className="space-y-3 bg-muted/10 px-4 py-3">
-                              {download.stage === 'interrupted' && (
-                                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-                                  <CircleAlert className="mt-0.5 size-4 shrink-0" />
-                                  {t('cacheManagement.downloadInterruptedHint')}
-                                </div>
-                              )}
-                              {download.stage === 'failed' && download.error && (
-                                <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                                  <CircleAlert className="mt-0.5 size-4 shrink-0" />
-                                  <span className="break-all">{download.error}</span>
-                                </div>
-                              )}
-                              {download.download_files.length > 0 && (
-                                <DownloadProgressDetails files={download.download_files} />
-                              )}
+                        {showDetails && (
+                          <TableRow
+                            className={cn('hover:bg-transparent', !isDetailsExpanded && 'border-0')}
+                            aria-hidden={!isDetailsExpanded}
+                          >
+                            <TableCell colSpan={10} className="p-0">
+                              <Collapsible open={isDetailsExpanded}>
+                                <CollapsibleContent forceMount>
+                                  <div className="space-y-3 bg-muted/10 px-4 py-3">
+                                    {download.stage === 'interrupted' && (
+                                      <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+                                        <CircleAlert className="mt-0.5 size-4 shrink-0" />
+                                        {t('cacheManagement.downloadInterruptedHint')}
+                                      </div>
+                                    )}
+                                    {download.stage === 'failed' && download.error && (
+                                      <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                        <CircleAlert className="mt-0.5 size-4 shrink-0" />
+                                        <span className="break-all">{download.error}</span>
+                                      </div>
+                                    )}
+                                    {download.download_files.length > 0 && (
+                                      <DownloadProgressDetails
+                                        files={download.download_files}
+                                        embedded
+                                      />
+                                    )}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
                             </TableCell>
                           </TableRow>
                         )}
@@ -674,7 +697,6 @@ export default function CacheManagement() {
                       <TableCell className="break-all font-mono text-xs">
                         {item.model_version}
                       </TableCell>
-                      <TableCell>-</TableCell>
                       <TableCell>{item.model_format || '-'}</TableCell>
                       <TableCell className="font-semibold tabular-nums">
                         {item.model_size_in_billions ?? '-'}
@@ -719,7 +741,7 @@ export default function CacheManagement() {
 
                   {filteredDownloads.length === 0 && filteredCachedModels.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={11} className="h-64 text-center text-muted-foreground">
+                      <TableCell colSpan={10} className="h-64 text-center text-muted-foreground">
                         {t('cacheManagement.noModelCacheItems')}
                       </TableCell>
                     </TableRow>
@@ -731,7 +753,16 @@ export default function CacheManagement() {
 
           {canViewEnvironments && (
             <TabsContent value="environments" className="mt-4 rounded-lg border">
-              <Table className="min-w-[1050px]">
+              <Table className="table-fixed">
+                <colgroup>
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[21%]" />
+                  <col className="w-[21%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                </colgroup>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('cacheManagement.modelName')}</TableHead>
@@ -749,8 +780,8 @@ export default function CacheManagement() {
                       <TableRow
                         key={`${item.model_name}:${item.model_engine}:${item.python_version}:${item.actor_ip_address}`}
                       >
-                        <TableCell className="font-medium">{item.model_name}</TableCell>
-                        <TableCell>{item.model_engine}</TableCell>
+                        <TableCell className="break-words font-medium">{item.model_name}</TableCell>
+                        <TableCell className="break-words">{item.model_engine}</TableCell>
                         <TableCell>{item.python_version}</TableCell>
                         <TableCell>
                           <PathCell path={item.path} copyLabel={t('cacheManagement.copyPath')} />
@@ -761,7 +792,9 @@ export default function CacheManagement() {
                             copyLabel={t('cacheManagement.copyPath')}
                           />
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{item.actor_ip_address}</TableCell>
+                        <TableCell className="break-all font-mono text-xs">
+                          {item.actor_ip_address}
+                        </TableCell>
                         <TableCell>
                           {canDeleteEnvironments ? (
                             <InfoTooltip content={t('cacheManagement.deleteEnvironment')}>

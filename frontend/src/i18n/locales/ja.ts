@@ -73,7 +73,8 @@ const ja = {
     deleteDownloadConfirm:
       'モデル {{model}} のダウンロードタスクと未完了のキャッシュファイルを停止して削除しますか？この操作は元に戻せません。',
     cancelDownloadConfirm: 'モデル {{model}} のダウンロードと起動をキャンセルしますか？',
-    deleteCacheConfirm: 'Worker {{worker}} のモデル {{model}} のキャッシュを削除しますか？',
+    deleteCacheConfirm:
+      'モデル {{model}} のキャッシュファイルを削除しますか？この操作は元に戻せません。',
     deleteEnvironmentConfirm: 'Worker {{worker}} のモデル {{model}} の仮想環境を削除しますか？',
   },
   tokenRouter: {

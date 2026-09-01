@@ -72,7 +72,7 @@ const zh = {
     deleteDownloadConfirm:
       '确定停止并删除模型 {{model}} 的下载任务及未完成缓存文件吗？此操作不可恢复。',
     cancelDownloadConfirm: '确定取消模型 {{model}} 的下载和启动吗？',
-    deleteCacheConfirm: '确定删除模型 {{model}} 在 Worker {{worker}} 上的缓存吗？',
+    deleteCacheConfirm: '确定删除模型 {{model}} 的缓存文件吗？此操作不可恢复。',
     deleteEnvironmentConfirm: '确定删除模型 {{model}} 在 Worker {{worker}} 上的虚拟环境吗？',
   },
   tokenRouter: {

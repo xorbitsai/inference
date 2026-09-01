@@ -114,9 +114,9 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                 <TableHead>{t('launchModel.model_format')}</TableHead>
                 <TableHead>{t('launchModel.model_size_in_billions')}</TableHead>
                 <TableHead>{t('launchModel.quantizations')}</TableHead>
-                <TableHead>{t('launchModel.real_path')}</TableHead>
                 <TableHead>{t('launchModel.path')}</TableHead>
-                <TableHead>{t('launchModel.ipAddress')}</TableHead>
+                <TableHead>{t('launchModel.real_path')}</TableHead>
+                <TableHead>{t('cacheManagement.worker')}</TableHead>
                 <TableHead>{t('common.operation')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -127,6 +127,20 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                     <TableCell>{item.model_format || '-'}</TableCell>
                     <TableCell>{item.model_size_in_billions || '-'}</TableCell>
                     <TableCell>{item.quantization || '-'}</TableCell>
+                    <TableCell className="max-w-[220px]">
+                      <div className="flex items-center gap-2">
+                        <InfoTooltip
+                          content={item?.path}
+                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{item?.path}</span>
+                        </InfoTooltip>
+                        <Copy
+                          className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+                          onClick={() => copyToClipboard(item?.path)}
+                        />
+                      </div>
+                    </TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
                         <InfoTooltip
@@ -141,20 +155,6 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                             onClick={() => copyToClipboard(item.real_path || '')}
                           />
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[220px]">
-                      <div className="flex items-center gap-2">
-                        <InfoTooltip
-                          content={item?.path}
-                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
-                        >
-                          <span className="min-w-0 flex-1 truncate">{item?.path}</span>
-                        </InfoTooltip>
-                        <Copy
-                          className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyToClipboard(item?.path)}
-                        />
                       </div>
                     </TableCell>
                     <TableCell>{item.actor_ip_address}</TableCell>

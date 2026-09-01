@@ -73,7 +73,8 @@ const ko = {
     deleteDownloadConfirm:
       '모델 {{model}}의 다운로드 작업과 미완료 캐시 파일을 중지하고 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     cancelDownloadConfirm: '모델 {{model}}의 다운로드와 실행을 취소하시겠습니까?',
-    deleteCacheConfirm: 'Worker {{worker}}의 모델 {{model}} 캐시를 삭제하시겠습니까?',
+    deleteCacheConfirm:
+      '모델 {{model}} 캐시 파일을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     deleteEnvironmentConfirm: 'Worker {{worker}}의 모델 {{model}} 가상 환경을 삭제하시겠습니까?',
   },
   tokenRouter: {
