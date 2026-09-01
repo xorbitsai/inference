@@ -1773,7 +1773,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1781358969,
+    "updated_at": 1788158015,
     "featured": false,
     "architectures": [
       "MiniCPMV4_6ForConditionalGeneration"
@@ -1932,7 +1932,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1781358971,
+    "updated_at": 1788158015,
     "featured": false,
     "architectures": [
       "MiniCPMV4_6ForConditionalGeneration"
@@ -2446,7 +2446,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1769418487,
+    "updated_at": 1787387058,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -18919,7 +18919,7 @@
       ]
     },
     "tool_parser": "qwen",
-    "updated_at": 1769418571,
+    "updated_at": 1787387058,
     "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
@@ -22732,7 +22732,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769418586,
+    "updated_at": 1787387059,
     "model_type": "glm4_moe"
   },
   {
@@ -24125,7 +24125,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1784394365,
+    "updated_at": 1787387059,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
@@ -25401,7 +25401,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": false,
-    "updated_at": 1770205932
+    "updated_at": 1787387059
   },
   {
     "version": 2,
@@ -25551,7 +25551,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1784296176
+    "updated_at": 1787387059
   },
   {
     "version": 2,
@@ -30291,7 +30291,7 @@
       "index_strategy": "unsafe-best-match"
     },
     "featured": true,
-    "updated_at": 1786693269
+    "updated_at": 1788237214
   },
   {
     "model_name": "qwen3.6",
@@ -30761,7 +30761,7 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1786815199
+    "updated_at": 1787803666
   },
   {
     "model_name": "qwen3.8-max",
@@ -31536,7 +31536,7 @@
     "tool_parser": "qwen",
     "version": 2,
     "featured": false,
-    "updated_at": 1786811118,
+    "updated_at": 1786963009,
     "virtualenv": {
       "packages": [
         "transformers>=4.57.3 ; #engine# == \"Transformers\"",
@@ -32701,7 +32701,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1781600152
+    "updated_at": 1787387059
   },
   {
     "model_name": "DeepSeek-V4-Flash",
@@ -32850,7 +32850,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1786099285
+    "updated_at": 1787650550
   },
   {
     "model_name": "DeepSeek-V4-Pro",
@@ -33034,7 +33034,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1781520055
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33136,7 +33136,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1781520056
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33214,7 +33214,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1781520058
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -33966,15 +33966,14 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
-        "vllm>=0.24.0 ; #engine# == \"vllm\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "sglang>=0.5.16 ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": true,
-    "updated_at": 1786072259
+    "updated_at": 1787387060
   },
   {
     "version": 2,
@@ -34272,7 +34271,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1787287927
+    "updated_at": 1787372063
   },
   {
     "model_name": "glm-5.2",
@@ -35029,7 +35028,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1787308415
+    "updated_at": 1787395165
   },
   {
     "model_name": "Ornith-1.5-397B",
@@ -35090,7 +35089,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1787303700
+    "updated_at": 1787464209
   },
   {
     "model_name": "Kimi-K3",
@@ -35560,6 +35559,6 @@
       ]
     },
     "featured": false,
-    "updated_at": 1787554449
+    "updated_at": 1787802926
   }
 ]
