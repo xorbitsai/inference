@@ -14,6 +14,7 @@
 
 from .deepdoc import DeepDocModel
 from .deepseek_ocr import DeepSeekOCRModel
+from .dots_ocr import DotsOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
 from .mlx import MLXDeepSeekOCRModel
@@ -34,6 +35,7 @@ from .vllm import (
 __all__ = [
     "DeepDocModel",
     "DeepSeekOCRModel",
+    "DotsOCRModel",
     "GotOCR2Model",
     "HunyuanOCRModel",
     "NaviDCOCRModel",
@@ -46,6 +48,7 @@ __all__ = [
 def register_builtin_ocr_engines() -> None:
     SUPPORTED_ENGINES["transformers"] = [
         DeepSeekOCRModel,
+        DotsOCRModel,
         GotOCR2Model,
         HunyuanOCRModel,
         NaviDCOCRModel,

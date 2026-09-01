@@ -2405,5 +2405,33 @@
     },
     "featured": false,
     "updated_at": 1788101545
+  },
+  {
+    "version": 2,
+    "model_name": "dots.ocr",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.51.3 ; #engine# == \"transformers\"",
+        "qwen_vl_utils==0.0.9 ; #engine# == \"transformers\"",
+        "flash-attn==2.8.3 ; #engine# == \"transformers\"",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "rednote-hilab/dots.ocr",
+        "model_revision": "ba670c5dcf03ff4e02015558c95b4042f5dce069"
+      },
+      "modelscope": {
+        "model_id": "rednote-hilab/dots.ocr",
+        "model_revision": "master"
+      }
+    }
   }
 ]
