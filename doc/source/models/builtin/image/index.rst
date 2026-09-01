@@ -50,15 +50,15 @@ The following is a list of built-in image models in Xinference:
    ideogram4
   
    kolors
-
+  
    krea-2-raw
-
+  
    krea-2-turbo
   
    navidc-ocr
-
+  
    ovisocr2
-
+  
    paddleocr-vl
   
    paddleocr-vl-1.6
@@ -104,3 +104,4 @@ The following is a list of built-in image models in Xinference:
    z-image
   
    z-image-turbo
+  
