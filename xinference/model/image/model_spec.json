@@ -2324,6 +2324,90 @@
   },
   {
     "version": 2,
+    "model_name": "joyai-image-edit",
+    "model_family": "stable_diffusion",
+    "model_description": "JoyAI-Image-Edit is a single-image instruction-guided editing model with spatial understanding for precise object, viewpoint, and scene edits.",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "jdopensource/JoyAI-Image-Edit-Diffusers",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "jd-opensource/JoyAI-Image-Edit-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 40,
+      "guidance_scale": 4.0
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.40.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.2.0,<6 ; #engine# == \"diffusers\"",
+        "accelerate>=1.0.0 ; #engine# == \"diffusers\"",
+        "sentencepiece ; #engine# == \"diffusers\"",
+        "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": false,
+      "index_strategy": "unsafe-best-match"
+    },
+    "featured": false,
+    "updated_at": 1788101544
+  },
+  {
+    "version": 2,
+    "model_name": "joyai-image-edit-plus",
+    "model_family": "stable_diffusion",
+    "model_description": "JoyAI-Image-Edit-Plus is a multi-image instruction-guided editing model that combines content from one to six reference images.",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "jdopensource/JoyAI-Image-Edit-Plus-Diffusers",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "jd-opensource/JoyAI-Image-Edit-Plus-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_inference_steps": 30,
+      "guidance_scale": 4.0
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.40.0 ; #engine# == \"diffusers\"",
+        "transformers>=5.2.0,<6 ; #engine# == \"diffusers\"",
+        "accelerate>=1.0.0 ; #engine# == \"diffusers\"",
+        "sentencepiece ; #engine# == \"diffusers\"",
+        "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torchvision# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"diffusers\""
+      ],
+      "no_build_isolation": false,
+      "index_strategy": "unsafe-best-match"
+    },
+    "featured": false,
+    "updated_at": 1788101545
+  },
+  {
+    "version": 2,
     "model_name": "dots.ocr",
     "model_family": "ocr",
     "model_ability": [

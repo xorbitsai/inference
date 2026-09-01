@@ -30266,7 +30266,8 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "transformers>=5.10.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "mlx-vlm>=0.6.1 ; #engine# == \"MLX\"",
         "vllm>=0.22.0 ; #engine# == \"vllm\"",

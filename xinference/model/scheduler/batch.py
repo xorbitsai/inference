@@ -80,10 +80,25 @@ class BatchScheduler:
             running_list.append(req)
 
         waiting_list: List[InferenceRequest] = []
+        waiting_batch_key = None
+        get_prefill_batch_key = getattr(
+            self._model, "get_batching_prefill_compatibility_key", None
+        )
         if len(running_list) < max_num_seqs:
             while len(self._waiting_queue) > 0:
                 req = self._waiting_queue.popleft()
                 self._check_request_aborted(req)
+                req_batch_key = (
+                    get_prefill_batch_key(req) if get_prefill_batch_key else None
+                )
+                if waiting_list and req_batch_key != waiting_batch_key:
+                    # A processor applies chat-template kwargs to the entire batch.
+                    # Keep requests with different template inputs for the next step
+                    # instead of leaking tools or reasoning settings across requests.
+                    self._waiting_queue.appendleft(req)
+                    break
+                if not waiting_list:
+                    waiting_batch_key = req_batch_key
                 waiting_list.append(req)
                 if len(running_list) + len(waiting_list) == max_num_seqs:
                     break

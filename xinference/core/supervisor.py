@@ -254,6 +254,9 @@ class SupervisorActor(xo.StatelessActor):
         # launches, reverse-channel dead detection is exempted because
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        # Active download-only operations, used only for dispatch cancellation.
+        # Progress itself is retained by ProgressTrackerActor after completion.
+        self._cache_uid_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
             {}
         )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
@@ -2592,6 +2595,85 @@ class SupervisorActor(xo.StatelessActor):
         return resolved_hubs[0]
 
     @log_async(logger=logger)
+    async def cache_builtin_model(
+        self,
+        cache_uid: Optional[str],
+        model_name: str,
+        model_size_in_billions: Optional[Union[int, str]],
+        model_format: Optional[str],
+        quantization: Optional[str],
+        model_engine: Optional[str],
+        model_type: str = "LLM",
+        peft_model_config: Optional[PeftModelConfig] = None,
+        worker_ip: Optional[Union[str, List[str]]] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+        ] = None,
+        model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Cache one model on one worker without creating a running instance."""
+        cache_uid = cache_uid or f"cache-{gen_random_string(12)}"
+        if not is_valid_model_uid(cache_uid):
+            raise ValueError(
+                "The cache UID is invalid. Please specify a non-empty UID with "
+                "at most 100 characters and no reserved replica suffix."
+            )
+
+        is_local_deployment = self.is_local_deployment()
+        if worker_ip is not None and not is_local_deployment:
+            worker_refs = self._get_worker_refs_by_ip(worker_ip)
+            worker_ref = await self._choose_worker(
+                [worker.address for worker in worker_refs]
+            )
+        else:
+            if worker_ip is not None:
+                logger.warning(
+                    "You specified worker_ip %s in local mode; ignoring it.", worker_ip
+                )
+            worker_ref = await self._choose_worker()
+
+        download_hub = typing.cast(
+            Optional[Literal["huggingface", "modelscope", "openmind_hub", "csghub"]],
+            await self._resolve_download_hub_from_workers(
+                [worker_ref], download_hub, model_path
+            ),
+        )
+
+        if cache_uid in self._cache_uid_to_worker:
+            raise ValueError(f"Cache operation {cache_uid} is already running")
+        self._cache_uid_to_worker[cache_uid] = worker_ref
+        worker_address = worker_ref.address
+        self._workers_launching[worker_address] = (
+            self._workers_launching.get(worker_address, 0) + 1
+        )
+        try:
+            return await worker_ref.cache_builtin_model(
+                cache_uid=cache_uid,
+                model_name=model_name,
+                model_size_in_billions=model_size_in_billions,
+                model_format=model_format,
+                quantization=quantization,
+                model_engine=model_engine,
+                model_type=model_type,
+                peft_model_config=peft_model_config,
+                download_hub=download_hub,
+                model_path=model_path,
+                enable_virtual_env=enable_virtual_env,
+                virtual_env_packages=virtual_env_packages,
+                **kwargs,
+            )
+        finally:
+            self._cache_uid_to_worker.pop(cache_uid, None)
+            active_count = self._workers_launching.get(worker_address, 1) - 1
+            if active_count <= 0:
+                self._workers_launching.pop(worker_address, None)
+            else:
+                self._workers_launching[worker_address] = active_count
+
+    @log_async(logger=logger)
     async def launch_builtin_model(
         self,
         model_uid: Optional[str],
@@ -3398,23 +3480,74 @@ class SupervisorActor(xo.StatelessActor):
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
-        try:
-            self._model_uid_to_replica_info[model_uid]
-        except KeyError:
-            # Not launched perhaps, just return 0.0 to prevent error
-            return 0.0
+        details = await self.get_launch_builtin_model_progress_details(model_uid)
+        return float(details["progress"])
 
+    async def _get_operation_progress_details(
+        self,
+        targets: List[Tuple[str, Dict[str, Any]]],
+        target_key: str,
+        default_stage: str,
+    ) -> Dict[str, Any]:
+        """Aggregate ProgressTracker entries for launch and cache operations."""
         all_progress = 0.0
-        i = 0
-        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
-            request_id = f"launching-{rep_model_uid}"
+        target_details: List[Dict[str, Any]] = []
+        download_files: List[Dict[str, Any]] = []
+        stages: Set[str] = set()
+
+        for request_id, metadata in targets:
             try:
-                all_progress += await self._progress_tracker.get_progress(request_id)
-                i += 1
+                progress, info, details = (
+                    await self._progress_tracker.get_progress_details(request_id)
+                )
             except KeyError:
                 continue
 
-        return all_progress / i if i > 0 else 0.0
+            details = details if isinstance(details, dict) else {}
+            stage = str(details.get("stage") or default_stage)
+            files = details.get("download_files")
+            files = files if isinstance(files, list) else []
+            normalized_files = []
+            for file_info in files:
+                if not isinstance(file_info, dict):
+                    continue
+                normalized_file = dict(file_info)
+                normalized_file.update(metadata)
+                normalized_files.append(normalized_file)
+
+            all_progress += progress
+            stages.add(stage)
+            download_files.extend(normalized_files)
+            target_details.append(
+                {
+                    **metadata,
+                    "progress": progress,
+                    "stage": stage,
+                    "info": info,
+                    "updated_at": details.get("updated_at"),
+                    "download_files": normalized_files,
+                }
+            )
+
+        stage = next(
+            (
+                candidate
+                for candidate in (
+                    "downloading",
+                    "loading",
+                    "cancelled",
+                    "completed",
+                )
+                if candidate in stages
+            ),
+            sorted(stages)[0] if stages else default_stage,
+        )
+        return {
+            "progress": (all_progress / len(target_details) if target_details else 0.0),
+            "stage": stage,
+            "download_files": download_files,
+            target_key: target_details,
+        }
 
     async def get_launch_builtin_model_progress_details(
         self, model_uid: str
@@ -3429,65 +3562,41 @@ class SupervisorActor(xo.StatelessActor):
                 "download_files": [],
                 "replicas": [],
             }
-
-        all_progress = 0.0
-        replicas: List[Dict[str, Any]] = []
-        download_files: List[Dict[str, Any]] = []
-        stages: Set[str] = set()
-
+        targets: List[Tuple[str, Dict[str, Any]]] = []
         for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
-            request_id = f"launching-{rep_model_uid}"
-            try:
-                progress, info, details = (
-                    await self._progress_tracker.get_progress_details(request_id)
-                )
-            except KeyError:
-                continue
-
             _, replica_id = parse_replica_model_uid(rep_model_uid)
-            details = details if isinstance(details, dict) else {}
-            stage = str(details.get("stage") or "launching")
-            files = details.get("download_files")
-            files = files if isinstance(files, list) else []
-            normalized_files = []
-            for file_info in files:
-                if not isinstance(file_info, dict):
-                    continue
-                normalized_file = dict(file_info)
-                normalized_file["replica_id"] = replica_id
-                normalized_file["replica_model_uid"] = rep_model_uid
-                normalized_files.append(normalized_file)
-
-            all_progress += progress
-            stages.add(stage)
-            download_files.extend(normalized_files)
-            replicas.append(
-                {
-                    "replica_id": replica_id,
-                    "replica_model_uid": rep_model_uid,
-                    "progress": progress,
-                    "stage": stage,
-                    "info": info,
-                    "updated_at": details.get("updated_at"),
-                    "download_files": normalized_files,
-                }
+            targets.append(
+                (
+                    f"launching-{rep_model_uid}",
+                    {
+                        "replica_id": replica_id,
+                        "replica_model_uid": rep_model_uid,
+                    },
+                )
             )
+        return await self._get_operation_progress_details(
+            targets, target_key="replicas", default_stage="launching"
+        )
 
-        if "downloading" in stages:
-            stage = "downloading"
-        elif "loading" in stages:
-            stage = "loading"
-        elif stages:
-            stage = sorted(stages)[0]
-        else:
-            stage = "launching"
+    async def get_cache_builtin_model_progress_details(
+        self, cache_uid: str
+    ) -> Dict[str, Any]:
+        worker_ref = self._cache_uid_to_worker.get(cache_uid)
+        metadata = {"cache_uid": cache_uid}
+        if worker_ref is not None:
+            metadata["worker_address"] = worker_ref.address
+        return await self._get_operation_progress_details(
+            [(f"caching-{cache_uid}", metadata)],
+            target_key="targets",
+            default_stage="pending",
+        )
 
-        return {
-            "progress": all_progress / len(replicas) if replicas else 0.0,
-            "stage": stage,
-            "download_files": download_files,
-            "replicas": replicas,
-        }
+    async def cancel_cache_builtin_model(self, cache_uid: str):
+        try:
+            worker_ref = self._cache_uid_to_worker[cache_uid]
+        except KeyError:
+            raise RuntimeError(f"Cache operation {cache_uid} is not running")
+        await worker_ref.cancel_cache_model(cache_uid)
 
     async def cancel_launch_builtin_model(self, model_uid: str):
         try:

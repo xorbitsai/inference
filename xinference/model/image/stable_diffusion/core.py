@@ -148,6 +148,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         model_name = self._model_spec.model_name.lower().replace("_", "-")
         return model_name.startswith("glm-image")
 
+    def _is_joyai_image_model(self) -> bool:
+        if self._model_spec is None:
+            return False
+        model_name = self._model_spec.model_name.lower().replace("_", "-")
+        return model_name.startswith("joyai-image-edit")
+
+    def _is_joyai_image_edit_plus_model(self) -> bool:
+        if self._model_spec is None:
+            return False
+        model_name = self._model_spec.model_name.lower().replace("_", "-")
+        return model_name == "joyai-image-edit-plus"
+
     @staticmethod
     def _get_pipeline_type(ability: str) -> type:
         if ability == "text2image":
@@ -264,7 +276,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return getattr(module, class_name)
 
     def load(self):
-        if self._is_glm_image_model():
+        if self._is_joyai_image_model():
+            # JoyAI pipelines are image-edit-only and are not registered in
+            # Diffusers' AutoPipelineForText2Image mapping.
+            from diffusers import DiffusionPipeline as AutoPipelineModel
+        elif self._is_glm_image_model():
             from diffusers import GlmImagePipeline as AutoPipelineModel
         elif "text2image" in self._abilities or "image2image" in self._abilities:
             from diffusers import AutoPipelineForText2Image as AutoPipelineModel
@@ -753,10 +769,17 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 self._deepcache_helper.pipe = None
 
     @staticmethod
-    def _process_progressor(kwargs: dict):
+    def _process_progressor(
+        kwargs: dict,
+        *,
+        progressor: Optional["Progressor"] = None,
+        pipeline_call_index: int = 0,
+        pipeline_call_count: int = 1,
+    ):
         import diffusers
 
-        progressor: Progressor = kwargs.pop("progressor", None)
+        if progressor is None:
+            progressor = kwargs.pop("progressor", None)
 
         def report_status_callback(
             pipe: diffusers.DiffusionPipeline,
@@ -765,7 +788,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             callback_kwargs: dict,
         ):
             num_steps = pipe.num_timesteps
-            progressor.set_progress((step + 1) / num_steps)
+            local_progress = (step + 1) / num_steps
+            progressor.set_progress(
+                (pipeline_call_index + local_progress) / pipeline_call_count
+            )
 
             return callback_kwargs
 
@@ -776,6 +802,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         self,
         response_format: str,
         model=None,
+        _num_pipeline_calls: int = 1,
         **kwargs,
     ):
         model = model if model is not None else self._model
@@ -783,9 +810,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         origin_size = kwargs.pop("origin_size", None)
         seed = kwargs.pop("seed", None)
         return_images = kwargs.pop("_return_images", None)
-        seeds = resolve_image_seed_list(
-            seed, int(kwargs.get("num_images_per_prompt", 1))
+        seed_count = (
+            _num_pipeline_calls
+            if _num_pipeline_calls > 1
+            else int(kwargs.get("num_images_per_prompt", 1))
         )
+        seeds = resolve_image_seed_list(seed, seed_count)
         if seeds is not None:
             kwargs["generator"] = [
                 torch.Generator(  # type: ignore
@@ -797,7 +827,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             kwargs["generator"] = generator = torch.Generator(device=get_available_device())  # type: ignore
             kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
-        self._process_progressor(kwargs)
+        progressor = kwargs.pop("progressor", None)
         if self._is_ideogram4_model() and kwargs.get("guidance_scale") is not None:
             # Ideogram4 defaults to a per-step guidance schedule. Its pipeline
             # rejects passing that default together with a constant scale.
@@ -812,8 +842,26 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             # Some pipelines (e.g., Z-Image img2img) can't handle guidance_scale=None.
             if kwargs.get("guidance_scale", "unset") is None:
                 kwargs.pop("guidance_scale", None)
-            self._filter_kwargs(model, kwargs)
-            images = model(**kwargs).images
+            if _num_pipeline_calls == 1:
+                self._process_progressor(kwargs, progressor=progressor)
+                self._filter_kwargs(model, kwargs)
+                images = model(**kwargs).images
+            else:
+                self._filter_kwargs(model, kwargs)
+                images = []
+                generators = kwargs.get("generator")
+                for call_index in range(_num_pipeline_calls):
+                    per_call_kwargs = kwargs.copy()
+                    if isinstance(generators, list):
+                        per_call_kwargs["generator"] = generators[call_index]
+                    self._process_progressor(
+                        per_call_kwargs,
+                        progressor=progressor,
+                        pipeline_call_index=call_index,
+                        pipeline_call_count=_num_pipeline_calls,
+                    )
+                    self._filter_kwargs(model, per_call_kwargs)
+                    images.extend(model(**per_call_kwargs).images)
 
         if images and isinstance(images[0], (list, tuple)):
             images = list(itertools.chain.from_iterable(images))
@@ -995,12 +1043,14 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 raise RuntimeError(f"{self._model_uid} does not support image2image")
             model = self._get_model(ability)
 
-        # These pipelines consume all reference images through their ``image``
-        # argument. The OpenAI-compatible endpoint exposes the first upload as
-        # ``image`` and the remaining uploads as ``reference_images``.
+        # Multi-reference pipelines consume all uploaded images through one
+        # pipeline argument. The OpenAI-compatible endpoint exposes the first
+        # upload as ``image`` and the rest as ``reference_images``.
+        is_joyai_image_edit_plus = self._is_joyai_image_edit_plus_model()
         if kwargs.get("reference_images") and (
             type(model).__name__ == "QwenImageEditPlusPipeline"
             or self._is_glm_image_model()
+            or is_joyai_image_edit_plus
         ):
             reference_images = kwargs.pop("reference_images")
             primary_images = image if isinstance(image, list) else [image]
@@ -1010,6 +1060,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 else [reference_images]
             )
             image = primary_images + reference_images
+
+        # JoyImageEditPlusPipeline always expects a list, including one image.
+        if is_joyai_image_edit_plus and not isinstance(image, list):
+            image = [image]
 
         # GlmImagePipeline expects a list even for one conditioning image.
         if self._is_glm_image_model() and not isinstance(image, list):
@@ -1038,7 +1092,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         else:
             # SD3 image2image cannot accept width and height
             allow_width_height = model_accept_param(["width", "height"], model)
-            if allow_width_height:
+            if allow_width_height and not is_joyai_image_edit_plus:
                 if isinstance(image, list):
                     kwargs["width"], kwargs["height"] = image[0].size
                 else:
@@ -1052,12 +1106,18 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)
 
+        if is_joyai_image_edit_plus:
+            kwargs["images"] = image
+            image = None
+
+        # JoyAI Image Edit Plus produces one image per pipeline invocation.
         return self._call_model(
             image=image,
             prompt=prompt,
-            num_images_per_prompt=n,
+            num_images_per_prompt=1 if is_joyai_image_edit_plus else n,
             response_format=response_format,
             model=model,
+            _num_pipeline_calls=n if is_joyai_image_edit_plus else 1,
             **kwargs,
         )
 

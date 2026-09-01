@@ -51,8 +51,12 @@ from .utils import (
     _get_pad_param,
     convert_to_cache_cls,
     get_context_length,
+    get_first_populated_kv_cache_layer,
+    get_kv_cache_layer,
+    get_kv_cache_seq_length,
     get_max_src_len,
     pad_prefill_tokens,
+    set_kv_cache_layer,
 )
 
 logger = logging.getLogger(__name__)
@@ -793,7 +797,7 @@ class PytorchModel(LLM):
         if not isinstance(new_cache, DynamicCache):
             new_cache = convert_to_cache_cls(new_cache)
 
-        _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
+        bs_idx, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
 
         # Handle empty caches
         if len(past_cache) == 0:
@@ -801,86 +805,91 @@ class PytorchModel(LLM):
         if len(new_cache) == 0:
             return past_cache
 
-        # Get first layer seq_len safely
-        past_first = past_cache[0] if len(past_cache) > 0 else (None, None)
-        new_first = new_cache[0] if len(new_cache) > 0 else (None, None)
+        def _merge_layer_tensors(layer_idx, past_k, past_v, new_k, new_v):
+            if past_k is None and past_v is None and new_k is None and new_v is None:
+                return None, None
+            if any(x is None for x in (past_k, past_v, new_k, new_v)):
+                raise ValueError(
+                    f"Incomplete KV cache data at layer {layer_idx}; refusing to "
+                    "drop requests while merging batches"
+                )
+            if past_k.dim() != new_k.dim() or past_v.dim() != new_v.dim():
+                raise ValueError(
+                    f"KV cache tensor dimension mismatch at layer {layer_idx}: "
+                    f"past={past_k.shape}/{past_v.shape}, "
+                    f"new={new_k.shape}/{new_v.shape}"
+                )
 
-        if past_first[0] is None or past_first[1] is None:
-            return new_cache
-        if new_first[0] is None or new_first[1] is None:
-            return past_cache
+            target_seq_len = max(past_k.shape[seq_len_idx], new_k.shape[seq_len_idx])
 
-        past_seq_len = past_first[0].shape[seq_len_idx]
-        new_seq_len = new_first[0].shape[seq_len_idx]
+            def _pad_to_target(tensor):
+                padding_len = target_seq_len - tensor.shape[seq_len_idx]
+                return (
+                    pad(tensor, _get_pad_param(seq_len_idx, padding_len))
+                    if padding_len
+                    else tensor
+                )
 
-        # Pad the shorter cache
-        if past_seq_len != new_seq_len:
-            if past_seq_len > new_seq_len:
-                padding_target = new_cache
-                padding_len = past_seq_len - new_seq_len
-            else:
-                padding_target = past_cache
-                padding_len = new_seq_len - past_seq_len
+            past_k, past_v = _pad_to_target(past_k), _pad_to_target(past_v)
+            new_k, new_v = _pad_to_target(new_k), _pad_to_target(new_v)
 
-            pad_param = _get_pad_param(seq_len_idx, padding_len)
-            for idx in range(len(padding_target)):
-                k = padding_target.key_cache[idx]
-                v = padding_target.value_cache[idx]
-                if k is not None and v is not None:
-                    padding_target.key_cache[idx] = pad(k, pad_param)
-                    padding_target.value_cache[idx] = pad(v, pad_param)
+            def _shape_without_batch(tensor):
+                return tuple(
+                    size for idx, size in enumerate(tensor.shape) if idx != bs_idx
+                )
 
-        # Merge caches
-        ret_kv = DynamicCache()
+            if _shape_without_batch(past_k) != _shape_without_batch(new_k) or (
+                _shape_without_batch(past_v) != _shape_without_batch(new_v)
+            ):
+                raise ValueError(
+                    f"KV cache shape mismatch at layer {layer_idx}: "
+                    f"past={past_k.shape}/{past_v.shape}, "
+                    f"new={new_k.shape}/{new_v.shape}"
+                )
+
+            return (
+                torch.cat((new_k, past_k), bs_idx).contiguous(),
+                torch.cat((new_v, past_v), bs_idx).contiguous(),
+            )
+
+        model_config = getattr(getattr(self, "_model", None), "config", None)
+        try:
+            ret_kv = DynamicCache(config=model_config)
+        except TypeError:
+            # Transformers before the layer-based cache API did not accept config.
+            ret_kv = DynamicCache()
         max_layers = max(len(past_cache), len(new_cache))
 
         for idx in range(max_layers):
-            past_k = past_cache.key_cache[idx] if idx < len(past_cache) else None
-            past_v = past_cache.value_cache[idx] if idx < len(past_cache) else None
-            new_k = new_cache.key_cache[idx] if idx < len(new_cache) else None
-            new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
+            past_k, past_v = get_kv_cache_layer(past_cache, idx)
+            new_k, new_v = get_kv_cache_layer(new_cache, idx)
+            merged_k, merged_v = _merge_layer_tensors(idx, past_k, past_v, new_k, new_v)
+            if merged_k is None:
+                continue
+            ret_kv.update(merged_k, merged_v, idx)
 
-            if past_k is not None and new_k is not None:
-                # Both layers exist - validate tensor dimensions before concatenation
-                if past_k.dim() != new_k.dim():
-                    logger.error(
-                        f"KV cache tensor dimension mismatch at layer {idx}: "
-                        f"past_k.dim()={past_k.dim()}, new_k.dim()={new_k.dim()}"
-                    )
-                    # Use the cache with higher batch size
-                    if past_k.shape[0] >= new_k.shape[0]:
-                        ret_kv.update(past_k, past_v, idx)
-                    else:
-                        ret_kv.update(new_k, new_v, idx)
-                    continue
-
-                if past_k.shape[1:] == new_k.shape[1:]:
-                    # Shapes are compatible, concatenate along batch dimension
-                    ret_kv.update(
-                        torch.cat((new_k, past_k), 0).contiguous(),
-                        torch.cat((new_v, past_v), 0).contiguous(),
-                        idx,
-                    )
-                else:
-                    # Detailed logging for shape mismatch
-                    logger.warning(
-                        f"KV cache shape mismatch at layer {idx}: "
-                        f"past_k.shape={past_k.shape}, new_k.shape={new_k.shape}. "
-                        f"This may be due to inconsistent batch sizes in continuous batching."
+            layers = getattr(ret_kv, "layers", None)
+            if layers is not None and idx < len(layers):
+                layer = layers[idx]
+                if hasattr(layer, "cumulative_length"):
+                    layer.cumulative_length = max(
+                        get_kv_cache_seq_length(past_cache, idx),
+                        get_kv_cache_seq_length(new_cache, idx),
                     )
 
-                    # Choose the cache with larger batch size to preserve more data
-                    if past_k.shape[0] >= new_k.shape[0]:
-                        ret_kv.update(past_k, past_v, idx)
-                    else:
-                        ret_kv.update(new_k, new_v, idx)
-            elif past_k is not None:
-                ret_kv.update(past_k, past_v, idx)
-            elif new_k is not None:
-                ret_kv.update(new_k, new_v, idx)
-            else:
-                # both None, fill with None
-                ret_kv.update(None, None, idx)
+        past_shared = getattr(past_cache, "shared_layers", {})
+        new_shared = getattr(new_cache, "shared_layers", {})
+        shared_layers = {}
+        for idx in set(past_shared) | set(new_shared):
+            past_k, past_v = past_shared.get(idx, (None, None))
+            new_k, new_v = new_shared.get(idx, (None, None))
+            merged_k, merged_v = _merge_layer_tensors(
+                f"shared: {idx}", past_k, past_v, new_k, new_v
+            )
+            if merged_k is not None:
+                shared_layers[idx] = merged_k, merged_v
+        if shared_layers:
+            ret_kv.shared_layers = shared_layers
 
         return ret_kv
 
@@ -980,13 +989,47 @@ class PytorchModel(LLM):
         self.handle_batch_inference_results(req_list)
 
     def build_reduced_kv_cache(self, cache, skipped_indexes: Set[int]):
-        batch_size = cache.key_cache[0].shape[0]
+        bs_idx, _ = self.get_batch_size_and_seq_len_indexes_from_kv()
+        _, first_key, _ = get_first_populated_kv_cache_layer(cache)
+        if first_key is None:
+            return cache
+        batch_size = first_key.shape[bs_idx]
         batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
-        for idx in range(len(cache)):
-            cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
-            cache.value_cache[idx] = cache.value_cache[idx][
-                batch_slices, ::
-            ].contiguous()
+
+        batch_select_indices = getattr(cache, "batch_select_indices", None)
+        if batch_select_indices is not None:
+            batch_select_indices(torch.tensor(batch_slices, dtype=torch.long))
+        else:
+            for idx in range(len(cache)):
+                key, value = get_kv_cache_layer(cache, idx)
+                if key is None:
+                    continue
+                set_kv_cache_layer(
+                    cache,
+                    idx,
+                    key.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=key.device),
+                    ).contiguous(),
+                    value.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=value.device),
+                    ).contiguous(),
+                )
+
+        shared_layers = getattr(cache, "shared_layers", None)
+        if shared_layers:
+            for idx, (key, value) in shared_layers.items():
+                shared_layers[idx] = (
+                    key.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=key.device),
+                    ).contiguous(),
+                    value.index_select(
+                        bs_idx,
+                        torch.tensor(batch_slices, device=value.device),
+                    ).contiguous(),
+                )
         return cache
 
 

@@ -36,7 +36,7 @@ jobs:
           fi
 
       - name: Checkout base branch (trusted code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           repository: ${{ github.repository }}
@@ -44,12 +44,19 @@ jobs:
           fetch-depth: 0
 
       - name: Checkout PR head (data only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           path: pr
           fetch-depth: 0
+          # actions/checkout v7 refuses to check out a fork head under
+          # pull_request_target unless this is set. The fork tree is treated as
+          # data only: no fork code is installed or executed, and only the six
+          # model spec JSON files are copied (symlinks refused) into a workspace
+          # built from the base checkout. Pushes are still limited to same-repo
+          # PRs by the "Push to same-repo PR" step below.
+          allow-unsafe-pr-checkout: true
 
       - name: Decide whether to run gen_docs for latest commit
         id: decide
