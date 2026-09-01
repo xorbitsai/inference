@@ -120,8 +120,9 @@ def test_joyai_image_loads_with_diffusion_pipeline(monkeypatch, model_name):
     }
 
 
-def test_joyai_image_edit_plus_uses_multi_image_input_and_honors_n(monkeypatch):
+def test_joyai_image_edit_plus_honors_n_and_reports_overall_progress(monkeypatch):
     calls = []
+    pipeline_progress = []
     pipeline_seeds = []
 
     monkeypatch.setitem(
@@ -131,6 +132,8 @@ def test_joyai_image_edit_plus_uses_multi_image_input_and_honors_n(monkeypatch):
     )
 
     class FakeJoyImageEditPlusPipeline:
+        num_timesteps = 2
+
         def __call__(
             self,
             images=None,
@@ -141,9 +144,13 @@ def test_joyai_image_edit_plus_uses_multi_image_input_and_honors_n(monkeypatch):
             guidance_scale=4.0,
             negative_prompt=None,
             generator=None,
+            callback_on_step_end=None,
         ):
             if generator is not None:
                 pipeline_seeds.append(generator.initial_seed())
+            if callback_on_step_end is not None:
+                for step in range(self.num_timesteps):
+                    callback_on_step_end(self, step, step, {})
             calls.append(
                 {
                     "images": images,
@@ -191,11 +198,16 @@ def test_joyai_image_edit_plus_uses_multi_image_input_and_honors_n(monkeypatch):
         n=2,
         seed=[11, 22],
         response_format="b64_json",
+        progressor=SimpleNamespace(
+            request_id="joyai-progress",
+            set_progress=pipeline_progress.append,
+        ),
     )
 
     assert len(single_result) == 1
     assert len(multi_result) == 1
     assert len(repeated_result["data"]) == 2
+    assert pipeline_progress == [0.25, 0.5, 0.75, 1.0]
     assert pipeline_seeds == [11, 22]
     assert calls == [
         {

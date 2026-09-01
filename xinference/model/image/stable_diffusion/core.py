@@ -769,10 +769,17 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 self._deepcache_helper.pipe = None
 
     @staticmethod
-    def _process_progressor(kwargs: dict):
+    def _process_progressor(
+        kwargs: dict,
+        *,
+        progressor: Optional["Progressor"] = None,
+        pipeline_call_index: int = 0,
+        pipeline_call_count: int = 1,
+    ):
         import diffusers
 
-        progressor: Progressor = kwargs.pop("progressor", None)
+        if progressor is None:
+            progressor = kwargs.pop("progressor", None)
 
         def report_status_callback(
             pipe: diffusers.DiffusionPipeline,
@@ -781,7 +788,10 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             callback_kwargs: dict,
         ):
             num_steps = pipe.num_timesteps
-            progressor.set_progress((step + 1) / num_steps)
+            local_progress = (step + 1) / num_steps
+            progressor.set_progress(
+                (pipeline_call_index + local_progress) / pipeline_call_count
+            )
 
             return callback_kwargs
 
@@ -817,7 +827,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             kwargs["generator"] = generator = torch.Generator(device=get_available_device())  # type: ignore
             kwargs["generator"] = generator.manual_seed(seed)
         sampler_name = kwargs.pop("sampler_name", None)
-        self._process_progressor(kwargs)
+        progressor = kwargs.pop("progressor", None)
         if self._is_ideogram4_model() and kwargs.get("guidance_scale") is not None:
             # Ideogram4 defaults to a per-step guidance schedule. Its pipeline
             # rejects passing that default together with a constant scale.
@@ -832,19 +842,25 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             # Some pipelines (e.g., Z-Image img2img) can't handle guidance_scale=None.
             if kwargs.get("guidance_scale", "unset") is None:
                 kwargs.pop("guidance_scale", None)
-            self._filter_kwargs(model, kwargs)
             if _num_pipeline_calls == 1:
+                self._process_progressor(kwargs, progressor=progressor)
+                self._filter_kwargs(model, kwargs)
                 images = model(**kwargs).images
             else:
+                self._filter_kwargs(model, kwargs)
                 images = []
                 generators = kwargs.get("generator")
                 for call_index in range(_num_pipeline_calls):
-                    per_call_kwargs = kwargs
+                    per_call_kwargs = kwargs.copy()
                     if isinstance(generators, list):
-                        per_call_kwargs = {
-                            **kwargs,
-                            "generator": generators[call_index],
-                        }
+                        per_call_kwargs["generator"] = generators[call_index]
+                    self._process_progressor(
+                        per_call_kwargs,
+                        progressor=progressor,
+                        pipeline_call_index=call_index,
+                        pipeline_call_count=_num_pipeline_calls,
+                    )
+                    self._filter_kwargs(model, per_call_kwargs)
                     images.extend(model(**per_call_kwargs).images)
 
         if images and isinstance(images[0], (list, tuple)):
