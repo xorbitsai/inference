@@ -271,8 +271,13 @@ class MLXVideoModel:
         else:
             from huggingface_hub import snapshot_download
 
+        from ..utils import retry_snapshot_download
+
         text_encoder_path = Path(
-            snapshot_download(
+            retry_snapshot_download(
+                snapshot_download,
+                text_encoder_model_id,
+                None,
                 text_encoder_model_id,
                 revision=getattr(self._model_spec, "text_encoder_model_revision", None),
                 allow_patterns=["text_encoder/**", "tokenizer/**"],

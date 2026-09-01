@@ -267,8 +267,15 @@ class WorldModel:
         else:
             from huggingface_hub import snapshot_download
 
-        return snapshot_download(
-            self._model_spec.auxiliary_model_id,
+        from ..utils import retry_snapshot_download
+
+        auxiliary_model_id = self._model_spec.auxiliary_model_id
+        assert auxiliary_model_id is not None
+        return retry_snapshot_download(
+            snapshot_download,
+            auxiliary_model_id,
+            None,
+            auxiliary_model_id,
             **download_kwargs,
         )
 

@@ -1017,6 +1017,19 @@ def retry_download(
             ) from last_ex
 
 
+def retry_snapshot_download(
+    download_func: Callable,
+    model_name: str,
+    model_info: Optional[Dict],
+    *args,
+    **kwargs,
+):
+    download_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+    if download_workers is not None:
+        kwargs.setdefault("max_workers", int(download_workers))
+    return retry_download(download_func, model_name, model_info, *args, **kwargs)
+
+
 def valid_model_revision(
     meta_path: str,
     expected_model_revision: Optional[str],
