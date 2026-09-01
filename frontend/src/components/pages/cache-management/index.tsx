@@ -175,17 +175,21 @@ export default function CacheManagement() {
     });
   }, []);
 
-  const loadDownloads = useCallback(async () => {
-    if (!canViewDownloads || downloadsInFlight.current) return;
-    downloadsInFlight.current = true;
-    try {
-      const response = await request.get<ListResponse<ModelDownloadItem>>('/v1/downloads');
-      setDownloads(asList(response));
-      setLastUpdated(Date.now());
-    } finally {
-      downloadsInFlight.current = false;
-    }
-  }, [canViewDownloads]);
+  const loadDownloads = useCallback(
+    async (isCancelled?: () => boolean) => {
+      if (!canViewDownloads || downloadsInFlight.current) return;
+      downloadsInFlight.current = true;
+      try {
+        const response = await request.get<ListResponse<ModelDownloadItem>>('/v1/downloads');
+        if (isCancelled?.()) return;
+        setDownloads(asList(response));
+        setLastUpdated(Date.now());
+      } finally {
+        downloadsInFlight.current = false;
+      }
+    },
+    [canViewDownloads]
+  );
 
   const loadCachedModels = useCallback(async () => {
     if (!canViewCache) return;
@@ -216,8 +220,23 @@ export default function CacheManagement() {
 
   useEffect(() => {
     if (!canViewDownloads) return;
-    const interval = window.setInterval(() => void loadDownloads(), 2000);
-    return () => window.clearInterval(interval);
+    let isCancelled = false;
+    let timeoutId: number | undefined;
+
+    const poll = async () => {
+      if (isCancelled) return;
+      try {
+        await loadDownloads(() => isCancelled);
+      } finally {
+        if (!isCancelled) timeoutId = window.setTimeout(poll, 2000);
+      }
+    };
+
+    timeoutId = window.setTimeout(poll, 2000);
+    return () => {
+      isCancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
   }, [canViewDownloads, loadDownloads]);
 
   useEffect(() => {

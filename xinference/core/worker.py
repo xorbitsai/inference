@@ -4887,15 +4887,13 @@ class WorkerActor(xo.StatelessActor):
 
             spec = match_audio(model_name, download_hub, model_engine=model_engine)
         elif model_type == "video":
-            from ..model.video.core import (
-                match_diffusion,
-                resolve_video_model_name_and_engine,
-            )
+            from ..model.video.core import match_diffusion as match_video
+            from ..model.video.core import resolve_video_model_name_and_engine
 
             model_name, model_engine = resolve_video_model_name_and_engine(
                 model_name, model_engine, use_default_engine=True
             )
-            spec = match_diffusion(model_name, download_hub, model_engine=model_engine)
+            spec = match_video(model_name, download_hub, model_engine=model_engine)
         elif model_type == "world":
             from ..model.world.core import match_world_model
 
