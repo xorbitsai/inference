@@ -19,6 +19,7 @@ import sys
 import textwrap
 from abc import abstractmethod
 from pathlib import Path
+from threading import Event, Thread
 
 import pytest
 
@@ -205,6 +206,85 @@ def test_published_table_is_detached_from_retained_staging_copy():
     retained[0]["external"].clear()
 
     assert target == {"external": [DummyModel]}
+
+
+def test_successful_hook_result_is_detached_before_next_hook(caplog):
+    class BuiltinModel(DummyModel):
+        pass
+
+    class InvalidModel:
+        pass
+
+    canonical_classes = [BuiltinModel]
+    retained = []
+
+    def contribute(table):
+        table["external"] = [DummyModel]
+        retained.append(table)
+
+    def mutate_retained_then_fail(_table):
+        retained[0]["builtin"].clear()
+        retained[0]["external"].append(InvalidModel)
+        raise RuntimeError("boom")
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, contribute)
+    register_engine_registration_hook(MODEL_TYPE_LLM, mutate_retained_then_fail)
+
+    target = {"builtin": canonical_classes}
+    with caplog.at_level(logging.ERROR):
+        run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert target["builtin"] is canonical_classes
+    assert canonical_classes == [BuiltinModel]
+    assert target["external"] == [DummyModel]
+    assert "Failed to run LLM engine registration hook" in caplog.text
+
+
+def test_retained_hook_table_cannot_change_staged_before_publish(monkeypatch):
+    class BuiltinModel(DummyModel):
+        pass
+
+    class LateModel(DummyModel):
+        pass
+
+    canonical_classes = [BuiltinModel]
+    retained = []
+    release_mutation = Event()
+    mutation_finished = Event()
+    mutation_threads = []
+
+    def mutate_after_return():
+        if not release_mutation.wait(timeout=5):
+            return
+        retained[0]["builtin"].clear()
+        retained[0]["external"].append(LateModel)
+        mutation_finished.set()
+
+    def contribute(table):
+        table["external"] = [DummyModel]
+        retained.append(table)
+        thread = Thread(target=mutate_after_return, daemon=True)
+        mutation_threads.append(thread)
+        thread.start()
+
+    original_publish = engine_hooks._publish_engine_table
+
+    def publish_after_mutation(target, staged):
+        release_mutation.set()
+        assert mutation_finished.wait(timeout=5)
+        original_publish(target, staged)
+
+    monkeypatch.setattr(engine_hooks, "_publish_engine_table", publish_after_mutation)
+    register_engine_registration_hook(MODEL_TYPE_LLM, contribute)
+
+    target = {"builtin": canonical_classes}
+    run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    mutation_threads[0].join(timeout=5)
+    assert not mutation_threads[0].is_alive()
+    assert target["builtin"] is canonical_classes
+    assert canonical_classes == [BuiltinModel]
+    assert target["external"] == [DummyModel]
 
 
 def test_failed_hook_keeps_aliased_list_untouched(caplog):

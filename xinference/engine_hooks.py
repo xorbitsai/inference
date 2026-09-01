@@ -158,12 +158,18 @@ def _run_engine_registration_hooks(model_type: str, target: EngineTable) -> None
         try:
             hook(candidate)
             _validate_engine_table(candidate)
-            _validate_preserved_engines(staged, candidate)
+            # A callback may retain the table it received. Detach its accepted
+            # result and validate the owned snapshot again before promotion so
+            # later callback activity cannot mutate the staged state through
+            # that retained reference.
+            detached = _copy_engine_table(candidate)
+            _validate_engine_table(detached)
+            _validate_preserved_engines(staged, detached)
         except Exception:
             logger.exception(
                 "Failed to run %s engine registration hook %r", model_type, hook
             )
         else:
-            staged = candidate
+            staged = detached
 
     _publish_engine_table(target, staged)
