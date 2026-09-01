@@ -5,7 +5,7 @@ const zh = {
     systemManagement: '系统管理',
     resourcesAndSupport: '资源与支持',
     launchModel: '启动模型',
-    cacheManagement: '缓存与下载管理',
+    cacheManagement: '缓存管理',
     tokenRouter: 'Token 路由',
     runningModels: '运行模型',
     registerModel: '注册模型',
@@ -23,7 +23,7 @@ const zh = {
     website: '官网',
   },
   cacheManagement: {
-    title: '缓存与下载管理',
+    title: '缓存管理',
     description: '查看集群中的模型下载、模型缓存和虚拟环境。',
     downloads: '正在下载',
     downloadingModels: '正在下载的模型',

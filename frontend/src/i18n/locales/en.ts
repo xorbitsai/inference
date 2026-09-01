@@ -5,7 +5,7 @@ const en = {
     systemManagement: 'System Management',
     resourcesAndSupport: 'Resources & Support',
     launchModel: 'Launch Model',
-    cacheManagement: 'Cache & Download Management',
+    cacheManagement: 'Cache Management',
     tokenRouter: 'Token Router',
     runningModels: 'Running Models',
     registerModel: 'Register Model',
@@ -23,7 +23,7 @@ const en = {
     website: 'Official Website',
   },
   cacheManagement: {
-    title: 'Cache & Download Management',
+    title: 'Cache Management',
     description: 'View model downloads, model caches, and virtual environments across the cluster.',
     downloads: 'Downloading',
     downloadingModels: 'Downloading Models',

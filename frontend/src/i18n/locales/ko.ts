@@ -5,7 +5,7 @@ const ko = {
     systemManagement: '시스템 관리',
     resourcesAndSupport: '리소스 및 지원',
     launchModel: '모델 실행',
-    cacheManagement: '캐시 및 다운로드 관리',
+    cacheManagement: '캐시 관리',
     tokenRouter: 'Token 라우터',
     runningModels: '실행 중인 모델',
     registerModel: '모델 등록',
@@ -23,7 +23,7 @@ const ko = {
     website: '공식 웹사이트',
   },
   cacheManagement: {
-    title: '캐시 및 다운로드 관리',
+    title: '캐시 관리',
     description: '클러스터의 모델 다운로드, 모델 캐시 및 가상 환경을 확인합니다.',
     downloads: '다운로드 중',
     downloadingModels: '다운로드 중인 모델',

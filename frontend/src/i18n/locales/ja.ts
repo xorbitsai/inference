@@ -5,7 +5,7 @@ const ja = {
     systemManagement: 'システム管理',
     resourcesAndSupport: 'リソースとサポート',
     launchModel: 'モデル起動',
-    cacheManagement: 'キャッシュとダウンロード管理',
+    cacheManagement: 'キャッシュ管理',
     tokenRouter: 'Token ルーター',
     runningModels: '実行中のモデル',
     registerModel: 'モデル登録',
@@ -23,7 +23,7 @@ const ja = {
     website: '公式サイト',
   },
   cacheManagement: {
-    title: 'キャッシュとダウンロード管理',
+    title: 'キャッシュ管理',
     description: 'クラスター内のモデルダウンロード、キャッシュ、仮想環境を確認します。',
     downloads: 'ダウンロード中',
     downloadingModels: 'ダウンロード中のモデル',
