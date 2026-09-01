@@ -17,17 +17,17 @@ import os
 import subprocess
 import sys
 import textwrap
+from abc import abstractmethod
 from pathlib import Path
 
 import pytest
 
 from xinference import engine_hooks
+from xinference.engine_hooks import MODEL_TYPE_EMBEDDING, MODEL_TYPE_LLM
 from xinference.engine_hooks import (
-    MODEL_TYPE_EMBEDDING,
-    MODEL_TYPE_LLM,
-    register_engine_registration_hook,
-    run_engine_registration_hooks,
+    _run_engine_registration_hooks as run_engine_registration_hooks,
 )
+from xinference.engine_hooks import register_engine_registration_hook
 
 
 class DummyModel:
@@ -43,6 +43,7 @@ class DummyModel:
 @pytest.fixture(autouse=True)
 def isolated_hooks(monkeypatch):
     monkeypatch.setattr(engine_hooks, "_ENGINE_REGISTRATION_HOOKS", {})
+    monkeypatch.setattr(engine_hooks, "_RAN_ENGINE_REGISTRATION_HOOKS", set())
 
 
 def test_hook_contributes_to_one_model_type_after_builtins():
@@ -73,6 +74,67 @@ def test_registering_same_hook_twice_is_idempotent():
     assert calls == [1]
 
 
+def test_distinct_callables_are_distinct_hooks():
+    calls = []
+
+    def make_hook(label):
+        def hook(_target):
+            calls.append(label)
+
+        return hook
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, make_hook("first"))
+    register_engine_registration_hook(MODEL_TYPE_LLM, make_hook("second"))
+    run_engine_registration_hooks(MODEL_TYPE_LLM, {})
+
+    assert calls == ["first", "second"]
+
+
+def test_hook_equality_is_not_evaluated_during_registration():
+    calls = []
+
+    class Hook:
+        def __init__(self, label):
+            self._label = label
+
+        def __call__(self, _target):
+            calls.append(self._label)
+
+        def __eq__(self, _other):
+            raise RuntimeError("equality must not be evaluated")
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, Hook("first"))
+    register_engine_registration_hook(MODEL_TYPE_LLM, Hook("second"))
+    run_engine_registration_hooks(MODEL_TYPE_LLM, {})
+
+    assert calls == ["first", "second"]
+
+
+def test_hooks_run_only_once_per_process():
+    calls = []
+
+    def hook(target):
+        calls.append(1)
+        target["external"] = [DummyModel]
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, hook)
+    target = {}
+    run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+    run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert calls == [1]
+    assert target == {"external": [DummyModel]}
+
+
+def test_zero_hooks_skip_validation_and_close_registration_phase():
+    invalid_target = {"invalid": object()}
+
+    run_engine_registration_hooks(MODEL_TYPE_LLM, invalid_target)  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="before model bootstrap"):
+        register_engine_registration_hook(MODEL_TYPE_LLM, lambda _target: None)
+
+
 def test_broken_hook_rolls_back_and_does_not_stop_later_hooks(caplog):
     def broken(target):
         target.clear()
@@ -94,7 +156,58 @@ def test_broken_hook_rolls_back_and_does_not_stop_later_hooks(caplog):
     assert "Failed to run LLM engine registration hook" in caplog.text
 
 
-def test_failed_hook_restores_aliased_list_in_place(caplog):
+def test_hook_cannot_delete_an_existing_engine(caplog):
+    def destructive(target):
+        del target["builtin"]
+
+    def healthy(target):
+        target["healthy"] = [DummyModel]
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, destructive)
+    register_engine_registration_hook(MODEL_TYPE_LLM, healthy)
+
+    target = {"builtin": [DummyModel]}
+    with caplog.at_level(logging.ERROR):
+        run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert list(target) == ["builtin", "healthy"]
+    assert "must not delete existing engines" in caplog.text
+
+
+def test_successful_hook_preserves_existing_list_identity():
+    class AdditionalModel(DummyModel):
+        pass
+
+    canonical_classes = [DummyModel]
+    target = {"builtin": canonical_classes}
+
+    def contribute(table):
+        table["builtin"].append(AdditionalModel)
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, contribute)
+    run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert target["builtin"] is canonical_classes
+    assert canonical_classes == [DummyModel, AdditionalModel]
+
+
+def test_published_table_is_detached_from_retained_staging_copy():
+    retained = []
+
+    def contribute(table):
+        table["external"] = [DummyModel]
+        retained.append(table)
+
+    target = {}
+    register_engine_registration_hook(MODEL_TYPE_LLM, contribute)
+    run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    retained[0]["external"].clear()
+
+    assert target == {"external": [DummyModel]}
+
+
+def test_failed_hook_keeps_aliased_list_untouched(caplog):
     class BuiltinModel(DummyModel):
         pass
 
@@ -103,9 +216,12 @@ def test_failed_hook_restores_aliased_list_in_place(caplog):
 
     canonical_classes = [BuiltinModel]
     target = {"builtin": canonical_classes}
+    appended = []
 
     def broken(table):
+        assert table["builtin"] is not canonical_classes
         table["builtin"].append(FailedModel)
+        appended.append(True)
         raise RuntimeError("boom")
 
     register_engine_registration_hook(MODEL_TYPE_LLM, broken)
@@ -115,9 +231,10 @@ def test_failed_hook_restores_aliased_list_in_place(caplog):
 
     assert target["builtin"] is canonical_classes
     assert canonical_classes == [BuiltinModel]
+    assert appended == [True]
 
-    # A later install rebinds the table to the canonical list. The failed class
-    # must not reappear through that alias.
+    # A later install can rebind the table to the same canonical list without
+    # making the failed class reappear through that alias.
     target["builtin"] = canonical_classes
     assert FailedModel not in target["builtin"]
 
@@ -160,7 +277,27 @@ def test_hook_with_invalid_engine_class_rolls_back(caplog):
 
     assert list(target) == ["builtin", "healthy"]
     assert "invalid" not in target
-    assert "must implement callable match and match_json" in caplog.text
+    assert "must implement callable, non-abstract match methods" in caplog.text
+
+
+def test_hook_with_unoverridden_abstract_method_rolls_back(caplog):
+    class AbstractMatchJsonModel(DummyModel):
+        @classmethod
+        @abstractmethod
+        def match_json(cls, *_args):
+            raise NotImplementedError
+
+    def malformed(target):
+        target["invalid"] = [AbstractMatchJsonModel]
+
+    register_engine_registration_hook(MODEL_TYPE_LLM, malformed)
+
+    target = {"builtin": [DummyModel]}
+    with caplog.at_level(logging.ERROR):
+        run_engine_registration_hooks(MODEL_TYPE_LLM, target)
+
+    assert target == {"builtin": [DummyModel]}
+    assert "non-abstract match_json methods" in caplog.text
 
 
 def test_hook_must_be_callable():
@@ -171,6 +308,8 @@ def test_hook_must_be_callable():
 def test_model_type_must_be_valid():
     with pytest.raises(ValueError, match="Invalid model type"):
         register_engine_registration_hook("llm", lambda _target: None)
+    with pytest.raises(ValueError, match="Invalid model type"):
+        run_engine_registration_hooks("llm", {})
 
 
 def test_hooks_can_register_before_model_bootstrap(tmp_path):
@@ -198,11 +337,16 @@ def test_hooks_can_register_before_model_bootstrap(tmp_path):
         class FailedModel(ExternalModel):
             pass
 
+        contribute_calls = []
+        append_then_fail_calls = []
+
         def contribute(target):
+            contribute_calls.append(True)
             target["external"] = [ExternalModel]
 
         def append_then_fail(target):
             target["vLLM"].append(FailedModel)
+            append_then_fail_calls.append(True)
             raise RuntimeError("boom")
 
         register_engine_registration_hook(MODEL_TYPE_LLM, contribute)
@@ -232,6 +376,8 @@ def test_hooks_can_register_before_model_bootstrap(tmp_path):
         assert any("external" in engines for engines in LLM_ENGINES.values())
         assert any("external" in engines for engines in EMBEDDING_ENGINES.values())
         assert any("external" in engines for engines in RERANK_ENGINES.values())
+        assert contribute_calls == [True, True, True]
+        assert append_then_fail_calls == [True]
         assert LLM_SUPPORTED_ENGINES["vLLM"] is VLLM_CLASSES
         assert FailedModel not in VLLM_CLASSES
         assert all(
@@ -243,6 +389,8 @@ def test_hooks_can_register_before_model_bootstrap(tmp_path):
 
         register_builtin_model()
 
+        assert contribute_calls == [True, True, True]
+        assert append_then_fail_calls == [True]
         assert LLM_SUPPORTED_ENGINES["external"] == [ExternalModel]
         assert LLM_SUPPORTED_ENGINES["vLLM"] is VLLM_CLASSES
         assert FailedModel not in VLLM_CLASSES
