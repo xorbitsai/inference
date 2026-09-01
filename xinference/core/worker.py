@@ -778,12 +778,16 @@ class ModelStatus:
 
 
 @dataclass
-class LaunchInfo:
+class DownloadInfo:
     cancel_event: threading.Event = field(default_factory=threading.Event)
+    # downloader, reports progress and cancels the active file transfer
+    downloader: Optional[CancellableDownloader] = None
+
+
+@dataclass
+class LaunchInfo(DownloadInfo):
     # virtualenv manager
     virtual_env_manager: Optional["VirtualEnvManager"] = None
-    # downloader, report progress or cancel entire download
-    downloader: Optional[CancellableDownloader] = None
     # sub pools created for the model
     sub_pools: Optional[List[str]] = None
 
@@ -834,6 +838,8 @@ class WorkerActor(xo.StatelessActor):
         # internal states.
         # temporary placeholder during model launch process:
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
+        # download-only operations never register a running model.
+        self._cache_uid_to_download_info: Dict[str, DownloadInfo] = {}
         # Launch concurrency control
         self._launch_semaphore = asyncio.Semaphore(XINFERENCE_MAX_CONCURRENT_LAUNCHES)
         self._launch_active = 0
@@ -3813,7 +3819,9 @@ class WorkerActor(xo.StatelessActor):
                 raise
             return fingerprint
 
-    async def _get_progressor(self, request_id: str):
+    async def _get_progressor(
+        self, request_id: str, initial_info: str = "Start to launch model"
+    ):
         from .progress_tracker import Progressor, ProgressTrackerActor
 
         progress_tracker_ref = self._progress_tracker_ref
@@ -3828,15 +3836,21 @@ class WorkerActor(xo.StatelessActor):
             asyncio.get_running_loop(),
         )
         await progressor.start()
-        progressor.set_progress(0.0, "start to launch model")
+        progressor.set_progress(0.0, initial_info)
         return progressor
 
     @classmethod
     def _upload_download_progress(
-        cls, progressor: "Progressor", downloader: CancellableDownloader
+        cls,
+        progressor: "Progressor",
+        downloader: CancellableDownloader,
+        completion_stage: str = "loading",
+        succeeded_event: Optional[threading.Event] = None,
     ):
         while not downloader.done:
-            progress = downloader.get_progress()
+            # A live download must not look terminal to polling clients even if
+            # a third-party tqdm layout briefly yields a saturated estimate.
+            progress = min(downloader.get_progress(), 0.99)
             progressor.set_progress(
                 progress,
                 "Downloading model files",
@@ -3848,15 +3862,251 @@ class WorkerActor(xo.StatelessActor):
             )
             downloader.wait(1)
 
+        cancelled = downloader.cancelled
+        failed = succeeded_event is not None and not succeeded_event.is_set()
         progressor.set_progress(
             1.0,
-            "Start to load model",
+            (
+                "Download cancelled"
+                if cancelled
+                else (
+                    "Model download failed"
+                    if failed
+                    else (
+                        "Model download completed"
+                        if completion_stage == "completed"
+                        else "Start to load model"
+                    )
+                )
+            ),
             {
-                "stage": "loading",
+                "stage": (
+                    "cancelled"
+                    if cancelled
+                    else ("failed" if failed else completion_stage)
+                ),
                 "download_files": [],
                 "updated_at": time.time(),
             },
         )
+
+    async def _download_model_files(
+        self,
+        operation_uid: str,
+        request_id: str,
+        download_info: DownloadInfo,
+        progressor: "Progressor",
+        model_type: str,
+        model_name: str,
+        model_engine: Optional[str],
+        model_format: Optional[str],
+        model_size_in_billions: Optional[Union[int, str]],
+        quantization: Optional[str],
+        peft_model_config: Optional[PeftModelConfig],
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+        ],
+        model_path: Optional[str],
+        model_kwargs: Dict[str, Any],
+        completion_stage: str,
+    ) -> Tuple[Any, CancellableDownloader]:
+        """Download/cache model artifacts for launch and cache-only operations.
+
+        ``create_model_instance`` is the existing family dispatcher that owns
+        every model-specific cache step (including draft, projector, ControlNet,
+        GGUF, and lightning artifacts).  This helper deliberately stops before
+        virtualenv preparation, sub-pool creation, actor creation, and ``load``.
+        """
+        upload_progress_task: Optional[asyncio.Task] = None
+        succeeded_event = threading.Event()
+        downloader = CancellableDownloader(cancelled_event=download_info.cancel_event)
+        try:
+            with downloader:
+                download_info.downloader = downloader
+                upload_progress_task = asyncio.create_task(
+                    asyncio.to_thread(
+                        self._upload_download_progress,
+                        progressor,
+                        downloader,
+                        completion_stage,
+                        succeeded_event,
+                    )
+                )
+                with progressor:
+                    # Limit hf_hub download concurrency to reduce GIL
+                    # contention that starves the event loop.
+                    original_hf_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+                    os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
+                        XINFERENCE_MODEL_DOWNLOAD_WORKERS
+                    )
+                    try:
+                        if not XINFERENCE_LOG_CONSOLE:
+                            from ..deploy.utils import redirect_streams_to_logger
+
+                            def _create_with_redirect():
+                                with redirect_streams_to_logger(
+                                    XINFERENCE_LOG_DOWNLOAD_PROGRESS
+                                ):
+                                    return create_model_instance(
+                                        operation_uid,
+                                        model_type,
+                                        model_name,
+                                        model_engine,
+                                        model_format,
+                                        model_size_in_billions,
+                                        quantization,
+                                        peft_model_config,
+                                        download_hub,
+                                        model_path,
+                                        **model_kwargs,
+                                    )
+
+                            model = await asyncio.to_thread(_create_with_redirect)
+                        else:
+                            model = await asyncio.to_thread(
+                                create_model_instance,
+                                operation_uid,
+                                model_type,
+                                model_name,
+                                model_engine,
+                                model_format,
+                                model_size_in_billions,
+                                quantization,
+                                peft_model_config,
+                                download_hub,
+                                model_path,
+                                **model_kwargs,
+                            )
+                        succeeded_event.set()
+                    finally:
+                        if original_hf_workers is not None:
+                            os.environ["HF_HUB_DOWNLOAD_WORKERS"] = original_hf_workers
+                        else:
+                            os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
+        finally:
+            # Exiting CancellableDownloader signals this reporter to finish.
+            if upload_progress_task is not None:
+                await upload_progress_task
+
+        model.model_family.multimodal_projector = model_kwargs.get(
+            "multimodal_projector", None
+        )
+        await self.update_cache_status(model_name, model.model_family.to_version_info())
+        logger.debug(
+            "Model files prepared: request_id=%s, operation_uid=%s",
+            request_id,
+            operation_uid,
+        )
+        return model, downloader
+
+    @staticmethod
+    def _cancel_download(download_info: DownloadInfo) -> None:
+        download_info.cancel_event.set()
+        if download_info.downloader is not None:
+            download_info.downloader.cancel()
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def cache_builtin_model(
+        self,
+        cache_uid: str,
+        model_name: str,
+        model_size_in_billions: Optional[Union[int, str]],
+        model_format: Optional[str],
+        quantization: Optional[str],
+        model_engine: Optional[str],
+        model_type: str = "LLM",
+        peft_model_config: Optional[PeftModelConfig] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
+        ] = None,
+        model_path: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """Cache model artifacts without reserving devices or loading a model."""
+        if model_type.lower() == "audio":
+            from ..model.audio.core import resolve_audio_model_name_and_engine
+
+            model_name, model_engine = resolve_audio_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+        elif model_type.lower() == "image":
+            from ..model.image.core import resolve_image_model_engine
+
+            model_engine = resolve_image_model_engine(model_name, model_engine)
+        elif model_type.lower() == "video":
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+        elif model_type.lower() == "world":
+            from ..model.world.core import resolve_world_model_engine
+
+            model_engine = resolve_world_model_engine(model_name, model_engine)
+
+        if model_path is not None and not os.path.exists(model_path):
+            raise ValueError(
+                f"Invalid input. `model_path`: {model_path} File or directory does not exist."
+            )
+        self._check_model_is_valid(model_name, model_format)
+        if cache_uid in self._cache_uid_to_download_info:
+            raise ValueError(f"Cache operation {cache_uid} is already running")
+
+        download_info = DownloadInfo()
+        self._cache_uid_to_download_info[cache_uid] = download_info
+        try:
+            async with self._launch_semaphore:
+                if download_info.cancel_event.is_set():
+                    raise asyncio.CancelledError(
+                        f"Download cancelled while waiting in queue: {cache_uid}"
+                    )
+
+                model_kwargs = kwargs.copy()
+                model_kwargs["enable_virtual_env"] = enable_virtual_env
+                if (
+                    model_type.lower() == "video"
+                    and model_engine
+                    and model_engine.lower() == "mlx"
+                ):
+                    model_kwargs["_xinference_virtual_env_packages"] = (
+                        virtual_env_packages
+                    )
+
+                request_id = "caching-" + cache_uid
+                progressor = await self._get_progressor(
+                    request_id, "Start to download model"
+                )
+                model, downloader = await self._download_model_files(
+                    operation_uid=cache_uid,
+                    request_id=request_id,
+                    download_info=download_info,
+                    progressor=progressor,
+                    model_type=model_type,
+                    model_name=model_name,
+                    model_engine=model_engine,
+                    model_format=model_format,
+                    model_size_in_billions=model_size_in_billions,
+                    quantization=quantization,
+                    peft_model_config=peft_model_config,
+                    download_hub=download_hub,
+                    model_path=model_path,
+                    model_kwargs=model_kwargs,
+                    completion_stage="completed",
+                )
+                if downloader.cancelled:
+                    downloader.raise_error(error_msg="Download cancelled")
+
+                return {
+                    "cache_uid": cache_uid,
+                    "model_name": model_name,
+                    "model_engine": model_engine,
+                    "worker_address": self.address,
+                    "version_info": model.model_family.to_version_info(),
+                }
+        finally:
+            self._cache_uid_to_download_info.pop(cache_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
@@ -4163,87 +4413,28 @@ class WorkerActor(xo.StatelessActor):
                                 )
                             )
 
-                        with CancellableDownloader(
-                            cancelled_event=launch_info.cancel_event
-                        ) as downloader:
-                            launch_info.downloader = downloader
-                            progressor = await self._get_progressor(
-                                "launching-" + model_uid
-                            )
-                            # split into download and launch
-                            progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
-                            with progressor:
-                                upload_progress_task = asyncio.create_task(
-                                    asyncio.to_thread(
-                                        self._upload_download_progress,
-                                        progressor,
-                                        downloader,
-                                    )
-                                )
-                                # Limit hf_hub download concurrency to reduce GIL
-                                # contention that starves the event loop.
-                                _orig_hf_workers = os.environ.get(
-                                    "HF_HUB_DOWNLOAD_WORKERS"
-                                )
-                                os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
-                                    XINFERENCE_MODEL_DOWNLOAD_WORKERS
-                                )
-                                try:
-                                    # Wrap download phase with stream redirect when console logging is disabled
-                                    if not XINFERENCE_LOG_CONSOLE:
-                                        from ..deploy.utils import (
-                                            redirect_streams_to_logger,
-                                        )
-
-                                        def _create_with_redirect():
-                                            with redirect_streams_to_logger(
-                                                XINFERENCE_LOG_DOWNLOAD_PROGRESS
-                                            ):
-                                                return create_model_instance(
-                                                    model_uid,
-                                                    model_type,
-                                                    model_name,
-                                                    model_engine,
-                                                    model_format,
-                                                    model_size_in_billions,
-                                                    quantization,
-                                                    peft_model_config,
-                                                    download_hub,
-                                                    model_path,
-                                                    **model_kwargs,
-                                                )
-
-                                        model = await asyncio.to_thread(
-                                            _create_with_redirect
-                                        )
-                                    else:
-                                        model = await asyncio.to_thread(
-                                            create_model_instance,
-                                            model_uid,
-                                            model_type,
-                                            model_name,
-                                            model_engine,
-                                            model_format,
-                                            model_size_in_billions,
-                                            quantization,
-                                            peft_model_config,
-                                            download_hub,
-                                            model_path,
-                                            **model_kwargs,
-                                        )
-                                finally:
-                                    if _orig_hf_workers is not None:
-                                        os.environ["HF_HUB_DOWNLOAD_WORKERS"] = (
-                                            _orig_hf_workers
-                                        )
-                                    else:
-                                        os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
-                            model.model_family.multimodal_projector = model_kwargs.get(
-                                "multimodal_projector", None
-                            )
-                            await self.update_cache_status(
-                                model_name, model.model_family.to_version_info()
-                            )
+                        progressor = await self._get_progressor(
+                            "launching-" + model_uid
+                        )
+                        # split into download and launch
+                        progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
+                        model, downloader = await self._download_model_files(
+                            operation_uid=model_uid,
+                            request_id="launching-" + model_uid,
+                            download_info=launch_info,
+                            progressor=progressor,
+                            model_type=model_type,
+                            model_name=model_name,
+                            model_engine=model_engine,
+                            model_format=model_format,
+                            model_size_in_billions=model_size_in_billions,
+                            quantization=quantization,
+                            peft_model_config=peft_model_config,
+                            download_hub=download_hub,
+                            model_path=model_path,
+                            model_kwargs=model_kwargs,
+                            completion_stage="loading",
+                        )
 
                         def check_cancel():
                             # check downloader first, sometimes download finished
@@ -4528,15 +4719,8 @@ class WorkerActor(xo.StatelessActor):
         try:
             launch_info = self._model_uid_launching_guard[model_uid]
 
-            # downloader shared same cancel event
-            # sometimes cancel happens very early before downloader
-            # even if users cancel at this time,
-            # downloader will know and stop everything
-            launch_info.cancel_event.set()
-
-            if launch_info.downloader:
-                logger.debug("Try to cancel download, %s")
-                launch_info.downloader.cancel()
+            # The event also covers cancellation before the downloader starts.
+            self._cancel_download(launch_info)
             if launch_info.virtual_env_manager:
                 launch_info.virtual_env_manager.cancel_install()
             if launch_info.sub_pools:
@@ -4569,6 +4753,28 @@ class WorkerActor(xo.StatelessActor):
                 "Launch of %s still unwinding after %ss; a relaunch may be "
                 "rejected as already running",
                 model_uid,
+                XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
+            )
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def cancel_cache_model(self, cache_uid: str):
+        try:
+            download_info = self._cache_uid_to_download_info[cache_uid]
+        except KeyError:
+            raise RuntimeError(f"Cache operation {cache_uid} is not running")
+
+        self._cancel_download(download_info)
+
+        deadline = time.monotonic() + XINFERENCE_CANCEL_LAUNCH_TIMEOUT
+        while (
+            cache_uid in self._cache_uid_to_download_info
+            and time.monotonic() < deadline
+        ):
+            await asyncio.sleep(0.1)
+        if cache_uid in self._cache_uid_to_download_info:
+            logger.warning(
+                "Cache operation %s still unwinding after %ss",
+                cache_uid,
                 XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
             )
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
-import { Ban, Rocket } from 'lucide-react';
+import { Ban, Download, Rocket } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
@@ -65,7 +65,9 @@ interface LaunchDialogProps {
   model?: CatalogModel;
   modelType: RequestModelType;
   gpuAvailable: number;
+  allowDownloadOnly?: boolean;
   onOpenChange: (open: boolean) => void;
+  onCacheCompleted?: () => void | Promise<void>;
 }
 
 interface LaunchProgressReplica {
@@ -85,11 +87,34 @@ interface LaunchProgressResponse {
   replicas?: LaunchProgressReplica[];
 }
 
+const DOWNLOAD_TERMINAL_STAGES = new Set(['completed', 'failed', 'cancelled']);
+
+const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
+  'model_uid',
+  'replica',
+  'replica_config',
+  'replica_placement_mode',
+  'n_gpu',
+  'gpu_idx',
+  'n_gpu_layers',
+  'n_worker',
+  'request_limits',
+  'enable_thinking',
+  'reasoning_content',
+  'cpu_offload',
+  'quantization_config',
+  'num_speculative_tokens',
+  'envs',
+  'virtual_env_find_links',
+]);
+
 export default function LaunchDialog({
   model,
   modelType,
   gpuAvailable,
+  allowDownloadOnly = true,
   onOpenChange,
+  onCacheCompleted,
 }: LaunchDialogProps) {
   const isOpen = Boolean(model);
   const formId = useId();
@@ -99,6 +124,7 @@ export default function LaunchDialog({
   const { isAdmin } = useMenuAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [saveAutostart, setSaveAutostart] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -106,7 +132,9 @@ export default function LaunchDialog({
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
+  const isCanceledDownloadRef = useRef(false);
   const isLLM = modelType === ModelType.LLM;
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
   const launchFormValues = useFormValues(form);
@@ -1482,6 +1510,10 @@ export default function LaunchDialog({
   const isReady = currentLaunchFields
     .filter(isVisibleRequiredLaunchField)
     .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
+  const isDownloadReady = currentLaunchFields
+    .filter((field) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(field.name))
+    .filter(isVisibleRequiredLaunchField)
+    .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current !== null) {
@@ -1514,10 +1546,39 @@ export default function LaunchDialog({
     }
   }, [stopPolling, form, model]);
 
+  const fetchDownloadProgress = useCallback(async () => {
+    const cacheUid = cacheUidRef.current;
+    if (!cacheUid) return;
+
+    try {
+      const progressRes = await request.get<LaunchProgressResponse>(
+        `/v1/cache/models/${encodeURIComponent(cacheUid)}/progress`
+      );
+      const isTerminal = DOWNLOAD_TERMINAL_STAGES.has(progressRes.stage ?? '');
+      const reportedProgress = normalizeProgress(progressRes.progress);
+      const nextProgress = !isTerminal && reportedProgress >= 100 ? 99 : reportedProgress;
+
+      setProgress(nextProgress);
+      setProgressDetails(progressRes);
+
+      if (isTerminal) {
+        stopPolling();
+      }
+    } catch {
+      // The progress record is created asynchronously. Keep polling through
+      // transient startup/query failures; the operation request owns teardown.
+    }
+  }, [stopPolling]);
+
   const startPolling = useCallback(() => {
     if (pollingRef.current) return;
     pollingRef.current = setInterval(fetchProgress, 1000);
   }, [fetchProgress]);
+
+  const startDownloadPolling = useCallback(() => {
+    if (pollingRef.current) return;
+    pollingRef.current = setInterval(fetchDownloadProgress, 1000);
+  }, [fetchDownloadProgress]);
 
   const renderReplicaStatuses = () => {
     if (!replicaStatuses.length) {
@@ -1602,6 +1663,25 @@ export default function LaunchDialog({
     }
   };
 
+  const handleCancelDownload = async () => {
+    const cacheUid = cacheUidRef.current;
+    if (!cacheUid) return;
+    setCanceling(true);
+
+    try {
+      await request.post(`/v1/cache/models/${encodeURIComponent(cacheUid)}/cancel`);
+      isCanceledDownloadRef.current = true;
+      stopPolling();
+      setLoading(false);
+      setIsDownloading(false);
+      setProgress(0);
+      setProgressDetails(null);
+      toast.success(t('launchModel.downloadCanceled'));
+    } finally {
+      setCanceling(false);
+    }
+  };
+
   const handleLaunch = async (values: FormValues) => {
     const placementError = validateReplicaPlacement(values);
     if (placementError === 'incomplete') {
@@ -1668,13 +1748,61 @@ export default function LaunchDialog({
       });
     startPolling();
   };
+
+  const handleDownload = async () => {
+    const newValues = transformFormToFetch({
+      ...launchFormValues,
+      replica_placement_mode: 'auto',
+    });
+    const cacheValues = Object.fromEntries(
+      Object.entries(newValues).filter(([key]) => !DOWNLOAD_ONLY_EXCLUDED_FIELDS.has(key))
+    );
+    const cacheUid =
+      globalThis.crypto?.randomUUID?.() ??
+      `cache-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    cacheUidRef.current = cacheUid;
+    isCanceledDownloadRef.current = false;
+    setIsDownloading(true);
+    setLoading(true);
+    setProgress(0);
+    setProgressDetails(null);
+    setReplicaStatuses([]);
+
+    const operationRequest = request.post(
+      '/v1/cache/models',
+      { ...cacheValues, cache_uid: cacheUid },
+      { noTimeout: true }
+    );
+    startDownloadPolling();
+
+    try {
+      await operationRequest;
+      if (isCanceledDownloadRef.current) return;
+
+      stopPolling();
+      onOpenChange(false);
+      toast.success(t('launchModel.modelDownloadCompleted'));
+      await onCacheCompleted?.();
+    } catch {
+      stopPolling();
+    } finally {
+      setLoading(false);
+      setIsDownloading(false);
+      cacheUidRef.current = undefined;
+    }
+  };
+
   const handleClose = () => {
     setLoading(false);
+    setIsDownloading(false);
     setCanceling(false);
     setProgress(0);
     setProgressDetails(null);
     setReplicaStatuses([]);
     setSaveAutostart(false);
+    cacheUidRef.current = undefined;
+    isCanceledDownloadRef.current = false;
     stopPolling();
     onOpenChange(false);
     form.resetFields();
@@ -1781,39 +1909,66 @@ export default function LaunchDialog({
                 <Switch checked={saveAutostart} disabled={loading} onChange={setSaveAutostart} />
                 {t('launchModel.saveAutostart')}
               </label>
-              <div className="flex items-center justify-end gap-2">
+              <div className="ml-auto flex items-center justify-end gap-2">
                 <TooltipProvider>
-                  <Button variant="outline" onClick={handleClose}>
+                  <Button variant="outline" disabled={loading} onClick={handleClose}>
                     {t('common.cancel')}
                   </Button>
                   {loading ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                    isDownloading ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={canceling}
+                        loading={canceling}
+                        onClick={handleCancelDownload}
+                        className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Ban />
+                        {t('common.stop')}
+                      </Button>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={canceling}
+                            loading={canceling}
+                            onClick={handleCancelLaunch}
+                            className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Ban />
+                            {t('common.stop')}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          align="end"
+                          className="w-[min(42rem,calc(100vw-2rem))] max-w-none p-3"
+                        >
+                          {renderReplicaStatuses()}
+                        </TooltipContent>
+                      </Tooltip>
+                    )
+                  ) : (
+                    <>
+                      {allowDownloadOnly && (
                         <Button
                           type="button"
                           variant="outline"
-                          disabled={canceling}
-                          loading={canceling}
-                          onClick={handleCancelLaunch}
-                          className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          disabled={!isDownloadReady}
+                          onClick={handleDownload}
                         >
-                          <Ban />
-                          {t('common.stop')}
+                          <Download />
+                          {t('launchModel.downloadOnly')}
                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        align="end"
-                        className="w-[min(42rem,calc(100vw-2rem))] max-w-none p-3"
-                      >
-                        {renderReplicaStatuses()}
-                      </TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    <Button type="submit" form={formId}>
-                      <Rocket />
-                      {t('common.deploy')}
-                    </Button>
+                      )}
+                      <Button type="submit" form={formId}>
+                        <Rocket />
+                        {t('common.deploy')}
+                      </Button>
+                    </>
                   )}
                 </TooltipProvider>
               </div>
