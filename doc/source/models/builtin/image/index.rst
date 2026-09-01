@@ -17,6 +17,8 @@ The following is a list of built-in image models in Xinference:
   
    deepseek-ocr
   
+   dots.ocr
+
    firered-image-edit-1.1
   
    flux.1-dev
