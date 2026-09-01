@@ -3415,6 +3415,95 @@ async def test_remove_model_cache_removes_mlx_video_derived_artifacts(
     assert conversion_lock.exists()
 
 
+def test_resolve_image_download_repositories_includes_auxiliary_models(monkeypatch):
+    from xinference.model.image import core as image_core
+
+    controlnet_spec = SimpleNamespace(
+        model_name="canny",
+        model_id="org/controlnet-canny",
+        model_hub="modelscope",
+        model_uri=None,
+    )
+    model_spec = SimpleNamespace(
+        model_name="demo-image",
+        model_id="org/demo-image",
+        model_hub="huggingface",
+        model_uri=None,
+        model_ability=[],
+        default_model_config={"controlnet": "canny"},
+        controlnet=[controlnet_spec],
+        gguf_model_id="org/demo-image-gguf",
+        lightning_model_id="org/demo-image-lightning",
+    )
+    monkeypatch.setattr(image_core, "match_diffusion", lambda *_args: model_spec)
+    payload = {
+        "model_type": "image",
+        "model_name": "demo-image",
+        "download_hub": "huggingface",
+        "gguf_quantization": "q4_k_m",
+        "lightning_version": "4-step",
+    }
+
+    repositories = WorkerActor._resolve_model_download_repositories(payload)
+
+    assert {
+        (repository["model_hub"], repository["model_id"]) for repository in repositories
+    } == {
+        ("huggingface", "org/demo-image"),
+        ("modelscope", "org/controlnet-canny"),
+        ("huggingface", "org/demo-image-gguf"),
+        ("huggingface", "org/demo-image-lightning"),
+    }
+
+    local_repositories = WorkerActor._resolve_model_download_repositories(
+        {**payload, "model_path": "/models/local-image"}
+    )
+    assert {
+        (repository["model_hub"], repository["model_id"])
+        for repository in local_repositories
+    } == {
+        ("modelscope", "org/controlnet-canny"),
+        ("huggingface", "org/demo-image-gguf"),
+        ("huggingface", "org/demo-image-lightning"),
+    }
+
+
+def test_resolve_llm_download_repositories_includes_drafter(monkeypatch):
+    from xinference.model.llm import llm_family
+
+    model_spec = SimpleNamespace(
+        model_id="google/gemma-4",
+        model_hub="huggingface",
+        model_uri=None,
+        draft_model_id="google/gemma-4-assistant-{draft_quantization}",
+        draft_model_file_name_template=None,
+        draft_quantizations=["int4"],
+    )
+    family = SimpleNamespace(model_specs=[model_spec])
+    monkeypatch.setattr(llm_family, "match_llm", lambda *_args: family)
+
+    repositories = WorkerActor._resolve_model_download_repositories(
+        {
+            "model_type": "LLM",
+            "model_name": "gemma-4",
+            "model_format": "pytorch",
+            "model_size_in_billions": 4,
+            "quantization": "none",
+            "download_hub": "huggingface",
+            "enable_mtp": "true",
+            "draft_quantization": "int4",
+        }
+    )
+
+    assert repositories == [
+        {"model_hub": "huggingface", "model_id": "google/gemma-4"},
+        {
+            "model_hub": "huggingface",
+            "model_id": "google/gemma-4-assistant-int4",
+        },
+    ]
+
+
 def test_delete_incomplete_download_removes_exact_modelscope_repository(
     tmp_path, monkeypatch
 ):

@@ -4792,20 +4792,21 @@ class WorkerActor(xo.StatelessActor):
         ):
             await asyncio.sleep(0.1)
         if cache_uid in self._cache_uid_to_download_info:
-            logger.warning(
-                "Cache operation %s still unwinding after %ss",
-                cache_uid,
-                XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
+            raise RuntimeError(
+                f"Cache operation {cache_uid} is still running after "
+                f"{XINFERENCE_CANCEL_LAUNCH_TIMEOUT}s"
             )
 
     @staticmethod
     def _resolve_model_download_repositories(
         payload: Dict[str, Any],
     ) -> List[Dict[str, str]]:
-        """Resolve the primary Hub repository without starting a download."""
+        """Resolve every Hub repository used while preparing this model."""
         persisted = payload.get("_download_repositories")
         if isinstance(persisted, list):
-            repositories = [
+            # Even an empty persisted list is authoritative: it records that
+            # this task owns no Hub repository (for example, a local model).
+            return [
                 {
                     "model_hub": str(item["model_hub"]),
                     "model_id": str(item["model_id"]),
@@ -4815,12 +4816,27 @@ class WorkerActor(xo.StatelessActor):
                 and item.get("model_hub")
                 and item.get("model_id")
             ]
-            if repositories:
-                return repositories
 
-        if payload.get("model_path"):
-            # A user-supplied path is never owned by the download task.
-            return []
+        repositories: List[Dict[str, str]] = []
+
+        def add_repository(
+            model_hub: Any, model_id: Any, model_uri: Any = None
+        ) -> None:
+            if model_uri or not model_hub or not model_id:
+                return
+            repository = {
+                "model_hub": str(model_hub),
+                "model_id": str(model_id),
+            }
+            if repository not in repositories:
+                repositories.append(repository)
+
+        def add_spec(repository_spec: Any) -> None:
+            add_repository(
+                getattr(repository_spec, "model_hub", None),
+                getattr(repository_spec, "model_id", None),
+                getattr(repository_spec, "model_uri", None),
+            )
 
         model_type = str(payload.get("model_type") or "LLM").lower()
         model_name = str(payload.get("model_name") or "")
@@ -4889,12 +4905,75 @@ class WorkerActor(xo.StatelessActor):
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
-        model_id = getattr(spec, "model_id", None)
-        model_hub = getattr(spec, "model_hub", None)
-        model_uri = getattr(spec, "model_uri", None)
-        if model_uri or not model_id or not model_hub:
-            return []
-        return [{"model_hub": str(model_hub), "model_id": str(model_id)}]
+        # A user-supplied primary path is not task-owned. Auxiliary models may
+        # still be downloaded and therefore must remain in the cleanup set.
+        if not payload.get("model_path"):
+            add_spec(spec)
+
+        if model_type == "llm":
+            from ..model.llm.core import parse_bool_launch_arg
+
+            if parse_bool_launch_arg(
+                payload.get("enable_mtp", False)
+            ) and not payload.get("draft_model_path"):
+                draft_model_id = getattr(spec, "draft_model_id", None)
+                draft_template = getattr(spec, "draft_model_file_name_template", None)
+                if not draft_model_id and draft_template:
+                    # GGUF drafters can be files in the primary repository.
+                    draft_model_id = getattr(spec, "model_id", None)
+                if draft_model_id:
+                    draft_quantization = payload.get("draft_quantization")
+                    draft_quantizations = (
+                        getattr(spec, "draft_quantizations", None) or []
+                    )
+                    if draft_quantization is None and draft_quantizations:
+                        draft_quantization = draft_quantizations[0]
+                    if (
+                        "{draft_quantization}" in draft_model_id
+                        and not draft_quantization
+                    ):
+                        raise ValueError(
+                            f"Model {model_name} declares the templated drafter "
+                            f"{draft_model_id!r} but no `draft_quantizations`."
+                        )
+                    try:
+                        draft_model_id = draft_model_id.format(
+                            draft_quantization=draft_quantization
+                        )
+                    except (KeyError, IndexError) as exc:
+                        raise ValueError(
+                            f"Invalid draft_model_id {draft_model_id!r}: {exc!r}"
+                        ) from exc
+                    add_repository(getattr(spec, "model_hub", None), draft_model_id)
+
+        if model_type == "image" and "ocr" not in (
+            getattr(spec, "model_ability", None) or []
+        ):
+            image_options = (getattr(spec, "default_model_config", None) or {}).copy()
+            image_options.update(payload)
+            controlnet = image_options.get("controlnet")
+            if isinstance(controlnet, str):
+                controlnet_names = [controlnet]
+            elif isinstance(controlnet, (list, tuple)):
+                controlnet_names = list(controlnet)
+            else:
+                controlnet_names = []
+            for controlnet_name in controlnet_names:
+                for controlnet_spec in getattr(spec, "controlnet", None) or []:
+                    if getattr(controlnet_spec, "model_name", None) == controlnet_name:
+                        add_spec(controlnet_spec)
+                        break
+
+        if model_type in {"image", "video"}:
+            model_hub = getattr(spec, "model_hub", None)
+            if payload.get("gguf_quantization") and not payload.get("gguf_model_path"):
+                add_repository(model_hub, getattr(spec, "gguf_model_id", None))
+            if payload.get("lightning_version") and not payload.get(
+                "lightning_model_path"
+            ):
+                add_repository(model_hub, getattr(spec, "lightning_model_id", None))
+
+        return repositories
 
     async def resolve_model_download_repositories(
         self, payload: Dict[str, Any]

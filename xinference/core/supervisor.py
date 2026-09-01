@@ -2732,7 +2732,6 @@ class SupervisorActor(xo.StatelessActor):
                 f"Cache operation {cache_uid} already exists; resume or cancel it"
             )
 
-        self._cache_uid_to_worker[cache_uid] = worker_ref
         worker_address = worker_ref.address
         payload = {
             "cache_uid": cache_uid,
@@ -2757,6 +2756,20 @@ class SupervisorActor(xo.StatelessActor):
                 await worker_ref.resolve_model_download_repositories(payload)
             )
         payload["_download_repositories"] = download_repositories
+
+        # Repository resolution is an actor call and may yield. Recheck the UID
+        # before persisting, then reserve it only after the fallible preflight
+        # and SQLite write have succeeded. This prevents a failed preflight from
+        # leaving a cache UID permanently marked as running.
+        if cache_uid in self._cache_uid_to_worker:
+            raise ValueError(f"Cache operation {cache_uid} is already running")
+        latest_task = self._download_task_store.get(cache_uid)
+        if latest_task is not None and not _resume:
+            raise ValueError(
+                f"Cache operation {cache_uid} already exists; resume or cancel it"
+            )
+        if _resume and latest_task is not None:
+            existing_task = latest_task
         self._download_task_store.upsert(
             {
                 "cache_uid": cache_uid,
@@ -2773,11 +2786,15 @@ class SupervisorActor(xo.StatelessActor):
                 "created_at": (existing_task or {}).get("created_at"),
             }
         )
-        self._workers_launching[worker_address] = (
-            self._workers_launching.get(worker_address, 0) + 1
-        )
-        monitor_task = asyncio.create_task(self._monitor_cache_download(cache_uid))
+        self._cache_uid_to_worker[cache_uid] = worker_ref
+        monitor_task: Optional[asyncio.Task] = None
+        worker_counted = False
         try:
+            self._workers_launching[worker_address] = (
+                self._workers_launching.get(worker_address, 0) + 1
+            )
+            worker_counted = True
+            monitor_task = asyncio.create_task(self._monitor_cache_download(cache_uid))
             result = await worker_ref.cache_builtin_model(
                 cache_uid=cache_uid,
                 model_name=model_name,
@@ -2802,19 +2819,21 @@ class SupervisorActor(xo.StatelessActor):
             self._record_cache_download_error(cache_uid, e)
             raise
         finally:
-            monitor_task.cancel()
-            try:
-                await monitor_task
-            except asyncio.CancelledError:
-                pass
+            if monitor_task is not None:
+                monitor_task.cancel()
+                try:
+                    await monitor_task
+                except asyncio.CancelledError:
+                    pass
             self._cache_uid_to_worker.pop(cache_uid, None)
             self._cache_pause_requested.discard(cache_uid)
             self._cache_cancel_requested.discard(cache_uid)
-            active_count = self._workers_launching.get(worker_address, 1) - 1
-            if active_count <= 0:
-                self._workers_launching.pop(worker_address, None)
-            else:
-                self._workers_launching[worker_address] = active_count
+            if worker_counted:
+                active_count = self._workers_launching.get(worker_address, 1) - 1
+                if active_count <= 0:
+                    self._workers_launching.pop(worker_address, None)
+                else:
+                    self._workers_launching[worker_address] = active_count
 
     @log_async(logger=logger)
     async def launch_builtin_model(
@@ -3729,6 +3748,7 @@ class SupervisorActor(xo.StatelessActor):
         if worker_ref is not None:
             metadata["worker_address"] = worker_ref.address
         task = self._download_task_store.get(cache_uid)
+        details: Dict[str, Any]
         if task is not None and worker_ref is None:
             # A persisted paused/interrupted task must win over stale progress
             # retained by ProgressTrackerActor from the previous process.
@@ -3887,21 +3907,25 @@ class SupervisorActor(xo.StatelessActor):
             resume_task = self._cache_uid_to_task.get(cache_uid)
             if resume_task is not None and not resume_task.done():
                 self._cache_cancel_requested.add(cache_uid)
-                resume_task.cancel()
                 try:
-                    await resume_task
-                except asyncio.CancelledError:
-                    pass
-                self._download_task_store.delete(cache_uid)
-                self._cache_cancel_requested.discard(cache_uid)
+                    resume_task.cancel()
+                    try:
+                        await resume_task
+                    except asyncio.CancelledError:
+                        pass
+                    self._download_task_store.delete(cache_uid)
+                finally:
+                    self._cache_cancel_requested.discard(cache_uid)
                 return
             if self._download_task_store.delete(cache_uid):
                 return
             raise RuntimeError(f"Cache operation {cache_uid} is not running")
         self._cache_cancel_requested.add(cache_uid)
-        await worker_ref.cancel_cache_model(cache_uid)
-        self._download_task_store.delete(cache_uid)
-        self._cache_cancel_requested.discard(cache_uid)
+        try:
+            await worker_ref.cancel_cache_model(cache_uid)
+            self._download_task_store.delete(cache_uid)
+        finally:
+            self._cache_cancel_requested.discard(cache_uid)
 
     async def delete_cache_builtin_model(self, cache_uid: str) -> Dict[str, Any]:
         """Stop a cache task and remove its task-owned Hub artifacts."""
@@ -3932,12 +3956,19 @@ class SupervisorActor(xo.StatelessActor):
                 "download files were not deleted"
             )
 
+        target_worker_host = (
+            self._get_worker_host(worker_address) if worker_address else None
+        )
         protected_payloads = []
         for other_task in self._download_task_store.list_unfinished():
             if other_task.get("cache_uid") == cache_uid:
                 continue
             other_address = other_task.get("worker_address")
-            if worker_address and other_address != worker_address:
+            if (
+                target_worker_host
+                and other_address
+                and self._get_worker_host(other_address) != target_worker_host
+            ):
                 continue
             payload = other_task.get("payload")
             if isinstance(payload, dict):
