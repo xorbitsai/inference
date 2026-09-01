@@ -174,48 +174,87 @@ def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
     return tuple(dimensions)
 
 
+def get_kv_cache_layer(kv, layer_idx: int):
+    """Return one KV cache layer across Transformers cache layouts."""
+
+    def _none_if_empty(tensor):
+        if tensor is None:
+            return None
+        if isinstance(tensor, (list, tuple)) and not tensor:
+            return None
+        if hasattr(tensor, "numel") and tensor.numel() == 0:
+            return None
+        return tensor
+
+    layers = getattr(kv, "layers", None)
+    if layers is not None and layer_idx < len(layers):
+        layer = layers[layer_idx]
+        return _none_if_empty(getattr(layer, "keys", None)), _none_if_empty(
+            getattr(layer, "values", None)
+        )
+
+    key_cache = getattr(kv, "key_cache", None)
+    value_cache = getattr(kv, "value_cache", None)
+    if key_cache is not None and layer_idx < len(key_cache):
+        key = key_cache[layer_idx]
+        value = (
+            value_cache[layer_idx]
+            if value_cache is not None and layer_idx < len(value_cache)
+            else None
+        )
+        return _none_if_empty(key), _none_if_empty(value)
+
+    return None, None
+
+
+def set_kv_cache_layer(kv, layer_idx: int, key, value) -> None:
+    """Set one KV cache layer across Transformers cache layouts."""
+    layers = getattr(kv, "layers", None)
+    if layers is not None and layer_idx < len(layers):
+        layers[layer_idx].keys = key
+        layers[layer_idx].values = value
+        return
+
+    key_cache = getattr(kv, "key_cache", None)
+    value_cache = getattr(kv, "value_cache", None)
+    if key_cache is not None and value_cache is not None:
+        key_cache[layer_idx] = key
+        value_cache[layer_idx] = value
+        return
+
+    raise TypeError(f"Unsupported KV cache layout: {type(kv)!r}")
+
+
+def get_kv_cache_seq_length(kv, layer_idx: int = 0) -> int:
+    get_seq_length = getattr(kv, "get_seq_length", None)
+    if get_seq_length is None:
+        return 0
+    try:
+        return get_seq_length(layer_idx)
+    except TypeError:
+        # Some cache implementations only expose get_seq_length() without a layer index.
+        return get_seq_length()
+
+
+def get_first_populated_kv_cache_layer(kv):
+    for layer_idx in range(len(kv)):
+        key, value = get_kv_cache_layer(kv, layer_idx)
+        if key is not None:
+            return layer_idx, key, value
+    return None, None, None
+
+
 def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel"):
     bs_idx, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
-
-    try:
-        from transformers import HybridCache
-
-        if isinstance(kv, HybridCache):
-            if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
-                return 0, 0
-            return kv.key_cache[0].shape[bs_idx], kv.get_seq_length()
-    except ImportError:
-        pass
 
     if kv is None:
         return 0, 0
 
-    if hasattr(kv, "key_cache"):
-        if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
-            return 0, 0
-
-        key = kv.key_cache[0]
-        return (
-            key.shape[bs_idx],
-            (
-                kv.get_seq_length()
-                if hasattr(kv, "get_seq_length")
-                else key.shape[seq_len_idx]
-            ),
-        )
-
-    # New transformers Cache API (transformers >= 4.57 / 5.x): DynamicCache
-    # exposes `layers` (a list of CacheLayerMixin objects with `.keys` /
-    # `.values` tensors of shape [batch_size, num_heads, seq_len, head_dim])
-    # and `get_seq_length()`, but no longer exposes `key_cache` and (on 5.x)
-    # is not subscriptable. Without this branch the legacy `kv[0][0]` fallback
-    # below raises `TypeError: 'DynamicCache' object is not subscriptable`.
-    if hasattr(kv, "layers") and hasattr(kv, "get_seq_length"):
-        layers = kv.layers
-        first_keys = getattr(layers[0], "keys", None) if len(layers) > 0 else None
-        if first_keys is None or first_keys.numel() == 0:
-            return 0, kv.get_seq_length()
-        return first_keys.shape[bs_idx], kv.get_seq_length()
+    if hasattr(kv, "get_seq_length"):
+        layer_idx, key, _ = get_first_populated_kv_cache_layer(kv)
+        if key is None:
+            return 0, get_kv_cache_seq_length(kv)
+        return key.shape[bs_idx], get_kv_cache_seq_length(kv, layer_idx)
 
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
