@@ -273,6 +273,35 @@ async def test_cache_model_forwards_only_download_inputs(mock_api, mock_supervis
     assert call_kwargs["draft_quantization"] == "q4_k_m"
 
 
+@pytest.mark.parametrize(
+    ("internal_key", "value"),
+    [
+        ("_resume", True),
+        ("_download_repositories", [{"path": "/tmp/client-controlled"}]),
+    ],
+)
+@pytest.mark.asyncio
+async def test_cache_model_rejects_internal_fields(
+    mock_api, mock_supervisor, internal_key, value
+):
+    request = MagicMock()
+    request.json = AsyncMock(
+        return_value={
+            "model_name": "qwen",
+            "model_type": "LLM",
+            "model_engine": "transformers",
+            internal_key: value,
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.cache_model(request=request, api=mock_api)
+
+    assert exc_info.value.status_code == 400
+    assert internal_key in exc_info.value.detail
+    mock_supervisor.cache_builtin_model.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_cache_model_progress_and_cancel(mock_api, mock_supervisor):
     response = await admin.get_cache_model_progress(cache_uid="cache-1", api=mock_api)

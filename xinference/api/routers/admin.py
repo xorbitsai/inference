@@ -178,6 +178,12 @@ async def cache_model(
         payload = await request.json()
         if not isinstance(payload, dict):
             raise ValueError("Invalid input. Expected a JSON object.")
+        internal_keys = sorted(key for key in payload if key.startswith("_"))
+        if internal_keys:
+            raise ValueError(
+                "Invalid input. Internal fields are not allowed: "
+                + ", ".join(internal_keys)
+            )
 
         cache_uid = payload.get("cache_uid") or str(uuid.uuid4())
         model_name = payload.get("model_name")

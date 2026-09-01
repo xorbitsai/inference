@@ -4267,7 +4267,10 @@ class WorkerActor(xo.StatelessActor):
 
         _was_queued = False
         try:
-            async with self._download_artifact_cleanup_lock:
+            cleanup_lock = getattr(self, "_download_artifact_cleanup_lock", None)
+            if cleanup_lock is None:
+                cleanup_lock = self._download_artifact_cleanup_lock = asyncio.Lock()
+            async with cleanup_lock:
                 self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo(
                     payload=launch_args
                 )
@@ -4656,7 +4659,7 @@ class WorkerActor(xo.StatelessActor):
         finally:
             if _was_queued:
                 self._launch_waiting -= 1
-            del self._model_uid_launching_guard[model_uid]
+            self._model_uid_launching_guard.pop(model_uid, None)
 
         # Record virtual environment information if applicable
         if virtual_env_manager is not None and virtual_env_path is not None:
