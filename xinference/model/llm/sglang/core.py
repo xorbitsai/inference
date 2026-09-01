@@ -136,6 +136,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "DeepseekV2ForCausalLM",
     "DeepseekV3ForCausalLM",
     "Qwen3ForCausalLM",
+    "Qwen3NextForCausalLM",
     "Qwen3_5MoeForCausalLM",
     "HunYuanDenseV1ForCausalLM",
     "HYV3ForCausalLM",
@@ -148,6 +149,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "MllamaForConditionalGeneration",
     "Qwen3_5ForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
+    "MiniMaxM3SparseForConditionalGeneration",
 ]
 
 

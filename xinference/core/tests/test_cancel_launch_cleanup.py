@@ -81,6 +81,7 @@ async def test_cancelled_download_releases_devices_and_guard(monkeypatch):
     """A CancelledError from the download phase must run the same cleanup as
     an ordinary failure, so devices and the launching guard are freed."""
     worker = _make_worker()
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_MODEL_DOWNLOAD_WORKERS", 6)
     monkeypatch.setattr(
         "xinference.core.worker.create_model_instance", _raise(asyncio.CancelledError)
     )
@@ -96,6 +97,12 @@ async def test_cancelled_download_releases_devices_and_guard(monkeypatch):
         )
 
     worker.release_devices.assert_called_once_with(model_uid="m-rep0")
+    assert (
+        worker._allocate_subpool_devices.await_args.kwargs["env"][
+            "HF_HUB_DOWNLOAD_WORKERS"
+        ]
+        == "6"
+    )
     assert "m-rep0" not in worker._model_uid_launching_guard
     assert worker.get_model_launch_status("m-rep0") is None
 

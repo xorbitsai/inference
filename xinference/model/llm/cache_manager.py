@@ -216,6 +216,7 @@ class LLMCacheManager(CacheManager):
             create_symlink,
             merge_cached_files,
             retry_download,
+            retry_snapshot_download,
             symlink_local_file,
         )
 
@@ -234,7 +235,7 @@ class LLMCacheManager(CacheManager):
             cache_config = {**cache_config, **use_symlinks}
 
         if self._model_format in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb", "mlx"]:
-            download_dir = retry_download(
+            download_dir = retry_snapshot_download(
                 huggingface_hub.snapshot_download,
                 self._model_name,
                 {
@@ -284,6 +285,7 @@ class LLMCacheManager(CacheManager):
             create_symlink,
             merge_cached_files,
             retry_download,
+            retry_snapshot_download,
             symlink_local_file,
         )
 
@@ -306,7 +308,7 @@ class LLMCacheManager(CacheManager):
             "bnb",
             "mlx",
         ]:
-            download_dir = retry_download(
+            download_dir = retry_snapshot_download(
                 snapshot_download,
                 self._model_name,
                 {

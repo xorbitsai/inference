@@ -4085,6 +4085,13 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_manager,
                         model_engine,
                     )
+                    # Auxiliary model downloads may run later in ModelActor.load,
+                    # after the worker's download-phase environment has been
+                    # restored. Propagate the same effective worker count to the
+                    # model subprocess so those snapshot downloads are limited too.
+                    subpool_envs["HF_HUB_DOWNLOAD_WORKERS"] = str(
+                        XINFERENCE_MODEL_DOWNLOAD_WORKERS
+                    )
                     # Reserve devices now (before download/virtualenv
                     # install): allocate_devices/allocate_devices_with_gpu_idx
                     # record the reservation synchronously, so concurrent

@@ -177,7 +177,9 @@ Currently, supported model includes:
 - ``GLM-4.7-Flash``
 - ``glm-5``, ``glm-5.1``, ``glm-5.2``
 - ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
-- ``Hy-MT2-1.8B``, ``Hy-MT2-7B``, ``Hy-MT2-30B-A3B``
+- ``Hy-MT2-1.8B``, ``Hy-MT2-7B``
+- ``Hy-MT2-30B-A3B``
+
 .. vllm_end
 
 Besides LLMs, vLLM can also serve embedding models. Model families whose

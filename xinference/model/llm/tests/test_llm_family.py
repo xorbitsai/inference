@@ -742,6 +742,181 @@ def test_match_llm():
         os.environ.pop(XINFERENCE_ENV_MODEL_SRC)
 
 
+@pytest.mark.parametrize(
+    "model_name,expected_architecture,expected_formats",
+    [
+        (
+            "Qwen3-Next-Instruct",
+            "Qwen3NextForCausalLM",
+            {
+                "pytorch": {"none"},
+                "fp8": {"fp8"},
+                "awq": {"4bit", "8bit"},
+            },
+        ),
+        (
+            "Qwen3-Next-Thinking",
+            "Qwen3NextForCausalLM",
+            {
+                "pytorch": {"none"},
+                "fp8": {"fp8"},
+                "awq": {"4bit", "8bit"},
+            },
+        ),
+        (
+            "MiniCPM-V-4.6",
+            "MiniCPMV4_6ForConditionalGeneration",
+            {
+                "pytorch": {"none"},
+                "bnb": {"4-bit"},
+                "awq": {"Int4"},
+                "gptq": {"Int4"},
+            },
+        ),
+        (
+            "MiniCPM-V-4.6-Thinking",
+            "MiniCPMV4_6ForConditionalGeneration",
+            {
+                "pytorch": {"none"},
+                "bnb": {"4-bit"},
+                "awq": {"Int4"},
+                "gptq": {"Int4"},
+            },
+        ),
+        (
+            "MiniMax-M3",
+            "MiniMaxM3SparseForConditionalGeneration",
+            {"pytorch": {"none"}},
+        ),
+    ],
+)
+def test_recent_sglang_engine_registration(
+    monkeypatch, model_name, expected_architecture, expected_formats
+):
+    import xinference.model.llm as llm_module
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..sglang import core as sglang_core
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    )
+    assert family.architectures == [expected_architecture]
+
+    monkeypatch.setattr(
+        llm_module,
+        "SUPPORTED_ENGINES",
+        {
+            "SGLang": [
+                sglang_core.SGLANGModel,
+                sglang_core.SGLANGChatModel,
+                sglang_core.SGLANGVisionModel,
+            ]
+        },
+    )
+    monkeypatch.setattr(llm_module, "LLM_ENGINES", {})
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    monkeypatch.setattr(sglang_core, "check_dependency_available", lambda *_args: True)
+    monkeypatch.setattr(sglang_core.SGLANGModel, "_has_cuda_device", lambda: True)
+    monkeypatch.setattr(sglang_core.SGLANGModel, "_is_linux", lambda: True)
+
+    llm_module.generate_engine_config_by_model_family(family)
+
+    registrations = llm_module.LLM_ENGINES[model_name]["SGLang"]
+    registered_formats = {
+        registration["model_format"]: set(registration["quantizations"])
+        for registration in registrations
+    }
+    assert registered_formats == expected_formats
+
+
+@pytest.mark.parametrize(
+    "model_name,expected_version,expected_formats",
+    [
+        ("Hy-MT2-1.8B", "0.21.0", {"pytorch", "ggufv2"}),
+        ("Hy-MT2-7B", "0.21.0", {"pytorch", "ggufv2"}),
+        ("Hy-MT2-30B-A3B", "0.21.0", {"pytorch"}),
+        (
+            "MiniCPM-V-4.6",
+            "0.22.0",
+            {"pytorch", "bnb", "awq", "gptq"},
+        ),
+        (
+            "MiniCPM-V-4.6-Thinking",
+            "0.22.0",
+            {"pytorch", "bnb", "awq", "gptq"},
+        ),
+        ("MiniMax-M3", "0.24.0", {"pytorch"}),
+    ],
+)
+def test_recent_vllm_engine_registration(
+    monkeypatch, model_name, expected_version, expected_formats
+):
+    import xinference.model.llm as llm_module
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..vllm import core as vllm_core
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    )
+    assert vllm_core._get_effective_vllm_version_for_family(family) == version.parse(
+        expected_version
+    )
+
+    monkeypatch.setattr(
+        llm_module,
+        "SUPPORTED_ENGINES",
+        {
+            "vLLM": [
+                vllm_core.VLLMModel,
+                vllm_core.VLLMChatModel,
+                vllm_core.VLLMMultiModel,
+            ]
+        },
+    )
+    monkeypatch.setattr(llm_module, "LLM_ENGINES", {})
+    monkeypatch.setattr(vllm_core, "VLLM_INSTALLED", True)
+    monkeypatch.setattr(vllm_core, "VLLM_VERSION", version.parse("1.0.0"))
+    monkeypatch.setattr(vllm_core.VLLMModel, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(vllm_core.VLLMModel, "_has_cuda_device", lambda: True)
+    monkeypatch.setattr(vllm_core.VLLMModel, "_is_linux", lambda: True)
+
+    llm_module.generate_engine_config_by_model_family(family)
+
+    registrations = llm_module.LLM_ENGINES[model_name]["vLLM"]
+    assert {registration["model_format"] for registration in registrations} == (
+        expected_formats
+    )
+
+
+@pytest.mark.parametrize(
+    "model_name,engine_name,minimum_version",
+    [
+        ("MiniCPM-V-4.6", "vllm", "0.22.0"),
+        ("MiniCPM-V-4.6-Thinking", "vllm", "0.22.0"),
+        ("MiniCPM-V-4.6", "sglang", "0.5.12"),
+        ("MiniCPM-V-4.6-Thinking", "sglang", "0.5.12"),
+        ("MiniMax-M3", "vllm", "0.24.0"),
+        ("MiniMax-M3", "sglang", "0.5.16"),
+    ],
+)
+def test_recent_model_engine_minimum_versions(model_name, engine_name, minimum_version):
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == model_name
+    )
+    assert family.virtualenv is not None
+    requirements = {
+        requirement.name: requirement
+        for package in family.virtualenv.packages
+        if not package.startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+    assert requirements[engine_name].specifier.contains(minimum_version)
+
+
 def test_match_deepseek_v4_flash_0731():
     family = match_llm(
         "DeepSeek-V4-Flash-0731",

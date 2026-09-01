@@ -36,7 +36,7 @@ from ..utils import (
     download_from_csghub,
     download_from_modelscope,
     download_from_openmind_hub,
-    retry_download,
+    retry_snapshot_download,
 )
 from . import LLM
 
@@ -422,7 +422,7 @@ def cache_model_tokenizer_and_config(
     if llm_spec.model_hub == "huggingface":
         from huggingface_hub import snapshot_download
 
-        download_dir = retry_download(
+        download_dir = retry_snapshot_download(
             snapshot_download,
             llm_family.model_name,
             {
@@ -437,7 +437,7 @@ def cache_model_tokenizer_and_config(
     elif llm_spec.model_hub == "modelscope":
         from modelscope.hub.snapshot_download import snapshot_download
 
-        download_dir = retry_download(
+        download_dir = retry_snapshot_download(
             snapshot_download,
             llm_family.model_name,
             {
