@@ -970,6 +970,42 @@ def test_match_deepseek_v4_flash_0731():
     assert preview.model_specs[0].model_id == "deepseek-ai/DeepSeek-V4-Flash"
 
 
+def test_hy_mt2_remote_code_policy():
+    import copy
+
+    from ..llm_family import match_llm
+    from ..transformers.hy_mt2 import HyMT2PytorchModel
+
+    family = match_llm(
+        "Hy-MT2-1.8B",
+        model_format="pytorch",
+        model_size_in_billions=2,
+        quantization="none",
+        download_hub="modelscope",
+    )
+
+    assert family is not None
+    assert family.is_builtin is True
+    assert family.architectures == ["HunYuanDenseV1ForCausalLM"]
+    assert family.model_specs[0].model_hub == "modelscope"
+    assert family.model_specs[0].model_id == "Tencent-Hunyuan/Hy-MT2-1.8B"
+    assert (
+        HyMT2PytorchModel.match_json(
+            family, family.model_specs[0], family.model_specs[0].quantization
+        )
+        is True
+    )
+
+    builtin_model = HyMT2PytorchModel("hy-mt2-builtin-test", family, "/tmp/hy-mt2")
+    assert builtin_model._pytorch_model_config["torch_dtype"] == "bfloat16"
+    assert builtin_model._pytorch_model_config["trust_remote_code"] is True
+
+    custom_family = copy.copy(family)
+    custom_family.is_builtin = False
+    custom_model = HyMT2PytorchModel("hy-mt2-custom-test", custom_family, "/tmp/hy-mt2")
+    assert custom_model._pytorch_model_config["trust_remote_code"] is False
+
+
 def test_is_valid_file_uri():
     with tempfile.NamedTemporaryFile() as tmp_file:
         assert is_valid_model_uri(f"file://{tmp_file.name}") is True

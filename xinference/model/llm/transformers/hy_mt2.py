@@ -15,6 +15,7 @@
 from typing import List, Optional, Tuple, Union
 
 from ....types import LoRA, PytorchModelConfig
+from ...utils import allow_trust_remote_code
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
 
@@ -59,7 +60,7 @@ class HyMT2PytorchModel(PytorchChatModel):
         # Hy-MT2 official README pins bfloat16; the default MPS preferred
         # dtype (float16) breaks the custom HunYuanDense embedding path.
         config.setdefault("torch_dtype", "bfloat16")
-        config.setdefault("trust_remote_code", True)
+        config["trust_remote_code"] = allow_trust_remote_code(self.model_family)
         return config  # type: ignore
 
     @classmethod
