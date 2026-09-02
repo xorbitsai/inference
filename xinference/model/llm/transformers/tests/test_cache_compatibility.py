@@ -172,3 +172,31 @@ def test_merge_preserves_sliding_cache_state_and_shared_layers():
         shared_key[:, :, 1:],
         torch.full((1, 2, 2, 4), 2, dtype=torch.float32),
     )
+
+
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 2,
+    reason="requires at least two CUDA devices",
+)
+def test_dynamic_cache_reduction_supports_layers_on_multiple_cuda_devices():
+    model = _model_for_cache_tests()
+    cache = DynamicCache(
+        ddp_cache_data=[
+            (
+                torch.ones((3, 2, 4, 4), device="cuda:0"),
+                torch.ones((3, 2, 4, 4), device="cuda:0"),
+            ),
+            (
+                torch.ones((3, 2, 4, 4), device="cuda:1"),
+                torch.ones((3, 2, 4, 4), device="cuda:1"),
+            ),
+        ]
+    )
+
+    reduced = model.build_reduced_kv_cache(cache, {1})
+
+    assert [layer.keys.device for layer in reduced.layers] == [
+        torch.device("cuda:0"),
+        torch.device("cuda:1"),
+    ]
+    assert all(layer.keys.shape[0] == 2 for layer in reduced.layers)

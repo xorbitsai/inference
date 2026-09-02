@@ -998,7 +998,13 @@ class PytorchModel(LLM):
 
         batch_select_indices = getattr(cache, "batch_select_indices", None)
         if batch_select_indices is not None:
-            batch_select_indices(torch.tensor(batch_slices, dtype=torch.long))
+            # A DynamicCache can contain layers on different devices when the
+            # model is loaded with ``device_map="auto"``.  CPU indices are
+            # accepted by PyTorch for tensors on any device and avoid tying
+            # the selection to the device of the first cache layer.
+            batch_select_indices(
+                torch.as_tensor(batch_slices, dtype=torch.long, device="cpu")
+            )
         else:
             for idx in range(len(cache)):
                 key, value = get_kv_cache_layer(cache, idx)
