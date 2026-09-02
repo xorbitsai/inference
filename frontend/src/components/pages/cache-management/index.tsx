@@ -23,6 +23,7 @@ import DownloadProgressDetails from '@/components/pages/launch-model/launch-dial
 import {
   findModelRegistration,
   getLaunchModelHref,
+  getSuccessfulRegistrationGroups,
   setPendingLaunchModelTarget,
 } from '@/components/pages/launch-model/navigation-utils.mjs';
 import { Badge } from '@/components/ui/badge';
@@ -287,7 +288,7 @@ export default function CacheManagement() {
   const handleLaunchModel = async (item: ModelCachedItem) => {
     setLaunchingModelName(item.model_name);
     try {
-      const registrationGroups = await Promise.all(
+      const registrationResults = await Promise.allSettled(
         MODEL_REGISTRATION_TYPES.map(async (modelType) => ({
           modelType,
           registrations: await request.get<ModelRegistrationListItem[]>(
@@ -295,6 +296,7 @@ export default function CacheManagement() {
           ),
         }))
       );
+      const registrationGroups = getSuccessfulRegistrationGroups(registrationResults);
       const registration = findModelRegistration(registrationGroups, item.model_name);
       const href = registration
         ? getLaunchModelHref(registration.modelType, item.model_name, registration.isBuiltin)

@@ -4,10 +4,21 @@ import {
   clearPendingLaunchModelTarget,
   findModelRegistration,
   getLaunchModelHref,
+  getSuccessfulRegistrationGroups,
   peekPendingLaunchModelTarget,
   prioritizeModelByName,
   setPendingLaunchModelTarget,
 } from './navigation-utils.mjs';
+
+test('keeps registration groups from successful requests', async () => {
+  const successfulGroup = { modelType: 'LLM', registrations: [] };
+  const results = await Promise.allSettled([
+    Promise.resolve(successfulGroup),
+    Promise.reject(new Error('unsupported model type')),
+  ]);
+
+  assert.deepEqual(getSuccessfulRegistrationGroups(results), [successfulGroup]);
+});
 
 test('finds a model type from existing registration lists', () => {
   assert.deepEqual(
@@ -24,6 +35,23 @@ test('finds a model type from existing registration lists', () => {
     { modelType: 'embedding', isBuiltin: false }
   );
   assert.equal(findModelRegistration([], 'missing'), null);
+});
+
+test('skips malformed registration lists and entries', () => {
+  assert.deepEqual(
+    findModelRegistration(
+      [
+        { modelType: 'LLM', registrations: null },
+        { modelType: 'embedding', registrations: { model_name: 'bge-m3' } },
+        {
+          modelType: 'rerank',
+          registrations: [null, { model_name: 'bge-reranker', is_builtin: true }],
+        },
+      ],
+      'bge-reranker'
+    ),
+    { modelType: 'rerank', isBuiltin: true }
+  );
 });
 
 test('builds a launch deep link for a built-in model type', () => {

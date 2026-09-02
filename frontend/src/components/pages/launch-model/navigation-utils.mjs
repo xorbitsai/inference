@@ -24,11 +24,17 @@ export function clearPendingLaunchModelTarget(target) {
   }
 }
 
+export function getSuccessfulRegistrationGroups(results) {
+  return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+}
+
 export function findModelRegistration(registrationGroups, targetModelName) {
   if (!targetModelName) return null;
 
   for (const { modelType, registrations } of registrationGroups) {
-    const registration = registrations.find((item) => item.model_name === targetModelName);
+    if (!Array.isArray(registrations)) continue;
+
+    const registration = registrations.find((item) => item?.model_name === targetModelName);
     if (registration) {
       return {
         modelType,
