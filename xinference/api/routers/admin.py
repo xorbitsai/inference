@@ -178,6 +178,12 @@ async def cache_model(
         payload = await request.json()
         if not isinstance(payload, dict):
             raise ValueError("Invalid input. Expected a JSON object.")
+        internal_keys = sorted(key for key in payload if key.startswith("_"))
+        if internal_keys:
+            raise ValueError(
+                "Invalid input. Internal fields are not allowed: "
+                + ", ".join(internal_keys)
+            )
 
         cache_uid = payload.get("cache_uid") or str(uuid.uuid4())
         model_name = payload.get("model_name")
@@ -299,6 +305,65 @@ async def cancel_cache_model(
         return JSONResponse(content=None)
     except RuntimeError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def delete_cache_download(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.delete_cache_builtin_model(cache_uid)
+        return JSONResponse(content=result)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def pause_cache_model(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.pause_cache_builtin_model(cache_uid)
+        return JSONResponse(content=result)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def resume_cache_model(
+    cache_uid: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        result = await supervisor_ref.resume_cache_builtin_model(cache_uid)
+        return JSONResponse(content=result)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def list_model_downloads(
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    try:
+        supervisor_ref = await api._get_supervisor_ref()
+        data = await supervisor_ref.list_model_downloads()
+        return JSONResponse(content={"list": data})
     except Exception as e:
         logger.error(e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -1688,6 +1753,30 @@ def register_routes(api: "RESTfulAPI") -> None:
         cancel_cache_model,
         methods=["POST"],
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads",
+        list_model_downloads,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads/{cache_uid}/pause",
+        pause_cache_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads/{cache_uid}/resume",
+        resume_cache_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/downloads/{cache_uid}",
+        delete_cache_download,
+        methods=["DELETE"],
+        dependencies=([Security(auth, scopes=["cache:delete"])] if is_auth else None),
     )
 
     router.add_api_route(

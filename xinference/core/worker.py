@@ -782,6 +782,8 @@ class DownloadInfo:
     cancel_event: threading.Event = field(default_factory=threading.Event)
     # downloader, reports progress and cancels the active file transfer
     downloader: Optional[CancellableDownloader] = None
+    # Inputs needed to identify the exact Hub repository for safe cleanup.
+    payload: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -840,6 +842,10 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
         # download-only operations never register a running model.
         self._cache_uid_to_download_info: Dict[str, DownloadInfo] = {}
+        # Serialize repository cleanup with registration of new downloads.  An
+        # already-running download is detected through the maps above/below;
+        # a new one cannot enter those maps halfway through a deletion.
+        self._download_artifact_cleanup_lock = asyncio.Lock()
         # Launch concurrency control
         self._launch_semaphore = asyncio.Semaphore(XINFERENCE_MAX_CONCURRENT_LAUNCHES)
         self._launch_active = 0
@@ -4051,11 +4057,22 @@ class WorkerActor(xo.StatelessActor):
                 f"Invalid input. `model_path`: {model_path} File or directory does not exist."
             )
         self._check_model_is_valid(model_name, model_format)
-        if cache_uid in self._cache_uid_to_download_info:
-            raise ValueError(f"Cache operation {cache_uid} is already running")
-
-        download_info = DownloadInfo()
-        self._cache_uid_to_download_info[cache_uid] = download_info
+        download_payload = {
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "model_format": model_format,
+            "quantization": quantization,
+            "model_engine": model_engine,
+            "model_type": model_type,
+            "download_hub": download_hub,
+            "model_path": model_path,
+            **kwargs,
+        }
+        async with self._download_artifact_cleanup_lock:
+            if cache_uid in self._cache_uid_to_download_info:
+                raise ValueError(f"Cache operation {cache_uid} is already running")
+            download_info = DownloadInfo(payload=download_payload)
+            self._cache_uid_to_download_info[cache_uid] = download_info
         try:
             async with self._launch_semaphore:
                 if download_info.cancel_event.is_set():
@@ -4250,7 +4267,13 @@ class WorkerActor(xo.StatelessActor):
 
         _was_queued = False
         try:
-            self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
+            cleanup_lock = getattr(self, "_download_artifact_cleanup_lock", None)
+            if cleanup_lock is None:
+                cleanup_lock = self._download_artifact_cleanup_lock = asyncio.Lock()
+            async with cleanup_lock:
+                self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo(
+                    payload=launch_args
+                )
 
             # Launch concurrency control: queue if semaphore is full
             if self._launch_semaphore.locked():
@@ -4636,7 +4659,7 @@ class WorkerActor(xo.StatelessActor):
         finally:
             if _was_queued:
                 self._launch_waiting -= 1
-            del self._model_uid_launching_guard[model_uid]
+            self._model_uid_launching_guard.pop(model_uid, None)
 
         # Record virtual environment information if applicable
         if virtual_env_manager is not None and virtual_env_path is not None:
@@ -4772,10 +4795,364 @@ class WorkerActor(xo.StatelessActor):
         ):
             await asyncio.sleep(0.1)
         if cache_uid in self._cache_uid_to_download_info:
-            logger.warning(
-                "Cache operation %s still unwinding after %ss",
-                cache_uid,
-                XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
+            raise RuntimeError(
+                f"Cache operation {cache_uid} is still running after "
+                f"{XINFERENCE_CANCEL_LAUNCH_TIMEOUT}s"
+            )
+
+    @staticmethod
+    def _resolve_model_download_repositories(
+        payload: Dict[str, Any],
+    ) -> List[Dict[str, str]]:
+        """Resolve every Hub repository used while preparing this model."""
+        persisted = payload.get("_download_repositories")
+        if isinstance(persisted, list):
+            # Even an empty persisted list is authoritative: it records that
+            # this task owns no Hub repository (for example, a local model).
+            return [
+                {
+                    "model_hub": str(item["model_hub"]),
+                    "model_id": str(item["model_id"]),
+                }
+                for item in persisted
+                if isinstance(item, dict)
+                and item.get("model_hub")
+                and item.get("model_id")
+            ]
+
+        repositories: List[Dict[str, str]] = []
+
+        def add_repository(
+            model_hub: Any, model_id: Any, model_uri: Any = None
+        ) -> None:
+            if model_uri or not model_hub or not model_id:
+                return
+            repository = {
+                "model_hub": str(model_hub),
+                "model_id": str(model_id),
+            }
+            if repository not in repositories:
+                repositories.append(repository)
+
+        def add_spec(repository_spec: Any) -> None:
+            add_repository(
+                getattr(repository_spec, "model_hub", None),
+                getattr(repository_spec, "model_id", None),
+                getattr(repository_spec, "model_uri", None),
+            )
+
+        model_type = str(payload.get("model_type") or "LLM").lower()
+        model_name = str(payload.get("model_name") or "")
+        model_engine = payload.get("model_engine")
+        model_format = payload.get("model_format")
+        quantization = payload.get("quantization")
+        download_hub = payload.get("download_hub")
+
+        if model_type == "llm":
+            from ..model.llm.llm_family import match_llm
+
+            family = match_llm(
+                model_name,
+                model_format,
+                payload.get("model_size_in_billions"),
+                quantization,
+                download_hub,
+            )
+            if family is None:
+                raise ValueError(f"Model {model_name} is no longer registered")
+            spec = family.model_specs[0]
+        elif model_type == "embedding":
+            from ..model.embedding.embed_family import match_embedding
+
+            spec = match_embedding(
+                model_name, model_format, quantization, download_hub
+            ).model_specs[0]
+        elif model_type == "rerank":
+            from ..model.rerank.rerank_family import match_rerank
+
+            spec = match_rerank(
+                model_name, model_format, quantization, download_hub
+            ).model_specs[0]
+        elif model_type == "image":
+            from ..model.image.core import _select_ocr_model_family, match_diffusion
+
+            spec = match_diffusion(model_name, download_hub)
+            if "ocr" in (spec.model_ability or []):
+                spec = _select_ocr_model_family(
+                    model_name,
+                    model_engine or "transformers",
+                    download_hub,
+                    model_format=model_format,
+                    quantization=quantization,
+                )
+        elif model_type == "audio":
+            from ..model.audio.core import match_audio
+
+            spec = match_audio(model_name, download_hub, model_engine=model_engine)
+        elif model_type == "video":
+            from ..model.video.core import match_diffusion as match_video
+            from ..model.video.core import resolve_video_model_name_and_engine
+
+            model_name, model_engine = resolve_video_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+            spec = match_video(model_name, download_hub, model_engine=model_engine)
+        elif model_type == "world":
+            from ..model.world.core import match_world_model
+
+            spec = match_world_model(model_name, download_hub)
+        elif model_type == "flexible":
+            return []
+        else:
+            raise ValueError(f"Unsupported model type: {model_type}")
+
+        # A user-supplied primary path is not task-owned. Auxiliary models may
+        # still be downloaded and therefore must remain in the cleanup set.
+        if not payload.get("model_path"):
+            add_spec(spec)
+
+        if model_type == "llm":
+            from ..model.llm.core import parse_bool_launch_arg
+
+            if parse_bool_launch_arg(
+                payload.get("enable_mtp", False)
+            ) and not payload.get("draft_model_path"):
+                draft_model_id = getattr(spec, "draft_model_id", None)
+                draft_template = getattr(spec, "draft_model_file_name_template", None)
+                if not draft_model_id and draft_template:
+                    # GGUF drafters can be files in the primary repository.
+                    draft_model_id = getattr(spec, "model_id", None)
+                if draft_model_id:
+                    draft_quantization = payload.get("draft_quantization")
+                    draft_quantizations = (
+                        getattr(spec, "draft_quantizations", None) or []
+                    )
+                    if draft_quantization is None and draft_quantizations:
+                        draft_quantization = draft_quantizations[0]
+                    if (
+                        "{draft_quantization}" in draft_model_id
+                        and not draft_quantization
+                    ):
+                        raise ValueError(
+                            f"Model {model_name} declares the templated drafter "
+                            f"{draft_model_id!r} but no `draft_quantizations`."
+                        )
+                    try:
+                        draft_model_id = draft_model_id.format(
+                            draft_quantization=draft_quantization
+                        )
+                    except (KeyError, IndexError) as exc:
+                        raise ValueError(
+                            f"Invalid draft_model_id {draft_model_id!r}: {exc!r}"
+                        ) from exc
+                    add_repository(getattr(spec, "model_hub", None), draft_model_id)
+
+        if model_type == "image" and "ocr" not in (
+            getattr(spec, "model_ability", None) or []
+        ):
+            image_options = (getattr(spec, "default_model_config", None) or {}).copy()
+            image_options.update(payload)
+            controlnet = image_options.get("controlnet")
+            if isinstance(controlnet, str):
+                controlnet_names = [controlnet]
+            elif isinstance(controlnet, (list, tuple)):
+                controlnet_names = list(controlnet)
+            else:
+                controlnet_names = []
+            for controlnet_name in controlnet_names:
+                for controlnet_spec in getattr(spec, "controlnet", None) or []:
+                    if getattr(controlnet_spec, "model_name", None) == controlnet_name:
+                        add_spec(controlnet_spec)
+                        break
+
+        if model_type in {"image", "video"}:
+            model_hub = getattr(spec, "model_hub", None)
+            if payload.get("gguf_quantization") and not payload.get("gguf_model_path"):
+                add_repository(model_hub, getattr(spec, "gguf_model_id", None))
+            if payload.get("lightning_version") and not payload.get(
+                "lightning_model_path"
+            ):
+                add_repository(model_hub, getattr(spec, "lightning_model_id", None))
+
+        return repositories
+
+    async def resolve_model_download_repositories(
+        self, payload: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        return self._resolve_model_download_repositories(payload)
+
+    @classmethod
+    def _download_repository_paths(cls, payload: Dict[str, Any]) -> Set[str]:
+        roots = dict(
+            zip(
+                ("huggingface", "modelscope", "openmind_hub", "csghub"),
+                cls._download_cache_roots(),
+            )
+        )
+        paths: Set[str] = set()
+        for repository in cls._resolve_model_download_repositories(payload):
+            model_hub = repository["model_hub"]
+            model_id = repository["model_id"].strip("/")
+            root = roots.get(model_hub)
+            parts = model_id.split("/")
+            if (
+                root is None
+                or not model_id
+                or "\\" in model_id
+                or any(part in ("", ".", "..") for part in parts)
+            ):
+                raise ValueError(f"Unsafe download repository: {model_hub}/{model_id}")
+            safe_id = "--".join(parts)
+            directory_name = (
+                safe_id if model_hub == "modelscope" else f"models--{safe_id}"
+            )
+            repository_path = os.path.abspath(os.path.join(root, directory_name))
+            root = os.path.abspath(root)
+            if repository_path == root or not cls._is_path_within(
+                repository_path, root
+            ):
+                raise ValueError(
+                    f"Refusing to resolve repository outside Hub cache: "
+                    f"{repository_path}"
+                )
+            paths.add(repository_path)
+        return paths
+
+    @classmethod
+    def _repository_has_cache_reference(cls, repository_path: str) -> bool:
+        referenced = cls._collect_symlink_file_targets(
+            XINFERENCE_CACHE_DIR,
+            follow_directory_links=True,
+            include_regular_files=True,
+        )
+        referenced.update(
+            cls._collect_cache_source_manifest_targets(XINFERENCE_CACHE_DIR)
+        )
+        return any(cls._is_path_within(path, repository_path) for path in referenced)
+
+    @staticmethod
+    def _path_size(path: str) -> int:
+        if os.path.isfile(path) and not os.path.islink(path):
+            try:
+                return os.path.getsize(path)
+            except OSError:
+                return 0
+        total = 0
+        for root, _dirs, files in os.walk(path, followlinks=False):
+            for name in files:
+                file_path = os.path.join(root, name)
+                if os.path.islink(file_path):
+                    continue
+                try:
+                    total += os.path.getsize(file_path)
+                except OSError:
+                    pass
+        return total
+
+    @classmethod
+    def _remove_download_repository_paths(
+        cls, target_paths: Set[str], protected_paths: Set[str]
+    ) -> Dict[str, Any]:
+        overlapping = target_paths & protected_paths
+        if overlapping:
+            raise RuntimeError(
+                "Cannot delete download files while another download task uses "
+                f"the same repository: {', '.join(sorted(overlapping))}"
+            )
+
+        removed_bytes = 0
+        removed_repositories: List[str] = []
+        preserved_repositories: List[str] = []
+        partial_suffixes = (".incomplete", ".partial", ".part", ".tmp")
+        managed_roots = cls._download_cache_roots()
+
+        for repository_path in sorted(target_paths):
+            root = cls._download_cache_root_for_path(repository_path)
+            if root is None or root not in managed_roots:
+                raise ValueError(
+                    f"Refusing to delete unmanaged Hub repository: {repository_path}"
+                )
+            if not os.path.lexists(repository_path):
+                continue
+            if os.path.islink(repository_path) or not os.path.isdir(repository_path):
+                raise ValueError(
+                    f"Refusing to delete unexpected Hub repository path: "
+                    f"{repository_path}"
+                )
+            real_repository_path = os.path.realpath(repository_path)
+            if not cls._is_path_within(real_repository_path, root):
+                raise ValueError(
+                    f"Refusing to delete repository outside Hub cache: "
+                    f"{real_repository_path}"
+                )
+
+            if not cls._repository_has_cache_reference(repository_path):
+                removed_bytes += cls._path_size(repository_path)
+                shutil.rmtree(repository_path)
+                removed_repositories.append(repository_path)
+                continue
+
+            # A completed Xinference cache still references this repository.
+            # Preserve usable files and remove only SDK download fragments.
+            preserved_repositories.append(repository_path)
+            for current_root, dirs, files in os.walk(
+                repository_path, topdown=False, followlinks=False
+            ):
+                for name in files:
+                    if not name.lower().endswith(partial_suffixes):
+                        continue
+                    partial_path = os.path.join(current_root, name)
+                    if os.path.islink(partial_path):
+                        continue
+                    removed_bytes += cls._path_size(partial_path)
+                    try:
+                        os.remove(partial_path)
+                    except FileNotFoundError:
+                        pass
+                for name in dirs:
+                    directory = os.path.join(current_root, name)
+                    if os.path.islink(directory):
+                        continue
+                    try:
+                        os.rmdir(directory)
+                    except OSError:
+                        pass
+
+        return {
+            "removed_bytes": removed_bytes,
+            "removed_repositories": removed_repositories,
+            "preserved_repositories": preserved_repositories,
+        }
+
+    @log_async(logger=logger, level=logging.INFO)
+    async def delete_cache_model_artifacts(
+        self,
+        payload: Dict[str, Any],
+        protected_payloads: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        protected_payloads = list(protected_payloads or [])
+        lock = getattr(self, "_download_artifact_cleanup_lock", None)
+        if lock is None:
+            lock = self._download_artifact_cleanup_lock = asyncio.Lock()
+
+        async with lock:
+            for download_info in self._cache_uid_to_download_info.values():
+                if download_info.payload:
+                    protected_payloads.append(download_info.payload)
+            for launch_info in self._model_uid_launching_guard.values():
+                if launch_info.payload:
+                    protected_payloads.append(launch_info.payload)
+
+            target_paths = self._download_repository_paths(payload)
+            protected_paths: Set[str] = set()
+            for protected_payload in protected_payloads:
+                protected_paths.update(
+                    self._download_repository_paths(protected_payload)
+                )
+            return await asyncio.to_thread(
+                self._remove_download_repository_paths,
+                target_paths,
+                protected_paths,
             )
 
     @log_async(logger=logger, level=logging.INFO)

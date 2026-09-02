@@ -143,6 +143,7 @@ async def test_cache_only_operation_skips_runtime_allocation():
     worker = _ActorStub()
     worker.address = "worker:1234"
     worker._cache_uid_to_download_info = {}
+    worker._download_artifact_cleanup_lock = asyncio.Lock()
     worker._launch_semaphore = asyncio.Semaphore(1)
     worker._check_model_is_valid = MagicMock()
     worker._get_progressor = AsyncMock(return_value=_ProgressorStub())
@@ -191,6 +192,26 @@ async def test_cancel_cache_operation_uses_shared_download_cancellation():
 
     worker._cache_uid_to_download_info.pop("cache-3")
     await cancel_task
+
+
+@pytest.mark.asyncio
+async def test_cancel_cache_operation_reports_unwind_timeout(monkeypatch):
+    from xinference.core import worker as worker_module
+    from xinference.core.worker import DownloadInfo, WorkerActor
+
+    worker = _ActorStub()
+    download_info = DownloadInfo()
+    download_info.downloader = MagicMock()
+    worker._cache_uid_to_download_info = {"cache-3": download_info}
+    worker._cancel_download = WorkerActor._cancel_download
+    worker.cancel_cache_model = WorkerActor.cancel_cache_model.__get__(worker)
+    monkeypatch.setattr(worker_module, "XINFERENCE_CANCEL_LAUNCH_TIMEOUT", 0)
+
+    with pytest.raises(RuntimeError, match="still running"):
+        await worker.cancel_cache_model("cache-3")
+
+    assert download_info.cancel_event.is_set()
+    download_info.downloader.cancel.assert_called_once_with()
 
 
 @pytest.mark.asyncio
