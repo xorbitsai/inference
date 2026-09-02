@@ -20,7 +20,7 @@ from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
 from ...engine_hooks import MODEL_TYPE_RERANK, _run_engine_registration_hooks
-from ..utils import flatten_quantizations
+from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
@@ -82,9 +82,10 @@ def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
     from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
     model_name = model_family.model_name
-    engines: Dict[str, List[Dict[str, Any]]] = RERANK_ENGINES.get(
-        model_name, {}
-    )  # structure for engine query
+    # Rebuilt fresh, never merged with RERANK_ENGINES[model_name]: this reruns
+    # on every register_builtin_model() refresh, so reusing the old dict would
+    # re-append a duplicate entry per engine each time.
+    engines: Dict[str, List[Dict[str, Any]]] = {}  # structure for engine query
     for spec in [x for x in model_family.model_specs if x.model_hub == "huggingface"]:
         model_format = spec.model_format
         quantization = spec.quantization
@@ -156,12 +157,15 @@ def load_model_family_from_json(json_filename, target_families):
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
+        model_spec = RerankModelFamilyV2(**json_obj)
+        # Dedup by value: this loader reruns on every refresh against the same JSON.
         if json_obj["model_name"] not in target_families:
-            target_families[json_obj["model_name"]] = [RerankModelFamilyV2(**json_obj)]
+            target_families[json_obj["model_name"]] = [model_spec]
         else:
-            target_families[json_obj["model_name"]].append(
-                RerankModelFamilyV2(**json_obj)
-            )
+            bucket = target_families[json_obj["model_name"]]
+            key = family_identity_key(model_spec)
+            if not any(family_identity_key(existing) == key for existing in bucket):
+                bucket.append(model_spec)
 
     del json_path
 
@@ -189,9 +193,9 @@ def _install():
     from .sentence_transformers.core import SentenceTransformerRerankModel
     from .vllm.core import VLLMRerankModel
 
-    SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerRerankModel])
-    VLLM_CLASSES.extend([VLLMRerankModel])
-    LLAMA_CPP_CLASSES.extend([XllamaCppRerankModel])
+    extend_classes_once(SENTENCE_TRANSFORMER_CLASSES, [SentenceTransformerRerankModel])
+    extend_classes_once(VLLM_CLASSES, [VLLMRerankModel])
+    extend_classes_once(LLAMA_CPP_CLASSES, [XllamaCppRerankModel])
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES

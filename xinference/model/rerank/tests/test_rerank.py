@@ -253,3 +253,39 @@ def test_qwen3_reranker_gguf_uses_llama_cpp_compatible_models(
     assert spec.model_file_name_template == (
         f"{model_name}{separator}{quantization}.gguf"
     )
+
+
+def test_register_builtin_model_is_idempotent():
+    # Worker.update_model_type() calls register_builtin_model() again on
+    # every runtime hub-refresh, on the same already-imported process. It
+    # must leave the engine registry as if it had only run once.
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES, SUPPORTED_ENGINES
+
+    register_builtin_model()
+    model_name = next(iter(RERANK_ENGINES))
+    baseline_classes = {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    }
+    baseline_engine_entries = sum(
+        len(specs) for specs in RERANK_ENGINES[model_name].values()
+    )
+    baseline_model_table = sum(len(specs) for specs in BUILTIN_RERANK_MODELS.values())
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    } == baseline_classes
+    assert (
+        sum(len(specs) for specs in RERANK_ENGINES[model_name].values())
+        == baseline_engine_entries
+    )
+    # BUILTIN_RERANK_MODELS itself must not grow either: load_model_family_from_json
+    # unconditionally appended a fresh spec per model name on every refresh, independent
+    # of the engine-class and engine-entry guards above.
+    assert (
+        sum(len(specs) for specs in BUILTIN_RERANK_MODELS.values())
+        == baseline_model_table
+    )

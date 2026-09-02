@@ -625,6 +625,33 @@ def _apply_engine_host_checks(
             )
 
 
+def extend_classes_once(target: List[type], classes: List[type]) -> None:
+    """Append each class to ``target`` only if it is not already present.
+
+    The embedding, rerank and LLM ``_install()`` functions run on every call
+    to ``register_builtin_model()``, including the runtime refresh path
+    (``Worker.update_model_type``, called repeatedly as the model catalog is
+    re-downloaded). Without this guard, each refresh re-appends the same
+    built-in engine classes to the shared module-level ``SUPPORTED_ENGINES``
+    lists, growing them without bound.
+    """
+    for cls in classes:
+        if cls not in target:
+            target.append(cls)
+
+
+def family_identity_key(model_spec: Any) -> str:
+    """Serialize a model-family spec for value-based dedup during registry loads.
+
+    Excludes ``is_builtin``: every ``_install()`` marks freshly loaded families
+    with ``family.is_builtin = True`` right after loading them, so on a repeated
+    ``register_builtin_model()`` refresh the newly parsed candidate (default
+    ``is_builtin``) would never compare equal to the already-loaded, already-marked
+    entry it duplicates.
+    """
+    return model_spec.json(exclude={"is_builtin"})
+
+
 def check_dependency_available(
     module_name: str, friendly_name: Optional[str] = None
 ) -> Union[bool, Tuple[bool, str]]:
