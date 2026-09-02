@@ -181,10 +181,18 @@ export default function LaunchDialog({
 
     setModelEngineMap({});
 
-    const res = await request.get(url);
+    const res = await request.get<ModelEngine>(url);
 
-    setModelEngineMap(res || {});
-  }, [isLLM, model?.model_name, modelType]);
+    const engineMap = res || {};
+    setModelEngineMap(engineMap);
+
+    const availableEngines = Object.entries(engineMap).filter(([, engineData]) =>
+      Array.isArray(engineData)
+    );
+    if (availableEngines.length === 1) {
+      form.setFieldValue('model_engine', availableEngines[0][0]);
+    }
+  }, [form, isLLM, model?.model_name, modelType]);
 
   const engineIndex = useMemo(() => buildEngineIndex(modelEngineMap), [modelEngineMap]);
   const cacheIndex = useMemo(() => {
