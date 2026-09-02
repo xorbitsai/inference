@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Ban,
   Box,
@@ -9,6 +10,7 @@ import {
   Copy,
   Database,
   Download,
+  ExternalLink,
   Pause,
   Play,
   RefreshCw,
@@ -18,6 +20,11 @@ import {
 import { toast } from 'sonner';
 
 import DownloadProgressDetails from '@/components/pages/launch-model/launch-dialog/download-progress-details';
+import {
+  findModelRegistration,
+  getLaunchModelHref,
+  setPendingLaunchModelTarget,
+} from '@/components/pages/launch-model/navigation-utils.mjs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,12 +46,23 @@ import { InfoTooltip } from '@/components/ui/tooltip';
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { ModelType } from '@/constants';
 import request from '@/lib/request';
 import { cn, copyToClipboard } from '@/lib/utils';
 import type { ModelCachedItem, ModelDownloadItem, ModelEnvItem } from '@/types/services';
 
 type TabValue = 'models' | 'environments';
 const ACTIVE_CACHE_DOWNLOAD_STAGES = new Set(['pending', 'resuming', 'downloading', 'pausing']);
+const MODEL_REGISTRATION_TYPES = [
+  ModelType.LLM,
+  ModelType.Embedding,
+  ModelType.Rerank,
+  ModelType.Image,
+  ModelType.Audio,
+  ModelType.Video,
+  ModelType.World,
+  ModelType.Flexible,
+] as const;
 type PendingAction =
   | { kind: 'download'; item: ModelDownloadItem }
   | { kind: 'downloadDelete'; item: ModelDownloadItem }
@@ -57,6 +75,11 @@ interface ListResponse<T> {
 
 interface DeleteResponse {
   result?: boolean;
+}
+
+interface ModelRegistrationListItem {
+  model_name?: string;
+  is_builtin?: boolean;
 }
 
 function asList<T>(response: ListResponse<T>): T[] {
@@ -127,6 +150,7 @@ function PathCell({ path, copyLabel }: { path?: string; copyLabel: string }) {
 
 export default function CacheManagement() {
   const { t } = useI18n();
+  const router = useRouter();
   const { clusterAuth, clusterUIConfig } = useGlobal();
   const auth = useMenuAuth();
   const unrestricted = clusterAuth?.auth === false || !clusterUIConfig?.auth_advanced;
@@ -145,6 +169,7 @@ export default function CacheManagement() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [downloadActionUid, setDownloadActionUid] = useState<string>();
+  const [launchingModelName, setLaunchingModelName] = useState<string>();
   const [expandedDownloadUids, setExpandedDownloadUids] = useState<Set<string>>(() => new Set());
   const [pendingAction, setPendingAction] = useState<PendingAction>();
   const [lastUpdated, setLastUpdated] = useState<number>();
@@ -256,6 +281,35 @@ export default function CacheManagement() {
       await Promise.all([loadDownloads(), loadCachedModels(), loadEnvironments()]);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleLaunchModel = async (item: ModelCachedItem) => {
+    setLaunchingModelName(item.model_name);
+    try {
+      const registrationGroups = await Promise.all(
+        MODEL_REGISTRATION_TYPES.map(async (modelType) => ({
+          modelType,
+          registrations: await request.get<ModelRegistrationListItem[]>(
+            `/v1/model_registrations/${modelType}`
+          ),
+        }))
+      );
+      const registration = findModelRegistration(registrationGroups, item.model_name);
+      const href = registration
+        ? getLaunchModelHref(registration.modelType, item.model_name, registration.isBuiltin)
+        : null;
+
+      if (href && registration) {
+        setPendingLaunchModelTarget(registration.modelType, item.model_name);
+        router.push(href);
+      } else {
+        toast.error(t('cacheManagement.resolveModelTypeFailed'));
+      }
+    } catch {
+      // Request errors are surfaced by the global request handler.
+    } finally {
+      setLaunchingModelName(undefined);
     }
   };
 
@@ -739,18 +793,35 @@ export default function CacheManagement() {
                         {item.actor_ip_address}
                       </TableCell>
                       <TableCell className="text-center">
-                        {canDeleteCache ? (
-                          <InfoTooltip content={t('cacheManagement.deleteCache')}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label={t('cacheManagement.deleteCache')}
-                              className="hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setPendingAction({ kind: 'cache', item })}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </InfoTooltip>
+                        {canViewDownloads || canDeleteCache ? (
+                          <div className="flex items-center justify-center gap-1">
+                            {canViewDownloads && (
+                              <InfoTooltip content={t('menu.launchModel')}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t('menu.launchModel')}
+                                  loading={launchingModelName === item.model_name}
+                                  onClick={() => void handleLaunchModel(item)}
+                                >
+                                  {launchingModelName !== item.model_name && <ExternalLink />}
+                                </Button>
+                              </InfoTooltip>
+                            )}
+                            {canDeleteCache && (
+                              <InfoTooltip content={t('cacheManagement.deleteCache')}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t('cacheManagement.deleteCache')}
+                                  className="hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => setPendingAction({ kind: 'cache', item })}
+                                >
+                                  <Trash2 />
+                                </Button>
+                              </InfoTooltip>
+                            )}
+                          </div>
                         ) : (
                           '-'
                         )}

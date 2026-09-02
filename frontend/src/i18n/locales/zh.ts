@@ -67,6 +67,7 @@ const zh = {
     resumeDownloadSuccess: '已恢复下载',
     downloadInterruptedHint: '下载被异常中断，已有缓存已保留，可点击“恢复下载”继续。',
     deleteCacheFailed: '删除模型缓存失败',
+    resolveModelTypeFailed: '未找到对应的模型类型',
     cancelCacheDownloadConfirm:
       '确定取消模型 {{model}} 的下载并删除该下载任务吗？已下载的文件会保留以便再次下载时复用。',
     deleteDownloadConfirm:
