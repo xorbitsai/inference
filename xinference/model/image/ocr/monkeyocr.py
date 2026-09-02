@@ -50,7 +50,7 @@ class MonkeyOCRModel(OCRModel):
         # info
         self._model_spec = model_spec
         self._device = device
-        self._abilities = model_spec.model_ability or []  # type: ignore
+        self._abilities = (model_spec.model_ability or []) if model_spec else []
         self._kwargs = kwargs
 
     @property

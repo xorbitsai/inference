@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import torch
 from ..utils.load_image import load_image
@@ -32,12 +33,19 @@ class MonkeyChat_transformers:
         logger.info(f"Loading Qwen2.5VL model from: {model_path}")
         logger.info(f"Using device: {self.device}")
         logger.info(f"Max batch size: {self.max_batch_size}")
+
+        has_flash_attn = importlib.util.find_spec("flash_attn") is not None
+        attn_implementation = (
+            "flash_attention_2"
+            if self.device.startswith("cuda") and has_flash_attn
+            else "sdpa"
+        )
         
         try:
             self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                         model_path,
                         torch_dtype=torch.bfloat16 if bf16_supported else torch.float16,
-                        attn_implementation="flash_attention_2" if self.device.startswith("cuda") else 'sdpa',
+                        attn_implementation=attn_implementation,
                         device_map=self.device,
                     )
                 
@@ -105,7 +113,7 @@ class MonkeyChat_transformers:
                         logger.error(f"Single processing also failed: {single_e}")
                         results.append(f"Error: {str(single_e)}")
             
-            if self.device == 'cuda':
+            if self.device.startswith("cuda"):
                 torch.cuda.empty_cache()
         
         return results
@@ -158,7 +166,7 @@ class MonkeyChat_transformers:
                 "content": [
                     {
                         "type": "image",
-                        "image": image,
+                        "image": load_image(image, max_size=1600),
                     },
                     {"type": "text", "text": question},
                 ],
