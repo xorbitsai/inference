@@ -2433,5 +2433,35 @@
         "model_revision": "master"
       }
     }
+  },
+  {
+    "version": 2,
+    "model_name": "MonkeyOCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.4 ; #engine# == \"transformers\"",
+        "numpy>=1.21.6,<2.0.0 ; #engine# == \"transformers\"",
+        "pydantic>=2.7.2 ; #engine# == \"transformers\"",
+        "PyMuPDF>=1.24.9,<=1.24.14 ; #engine# == \"transformers\"",
+        "pycocotools>=2.0.6 ; #engine# == \"transformers\"",
+        "qwen_vl_utils==0.0.10 ; #engine# == \"transformers\"",
+        "openai==1.88.0 ; #engine# == \"transformers\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "echo840/MonkeyOCR",
+        "model_revision": "2aefc846e258b771fe3ea1b808702f95375a5afd"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/MonkeyOCR",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1763445598
   }
 ]
