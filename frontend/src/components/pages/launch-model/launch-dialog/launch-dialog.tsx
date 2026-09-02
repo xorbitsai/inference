@@ -190,7 +190,10 @@ export default function LaunchDialog({
       Array.isArray(engineData)
     );
     if (availableEngines.length === 1) {
-      form.setFieldValue('model_engine', availableEngines[0][0]);
+      const soleEngine = availableEngines[0][0];
+      if (form.getFieldValue('model_engine') !== soleEngine) {
+        form.setFieldValue('model_engine', soleEngine);
+      }
     }
   }, [form, isLLM, model?.model_name, modelType]);
 
