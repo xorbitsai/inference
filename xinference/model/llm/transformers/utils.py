@@ -260,11 +260,18 @@ def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel")
 
 
 def convert_to_cache_cls(cache) -> DynamicCache:
+    """Convert legacy ``past_key_values`` to the active Cache API.
+
+    Transformers releases before the layer-based Cache API exposed
+    ``DynamicCache.from_legacy_cache``. Newer releases removed that
+    classmethod and accept legacy layer tuples through ``ddp_cache_data``.
+    Support both APIs so model outputs can be passed back into the batching
+    code across supported Transformers versions.
     """
-    Compatible with some old models
-    """
-    if isinstance(cache, tuple):
-        return DynamicCache.from_legacy_cache(cache)
+    if isinstance(cache, (tuple, list)):
+        if hasattr(DynamicCache, "from_legacy_cache"):
+            return DynamicCache.from_legacy_cache(cache)
+        return DynamicCache(ddp_cache_data=cache)
     return cache
 
 

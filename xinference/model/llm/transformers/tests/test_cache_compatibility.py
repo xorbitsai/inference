@@ -18,7 +18,11 @@ import torch
 from transformers import DynamicCache, LlamaConfig
 
 from ..core import PytorchModel
-from ..utils import get_batch_size_and_seq_len_from_kv_cache, get_kv_cache_layer
+from ..utils import (
+    convert_to_cache_cls,
+    get_batch_size_and_seq_len_from_kv_cache,
+    get_kv_cache_layer,
+)
 
 _HAS_LAYER_BASED_CACHE = hasattr(DynamicCache(), "layers")
 
@@ -78,6 +82,19 @@ def test_get_batch_size_supports_legacy_and_layer_cache_layouts():
     assert get_batch_size_and_seq_len_from_kv_cache(
         legacy_cache_with_skipped_layer, model
     ) == (4, 6)
+
+
+def test_convert_to_cache_cls_supports_tuple_and_list_legacy_cache():
+    key = torch.ones((2, 2, 3, 4))
+    value = torch.ones((2, 2, 3, 4))
+
+    for legacy_cache in (((key, value),), [(key, value)]):
+        converted = convert_to_cache_cls(legacy_cache)
+
+        assert isinstance(converted, DynamicCache)
+        converted_key, converted_value = get_kv_cache_layer(converted, 0)
+        torch.testing.assert_close(converted_key, key)
+        torch.testing.assert_close(converted_value, value)
 
 
 def test_empty_cache_layers_are_reported_without_indexing_failures():
