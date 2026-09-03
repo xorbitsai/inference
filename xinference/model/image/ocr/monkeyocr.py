@@ -14,20 +14,21 @@
 import logging
 
 # import fitz
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from PIL import Image
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
 
 
 class MonkeyOCRModel(OCRModel):
-    required_libs = ("transformers",)
+    required_libs = ("transformers", "qwen_vl_utils")
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
@@ -41,6 +42,9 @@ class MonkeyOCRModel(OCRModel):
         model_spec: Optional["ImageModelFamilyV2"] = None,
         **kwargs,
     ):
+        if model_path is None:
+            raise ValueError("model_path is required for MonkeyOCR")
+
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = f"{model_path}/Recognition"
@@ -62,13 +66,17 @@ class MonkeyOCRModel(OCRModel):
             MonkeyChat_transformers,
         )
 
-        self._model = MonkeyChat_transformers(self._model_path, device=self._device)
+        self._model = MonkeyChat_transformers(
+            self._model_path,
+            device=self._device,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
+        )
 
     def ocr(
         self,
         image: Union[str, Image.Image],
         **kwargs,
-    ) -> List[str]:
+    ) -> str:
         if self._model is None:
             raise RuntimeError("Model must be loaded.")
 
@@ -84,4 +92,4 @@ class MonkeyOCRModel(OCRModel):
             question = pre_question
 
         result = self._model.batch_inference([image], [question])
-        return result
+        return result[0] if result else ""
