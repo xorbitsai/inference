@@ -24,6 +24,20 @@ export function clearPendingLaunchModelTarget(target) {
   }
 }
 
+export function createLatestRequestGuard() {
+  let latestRequestId = 0;
+
+  return {
+    start() {
+      latestRequestId += 1;
+      return latestRequestId;
+    },
+    isLatest(requestId) {
+      return requestId === latestRequestId;
+    },
+  };
+}
+
 export function getSuccessfulRegistrationGroups(results) {
   return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
 }

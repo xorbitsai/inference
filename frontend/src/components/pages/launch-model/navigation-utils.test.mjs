@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   clearPendingLaunchModelTarget,
+  createLatestRequestGuard,
   findModelRegistration,
   getLaunchModelHref,
   getSuccessfulRegistrationGroups,
@@ -9,6 +10,28 @@ import {
   prioritizeModelByName,
   setPendingLaunchModelTarget,
 } from './navigation-utils.mjs';
+
+test('allows only the latest overlapping request to apply', async () => {
+  const guard = createLatestRequestGuard();
+  const applied = [];
+  let finishFirst = () => {};
+  const firstCompletion = new Promise((resolve) => {
+    finishFirst = resolve;
+  });
+  const applyAfter = async (name, completion) => {
+    const requestId = guard.start();
+    await completion;
+    if (guard.isLatest(requestId)) applied.push(name);
+  };
+
+  const first = applyAfter('first', firstCompletion);
+  const second = applyAfter('second', Promise.resolve());
+  await second;
+  finishFirst();
+  await first;
+
+  assert.deepEqual(applied, ['second']);
+});
 
 test('keeps registration groups from successful requests', async () => {
   const successfulGroup = { modelType: 'LLM', registrations: [] };

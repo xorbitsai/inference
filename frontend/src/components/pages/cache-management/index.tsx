@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 
 import DownloadProgressDetails from '@/components/pages/launch-model/launch-dialog/download-progress-details';
 import {
+  createLatestRequestGuard,
   findModelRegistration,
   getLaunchModelHref,
   getSuccessfulRegistrationGroups,
@@ -175,6 +176,7 @@ export default function CacheManagement() {
   const [pendingAction, setPendingAction] = useState<PendingAction>();
   const [lastUpdated, setLastUpdated] = useState<number>();
   const downloadsInFlight = useRef(false);
+  const launchRequestGuardRef = useRef(createLatestRequestGuard());
   const previousDownloadUids = useRef<Set<string>>(new Set());
 
   const availableTabs = useMemo<TabValue[]>(() => {
@@ -286,6 +288,8 @@ export default function CacheManagement() {
   };
 
   const handleLaunchModel = async (item: ModelCachedItem) => {
+    const requestGuard = launchRequestGuardRef.current;
+    const requestId = requestGuard.start();
     setLaunchingModelName(item.model_name);
     try {
       const registrationResults = await Promise.allSettled(
@@ -297,6 +301,9 @@ export default function CacheManagement() {
         }))
       );
       const registrationGroups = getSuccessfulRegistrationGroups(registrationResults);
+
+      if (!requestGuard.isLatest(requestId)) return;
+
       const registration = findModelRegistration(registrationGroups, item.model_name);
       const href = registration
         ? getLaunchModelHref(registration.modelType, item.model_name, registration.isBuiltin)
@@ -311,7 +318,9 @@ export default function CacheManagement() {
     } catch {
       // Request errors are surfaced by the global request handler.
     } finally {
-      setLaunchingModelName(undefined);
+      if (requestGuard.isLatest(requestId)) {
+        setLaunchingModelName(undefined);
+      }
     }
   };
 
