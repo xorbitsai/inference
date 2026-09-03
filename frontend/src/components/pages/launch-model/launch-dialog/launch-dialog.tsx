@@ -135,6 +135,7 @@ export default function LaunchDialog({
   const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
   const isCanceledDownloadRef = useRef(false);
+  const modelEngineRequestIdRef = useRef(0);
   const isLLM = modelType === ModelType.LLM;
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
   const launchFormValues = useFormValues(form);
@@ -170,6 +171,8 @@ export default function LaunchDialog({
     }
   }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
+    const requestId = ++modelEngineRequestIdRef.current;
+
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});
       return;
@@ -182,6 +185,8 @@ export default function LaunchDialog({
     setModelEngineMap({});
 
     const res = await request.get<ModelEngine>(url);
+
+    if (requestId !== modelEngineRequestIdRef.current) return;
 
     const engineMap = res || {};
     setModelEngineMap(engineMap);
@@ -1805,6 +1810,7 @@ export default function LaunchDialog({
   };
 
   const handleClose = () => {
+    modelEngineRequestIdRef.current += 1;
     setLoading(false);
     setIsDownloading(false);
     setCanceling(false);
@@ -1824,6 +1830,10 @@ export default function LaunchDialog({
       fetchModelEngine();
       fetchWorkers();
     }
+
+    return () => {
+      modelEngineRequestIdRef.current += 1;
+    };
   }, [fetchModelEngine, fetchWorkers, isOpen]);
 
   useEffect(() => {
