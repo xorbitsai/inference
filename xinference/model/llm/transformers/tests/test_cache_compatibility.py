@@ -192,7 +192,11 @@ def test_dynamic_cache_reduction_supports_layers_on_multiple_cuda_devices():
         1,
     )
 
-    reduced = model.build_reduced_kv_cache(cache, {1})
+    # Exercise the historical failure mode: without an explicit CPU device,
+    # torch.tensor() follows this non-CPU default and produces indices on
+    # cuda:0, which cannot be used for the cache layer on cuda:1.
+    with torch.device("cuda:0"):
+        reduced = model.build_reduced_kv_cache(cache, {1})
 
     assert [layer.keys.device for layer in reduced.layers] == [
         torch.device("cuda:0"),
