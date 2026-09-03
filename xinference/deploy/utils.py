@@ -27,8 +27,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if sys.platform == "win32":
     fcntl = None
+    import msvcrt
 else:
     import fcntl
+
+    msvcrt = None
 
 import xoscar as xo
 
@@ -45,7 +48,102 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+class _SafeFileRotationMixin:
+    """Cross-process coordination shared by size and timed handlers."""
+
+    def _init_rotation_coordination(self, filename):
+        directory = os.path.dirname(filename)
+        basename = os.path.basename(filename)
+        self._lock_path = os.path.join(directory, basename + ".rotate.lock")
+        with open(self._lock_path, "a+b") as lock_fd:
+            if os.fstat(lock_fd.fileno()).st_size == 0:
+                lock_fd.write(b"\0")
+                lock_fd.flush()
+
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            generation, _ = self._read_rotation_state(lock_fd)
+            self._rotation_generation = generation
+        finally:
+            self._release_rotation_lock(lock_fd)
+
+    def _acquire_rotation_lock(self):
+        lock_fd = open(self._lock_path, "r+b")
+        if msvcrt is not None:
+            lock_fd.seek(0)
+            msvcrt.locking(lock_fd.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        return lock_fd
+
+    def _release_rotation_lock(self, lock_fd):
+        if lock_fd is None:
+            return
+        try:
+            if msvcrt is not None:
+                lock_fd.seek(0)
+                msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            lock_fd.close()
+
+    def _read_rotation_state(self, lock_fd):
+        try:
+            lock_fd.seek(1)
+            payload = lock_fd.read().decode("ascii")
+            state = json.loads(payload) if payload else {}
+            generation = state.get("generation", 0)
+            timed_rollover = state.get("timed_rollover", 0)
+            if not isinstance(generation, int) or generation < 0:
+                generation = 0
+            if not isinstance(timed_rollover, (int, float)) or timed_rollover < 0:
+                timed_rollover = 0
+            return generation, timed_rollover
+        except (OSError, UnicodeError, ValueError, TypeError):
+            return 0, 0
+
+    def _write_rotation_state(self, lock_fd, generation, timed_rollover):
+        payload = json.dumps(
+            {
+                "generation": generation,
+                "timed_rollover": timed_rollover,
+            },
+            separators=(",", ":"),
+        ).encode("ascii")
+        lock_fd.seek(1)
+        lock_fd.truncate()
+        lock_fd.write(payload)
+        lock_fd.flush()
+        os.fsync(lock_fd.fileno())
+
+    def _record_rotation(self, lock_fd, state, timed_rollover=None):
+        generation, last_timed_rollover = state
+        generation += 1
+        if timed_rollover is not None:
+            last_timed_rollover = max(last_timed_rollover, timed_rollover)
+        self._write_rotation_state(lock_fd, generation, last_timed_rollover)
+        self._rotation_generation = generation
+
+    def rotate(self, source, dest):
+        try:
+            super().rotate(source, dest)
+        except PermissionError:
+            if msvcrt is None or self.rotator is not None:
+                raise
+            # Windows refuses to rename a log held by sibling processes. Copy
+            # the archive first, then truncate the live file in place so every
+            # process keeps writing through its existing handle.
+            import shutil
+
+            shutil.copy2(source, dest)
+            with open(source, "r+b") as source_file:
+                source_file.truncate(0)
+
+
+class SafeRotatingFileHandler(
+    _SafeFileRotationMixin, logging.handlers.RotatingFileHandler
+):
     """RotatingFileHandler that auto-creates parent directories.
 
     Python's standard RotatingFileHandler raises FileNotFoundError if
@@ -56,46 +154,23 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     calls ``dictConfig``.  This subclass ensures the directory is
     (re-)created before the file is opened.
 
-    Multi-process safety (2026-06-25):
-    1. fcntl file lock serializes ``doRollover`` across processes.
+    Multi-process safety:
+    1. A platform-native file lock serializes ``doRollover`` across processes.
     2. ``shouldRollover`` checks inode at entry; if another process
        renamed the file, reopen the stream.
     3. Size check uses ``os.fstat().st_size`` instead of
        ``stream.tell()`` so it reflects the true file size (including
        writes from other processes).
+    4. On Windows, an in-place copy/truncate fallback preserves open sibling
+       handles, while a shared generation prevents duplicate rotations.
 
-    Assumption: log directory is on a local filesystem (fcntl.flock
-    is unreliable on NFS).
-
-    Windows caveat: ``fcntl`` is unavailable on Windows, so the
-    rotation lock is a no-op there. Single-process use is unaffected;
-    multi-process use on Windows may regress to lost archives or
-    cleanup of files still held by another process.
+    Assumption: the log directory is on a local filesystem.
     """
 
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         super().__init__(filename, *args, **kwargs)
-        self._lock_path = os.path.join(
-            os.path.dirname(filename),
-            os.path.basename(filename) + ".rotate.lock",
-        )
-        # Pre-create the lock file so it exists even if doRollover is never
-        # called (e.g. short-lived processes). The file is empty and harmless.
-        open(self._lock_path, "a").close()
-
-    def _acquire_rotation_lock(self):
-        if fcntl is None:
-            return None
-        lock_fd = open(self._lock_path, "w")
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        return lock_fd
-
-    def _release_rotation_lock(self, lock_fd):
-        if lock_fd is None:
-            return
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        lock_fd.close()
+        self._init_rotation_coordination(filename)
 
     def _check_inode_and_reopen(self):
         """Reopen stream if another process renamed the base file.
@@ -140,6 +215,11 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     def doRollover(self):
         lock_fd = self._acquire_rotation_lock()
         try:
+            state = self._read_rotation_state(lock_fd)
+            if state[0] != self._rotation_generation:
+                self._rotation_generation = state[0]
+                self._check_inode_and_reopen()
+                return
             # If another process rotated the file while we were waiting
             # for the lock, the stream has been reopened to a fresh file
             # and there is nothing to do.
@@ -148,6 +228,7 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
             # Trust shouldRollover's judgment: if we got here, either time
             # or size trigger fired and no other process has rotated since.
             self._do_rolling_rollover()
+            self._record_rotation(lock_fd, state)
         finally:
             self._release_rotation_lock(lock_fd)
 
@@ -171,12 +252,65 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
             self.stream = self._open()
 
 
-class SafeTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    """TimedRotatingFileHandler that auto-creates parent directories."""
+class SafeTimedRotatingFileHandler(
+    _SafeFileRotationMixin, logging.handlers.TimedRotatingFileHandler
+):
+    """Timed handler with cross-platform, cross-process rotation safety."""
 
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         super().__init__(filename, *args, **kwargs)
+        self._init_rotation_coordination(filename)
+
+    def _check_inode_and_reopen(self):
+        if self.stream is None:
+            return False
+        try:
+            current_inode = os.stat(self.baseFilename).st_ino
+            stream_inode = os.fstat(self.stream.fileno()).st_ino
+            if current_inode != stream_inode:
+                self.stream.close()
+                self.stream = self._open()
+                if time.time() >= self.rolloverAt:
+                    self.rolloverAt = self.computeRollover(time.time())
+                return True
+        except OSError:
+            try:
+                self.stream.close()
+            except Exception:
+                pass
+            self.stream = None
+        return False
+
+    def _foreign_rotation_handled(self, state, current_time):
+        self._rotation_generation = state[0]
+        self._check_inode_and_reopen()
+        if current_time < self.rolloverAt:
+            return True
+        if state[1] >= self.rolloverAt:
+            self.rolloverAt = self.computeRollover(current_time)
+            return True
+        return False
+
+    def shouldRollover(self, record):
+        self._check_inode_and_reopen()
+        return super().shouldRollover(record)
+
+    def doRollover(self):
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            state = self._read_rotation_state(lock_fd)
+            current_time = time.time()
+            if state[0] != self._rotation_generation:
+                if self._foreign_rotation_handled(state, current_time):
+                    return
+            elif self._check_inode_and_reopen():
+                return
+            scheduled_rollover = self.rolloverAt
+            logging.handlers.TimedRotatingFileHandler.doRollover(self)
+            self._record_rotation(lock_fd, state, scheduled_rollover)
+        finally:
+            self._release_rotation_lock(lock_fd)
 
 
 class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
@@ -196,21 +330,18 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
     ``%Y-%m-%d``). The handler is only used with midnight rotation
     in ``get_config_dict()``, so this assumption holds.
 
-    Multi-process safety (2026-06-25):
-    1. fcntl file lock serializes ``doRollover`` across processes.
+    Multi-process safety:
+    1. A platform-native file lock serializes ``doRollover`` across processes.
     2. ``shouldRollover`` checks inode at entry; if another process
        renamed the file, reopen the stream.
     3. Size check uses ``os.fstat().st_size`` instead of
        ``stream.tell()`` so it reflects the true file size (including
        writes from other processes).
 
-    Assumption: log directory is on a local filesystem (fcntl.flock
-    is unreliable on NFS).
+    4. On Windows, copy/truncate keeps sibling handles valid and shared state
+       distinguishes time rotations from size rotations.
 
-    Windows caveat: ``fcntl`` is unavailable on Windows, so the
-    rotation lock is a no-op there. Single-process use is unaffected;
-    multi-process use on Windows may regress to lost archives or
-    cleanup of files still held by another process.
+    Assumption: the log directory is on a local filesystem.
     """
 
     _rotated_re = re.compile(r"^\d{4}-\d{2}-\d{2}(\.\d+)?$")
@@ -242,62 +373,10 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
             atTime=atTime,
             errors=errors,
         )
-        self._lock_path = os.path.join(
-            os.path.dirname(filename),
-            os.path.basename(filename) + ".rotate.lock",
-        )
-        # Pre-create the lock file so it exists even if doRollover is never
-        # called (e.g. short-lived processes). The file is empty and harmless.
-        open(self._lock_path, "a").close()
-
-    def _acquire_rotation_lock(self):
-        if fcntl is None:
-            return None
-        lock_fd = open(self._lock_path, "w")
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        return lock_fd
-
-    def _release_rotation_lock(self, lock_fd):
-        if lock_fd is None:
-            return
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        lock_fd.close()
-
-    def _check_inode_and_reopen(self):
-        """Reopen stream if another process renamed the base file.
-
-        Returns True if the stream was reopened (i.e. another process
-        rotated the file), False otherwise.
-        """
-        if self.stream is None:
-            return False
-        try:
-            current_inode = os.stat(self.baseFilename).st_ino
-            stream_inode = os.fstat(self.stream.fileno()).st_ino
-            if current_inode != stream_inode:
-                self.stream.close()
-                self.stream = self._open()
-                # Another process performed the time-based rollover for us.
-                # Advance rolloverAt so the next shouldRollover/doRollover
-                # does not see a stale past-due time and perform a redundant,
-                # destructive rotation (clobbers the archive just written by
-                # the other process). Only advance when we are actually past
-                # the scheduled time — a size-only foreign rotation leaves
-                # the pending time rollover intact.
-                if time.time() >= self.rolloverAt:
-                    self.rolloverAt = self.computeRollover(time.time())
-                return True
-        except OSError:
-            try:
-                self.stream.close()
-            except Exception:
-                pass
-            self.stream = None
-        return False
 
     def shouldRollover(self, record):
         self._check_inode_and_reopen()
-        if super().shouldRollover(record):
+        if logging.handlers.TimedRotatingFileHandler.shouldRollover(self, record):
             return True
         if self.maxBytes > 0:
             if self.stream is None:
@@ -314,15 +393,23 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
     def doRollover(self):
         lock_fd = self._acquire_rotation_lock()
         try:
+            state = self._read_rotation_state(lock_fd)
+            current_time = time.time()
+            if state[0] != self._rotation_generation:
+                if self._foreign_rotation_handled(state, current_time):
+                    return
             # If another process rotated the file while we were waiting
             # for the lock, the stream has been reopened to a fresh file
             # and there is nothing to do.
-            if self._check_inode_and_reopen():
+            elif self._check_inode_and_reopen():
                 return
-            if time.time() >= self.rolloverAt:
-                super().doRollover()
+            if current_time >= self.rolloverAt:
+                scheduled_rollover = self.rolloverAt
+                logging.handlers.TimedRotatingFileHandler.doRollover(self)
+                self._record_rotation(lock_fd, state, scheduled_rollover)
             else:
                 self._do_size_rollover()
+                self._record_rotation(lock_fd, state)
         finally:
             self._release_rotation_lock(lock_fd)
 
