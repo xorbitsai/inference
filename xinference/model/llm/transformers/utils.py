@@ -271,7 +271,13 @@ def convert_to_cache_cls(cache) -> DynamicCache:
     if isinstance(cache, (tuple, list)):
         if hasattr(DynamicCache, "from_legacy_cache"):
             return DynamicCache.from_legacy_cache(cache)
-        return DynamicCache(ddp_cache_data=cache)
+        try:
+            return DynamicCache(ddp_cache_data=cache)
+        except TypeError:
+            cache_obj = DynamicCache()
+            for layer_idx, (key, value) in enumerate(cache):
+                cache_obj.update(key, value, layer_idx)
+            return cache_obj
     return cache
 
 

@@ -17,6 +17,7 @@ import pytest
 import torch
 from transformers import DynamicCache, LlamaConfig
 
+from .. import utils as transformers_utils
 from ..core import PytorchModel
 from ..utils import (
     convert_to_cache_cls,
@@ -95,6 +96,28 @@ def test_convert_to_cache_cls_supports_tuple_and_list_legacy_cache():
         converted_key, converted_value = get_kv_cache_layer(converted, 0)
         torch.testing.assert_close(converted_key, key)
         torch.testing.assert_close(converted_value, value)
+
+
+def test_convert_to_cache_cls_falls_back_to_update(monkeypatch):
+    key = torch.ones((2, 2, 3, 4))
+    value = torch.ones((2, 2, 3, 4))
+
+    class _DynamicCache:
+        def __init__(self):
+            self.layers = []
+
+        def update(self, key_states, value_states, layer_idx):
+            assert layer_idx == len(self.layers)
+            self.layers.append((key_states, value_states))
+
+    monkeypatch.setattr(transformers_utils, "DynamicCache", _DynamicCache)
+
+    converted = transformers_utils.convert_to_cache_cls(((key, value),))
+
+    assert isinstance(converted, _DynamicCache)
+    converted_key, converted_value = converted.layers[0]
+    torch.testing.assert_close(converted_key, key)
+    torch.testing.assert_close(converted_value, value)
 
 
 def test_empty_cache_layers_are_reported_without_indexing_failures():
