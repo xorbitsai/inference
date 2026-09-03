@@ -94,8 +94,7 @@ async def test_scheduler_survives_batch_failure(no_empty_cache):
 
     model = FailOnceModel()
     scheduler = BatchScheduler(model)
-    scheduler._running = True
-    task = asyncio.create_task(scheduler._run())
+    await scheduler.start()
     try:
         first = asyncio.get_running_loop().create_future()
         await scheduler.add_request("first", first, "generate", {"request_id": "first"})
@@ -107,12 +106,10 @@ async def test_scheduler_survives_batch_failure(no_empty_cache):
             "second", second, "generate", {"request_id": "second"}
         )
         assert await asyncio.wait_for(second, timeout=1) == {"text": "second"}
-        assert not task.done()
+        assert scheduler._task is not None
+        assert not scheduler._task.done()
     finally:
-        scheduler._running = False
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
+        await scheduler.stop()
 
 
 @pytest.mark.asyncio
