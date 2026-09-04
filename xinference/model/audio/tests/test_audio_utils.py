@@ -96,3 +96,66 @@ def test_audio_stream_generator_uses_torchcodec_and_flushes_tail(monkeypatch):
         assert [sample.shape for sample in captured["samples"]] == [(1, 4), (1, 3)]
         assert all(sample.dtype == torch.float32 for sample in captured["samples"])
         assert all(sample.device.type == "cpu" for sample in captured["samples"])
+
+
+def test_audio_stream_generator_uses_legacy_torchcodec_audio_encoder(monkeypatch):
+    captured = {}
+
+    class FakeAudioEncoder:
+        def __init__(self, samples, *, sample_rate):
+            captured["samples"] = samples.clone()
+            captured["sample_rate"] = sample_rate
+
+        def to_tensor(self, *, format):
+            captured["format"] = format
+            return torch.tensor(list(b"encoded"), dtype=torch.uint8)
+
+    torchaudio = ModuleType("torchaudio")
+    torchcodec = ModuleType("torchcodec")
+    torchcodec.__path__ = []
+    encoders = ModuleType("torchcodec.encoders")
+    encoders.AudioEncoder = FakeAudioEncoder
+    torchcodec.encoders = encoders
+    monkeypatch.setitem(sys.modules, "torchaudio", torchaudio)
+    monkeypatch.setitem(sys.modules, "torchcodec", torchcodec)
+    monkeypatch.setitem(sys.modules, "torchcodec.encoders", encoders)
+
+    chunks = [torch.ones((4, 1), dtype=torch.float64), torch.ones(3)]
+    result = list(
+        audio_utils.audio_stream_generator("mp3", 24000, chunks, lambda chunk: chunk)
+    )
+
+    assert result == [b"encoded"]
+    assert captured["sample_rate"] == 24000
+    assert captured["format"] == "mp3"
+    assert captured["samples"].shape == (1, 7)
+    assert captured["samples"].dtype == torch.float32
+    assert captured["samples"].device.type == "cpu"
+
+
+def test_audio_stream_generator_legacy_path_with_real_audio_encoder(monkeypatch):
+    torchcodec_encoders = pytest.importorskip("torchcodec.encoders")
+    torchcodec_decoders = pytest.importorskip("torchcodec.decoders")
+    torchaudio = pytest.importorskip("torchaudio")
+    if not hasattr(torchcodec_encoders, "AudioEncoder"):
+        pytest.skip("TorchCodec AudioEncoder is unavailable")
+
+    # Exercise the public API exposed by TorchCodec 0.9/0.10 even when the
+    # installed test version also provides the newer incremental Encoder.
+    monkeypatch.delattr(torchcodec_encoders, "Encoder", raising=False)
+    monkeypatch.delattr(torchaudio, "io", raising=False)
+
+    sample_rate = 24000
+    chunks = [
+        torch.linspace(-0.25, 0.25, 1200).reshape(-1, 1),
+        torch.linspace(0.25, -0.25, 1200).reshape(-1, 1),
+    ]
+    encoded = b"".join(
+        audio_utils.audio_stream_generator(
+            "wav", sample_rate, chunks, lambda chunk: chunk
+        )
+    )
+    decoded = torchcodec_decoders.AudioDecoder(encoded).get_all_samples()
+
+    assert decoded.sample_rate == sample_rate
+    assert decoded.data.shape == (1, 2400)

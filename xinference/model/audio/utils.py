@@ -111,7 +111,7 @@ def _audio_stream_generator_with_torchcodec(
     output_chunk_transformer: Callable,
 ):
     try:
-        from torchcodec.encoders import Encoder
+        from torchcodec import encoders as torchcodec_encoders
     except ImportError as exc:
         raise ImportError(
             "Failed to import 'torchcodec'. It is required for audio streaming "
@@ -128,8 +128,46 @@ def _audio_stream_generator_with_torchcodec(
         "wave": "wav",
     }.get(normalized_format, normalized_format)
     finalize_before_read = container_format == "mp4"
+
+    def prepare_audio_chunk(chunk):
+        trans_chunk = output_chunk_transformer(chunk)
+        trans_chunk = trans_chunk.detach().to(device="cpu", dtype=torch.float32)
+        if trans_chunk.ndim == 1:
+            trans_chunk = trans_chunk.unsqueeze(1)
+        return trans_chunk.transpose(0, 1).contiguous()
+
+    encoder_cls = getattr(torchcodec_encoders, "Encoder", None)
+    if encoder_cls is None:
+        # TorchCodec 0.9/0.10, the compatible releases for PyTorch 2.9/2.10,
+        # only expose the batch AudioEncoder API. Preserve compatibility by
+        # returning one valid encoded container after generation completes.
+        audio_encoder_cls = getattr(torchcodec_encoders, "AudioEncoder", None)
+        if audio_encoder_cls is None:
+            raise ImportError(
+                "The installed 'torchcodec' does not expose a supported audio "
+                "encoder. Install a TorchCodec build compatible with the "
+                "installed PyTorch version."
+            )
+        logger.warning(
+            "TorchCodec's incremental Encoder API is unavailable; buffering "
+            "the %s response until audio generation completes.",
+            normalized_format,
+        )
+        audio_chunks = [prepare_audio_chunk(chunk) for chunk in output_generator]
+        if not audio_chunks:
+            return
+        encoded_tensor = audio_encoder_cls(
+            torch.cat(audio_chunks, dim=1), sample_rate=sample_rate
+        ).to_tensor(format=container_format)
+        encoded_bytes = encoded_tensor.detach().cpu().contiguous().numpy().tobytes()
+        if response_pcm:
+            encoded_bytes = _extract_pcm_from_wav_bytes(encoded_bytes)
+        if encoded_bytes:
+            yield encoded_bytes
+        return
+
     with io.BytesIO() as out:
-        encoder = Encoder()
+        encoder = encoder_cls()
         audio_stream = encoder.add_audio(sample_rate=sample_rate, num_channels=1)
         strip_header = True
         last_pos = 0
@@ -156,11 +194,7 @@ def _audio_stream_generator_with_torchcodec(
             )
         with encoder.open_file_like(out, format=container_format):
             for chunk in output_generator:
-                trans_chunk = output_chunk_transformer(chunk)
-                trans_chunk = trans_chunk.detach().to(device="cpu", dtype=torch.float32)
-                if trans_chunk.ndim == 1:
-                    trans_chunk = trans_chunk.unsqueeze(1)
-                audio_stream.add_samples(trans_chunk.transpose(0, 1).contiguous())
+                audio_stream.add_samples(prepare_audio_chunk(chunk))
                 has_audio = True
                 if not finalize_before_read:
                     encoded_bytes = read_encoded_bytes()
