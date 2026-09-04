@@ -212,3 +212,34 @@ def test_merge_preserves_sliding_cache_state_and_shared_layers():
         shared_key[:, :, 1:],
         torch.full((1, 2, 2, 4), 2, dtype=torch.float32),
     )
+
+
+@pytest.mark.skipif(
+    torch.cuda.device_count() < 2 or not _HAS_LAYER_BASED_CACHE,
+    reason="requires at least two CUDA devices and layer-based DynamicCache",
+)
+def test_dynamic_cache_reduction_supports_layers_on_multiple_cuda_devices():
+    model = _model_for_cache_tests()
+    cache = DynamicCache()
+    cache.update(
+        torch.ones((3, 2, 4, 4), device="cuda:0"),
+        torch.ones((3, 2, 4, 4), device="cuda:0"),
+        0,
+    )
+    cache.update(
+        torch.ones((3, 2, 4, 4), device="cuda:1"),
+        torch.ones((3, 2, 4, 4), device="cuda:1"),
+        1,
+    )
+
+    # Exercise the historical failure mode: without an explicit CPU device,
+    # torch.tensor() follows this non-CPU default and produces indices on
+    # cuda:0, which cannot be used for the cache layer on cuda:1.
+    with torch.device("cuda:0"):
+        reduced = model.build_reduced_kv_cache(cache, {1})
+
+    assert [layer.keys.device for layer in reduced.layers] == [
+        torch.device("cuda:0"),
+        torch.device("cuda:1"),
+    ]
+    assert all(layer.keys.shape[0] == 2 for layer in reduced.layers)
