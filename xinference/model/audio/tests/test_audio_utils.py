@@ -15,9 +15,20 @@
 import sys
 from types import ModuleType
 
+import pytest
 import torch
 
 from .. import utils as audio_utils
+
+
+def test_audio_stream_generator_reports_missing_torchcodec(monkeypatch):
+    torchaudio = ModuleType("torchaudio")
+    monkeypatch.setitem(sys.modules, "torchaudio", torchaudio)
+    monkeypatch.setitem(sys.modules, "torchcodec", None)
+    monkeypatch.setitem(sys.modules, "torchcodec.encoders", None)
+
+    with pytest.raises(ImportError, match="Failed to import 'torchcodec'"):
+        list(audio_utils.audio_stream_generator("mp3", 24000, iter(()), lambda x: x))
 
 
 def test_audio_stream_generator_uses_torchcodec_and_flushes_tail(monkeypatch):

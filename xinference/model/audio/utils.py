@@ -110,7 +110,14 @@ def _audio_stream_generator_with_torchcodec(
     output_generator: typing.Iterator[typing.Any],
     output_chunk_transformer: Callable,
 ):
-    from torchcodec.encoders import Encoder
+    try:
+        from torchcodec.encoders import Encoder
+    except ImportError as exc:
+        raise ImportError(
+            "Failed to import 'torchcodec'. It is required for audio streaming "
+            "when 'torchaudio.io.StreamWriter' is unavailable. Install a "
+            "TorchCodec build compatible with the installed PyTorch version."
+        ) from exc
 
     normalized_format = response_format.lower().lstrip(".")
     response_pcm = normalized_format == "pcm"
