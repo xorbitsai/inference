@@ -652,3 +652,7 @@ msgstr ""
 #~ "xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-"
 #~ "level debug"
 #~ msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:138
+msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
+msgstr "Per i modelli LLM, di embedding e di reranking, la ricerca dei motori combina i risultati di tutti i worker registrati. I nomi dei motori e le combinazioni di parametri mantengono il loro ordine di prima apparizione, eliminando le combinazioni duplicate; un motore disponibile ha la precedenza sul messaggio di un altro worker che ne segnala la mancata disponibilità. I risultati vuoti vengono ignorati e, se sono tutti vuoti, viene eseguita la ricerca locale. Un errore nella richiesta a un worker fa fallire la richiesta anziché restituire un elenco incompleto delle funzionalità disponibili."

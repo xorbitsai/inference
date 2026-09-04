@@ -2120,7 +2120,13 @@ class SupervisorActor(xo.StatelessActor):
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
-        if (model_type or "").lower() in ("audio", "world"):
+        if (model_type or "").lower() in (
+            "llm",
+            "embedding",
+            "rerank",
+            "audio",
+            "world",
+        ):
             worker_results = await asyncio.gather(
                 *[
                     worker.query_engines_by_model_name(
