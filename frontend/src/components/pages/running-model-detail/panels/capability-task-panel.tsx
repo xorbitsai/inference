@@ -209,12 +209,16 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       ).then(async (body) => {
         requestStarted = true;
         if (audioStreamSession) {
-          const stream = await request.post<ReadableStream<Uint8Array>>(config.requestApi, body, {
-            adapter: 'fetch',
-            responseType: 'stream',
-            noTimeout: true,
-            signal: audioStreamSession.signal,
-          });
+          const stream = await request.post<ReadableStream<Uint8Array<ArrayBuffer>>>(
+            config.requestApi,
+            body,
+            {
+              adapter: 'fetch',
+              responseType: 'stream',
+              noTimeout: true,
+              signal: audioStreamSession.signal,
+            }
+          );
 
           if (!stream || typeof stream.getReader !== 'function') {
             throw new Error('The browser did not return a readable audio stream.');

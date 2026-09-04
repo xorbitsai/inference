@@ -5,6 +5,8 @@ export interface AudioStreamResult {
   streaming: boolean;
 }
 
+const MEDIA_SOURCE_OPEN_TIMEOUT_MS = 5000;
+
 const AUDIO_MIME_TYPES: Record<string, string> = {
   flac: 'audio/flac',
   mp3: 'audio/mpeg',
@@ -37,7 +39,8 @@ function waitForEvent(
   target: EventTarget,
   eventName: string,
   errorEventName: string | undefined,
-  signal: AbortSignal
+  signal: AbortSignal,
+  timeoutMs?: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -45,10 +48,13 @@ function waitForEvent(
       return;
     }
 
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     const cleanup = () => {
       target.removeEventListener(eventName, handleEvent);
       if (errorEventName) target.removeEventListener(errorEventName, handleError);
       signal.removeEventListener('abort', handleAbort);
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
     };
     const handleEvent = () => {
       cleanup();
@@ -66,6 +72,18 @@ function waitForEvent(
     target.addEventListener(eventName, handleEvent, { once: true });
     if (errorEventName) target.addEventListener(errorEventName, handleError, { once: true });
     signal.addEventListener('abort', handleAbort, { once: true });
+
+    if (timeoutMs !== undefined) {
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(
+          new DOMException(
+            `Timed out after ${timeoutMs}ms while waiting for ${eventName}.`,
+            'TimeoutError'
+          )
+        );
+      }, timeoutMs);
+    }
   });
 }
 
@@ -90,7 +108,7 @@ export class AudioStreamSession {
   private readonly mediaSourceMimeType?: string;
   private mediaSource?: MediaSource;
   private sourceBufferPromise?: Promise<SourceBuffer>;
-  private reader?: ReadableStreamDefaultReader<Uint8Array>;
+  private reader?: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>>;
   private playbackUrlValue?: string;
 
   constructor(responseFormat: string) {
@@ -124,7 +142,13 @@ export class AudioStreamSession {
     if (!this.sourceBufferPromise) {
       this.sourceBufferPromise = (async () => {
         if (mediaSource.readyState !== 'open') {
-          await waitForEvent(mediaSource, 'sourceopen', 'error', this.signal);
+          await waitForEvent(
+            mediaSource,
+            'sourceopen',
+            'error',
+            this.signal,
+            MEDIA_SOURCE_OPEN_TIMEOUT_MS
+          );
         }
         return mediaSource.addSourceBuffer(mediaSourceMimeType);
       })();
@@ -141,7 +165,7 @@ export class AudioStreamSession {
     if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   }
 
-  private async appendChunk(chunk: ArrayBuffer): Promise<boolean> {
+  private async appendChunk(chunk: BufferSource): Promise<boolean> {
     try {
       const sourceBuffer = await this.getSourceBuffer();
       if (!sourceBuffer) return false;
@@ -172,10 +196,10 @@ export class AudioStreamSession {
   }
 
   async consume(
-    stream: ReadableStream<Uint8Array>,
+    stream: ReadableStream<Uint8Array<ArrayBuffer>>,
     onPlaybackUnavailable?: () => void
   ): Promise<Blob> {
-    const chunks: ArrayBuffer[] = [];
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
     const reader = stream.getReader();
     this.reader = reader;
 
@@ -184,9 +208,8 @@ export class AudioStreamSession {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = value.slice().buffer as ArrayBuffer;
-        chunks.push(chunk);
-        if (this.mediaSource && !(await this.appendChunk(chunk))) {
+        chunks.push(value);
+        if (this.mediaSource && !(await this.appendChunk(value))) {
           onPlaybackUnavailable?.();
         }
       }
