@@ -21,6 +21,10 @@ Daemon contract:
   - ``POST /api/pull`` ``{"model": ref}`` -> NDJSON stream of ``{"status": ...}``
     ending in ``{"status": "success"}`` or ``{"error": ...}``; an error can
     arrive in-band at HTTP 200.
+  - ``POST /api/show`` ``{"model": ref}`` -> the manifest digest visible to
+    the daemon.
+  - The daemon and local CLI must expose the same ``LLMMAN_MODELS`` store before
+    the local resolve step is allowed.
   - ``llmman resolve --no-pull <ref>`` -> one line of JSON carrying ``path``.
 """
 
@@ -39,6 +43,7 @@ logger = logging.getLogger(__name__)
 
 # llmman's own variable, honoured as llmman defines it
 HOST_ENV = "LLMMAN_HOST"
+MODELS_ENV = "LLMMAN_MODELS"
 BIN_ENV = XINFERENCE_ENV_LLMMAN_BIN
 
 DEFAULT_HOST = "127.0.0.1"
@@ -193,6 +198,40 @@ def pull(base: str, reference: str, progress=None) -> None:
         )
 
 
+def daemon_model_digest(base: str, reference: str) -> str:
+    """Return the manifest digest visible to the selected daemon."""
+    body = json.dumps({"model": reference}).encode("utf-8")
+    req = urllib.request.Request(
+        base + "/api/show",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT_SECONDS) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f"llmman show of {reference!r} failed: HTTP {exc.code}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            f"llmman show of {reference!r} failed: {exc.reason}"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"llmman show of {reference!r} returned invalid JSON"
+        ) from exc
+
+    model_info = payload.get("model_info") if isinstance(payload, dict) else None
+    digest = model_info.get("digest") if isinstance(model_info, dict) else None
+    if not isinstance(digest, str) or not digest.strip():
+        raise RuntimeError(
+            f"llmman show of {reference!r} did not return a manifest digest"
+        )
+    return digest.strip()
+
+
 def parse_resolve_output(stdout: str, reference: str) -> str:
     """Parse ``llmman resolve`` stdout into the resolved local path."""
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
@@ -221,11 +260,8 @@ def parse_resolve_output(stdout: str, reference: str) -> str:
     return path
 
 
-def resolve(reference: str) -> str:
-    """Ask the CLI where the daemon's pull left the model on disk.
-
-    ``--no-pull`` keeps the daemon the only thing that touches the network.
-    """
+def _require_llmman_bin() -> str:
+    """Return the configured llmman executable after verifying it exists."""
     binary = llmman_bin()
     if shutil.which(binary) is None and not os.path.isfile(binary):
         raise RuntimeError(
@@ -233,6 +269,45 @@ def resolve(reference: str) -> str:
             "(https://github.com/llmmanorg/llmman) and put it on PATH, or set "
             f"{BIN_ENV} to its location."
         )
+    return binary
+
+
+def _reference_with_default_tag(reference: str) -> str:
+    """Make llmman's implicit ``latest`` tag explicit for an exact list query."""
+    if "@" in reference or ":" in reference.rsplit("/", 1)[-1]:
+        return reference
+    return f"{reference}:latest"
+
+
+def local_model_digest(binary: str, reference: str) -> str:
+    """Return the manifest digest visible to the local llmman CLI store."""
+    lookup_reference = _reference_with_default_tag(reference)
+    completed = subprocess.run(
+        [binary, "list", lookup_reference, "--format={{.Digest}}"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"`{binary} list {lookup_reference}` failed with exit code "
+            f"{completed.returncode}: {completed.stderr.strip()}"
+        )
+
+    digests = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    if len(digests) != 1:
+        raise RuntimeError(
+            f"the local llmman store does not contain exactly one manifest for "
+            f"{lookup_reference!r}; the daemon selected by {HOST_ENV} and the "
+            f"local CLI must use the same {MODELS_ENV} store"
+        )
+    return digests[0]
+
+
+def _resolve(binary: str, reference: str) -> str:
+    """Resolve a model already known to exist in the local llmman store."""
 
     completed = subprocess.run(
         [binary, "resolve", "--no-pull", reference],
@@ -250,10 +325,24 @@ def resolve(reference: str) -> str:
     return parse_resolve_output(completed.stdout, reference)
 
 
+def resolve(reference: str) -> str:
+    """Ask the local CLI for a model path without performing another pull."""
+    return _resolve(_require_llmman_bin(), reference)
+
+
 def pull_and_resolve(reference: str, progress=None) -> str:
-    """Probe the daemon, pull through it, return the local path."""
+    """Pull through the daemon and resolve from the same underlying store."""
+    binary = _require_llmman_bin()
     base = endpoint()
     check_daemon(base)
     logger.info("Pulling %s via llmman daemon at %s", reference, base)
     pull(base, reference, progress)
-    return resolve(reference)
+    daemon_digest = daemon_model_digest(base, reference)
+    local_digest = local_model_digest(binary, reference)
+    if daemon_digest != local_digest:
+        raise RuntimeError(
+            f"llmman stores disagree for {reference!r}: daemon has "
+            f"{daemon_digest}, local CLI has {local_digest}. The daemon selected "
+            f"by {HOST_ENV} and the local CLI must use the same {MODELS_ENV} store."
+        )
+    return _resolve(binary, reference)
