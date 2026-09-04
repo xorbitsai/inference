@@ -335,6 +335,10 @@ msgid ""
 "to :ref:`this document <virtualenv>` for details."
 msgstr ""
 
+#: ../../source/models/custom.rst:321
+msgid "Besides ``file://``, ``model_uri`` accepts ``oci://<registry>/<repository>:<tag>`` for a model published as a `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ artifact in a container registry. Pulling one requires a running `llmman <https://github.com/llmmanorg/llmman>`_ daemon (``llmman serve``) and the ``llmman`` binary on ``PATH``. Set ``LLMMAN_HOST`` to reach a daemon elsewhere, or ``XINFERENCE_LLMMAN_BIN`` to point at a binary outside ``PATH``."
+msgstr "``file://`` 외에도 ``model_uri`` 는 컨테이너 레지스트리에 `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ 아티팩트로 게시된 모델을 위해 ``oci://<registry>/<repository>:<tag>`` 를 지원합니다. 이를 내려받으려면 실행 중인 `llmman <https://github.com/llmmanorg/llmman>`_ 데몬(``llmman serve``)과 ``PATH`` 상의 ``llmman`` 바이너리가 필요합니다. 다른 위치의 데몬에 연결하려면 ``LLMMAN_HOST`` 를, ``PATH`` 밖의 바이너리를 지정하려면 ``XINFERENCE_LLMMAN_BIN`` 을 설정하세요."
+
 #: ../../source/models/custom.rst:319
 msgid "Register a Custom Model"
 msgstr "사용자 정의 모델 등록"

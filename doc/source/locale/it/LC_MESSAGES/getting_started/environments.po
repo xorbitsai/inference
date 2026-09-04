@@ -136,6 +136,14 @@ msgstr ""
 "Numero massimo di tentativi di download per i file del modello. Il valore"
 " predefinito è 3."
 
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
+
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "Percorso dell'eseguibile ``llmman`` usato per risolvere gli URI di modello ``oci://``. Per impostazione predefinita ``llmman`` in ``PATH``. Impostare ``LLMMAN_HOST`` per raggiungere un demone ``llmman serve`` non in ascolto su ``127.0.0.1:17434``."
+
 #: ../../source/getting_started/environments.rst:58
 msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
 msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"

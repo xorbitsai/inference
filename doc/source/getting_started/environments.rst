@@ -69,6 +69,12 @@ XINFERENCE_DOWNLOAD_MAX_ATTEMPTS
 Maximum download retry attempts for model files.
 Default value is 3.
 
+XINFERENCE_LLMMAN_BIN
+~~~~~~~~~~~~~~~~~~~~~
+Path to the ``llmman`` executable used to resolve ``oci://`` model URIs.
+Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an
+``llmman serve`` daemon that is not on ``127.0.0.1:17434``.
+
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Enable continuous batching for text-to-image models by specifying the target image size
