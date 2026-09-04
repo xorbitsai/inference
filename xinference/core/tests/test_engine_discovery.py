@@ -30,8 +30,9 @@ def supervisor():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("model_type", ["LLM", "embedding", "rerank", "audio", "world"])
 @pytest.mark.parametrize("reverse_workers", [False, True])
+@pytest.mark.parametrize("enable_virtual_env", [False, True])
 async def test_merge_heterogeneous_worker_engines(
-    supervisor, model_type, reverse_workers
+    supervisor, model_type, reverse_workers, enable_virtual_env
 ):
     pytorch = {"model_format": "pytorch", "quantizations": ["none"]}
     quantized = {"model_format": "pytorch", "quantizations": ["int8"]}
@@ -51,9 +52,12 @@ async def test_merge_heterogeneous_worker_engines(
         workers.reverse()
     supervisor._worker_address_to_worker = dict(enumerate(workers))
 
-    with patch("xinference.core.supervisor.get_engine_params_by_name") as fallback:
+    fallback_name = "get_engine_params_by_name"
+    if enable_virtual_env:
+        fallback_name += "_with_virtual_env"
+    with patch(f"xinference.core.supervisor.{fallback_name}") as fallback:
         result = await supervisor.query_engines_by_model_name(
-            "mixed-model", model_type=model_type, enable_virtual_env=False
+            "mixed-model", model_type=model_type, enable_virtual_env=enable_virtual_env
         )
         fallback.assert_not_called()
 
@@ -63,7 +67,7 @@ async def test_merge_heterogeneous_worker_engines(
     )
     for worker in workers:
         worker.query_engines_by_model_name.assert_awaited_once_with(
-            "mixed-model", model_type=model_type, enable_virtual_env=False
+            "mixed-model", model_type=model_type, enable_virtual_env=enable_virtual_env
         )
 
 
@@ -98,7 +102,7 @@ async def test_empty_worker_engines_use_local_fallback(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("model_type", ["LLM", "embedding", "rerank"])
+@pytest.mark.parametrize("model_type", ["LLM", "embedding", "rerank", "audio", "world"])
 async def test_worker_engine_error_is_not_hidden_by_partial_results(
     supervisor, model_type
 ):
