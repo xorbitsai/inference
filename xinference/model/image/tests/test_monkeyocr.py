@@ -22,6 +22,16 @@ def _model_spec(*, is_builtin=False):
     return SimpleNamespace(model_ability=["ocr"], is_builtin=is_builtin)
 
 
+def _import_custom_model(monkeypatch):
+    fake_qwen_vl_utils = ModuleType("qwen_vl_utils")
+    fake_qwen_vl_utils.process_vision_info = lambda _messages: ([], [])
+    monkeypatch.setitem(sys.modules, "qwen_vl_utils", fake_qwen_vl_utils)
+
+    from ....thirdparty.monkeyocr.magic_pdf.model import custom_model
+
+    return custom_model
+
+
 def test_monkeyocr_metadata_and_model_path_validation():
     from ..ocr.monkeyocr import MonkeyOCRModel
 
@@ -84,7 +94,7 @@ def test_monkeyocr_returns_single_ocr_value(batch_result, expected):
 def test_monkeyocr_cpu_uses_float32_and_forwards_trust(monkeypatch):
     import torch
 
-    from ....thirdparty.monkeyocr.magic_pdf.model import custom_model
+    custom_model = _import_custom_model(monkeypatch)
 
     calls = {}
 
@@ -123,7 +133,7 @@ def test_monkeyocr_cpu_uses_float32_and_forwards_trust(monkeypatch):
 
 
 def test_monkeyocr_oom_fallback_clears_cache_outside_exception(monkeypatch):
-    from ....thirdparty.monkeyocr.magic_pdf.model import custom_model
+    custom_model = _import_custom_model(monkeypatch)
 
     model = custom_model.MonkeyChat_transformers.__new__(
         custom_model.MonkeyChat_transformers
@@ -146,7 +156,7 @@ def test_monkeyocr_oom_fallback_clears_cache_outside_exception(monkeypatch):
 
 
 def test_monkeyocr_single_inference_uses_configured_max_new_tokens(monkeypatch):
-    from ....thirdparty.monkeyocr.magic_pdf.model import custom_model
+    custom_model = _import_custom_model(monkeypatch)
 
     generated_kwargs = {}
 

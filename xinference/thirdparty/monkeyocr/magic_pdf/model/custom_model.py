@@ -1,11 +1,13 @@
 import importlib.util
+import logging
 import os
 import torch
 from ..utils.load_image import load_image
-from loguru import logger
 from qwen_vl_utils import process_vision_info
 from PIL import Image
 from typing import List, Union
+
+logger = logging.getLogger(__name__)
 
 class MonkeyChat_transformers:
     def __init__(
