@@ -3117,8 +3117,17 @@ def merge_models_by_timestamp(
             for model in built_in_list:
                 all_models.append((model.updated_at, model))
 
-            # Add user models
+            # Add user models, skipping any value-identical to a model already
+            # present. install_models_with_merge reruns on every runtime refresh
+            # against the same downloaded JSON, so without this guard a
+            # downloaded entry sharing content and updated_at with an existing
+            # one keeps re-appending as a duplicate on every call.
+            existing_keys = {family_identity_key(model) for _, model in all_models}
             for model in user_model_list:
+                key = family_identity_key(model)
+                if key in existing_keys:
+                    continue
+                existing_keys.add(key)
                 all_models.append((model.updated_at, model))
 
             # Sort by updated_at (newest first) and keep the latest
