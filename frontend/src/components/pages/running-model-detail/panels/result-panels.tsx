@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Binary, ImageIcon, Sparkles } from 'lucide-react';
+import { Binary, Download, ImageIcon, LoaderCircle, Sparkles } from 'lucide-react';
 
 import ReactMarkdown from '@/components/ui/markdown-renderer';
 import { MediaPreview } from '@/components/ui/media-preview';
@@ -12,6 +12,7 @@ import { ModelAbility } from '@/constants';
 import { cn } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
 
+import { isAudioStreamResult, type AudioStreamResult } from '../audio-stream';
 import type { CapabilityResultProps } from '../types';
 import { booleanValue, isRecord, stringValue } from '../utils';
 
@@ -205,6 +206,65 @@ function BlobMediaPreview({
   );
 }
 
+function StreamingAudioPreview({ result }: { result: AudioStreamResult }) {
+  const [downloadUrl, setDownloadUrl] = useState<string>();
+
+  useEffect(() => {
+    if (!result.file) {
+      setDownloadUrl(undefined);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(result.file);
+    setDownloadUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [result.file]);
+
+  const audioUrl = result.playbackUrl || downloadUrl;
+  const waitingForCompletePlayback = result.streaming && !result.playbackUrl;
+
+  return (
+    <div className="grid w-full max-w-full gap-3">
+      {audioUrl ? (
+        <audio
+          key={audioUrl}
+          src={audioUrl}
+          controls
+          autoPlay={Boolean(result.playbackUrl)}
+          preload="auto"
+          className="h-10 w-full"
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : (
+        <div className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm text-muted-foreground">
+          <LoaderCircle className="size-4 animate-spin" />
+          Receiving audio stream
+        </div>
+      )}
+      <div className="flex min-h-9 items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span aria-live="polite">
+          {result.streaming
+            ? waitingForCompletePlayback
+              ? 'This browser will start playback when the stream is complete.'
+              : 'Streaming and playing audio as it arrives.'
+            : 'Audio generation complete.'}
+        </span>
+        {downloadUrl && result.file && (
+          <a
+            href={downloadUrl}
+            download={result.file.name}
+            aria-label="Download audio"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:text-foreground"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Download className="size-4" />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }) {
   const isAudio = type === 'audio';
   const isImage = type === 'image';
@@ -221,6 +281,10 @@ function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }
     : isImage
       ? 'flex flex-wrap items-start'
       : 'grid grid-cols-2';
+  if (isAudio && isAudioStreamResult(result)) {
+    return <StreamingAudioPreview result={result} />;
+  }
+
   if (result instanceof Blob) {
     return (
       <BlobMediaPreview
@@ -439,7 +503,7 @@ export function UniversalResultPanel({
   progress,
   ability,
 }: CapabilityResultProps) {
-  if (loading) {
+  if (loading && !isAudioStreamResult(result)) {
     return <Generating progress={progress} />;
   }
 
