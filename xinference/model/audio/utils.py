@@ -104,6 +104,74 @@ def ensure_sample_rate(
     return audio
 
 
+def _audio_stream_generator_with_torchcodec(
+    response_format: str,
+    sample_rate: int,
+    output_generator: typing.Iterator[typing.Any],
+    output_chunk_transformer: Callable,
+):
+    from torchcodec.encoders import Encoder
+
+    normalized_format = response_format.lower().lstrip(".")
+    response_pcm = normalized_format == "pcm"
+    container_format = {
+        "aac": "adts",
+        "m4a": "mp4",
+        "pcm": "wav",
+        "wave": "wav",
+    }.get(normalized_format, normalized_format)
+    finalize_before_read = container_format == "mp4"
+    with io.BytesIO() as out:
+        encoder = Encoder()
+        audio_stream = encoder.add_audio(sample_rate=sample_rate, num_channels=1)
+        strip_header = True
+        last_pos = 0
+        has_audio = False
+
+        def read_encoded_bytes() -> typing.Optional[bytes]:
+            nonlocal last_pos, strip_header
+
+            new_last_pos = out.tell()
+            if new_last_pos == last_pos:
+                return None
+            out.seek(last_pos)
+            encoded_bytes = out.read()
+            last_pos = new_last_pos
+            if response_pcm and strip_header:
+                # http://soundfile.sapp.org/doc/WaveFormat
+                encoded_bytes = _extract_pcm_from_wav_bytes(encoded_bytes)
+                strip_header = False
+            return encoded_bytes or None
+
+        if response_pcm:
+            logger.info(
+                f"PCM stream output, num_channels: 1, sample_rate: {sample_rate}"
+            )
+        with encoder.open_file_like(out, format=container_format):
+            for chunk in output_generator:
+                trans_chunk = output_chunk_transformer(chunk)
+                trans_chunk = trans_chunk.detach().to(device="cpu", dtype=torch.float32)
+                if trans_chunk.ndim == 1:
+                    trans_chunk = trans_chunk.unsqueeze(1)
+                audio_stream.add_samples(trans_chunk.transpose(0, 1).contiguous())
+                has_audio = True
+                if not finalize_before_read:
+                    encoded_bytes = read_encoded_bytes()
+                    if encoded_bytes is not None:
+                        yield encoded_bytes
+
+        # Some codecs buffer the final packet until the encoder is closed.
+        if has_audio:
+            if finalize_before_read:
+                # MP4 rewrites container metadata while closing, so bytes read
+                # before this point would contain a stale header.
+                encoded_bytes = out.getvalue()
+            else:
+                encoded_bytes = read_encoded_bytes()
+            if encoded_bytes is not None:
+                yield encoded_bytes
+
+
 def audio_stream_generator(
     response_format: str,
     sample_rate: int,
@@ -113,18 +181,29 @@ def audio_stream_generator(
     import torch
     import torchaudio
 
+    # torchaudio 2.9 removed StreamWriter in favor of TorchCodec.
+    stream_writer = getattr(getattr(torchaudio, "io", None), "StreamWriter", None)
+    if stream_writer is None:
+        yield from _audio_stream_generator_with_torchcodec(
+            response_format,
+            sample_rate,
+            output_generator,
+            output_chunk_transformer,
+        )
+        return
+
     response_pcm = response_format.lower() == "pcm"
     with io.BytesIO() as out:
         if response_pcm:
             logger.info(
                 f"PCM stream output, num_channels: 1, sample_rate: {sample_rate}"
             )
-            writer = torchaudio.io.StreamWriter(out, format="wav")
+            writer = stream_writer(out, format="wav")
             writer.add_audio_stream(
                 sample_rate=sample_rate, num_channels=1, format="s16"
             )
         else:
-            writer = torchaudio.io.StreamWriter(out, format=response_format)
+            writer = stream_writer(out, format=response_format)
             writer.add_audio_stream(sample_rate=sample_rate, num_channels=1)
         strip_header = True
         last_pos = 0
