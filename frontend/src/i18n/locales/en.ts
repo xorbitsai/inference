@@ -68,6 +68,7 @@ const en = {
     downloadInterruptedHint:
       'The download was interrupted unexpectedly. Existing cache files were preserved; resume to continue.',
     deleteCacheFailed: 'Failed to delete model cache',
+    resolveModelTypeFailed: 'Failed to find the model type',
     cancelCacheDownloadConfirm:
       'Cancel the download of model {{model}} and remove this task? Downloaded files will be kept for reuse.',
     deleteDownloadConfirm:

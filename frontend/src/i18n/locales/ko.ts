@@ -68,6 +68,7 @@ const ko = {
     downloadInterruptedHint:
       '다운로드가 비정상적으로 중단되었습니다. 기존 캐시는 보존되며 다운로드를 재개할 수 있습니다.',
     deleteCacheFailed: '모델 캐시를 삭제하지 못했습니다',
+    resolveModelTypeFailed: '모델 유형을 찾지 못했습니다',
     cancelCacheDownloadConfirm:
       '모델 {{model}} 다운로드를 취소하고 작업을 삭제하시겠습니까? 다운로드된 파일은 재사용을 위해 유지됩니다.',
     deleteDownloadConfirm:

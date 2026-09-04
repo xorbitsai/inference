@@ -68,6 +68,7 @@ const ja = {
     downloadInterruptedHint:
       'ダウンロードが異常終了しました。既存キャッシュは保持されています。「ダウンロードを再開」で続行できます。',
     deleteCacheFailed: 'モデルキャッシュを削除できませんでした',
+    resolveModelTypeFailed: 'モデルタイプを特定できませんでした',
     cancelCacheDownloadConfirm:
       'モデル {{model}} のダウンロードをキャンセルしてタスクを削除しますか？ダウンロード済みファイルは再利用のため保持されます。',
     deleteDownloadConfirm:
