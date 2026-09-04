@@ -764,6 +764,17 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
           <Select options={MUSIC_RESPONSE_FORMAT_OPTIONS} allowClear={false} />
         </FormField>
       )}
+      {!isMusicGeneration && (
+        <FormField
+          name="stream"
+          label="Streaming"
+          valuePropName="checked"
+          layout="horizontal"
+          tooltip="Play supported audio formats while they are generated."
+        >
+          <Switch />
+        </FormField>
+      )}
       {showPromptSpeech && (
         <FormField name="prompt_speech">
           <FileUpload

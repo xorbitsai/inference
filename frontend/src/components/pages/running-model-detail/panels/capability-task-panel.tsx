@@ -28,8 +28,9 @@ import type {
 } from '@/types/services';
 import type { FormValues } from '@/types/form';
 
+import { AudioStreamSession } from '../audio-stream';
 import type { CapabilityConfig } from '../types';
-import { createId } from '../utils';
+import { booleanValue, createId, stringValue } from '../utils';
 
 interface CapabilityTaskPanelProps {
   config: CapabilityConfig;
@@ -64,6 +65,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const activeRequestRef = useRef<
       { modelUid: string; requestId: string; runToken: number } | undefined
     >(undefined);
+    const audioStreamRef = useRef<AudioStreamSession | undefined>(undefined);
     const ResultPanel = config.resultPanel;
     const FormPanel = config.formPanel;
     const Icon = config.icon;
@@ -167,7 +169,13 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
         .catch(() => undefined);
     }, []);
 
+    const disposeAudioStream = useCallback(() => {
+      audioStreamRef.current?.dispose();
+      audioStreamRef.current = undefined;
+    }, []);
+
     const submit = () => {
+      disposeAudioStream();
       const runToken = runTokenRef.current + 1;
       const requestId = config.showProgress ? createId('request') : undefined;
       let finished = false;
@@ -178,23 +186,70 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       }
       setLoading(true);
       setProgress(showLiveProgress ? 0 : undefined);
-      setResult(undefined);
-      setResultValues(undefined);
 
       const values = form.getFieldsValue();
+      const streamAudio = config.responseType === 'audio-stream' && booleanValue(values.stream);
+      const audioStreamSession = streamAudio
+        ? new AudioStreamSession(stringValue(values.response_format, 'mp3'))
+        : undefined;
+
+      if (audioStreamSession) {
+        audioStreamRef.current = audioStreamSession;
+        setResult(audioStreamSession.result());
+        setResultValues(values);
+      } else {
+        setResult(undefined);
+        setResultValues(undefined);
+      }
+
       let requestStarted = false;
+      let streamResponseStarted = false;
       const requestPromise = Promise.resolve(
         config.transformValues({ modelUid, model, values, requestId })
-      ).then((body) => {
+      ).then(async (body) => {
         requestStarted = true;
+        if (audioStreamSession) {
+          const stream = await request.post<ReadableStream<Uint8Array<ArrayBuffer>>>(
+            config.requestApi,
+            body,
+            {
+              adapter: 'fetch',
+              responseType: 'stream',
+              noTimeout: true,
+              signal: audioStreamSession.signal,
+            }
+          );
+
+          if (!stream || typeof stream.getReader !== 'function') {
+            throw new Error('The browser did not return a readable audio stream.');
+          }
+
+          streamResponseStarted = true;
+          return audioStreamSession.consume(stream, () => {
+            if (runTokenRef.current === runToken) {
+              setResult(audioStreamSession.result());
+            }
+          });
+        }
+
         return request.post(config.requestApi, body, {
-          ...(config.responseType === 'blob' ? { responseType: 'blob' as const } : {}),
+          ...(config.responseType ? { responseType: 'blob' as const } : {}),
           noTimeout: true,
         });
       });
       requestPromise
         .then((response) => {
           if (runTokenRef.current !== runToken) return;
+
+          if (audioStreamSession) {
+            const blob = response as Blob;
+            const file = new File([blob], audioFileName(model.model_name, blob), {
+              type: blob.type,
+            });
+            setResult(audioStreamSession.result(file));
+            setResultValues(values);
+            return;
+          }
 
           setResult(
             response instanceof Blob
@@ -206,9 +261,22 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           setResultValues(values);
         })
         .catch((error: unknown) => {
-          // HTTP errors are already reported by the shared request interceptor.
-          // File conversion and advanced-JSON errors happen before that boundary.
-          if (!requestStarted && runTokenRef.current === runToken) {
+          if (audioStreamSession && runTokenRef.current === runToken) {
+            if (audioStreamRef.current === audioStreamSession) {
+              audioStreamRef.current = undefined;
+            }
+            audioStreamSession.dispose();
+            setResult(undefined);
+            setResultValues(undefined);
+          }
+
+          // HTTP errors are reported by the shared interceptor. Transform failures and
+          // stream read failures happen outside that boundary.
+          if (
+            (!requestStarted || streamResponseStarted) &&
+            !audioStreamSession?.signal.aborted &&
+            runTokenRef.current === runToken
+          ) {
             eventBus.emit(
               RequestEvents.SERVER_ERROR,
               error instanceof Error ? error.message : String(error)
@@ -234,6 +302,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     };
     const reset = () => {
       abortActiveRequest();
+      disposeAudioStream();
       runTokenRef.current += 1;
       form.resetFields();
       setResult(undefined);
@@ -245,9 +314,10 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     useEffect(() => {
       return () => {
         abortActiveRequest();
+        disposeAudioStream();
         runTokenRef.current += 1;
       };
-    }, [abortActiveRequest, config.ability, modelUid]);
+    }, [abortActiveRequest, config.ability, disposeAudioStream, modelUid]);
     useImperativeHandle(ref, () => ({
       reset,
     }));
@@ -282,7 +352,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
                 variant="secondary"
                 size="icon"
                 className="size-11 rounded-full"
-                disabled={loading && !config.showProgress}
+                disabled={loading && !config.showProgress && audioStreamRef.current === undefined}
                 onClick={reset}
               >
                 <RotateCcw className="size-4" />

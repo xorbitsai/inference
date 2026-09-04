@@ -821,6 +821,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         { key: 'voice', value: 'Voice ID', comment: 'Optional' },
         { key: 'speed', value: 1, comment: 'Optional' },
         { key: 'response_format', value: 'mp3', comment: 'Optional' },
+        { key: 'stream', value: false, comment: 'Optional' },
         {
           key: 'kwargs',
           value: { seed: 11 },
@@ -834,6 +835,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       voice: '',
       speed: 1,
       response_format: 'mp3',
+      stream: false,
       seed: -1,
       prompt_speech: [],
       prompt_text: '',
@@ -843,7 +845,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     },
     formPanel: SpeechPanel,
     resultPanel: ResultPanels.Universal,
-    responseType: 'blob',
+    responseType: 'audio-stream',
     transformValues: ({ modelUid, model, values }) => {
       const supportsVoiceCloning = model.model_ability.includes(
         ModelAbility.Text2audioVoiceCloning
@@ -855,6 +857,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       const instruct = stringValue(values.instruct).trim();
       const seed = parseScalarSeed(values.seed);
       const responseFormat = stringValue(values.response_format).trim().toLowerCase() || 'mp3';
+      const stream = booleanValue(values.stream);
 
       if (seed !== undefined) {
         kwargs.seed = seed;
@@ -889,7 +892,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         formData.append('voice', stringValue(values.voice));
         formData.append('speed', String(numberValue(values.speed, 1)));
         formData.append('response_format', responseFormat);
-        formData.append('stream', 'false');
+        formData.append('stream', String(stream));
         formData.append('prompt_speech', promptSpeech.file);
         appendKwargsIfPresent(formData, kwargs);
         return formData;
@@ -901,7 +904,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           voice: values.voice || undefined,
           speed: numberValue(values.speed, 1),
           response_format: responseFormat,
-          stream: false,
+          stream,
         },
         kwargs
       );

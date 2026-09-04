@@ -45,7 +45,7 @@ export interface CapabilityConfig {
   transformValues: (
     context: TransformContext
   ) => BodyInit | Record<string, unknown> | Promise<BodyInit | Record<string, unknown>>;
-  responseType?: 'blob';
+  responseType?: 'blob' | 'audio-stream';
   codeExample?: CodeExampleConfig;
 }
 
