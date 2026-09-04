@@ -571,3 +571,7 @@ msgstr ":ref:`正しい推論エンジンを選択する <user_guide_backends>`"
 #~ "xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-"
 #~ "level debug"
 #~ msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:138
+msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
+msgstr "LLM、embedding、rerank モデルのエンジン検出では、登録されているすべての worker の結果を統合します。エンジン名とパラメーターの組み合わせは最初に出現した順序を保ち、重複する組み合わせは削除されます。利用可能なエンジンの情報は、別の worker が返す利用不可のメッセージより優先されます。空の結果はスキップされ、すべての結果が空の場合はローカルでエンジンを検出します。worker への問い合わせでエラーが発生した場合、不完全な機能一覧を返すのではなく、リクエストが失敗します。"

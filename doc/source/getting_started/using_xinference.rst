@@ -135,6 +135,12 @@ is closely related to the inference engine.
 You can use ``xinference engine`` command to query the combination of parameters of the model you want to launch.
 This will demonstrate under what conditions a model can run on which inference engines.
 
+For LLM, embedding and rerank models, engine discovery combines results from all registered workers.
+Engine names and parameter combinations retain their first-seen order, with duplicate combinations
+removed; an available engine takes precedence over another worker's unavailability message. Empty
+worker results are skipped, and local discovery is used if all results are empty. A worker query
+error fails the request instead of returning an incomplete capability list.
+
 For example:
 
 #. I would like to query about which inference engines the ``qwen-chat`` model can run on, and what are their respective parameters.

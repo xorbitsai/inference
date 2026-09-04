@@ -548,3 +548,7 @@ msgstr ":ref:`選擇正確的推理引擎 <user_guide_backends>`"
 #~ "xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-"
 #~ "level debug"
 #~ msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:138
+msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
+msgstr "對於 LLM、embedding 和 rerank 模型，引擎查詢會合併所有已註冊 worker 的結果。引擎名稱和參數組合按首次出現的順序排列，並移除重複組合；可用引擎的資訊優先於其他 worker 傳回的不可用提示。空結果會被略過；如果所有結果皆為空，則執行本機引擎查詢。如果查詢某個 worker 時發生錯誤，請求會失敗，而不會傳回不完整的能力清單。"
