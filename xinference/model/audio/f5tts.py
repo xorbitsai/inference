@@ -107,9 +107,9 @@ class F5TTSModel:
             ) = preprocess_ref_audio_text(
                 voices[voice]["ref_audio"], voices[voice]["ref_text"]
             )
-            logger.info("Voice:", voice)
-            logger.info("Ref_audio:", voices[voice]["ref_audio"])
-            logger.info("Ref_text:", voices[voice]["ref_text"])
+            logger.info("Voice: %s", voice)
+            logger.info("Ref_audio: %s", voices[voice]["ref_audio"])
+            logger.info("Ref_text: %s", voices[voice]["ref_text"])
 
         final_sample_rate = None
         generated_audio_segments = []
