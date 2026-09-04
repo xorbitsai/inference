@@ -1,15 +1,17 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # # Revised from the utils.py of LMDeploy, a library for deploying large language models.
 import base64
+import logging
 import os
 from io import BytesIO
 from typing import Union
 
-import requests
-# import fitz
-from typing import List
 from PIL import Image, ImageFile
-from loguru import logger
+import requests
+
+logger = logging.getLogger(__name__)
+
+# import fitz
 
 
 def encode_image_base64(image: Union[str, Image.Image]) -> str:
