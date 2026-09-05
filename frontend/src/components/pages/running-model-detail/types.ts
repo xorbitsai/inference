@@ -15,6 +15,8 @@ export interface CapabilityFormProps {
   form: FormInstance;
   model: RunningModelDetail;
   modelUid: string;
+  /** Optional action controls rendered alongside the form fields. */
+  actions?: ReactNode;
 }
 
 export interface CapabilityResultProps {
@@ -39,6 +41,7 @@ export interface CapabilityConfig {
   requestApi: string;
   initialValues?: FormValues;
   showProgress?: boolean;
+  stream?: boolean;
   submitLabel?: string;
   formPanel: ComponentType<CapabilityFormProps>;
   resultPanel: ComponentType<CapabilityResultProps>;
