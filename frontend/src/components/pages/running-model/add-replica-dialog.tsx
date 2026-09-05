@@ -290,7 +290,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
               options={filteredWorkerOptions}
               onChange={(workers) => {
                 setSelectedWorkers(workers);
-                setReplicaCount((count) => Math.max(count, workers.length));
+                setReplicaCount((count) => Math.max(Number(count) || 0, workers.length));
               }}
               placeholder={t('runningModels.addReplicaAutoWorker')}
               searchable
