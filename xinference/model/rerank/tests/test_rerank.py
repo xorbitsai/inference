@@ -299,6 +299,7 @@ def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
     # that is value-identical to the built-in one (same content, same
     # updated_at) must not keep padding the family list on repeat refreshes.
     import xinference.model.rerank as rerank_module
+
     from .... import constants
     from .. import register_builtin_model
     from ..rerank_family import BUILTIN_RERANK_MODELS

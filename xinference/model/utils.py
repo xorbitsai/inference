@@ -3178,12 +3178,17 @@ def install_models_with_merge(
         os.path.abspath(load_model_family_func.__code__.co_filename)
     )
     builtin_json_path = os.path.join(current_dir, builtin_json_file)
-    load_model_family_func(builtin_json_path, built_in_dict)
+
+    # Load and mark into a fresh dict, never built_in_dict directly: a repeat
+    # refresh would otherwise mark a downloaded family left over from a prior
+    # merge as built-in too, then have it shadow its own correctly-False copy.
+    freshly_loaded_builtins: Dict[str, Any] = {}
+    load_model_family_func(builtin_json_path, freshly_loaded_builtins)
 
     # Mark these as vetted built-in models. Loaders may enable trust_remote_code
     # for built-ins without an operator opt-in; user-supplied / downloaded models
     # (loaded below) keep is_builtin=False and stay gated (CWE-94).
-    for _specs in built_in_dict.values():
+    for _specs in freshly_loaded_builtins.values():
         for _family in _specs:
             _family.is_builtin = True
 
@@ -3194,21 +3199,22 @@ def install_models_with_merge(
             user_models, user_model_type, user_json_filename, load_model_family_func
         )
 
-        # Create a copy of built-in models for merging
-        built_in_models_copy = dict(built_in_dict)
         if model_normalize_func is not None:
             for user_model_list in user_models.values():
                 for user_model in user_model_list:
-                    model_normalize_func(user_model, built_in_models_copy)
+                    model_normalize_func(user_model, freshly_loaded_builtins)
 
         # Merge models, keeping the latest version based on updated_at
         merged_models = merge_models_by_timestamp(
-            built_in_models_copy, user_models, model_identity_func
+            freshly_loaded_builtins, user_models, model_identity_func
         )
 
         # Update the dictionary with merged results
         built_in_dict.clear()
         built_in_dict.update(merged_models)
+    else:
+        built_in_dict.clear()
+        built_in_dict.update(freshly_loaded_builtins)
 
 
 def allow_trust_remote_code(model_family) -> bool:

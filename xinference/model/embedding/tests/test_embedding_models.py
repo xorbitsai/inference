@@ -463,3 +463,41 @@ def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
     # the vetted built-in entry must still be present, not shadowed out
     # by the freshly re-parsed downloaded duplicate.
     assert any(f.is_builtin for f in BUILTIN_EMBEDDING_MODELS[model_name])
+
+
+def test_register_builtin_model_preserves_downloaded_provenance(tmp_path, monkeypatch):
+    # A downloaded family newer than its built-in counterpart correctly wins
+    # the merge and keeps is_builtin=False on the first refresh that sees it.
+    # A later refresh must not silently promote it to is_builtin=True: that
+    # flag gates allow_trust_remote_code(), so promoting a downloaded family
+    # bypasses the operator opt-in this dedup guard exists to protect.
+    from .... import constants
+    from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
+    with open(spec_path) as f:
+        raw_entry = json.load(f)[0]
+    model_name = raw_entry["model_name"]
+    raw_entry["updated_at"] = raw_entry["updated_at"] + 1
+
+    register_builtin_model()
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "embedding_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([raw_entry], f)
+
+    register_builtin_model()
+    active = BUILTIN_EMBEDDING_MODELS[model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+
+    for _ in range(3):
+        register_builtin_model()
+
+    active = BUILTIN_EMBEDDING_MODELS[model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
