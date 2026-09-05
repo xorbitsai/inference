@@ -428,13 +428,17 @@ def test_register_builtin_model_is_idempotent():
     )
 
 
-def test_register_builtin_model_downloaded_catalog_merge_is_idempotent():
+def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
+    tmp_path, monkeypatch
+):
     # Worker.update_model_type() re-parses a downloaded catalog file and
     # merges it into the built-in table on every refresh. A downloaded entry
     # that is value-identical to the built-in one (same content, same
     # updated_at) must not keep padding the family list on repeat refreshes.
-    from ....constants import XINFERENCE_MODEL_DIR
+    from .... import constants
     from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
 
     spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
     with open(spec_path) as f:
@@ -443,22 +447,19 @@ def test_register_builtin_model_downloaded_catalog_merge_is_idempotent():
 
     register_builtin_model()
 
-    builtin_dir = os.path.join(XINFERENCE_MODEL_DIR, "v2", "builtin", "embedding")
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
     os.makedirs(builtin_dir, exist_ok=True)
     catalog_path = os.path.join(builtin_dir, "embedding_models.json")
     with open(catalog_path, "w") as f:
         json.dump([raw_entry], f)
 
-    try:
+    register_builtin_model()
+    baseline_count = len(BUILTIN_EMBEDDING_MODELS[model_name])
+
+    for _ in range(3):
         register_builtin_model()
-        baseline_count = len(BUILTIN_EMBEDDING_MODELS[model_name])
 
-        for _ in range(3):
-            register_builtin_model()
-
-        assert len(BUILTIN_EMBEDDING_MODELS[model_name]) == baseline_count
-        # the vetted built-in entry must still be present, not shadowed out
-        # by the freshly re-parsed downloaded duplicate.
-        assert any(f.is_builtin for f in BUILTIN_EMBEDDING_MODELS[model_name])
-    finally:
-        os.remove(catalog_path)
+    assert len(BUILTIN_EMBEDDING_MODELS[model_name]) == baseline_count
+    # the vetted built-in entry must still be present, not shadowed out
+    # by the freshly re-parsed downloaded duplicate.
+    assert any(f.is_builtin for f in BUILTIN_EMBEDDING_MODELS[model_name])
