@@ -5106,9 +5106,11 @@ class SupervisorActor(xo.StatelessActor):
         replica_info.active_replica_ids.remove(replica_idx)
         self._refresh_replica_scheduler(replica_info)
 
-        remaining = await self._status_guard_ref.remove_replica_status(
-            base_uid, replica_idx
-        )
+        await self._status_guard_ref.remove_replica_status(base_uid, replica_idx)
+        # StatusGuard may retain terminal rows; only ReplicaInfo represents
+        # replicas that are still live and routable.
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        remaining = len(replica_info.active_replica_ids) if replica_info else 0
         if remaining > 0:
             # Degraded: healthy replicas remain -> keep READY.
             await self._status_guard_ref.update_instance_info(

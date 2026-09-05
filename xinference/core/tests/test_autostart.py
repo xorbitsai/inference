@@ -197,10 +197,32 @@ async def test_mark_replica_dead_does_not_reschedule_autostart_when_degraded():
     # Autostart, whose job is only to relaunch a fully-dead model, must not
     # be woken.
     supervisor = _DummyReplicaDeathSupervisor(remaining_after_evict=1)
+    replica_info = supervisor._model_uid_to_replica_info["uid-1"]
+    replica_info.active_replica_ids.append(1)
+    replica_info.replica = 2
 
     await supervisor.mark_replica_dead("uid-1-rep0")
 
     assert supervisor.autostart_scheduled is False
+    assert replica_info.active_replica_ids == [1]
+    supervisor._status_guard_ref.update_instance_info.assert_called_once_with(
+        "uid-1", {"replica": 1, "status": "READY"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_mark_replica_dead_ignores_retained_terminal_status_rows():
+    # StatusGuard retains terminal rows for observability. They must not keep
+    # the model READY after its last active replica is evicted.
+    supervisor = _DummyReplicaDeathSupervisor(remaining_after_evict=1)
+
+    await supervisor.mark_replica_dead("uid-1-rep0")
+
+    assert supervisor.autostart_scheduled is True
+    assert "uid-1" not in supervisor._model_uid_to_replica_info
+    supervisor._status_guard_ref.update_instance_info.assert_called_once_with(
+        "uid-1", {"status": "TERMINATED"}
+    )
 
 
 class _StopCheckLoop(Exception):

@@ -146,7 +146,11 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
   }, [filteredWorkerOptions]);
 
   const handleConfirm = () => {
-    if (!Number.isInteger(replicaCount) || replicaCount < 1) {
+    const normalizedReplicaCount = Number(replicaCount);
+    if (
+      !Number.isInteger(normalizedReplicaCount) ||
+      normalizedReplicaCount < Math.max(1, selectedWorkers.length)
+    ) {
       toast.error(t('runningModels.addReplicaInvalidCount'));
       return;
     }
@@ -165,19 +169,19 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     const gpuIndexes = hasGpuIdx
       ? trimmedGpuIdx.split(',').map((value) => Number.parseInt(value.trim(), 10))
       : [];
-    if (gpuIndexes.length > 0 && gpuIndexes.length % replicaCount !== 0) {
+    if (gpuIndexes.length > 0 && gpuIndexes.length % normalizedReplicaCount !== 0) {
       toast.error(t('runningModels.addReplicaGpuCountMismatch'));
       return;
     }
 
-    const body: AddReplicaRequest = { replica: replicaCount };
+    const body: AddReplicaRequest = { replica: normalizedReplicaCount };
     if (selectedEngine) {
       body.model_engine = selectedEngine;
     }
 
     if (selectedWorkers.length > 0) {
       const replicaConfigs = buildReplicaConfigs({
-        replicaCount,
+        replicaCount: normalizedReplicaCount,
         workerAddresses: selectedWorkers,
         device,
         gpuIndexes,
@@ -238,15 +242,25 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
               min={Math.max(1, selectedWorkers.length)}
               step={1}
               value={replicaCount}
-              onChange={(event) =>
-                setReplicaCount(Math.max(Number(event.target.value), selectedWorkers.length || 1))
-              }
+              onChange={(event) => {
+                const value = event.target.value;
+                setReplicaCount(value === '' ? '' : Number(value));
+              }}
+              onBlur={() => {
+                setReplicaCount((count) =>
+                  Math.max(Number(count) || 0, selectedWorkers.length || 1)
+                );
+              }}
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
               {t('runningModels.addReplicaCountPreview', {
                 current: currentReplicaCount,
-                total: currentReplicaCount + (Number.isFinite(replicaCount) ? replicaCount : 0),
+                total:
+                  currentReplicaCount +
+                  (typeof replicaCount === 'number' && Number.isFinite(replicaCount)
+                    ? replicaCount
+                    : 0),
               })}
             </p>
           </div>
@@ -290,7 +304,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
               options={filteredWorkerOptions}
               onChange={(workers) => {
                 setSelectedWorkers(workers);
-                setReplicaCount((count) => Math.max(Number(count) || 0, workers.length));
+                setReplicaCount((count) => Math.max(Number(count) || 0, workers.length || 1));
               }}
               placeholder={t('runningModels.addReplicaAutoWorker')}
               searchable
