@@ -15,16 +15,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Select, type SelectOption } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import type { AddReplicaRequest, ModelEngine } from '@/types/services';
+import { buildReplicaConfigs, filterWorkerOptions } from './add-replica-utils.mjs';
 import { hasCompatibleEngineSpec } from './engine-compatibility.mjs';
 
 interface WorkerOption {
   label: string;
   value: string;
   description?: string;
+  gpuCount?: number;
 }
 
 type DeviceValue = 'auto' | 'GPU' | 'CPU';
@@ -64,9 +67,9 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
 }) => {
   const { t } = useI18n();
   const [selectedEngine, setSelectedEngine] = useState(modelEngine ?? '');
-  const [replicaCount, setReplicaCount] = useState(1);
+  const [replicaCount, setReplicaCount] = useState<number | ''>(1);
   const [device, setDevice] = useState<DeviceValue>(defaultDevice);
-  const [selectedWorker, setSelectedWorker] = useState('');
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>([]);
   const [gpuIdx, setGpuIdx] = useState('');
   const [engineMap, setEngineMap] = useState<ModelEngine>({});
 
@@ -76,7 +79,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     setSelectedEngine(modelEngine ?? '');
     setReplicaCount(1);
     setDevice(defaultDevice);
-    setSelectedWorker('');
+    setSelectedWorkers([]);
     setGpuIdx('');
 
     let active = true;
@@ -124,18 +127,30 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     return options;
   }, [engineMap, modelEngine, modelFormat, modelSizeInBillions, quantization]);
 
-  const workerSelectOptions = [
-    { label: t('runningModels.addReplicaAutoWorker'), value: '' },
-    ...workerOptions,
-  ];
   const deviceOptions: SelectOption<DeviceValue>[] = [
     { label: t('runningModels.addReplicaDeviceAuto'), value: 'auto' },
     { label: 'GPU', value: 'GPU' },
     { label: 'CPU', value: 'CPU' },
   ];
+  const filteredWorkerOptions = useMemo(
+    () => filterWorkerOptions(workerOptions, device, defaultDevice),
+    [defaultDevice, device, workerOptions]
+  );
+
+  useEffect(() => {
+    const availableWorkers = new Set(filteredWorkerOptions.map((option) => option.value));
+    setSelectedWorkers((workers) => {
+      const nextWorkers = workers.filter((worker) => availableWorkers.has(worker));
+      return nextWorkers.length === workers.length ? workers : nextWorkers;
+    });
+  }, [filteredWorkerOptions]);
 
   const handleConfirm = () => {
-    if (!Number.isInteger(replicaCount) || replicaCount < 1) {
+    const normalizedReplicaCount = Number(replicaCount);
+    if (
+      !Number.isInteger(normalizedReplicaCount) ||
+      normalizedReplicaCount < Math.max(1, selectedWorkers.length)
+    ) {
       toast.error(t('runningModels.addReplicaInvalidCount'));
       return;
     }
@@ -146,7 +161,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
       toast.error(t('runningModels.addReplicaInvalidGpuIdx'));
       return;
     }
-    if (hasGpuIdx && !selectedWorker) {
+    if (hasGpuIdx && selectedWorkers.length === 0) {
       toast.error(t('runningModels.addReplicaWorkerRequired'));
       return;
     }
@@ -154,34 +169,26 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     const gpuIndexes = hasGpuIdx
       ? trimmedGpuIdx.split(',').map((value) => Number.parseInt(value.trim(), 10))
       : [];
-    if (gpuIndexes.length > 0 && gpuIndexes.length % replicaCount !== 0) {
+    if (gpuIndexes.length > 0 && gpuIndexes.length % normalizedReplicaCount !== 0) {
       toast.error(t('runningModels.addReplicaGpuCountMismatch'));
       return;
     }
 
-    const body: AddReplicaRequest = { replica: replicaCount };
+    const body: AddReplicaRequest = { replica: normalizedReplicaCount };
     if (selectedEngine) {
       body.model_engine = selectedEngine;
     }
 
-    if (selectedWorker) {
-      const gpuCountPerReplica = gpuIndexes.length / replicaCount;
-      body.replica_config = Array.from({ length: replicaCount }, (_, index) => {
-        const assignedGpuIndexes = gpuIndexes.slice(
-          index * gpuCountPerReplica,
-          (index + 1) * gpuCountPerReplica
-        );
-        return {
-          devices: [
-            {
-              worker_ip: selectedWorker,
-              n_gpu:
-                device === 'CPU' ? 0 : device === 'GPU' ? assignedGpuIndexes.length || 1 : 'auto',
-              ...(assignedGpuIndexes.length > 0 ? { gpu_idx: assignedGpuIndexes } : {}),
-            },
-          ],
-        };
+    if (selectedWorkers.length > 0) {
+      const replicaConfigs = buildReplicaConfigs({
+        replicaCount: normalizedReplicaCount,
+        workerAddresses: selectedWorkers,
+        device,
+        gpuIndexes,
       });
+      if (replicaConfigs) {
+        body.replica_config = replicaConfigs;
+      }
     } else if (device !== 'auto') {
       body.n_gpu = device === 'CPU' ? 0 : 1;
     }
@@ -232,16 +239,28 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
             </label>
             <Input
               type="number"
-              min={1}
+              min={Math.max(1, selectedWorkers.length)}
               step={1}
               value={replicaCount}
-              onChange={(event) => setReplicaCount(Number(event.target.value))}
+              onChange={(event) => {
+                const value = event.target.value;
+                setReplicaCount(value === '' ? '' : Number(value));
+              }}
+              onBlur={() => {
+                setReplicaCount((count) =>
+                  Math.max(Number(count) || 0, selectedWorkers.length || 1)
+                );
+              }}
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">
               {t('runningModels.addReplicaCountPreview', {
                 current: currentReplicaCount,
-                total: currentReplicaCount + (Number.isFinite(replicaCount) ? replicaCount : 0),
+                total:
+                  currentReplicaCount +
+                  (typeof replicaCount === 'number' && Number.isFinite(replicaCount)
+                    ? replicaCount
+                    : 0),
               })}
             </p>
           </div>
@@ -280,14 +299,20 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
             <label className="text-sm font-medium">
               {t('runningModels.addReplicaWorkerLabel')}
             </label>
-            <Select
-              value={selectedWorker}
-              options={workerSelectOptions}
-              onChange={(value) => setSelectedWorker(value ?? '')}
-              allowClear={false}
-              showSearch
+            <MultiSelect
+              value={selectedWorkers}
+              options={filteredWorkerOptions}
+              onChange={(workers) => {
+                setSelectedWorkers(workers);
+                setReplicaCount((count) => Math.max(Number(count) || 0, workers.length || 1));
+              }}
+              placeholder={t('runningModels.addReplicaAutoWorker')}
+              searchable
               disabled={loading}
             />
+            <p className="text-xs text-muted-foreground">
+              {t('runningModels.addReplicaWorkerHint')}
+            </p>
           </div>
         </div>
 

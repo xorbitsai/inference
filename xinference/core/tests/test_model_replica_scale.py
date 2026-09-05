@@ -352,3 +352,153 @@ async def test_scale_up_preserves_gpu_count_from_legacy_explicit_gpu_idx():
     assert full_worker.launches == []
     assert available_worker.launches[0]["n_gpu"] == 2
     assert available_worker.launches[0]["gpu_idx"] == [2, 3]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("report_new_replica", [False, True])
+@pytest.mark.parametrize("other_worker", [False, True])
+async def test_scale_up_reconciles_worker_replay_during_launch(
+    report_new_replica, other_worker
+):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    if other_worker:
+        # A replica on another worker keeps the same ReplicaInfo object alive
+        # during replay. The replayed new id must not be appended a second time.
+        survivor = _FakeScaleWorker("worker-1:9978", worker.launch_args)
+        supervisor._replica_model_uid_to_worker["demo-rep0"] = survivor
+        supervisor._model_uid_to_replica_info["demo"].replica_to_worker_refs[0] = [
+            survivor
+        ]
+    original_launch = worker.launch_builtin_model
+
+    async def launch_with_replay(**kwargs):
+        await original_launch(**kwargs)
+        uids = [] if other_worker else [build_replica_model_uid("demo", 0)]
+        uids.extend(launch["model_uid"] for launch in worker.launches[:-1])
+        if report_new_replica:
+            uids.append(kwargs["model_uid"])
+        supervisor._rebuild_worker_replica_state(
+            worker, [{"replica_model_uid": uid} for uid in uids]
+        )
+
+    worker.launch_builtin_model = launch_with_replay
+    results = await asyncio.wait_for(
+        supervisor.add_model_replicas("demo", replica=2), timeout=2
+    )
+
+    assert [result["replica_id"] for result in results] == [1, 2]
+    info = supervisor._model_uid_to_replica_info["demo"]
+    assert info.active_replica_ids == [0, 1, 2]
+    assert info.replica == 3
+    assert [next(info.scheduler) for _ in range(3)] == [0, 1, 2]
+
+
+@pytest.mark.asyncio
+async def test_failed_scale_up_cleans_replica_replayed_during_load():
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+
+    async def fail_load(model_uid):
+        supervisor._rebuild_worker_replica_state(
+            worker,
+            [{"replica_model_uid": uid} for uid in ("demo-rep0", model_uid)],
+        )
+        raise RuntimeError("load failed")
+
+    worker.wait_for_load = fail_load
+    with pytest.raises(RuntimeError, match="load failed"):
+        await supervisor.add_model_replica("demo")
+
+    assert worker.terminations == ["demo-rep1"]
+    assert set(supervisor._replica_model_uid_to_worker) == {"demo-rep0"}
+    assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
+    statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
+    assert [status.replica_id for status in statuses] == [0]
+
+
+@pytest.mark.asyncio
+async def test_terminate_replica_reconciles_worker_replay_during_delete():
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor.add_model_replica("demo")
+    original_terminate = worker.terminate_model
+
+    async def terminate_with_replay(model_uid, **kwargs):
+        supervisor._rebuild_worker_replica_state(
+            worker,
+            [{"replica_model_uid": f"demo-rep{i}"} for i in (0, 1)],
+        )
+        await original_terminate(model_uid, **kwargs)
+        await supervisor._status_guard_ref.update_replica_status(
+            "demo", 1, {"status": "TERMINATED"}
+        )
+
+    worker.terminate_model = terminate_with_replay
+    remaining = await asyncio.wait_for(
+        supervisor.terminate_model_replica("demo", 1), timeout=2
+    )
+
+    assert remaining == 1
+    assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
+    assert set(supervisor._replica_model_uid_to_worker) == {"demo-rep0"}
+    statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
+    assert [status.replica_id for status in statuses] == [0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("active", [False, True])
+async def test_delete_terminated_replica_without_route(active):
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    await supervisor._status_guard_ref.update_replica_status(
+        "demo", 2, {"status": "TERMINATED", "replica_model_uid": "demo-rep2"}
+    )
+    # Another retained terminal record must not inflate the running count.
+    await supervisor._status_guard_ref.update_replica_status(
+        "demo", 3, {"status": "TERMINATED", "replica_model_uid": "demo-rep3"}
+    )
+    if active:
+        supervisor._model_uid_to_replica_info["demo"].active_replica_ids.append(2)
+    supervisor._unexpected_down_replicas[("demo", 2)] = "demo"
+
+    assert await supervisor.terminate_model_replica("demo", 2) == 1
+    assert supervisor._model_uid_to_replica_info["demo"].active_replica_ids == [0]
+    statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
+    assert [status.replica_id for status in statuses] == [0, 3]
+    assert supervisor._status_guard_ref.instance_updates[-1] == (
+        "demo",
+        {"replica": 1, "status": "READY"},
+    )
+    assert ("demo", 2) not in supervisor._unexpected_down_replicas
+    assert worker.terminations == []
+
+
+@pytest.mark.asyncio
+async def test_delete_terminal_record_without_active_model():
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    supervisor._model_uid_to_replica_info.clear()
+    supervisor._replica_model_uid_to_worker.clear()
+    await supervisor._status_guard_ref.update_replica_status(
+        "demo", 0, {"status": "TERMINATED"}
+    )
+
+    assert await supervisor.terminate_model_replica("demo", 0) == 0
+    assert await supervisor._status_guard_ref.get_replica_statuses("demo") == []
+    assert supervisor._status_guard_ref.instance_updates[-1] == (
+        "demo",
+        {"replica": 0, "status": "TERMINATED"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_missing_ready_replica_still_rejects():
+    worker = _FakeScaleWorker("worker-0:9978", {"n_gpu": None})
+    supervisor = _make_supervisor([worker], worker.launch_args)
+    supervisor._replica_model_uid_to_worker.clear()
+
+    with pytest.raises(ValueError, match="Model not found"):
+        await supervisor.terminate_model_replica("demo", 0)
+    statuses = await supervisor._status_guard_ref.get_replica_statuses("demo")
+    assert [status.replica_id for status in statuses] == [0]
