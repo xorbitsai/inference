@@ -12,15 +12,8 @@ Fun-ASR-Nano-2512
 Specifications
 ^^^^^^^^^^^^^^
 
-- **PyTorch model ID:** FunAudioLLM/Fun-ASR-Nano-2512
-- **MLX model ID:** mlx-community/Fun-ASR-Nano-2512
+- **Model ID:** mlx-community/Fun-ASR-Nano-2512
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Fun-ASR-Nano-2512 --model-type audio --model-engine PyTorch
-
-Available engines
-^^^^^^^^^^^^^^^^^
-
-* ``PyTorch``
-* ``MLX``
+   xinference launch --model-name Fun-ASR-Nano-2512 --model-type audio

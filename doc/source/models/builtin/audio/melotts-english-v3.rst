@@ -12,15 +12,8 @@ MeloTTS-English-v3
 Specifications
 ^^^^^^^^^^^^^^
 
-- **PyTorch model ID:** myshell-ai/MeloTTS-English-v3
-- **MLX model ID:** mlx-community/MeloTTS-English-v3-MLX
+- **Model ID:** mlx-community/MeloTTS-English-v3-MLX
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name MeloTTS-English-v3 --model-type audio --model-engine PyTorch
-
-Available engines
-^^^^^^^^^^^^^^^^^
-
-* ``PyTorch``
-* ``MLX``
+   xinference launch --model-name MeloTTS-English-v3 --model-type audio

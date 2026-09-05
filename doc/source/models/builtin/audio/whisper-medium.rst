@@ -12,15 +12,8 @@ whisper-medium
 Specifications
 ^^^^^^^^^^^^^^
 
-- **transformers model ID:** openai/whisper-medium
-- **MLX model ID:** mlx-community/whisper-medium-mlx
+- **Model ID:** mlx-community/whisper-medium-mlx
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name whisper-medium --model-type audio --model-engine transformers
-
-Available engines
-^^^^^^^^^^^^^^^^^
-
-* ``transformers``
-* ``MLX``
+   xinference launch --model-name whisper-medium --model-type audio
