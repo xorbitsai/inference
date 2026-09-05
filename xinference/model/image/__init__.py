@@ -18,7 +18,11 @@ import os
 import warnings
 
 from ...constants import XINFERENCE_MODEL_DIR
-from ..utils import flatten_model_src, flatten_quantizations
+from ..utils import (
+    flatten_model_src,
+    flatten_quantizations,
+    prune_stale_derived_registries,
+)
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
@@ -33,6 +37,9 @@ from .custom import (
     unregister_image,
 )
 from .engine import register_builtin_image_engines
+from .engine_family import (
+    IMAGE_ENGINES,
+)
 from .engine_family import (
     generate_engine_config_by_model_name as generate_image_engine_config,
 )
@@ -97,6 +104,13 @@ def _install():
             generate_image_engine_config(ud_image)
         if ud_image.model_ability and "ocr" in ud_image.model_ability:
             generate_engine_config_by_model_name(ud_image)
+
+    # A model present on a prior refresh but absent from this one must not keep
+    # advertising a launch config or description from the stale entry.
+    live_names = {name for name in BUILTIN_IMAGE_MODELS} | {
+        ud.model_name for ud in get_user_defined_images()
+    }
+    prune_stale_derived_registries(live_names, IMAGE_ENGINES, IMAGE_MODEL_DESCRIPTIONS)
 
 
 def register_builtin_model():
