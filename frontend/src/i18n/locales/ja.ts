@@ -755,6 +755,8 @@ const ja = {
     addReplicaUidLabel: 'レプリカエイリアス',
     addReplicaUidPlaceholder: '任意、空の場合は表示しません',
     addReplicaAutoWorker: '自動（デフォルト）',
+    addReplicaWorkerHint:
+      '選択した各ワーカーに少なくとも1つのレプリカを割り当て、追加分は選択順に繰り返します。',
     addReplicaWorkerRequired: 'GPU インデックスを指定する前に Worker を選択してください。',
     addReplicaInvalidGpuIdx:
       'GPU インデックスを非負整数のカンマ区切りで入力してください（例: 0,1）。',

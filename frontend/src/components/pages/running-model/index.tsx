@@ -392,6 +392,7 @@ const RunningModel = () => {
           label: addr,
           value: addr,
           description: t('launchModel.gpuCount', { count: gpuCount }),
+          gpuCount,
         }));
     }
     // Fallback: collect from all running models.

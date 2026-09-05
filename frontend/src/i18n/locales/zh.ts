@@ -737,6 +737,7 @@ const zh = {
     addReplicaUidLabel: '副本别名',
     addReplicaUidPlaceholder: '可选，不填则不显示',
     addReplicaAutoWorker: '自动分配（默认）',
+    addReplicaWorkerHint: '每个选中的 Worker 至少分配一个副本；更多副本将按选择顺序循环分配。',
     addReplicaWorkerRequired: '指定 GPU 索引前，请先选择 Worker。',
     addReplicaInvalidGpuIdx: '请输入逗号分隔的非负 GPU 索引，例如：0,1。',
     addReplicaInvalidCount: '新增副本数必须是大于 0 的整数。',

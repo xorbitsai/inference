@@ -750,6 +750,8 @@ const ko = {
     addReplicaUidLabel: '복제본 별칭',
     addReplicaUidPlaceholder: '선택사항, 비워두면 표시하지 않음',
     addReplicaAutoWorker: '자동 (기본값)',
+    addReplicaWorkerHint:
+      '선택한 각 워커에 하나 이상의 복제본을 할당하고, 추가 복제본은 선택 순서대로 반복합니다.',
     addReplicaWorkerRequired: 'GPU 인덱스를 지정하기 전에 Worker를 선택하세요.',
     addReplicaInvalidGpuIdx:
       'GPU 인덱스를 음이 아닌 정수의 쉼표 구분 형식으로 입력하세요(예: 0,1).',

@@ -769,6 +769,8 @@ const en = {
     addReplicaUidLabel: 'Replica Alias',
     addReplicaUidPlaceholder: 'Optional, hidden if empty',
     addReplicaAutoWorker: 'Auto (default)',
+    addReplicaWorkerHint:
+      'Each selected Worker receives at least one replica. Additional replicas reuse them in selection order.',
     addReplicaWorkerRequired: 'Select a worker before specifying GPU indexes.',
     addReplicaInvalidGpuIdx: 'Enter comma-separated non-negative GPU indexes, for example: 0,1.',
     addReplicaInvalidCount: 'Enter a positive integer for the number of new replicas.',
