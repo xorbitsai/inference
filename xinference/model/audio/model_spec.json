@@ -1105,6 +1105,7 @@
         "descript-audiotools",
         "#system_torch#",
         "#system_torchaudio#",
+        "#system_torchcodec#",
         "#system_numpy#"
       ]
     }
@@ -1149,6 +1150,7 @@
         "safetensors>=0.5.2",
         "#system_torch#",
         "#system_torchaudio#",
+        "#system_torchcodec#",
         "#system_numpy#"
       ]
     }

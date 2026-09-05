@@ -296,6 +296,7 @@ def test_builtin_catalog_has_fish_audio_s1_and_s2_sources():
             for spec in specs
         )
         assert all("#system_torch#" in spec.virtualenv.packages for spec in specs)
+        assert all("#system_torchcodec#" in spec.virtualenv.packages for spec in specs)
         # transformers already provides tqdm. Listing it explicitly makes the
         # virtualenv manager pin the host version, which may not exist on the
         # configured PyTorch wheel index.
