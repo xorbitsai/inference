@@ -37,9 +37,7 @@ from .custom import (
     unregister_image,
 )
 from .engine import register_builtin_image_engines
-from .engine_family import (
-    IMAGE_ENGINES,
-)
+from .engine_family import IMAGE_ENGINES
 from .engine_family import (
     generate_engine_config_by_model_name as generate_image_engine_config,
 )
