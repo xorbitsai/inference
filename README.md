@@ -181,6 +181,12 @@ Install Xinference by using pip as follows. (For more options, see [Installation
 pip install "xinference[all]"
 ```
 
+On Linux/macOS, a [one-line install script](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install-script-linux-macos) can bootstrap the **base framework** into an isolated [uv](https://docs.astral.sh/uv/)-managed environment (no model backends installed; not a replacement for the `pip install` above):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
 To start a local instance of Xinference, run the following command:
 
 ```bash
