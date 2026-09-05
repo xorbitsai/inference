@@ -627,6 +627,50 @@ def _apply_engine_host_checks(
             )
 
 
+def extend_classes_once(target: List[type], classes: List[type]) -> None:
+    """Append each class to ``target`` only if it is not already present.
+
+    The embedding, rerank and LLM ``_install()`` functions run on every call
+    to ``register_builtin_model()``, including the runtime refresh path
+    (``Worker.update_model_type``, called repeatedly as the model catalog is
+    re-downloaded). Without this guard, each refresh re-appends the same
+    built-in engine classes to the shared module-level ``SUPPORTED_ENGINES``
+    lists, growing them without bound.
+    """
+    for cls in classes:
+        if cls not in target:
+            target.append(cls)
+
+
+def prune_stale_derived_registries(
+    live_model_names: "set[str]", *derived_dicts: Dict[str, Any]
+) -> None:
+    """Drop entries for models no longer present after an install refresh.
+
+    ``install_models_with_merge`` clears and rebuilds its ``built_in_dict`` from
+    scratch on every refresh, but the engine and description registries derived
+    from it (``EMBEDDING_ENGINES``/``EMBEDDING_MODEL_DESCRIPTIONS`` and their
+    rerank counterparts) are only ever added to, never pruned: a model dropped
+    from a later catalog still advertises a launch config and description while
+    ``match_*()`` can no longer find it in the primary table.
+    """
+    for d in derived_dicts:
+        for stale_name in [name for name in d if name not in live_model_names]:
+            del d[stale_name]
+
+
+def family_identity_key(model_spec: Any) -> str:
+    """Serialize a model-family spec for value-based dedup during registry loads.
+
+    Excludes ``is_builtin``: every ``_install()`` marks freshly loaded families
+    with ``family.is_builtin = True`` right after loading them, so on a repeated
+    ``register_builtin_model()`` refresh the newly parsed candidate (default
+    ``is_builtin``) would never compare equal to the already-loaded, already-marked
+    entry it duplicates.
+    """
+    return model_spec.json(exclude={"is_builtin"})
+
+
 def check_dependency_available(
     module_name: str, friendly_name: Optional[str] = None
 ) -> Union[bool, Tuple[bool, str]]:
@@ -3114,8 +3158,17 @@ def merge_models_by_timestamp(
             for model in built_in_list:
                 all_models.append((model.updated_at, model))
 
-            # Add user models
+            # Add user models, skipping any value-identical to a model already
+            # present. install_models_with_merge reruns on every runtime refresh
+            # against the same downloaded JSON, so without this guard a
+            # downloaded entry sharing content and updated_at with an existing
+            # one keeps re-appending as a duplicate on every call.
+            existing_keys = {family_identity_key(model) for _, model in all_models}
             for model in user_model_list:
+                key = family_identity_key(model)
+                if key in existing_keys:
+                    continue
+                existing_keys.add(key)
                 all_models.append((model.updated_at, model))
 
             # Sort by updated_at (newest first) and keep the latest
@@ -3166,12 +3219,17 @@ def install_models_with_merge(
         os.path.abspath(load_model_family_func.__code__.co_filename)
     )
     builtin_json_path = os.path.join(current_dir, builtin_json_file)
-    load_model_family_func(builtin_json_path, built_in_dict)
+
+    # Load and mark into a fresh dict, never built_in_dict directly: a repeat
+    # refresh would otherwise mark a downloaded family left over from a prior
+    # merge as built-in too, then have it shadow its own correctly-False copy.
+    freshly_loaded_builtins: Dict[str, Any] = {}
+    load_model_family_func(builtin_json_path, freshly_loaded_builtins)
 
     # Mark these as vetted built-in models. Loaders may enable trust_remote_code
     # for built-ins without an operator opt-in; user-supplied / downloaded models
     # (loaded below) keep is_builtin=False and stay gated (CWE-94).
-    for _specs in built_in_dict.values():
+    for _specs in freshly_loaded_builtins.values():
         for _family in _specs:
             _family.is_builtin = True
 
@@ -3182,21 +3240,22 @@ def install_models_with_merge(
             user_models, user_model_type, user_json_filename, load_model_family_func
         )
 
-        # Create a copy of built-in models for merging
-        built_in_models_copy = dict(built_in_dict)
         if model_normalize_func is not None:
             for user_model_list in user_models.values():
                 for user_model in user_model_list:
-                    model_normalize_func(user_model, built_in_models_copy)
+                    model_normalize_func(user_model, freshly_loaded_builtins)
 
         # Merge models, keeping the latest version based on updated_at
         merged_models = merge_models_by_timestamp(
-            built_in_models_copy, user_models, model_identity_func
+            freshly_loaded_builtins, user_models, model_identity_func
         )
 
         # Update the dictionary with merged results
         built_in_dict.clear()
         built_in_dict.update(merged_models)
+    else:
+        built_in_dict.clear()
+        built_in_dict.update(freshly_loaded_builtins)
 
 
 def allow_trust_remote_code(model_family) -> bool:

@@ -19,7 +19,12 @@ import warnings
 from typing import Any, Dict, List
 
 from ...engine_hooks import MODEL_TYPE_EMBEDDING, _run_engine_registration_hooks
-from ..utils import flatten_quantizations
+from ..utils import (
+    extend_classes_once,
+    family_identity_key,
+    flatten_quantizations,
+    prune_stale_derived_registries,
+)
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
     EmbeddingModelFamilyV2,
@@ -82,9 +87,10 @@ def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2")
     from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
     model_name = model_family.model_name
-    engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
-        model_name, {}
-    )  # structure for engine query
+    # Rebuilt fresh, never merged with EMBEDDING_ENGINES[model_name]: this reruns
+    # on every register_builtin_model() refresh, so reusing the old dict would
+    # re-append a duplicate entry per engine each time.
+    engines: Dict[str, List[Dict[str, Any]]] = {}  # structure for engine query
     for spec in [x for x in model_family.model_specs if x.model_hub == "huggingface"]:
         model_format = spec.model_format
         quantization = spec.quantization
@@ -160,14 +166,15 @@ def load_model_family_from_json(json_filename, target_families):
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
+        model_spec = EmbeddingModelFamilyV2(**json_obj)
+        # Dedup by value: this loader reruns on every refresh against the same JSON.
         if json_obj["model_name"] not in target_families:
-            target_families[json_obj["model_name"]] = [
-                EmbeddingModelFamilyV2(**json_obj)
-            ]
+            target_families[json_obj["model_name"]] = [model_spec]
         else:
-            target_families[json_obj["model_name"]].append(
-                EmbeddingModelFamilyV2(**json_obj)
-            )
+            bucket = target_families[json_obj["model_name"]]
+            key = family_identity_key(model_spec)
+            if not any(family_identity_key(existing) == key for existing in bucket):
+                bucket.append(model_spec)
 
     del json_path
 
@@ -214,10 +221,12 @@ def _install():
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
 
-    SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
-    FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
-    VLLM_CLASSES.extend([VLLMEmbeddingModel])
-    LLAMA_CPP_CLASSES.extend([XllamaCppEmbeddingModel])
+    extend_classes_once(
+        SENTENCE_TRANSFORMER_CLASSES, [SentenceTransformerEmbeddingModel]
+    )
+    extend_classes_once(FLAG_EMBEDDER_CLASSES, [FlagEmbeddingModel])
+    extend_classes_once(VLLM_CLASSES, [VLLMEmbeddingModel])
+    extend_classes_once(LLAMA_CPP_CLASSES, [XllamaCppEmbeddingModel])
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
@@ -239,3 +248,12 @@ def _install():
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )
+
+    # A model present on a prior refresh but absent from this one must not keep
+    # advertising a launch config or description from the stale entry.
+    live_names = {name for name in BUILTIN_EMBEDDING_MODELS} | {
+        ud.model_name for ud in get_user_defined_embeddings()
+    }
+    prune_stale_derived_registries(
+        live_names, EMBEDDING_ENGINES, EMBEDDING_MODEL_DESCRIPTIONS
+    )

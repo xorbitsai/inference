@@ -17,7 +17,7 @@ import os
 import warnings
 
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
-from ..utils import flatten_quantizations
+from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
 from .core import (
     LLM,
     LLM_VERSION_INFOS,
@@ -184,13 +184,20 @@ def load_model_family_from_json(json_filename, target_families):
             os.path.dirname(os.path.abspath(__file__)), json_filename
         )
 
+    # Dedup by value against a precomputed key set, O(1) per candidate instead
+    # of an O(n) scan of target_families for each of the ~300 catalog entries.
+    seen = {family_identity_key(family) for family in target_families}
+
     for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
         model_spec = LLMFamilyV2.parse_obj(json_obj)
-        target_families.append(model_spec)
+        key = family_identity_key(model_spec)
+        if key not in seen:
+            target_families.append(model_spec)
+            seen.add(key)
 
         # register chat_template
         if (
@@ -255,12 +262,14 @@ def _install():
     from .vllm.core import VLLMChatModel, VLLMModel, VLLMMultiModel
 
     # register llm classes.
-    LLAMA_CLASSES.extend([XllamaCppModel])
-    SGLANG_CLASSES.extend([SGLANGModel, SGLANGChatModel, SGLANGVisionModel])
-    VLLM_CLASSES.extend([VLLMModel, VLLMChatModel, VLLMMultiModel])
-    MLX_CLASSES.extend([MLXModel, MLXChatModel, MLXVisionModel])
-    LMDEPLOY_CLASSES.extend([LMDeployModel, LMDeployChatModel])
-    TRANSFORMERS_CLASSES.extend([PytorchChatModel, PytorchModel])
+    extend_classes_once(LLAMA_CLASSES, [XllamaCppModel])
+    extend_classes_once(
+        SGLANG_CLASSES, [SGLANGModel, SGLANGChatModel, SGLANGVisionModel]
+    )
+    extend_classes_once(VLLM_CLASSES, [VLLMModel, VLLMChatModel, VLLMMultiModel])
+    extend_classes_once(MLX_CLASSES, [MLXModel, MLXChatModel, MLXVisionModel])
+    extend_classes_once(LMDEPLOY_CLASSES, [LMDeployModel, LMDeployChatModel])
+    extend_classes_once(TRANSFORMERS_CLASSES, [PytorchChatModel, PytorchModel])
 
     # support 4 engines for now
     SUPPORTED_ENGINES["vLLM"] = VLLM_CLASSES

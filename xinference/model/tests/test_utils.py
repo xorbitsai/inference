@@ -25,6 +25,7 @@ import pytest
 import tqdm as tqdm_module
 from tqdm.auto import tqdm
 
+from ..._compat import BaseModel
 from ...utils import get_real_path
 from ..utils import (
     CACHE_SOURCE_MANIFEST,
@@ -34,6 +35,8 @@ from ..utils import (
     _extract_engine_markers_from_packages,
     _force_virtualenv_engine_params,
     create_symlink,
+    extend_classes_once,
+    family_identity_key,
     get_cache_source_paths,
     neutralize_broken_torchcodec,
     parse_uri,
@@ -42,6 +45,54 @@ from ..utils import (
     retry_snapshot_download,
     symlink_local_file,
 )
+
+
+def test_extend_classes_once_skips_already_present_classes():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    target = [A]
+    extend_classes_once(target, [A, B])
+    assert target == [A, B]
+
+    # A second call with the same classes (simulating a repeated
+    # register_builtin_model() refresh) must not grow the list further.
+    extend_classes_once(target, [A, B])
+    assert target == [A, B]
+
+
+def test_extend_classes_once_preserves_existing_order():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    class C:
+        pass
+
+    target = [B, A]
+    extend_classes_once(target, [A, B, C])
+    assert target == [B, A, C]
+
+
+def test_family_identity_key_ignores_is_builtin():
+    # register_builtin_model() marks every loaded family is_builtin=True right
+    # after loading it, so a freshly re-parsed candidate on a repeated refresh
+    # must still compare equal to the already-marked entry it duplicates.
+    class DummyFamily(BaseModel):
+        model_name: str
+        is_builtin: bool = False
+
+    loaded = DummyFamily(model_name="foo", is_builtin=True)
+    freshly_parsed = DummyFamily(model_name="foo", is_builtin=False)
+    assert family_identity_key(loaded) == family_identity_key(freshly_parsed)
+
+    different_model = DummyFamily(model_name="bar", is_builtin=True)
+    assert family_identity_key(loaded) != family_identity_key(different_model)
 
 
 def test_resolve_media_seed():

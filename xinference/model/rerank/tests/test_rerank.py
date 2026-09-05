@@ -253,3 +253,127 @@ def test_qwen3_reranker_gguf_uses_llama_cpp_compatible_models(
     assert spec.model_file_name_template == (
         f"{model_name}{separator}{quantization}.gguf"
     )
+
+
+def test_register_builtin_model_is_idempotent():
+    # Worker.update_model_type() calls register_builtin_model() again on
+    # every runtime hub-refresh, on the same already-imported process. It
+    # must leave the engine registry as if it had only run once.
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES, SUPPORTED_ENGINES
+
+    register_builtin_model()
+    model_name = next(iter(RERANK_ENGINES))
+    baseline_classes = {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    }
+    baseline_engine_entries = sum(
+        len(specs) for specs in RERANK_ENGINES[model_name].values()
+    )
+    baseline_model_table = sum(len(specs) for specs in BUILTIN_RERANK_MODELS.values())
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert {
+        engine: list(classes) for engine, classes in SUPPORTED_ENGINES.items()
+    } == baseline_classes
+    assert (
+        sum(len(specs) for specs in RERANK_ENGINES[model_name].values())
+        == baseline_engine_entries
+    )
+    # BUILTIN_RERANK_MODELS itself must not grow either: load_model_family_from_json
+    # unconditionally appended a fresh spec per model name on every refresh, independent
+    # of the engine-class and engine-entry guards above.
+    assert (
+        sum(len(specs) for specs in BUILTIN_RERANK_MODELS.values())
+        == baseline_model_table
+    )
+
+
+def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
+    tmp_path, monkeypatch
+):
+    # Worker.update_model_type() re-parses a downloaded catalog file and
+    # merges it into the built-in table on every refresh. A downloaded entry
+    # that is value-identical to the built-in one (same content, same
+    # updated_at) must not keep padding the family list on repeat refreshes.
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS
+
+    # Patch both: rerank/__init__.py binds this at import time (unlike
+    # embedding's per-call import), and utils.py's loader re-imports it
+    # from constants.py fresh, so either one alone still hits the real dir.
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
+    with open(spec_path) as f:
+        raw_entry = json.load(f)[0]
+    model_name = raw_entry["model_name"]
+
+    register_builtin_model()
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([raw_entry], f)
+
+    register_builtin_model()
+    baseline_count = len(BUILTIN_RERANK_MODELS[model_name])
+
+    for _ in range(3):
+        register_builtin_model()
+
+    assert len(BUILTIN_RERANK_MODELS[model_name]) == baseline_count
+    # the vetted built-in entry must still be present, not shadowed out
+    # by the freshly re-parsed downloaded duplicate.
+    assert any(f.is_builtin for f in BUILTIN_RERANK_MODELS[model_name])
+
+
+def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
+    tmp_path, monkeypatch
+):
+    # A downloaded-only model still in RERANK_ENGINES/RERANK_MODEL_DESCRIPTIONS
+    # after it drops out of a later catalog refresh keeps advertising a launch
+    # config and a description, even though BUILTIN_RERANK_MODELS (the table
+    # both derive from) no longer has it.
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..core import RERANK_MODEL_DESCRIPTIONS
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
+    with open(spec_path) as f:
+        raw_entry = json.load(f)[0]
+    downloaded_only = dict(raw_entry)
+    downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_only], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" in BUILTIN_RERANK_MODELS
+    assert "downloaded-only-catalog-removal-test" in RERANK_ENGINES
+    assert "downloaded-only-catalog-removal-test" in RERANK_MODEL_DESCRIPTIONS
+
+    # A later refresh's catalog no longer lists the model (removed upstream).
+    with open(catalog_path, "w") as f:
+        json.dump([], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" not in BUILTIN_RERANK_MODELS
+    assert "downloaded-only-catalog-removal-test" not in RERANK_ENGINES
+    assert "downloaded-only-catalog-removal-test" not in RERANK_MODEL_DESCRIPTIONS
