@@ -112,7 +112,7 @@ class FishTokenizer:
     @staticmethod
     def load_tiktoken_bpe(tiktoken_bpe_file: str) -> dict[bytes, int]:
         data = {}
-        for line in open(tiktoken_bpe_file).read().splitlines():
+        for line in open(tiktoken_bpe_file, encoding="utf-8").read().splitlines():
             if not line:
                 continue
             token, rank = line.split()

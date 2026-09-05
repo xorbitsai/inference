@@ -5,6 +5,9 @@ import numpy as np
 import torch
 
 from xinference.thirdparty.fish_speech_s2.fish_speech.tokenizer import (
+    AUDIO_EMBED_TOKEN,
+    AUDIO_END_TOKEN,
+    AUDIO_START_TOKEN,
     IM_END_TOKEN,
     MODALITY_TOKENS,
     FishTokenizer,
@@ -210,6 +213,15 @@ class ContentSequence:
 
                 vq_parts.append(curr_codes)
                 vq_require_losses.append(part.cal_loss)
+            elif isinstance(part, AudioPart):
+                audio_parts.append(part.features)
+                tokens = torch.tensor(
+                    [tokenizer.get_token_id(AUDIO_START_TOKEN)]
+                    + [tokenizer.get_token_id(AUDIO_EMBED_TOKEN)]
+                    * part.features.shape[0]
+                    + [tokenizer.get_token_id(AUDIO_END_TOKEN)],
+                    dtype=torch.long,
+                )
             else:
                 raise ValueError(f"Unsupported part type: {type(part)}")
 

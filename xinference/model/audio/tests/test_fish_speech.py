@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import importlib
 import inspect
 import os
 import tempfile
@@ -18,6 +19,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import torch
 
 from .. import fish_speech as fish_speech_module
 from .. import load_model_family_from_json
@@ -41,6 +43,49 @@ def _model_spec(model_name):
 class _FakeSchema:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+
+
+@pytest.mark.parametrize(
+    "module_name, expected_dtype",
+    [
+        (
+            "xinference.thirdparty.fish_speech_s1.fish_speech.content_sequence",
+            torch.int,
+        ),
+        (
+            "xinference.thirdparty.fish_speech_s2.fish_speech.content_sequence",
+            torch.long,
+        ),
+    ],
+)
+def test_vendored_content_sequence_encodes_audio_parts(module_name, expected_dtype):
+    module = importlib.import_module(module_name)
+    token_ids = {
+        module.AUDIO_START_TOKEN: 10,
+        module.AUDIO_END_TOKEN: 11,
+        module.AUDIO_EMBED_TOKEN: 12,
+    }
+    tokenizer = SimpleNamespace(
+        get_token_id=token_ids.__getitem__,
+        semantic_begin_id=100,
+    )
+    features = torch.arange(6, dtype=torch.float32).reshape(2, 3)
+    sequence = module.ContentSequence(parts=[module.AudioPart(features=features)])
+
+    encoded = sequence.encode(tokenizer, add_shift=False)
+
+    assert encoded.tokens.dtype == expected_dtype
+    assert encoded.tokens.tolist() == [10, 12, 12, 11]
+    assert encoded.audio_masks.tolist() == [False, True, True, False]
+    assert len(encoded.audio_parts) == 1
+    torch.testing.assert_close(encoded.audio_parts[0], features)
+
+    values, audio_masks, audio_parts = sequence.encode_for_inference(
+        tokenizer, num_codebooks=2
+    )
+    assert values.shape == (3, 4)
+    assert audio_masks.tolist() == [[False, True, True, False]]
+    torch.testing.assert_close(audio_parts, features)
 
 
 @pytest.mark.parametrize("model_name", [FISH_AUDIO_S1_MINI, FISH_AUDIO_S2_PRO])
