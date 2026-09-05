@@ -20,7 +20,12 @@ from typing import Any, Dict, List
 
 from ...constants import XINFERENCE_MODEL_DIR
 from ...engine_hooks import MODEL_TYPE_RERANK, _run_engine_registration_hooks
-from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
+from ..utils import (
+    extend_classes_once,
+    family_identity_key,
+    flatten_quantizations,
+    prune_stale_derived_registries,
+)
 from .core import (
     RERANK_MODEL_DESCRIPTIONS,
     RerankModelFamilyV2,
@@ -213,3 +218,12 @@ def _install():
     # register model description
     for ud_rerank in get_user_defined_reranks():
         RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
+
+    # A model present on a prior refresh but absent from this one must not keep
+    # advertising a launch config or description from the stale entry.
+    live_names = {name for name in BUILTIN_RERANK_MODELS} | {
+        ud.model_name for ud in get_user_defined_reranks()
+    }
+    prune_stale_derived_registries(
+        live_names, RERANK_ENGINES, RERANK_MODEL_DESCRIPTIONS
+    )

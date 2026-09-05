@@ -20,7 +20,11 @@ import tempfile
 import pytest
 
 from ..cache_manager import EmbeddingCacheManager as CacheManager
-from ..core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
+from ..core import (
+    EMBEDDING_MODEL_DESCRIPTIONS,
+    EmbeddingModelFamilyV2,
+    TransformersEmbeddingSpecV1,
+)
 from ..embed_family import BUILTIN_EMBEDDING_MODELS, EMBEDDING_ENGINES
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
@@ -501,3 +505,42 @@ def test_register_builtin_model_preserves_downloaded_provenance(tmp_path, monkey
     active = BUILTIN_EMBEDDING_MODELS[model_name]
     assert len(active) == 1
     assert active[0].is_builtin is False
+
+
+def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
+    tmp_path, monkeypatch
+):
+    # A downloaded-only model still in EMBEDDING_ENGINES/EMBEDDING_MODEL_DESCRIPTIONS
+    # after it drops out of a later catalog refresh keeps advertising a launch
+    # config and a description, even though BUILTIN_EMBEDDING_MODELS (the table
+    # both derive from) no longer has it.
+    from .... import constants
+    from .. import register_builtin_model
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
+    with open(spec_path) as f:
+        raw_entry = json.load(f)[0]
+    downloaded_only = dict(raw_entry)
+    downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "embedding")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "embedding_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_only], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" in BUILTIN_EMBEDDING_MODELS
+    assert "downloaded-only-catalog-removal-test" in EMBEDDING_ENGINES
+    assert "downloaded-only-catalog-removal-test" in EMBEDDING_MODEL_DESCRIPTIONS
+
+    # A later refresh's catalog no longer lists the model (removed upstream).
+    with open(catalog_path, "w") as f:
+        json.dump([], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" not in BUILTIN_EMBEDDING_MODELS
+    assert "downloaded-only-catalog-removal-test" not in EMBEDDING_ENGINES
+    assert "downloaded-only-catalog-removal-test" not in EMBEDDING_MODEL_DESCRIPTIONS

@@ -333,3 +333,47 @@ def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
     # the vetted built-in entry must still be present, not shadowed out
     # by the freshly re-parsed downloaded duplicate.
     assert any(f.is_builtin for f in BUILTIN_RERANK_MODELS[model_name])
+
+
+def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
+    tmp_path, monkeypatch
+):
+    # A downloaded-only model still in RERANK_ENGINES/RERANK_MODEL_DESCRIPTIONS
+    # after it drops out of a later catalog refresh keeps advertising a launch
+    # config and a description, even though BUILTIN_RERANK_MODELS (the table
+    # both derive from) no longer has it.
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..core import RERANK_MODEL_DESCRIPTIONS
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
+    with open(spec_path) as f:
+        raw_entry = json.load(f)[0]
+    downloaded_only = dict(raw_entry)
+    downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_only], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" in BUILTIN_RERANK_MODELS
+    assert "downloaded-only-catalog-removal-test" in RERANK_ENGINES
+    assert "downloaded-only-catalog-removal-test" in RERANK_MODEL_DESCRIPTIONS
+
+    # A later refresh's catalog no longer lists the model (removed upstream).
+    with open(catalog_path, "w") as f:
+        json.dump([], f)
+
+    register_builtin_model()
+    assert "downloaded-only-catalog-removal-test" not in BUILTIN_RERANK_MODELS
+    assert "downloaded-only-catalog-removal-test" not in RERANK_ENGINES
+    assert "downloaded-only-catalog-removal-test" not in RERANK_MODEL_DESCRIPTIONS

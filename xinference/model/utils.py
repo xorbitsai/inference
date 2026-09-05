@@ -640,6 +640,23 @@ def extend_classes_once(target: List[type], classes: List[type]) -> None:
             target.append(cls)
 
 
+def prune_stale_derived_registries(
+    live_model_names: "set[str]", *derived_dicts: Dict[str, Any]
+) -> None:
+    """Drop entries for models no longer present after an install refresh.
+
+    ``install_models_with_merge`` clears and rebuilds its ``built_in_dict`` from
+    scratch on every refresh, but the engine and description registries derived
+    from it (``EMBEDDING_ENGINES``/``EMBEDDING_MODEL_DESCRIPTIONS`` and their
+    rerank counterparts) are only ever added to, never pruned: a model dropped
+    from a later catalog still advertises a launch config and description while
+    ``match_*()`` can no longer find it in the primary table.
+    """
+    for d in derived_dicts:
+        for stale_name in [name for name in d if name not in live_model_names]:
+            del d[stale_name]
+
+
 def family_identity_key(model_spec: Any) -> str:
     """Serialize a model-family spec for value-based dedup during registry loads.
 
