@@ -1,0 +1,6 @@
+This model is licensed under the Fish Audio Research License, Copyright © 39 AI, INC. All Rights Reserved.
+
+Xinference Holdings Pte. Ltd changed the Fish Audio Materials by retaining the
+inference-only Python subset, package-qualifying imports, trimming training-only
+utility initialization, and resolving the Hydra codec config relative to the
+vendored package.

@@ -1066,6 +1066,95 @@
   },
   {
     "version": 2,
+    "model_name": "FishAudio-S1-mini",
+    "model_description": "Built with Fish Audio. Fish Audio S1-mini is a 0.5B multilingual text-to-speech model with zero-shot synthesis, expressive inline markers, and voice cloning. Its model weights use CC-BY-NC-SA-4.0 and require acceptance of the model repository access terms.",
+    "model_family": "FishAudio",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "fishaudio/s1-mini",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "fishaudio/s1-mini",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1788514328,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.45.2,<=4.57.3",
+        "hydra-core>=1.3.2",
+        "omegaconf~=2.3.0",
+        "loguru>=0.6.0",
+        "natsort>=8.4.0",
+        "einops>=0.7.0",
+        "librosa>=0.10.1",
+        "soundfile>=0.12",
+        "click",
+        "loralib>=0.1.2",
+        "tiktoken>=0.8.0",
+        "pydantic>=2.9,<3",
+        "descript-audio-codec",
+        "descript-audiotools",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "FishAudio-S2-Pro",
+    "model_description": "Built with Fish Audio. Fish Audio S2-Pro supports multilingual zero-shot synthesis, voice cloning, multi-speaker speech, and fine-grained inline prosody and emotion control. The Fish Audio Research License permits research and non-commercial use; commercial use requires a separate license.",
+    "model_family": "FishAudio",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "fishaudio/s2-pro",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "fishaudio/s2-pro",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1788514328,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.45.2,<=4.57.3",
+        "hydra-core>=1.3.2",
+        "omegaconf~=2.3.0",
+        "loguru>=0.6.0",
+        "natsort>=8.4.0",
+        "einops>=0.7.0",
+        "soundfile>=0.12",
+        "click",
+        "loralib>=0.1.2",
+        "pydantic>=2.9,<3",
+        "descript-audio-codec",
+        "descript-audiotools",
+        "safetensors>=0.5.2",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
     "engine": "PyTorch",
