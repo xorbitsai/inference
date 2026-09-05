@@ -289,12 +289,13 @@ function VideoFields({ form }: Pick<CapabilityFormProps, 'form'>) {
   );
 }
 
-export function TextPromptPanel() {
+export function TextPromptPanel({ actions }: Pick<CapabilityFormProps, 'actions'>) {
   return (
     <>
       <FormField name="prompt" label="Prompt" rules={[{ required: true }]}>
         <Textarea className="min-h-40" placeholder="Enter prompt..." />
       </FormField>
+      {actions}
       <FormField name="max_tokens" label="Max Tokens" normalize={normalizeNumberInput}>
         <Input type="number" min={0} />
       </FormField>

@@ -262,6 +262,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Generate',
     icon: FileText,
     requestApi: '/v1/completions',
+    stream: true,
     codeExample: {
       method: 'POST',
       contentType: 'json',
@@ -282,7 +283,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     transformValues: ({ modelUid, values }) => ({
       model: modelUid,
       prompt: stringValue(values.prompt),
-      stream: false,
+      stream: true,
       temperature: numberValue(values.temperature, 1),
       ...(numberValue(values.max_tokens, 0) > 0
         ? { max_tokens: Math.round(numberValue(values.max_tokens, 0)) }
