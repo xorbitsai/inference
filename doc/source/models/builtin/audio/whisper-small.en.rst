@@ -12,15 +12,8 @@ whisper-small.en
 Specifications
 ^^^^^^^^^^^^^^
 
-- **transformers model ID:** openai/whisper-small.en
-- **MLX model ID:** mlx-community/whisper-small.en-mlx
+- **Model ID:** mlx-community/whisper-small.en-mlx
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name whisper-small.en --model-type audio --model-engine transformers
-
-Available engines
-^^^^^^^^^^^^^^^^^
-
-* ``transformers``
-* ``MLX``
+   xinference launch --model-name whisper-small.en --model-type audio

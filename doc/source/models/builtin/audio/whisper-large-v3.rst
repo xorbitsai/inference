@@ -12,15 +12,8 @@ whisper-large-v3
 Specifications
 ^^^^^^^^^^^^^^
 
-- **transformers model ID:** openai/whisper-large-v3
-- **MLX model ID:** mlx-community/whisper-large-v3-mlx
+- **Model ID:** mlx-community/whisper-large-v3-mlx
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name whisper-large-v3 --model-type audio --model-engine transformers
-
-Available engines
-^^^^^^^^^^^^^^^^^
-
-* ``transformers``
-* ``MLX``
+   xinference launch --model-name whisper-large-v3 --model-type audio

@@ -12,15 +12,8 @@ Qwen3-TTS-12Hz-1.7B-CustomVoice
 Specifications
 ^^^^^^^^^^^^^^
 
-- **PyTorch model ID:** Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
-- **MLX model ID:** mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit
+- **Model ID:** mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Qwen3-TTS-12Hz-1.7B-CustomVoice --model-type audio --model-engine PyTorch
-
-Available engines
-^^^^^^^^^^^^^^^^^
-
-* ``PyTorch``
-* ``MLX``
+   xinference launch --model-name Qwen3-TTS-12Hz-1.7B-CustomVoice --model-type audio
