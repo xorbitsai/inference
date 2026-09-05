@@ -27,6 +27,61 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+FISH_AUDIO_S1_MINI = "FishAudio-S1-mini"
+FISH_AUDIO_S2_PRO = "FishAudio-S2-Pro"
+_MODERN_FISH_AUDIO_MODELS = {FISH_AUDIO_S1_MINI, FISH_AUDIO_S2_PRO}
+
+
+def _load_fish_speech_runtime_components(model_name: str):
+    if model_name == FISH_AUDIO_S1_MINI:
+        from ...thirdparty.fish_speech_s1.fish_speech.inference_engine import (
+            TTSInferenceEngine,
+        )
+        from ...thirdparty.fish_speech_s1.fish_speech.models.dac.inference import (
+            load_model as load_decoder_model,
+        )
+        from ...thirdparty.fish_speech_s1.fish_speech.models.text2semantic.inference import (
+            launch_thread_safe_queue,
+        )
+        from ...thirdparty.fish_speech_s1.fish_speech.utils.schema import (
+            ServeReferenceAudio,
+            ServeTTSRequest,
+        )
+    elif model_name == FISH_AUDIO_S2_PRO:
+        from ...thirdparty.fish_speech_s2.fish_speech.inference_engine import (
+            TTSInferenceEngine,
+        )
+        from ...thirdparty.fish_speech_s2.fish_speech.models.dac.inference import (
+            load_model as load_decoder_model,
+        )
+        from ...thirdparty.fish_speech_s2.fish_speech.models.text2semantic.inference import (
+            launch_thread_safe_queue,
+        )
+        from ...thirdparty.fish_speech_s2.fish_speech.utils.schema import (
+            ServeReferenceAudio,
+            ServeTTSRequest,
+        )
+    else:
+        # FishSpeech-1.5 uses the legacy upstream package layout.
+        legacy_runtime_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../thirdparty/fish_speech")
+        )
+        if legacy_runtime_path not in sys.path:
+            sys.path.insert(0, legacy_runtime_path)
+
+        from tools.inference_engine import TTSInferenceEngine
+        from tools.llama.generate import launch_thread_safe_queue
+        from tools.schema import ServeReferenceAudio, ServeTTSRequest
+        from tools.vqgan.inference import load_model as load_decoder_model
+
+    return (
+        TTSInferenceEngine,
+        launch_thread_safe_queue,
+        load_decoder_model,
+        ServeReferenceAudio,
+        ServeTTSRequest,
+    )
+
 
 def wav_chunk_header(sample_rate=44100, bit_depth=16, channels=1):
     import wave
@@ -60,6 +115,9 @@ class FishSpeechModel:
         self._llama_queue = None
         self._model = None
         self._engine = None
+        self._serve_reference_audio = None
+        self._serve_tts_request = None
+        self._uses_modern_runtime = model_spec.model_name in _MODERN_FISH_AUDIO_MODELS
         self._kwargs = kwargs
 
     @property
@@ -67,14 +125,13 @@ class FishSpeechModel:
         return self._model_spec.model_ability
 
     def load(self):
-        # There are too many imports from fish_speech.
-        sys.path.insert(
-            0, os.path.join(os.path.dirname(__file__), "../../thirdparty/fish_speech")
-        )
-
-        from tools.inference_engine import TTSInferenceEngine
-        from tools.llama.generate import launch_thread_safe_queue
-        from tools.vqgan.inference import load_model as load_decoder_model
+        (
+            TTSInferenceEngine,
+            launch_thread_safe_queue,
+            load_decoder_model,
+            self._serve_reference_audio,
+            self._serve_tts_request,
+        ) = _load_fish_speech_runtime_components(self._model_spec.model_name)
 
         if self._device is None:
             self._device = get_available_device()
@@ -98,12 +155,16 @@ class FishSpeechModel:
         )
         logger.info("Llama model loaded, loading VQ-GAN model...")
 
-        checkpoint_path = os.path.join(
-            self._model_path,
-            "firefly-gan-vq-fsq-8x1024-21hz-generator.pth",
-        )
+        if self._uses_modern_runtime:
+            decoder_config_name = "modded_dac_vq"
+            decoder_filename = "codec.pth"
+        else:
+            decoder_config_name = "firefly_gan_vq"
+            decoder_filename = "firefly-gan-vq-fsq-8x1024-21hz-generator.pth"
+
+        checkpoint_path = os.path.join(self._model_path, decoder_filename)
         self._model = load_decoder_model(
-            config_name="firefly_gan_vq",
+            config_name=decoder_config_name,
             checkpoint_path=checkpoint_path,
             device=self._device,
         )
@@ -124,30 +185,44 @@ class FishSpeechModel:
         logger.warning("Fish speech does not support setting voice: %s.", voice)
         if speed != 1.0:
             logger.warning("Fish speech does not support setting speed: %s.", speed)
-        from tools.schema import ServeReferenceAudio, ServeTTSRequest
-
         from .utils import audio_stream_generator, audio_to_bytes
+
+        if self._serve_reference_audio is None or self._serve_tts_request is None:
+            raise RuntimeError("Fish speech model is not loaded")
 
         prompt_speech = kwargs.get("prompt_speech")
         prompt_text = kwargs.get("prompt_text", kwargs.get("reference_text", ""))
         if prompt_speech is not None:
-            r = ServeReferenceAudio(audio=prompt_speech, text=prompt_text)
+            r = self._serve_reference_audio(audio=prompt_speech, text=prompt_text)
             references = [r]
         else:
             references = []
 
+        if self._uses_modern_runtime:
+            default_top_p = 0.8
+            default_repetition_penalty = 1.1
+            default_temperature = 0.8
+        else:
+            default_top_p = 0.7
+            default_repetition_penalty = 1.2
+            default_temperature = 0.7
+
         assert self._engine is not None
         result = self._engine.inference(
-            ServeTTSRequest(
+            self._serve_tts_request(
                 text=input,
                 references=references,
                 reference_id=kwargs.get("reference_id"),
                 seed=kwargs.get("seed"),
+                use_memory_cache=kwargs.get("use_memory_cache", "off"),
+                normalize=kwargs.get("normalize", True),
                 max_new_tokens=kwargs.get("max_new_tokens", 1024),
                 chunk_length=kwargs.get("chunk_length", 200),
-                top_p=kwargs.get("top_p", 0.7),
-                repetition_penalty=kwargs.get("repetition_penalty", 1.2),
-                temperature=kwargs.get("temperature", 0.7),
+                top_p=kwargs.get("top_p", default_top_p),
+                repetition_penalty=kwargs.get(
+                    "repetition_penalty", default_repetition_penalty
+                ),
+                temperature=kwargs.get("temperature", default_temperature),
                 streaming=stream,
                 format=response_format,
             )
@@ -157,26 +232,47 @@ class FishSpeechModel:
 
             def _gen_chunk():
                 for chunk in result:
-                    if chunk.code == "final":
+                    if chunk.code == "error":
+                        raise chunk.error or RuntimeError(
+                            "Fish speech inference failed"
+                        )
+                    if chunk.code != "segment" or chunk.audio is None:
                         continue
-                    chunk = chunk.audio[1]
-                    if chunk is not None:
-                        yield chunk
+                    audio = chunk.audio[1]
+                    if audio is not None:
+                        yield audio
 
             return audio_stream_generator(
                 response_format=response_format,
-                sample_rate=self._model.spec_transform.sample_rate,
+                sample_rate=self._get_sample_rate(),
                 output_generator=_gen_chunk(),
                 output_chunk_transformer=lambda c: torch.from_numpy(
-                    c.reshape((c.shape[0], 1))
+                    np.asarray(c).reshape((-1, 1))
                 ),
             )
         else:
-            result = list(result)
-            sample_rate, audio = result[0].audio
-            audio = np.array([audio])
+            final_audio = None
+            for chunk in result:
+                if chunk.code == "error":
+                    raise chunk.error or RuntimeError("Fish speech inference failed")
+                if chunk.code == "final":
+                    final_audio = chunk.audio
+            if final_audio is None:
+                raise RuntimeError("Fish speech inference returned no audio")
+
+            sample_rate, audio = final_audio
+            audio = np.asarray(audio)
+            if audio.ndim == 1:
+                audio = audio[None, :]
             return audio_to_bytes(
                 response_format=response_format,
                 sample_rate=sample_rate,
                 tensor=torch.from_numpy(audio),
             )
+
+    def _get_sample_rate(self) -> int:
+        if self._model is None:
+            raise RuntimeError("Fish speech model is not loaded")
+        if hasattr(self._model, "spec_transform"):
+            return int(self._model.spec_transform.sample_rate)
+        return int(self._model.sample_rate)

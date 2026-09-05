@@ -32,6 +32,10 @@ The following is a list of built-in audio models in Xinference:
   
    fireredtts3-instruct
   
+   fishaudio-s1-mini
+
+   fishaudio-s2-pro
+
    fishspeech-1.5
   
    fun-asr-mlt-nano-2512
