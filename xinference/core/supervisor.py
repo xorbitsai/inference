@@ -4799,6 +4799,20 @@ class SupervisorActor(xo.StatelessActor):
                 )
             except Exception:
                 pass
+            # A reconnect during launch/load may already have published this
+            # replica. Remove that replayed route as well as the worker model.
+            self._replica_model_uid_to_worker.pop(new_replica_uid, None)
+            self._replica_model_uid_to_worker_shards.pop(new_replica_uid, None)
+            current_info = self._model_uid_to_replica_info.get(model_uid)
+            if current_info is not None:
+                current_info.replica_to_worker_refs.pop(new_replica_id, None)
+                current_info.active_replica_ids = [
+                    index
+                    for index in current_info.active_replica_ids
+                    if index != new_replica_id
+                ]
+                self._refresh_replica_scheduler(current_info)
+            self._invalidate_list_models_debounce_cache()
             try:
                 await self._status_guard_ref.remove_replica_status(
                     model_uid, new_replica_id
@@ -4818,9 +4832,17 @@ class SupervisorActor(xo.StatelessActor):
                 self._workers_launching[worker_address] = current
 
         # ---- 10. Register routing & replica info --------------------------------
+        # Worker RPCs can re-enter add_worker and replace ReplicaInfo while
+        # replaying the worker's snapshot. Publish into the current object,
+        # not the one captured before launching; replay may already include us.
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        if replica_info is None:
+            replica_info = self._build_replica_info(0)
+            self._model_uid_to_replica_info[model_uid] = replica_info
         self._replica_model_uid_to_worker[new_replica_uid] = target_worker_ref
         replica_info.replica_to_worker_refs[new_replica_id] = [target_worker_ref]
-        replica_info.active_replica_ids.append(new_replica_id)
+        if new_replica_id not in replica_info.active_replica_ids:
+            replica_info.active_replica_ids.append(new_replica_id)
         self._refresh_replica_scheduler(replica_info)
 
         # ---- 11. Update status guard ---------------------------------------------
@@ -4870,21 +4892,39 @@ class SupervisorActor(xo.StatelessActor):
     async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
     ) -> int:
-        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
-        if replica_info is None:
-            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-
-        if replica_id not in replica_info.active_replica_ids:
-            raise ValueError(
-                f"Replica not found in the model list, uid: {model_uid}, replica_id: {replica_id}"
-            )
-
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
-        worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid, None)
-        if worker_refs is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+        if (
+            replica_info is None
+            or replica_id not in replica_info.active_replica_ids
+            or worker_refs is None
+        ):
+            # Terminal records can outlive routing (worker loss or an interrupted
+            # delete). Allow users to remove them without requiring a live route.
+            statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
+            terminated = any(
+                status.replica_id == replica_id
+                and status.status == LaunchStatus.TERMINATED.name
+                for status in statuses
             )
+            replica_info = self._model_uid_to_replica_info.get(model_uid)
+            worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+            if not terminated:
+                if replica_info is None:
+                    raise ValueError(
+                        f"Model not found in the model list, uid: {model_uid}"
+                    )
+                if replica_id not in replica_info.active_replica_ids:
+                    raise ValueError(
+                        f"Replica not found in the model list, uid: {model_uid}, replica_id: {replica_id}"
+                    )
+                if worker_refs is None:
+                    raise ValueError(
+                        f"Model not found in the model list, uid: {replica_model_uid}"
+                    )
+        if worker_refs is None:
+            worker_refs = []
         if not isinstance(worker_refs, (list, tuple)):
             worker_refs = [worker_refs]
 
@@ -4896,19 +4936,40 @@ class SupervisorActor(xo.StatelessActor):
                 raise
 
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
-        replica_info.replica_to_worker_refs.pop(replica_id, None)
-        replica_info.active_replica_ids.remove(replica_id)
-        self._refresh_replica_scheduler(replica_info)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        # terminate_model can synchronously reconnect/replay before returning.
+        # Its callback must remain free to run: acquiring the scale lock in
+        # add_worker would deadlock this RPC. Re-read state after the await.
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        if replica_info is not None:
+            replica_info.replica_to_worker_refs.pop(replica_id, None)
+            replica_info.active_replica_ids = [
+                index
+                for index in replica_info.active_replica_ids
+                if index != replica_id
+            ]
+            self._refresh_replica_scheduler(replica_info)
 
-        remaining_replica_count = await self._status_guard_ref.remove_replica_status(
-            model_uid, replica_id
+        await self._status_guard_ref.remove_replica_status(model_uid, replica_id)
+        # StatusGuard may retain other terminal rows; these are not live replicas.
+        replica_info = self._model_uid_to_replica_info.get(model_uid)
+        remaining_replica_count = (
+            len(replica_info.active_replica_ids) if replica_info is not None else 0
         )
+        await self._status_guard_ref.update_instance_info(
+            model_uid,
+            {
+                "replica": remaining_replica_count,
+                "status": (
+                    LaunchStatus.READY.name
+                    if remaining_replica_count
+                    else LaunchStatus.TERMINATED.name
+                ),
+            },
+        )
+        self._unexpected_down_replicas.pop((model_uid, replica_id), None)
+        self._invalidate_list_models_debounce_cache()
         if remaining_replica_count > 0:
-            await self._status_guard_ref.update_instance_info(
-                model_uid,
-                {"replica": remaining_replica_count, "status": LaunchStatus.READY.name},
-            )
-            self._unexpected_down_replicas.pop((model_uid, replica_id), None)
             return remaining_replica_count
 
         self._model_uid_to_replica_info.pop(model_uid, None)
