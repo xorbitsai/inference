@@ -17,15 +17,16 @@ import os
 
 from ..core import BUILTIN_IMAGE_MODELS, IMAGE_MODEL_DESCRIPTIONS
 from ..engine_family import IMAGE_ENGINES
+from ..ocr.ocr_family import OCR_ENGINES
 
 
 def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     tmp_path, monkeypatch
 ):
-    # A downloaded-only model still in IMAGE_ENGINES/IMAGE_MODEL_DESCRIPTIONS
-    # after it drops out of a later catalog refresh keeps advertising a launch
-    # config and a description, even though BUILTIN_IMAGE_MODELS (the table
-    # both derive from) no longer has it.
+    # Downloaded-only models still in IMAGE_ENGINES/OCR_ENGINES or
+    # IMAGE_MODEL_DESCRIPTIONS after they drop out of a later catalog refresh
+    # keep advertising a launch config or description, even though
+    # BUILTIN_IMAGE_MODELS (the table they derive from) no longer has them.
     import xinference.model.image as image_module
 
     from .... import constants
@@ -43,16 +44,26 @@ def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     downloaded_only = dict(raw_entry)
     downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
 
+    with open(spec_path) as f:
+        raw_ocr_entry = next(
+            entry for entry in json.load(f) if entry["model_name"] == "PaddleOCR-VL"
+        )
+    downloaded_only_ocr = dict(raw_ocr_entry)
+    downloaded_only_ocr["model_name"] = "PaddleOCR-VL-catalog-removal-test"
+
     builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "image")
     os.makedirs(builtin_dir, exist_ok=True)
     catalog_path = os.path.join(builtin_dir, "image_models.json")
     with open(catalog_path, "w") as f:
-        json.dump([downloaded_only], f)
+        json.dump([downloaded_only, downloaded_only_ocr], f)
 
     register_builtin_model()
     assert "downloaded-only-catalog-removal-test" in BUILTIN_IMAGE_MODELS
     assert "downloaded-only-catalog-removal-test" in IMAGE_ENGINES
     assert "downloaded-only-catalog-removal-test" in IMAGE_MODEL_DESCRIPTIONS
+    assert "PaddleOCR-VL-catalog-removal-test" in BUILTIN_IMAGE_MODELS
+    assert "PaddleOCR-VL-catalog-removal-test" in OCR_ENGINES
+    assert "PaddleOCR-VL-catalog-removal-test" in IMAGE_MODEL_DESCRIPTIONS
 
     # A later refresh's catalog no longer lists the model (removed upstream).
     with open(catalog_path, "w") as f:
@@ -62,3 +73,6 @@ def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     assert "downloaded-only-catalog-removal-test" not in BUILTIN_IMAGE_MODELS
     assert "downloaded-only-catalog-removal-test" not in IMAGE_ENGINES
     assert "downloaded-only-catalog-removal-test" not in IMAGE_MODEL_DESCRIPTIONS
+    assert "PaddleOCR-VL-catalog-removal-test" not in BUILTIN_IMAGE_MODELS
+    assert "PaddleOCR-VL-catalog-removal-test" not in OCR_ENGINES
+    assert "PaddleOCR-VL-catalog-removal-test" not in IMAGE_MODEL_DESCRIPTIONS

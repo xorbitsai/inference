@@ -42,7 +42,7 @@ from .engine_family import (
     generate_engine_config_by_model_name as generate_image_engine_config,
 )
 from .ocr import register_builtin_ocr_engines
-from .ocr.ocr_family import generate_engine_config_by_model_name
+from .ocr.ocr_family import OCR_ENGINES, generate_engine_config_by_model_name
 
 
 def register_custom_model():
@@ -108,7 +108,9 @@ def _install():
     live_names = {name for name in BUILTIN_IMAGE_MODELS} | {
         ud.model_name for ud in get_user_defined_images()
     }
-    prune_stale_derived_registries(live_names, IMAGE_ENGINES, IMAGE_MODEL_DESCRIPTIONS)
+    prune_stale_derived_registries(
+        live_names, IMAGE_ENGINES, OCR_ENGINES, IMAGE_MODEL_DESCRIPTIONS
+    )
 
 
 def register_builtin_model():
