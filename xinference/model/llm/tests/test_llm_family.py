@@ -2035,3 +2035,56 @@ def test_register_builtin_model_is_idempotent():
     # unconditionally appended every family on every refresh, independent of the
     # engine-class and engine-entry guards above.
     assert len(BUILTIN_LLM_FAMILIES) == baseline_family_count
+
+
+def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
+    tmp_path, monkeypatch
+):
+    import json
+    import os
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..core import LLM_VERSION_INFOS
+    from ..llm_family import (
+        BUILTIN_LLM_FAMILIES,
+        BUILTIN_LLM_MODEL_GENERATE_FAMILIES,
+        LLM_ENGINES,
+    )
+
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+
+    import xinference.model.llm as llm_module
+
+    spec_path = os.path.join(os.path.dirname(llm_module.__file__), "llm_family.json")
+    with open(spec_path) as f:
+        downloaded_entry = json.load(f)[0]
+    model_name = "downloaded-only-llm-refresh-test"
+    downloaded_entry["model_name"] = model_name
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "llm")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "llm_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_entry], f)
+
+    register_builtin_model()
+    active = [f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+    assert model_name in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
+    assert model_name in LLM_ENGINES
+    assert model_name in LLM_VERSION_INFOS
+
+    register_builtin_model()
+    active = [f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name]
+    assert len(active) == 1
+    assert active[0].is_builtin is False
+
+    with open(catalog_path, "w") as f:
+        json.dump([], f)
+    register_builtin_model()
+    assert not any(f.model_name == model_name for f in BUILTIN_LLM_FAMILIES)
+    assert model_name not in BUILTIN_LLM_MODEL_GENERATE_FAMILIES
+    assert model_name not in LLM_ENGINES
+    assert model_name not in LLM_VERSION_INFOS

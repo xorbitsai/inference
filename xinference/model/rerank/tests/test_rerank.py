@@ -335,6 +335,50 @@ def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
     assert any(f.is_builtin for f in BUILTIN_RERANK_MODELS[model_name])
 
 
+def test_register_builtin_model_preserves_equal_timestamp_family_engines(
+    tmp_path, monkeypatch
+):
+    import xinference.model.rerank as rerank_module
+
+    from .... import constants
+    from .. import register_builtin_model
+    from ..rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+
+    monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", True)
+
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
+    with open(spec_path) as f:
+        downloaded_entry = next(
+            entry
+            for entry in json.load(f)
+            if entry["model_name"] == "bge-reranker-v2-m3"
+        )
+    downloaded_entry["model_specs"] = [downloaded_entry["model_specs"][1]]
+
+    builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
+    os.makedirs(builtin_dir, exist_ok=True)
+    catalog_path = os.path.join(builtin_dir, "rerank_models.json")
+    with open(catalog_path, "w") as f:
+        json.dump([downloaded_entry], f)
+
+    register_builtin_model()
+    assert len(BUILTIN_RERANK_MODELS["bge-reranker-v2-m3"]) == 2
+    engine_formats = {
+        param["model_format"]
+        for params in RERANK_ENGINES["bge-reranker-v2-m3"].values()
+        for param in params
+    }
+    assert {"pytorch", "ggufv2"}.issubset(engine_formats)
+    baseline_engines = {
+        engine: list(params)
+        for engine, params in RERANK_ENGINES["bge-reranker-v2-m3"].items()
+    }
+    register_builtin_model()
+    assert RERANK_ENGINES["bge-reranker-v2-m3"] == baseline_engines
+
+
 def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     tmp_path, monkeypatch
 ):

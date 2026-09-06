@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ...engine_hooks import MODEL_TYPE_EMBEDDING, _run_engine_registration_hooks
 from ..utils import (
@@ -83,14 +83,16 @@ def check_format_with_engine(model_format, engine):
     return True
 
 
-def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2"):
+def generate_engine_config_by_model_name(
+    model_family: "EmbeddingModelFamilyV2",
+    target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
+):
     from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
     model_name = model_family.model_name
-    # Rebuilt fresh, never merged with EMBEDDING_ENGINES[model_name]: this reruns
-    # on every register_builtin_model() refresh, so reusing the old dict would
-    # re-append a duplicate entry per engine each time.
-    engines: Dict[str, List[Dict[str, Any]]] = {}  # structure for engine query
+    if target_engines is None:
+        target_engines = EMBEDDING_ENGINES
+    engines = target_engines.get(model_name, {})  # structure for engine query
     for spec in [x for x in model_family.model_specs if x.model_hub == "huggingface"]:
         model_format = spec.model_format
         quantization = spec.quantization
@@ -106,26 +108,17 @@ def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2")
                     matched = cls.match(model_family, spec, quantization)
                 if matched == True:
                     # we only match the first class for an engine
-                    if engine not in engines:
-                        engines[engine] = [
-                            {
-                                "model_name": model_name,
-                                "model_format": model_format,
-                                "quantization": quantization,
-                                "embedding_class": cls,
-                            }
-                        ]
-                    else:
-                        engines[engine].append(
-                            {
-                                "model_name": model_name,
-                                "model_format": model_format,
-                                "quantization": quantization,
-                                "embedding_class": cls,
-                            }
-                        )
+                    engine_params = engines.setdefault(engine, [])
+                    param = {
+                        "model_name": model_name,
+                        "model_format": model_format,
+                        "quantization": quantization,
+                        "embedding_class": cls,
+                    }
+                    if param not in engine_params:
+                        engine_params.append(param)
                     break
-    EMBEDDING_ENGINES[model_name] = engines
+    target_engines[model_name] = engines
 
 
 def has_downloaded_models():
@@ -236,24 +229,30 @@ def _install():
     # Distribution-specific engines are appended after the built-ins.
     _run_engine_registration_hooks(MODEL_TYPE_EMBEDDING, SUPPORTED_ENGINES)
 
-    # Init embedding engine
+    # Build a complete engine table for this refresh. Accumulating into one
+    # fresh table preserves equal-timestamp family variants without retaining
+    # entries from an earlier refresh.
+    new_embedding_engines: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     for model_spec_list in BUILTIN_EMBEDDING_MODELS.values():
         for model_spec in model_spec_list:
-            generate_engine_config_by_model_name(model_spec)
+            generate_engine_config_by_model_name(model_spec, new_embedding_engines)
 
     register_custom_model()
 
     # register model description
-    for ud_embedding in get_user_defined_embeddings():
+    user_defined_embeddings = get_user_defined_embeddings()
+    for ud_embedding in user_defined_embeddings:
+        generate_engine_config_by_model_name(ud_embedding, new_embedding_engines)
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )
 
+    EMBEDDING_ENGINES.clear()
+    EMBEDDING_ENGINES.update(new_embedding_engines)
+
     # A model present on a prior refresh but absent from this one must not keep
     # advertising a launch config or description from the stale entry.
     live_names = {name for name in BUILTIN_EMBEDDING_MODELS} | {
-        ud.model_name for ud in get_user_defined_embeddings()
+        ud.model_name for ud in user_defined_embeddings
     }
-    prune_stale_derived_registries(
-        live_names, EMBEDDING_ENGINES, EMBEDDING_MODEL_DESCRIPTIONS
-    )
+    prune_stale_derived_registries(live_names, EMBEDDING_MODEL_DESCRIPTIONS)

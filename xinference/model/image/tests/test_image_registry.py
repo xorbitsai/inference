@@ -65,6 +65,32 @@ def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     assert "PaddleOCR-VL-catalog-removal-test" in OCR_ENGINES
     assert "PaddleOCR-VL-catalog-removal-test" in IMAGE_MODEL_DESCRIPTIONS
 
+    baseline_image_entries = sum(
+        len(entries)
+        for entries in IMAGE_ENGINES["downloaded-only-catalog-removal-test"].values()
+    )
+    baseline_ocr_entries = sum(
+        len(entries)
+        for entries in OCR_ENGINES["PaddleOCR-VL-catalog-removal-test"].values()
+    )
+    register_builtin_model()
+    assert (
+        sum(
+            len(entries)
+            for entries in IMAGE_ENGINES[
+                "downloaded-only-catalog-removal-test"
+            ].values()
+        )
+        == baseline_image_entries
+    )
+    assert (
+        sum(
+            len(entries)
+            for entries in OCR_ENGINES["PaddleOCR-VL-catalog-removal-test"].values()
+        )
+        == baseline_ocr_entries
+    )
+
     # A later refresh's catalog no longer lists the model (removed upstream).
     with open(catalog_path, "w") as f:
         json.dump([], f)

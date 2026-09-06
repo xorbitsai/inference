@@ -15,6 +15,7 @@ import codecs
 import json
 import os
 import warnings
+from typing import Any, Dict, List, Optional
 
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
 from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
@@ -72,10 +73,15 @@ def check_format_with_engine(model_format, engine):
     return True
 
 
-def generate_engine_config_by_model_family(model_family: "LLMFamilyV2"):
+def generate_engine_config_by_model_family(
+    model_family: "LLMFamilyV2",
+    target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
+):
     model_name = model_family.model_name
     specs = model_family.model_specs
-    engines = LLM_ENGINES.get(model_name, {})  # structure for engine query
+    if target_engines is None:
+        target_engines = LLM_ENGINES
+    engines = target_engines.get(model_name, {})  # structure for engine query
     for spec in specs:
         model_format = spec.model_format
         model_size_in_billions = spec.model_size_in_billions
@@ -126,7 +132,7 @@ def generate_engine_config_by_model_family(model_family: "LLMFamilyV2"):
                             ] = spec.multimodal_projectors
                     engines[engine] = engine_params
                     break
-    LLM_ENGINES[model_name] = engines
+    target_engines[model_name] = engines
 
 
 def register_custom_model():
@@ -175,6 +181,59 @@ def load_downloaded_models():
         load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
 
 
+def _register_model_family_metadata(model_spec: "LLMFamilyV2") -> None:
+    if (
+        "chat" in model_spec.model_ability
+        and isinstance(model_spec.chat_template, str)
+        and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
+    ):
+        # The key is the model name because one prompt style name may have
+        # multiple representations in the catalog.
+        BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
+            "chat_template": model_spec.chat_template,
+            "stop_token_ids": model_spec.stop_token_ids,
+            "stop": model_spec.stop,
+        }
+        if model_spec.reasoning_start_tag and model_spec.reasoning_end_tag:
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
+                "reasoning_start_tag"
+            ] = model_spec.reasoning_start_tag
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
+                "reasoning_end_tag"
+            ] = model_spec.reasoning_end_tag
+        if model_spec.tool_parser:
+            BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
+                "tool_parser"
+            ] = model_spec.tool_parser
+
+    if "chat" in model_spec.model_ability:
+        BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
+    else:
+        BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
+    if "tools" in model_spec.model_ability:
+        BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+        if tool_parser := getattr(model_spec, "tool_parser", None):
+            if tool_parser == "qwen" or tool_parser.startswith("minimax"):
+                QWEN_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser == "gemma":
+                GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser == "glm4":
+                GLM4_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser == "glm5":
+                GLM5_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser == "llama3":
+                LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser.startswith("deepseek"):
+                DEEPSEEK_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser == "kimi-k3":
+                KIMI_K3_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            else:
+                warnings.warn(
+                    f"Unknown tool parser {tool_parser} for model family "
+                    f"{model_spec.model_name}"
+                )
+
+
 def load_model_family_from_json(json_filename, target_families):
     # Handle both relative (module directory) and absolute paths
     if os.path.isabs(json_filename):
@@ -198,59 +257,7 @@ def load_model_family_from_json(json_filename, target_families):
         if key not in seen:
             target_families.append(model_spec)
             seen.add(key)
-
-        # register chat_template
-        if (
-            "chat" in model_spec.model_ability
-            and isinstance(model_spec.chat_template, str)
-            and model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE
-        ):
-            # note that the key is the model name,
-            # since there are multiple representations of the same prompt style name in json.
-            if model_spec.model_name not in BUILTIN_LLM_PROMPT_STYLE:
-                BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name] = {
-                    "chat_template": model_spec.chat_template,
-                    "stop_token_ids": model_spec.stop_token_ids,
-                    "stop": model_spec.stop,
-                }
-                if model_spec.reasoning_start_tag and model_spec.reasoning_end_tag:
-                    BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
-                        "reasoning_start_tag"
-                    ] = model_spec.reasoning_start_tag
-                    BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
-                        "reasoning_end_tag"
-                    ] = model_spec.reasoning_end_tag
-                if model_spec.tool_parser:
-                    BUILTIN_LLM_PROMPT_STYLE[model_spec.model_name][
-                        "tool_parser"
-                    ] = model_spec.tool_parser
-
-        # register model family
-        if "chat" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_CHAT_FAMILIES.add(model_spec.model_name)
-        else:
-            BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
-        if "tools" in model_spec.model_ability:
-            BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
-            if tool_parser := getattr(model_spec, "tool_parser", None):
-                if tool_parser == "qwen" or tool_parser.startswith("minimax"):
-                    QWEN_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                elif tool_parser == "gemma":
-                    GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                elif tool_parser == "glm4":
-                    GLM4_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                elif tool_parser == "glm5":
-                    GLM5_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                elif tool_parser == "llama3":
-                    LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                elif tool_parser.startswith("deepseek"):
-                    DEEPSEEK_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                elif tool_parser == "kimi-k3":
-                    KIMI_K3_TOOL_CALL_FAMILY.add(model_spec.model_name)
-                else:
-                    warnings.warn(
-                        f"Unknown tool parser {tool_parser} for model family {model_spec.model_name}"
-                    )
+        _register_model_family_metadata(model_spec)
 
 
 def _install():
@@ -285,60 +292,78 @@ def _install():
     # Install models with intelligent merging based on timestamps
     # LLM models use a different structure (list instead of dict), so we need special handling
 
-    # Always load built-in models first to ensure we have the latest models
-    load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+    # Build the packaged state away from the live list. Reusing the live list
+    # here would mark a downloaded family retained from the prior refresh as
+    # built-in before the new downloaded catalog is merged.
+    freshly_loaded_builtins: List[LLMFamilyV2] = []
+    load_model_family_from_json("llm_family.json", freshly_loaded_builtins)
 
     # Mark these as vetted built-in models. Loaders may enable trust_remote_code
     # for built-ins without an operator opt-in; user-supplied / downloaded models
     # (merged below) keep is_builtin=False and stay gated (CWE-94).
-    for family in BUILTIN_LLM_FAMILIES:
+    for family in freshly_loaded_builtins:
         family.is_builtin = True
 
-    # Then load user-defined models and merge with built-in models
+    merged_models = freshly_loaded_builtins
     if has_downloaded_models():
-        user_models = []
+        downloaded_models: List[LLMFamilyV2] = []
         from ..utils import load_downloaded_models_to_dict
 
         load_downloaded_models_to_dict(
-            {"temp": user_models},
+            {"temp": downloaded_models},
             "llm",
             "llm_models.json",
             lambda path, target: load_model_family_from_json(path, target["temp"]),
         )
 
-        if user_models:
-            # Create a copy of built-in models for merging
-            built_in_models_copy = list(BUILTIN_LLM_FAMILIES)
+        # Stable sorting keeps the vetted built-in on an exact timestamp tie.
+        all_models = freshly_loaded_builtins + downloaded_models
+        all_models.sort(key=lambda x: x.updated_at, reverse=True)
+        seen_models = set()
+        merged_models = []
+        for model in all_models:
+            if model.model_name not in seen_models:
+                seen_models.add(model.model_name)
+                merged_models.append(model)
 
-            # Merge models, keeping the latest version based on updated_at
-            all_models = built_in_models_copy + user_models
+    # Publish a complete replacement even when the downloaded catalog is empty,
+    # so models removed from a later refresh cannot survive in the live list.
+    BUILTIN_LLM_FAMILIES.clear()
+    BUILTIN_LLM_FAMILIES.extend(merged_models)
 
-            # Sort by updated_at (newest first) and keep the latest for each model name
-            all_models.sort(key=lambda x: x.updated_at, reverse=True)
-
-            # Remove duplicates, keeping the first (newest) occurrence of each model name
-            seen_models = set()
-            merged_models = []
-
-            for model in all_models:
-                if model.model_name not in seen_models:
-                    seen_models.add(model.model_name)
-                    merged_models.append(model)
-
-            # Update BUILTIN_LLM_FAMILIES with merged results
-            BUILTIN_LLM_FAMILIES.clear()
-            BUILTIN_LLM_FAMILIES.extend(merged_models)
-
+    # Loading candidates updates these compatibility tables as a side effect.
+    # Rebuild them from only the families that won the merge so removed or
+    # superseded downloaded entries cannot remain advertised.
+    BUILTIN_LLM_PROMPT_STYLE.clear()
+    BUILTIN_LLM_MODEL_CHAT_FAMILIES.clear()
+    BUILTIN_LLM_MODEL_GENERATE_FAMILIES.clear()
+    BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.clear()
+    for family_set in (
+        QWEN_TOOL_CALL_FAMILY,
+        GEMMA_TOOL_CALL_FAMILY,
+        GLM4_TOOL_CALL_FAMILY,
+        GLM5_TOOL_CALL_FAMILY,
+        LLAMA3_TOOL_CALL_FAMILY,
+        DEEPSEEK_TOOL_CALL_FAMILY,
+        KIMI_K3_TOOL_CALL_FAMILY,
+    ):
+        family_set.clear()
     for family in BUILTIN_LLM_FAMILIES:
-        if family.model_name not in LLM_VERSION_INFOS:
-            LLM_VERSION_INFOS.update(generate_llm_version_info(family))
-
-    # traverse all families and add engine parameters corresponding to the model name
-    for family in BUILTIN_LLM_FAMILIES:
-        generate_engine_config_by_model_family(family)
+        _register_model_family_metadata(family)
 
     register_custom_model()
 
-    # register model description
-    for ud_llm in get_user_defined_llm_families():
-        LLM_VERSION_INFOS.update(generate_llm_version_info(ud_llm))
+    # Rebuild the engine and version registries from all currently live families.
+    # Custom registration may have populated the old engine table as a side
+    # effect; publishing this complete table also makes repeated refreshes exact.
+    new_llm_engines: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+    new_llm_version_infos: Dict[str, List[Dict[str, Any]]] = {}
+    active_families = [*BUILTIN_LLM_FAMILIES, *get_user_defined_llm_families()]
+    for family in active_families:
+        generate_engine_config_by_model_family(family, new_llm_engines)
+        new_llm_version_infos.update(generate_llm_version_info(family))
+
+    LLM_ENGINES.clear()
+    LLM_ENGINES.update(new_llm_engines)
+    LLM_VERSION_INFOS.clear()
+    LLM_VERSION_INFOS.update(new_llm_version_infos)

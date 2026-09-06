@@ -16,7 +16,7 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ...constants import XINFERENCE_MODEL_DIR
 from ...engine_hooks import MODEL_TYPE_RERANK, _run_engine_registration_hooks
@@ -83,14 +83,16 @@ def check_format_with_engine(model_format, engine):
     return True
 
 
-def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
+def generate_engine_config_by_model_name(
+    model_family: "RerankModelFamilyV2",
+    target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
+):
     from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
     model_name = model_family.model_name
-    # Rebuilt fresh, never merged with RERANK_ENGINES[model_name]: this reruns
-    # on every register_builtin_model() refresh, so reusing the old dict would
-    # re-append a duplicate entry per engine each time.
-    engines: Dict[str, List[Dict[str, Any]]] = {}  # structure for engine query
+    if target_engines is None:
+        target_engines = RERANK_ENGINES
+    engines = target_engines.get(model_name, {})  # structure for engine query
     for spec in [x for x in model_family.model_specs if x.model_hub == "huggingface"]:
         model_format = spec.model_format
         quantization = spec.quantization
@@ -106,26 +108,17 @@ def generate_engine_config_by_model_name(model_family: "RerankModelFamilyV2"):
                     matched = cls.match(model_family, spec, quantization)
                 if matched == True:
                     # we only match the first class for an engine
-                    if engine not in engines:
-                        engines[engine] = [
-                            {
-                                "model_name": model_name,
-                                "model_format": model_format,
-                                "quantization": quantization,
-                                "rerank_class": cls,
-                            }
-                        ]
-                    else:
-                        engines[engine].append(
-                            {
-                                "model_name": model_name,
-                                "model_format": model_format,
-                                "quantization": quantization,
-                                "rerank_class": cls,
-                            }
-                        )
+                    engine_params = engines.setdefault(engine, [])
+                    param = {
+                        "model_name": model_name,
+                        "model_format": model_format,
+                        "quantization": quantization,
+                        "rerank_class": cls,
+                    }
+                    if param not in engine_params:
+                        engine_params.append(param)
                     break
-    RERANK_ENGINES[model_name] = engines
+    target_engines[model_name] = engines
 
 
 def has_downloaded_models():
@@ -209,21 +202,25 @@ def _install():
     # Distribution-specific engines are appended after the built-ins.
     _run_engine_registration_hooks(MODEL_TYPE_RERANK, SUPPORTED_ENGINES)
 
+    new_rerank_engines: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     for model_spec_list in BUILTIN_RERANK_MODELS.values():
         for model_spec in model_spec_list:
-            generate_engine_config_by_model_name(model_spec)
+            generate_engine_config_by_model_name(model_spec, new_rerank_engines)
 
     register_custom_model()
 
     # register model description
-    for ud_rerank in get_user_defined_reranks():
+    user_defined_reranks = get_user_defined_reranks()
+    for ud_rerank in user_defined_reranks:
+        generate_engine_config_by_model_name(ud_rerank, new_rerank_engines)
         RERANK_MODEL_DESCRIPTIONS.update(generate_rerank_description(ud_rerank))
+
+    RERANK_ENGINES.clear()
+    RERANK_ENGINES.update(new_rerank_engines)
 
     # A model present on a prior refresh but absent from this one must not keep
     # advertising a launch config or description from the stale entry.
     live_names = {name for name in BUILTIN_RERANK_MODELS} | {
-        ud.model_name for ud in get_user_defined_reranks()
+        ud.model_name for ud in user_defined_reranks
     }
-    prune_stale_derived_registries(
-        live_names, RERANK_ENGINES, RERANK_MODEL_DESCRIPTIONS
-    )
+    prune_stale_derived_registries(live_names, RERANK_MODEL_DESCRIPTIONS)
