@@ -503,7 +503,11 @@ export function UniversalResultPanel({
   progress,
   ability,
 }: CapabilityResultProps) {
-  if (loading && !isAudioStreamResult(result) && !(ability === ModelAbility.Generate && (result as CompletionResponse)?.choices?.[0]?.text)) {
+  if (
+    loading &&
+    !isAudioStreamResult(result) &&
+    !(ability === ModelAbility.Generate && (result as CompletionResponse)?.choices?.[0]?.text)
+  ) {
     return <Generating progress={progress} />;
   }
 

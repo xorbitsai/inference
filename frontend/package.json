@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier . --write",
-    "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs"
+    "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs",
+    "test:capability-task-panel": "node --test src/components/pages/running-model-detail/panels/capability-task-panel.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -66,6 +67,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
     "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^26.1.0",
     "prettier": "^3.8.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

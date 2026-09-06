@@ -78,6 +78,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const [result, setResult] = useState<unknown>();
     const [resultValues, setResultValues] = useState<FormValues | undefined>();
     const [loading, setLoading] = useState(false);
+    const [completionStreaming, setCompletionStreaming] = useState(false);
     const [progress, setProgress] = useState<number | undefined>();
     const [latencyMs, setLatencyMs] = useState<number | undefined>();
     const showLiveProgress = Boolean(
@@ -179,6 +180,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const disposeCompletionStream = useCallback(() => {
       completionStreamRef.current?.terminate();
       completionStreamRef.current = undefined;
+      setCompletionStreaming(false);
     }, []);
 
     const disposeAudioStream = useCallback(() => {
@@ -222,11 +224,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       const requestPromise = Promise.resolve(
         config.transformValues({ modelUid, model, values, requestId })
       ).then(async (body) => {
+        if (runTokenRef.current !== runToken) return;
+
         requestStarted = true;
         if (config.stream) {
           streamResponseStarted = true;
           const controller = new EventStreamController();
           completionStreamRef.current = controller;
+          setCompletionStreaming(true);
           return new Promise<CompletionResponse>((resolve, reject) => {
             let aggregate: CompletionResponse = {
               id: createId('completion'),
@@ -262,6 +267,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
                   onEnd: () => {
                     if (completionStreamRef.current === controller) {
                       completionStreamRef.current = undefined;
+                      setCompletionStreaming(false);
                     }
                     resolve(aggregate);
                   },
@@ -303,6 +309,8 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       requestPromise
         .then((response) => {
           if (runTokenRef.current !== runToken) return;
+
+          setLatencyMs(Math.round(performance.now() - startedAt));
 
           if (audioStreamSession) {
             const blob = response as Blob;
@@ -355,7 +363,6 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
 
           if (runTokenRef.current === runToken) {
             setLoading(false);
-            // Note: Move setLatencyMs to the successful .then() block of requestPromise to avoid showing latency on failed requests.
             setProgress(undefined);
           }
         });
@@ -399,7 +406,12 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           variant="secondary"
           size="icon"
           className="size-11 rounded-full"
-          disabled={loading && !config.showProgress && audioStreamRef.current === undefined}
+          disabled={
+            loading &&
+            !config.showProgress &&
+            audioStreamRef.current === undefined &&
+            !completionStreaming
+          }
           onClick={reset}
         >
           <RotateCcw className="size-4" />
