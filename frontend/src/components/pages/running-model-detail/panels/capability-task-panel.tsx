@@ -355,7 +355,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
 
           if (runTokenRef.current === runToken) {
             setLoading(false);
-            setLatencyMs(Math.round(performance.now() - startedAt));
+            // Note: Move setLatencyMs to the successful .then() block of requestPromise to avoid showing latency on failed requests.
             setProgress(undefined);
           }
         });
