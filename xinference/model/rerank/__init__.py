@@ -109,7 +109,7 @@ def generate_engine_config_by_model_name(
                 if matched == True:
                     # we only match the first class for an engine
                     engine_params = engines.setdefault(engine, [])
-                    param = {
+                    param: Dict[str, Any] = {
                         "model_name": model_name,
                         "model_format": model_format,
                         "quantization": quantization,
