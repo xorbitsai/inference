@@ -84,6 +84,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             self._kv_transfer_config.get_from_extra_config("xavier_config", {}) or {}
         )
         self._block_size = vllm_config.cache_config.block_size
+        has_recurrent_cache = any(
+            hasattr(group.kv_cache_spec, "mamba_cache_mode")
+            for group in kv_cache_config.kv_cache_groups
+        )
+        if has_recurrent_cache:
+            raise ValueError(
+                "Xavier PD does not yet support hybrid/recurrent attention caches "
+                "(for example Qwen3.5). Launch this model without PD/Xavier, "
+                "or use a full-attention model such as Qwen3 for PD."
+            )
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
         self._is_consumer = self._kv_transfer_config.is_kv_consumer
@@ -123,6 +133,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         metadata = self._get_connector_metadata()
         assert isinstance(metadata, XavierConnectorMetadata)
         if not metadata.load_requests:
+            return
+
+        # Use the same canonical buffers that the producer stages. Hybrid
+        # attention layers can expose tuple views (conv/SSM) in forward_context
+        # while vLLM registers one packed buffer for transfer.
+        if self._registered_kv_caches:
+            for layer_name, kv_layer in self._registered_kv_caches.items():
+                for request in metadata.load_requests:
+                    self._load_layer_blocks(layer_name, kv_layer, request)
             return
 
         no_compile_layers = getattr(forward_context, "no_compile_layers", {}) or {}
@@ -435,13 +454,17 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         recv_dtype: torch.dtype,
     ):
         transfer_ref = await self._get_transfer_ref()
-        return await transfer_ref.read_layer_blocks_v1(
-            from_rank,
-            layer_name,
-            src_to_dst,
-            recv_shape,
-            recv_dtype,
-        )
+        # Bound each actor reply; packed hybrid cache blocks can be several
+        # MiB each. Consume replies incrementally rather than sending a large
+        # tensor through the engine's synchronous actor bridge.
+        blocks = []
+        for src, dst in src_to_dst.items():
+            blocks.append(
+                await transfer_ref.read_layer_blocks_v1(
+                    from_rank, layer_name, {src: dst}, (1, *recv_shape[1:]), recv_dtype
+                )
+            )
+        return torch.cat(blocks, dim=0)
 
     def _load_layer_blocks(
         self,

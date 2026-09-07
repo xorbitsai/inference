@@ -129,3 +129,12 @@ evidence, and terminates the deployment. To use locally cached weights, set
 ``XINFERENCE_TEST_PD_MODEL_SIZE`` to the model path and its registered model name
 and size. The manually triggered ``PD GPU integration`` GitHub
 Actions workflow runs the same test on a selected runner with two GPUs.
+
+Hybrid/recurrent attention limitation
+-------------------------------------
+
+Xavier PD currently rejects hybrid/recurrent attention caches, including Qwen3.5.
+The transferred implementation does not yet reliably preserve their recurrent
+state across prefix-cache reuse and concurrent requests. Use ordinary single
+instances for these models, or a full-attention model such as Qwen3 for PD.
+Successful launch alone is not evidence of correct hybrid-state transfer.

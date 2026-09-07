@@ -37,7 +37,7 @@ jobs:
           .venv-pd/bin/python -m pip install -U pip 'setuptools<82'
           .venv-pd/bin/python -m pip install -e '.[dev]' "vllm==$VLLM_VERSION" openai
       - name: Verify PD with actual KV transfer
-        run: .venv-pd/bin/python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py
+        run: .venv-pd/bin/python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py
       - name: Upload runtime logs
         if: always()
         uses: actions/upload-artifact@v4
