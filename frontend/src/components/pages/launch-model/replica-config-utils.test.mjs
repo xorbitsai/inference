@@ -49,3 +49,15 @@ test('derives n_gpu from explicit gpu_idx instead of retained metadata', () => {
   assert.equal(result[0].devices[0].n_gpu, 2);
   assert.deepEqual(result[0].devices[0].gpu_idx, [0, 2]);
 });
+
+test('preserves PD roles through command import and launch', () => {
+  const configs = ['prefill', 'decode'].map((role, index) => ({
+    role,
+    replica_uid: `pd-${index}`,
+    devices: [{ worker_ip: 'worker:9978', n_gpu: 1, gpu_idx: [index] }],
+  }));
+  assert.deepEqual(
+    roundTrip(configs).map((config) => config.role),
+    ['prefill', 'decode']
+  );
+});

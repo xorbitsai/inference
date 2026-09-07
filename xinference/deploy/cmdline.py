@@ -818,7 +818,11 @@ def remove_cache(
     "replica_config",
     default=None,
     type=str,
-    help="Per-replica worker and GPU placement as a non-empty JSON array.",
+    help=(
+        "Per-replica worker and GPU placement as a non-empty JSON array. "
+        "For vLLM PD separation, set role to prefill or decode in each entry; "
+        "both roles are required. Replica count defaults to the array length."
+    ),
 )
 @click.option(
     "--n-worker",
@@ -1000,6 +1004,14 @@ def model_launch(
             )
 
         _replica_config = parsed_replica_config
+        from ..core.replica_config import ReplicaConfig, validate_pd_replica_configs
+
+        try:
+            configs = [ReplicaConfig.parse_obj(item) for item in _replica_config]
+            validate_pd_replica_configs(configs, model_engine, model_type)
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--replica-config") from e
+
         replica_source = ctx.get_parameter_source("replica")
         if replica_source == ParameterSource.COMMANDLINE:
             if replica != len(_replica_config):

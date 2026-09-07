@@ -1422,3 +1422,45 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     async def get_pending_requests_count(self):
         return self._pending_requests.qsize()
+
+    @log_async(logger=logger)
+    async def free_model_cache(self, request_id: str):
+        """Free the seq kvcache reference count of the vLLM model."""
+        from ..model.llm.vllm.core import VLLMChatModel as LLMVLLMChatModel
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+
+        if isinstance(self._model, LLMVLLMModel) or isinstance(
+            self._model, LLMVLLMChatModel
+        ):
+            # self._model.free_seq_cache(request_id)
+            engine = self._model._engine
+            inner_engine = getattr(engine, "engine", None)
+            scheduler = getattr(inner_engine, "scheduler", None)
+            if scheduler:
+                scheduler[0].free_seq_cache(request_id)
+
+    @log_async(logger=logger)
+    async def set_unpin_handler(
+        self, model_uid: str, request_id: str, pd_model_actor_address: str
+    ):
+        """Set the unpin handle of the vLLM model."""
+        from ..model.llm.vllm.core import VLLMChatModel as LLMVLLMChatModel
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+
+        if isinstance(self._model, LLMVLLMModel) or isinstance(
+            self._model, LLMVLLMChatModel
+        ):
+            # For XavierEngine, need to access internal engine's scheduler
+            # XavierEngine.engine -> XavierInternalEngine.scheduler
+            engine = self._model._engine
+            inner_engine = getattr(engine, "engine", None)
+            scheduler = getattr(engine, "scheduler", None) or getattr(
+                inner_engine, "scheduler", None
+            )
+            if scheduler:
+                await scheduler[0].set_unpin_handler(
+                    model_uid, request_id, pd_model_actor_address
+                )
+                logger.debug(
+                    f"[PDModelActor] Set unpin handle for request {request_id} with pd model actor {pd_model_actor_address}"
+                )

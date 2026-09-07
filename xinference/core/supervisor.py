@@ -77,7 +77,11 @@ from .download_task_store import (
 from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
-from .replica_config import ReplicaConfig, normalize_replica_configs
+from .replica_config import (
+    ReplicaConfig,
+    normalize_replica_configs,
+    validate_pd_replica_configs,
+)
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
     assign_replica_gpu,
@@ -222,6 +226,8 @@ class ReplicaInfo:
 
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
+        self._pd_model_mapping: Dict[str, Any] = {}
+        self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
@@ -601,7 +607,17 @@ class SupervisorActor(xo.StatelessActor):
             affected_replica_uids
         )
 
+        for replica_uid in affected_replica_uids:
+            base_uid, _ = parse_replica_model_uid(replica_uid)
+            if base_uid in getattr(self, "_pd_model_mapping", {}):
+                await self.unregister_pd_replica(base_uid, replica_uid)
         self._remove_worker_from_replica_mappings(worker_address)
+        for base_uid in base_uids_affected:
+            if (
+                base_uid in getattr(self, "_pd_model_mapping", {})
+                and base_uid not in self._model_uid_to_replica_info
+            ):
+                await self._cleanup_distributed_actors(base_uid)
         await self._reconcile_affected_model_statuses(base_uids_affected)
         return affected_replica_uids
 
@@ -2984,37 +3000,29 @@ class SupervisorActor(xo.StatelessActor):
                 replica_uid_map,
             ) = await self._resolve_replica_config(model_uid, replica, replica_config)
 
+        pd_enabled = validate_pd_replica_configs(
+            replica_config, model_engine, model_type
+        )
+        transport_backend = kwargs.pop(
+            "vllm_transfer_backend_type", kwargs.pop("transfer_backend_type", None)
+        )
+        from ..model.llm.vllm.xavier.transport import normalize_xavier_transport_backend
+
+        transport_backend = normalize_xavier_transport_backend(transport_backend)
         # Xavier-related
         enable_xavier: bool = (
-            bool(kwargs.pop("enable_xavier", False))
+            (bool(kwargs.pop("enable_xavier", False)) or pd_enabled)
             and model_engine is not None
             and model_engine.lower() == "vllm"
         )
         store_address = None
         store_port = None
         world_size = None
+        if enable_xavier and replica <= 1:
+            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+            enable_xavier = False
         if enable_xavier:
-            if replica <= 1:
-                logger.warning(f"Enabling xavier when `replica<=1` is meaningless.")
-                enable_xavier = False
-            else:
-                from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
-                from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
-
-                self._block_tracker_mapping[model_uid] = await xo.create_actor(
-                    VLLMBlockTracker,
-                    address=self.address,
-                    uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
-                )
-                world_size = replica + 1
-                logger.info(f"Going to start xavier with world size: {world_size}")
-                self._collective_manager_mapping[model_uid] = await xo.create_actor(
-                    CollectiveManager,
-                    address=self.address,
-                    uid=f"{CollectiveManager.default_uid()}-{model_uid}",
-                    model_uid=model_uid,
-                )
-                logger.info(f"Start collective manager for {model_uid} done.")
+            world_size = replica + 1
 
         model_size = str(model_size_in_billions) if model_size_in_billions else ""
         logger.debug(
@@ -3040,7 +3048,7 @@ class SupervisorActor(xo.StatelessActor):
             nonlocal store_port
 
             # Calculate replica_id for status tracking
-            replica_id = rank - 1 if not enable_xavier else rank
+            replica_id = rank - 1
 
             # Resolve the GPU indexes early so they can be recorded in the
             # CREATING status below. Xavier rank 0 is the coordinator and does
@@ -3054,19 +3062,19 @@ class SupervisorActor(xo.StatelessActor):
             # Initialize replica status
             import time
 
-            await self._status_guard_ref.update_replica_status(
-                model_uid,
-                replica_id,
-                {
-                    "replica_model_uid": _replica_model_uid,
-                    "worker_address": worker_ref.address,
-                    "status": LaunchStatus.CREATING.name,
-                    "created_ts": int(time.time()),
-                    "replica_uid": replica_uid,
-                    "gpu_idx": replica_gpu_idx,
-                },
-            )
-
+            if rank > 0:
+                await self._status_guard_ref.update_replica_status(
+                    model_uid,
+                    replica_id,
+                    {
+                        "replica_model_uid": _replica_model_uid,
+                        "worker_address": worker_ref.address,
+                        "status": LaunchStatus.CREATING.name,
+                        "created_ts": int(time.time()),
+                        "replica_uid": replica_uid,
+                        "gpu_idx": replica_gpu_idx,
+                    },
+                )
             xavier_config = (
                 {
                     "block_tracker_uid": self._block_tracker_mapping[model_uid].uid,
@@ -3074,6 +3082,12 @@ class SupervisorActor(xo.StatelessActor):
                         model_uid
                     ].address,
                     "rank": rank,
+                    "role": (
+                        replica_config[rank - 1].role
+                        if pd_enabled and rank and replica_config is not None
+                        else "hybrid"
+                    ),
+                    "vllm_transfer_backend_type": transport_backend,
                     "world_size": world_size,
                     "store_address": store_address,
                     "store_port": store_port,
@@ -3089,10 +3103,6 @@ class SupervisorActor(xo.StatelessActor):
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
 
-                # Update replica status to READY
-                await self._status_guard_ref.update_replica_status(
-                    model_uid, replica_id, {"status": LaunchStatus.READY.name}
-                )
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 return rank0_address
 
@@ -3128,10 +3138,10 @@ class SupervisorActor(xo.StatelessActor):
                     xavier_config=xavier_config,
                     **kwargs,
                 )
-                # Wait for engine to be ready BEFORE adding to route table,
-                # so requests are never routed to a still-loading model.
-                await worker_ref.wait_for_load(_replica_model_uid)
+                # Track the worker before waiting so a failed load is cleaned up.
+                # Worker.get_model rejects requests until wait_for_load completes.
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                await worker_ref.wait_for_load(_replica_model_uid)
 
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
@@ -3157,6 +3167,23 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             nonlocal download_hub
             try:
+                if enable_xavier:
+                    from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
+                    from ..model.llm.vllm.xavier.collective_manager import (
+                        CollectiveManager,
+                    )
+
+                    self._block_tracker_mapping[model_uid] = await xo.create_actor(
+                        VLLMBlockTracker,
+                        address=self.address,
+                        uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
+                    )
+                    self._collective_manager_mapping[model_uid] = await xo.create_actor(
+                        CollectiveManager,
+                        address=self.address,
+                        model_uid=model_uid,
+                        uid=f"{CollectiveManager.default_uid()}-{model_uid}",
+                    )
                 strategy = None
                 use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
                 if gpu_idx is None and use_gpu:
@@ -3394,6 +3421,26 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                     logger.debug(f"Init transfer component for xavier done.")
+                if pd_enabled:
+                    from .pd_model import PDModelActor
+
+                    pd_ref = await xo.create_actor(
+                        PDModelActor,
+                        model_uid,
+                        address=self.address,
+                        uid=f"{model_uid}-{PDModelActor.default_uid()}",
+                    )
+                    # Track the actor before registration so rollback can destroy it.
+                    self._pd_model_mapping[model_uid] = pd_ref
+                    for idx, rep_model_uid, worker_ref, _, _ in placements:
+                        actor = await worker_ref.get_model(model_uid=rep_model_uid)
+                        if replica_config[idx].role == "prefill":
+                            await pd_ref.add_prefill_actor(rep_model_uid, actor)
+                        else:
+                            await pd_ref.add_decode_actor(rep_model_uid, actor)
+                    self._pd_roles[model_uid] = {
+                        idx: cfg.role for idx, cfg in enumerate(replica_config)
+                    }
             except (Exception, asyncio.CancelledError):
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
@@ -3418,6 +3465,8 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
         self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        if pd_enabled:
+            self._pd_model_mapping[model_uid] = None
         # Redeploy clears any stale unexpected-termination markers for this uid.
         self._clear_unexpected_down_replicas(model_uid)
         instance_info = InstanceInfo(
@@ -4440,37 +4489,7 @@ class SupervisorActor(xo.StatelessActor):
         self._clear_unexpected_down_replicas(model_uid)
         self._invalidate_list_models_debounce_cache()
 
-        # clear for xavier
-        rank0_uid = model_uid + "-rank0"
-        if rank0_uid in self._replica_model_uid_to_worker:
-            await _terminate_one_model(rank0_uid)
-
-        collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
-        if collective_manager_ref is not None:
-            try:
-                await xo.destroy_actor(collective_manager_ref)
-            except Exception as e:
-                logger.debug(
-                    "Destroy collective_manager_ref failed, model uid: %s, error: %s",
-                    model_uid,
-                    e,
-                )
-            finally:
-                logger.debug(
-                    f"Destroy collective_manager_ref done. model uid: {model_uid}"
-                )
-        block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
-        if block_tracker_ref is not None:
-            try:
-                await xo.destroy_actor(block_tracker_ref)
-            except Exception as e:
-                logger.debug(
-                    "Destroy block_tracker_ref failed, model uid: %s, error: %s",
-                    model_uid,
-                    e,
-                )
-            finally:
-                logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
+        await self._cleanup_distributed_actors(model_uid)
 
     @staticmethod
     def _worker_has_gpu_capacity(alloc: Dict[str, Any], n_gpu: int) -> bool:
@@ -4892,6 +4911,10 @@ class SupervisorActor(xo.StatelessActor):
     async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
     ) -> int:
+        if model_uid in self._pd_model_mapping:
+            raise ValueError(
+                "PD topology cannot be resized in place; terminate and relaunch the model"
+            )
         replica_model_uid = build_replica_model_uid(model_uid, replica_id)
         replica_info = self._model_uid_to_replica_info.get(model_uid)
         worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
@@ -5009,6 +5032,16 @@ class SupervisorActor(xo.StatelessActor):
         whether the down marker stays lit (terminate clears it, mark_replica_dead
         keeps it for the failure gauge).
         """
+        pd_ref = self._pd_model_mapping.pop(model_uid, None)
+        self._pd_roles.pop(model_uid, None)
+        if pd_ref is not None:
+            try:
+                await xo.destroy_actor(pd_ref)
+            except Exception:
+                logger.debug(
+                    "Failed to destroy PD router for %s", model_uid, exc_info=True
+                )
+
         rank0_uid = model_uid + "-rank0"
         rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
         if rank0_worker_refs is not None and terminate_rank0_on_worker:
@@ -5072,6 +5105,8 @@ class SupervisorActor(xo.StatelessActor):
         if parsed is None:
             return
         base_uid, replica_idx = parsed
+        if base_uid in getattr(self, "_pd_model_mapping", {}):
+            await self.unregister_pd_replica(base_uid, replica_model_uid)
 
         replica_info = self._model_uid_to_replica_info.get(base_uid)
         if replica_info is None:
@@ -5144,6 +5179,10 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        if model_uid in self._pd_model_mapping:
+            if model_uid not in self._pd_roles:
+                raise ModelNotReadyError(f"PD model {model_uid} is not ready")
+            return self._pd_model_mapping[model_uid]
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             available_uids = list(self._model_uid_to_replica_info.keys())
@@ -5445,6 +5484,9 @@ class SupervisorActor(xo.StatelessActor):
     ) -> Dict:
         from ..model.scheduler.core import AbortRequestMessage
 
+        pd_ref = self._pd_model_mapping.get(model_uid)
+        if pd_ref is not None:
+            return {"msg": await pd_ref.abort_request(request_id, block_duration)}
         res = {"msg": AbortRequestMessage.NO_OP.name}
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if not replica_info:
@@ -7185,5 +7227,24 @@ class SupervisorActor(xo.StatelessActor):
         """
         Used by worker.
         """
+        if func_name == "unregister_rank" and args and args[0] > 0:
+            await self.unregister_pd_replica(
+                model_uid, build_replica_model_uid(model_uid, args[0] - 1)
+            )
         collective_manager_ref = self._collective_manager_mapping[model_uid]
         await getattr(collective_manager_ref, func_name)(*args, **kwargs)
+
+    async def register_pd_replica(self, model_uid: str, replica_uid: str, model_ref):
+        """Refresh the router after a worker recreates a replica's actor."""
+        pd_ref = self._pd_model_mapping.get(model_uid)
+        _, replica_idx = parse_replica_model_uid(replica_uid)
+        role = self._pd_roles.get(model_uid, {}).get(replica_idx)
+        if pd_ref is not None and role in ("prefill", "decode"):
+            await getattr(pd_ref, f"add_{role}_actor")(replica_uid, model_ref)
+
+    async def unregister_pd_replica(self, model_uid: str, replica_uid: str):
+        pd_ref = self._pd_model_mapping.get(model_uid)
+        _, replica_idx = parse_replica_model_uid(replica_uid)
+        role = self._pd_roles.get(model_uid, {}).get(replica_idx)
+        if pd_ref is not None and role in ("prefill", "decode"):
+            await getattr(pd_ref, f"remove_{role}_actor")(replica_uid)

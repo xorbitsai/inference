@@ -24,7 +24,7 @@ cross-replica GPU conflicts) live in the supervisor, which has access to the
 cluster topology.
 """
 
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from .._compat import BaseModel, Field, validator
 from .utils import parse_replica_model_uid
@@ -79,6 +79,7 @@ class ReplicaConfig(_PlacementConfigBase):
     """Placement spec for a single replica."""
 
     replica_uid: Optional[str] = None
+    role: Literal["hybrid", "prefill", "decode"] = "hybrid"
     devices: List[DeviceConfig] = Field(default_factory=list)
 
     @classmethod
@@ -171,3 +172,21 @@ def _validate_device_consistency(idx: int, device: DeviceConfig) -> None:
             raise ValueError(
                 f"replica_config[{idx}].devices[0].gpu_idx must be non-negative integers."
             )
+
+
+def validate_pd_replica_configs(
+    configs: Optional[List[ReplicaConfig]],
+    model_engine: Optional[str],
+    model_type: Optional[str],
+) -> bool:
+    """Validate a complete P/D topology before allocating any runtime resources."""
+    roles = {cfg.role for cfg in configs or []}
+    if not roles.intersection({"prefill", "decode"}):
+        return False
+    if (model_engine or "").lower() != "vllm" or (model_type or "LLM").lower() != "llm":
+        raise ValueError("PD separation requires model_type=LLM and model_engine=vLLM")
+    if roles != {"prefill", "decode"}:
+        raise ValueError(
+            "PD separation requires both prefill and decode replicas, without hybrid replicas"
+        )
+    return True

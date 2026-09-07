@@ -6254,3 +6254,7 @@ class WorkerActor(xo.StatelessActor):
         # permanent "loading" zombie -- the original 33% symptom. launch_builtin_model
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
+        if is_xavier and xavier_config.get("role") in ("prefill", "decode"):
+            await supervisor_ref.register_pd_replica(
+                origin_uid, rep_model_uid, self._model_uid_to_model[rep_model_uid]
+            )

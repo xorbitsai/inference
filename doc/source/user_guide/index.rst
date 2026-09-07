@@ -17,3 +17,4 @@ User Guide
    distributed_inference
    continuous_batching
    vllm_enhancement
+   pd_separation

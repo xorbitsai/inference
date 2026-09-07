@@ -15,17 +15,44 @@ import asyncio
 import logging
 from functools import lru_cache
 from queue import Queue
-from typing import Dict, List, Optional, no_type_check
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, no_type_check
 
+import numpy as np
 import torch
 import xoscar as xo
-from vllm.core.scheduler import Scheduler
-from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
-from vllm.worker.cache_engine import CacheEngine
 
 from .collective import CollectiveRank
 
+try:
+    from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
+except Exception:  # pragma: no cover - vLLM 0.23+ no longer exposes v0 helpers.
+    TORCH_DTYPE_TO_NUMPY_DTYPE = {
+        torch.int8: np.int8,
+        torch.uint8: np.uint8,
+        torch.int32: np.int32,
+        torch.int64: np.int64,
+        torch.float16: np.float16,
+        torch.float32: np.float32,
+        torch.float64: np.float64,
+    }
+    Device = None  # type: ignore
+
+if TYPE_CHECKING:
+    from vllm.core.scheduler import Scheduler
+    from vllm.worker.cache_engine import CacheEngine
+else:
+    Scheduler = Any  # type: ignore
+    CacheEngine = Any  # type: ignore
+
 logger = logging.getLogger(__name__)
+
+# gloo (xoscar collective) cannot transfer bfloat16 tensors, so bf16 KV must be
+# moved as another dtype. Use float32 rather than float16: float16's 5-bit
+# exponent overflows to +/-inf for KV values above 65504 (which occur in
+# Qwen3.5's linear_attn state cache and attention outliers), silently
+# corrupting the transferred cache and producing garbage generation. bf16 has
+# the same 8-bit exponent as float32, so bf16 -> float32 -> bf16 is lossless.
+XAVIER_BF16_TRANSPORT_DTYPE = torch.float32
 
 
 class BufferTransferMixin:
@@ -41,7 +68,7 @@ class BufferTransferMixin:
     ):
         # (transfer_block_num, num_attn_layers, 2, *kv_cache_shape[2:])
 
-        if buffer_dtype is torch.bfloat16:
+        if buffer_dtype == torch.bfloat16:
             buffer_dtype = torch.float16
 
         self.num_buffer = num_buffer
@@ -117,6 +144,8 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
         )
         self._cache_engine: Optional[List[CacheEngine]] = None
         self._scheduler: Optional[List[Scheduler]] = None
+        self._layer_block_store: Dict[str, Dict[int, torch.Tensor]] = {}
+        self._layer_send_tasks_v1: Set[asyncio.Task[Any]] = set()
         self._swap_stream = torch.cuda.Stream()
 
     async def __post_create__(self):
@@ -139,10 +168,190 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
         )
 
     async def __pre_destroy__(self):
+        for task in self._layer_send_tasks_v1:
+            task.cancel()
         self._context.closeConnections()
 
     def _get_cache_engine(self, virtual_engine: int) -> CacheEngine:
         return self._cache_engine[virtual_engine]  # type: ignore
+
+    def stage_layer_blocks_v1(
+        self,
+        request_id: str,
+        layer_name: str,
+        block_ids: List[int],
+        blocks: torch.Tensor,
+    ):
+        if blocks.dtype == torch.bfloat16:
+            blocks = blocks.to(dtype=XAVIER_BF16_TRANSPORT_DTYPE)
+        blocks = blocks.detach().cpu().contiguous()
+        layer_store = self._layer_block_store.setdefault(layer_name, {})
+        for idx, block_id in enumerate(block_ids):
+            layer_store[int(block_id)] = blocks[idx].contiguous()
+        logger.debug(
+            "Stage Xavier V1 blocks: request=%s, rank=%s, layer=%s, blocks=%s",
+            request_id,
+            self._rank,
+            layer_name,
+            block_ids,
+        )
+
+    def _get_staged_layer_blocks_v1(
+        self, layer_name: str, remote_block_ids: List[int]
+    ) -> torch.Tensor:
+        layer_store = self._layer_block_store.get(layer_name)
+        if layer_store is None:
+            raise KeyError(f"No staged Xavier blocks for layer {layer_name!r}")
+        missing = [
+            block_id for block_id in remote_block_ids if block_id not in layer_store
+        ]
+        if missing:
+            raise KeyError(
+                f"Missing staged Xavier blocks for layer {layer_name!r}: {missing}"
+            )
+        return torch.stack(
+            [layer_store[int(block_id)] for block_id in remote_block_ids],
+            dim=0,
+        ).contiguous()
+
+    def has_layer_blocks_v1(self, layer_name: str, remote_block_ids: List[int]) -> bool:
+        layer_store = self._layer_block_store.get(layer_name)
+        if layer_store is None:
+            return False
+        return all(block_id in layer_store for block_id in remote_block_ids)
+
+    def do_send_layer_blocks_v1(
+        self, to_rank: int, layer_name: str, remote_block_ids: List[int]
+    ):
+        from xoscar.collective import xoscar_pygloo as xp
+
+        sendbuf = self._get_staged_layer_blocks_v1(layer_name, remote_block_ids)
+        assert sendbuf.is_contiguous()
+        sendptr = sendbuf.numpy().ctypes.data
+        data_size = sendbuf.numel()
+        datatype = self.get_gloo_dtype(sendbuf.dtype)
+        logger.debug(
+            "Send Xavier V1 blocks: rank=%s, to_rank=%s, layer=%s, blocks=%s, "
+            "shape=%s, dtype=%s",
+            self._rank,
+            to_rank,
+            layer_name,
+            remote_block_ids,
+            tuple(sendbuf.shape),
+            sendbuf.dtype,
+        )
+        xp.send(self._context, sendptr, data_size, datatype, to_rank)
+        logger.debug(
+            "Send Xavier V1 blocks done: rank=%s, to_rank=%s, layer=%s, " "blocks=%s",
+            self._rank,
+            to_rank,
+            layer_name,
+            remote_block_ids,
+        )
+
+    async def start_send_layer_blocks_v1(
+        self, to_rank: int, layer_name: str, remote_block_ids: List[int]
+    ) -> None:
+        task = asyncio.create_task(
+            asyncio.to_thread(
+                self.do_send_layer_blocks_v1,
+                to_rank,
+                layer_name,
+                remote_block_ids,
+            )
+        )
+        self._layer_send_tasks_v1.add(task)
+
+        def _on_done(fut):
+            self._layer_send_tasks_v1.discard(fut)
+            try:
+                fut.result()
+            except asyncio.CancelledError:
+                logger.debug(
+                    "Send Xavier V1 blocks cancelled: rank=%s, to_rank=%s, "
+                    "layer=%s, blocks=%s",
+                    self._rank,
+                    to_rank,
+                    layer_name,
+                    remote_block_ids,
+                )
+            except Exception:
+                logger.exception(
+                    "Send Xavier V1 blocks failed: rank=%s, to_rank=%s, "
+                    "layer=%s, blocks=%s",
+                    self._rank,
+                    to_rank,
+                    layer_name,
+                    remote_block_ids,
+                )
+
+        task.add_done_callback(_on_done)
+        logger.debug(
+            "Scheduled Xavier V1 block send: rank=%s, to_rank=%s, layer=%s, "
+            "blocks=%s",
+            self._rank,
+            to_rank,
+            layer_name,
+            remote_block_ids,
+        )
+
+    def do_recv_layer_blocks_v1(
+        self,
+        from_rank: int,
+        recv_shape: Tuple[int, ...],
+        recv_dtype: torch.dtype,
+    ) -> torch.Tensor:
+        from xoscar.collective import xoscar_pygloo as xp
+
+        if recv_dtype == torch.bfloat16:
+            recv_dtype = XAVIER_BF16_TRANSPORT_DTYPE
+        recvbuf = torch.empty(size=recv_shape, dtype=recv_dtype, device="cpu")
+        assert recvbuf.is_contiguous()
+        recvptr = recvbuf.numpy().ctypes.data
+        data_size = recvbuf.numel()
+        datatype = self.get_gloo_dtype(recvbuf.dtype)
+        logger.debug(
+            "Recv Xavier V1 blocks: rank=%s, from_rank=%s, shape=%s, dtype=%s",
+            self._rank,
+            from_rank,
+            recv_shape,
+            recvbuf.dtype,
+        )
+        xp.recv(self._context, recvptr, data_size, datatype, from_rank)
+        logger.debug(
+            "Recv Xavier V1 blocks done: rank=%s, from_rank=%s, shape=%s, " "dtype=%s",
+            self._rank,
+            from_rank,
+            recv_shape,
+            recvbuf.dtype,
+        )
+        return recvbuf
+
+    async def read_layer_blocks_v1(
+        self,
+        from_rank: int,
+        layer_name: str,
+        src_to_dst: Dict[int, int],
+        recv_shape: Tuple[int, ...],
+        recv_dtype: torch.dtype,
+    ) -> torch.Tensor:
+        remote_block_ids = list(src_to_dst.keys())
+        from_address = self._world_addresses[from_rank]
+        sender_ref = await xo.actor_ref(
+            address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
+        )
+        if not await sender_ref.has_layer_blocks_v1(layer_name, remote_block_ids):
+            raise KeyError(
+                "No staged Xavier V1 blocks on rank "
+                f"{from_rank}: layer={layer_name!r}, blocks={remote_block_ids}"
+            )
+        await sender_ref.start_send_layer_blocks_v1(
+            self._rank, layer_name, remote_block_ids
+        )
+        recvbuf = await asyncio.to_thread(
+            self.do_recv_layer_blocks_v1, from_rank, recv_shape, recv_dtype
+        )
+        return recvbuf
 
     @staticmethod
     def _get_swap_block_ids(src_to_dst: Dict[int, int], is_sender: bool) -> List[int]:
@@ -234,6 +443,30 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
         finally:
             self._decr_count_for_block_id(virtual_engine, block_ids)
             self.free_buffer_index(cpu_buf_index)
+
+    async def read_blocks(self, from_rank: int, src_to_dst: Dict[int, int]):
+        """
+        Receiving logic: Gloo recv -> Buffer -> GPU.
+        Buffer -> GPU is directly handled using the internal `swap_in` interface of vllm.
+        """
+        from xoscar.collective import xoscar_pygloo as xp
+
+        block_ids = self._get_swap_block_ids(src_to_dst, is_sender=False)
+        total_blocks = len(block_ids)
+        cpu_buf_index = self.get_buffer_index()
+
+        for start_idx in range(0, total_blocks, self.transfer_block_num):
+            offset = min(self.transfer_block_num, total_blocks - start_idx)
+            recv_block_ids = block_ids[start_idx : start_idx + offset]
+            recvbuf = self.get_swap_buffer(cpu_buf_index, len(recv_block_ids))
+            assert recvbuf.is_contiguous()
+            recvptr = recvbuf.numpy().ctypes.data
+            data_size = recvbuf.numel()
+            datatype = self.get_gloo_dtype(recvbuf.dtype)
+            peer = from_rank
+            xp.recv(self._context, recvptr, data_size, datatype, peer)
+
+            return recvbuf, recv_block_ids, cpu_buf_index
 
     async def do_recv(
         self, virtual_engine: int, from_rank: int, src_to_dst: Dict[int, int]

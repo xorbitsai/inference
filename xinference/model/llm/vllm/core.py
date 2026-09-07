@@ -1156,7 +1156,8 @@ class VLLMModel(LLM):
                 self._engine = None
 
     async def init_xavier(self):
-        await self._engine.init_xavier()
+        if hasattr(self._engine, "init_xavier"):
+            await self._engine.init_xavier()
 
     async def _check_healthy(self, interval: int = 30):
         logger.info("Begin to check health of vLLM")

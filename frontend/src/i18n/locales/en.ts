@@ -578,6 +578,8 @@ const en = {
     replicaPlacementMode: 'Replica Placement',
     placementAuto: 'Auto scheduling',
     placementCustom: 'Per-replica (worker & GPU)',
+    pdRole: 'PD Role',
+    pdHybrid: 'Hybrid',
     replicaUid: 'Replica Alias',
     replicaUidPlaceholder: 'Optional, used to identify this replica',
     replicaPlacementEmpty: 'Increase the replica count to specify placement per replica.',
