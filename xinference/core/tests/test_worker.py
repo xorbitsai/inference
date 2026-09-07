@@ -4360,3 +4360,24 @@ async def test_get_model_ability_handles_missing_model_family_ability():
         SimpleNamespace(model_family=SimpleNamespace(model_ability=None)),
         "embedding",
     ) == ["embed"]
+
+
+@pytest.mark.asyncio
+async def test_terminate_missing_model_does_not_destroy_none(setup_pool, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    worker = await xo.create_actor(
+        MockWorkerActorRealTerminate,
+        address=setup_pool.external_address,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=setup_pool,
+        cuda_devices=[0],
+    )
+    destroy = AsyncMock()
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    await worker.terminate_model("already-removed-rep0")
+    await worker.terminate_model("already-removed-rep0")
+    destroy.assert_not_called()
+    presence = await worker.get_launch_state_presence_for_test("already-removed-rep0")
+    assert not any(presence.values())
