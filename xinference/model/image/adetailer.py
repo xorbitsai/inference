@@ -170,7 +170,7 @@ def process_adetailer(
         if calculate_optimal_crop == InpaintBBoxMatchMode.STRICT.value:
             if not getattr(model._model_spec, "model_base", None) == "SDXL":  # type: ignore
                 msg = "[-] ADetailer: strict inpaint bounding box size matching is only available for SDXL. Use Free mode instead."
-                print(msg)
+                logger.warning(msg)
                 return (inpaint_width, inpaint_height)
 
             optimal_resolution = optimal_crop_size.sdxl(

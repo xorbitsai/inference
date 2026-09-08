@@ -15,3 +15,4 @@
 from PIL import Image
 
 LANCZOS = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS  # type: ignore
+NEAREST = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST  # type: ignore

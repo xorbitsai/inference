@@ -18,7 +18,7 @@ from typing import List, Tuple, Union
 import torch
 from PIL import Image
 
-from .._compat import LANCZOS
+from .._compat import LANCZOS, NEAREST
 from .latent import LatentUpscaler, latent_upscale_modes
 from .realesrgan import RealESRGANmodel
 
@@ -89,9 +89,7 @@ def upscale(
     ), f"image must have same size, got {[_get_size(img) for img in images]}"
 
     if upscaler in (HiResUpscaler.Lanczos, HiResUpscaler.Nearest):
-        resample = (
-            LANCZOS if upscaler == HiResUpscaler.Lanczos else Image.Resampling.NEAREST
-        )
+        resample = LANCZOS if upscaler == HiResUpscaler.Lanczos else NEAREST
         return [image.resize(size, resample) for image in images]
 
     model = _get_upscaler_model(upscaler, **kwargs)
