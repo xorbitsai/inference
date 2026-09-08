@@ -923,13 +923,24 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.scheduler.core import AbortRequestMessage
 
         # Always cancel the running task first
+        task = self._running_tasks.get(request_id)
+        cancelled = (
+            task is not None
+            and not task.done()
+            and task.get_name() != self._CANCEL_TASK_NAME
+        )
         self._cancel_running_task(request_id, block_duration)
 
         # If model has abort_request method, delegate to it
         if hasattr(self._model, "abort_request"):
             result = await self._model.abort_request(request_id)
-            if result is not None:
+            if result is not None and (
+                not cancelled or result != AbortRequestMessage.NO_OP.name
+            ):
                 return result
+
+        if cancelled:
+            return AbortRequestMessage.DONE.name
 
         # Otherwise return NO_OP for legacy models or when model doesn't handle abort
         return AbortRequestMessage.NO_OP.name
@@ -1144,6 +1155,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         if hasattr(self._model, "txt2img"):
+            kwargs.pop("_sdapi_lora_specs", None)
+            if "<lora:" in (kwargs.get("prompt") or ""):
+                worker = await self._get_worker_ref()
+                specs = await worker.list_model_registrations("image", detailed=True)
+                kwargs["_sdapi_lora_specs"] = [
+                    spec for spec in specs if spec.get("model_family") == "lora"
+                ]
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.get("request_id")
             )
@@ -1199,6 +1217,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         if hasattr(self._model, "img2img"):
+            kwargs.pop("_sdapi_lora_specs", None)
+            if "<lora:" in (kwargs.get("prompt") or ""):
+                worker = await self._get_worker_ref()
+                specs = await worker.list_model_registrations("image", detailed=True)
+                kwargs["_sdapi_lora_specs"] = [
+                    spec for spec in specs if spec.get("model_family") == "lora"
+                ]
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.get("request_id")
             )

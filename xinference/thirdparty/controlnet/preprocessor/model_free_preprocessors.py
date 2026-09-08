@@ -168,7 +168,7 @@ class PreprocessorShuffle(Preprocessor):
         img, remove_pad = resize_image_with_pad(input_image, resolution)
         img = remove_pad(img)
         if self.model_shuffle is None:
-            from annotator.shuffle import ContentShuffleDetector
+            from ..annotator.shuffle import ContentShuffleDetector
 
             self.model_shuffle = ContentShuffleDetector()
         result = self.model_shuffle(img)

@@ -14,6 +14,7 @@
 
 import asyncio
 import contextlib
+import copy
 import gc
 import importlib
 import inspect
@@ -305,7 +306,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                             )
 
                             model = StableDiffusionReferencePipeline.from_pipe(
-                                self._model
+                                self._model,
+                                torch_dtype=None,
+                                scheduler=copy.deepcopy(self._model.scheduler),
                             )
                         else:
                             raise NotImplementedError

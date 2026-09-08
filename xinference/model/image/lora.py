@@ -46,7 +46,7 @@ def available_loras():
     return [spec for spec in candidates if spec.model_family == "lora"]
 
 
-def process_loras(kwargs: dict, strict: bool = False):
+def process_loras(kwargs: dict, strict: bool = False, specs=None):
     from .cache_manager import ImageCacheManager
     from .utils import download_civitai_model
 
@@ -56,7 +56,7 @@ def process_loras(kwargs: dict, strict: bool = False):
         spec = next(
             (
                 spec
-                for spec in available_loras()
+                for spec in (available_loras() if specs is None else specs)
                 if name
                 in (
                     spec.model_name,

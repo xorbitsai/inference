@@ -150,3 +150,95 @@ async def test_controlnet_detect_alias(api):
         "encoded"
     ]
     assert "controlnet_images" not in actor.controlnet_detect.call_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_sdapi_validation_returns_client_error(api):
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await api.sdapi_txt2img(request({"width": 0}))
+    assert exc.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_detect_forwards_masks(api):
+    supervisor = api._get_supervisor_ref.return_value
+    supervisor.list_models = AsyncMock(
+        return_value={"sd": {"model_type": "image", "controlnet": [{}]}}
+    )
+    actor = SimpleNamespace(controlnet_detect=AsyncMock(return_value='{"images": []}'))
+    supervisor.get_model = AsyncMock(return_value=actor)
+    await api.sdapi_controlnet_detect(
+        request(
+            {
+                "controlnet_module": "inpaint",
+                "controlnet_input_images": ["image"],
+                "controlnet_masks": ["mask"],
+            }
+        )
+    )
+    assert actor.controlnet_detect.call_args.kwargs["controlnet_masks"] == ["mask"]
+
+
+@pytest.mark.asyncio
+async def test_lora_list_uses_live_worker_registry(api):
+    api._get_supervisor_ref.return_value.list_model_registrations = AsyncMock(
+        return_value=[{"model_family": "lora", "model_name": "registered-style"}]
+    )
+    result = await api.sdapi_loras(request())
+    assert json.loads(result.body)[0]["name"] == "registered-style"
+
+
+@pytest.mark.asyncio
+async def test_txt2img_cancellation_returns_conflict(api):
+    import asyncio
+
+    from fastapi import HTTPException
+
+    actor = SimpleNamespace(
+        uid="sd", txt2img=AsyncMock(side_effect=asyncio.CancelledError)
+    )
+    api._get_supervisor_ref.return_value.get_model = AsyncMock(return_value=actor)
+    with pytest.raises(HTTPException) as exc:
+        await api.sdapi_txt2img(request({"model": "sd", "request_id": "cancel"}))
+    assert exc.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_preprocessors_do_not_require_controlnet_weights(api):
+    supervisor = api._get_supervisor_ref.return_value
+    supervisor.list_models = AsyncMock(
+        return_value={
+            "sd": {"model_type": "image", "model_base": "SD 1.5", "controlnet": None}
+        }
+    )
+    supervisor.get_model = AsyncMock(
+        return_value=SimpleNamespace(
+            controlnet_module_list=AsyncMock(
+                return_value='{"module_list": ["none", "canny"]}'
+            )
+        )
+    )
+    result = await api.sdapi_controlnet_module_list(request())
+    assert "canny" in json.loads(result.body)["module_list"]
+
+
+@pytest.mark.asyncio
+async def test_actor_abort_reports_cancelled_task_when_model_returns_noop():
+    import asyncio
+
+    from ...core.model import ModelActor
+
+    task = asyncio.create_task(asyncio.sleep(60))
+    actor = SimpleNamespace(
+        _running_tasks={"r": task},
+        _CANCEL_TASK_NAME="blocked",
+        _cancel_running_task=lambda *args: task.cancel(),
+        _model=SimpleNamespace(abort_request=AsyncMock(return_value="NO_OP")),
+    )
+    try:
+        assert await ModelActor.abort_request(actor, "r") == "DONE"
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)

@@ -363,3 +363,18 @@ def test_adetailer_installed_api_contract(monkeypatch):
     )
     assert result is image
     assert calls[0]["prompt"] == "cat face"
+
+
+@pytest.mark.parametrize("module", ["shuffle", "inpaint", "inpaint_only"])
+def test_model_free_preprocessors(module):
+    from ..controlnet import detect
+    from ..utils import encode_pil_to_base64
+
+    encoded = encode_pil_to_base64(Image.new("RGB", (64, 64), "white"))
+    result = detect(
+        controlnet_module=module,
+        controlnet_input_images=[encoded],
+        controlnet_masks=[encoded],
+        controlnet_processor_res=64,
+    )
+    assert len(result["images"]) == 1

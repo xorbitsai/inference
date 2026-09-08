@@ -279,7 +279,14 @@ class SDAPIDiffusionModelMixin:
             raise ValueError("denoising_strength must be greater than 0 and at most 1")
         converted["clip_skip"] = settings.get("clip_skip", 1)
         converted["gen_prompt_embeds"] = gen_prompt_embeds
-        process_loras(converted, strict=settings.get("strict", False))
+        lora_specs = params.pop("_sdapi_lora_specs", None)
+        if lora_specs is not None:
+            from .custom import CustomImageModelFamilyV2
+
+            lora_specs = [
+                CustomImageModelFamilyV2.parse_obj(spec) for spec in lora_specs
+            ]
+        process_loras(converted, strict=settings.get("strict", True), specs=lora_specs)
         # An empty adapter list resets adapters enabled by the preceding SDAPI request.
         converted.setdefault("loras", [])
         progressor = converted["progressor"] = params.get("progressor") or _NoProgress()

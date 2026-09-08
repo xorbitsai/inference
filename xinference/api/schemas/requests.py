@@ -113,6 +113,8 @@ class SDAPIImg2imgRequst(SDAPITxt2imgRequst):
 
 
 class SDAPIControlNetDetect(BaseModel):
+    controlnet_masks: List[str] = Field(default_factory=list)
+    low_vram: bool = False
     controlnet_module: str = "none"
     controlnet_input_images: List[str] = Field(default_factory=list)
     controlnet_images: List[str] = Field(default_factory=list)

@@ -30,9 +30,14 @@ def pipeline_model():
         model_name="tiny",
         model_revision="tiny",
     )
-    model = DiffusionModel("tiny", model_spec=spec, device="cpu")
+    model = DiffusionModel(
+        "tiny",
+        model_spec=spec,
+        device=os.environ.get("XINFERENCE_SDAPI_TEST_DEVICE", "cpu"),
+    )
     model._model = StableDiffusionPipeline.from_pretrained(path, safety_checker=None)
-    model._torch_dtype = torch.float32
+    model._torch_dtype = torch.float16 if model._device == "cuda" else torch.float32
+    model._model.to(device=model._device, dtype=model._torch_dtype)
     model._image_batch_scheduler = None
     return model
 
@@ -167,9 +172,14 @@ async def test_real_sdxl_long_weighted_prompt():
         default_model_config={},
         model_name="tiny-xl",
     )
-    model = DiffusionModel("tiny-xl", model_spec=spec, device="cpu")
+    model = DiffusionModel(
+        "tiny-xl",
+        model_spec=spec,
+        device=os.environ.get("XINFERENCE_SDAPI_TEST_DEVICE", "cpu"),
+    )
     model._model = StableDiffusionXLPipeline.from_pretrained(path)
-    model._torch_dtype = torch.float32
+    model._torch_dtype = torch.float16 if model._device == "cuda" else torch.float32
+    model._model.to(device=model._device, dtype=model._torch_dtype)
     model._image_batch_scheduler = None
     result = await model.txt2img(
         prompt="(cat:1.2) " * 40,
@@ -184,6 +194,10 @@ async def test_real_sdxl_long_weighted_prompt():
 
 @pytest.mark.asyncio
 async def test_real_reference_controlnet(pipeline_model):
+    original_dtype = pipeline_model._model.unet.dtype
+    baseline = await pipeline_model.txt2img(
+        prompt="cat", width=32, height=32, steps=2, seed=1
+    )
     original_forwards = [
         module.forward for module in pipeline_model._model.unet.modules()
     ]
@@ -203,3 +217,9 @@ async def test_real_reference_controlnet(pipeline_model):
     assert [
         module.forward for module in pipeline_model._model.unet.modules()
     ] == original_forwards
+
+    assert pipeline_model._model.unet.dtype == original_dtype
+    after = await pipeline_model.txt2img(
+        prompt="cat", width=32, height=32, steps=2, seed=1
+    )
+    assert after["images"] == baseline["images"]

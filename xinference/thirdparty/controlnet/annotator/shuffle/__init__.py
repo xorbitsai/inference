@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from annotator.util import make_noise_disk
+from ..util import make_noise_disk
 
 
 class ContentShuffleDetector:
