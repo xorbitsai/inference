@@ -122,6 +122,14 @@ class SDAPIDiffusionModelMixin:
             sd_type,
             {k: v for k, v in kwargs.items() if k in available and v is not None},
         )
+        if sd_type == "img2img":
+            # Diffusers enables mask cropping even when padding is zero.
+            if kwargs.get("mask") and kwargs.get("inpaint_full_res"):
+                converted["padding_mask_crop"] = kwargs.get(
+                    "inpaint_full_res_padding", 0
+                )
+            else:
+                converted.pop("padding_mask_crop", None)
         width = converted.pop("width", 512)
         height = converted.pop("height", 512)
         if min(width, height) < 8:
@@ -314,12 +322,6 @@ class SDAPIDiffusionModelMixin:
                 converted["mask_image"] = resize_image(
                     params["resize_mode"], mask, width, height
                 )
-                if params.get("inpaint_full_res"):
-                    converted["padding_mask_crop"] = params.get(
-                        "inpaint_full_res_padding", 0
-                    )
-            else:
-                converted.pop("padding_mask_crop", None)
             converted["num_inference_steps"] = math.ceil(
                 converted["num_inference_steps"] / converted["strength"]
             )

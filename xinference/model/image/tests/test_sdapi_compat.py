@@ -92,6 +92,51 @@ async def test_img2img_resize_mask_and_batch(resize_mode):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("model_base", ["SD 1.5", "other"])
+@pytest.mark.parametrize("image_count", [1, 2])
+@pytest.mark.parametrize("crop", [None, False, True])
+@pytest.mark.parametrize("padding", [0, 8])
+async def test_schema_inpainting_crop(model_base, image_count, crop, padding):
+    from ....api.schemas.requests import SDAPIImg2imgRequst
+
+    model = FakeModel()
+    model._model_spec = SimpleNamespace(
+        model_base=model_base, default_generate_config={}
+    )
+    if model_base == "other":
+
+        def inpainting(**kwargs):
+            model.calls.append(("inpaint", kwargs))
+            return {"created": 0, "data": [{"b64_json": encoded()}]}
+
+        model.inpainting = inpainting
+    params = dict(
+        init_images=[encoded()] * image_count,
+        mask=encoded(mode="L"),
+        batch_size=image_count,
+        width=16,
+        height=8,
+        inpaint_full_res_padding=padding,
+    )
+    if crop is not None:
+        params["inpaint_full_res"] = crop
+    request = SDAPIImg2imgRequst(**params)
+    await model.img2img(**request.dict())
+    kind, kwargs = model.calls[0]
+    assert kind == "inpaint"
+    assert isinstance(kwargs["mask_image"], Image.Image)
+    if image_count == 2:
+        assert len(kwargs["image"]) == 2
+        assert all(isinstance(image, Image.Image) for image in kwargs["image"])
+    else:
+        assert isinstance(kwargs["image"], Image.Image)
+    if crop:
+        assert kwargs["padding_mask_crop"] == padding
+    else:
+        assert "padding_mask_crop" not in kwargs
+
+
+@pytest.mark.asyncio
 async def test_hires_fix_two_stages():
     model = FakeModel()
     result = await model.txt2img(
