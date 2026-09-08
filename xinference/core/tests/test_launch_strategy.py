@@ -601,6 +601,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
             self._replica_model_uid_to_worker_shards = {}
             self._status_guard_ref = DummyStatusGuard()
             self._status_guard_ref.replica_counts["demo-model"] = 3
+            self._pd_model_mapping = {}
             self._collective_manager_mapping = {}
             self._block_tracker_mapping = {}
             self._unexpected_down_replicas = {}
