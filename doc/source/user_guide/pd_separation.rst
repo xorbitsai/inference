@@ -138,3 +138,22 @@ The transferred implementation does not yet reliably preserve their recurrent
 state across prefix-cache reuse and concurrent requests. Use ordinary single
 instances for these models, or a full-attention model such as Qwen3 for PD.
 Successful launch alone is not evidence of correct hybrid-state transfer.
+
+V1 supported configurations and cache safety
+-------------------------------------------
+
+The V1 connector currently requires one GPU per replica (TP=1, PP=1), text-only
+models, and no LoRA adapters. Multimodal models, prompt embeddings and salted
+prompts are rejected until their cache identities and partitioning are supported.
+
+CPU snapshots are keyed by prompt content rather than reusable GPU block IDs.
+Readers reserve complete snapshots during transfer; cache pressure or a missing
+snapshot falls back to local computation. The number of retained CPU blocks is
+bounded by the engine's KV block capacity. CPU memory can approach the GPU KV
+cache size (twice that size for BF16 transported as FP32), in addition to in-flight
+transfer buffers. Only complete layers are published for remote reuse.
+
+The connector handles block-first and K/V-first attention cache layouts. A
+layout whose block axis cannot be identified safely is rejected. V0 prefill
+replicas release only the requested completed sequence; ordinary hybrid and
+decode replicas retain normal automatic cleanup.

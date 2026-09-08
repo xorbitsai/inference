@@ -328,17 +328,23 @@ class PDModelActor(xo.StatelessActor):
         return await self._infer("chat", messages, *args, **kwargs)
 
     async def abort_request(self, request_id, block_duration=30):
-        results = await asyncio.gather(
-            *[
-                model.abort_request(request_id, block_duration)
-                for model in [
-                    *self._prefill_replicas.values(),
-                    *self._decode_replicas.values(),
-                ]
-            ]
-        )
-        await self.free_prefill_model_cache(request_id)
-        return "DONE" if "DONE" in results else "NOT_FOUND"
+        try:
+            results = await asyncio.gather(
+                *[
+                    model.abort_request(request_id, block_duration)
+                    for model in [
+                        *self._prefill_replicas.values(),
+                        *self._decode_replicas.values(),
+                    ]
+                ],
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
+            return "DONE" if "DONE" in results else "NOT_FOUND"
+        finally:
+            await self.free_prefill_model_cache(request_id)
 
     async def get_pd_info(self):
         """获取PD分离信息"""

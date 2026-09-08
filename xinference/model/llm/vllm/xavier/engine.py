@@ -53,6 +53,16 @@ class XavierEngine:
     ) -> None:
         from vllm.config import KVTransferConfig
 
+        if (
+            getattr(engine_args, "tensor_parallel_size", 1) != 1
+            or getattr(engine_args, "pipeline_parallel_size", 1) != 1
+        ):
+            raise ValueError("Xavier V1 currently requires TP=1 and PP=1")
+        if getattr(engine_args, "enable_lora", False):
+            raise ValueError(
+                "Xavier V1 currently supports text-only models without LoRA"
+            )
+
         if xavier_config is None:
             xavier_config = {}
         xavier_config = dict(xavier_config)

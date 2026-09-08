@@ -89,6 +89,7 @@ xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
 
 [project.optional-dependencies]
 dev = [
+    "xxhash",  # CPU tests for the Xavier connector
     "cython>=0.29",
     "pytest>=3.5.0",
     "pytest-cov>=2.5.0",

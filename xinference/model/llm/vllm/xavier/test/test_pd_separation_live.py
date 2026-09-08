@@ -24,7 +24,7 @@ Run it against a live endpoint, e.g. inside/next to the serving host:
 
     XINF_ENDPOINT=http://10.94.255.37:9999 \
     XINF_API_KEY=sk-xxxx \
-    XINF_MODEL_UID=qwen3.5-pd \
+    XINF_MODEL_UID=qwen3-pd \
     XINF_LOG_CMD='docker exec xinf tail -n +{start} /root/.xinference/logs/<session>/xinference.log' \
     python test_pd_separation_live.py
 
@@ -43,7 +43,7 @@ import urllib.request
 
 ENDPOINT = os.environ.get("XINF_ENDPOINT", "http://127.0.0.1:9999").rstrip("/")
 API_KEY = os.environ.get("XINF_API_KEY", "")
-MODEL_UID = os.environ.get("XINF_MODEL_UID", "qwen3.5-pd")
+MODEL_UID = os.environ.get("XINF_MODEL_UID", "qwen3-pd")
 LOG_CMD = os.environ.get("XINF_LOG_CMD", "")
 LOG_LINECOUNT_CMD = os.environ.get("XINF_LOG_LINECOUNT_CMD", "")
 REQUEST_TIMEOUT = float(os.environ.get("XINF_REQUEST_TIMEOUT", "60"))

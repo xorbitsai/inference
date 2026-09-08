@@ -12,7 +12,7 @@ def test_load_uses_registered_packed_hybrid_cache():
 
     packed = object()
     conv, ssm = object(), object()
-    request = object()
+    request = SimpleNamespace(lease="")
     load = Mock()
     connector = SimpleNamespace(
         _is_consumer=True,

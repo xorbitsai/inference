@@ -220,3 +220,14 @@ async def test_free_model_cache_engine_layout(nested):
     actor = SimpleNamespace(_model=model)
     await ModelActor.free_model_cache(actor, "request")
     scheduler.free_seq_cache.assert_called_once_with("request")
+
+
+@pytest.mark.asyncio
+async def test_abort_failure_still_cleans_request(router):
+    actor, prefill, decode = router
+    actor._request_set.add("r")
+    decode.abort_request.side_effect = RuntimeError("replica offline")
+    with pytest.raises(RuntimeError, match="replica offline"):
+        await actor.abort_request("r")
+    assert not actor._request_set
+    prefill.free_model_cache.assert_awaited_once_with("r")

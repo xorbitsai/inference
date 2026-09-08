@@ -13,7 +13,7 @@
 # limitations under the License.
 import asyncio
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
+import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -28,6 +28,7 @@ from vllm.distributed.kv_transfer.kv_connector.v1.base import (
 from vllm.v1.core.sched.output import SchedulerOutput
 
 from .block_tracker import VLLMBlockTracker
+from .snapshot import block_major_view
 from .transfer import XAVIER_BF16_TRANSPORT_DTYPE, TransferActor
 from .utils import hash_block_tokens
 
@@ -54,6 +55,7 @@ class XavierStoreRequest:
 class XavierLoadRequest:
     request_id: str
     transfers: Dict[int, Dict[int, int]]
+    lease: str = ""
     local_transfers_by_group: Dict[int, Dict[int, Dict[int, int]]] = field(
         default_factory=dict
     )
@@ -94,12 +96,23 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 "(for example Qwen3.5). Launch this model without PD/Xavier, "
                 "or use a full-attention model such as Qwen3 for PD."
             )
+        parallel = vllm_config.parallel_config
+        if parallel.tensor_parallel_size != 1 or parallel.pipeline_parallel_size != 1:
+            raise ValueError("Xavier V1 currently requires TP=1 and PP=1")
+        if (
+            vllm_config.lora_config is not None
+            or vllm_config.model_config.is_multimodal_model
+        ):
+            raise ValueError(
+                "Xavier V1 currently supports text-only models without LoRA"
+            )
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
         self._is_consumer = self._kv_transfer_config.is_kv_consumer
         self._requests_need_load: Dict[str, XavierLoadRequest] = {}
         self._pending_store_requests: Dict[str, XavierStoreRequest] = {}
-        self._stored_requests: set[str] = set()
+        self._leased_requests: Dict[str, XavierLoadRequest] = {}
+        self._num_cache_blocks = kv_cache_config.num_blocks
         self._request_staged_layers: Dict[str, set[str]] = {}
         self._registered_kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]] = (
             {}
@@ -109,17 +122,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._tracker_ref: Optional[xo.ActorRefType["VLLMBlockTracker"]] = None
         self._transfer_ref: Optional[xo.ActorRefType["TransferActor"]] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._register_executor: Optional[ThreadPoolExecutor] = None
-        self._register_futures: set[Future] = set()
-        self._async_register_blocks = self._xavier_config.get("role") not in (
-            "prefill",
-            "decode",
-        ) and bool(self._xavier_config.get("async_register_blocks", True))
 
     def shutdown(self):
-        if self._register_executor is not None:
-            self._register_executor.shutdown(wait=False, cancel_futures=True)
-            self._register_executor = None
         if self._loop is None:
             return
         if self._loop.is_closed():
@@ -135,22 +139,22 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if not metadata.load_requests:
             return
 
-        # Use the same canonical buffers that the producer stages. Hybrid
-        # attention layers can expose tuple views (conv/SSM) in forward_context
-        # while vLLM registers one packed buffer for transfer.
-        if self._registered_kv_caches:
-            for layer_name, kv_layer in self._registered_kv_caches.items():
-                for request in metadata.load_requests:
-                    self._load_layer_blocks(layer_name, kv_layer, request)
-            return
-
-        no_compile_layers = getattr(forward_context, "no_compile_layers", {}) or {}
-        for layer_name, layer in no_compile_layers.items():
-            kv_layer = getattr(layer, "kv_cache", None)
-            if kv_layer is None:
-                continue
+        try:
+            if self._registered_kv_caches:
+                for layer_name, kv_layer in self._registered_kv_caches.items():
+                    for request in metadata.load_requests:
+                        self._load_layer_blocks(layer_name, kv_layer, request)
+            else:
+                layers = getattr(forward_context, "no_compile_layers", {}) or {}
+                for layer_name, layer in layers.items():
+                    kv_layer = getattr(layer, "kv_cache", None)
+                    if kv_layer is not None:
+                        for request in metadata.load_requests:
+                            self._load_layer_blocks(layer_name, kv_layer, request)
+        finally:
             for request in metadata.load_requests:
-                self._load_layer_blocks(layer_name, kv_layer, request)
+                if request.lease:
+                    self._call(self._release_load_request(request))
 
     def wait_for_layer_load(self, layer_name: str) -> None:
         return
@@ -197,17 +201,31 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
         pending = list(self._pending_store_requests.values())
         self._pending_store_requests.clear()
-        self._stage_missing_registered_layers(pending)
-        if self._async_register_blocks:
-            self._schedule_register_blocks(pending)
-        else:
+        try:
+            self._stage_missing_registered_layers(pending)
             self._call(self._register_blocks(pending))
+        finally:
+            for request in pending:
+                self._request_staged_layers.pop(request.request_id, None)
 
     def get_num_new_matched_tokens(
         self,
         request: "Request",
         num_computed_tokens: int,
     ) -> tuple[int | None, bool]:
+        if (
+            getattr(request, "lora_request", None)
+            or getattr(request, "mm_features", None)
+            or getattr(request, "prompt_embeds", None) is not None
+            or getattr(request, "cache_salt", None)
+        ):
+            raise ValueError(
+                "Xavier V1 does not support LoRA, multimodal, embedding or salted prompts"
+            )
+        self._requests_need_load.pop(request.request_id, None)
+        previous = self._leased_requests.pop(request.request_id, None)
+        if previous is not None:
+            self._call(self._release_load_request(previous))
         if not self._is_consumer:
             return 0, False
 
@@ -236,10 +254,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             matched_blocks * self._block_size,
             external_token_count - num_computed_tokens,
         )
-        self._requests_need_load[request.request_id] = XavierLoadRequest(
+        load = XavierLoadRequest(
             request_id=request.request_id,
             transfers=transfers,
+            lease=f"{self._rank}:{uuid.uuid4().hex}",
         )
+        if not self._call(self._reserve_load_request(load)):
+            return 0, False
+        self._requests_need_load[request.request_id] = load
+        self._leased_requests[request.request_id] = load
         logger.debug(
             "Xavier V1 external cache hit: request=%s, blocks=%s, tokens=%s",
             request.request_id,
@@ -276,6 +299,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._requests_need_load[request.request_id] = XavierLoadRequest(
             request_id=request.request_id,
             transfers=load_request.transfers,
+            lease=load_request.lease,
             local_transfers_by_group=local_transfers_by_group,
         )
         logger.debug(
@@ -302,6 +326,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     ) -> tuple[bool, dict[str, Any] | None]:
         self._chunked_prefill.pop(request.request_id, None)
         self._requests_need_load.pop(request.request_id, None)
+        load = self._leased_requests.pop(request.request_id, None)
+        if load is not None:
+            self._call(self._release_load_request(load))
         return False, None
 
     def request_finished_all_groups(
@@ -331,19 +358,22 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
         return self._tracker_ref
 
-    async def _new_tracker_ref(self) -> xo.ActorRefType["VLLMBlockTracker"]:
-        return await xo.actor_ref(
-            address=self._xavier_config.get("block_tracker_address"),
-            uid=self._xavier_config.get("block_tracker_uid"),
-        )
-
     async def _get_transfer_ref(self) -> xo.ActorRefType["TransferActor"]:
         if self._transfer_ref is None:
             self._transfer_ref = await xo.actor_ref(
                 address=self._xavier_config.get("rank_address"),
                 uid=f"{TransferActor.default_uid()}-{self._rank}",
             )
+            await self._transfer_ref.configure_snapshots_v1(self._num_cache_blocks)
         return self._transfer_ref
+
+    async def _reserve_load_request(self, request):
+        transfer = await self._get_transfer_ref()
+        return await transfer.reserve_remote_blocks_v1(request.lease, request.transfers)
+
+    async def _release_load_request(self, request):
+        transfer = await self._get_transfer_ref()
+        await transfer.release_remote_blocks_v1(request.lease, request.transfers)
 
     async def _query_remote_blocks(
         self,
@@ -374,76 +404,33 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             blocks,
         )
 
-    async def _register_blocks(
-        self, requests: List[XavierStoreRequest], use_cached_tracker: bool = True
-    ):
-        tracker_ref = (
-            await self._get_tracker_ref()
-            if use_cached_tracker
-            else await self._new_tracker_ref()
-        )
+    async def _register_blocks(self, requests: List[XavierStoreRequest]):
+        tracker_ref = await self._get_tracker_ref()
+        transfer_ref = await self._get_transfer_ref()
+        expected_layers = {
+            name
+            for layer, cache in self._registered_kv_caches.items()
+            for name, _ in self._iter_kv_tensors(layer, cache)
+        }
         for request in requests:
-            if request.request_id in self._stored_requests:
-                continue
-            block_infos = list(zip(request.block_hashes, request.block_ids))
-            if not block_infos:
-                continue
-            await tracker_ref.register_blocks(0, block_infos, self._rank)
-            self._stored_requests.add(request.request_id)
+            layers = expected_layers or self._request_staged_layers.get(
+                request.request_id, set()
+            )
+            available, evicted = await transfer_ref.publish_blocks_v1(
+                request.block_hashes, layers
+            )
+            if evicted:
+                await tracker_ref.unregister_blocks(0, self._rank, evicted)
+            # Transport addresses identify immutable content, not recyclable GPU slots.
+            await tracker_ref.register_blocks(
+                0, [(key, key) for key in available], self._rank
+            )
             logger.debug(
                 "Xavier V1 registered blocks: request=%s, rank=%s, blocks=%s",
                 request.request_id,
                 self._rank,
-                block_infos,
+                available,
             )
-            self._request_staged_layers.pop(request.request_id, None)
-
-    def _get_register_executor(self) -> ThreadPoolExecutor:
-        if self._register_executor is None:
-            self._register_executor = ThreadPoolExecutor(
-                max_workers=1,
-                thread_name_prefix=f"xavier-register-{self._rank}",
-            )
-        return self._register_executor
-
-    def _run_register_blocks_in_thread(
-        self, requests: List[XavierStoreRequest]
-    ) -> None:
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(
-                self._register_blocks(requests, use_cached_tracker=False)
-            )
-        finally:
-            loop.close()
-
-    def _schedule_register_blocks(self, requests: List[XavierStoreRequest]) -> None:
-        if not requests:
-            return
-        future = self._get_register_executor().submit(
-            self._run_register_blocks_in_thread, requests
-        )
-        self._register_futures.add(future)
-        logger.debug(
-            "Scheduled Xavier V1 async block registration: rank=%s, requests=%s",
-            self._rank,
-            [request.request_id for request in requests],
-        )
-
-        def _on_done(done_future: Future) -> None:
-            self._register_futures.discard(done_future)
-            try:
-                done_future.result()
-            except Exception:
-                request_ids = [request.request_id for request in requests]
-                logger.exception(
-                    "Xavier V1 async block registration failed: rank=%s, "
-                    "requests=%s",
-                    self._rank,
-                    request_ids,
-                )
-
-        future.add_done_callback(_on_done)
 
     async def _read_layer_blocks(
         self,
@@ -481,6 +468,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 )
                 if not src_to_dst:
                     continue
+                kv_tensor = block_major_view(kv_tensor, self._num_cache_blocks)
                 local_block_ids = list(src_to_dst.values())
                 # Must match the producer-side staging dtype in
                 # TransferActor.stage_layer_blocks_v1: bf16 is transported as
@@ -526,11 +514,12 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         for kv_layer_name, kv_tensor in self._iter_kv_tensors(layer_name, kv_layer):
             if kv_layer_name in staged_layers:
                 continue
+            kv_tensor = block_major_view(kv_tensor, self._num_cache_blocks)
             source_block_ids = self._get_source_block_ids(request, kv_layer_name)
             num_blocks = min(len(request.block_ids), len(source_block_ids))
             if num_blocks <= 0:
                 continue
-            transport_block_ids = request.block_ids[:num_blocks]
+            transport_block_ids = request.block_hashes[:num_blocks]
             source_block_ids = source_block_ids[:num_blocks]
             block_ids_tensor = torch.tensor(
                 source_block_ids, device=kv_tensor.device, dtype=torch.long
@@ -612,14 +601,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             num_scheduled_tokens = scheduler_output.num_scheduled_tokens[req_id]
             num_tokens = num_scheduled_tokens + num_computed_tokens
             new_block_ids = cached_reqs.new_block_ids[i]
-            assert new_block_ids is not None
             existing_block_ids_by_group, prompt_token_ids = self._chunked_prefill[
                 req_id
             ]
-            block_ids_by_group = self._merge_block_groups(
-                existing_block_ids_by_group,
-                self._normalize_block_groups(new_block_ids),
-            )
+            if req_id in getattr(cached_reqs, "resumed_req_ids", set()):
+                block_ids_by_group = self._normalize_block_groups(new_block_ids)
+            else:
+                block_ids_by_group = self._merge_block_groups(
+                    existing_block_ids_by_group,
+                    self._normalize_block_groups(new_block_ids),
+                )
             if num_tokens < len(prompt_token_ids):
                 self._chunked_prefill[req_id] = (
                     block_ids_by_group,

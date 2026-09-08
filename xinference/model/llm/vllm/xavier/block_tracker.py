@@ -106,29 +106,26 @@ class VLLMBlockTracker(xo.StatelessActor):
         return remote
 
     def unregister_block(self, virtual_engine: int, rank: int, block_id: int):
-        if (virtual_engine not in self._rank_to_hash_and_block_id) or (
-            virtual_engine not in self._hash_to_rank_and_block_id
-        ):
-            return
+        self.unregister_blocks(virtual_engine, rank, [block_id])
 
-        # Update remove meta
-        rank_to_hash_and_block_id = self._rank_to_hash_and_block_id[virtual_engine]
-        if rank not in rank_to_hash_and_block_id:
+    def unregister_blocks(self, virtual_engine: int, rank: int, block_ids: List[int]):
+        entries = self._rank_to_hash_and_block_id.get(virtual_engine, {}).get(rank)
+        hashes = self._hash_to_rank_and_block_id.get(virtual_engine, {})
+        if not entries:
             return
-        hash_and_block_id = rank_to_hash_and_block_id[rank]
-        detail: Optional[Tuple[int, int]] = None
-        for hash_content, _id in hash_and_block_id.copy():
-            if _id == block_id:
-                detail = (hash_content, block_id)
-                hash_and_block_id.discard(detail)
-                break
-
-        # Update query meta
-        if detail is not None:
-            hash_to_rank_and_block_id = self._hash_to_rank_and_block_id[virtual_engine]
-            _hash = detail[0]
-            if _hash in hash_to_rank_and_block_id:
-                hash_to_rank_and_block_id[_hash].discard((rank, detail[1]))
+        removed_ids = set(block_ids)
+        removed = {
+            (content_hash, block_id)
+            for content_hash, block_id in entries
+            if block_id in removed_ids
+        }
+        entries.difference_update(removed)
+        for content_hash, block_id in removed:
+            locations = hashes.get(content_hash)
+            if locations is not None:
+                locations.discard((rank, block_id))
+                if not locations:
+                    hashes.pop(content_hash, None)
 
     def unregister_rank(self, rank: int):
         """

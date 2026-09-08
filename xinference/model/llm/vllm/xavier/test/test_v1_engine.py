@@ -78,3 +78,15 @@ def test_incompatible_v1_fails_before_engine_start(engine):
     with pytest.raises(RuntimeError, match="0.21.0"):
         module.XavierEngine.from_engine_args(object())
     factory.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("tensor_parallel_size", 2), ("pipeline_parallel_size", 2), ("enable_lora", True)],
+)
+def test_unsafe_parallelism_and_lora_fail_before_engine_creation(engine, field, value):
+    module, factory = engine
+    args = SimpleNamespace(**{field: value})
+    with pytest.raises(ValueError):
+        module.XavierEngine.from_engine_args(args, xavier_config={"role": "prefill"})
+    factory.assert_not_called()

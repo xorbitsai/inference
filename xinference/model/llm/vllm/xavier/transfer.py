@@ -22,6 +22,7 @@ import torch
 import xoscar as xo
 
 from .collective import CollectiveRank
+from .snapshot import KVSnapshotStore
 
 try:
     from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
@@ -144,7 +145,7 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
         )
         self._cache_engine: Optional[List[CacheEngine]] = None
         self._scheduler: Optional[List[Scheduler]] = None
-        self._layer_block_store: Dict[str, Dict[int, torch.Tensor]] = {}
+        self._snapshot_store: Optional[KVSnapshotStore] = None
         self._layer_send_tasks_v1: Set[asyncio.Task[Any]] = set()
         self._swap_stream = torch.cuda.Stream()
 
@@ -175,19 +176,20 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
     def _get_cache_engine(self, virtual_engine: int) -> CacheEngine:
         return self._cache_engine[virtual_engine]  # type: ignore
 
-    def stage_layer_blocks_v1(
-        self,
-        request_id: str,
-        layer_name: str,
-        block_ids: List[int],
-        blocks: torch.Tensor,
-    ):
+    def configure_snapshots_v1(self, capacity: int):
+        from .snapshot import KVSnapshotStore
+
+        if capacity <= 0:
+            raise ValueError("Xavier snapshot capacity must be positive")
+        if self._snapshot_store is None:
+            self._snapshot_store = KVSnapshotStore(capacity)
+
+    def stage_layer_blocks_v1(self, request_id, layer_name, block_ids, blocks):
         if blocks.dtype == torch.bfloat16:
             blocks = blocks.to(dtype=XAVIER_BF16_TRANSPORT_DTYPE)
-        blocks = blocks.detach().cpu().contiguous()
-        layer_store = self._layer_block_store.setdefault(layer_name, {})
-        for idx, block_id in enumerate(block_ids):
-            layer_store[int(block_id)] = blocks[idx].contiguous()
+        self._snapshot_store.stage(
+            layer_name, block_ids, blocks.detach().cpu().contiguous()
+        )
         logger.debug(
             "Stage Xavier V1 blocks: request=%s, rank=%s, layer=%s, blocks=%s",
             request_id,
@@ -196,29 +198,72 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             block_ids,
         )
 
-    def _get_staged_layer_blocks_v1(
-        self, layer_name: str, remote_block_ids: List[int]
-    ) -> torch.Tensor:
-        layer_store = self._layer_block_store.get(layer_name)
-        if layer_store is None:
-            raise KeyError(f"No staged Xavier blocks for layer {layer_name!r}")
-        missing = [
-            block_id for block_id in remote_block_ids if block_id not in layer_store
-        ]
-        if missing:
-            raise KeyError(
-                f"Missing staged Xavier blocks for layer {layer_name!r}: {missing}"
-            )
-        return torch.stack(
-            [layer_store[int(block_id)] for block_id in remote_block_ids],
-            dim=0,
-        ).contiguous()
+    def publish_blocks_v1(self, keys, layers):
+        available = self._snapshot_store.publish(keys, set(layers))
+        evicted = list(self._snapshot_store.evicted)
+        self._snapshot_store.evicted.clear()
+        return available, evicted
 
-    def has_layer_blocks_v1(self, layer_name: str, remote_block_ids: List[int]) -> bool:
-        layer_store = self._layer_block_store.get(layer_name)
-        if layer_store is None:
+    def reserve_blocks_v1(self, lease, keys):
+        return self._snapshot_store is not None and self._snapshot_store.reserve(
+            lease, keys
+        )
+
+    def release_blocks_v1(self, lease):
+        if self._snapshot_store is not None:
+            self._snapshot_store.release(lease)
+
+    def release_consumer_leases_v1(self, rank):
+        if self._snapshot_store is not None:
+            self._snapshot_store.release_consumer(rank)
+
+    async def reserve_remote_blocks_v1(self, lease, transfers):
+        refs = []
+        success = False
+        try:
+            for rank, mapping in transfers.items():
+                ref = await xo.actor_ref(
+                    address=self._world_addresses[rank],
+                    uid=f"{TransferActor.default_uid()}-{rank}",
+                )
+                refs.append(ref)
+                if not await ref.reserve_blocks_v1(lease, list(mapping)):
+                    return False
+            success = True
+            return True
+        except Exception:
+            logger.debug(
+                "Snapshot reservation failed; recomputing locally", exc_info=True
+            )
             return False
-        return all(block_id in layer_store for block_id in remote_block_ids)
+        finally:
+            if not success:
+                await asyncio.gather(
+                    *(ref.release_blocks_v1(lease) for ref in refs),
+                    return_exceptions=True,
+                )
+
+    async def release_remote_blocks_v1(self, lease, transfers):
+        async def release(rank):
+            ref = await xo.actor_ref(
+                address=self._world_addresses[rank],
+                uid=f"{TransferActor.default_uid()}-{rank}",
+            )
+            await ref.release_blocks_v1(lease)
+
+        await asyncio.gather(
+            *(release(rank) for rank in transfers), return_exceptions=True
+        )
+
+    def _get_staged_layer_blocks_v1(self, layer_name, remote_block_ids):
+        return self._snapshot_store.read(layer_name, remote_block_ids)
+
+    def has_layer_blocks_v1(self, layer_name, remote_block_ids):
+        return self._snapshot_store is not None and all(
+            key in self._snapshot_store.ready
+            and layer_name in self._snapshot_store.blocks[key]
+            for key in remote_block_ids
+        )
 
     def do_send_layer_blocks_v1(
         self, to_rank: int, layer_name: str, remote_block_ids: List[int]
