@@ -9,6 +9,7 @@ User Guide
 
    backends
    client_api
+   sd_webui
    auth_system
    oidc_sso
    audit_security

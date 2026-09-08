@@ -102,8 +102,11 @@ from .schemas import (
     CreateEmbeddingRequest,
     RegisterModelRequest,
     RerankRequest,
+    SDAPIControlNetDetect,
     SDAPIImg2imgRequst,
+    SDAPIInterrupt,
     SDAPIOptionsRequest,
+    SDAPIProgress,
     SDAPITxt2imgRequst,
     SpeechRequest,
     TextToImageRequest,
@@ -2454,6 +2457,7 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_txt2img(self, request: Request) -> Response:
         body = SDAPITxt2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+        self._check_model_access(request, model_uid, "image")
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
 
@@ -2462,7 +2466,7 @@ class RESTfulAPI(CancelMixin):
         )
 
         try:
-            kwargs = dict(body)
+            kwargs = body.dict(exclude_none=True)
             kwargs.update(json.loads(body.kwargs) if body.kwargs else {})
             image_list = await model.txt2img(
                 **kwargs,
@@ -2478,6 +2482,7 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_img2img(self, request: Request) -> Response:
         body = SDAPIImg2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+        self._check_model_access(request, model_uid, "image")
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
 
@@ -2486,7 +2491,7 @@ class RESTfulAPI(CancelMixin):
         )
 
         try:
-            kwargs = dict(body)
+            kwargs = body.dict(exclude_none=True)
             kwargs.update(json.loads(body.kwargs) if body.kwargs else {})
             image_list = await model.img2img(
                 **kwargs,
@@ -3783,6 +3788,192 @@ class RESTfulAPI(CancelMixin):
         result["usage"].setdefault("cache_creation_input_tokens", 0)
         result["usage"].setdefault("cache_read_input_tokens", 0)
         return result
+
+    async def sdapi_upscalers(self, request: Request) -> Response:
+        try:
+            from ..model.image.upscaler.core import SCALER_INFO
+
+            upscalers = [
+                {
+                    "name": upscaler.value,
+                    "model_name": info.get("model_name", None),
+                    "model_path": None,
+                    "model_url": None,
+                    "scale": info["scale"],
+                }
+                for upscaler, info in SCALER_INFO.items()
+            ]
+            from ..model.image.upscaler.latent import latent_upscale_modes
+
+            upscalers.extend(
+                {
+                    "name": name,
+                    "model_name": None,
+                    "model_path": None,
+                    "model_url": None,
+                    "scale": 1,
+                }
+                for name in [*latent_upscale_modes, "Lanczos", "Nearest"]
+            )
+            # follow behavior of SD webui
+            upscalers.insert(
+                0,
+                {
+                    "name": "None",
+                    "model_name": None,
+                    "model_path": None,
+                    "model_url": None,
+                    "scale": 4,
+                },
+            )
+            return JSONResponse(content=upscalers)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_progress(self, request: Request) -> Response:
+        body = SDAPIProgress.parse_obj(request.query_params)
+        request_id = body.request_id
+
+        try:
+            result = {
+                "progress": float(
+                    await (await self._get_supervisor_ref()).get_progress(request_id)
+                )
+            }
+            return JSONResponse(content=result)
+        except KeyError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_controlnet_model_list(self, request: Request) -> Response:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            sd_models = await self._get_sd_models_with_controlnets(supervisor_ref)
+
+            if not sd_models:
+                raise ValueError("No running sd models")
+
+            model_list = []
+            for model_uid in sd_models:
+                model = await (await self._get_supervisor_ref()).get_model(model_uid)
+                result = json.loads(await model.controlnet_model_list())
+                model_list.extend(result["model_list"])
+            return Response(
+                content=json.dumps({"model_list": model_list}),
+                media_type="application/json",
+            )
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @staticmethod
+    async def _get_sd_models_with_controlnets(supervisor_ref):
+        models = await supervisor_ref.list_models()
+        sd_models = []
+        visited_model_base = set()
+        for model_name, info in models.items():
+            if info["model_type"] != "image":
+                continue
+            if not info.get("controlnet"):
+                continue
+            if info.get("model_base", info.get("model_family")) in visited_model_base:
+                # SD 1.5 or SDXL, if processed skip
+                continue
+            visited_model_base.add(info.get("model_base", info.get("model_family")))
+            sd_models.append(model_name)
+        return sd_models
+
+    async def sdapi_controlnet_module_list(self, request: Request) -> Response:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            sd_models = await self._get_sd_models_with_controlnets(supervisor_ref)
+
+            if not sd_models:
+                raise ValueError("No running sd models")
+
+            # random pick one model to process detect
+            model = await supervisor_ref.get_model(sd_models[0])
+            result = await model.controlnet_module_list()
+            return Response(content=result, media_type="application/json")
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_controlnet_control_types(self, request: Request) -> Response:
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            sd_models = await self._get_sd_models_with_controlnets(supervisor_ref)
+
+            if not sd_models:
+                raise ValueError("No running sd models")
+
+            # random pick one model to process detect
+            model = await supervisor_ref.get_model(sd_models[0])
+            result = await model.controlnet_control_types()
+            return Response(content=result, media_type="application/json")
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_controlnet_detect(self, request: Request) -> Response:
+        body = SDAPIControlNetDetect.parse_obj(await request.json())
+        if body.controlnet_images and not body.controlnet_input_images:
+            body.controlnet_input_images = body.controlnet_images
+
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+
+            models = await supervisor_ref.list_models()
+            sd_models = []
+            for model_name, info in models.items():
+                if info["model_type"] != "image":
+                    continue
+                if not info.get("controlnet"):
+                    continue
+                sd_models.append(model_name)
+
+            if not sd_models:
+                raise ValueError("No running sd models")
+
+            # random pick one model to process detect
+            model = await supervisor_ref.get_model(sd_models[0])
+
+            kwargs = dict(body)
+            kwargs.pop("controlnet_images", None)
+            result = await model.controlnet_detect(**kwargs)
+            return Response(content=result, media_type="application/json")
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def sdapi_loras(self, request: Request) -> Response:
+        from ..model.image.lora import available_loras
+
+        return JSONResponse(
+            content=[
+                {
+                    "name": spec.model_name,
+                    "alias": (getattr(spec, "metadata", None) or {}).get(
+                        "ss_output_name", spec.model_name
+                    ),
+                    "path": None,
+                    "metadata": getattr(spec, "metadata", None) or {},
+                }
+                for spec in available_loras()
+            ]
+        )
+
+    async def sdapi_interrupt(self, request: Request) -> Response:
+        body = SDAPIInterrupt.parse_obj(await request.json())
+        self._check_model_access(request, body.model, "image")
+        model = await require_model(
+            self._get_supervisor_ref, body.model, self._report_error_event
+        )
+        result = await model.abort_request(body.request_id)
+        return JSONResponse(content={"status": result})
 
 
 def run(

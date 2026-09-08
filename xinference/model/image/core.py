@@ -75,6 +75,7 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,
             "controlnet": controlnet,
+            "model_base": getattr(self, "model_base", None),
         }
 
     def to_version_info(self):

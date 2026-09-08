@@ -1145,7 +1145,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._require_ready()
         if hasattr(self._model, "txt2img"):
             progressor = kwargs["progressor"] = await self._get_progressor(
-                kwargs.pop("request_id", None)
+                kwargs.get("request_id")
             )
             with progressor:
                 return await self._call_wrapper_json(
@@ -1200,7 +1200,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._require_ready()
         if hasattr(self._model, "img2img"):
             progressor = kwargs["progressor"] = await self._get_progressor(
-                kwargs.pop("request_id", None)
+                kwargs.get("request_id")
             )
             with progressor:
                 return await self._call_wrapper_json(
@@ -1466,3 +1466,67 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 logger.debug(
                     f"[PDModelActor] Set unpin handle for request {request_id} with pd model actor {pd_model_actor_address}"
                 )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_module_list(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_module_list"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_module_list,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_module_list."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_control_types(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_control_types"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_control_types,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_control_types."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_detect(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_detect"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_detect,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_detect."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_model_list(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_model_list"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_model_list,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_model_list."
+        )

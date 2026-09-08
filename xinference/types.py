@@ -489,12 +489,14 @@ class CreateChatCompletion(  # type: ignore
 
 
 class LoRA:
-    def __init__(self, lora_name: str, local_path: str):
+    def __init__(self, lora_name: str, local_path: str, lora_scale: float = 1.0):
+        self.lora_scale = lora_scale
         self.lora_name = lora_name
         self.local_path = local_path
 
     def to_dict(self):
         return {
+            **({"lora_scale": self.lora_scale} if self.lora_scale != 1.0 else {}),
             "lora_name": self.lora_name,
             "local_path": self.local_path,
         }
@@ -502,6 +504,7 @@ class LoRA:
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
+            lora_scale=data.get("lora_scale", 1.0),
             lora_name=data["lora_name"],
             local_path=data["local_path"],
         )
