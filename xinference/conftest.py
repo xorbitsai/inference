@@ -32,6 +32,11 @@ from .core.supervisor import SupervisorActor
 from .deploy.utils import create_worker_actor_pool, get_log_file, get_timestamp_ms
 from .deploy.worker import start_worker_components
 
+# Vendored modules may be named test_*.py without being Xinference tests.
+# Do not import optional third-party frameworks during test collection.
+collect_ignore = ["thirdparty"]
+
+
 TEST_LOGGING_CONF = {
     "version": 1,
     "disable_existing_loggers": False,

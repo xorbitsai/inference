@@ -164,6 +164,11 @@ def test_metadata_roundtrip():
         ]
         == "weighted prompt"
     )
+
+
+def test_jpeg_metadata_roundtrip():
+    pytest.importorskip("piexif")
+    image = Image.new("RGB", (8, 8))
     assert utils.decode_base64_to_image(
         utils.encode_pil_to_base64(image, "jpeg")
     ).size == (8, 8)
@@ -268,7 +273,13 @@ def test_slerp_endpoints_and_prompt_weights():
     assert parsed[-1][1] == pytest.approx(1 / 1.1)
 
 
-def test_controlnet_detect_canny_and_registry():
+@pytest.fixture
+def controlnet_dependencies():
+    for package in ("cv2", "skimage", "einops", "torchvision", "transformers"):
+        pytest.importorskip(package)
+
+
+def test_controlnet_detect_canny_and_registry(controlnet_dependencies):
     from ..controlnet import control_types, detect, list_modules
 
     modules = list_modules()["module_list"]
@@ -366,7 +377,7 @@ def test_adetailer_installed_api_contract(monkeypatch):
 
 
 @pytest.mark.parametrize("module", ["shuffle", "inpaint", "inpaint_only"])
-def test_model_free_preprocessors(module):
+def test_model_free_preprocessors(module, controlnet_dependencies):
     from ..controlnet import detect
     from ..utils import encode_pil_to_base64
 
