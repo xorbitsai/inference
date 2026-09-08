@@ -270,6 +270,8 @@ class PDModelActor(xo.StatelessActor):
         kwargs["request_id"] = request_id
         if request_id in self._request_set:
             raise ValueError(f"Request {request_id} is already running")
+        if args and args[0] is not None and not isinstance(args[0], dict):
+            raise TypeError("Generation config must be a dict or None")
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
         prefill_args = list(copy.deepcopy(args))

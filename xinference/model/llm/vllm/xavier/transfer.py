@@ -453,20 +453,27 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
 
         block_ids = self._get_swap_block_ids(src_to_dst, is_sender=False)
         total_blocks = len(block_ids)
+        if not total_blocks:
+            raise ValueError("Cannot receive an empty block mapping")
         cpu_buf_index = self.get_buffer_index()
-
-        for start_idx in range(0, total_blocks, self.transfer_block_num):
-            offset = min(self.transfer_block_num, total_blocks - start_idx)
-            recv_block_ids = block_ids[start_idx : start_idx + offset]
-            recvbuf = self.get_swap_buffer(cpu_buf_index, len(recv_block_ids))
-            assert recvbuf.is_contiguous()
-            recvptr = recvbuf.numpy().ctypes.data
-            data_size = recvbuf.numel()
-            datatype = self.get_gloo_dtype(recvbuf.dtype)
-            peer = from_rank
-            xp.recv(self._context, recvptr, data_size, datatype, peer)
-
-            return recvbuf, recv_block_ids, cpu_buf_index
+        chunks = []
+        try:
+            for start_idx in range(0, total_blocks, self.transfer_block_num):
+                offset = min(self.transfer_block_num, total_blocks - start_idx)
+                recvbuf = self.get_swap_buffer(cpu_buf_index, offset)
+                assert recvbuf.is_contiguous()
+                recvptr = recvbuf.numpy().ctypes.data
+                data_size = recvbuf.numel()
+                datatype = self.get_gloo_dtype(recvbuf.dtype)
+                xp.recv(self._context, recvptr, data_size, datatype, from_rank)
+                # The next receive reuses this buffer. Preserve every chunk
+                # until the caller can swap the complete request into its cache.
+                chunks.append(recvbuf.clone() if total_blocks > offset else recvbuf)
+            result = torch.cat(chunks, dim=2) if len(chunks) > 1 else chunks[0]
+            return result, block_ids, cpu_buf_index
+        except BaseException:
+            self.free_buffer_index(cpu_buf_index)
+            raise
 
     async def do_recv(
         self, virtual_engine: int, from_rank: int, src_to_dst: Dict[int, int]

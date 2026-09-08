@@ -1435,7 +1435,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             # self._model.free_seq_cache(request_id)
             engine = self._model._engine
             inner_engine = getattr(engine, "engine", None)
-            scheduler = getattr(inner_engine, "scheduler", None)
+            scheduler = getattr(engine, "scheduler", None) or getattr(
+                inner_engine, "scheduler", None
+            )
             if scheduler:
                 scheduler[0].free_seq_cache(request_id)
 

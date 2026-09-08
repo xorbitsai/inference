@@ -191,3 +191,32 @@ async def test_recovered_replica_replaces_stale_reference(router):
     assert actor.get_prefill_actor("p") is replacement
     assert actor._prefill_policy.schedule() is replacement
     assert (await actor.get_pd_info())["prefill_count"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("config", [[], "invalid", 1])
+async def test_invalid_config_rejected_before_inference(router, config):
+    actor, prefill, decode = router
+    with pytest.raises(TypeError, match="Generation config must be a dict or None"):
+        await actor._infer("chat", "prompt", config)
+    prefill.chat.assert_not_awaited()
+    decode.chat.assert_not_awaited()
+    assert not actor._request_set
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested", [False, True])
+async def test_free_model_cache_engine_layout(nested):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from ...model.llm.vllm.core import VLLMModel
+    from ..model import ModelActor
+
+    scheduler = Mock()
+    engine = SimpleNamespace(scheduler=[scheduler])
+    model = object.__new__(VLLMModel)
+    model._engine = SimpleNamespace(engine=engine) if nested else engine
+    actor = SimpleNamespace(_model=model)
+    await ModelActor.free_model_cache(actor, "request")
+    scheduler.free_seq_cache.assert_called_once_with("request")
