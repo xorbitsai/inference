@@ -77,3 +77,10 @@ msgstr ""
 #: ../../source/user_guide/vllm_enhancement.rst:23
 msgid "Xavier only works for Nvidia product."
 msgstr "Xavier solo es compatible con tarjetas gráficas Nvidia."
+
+#: source/user_guide/vllm_enhancement.rst:21
+msgid ""
+"Xavier retains the V0 adapter for vLLM >= ``0.7.0`` and < ``0.11.0``. The V1"
+" connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
+"for community Prefill/Decode deployment."
+msgstr ""

@@ -89,6 +89,7 @@ xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
 
 [project.optional-dependencies]
 dev = [
+    "xxhash",  # CPU tests for the Xavier connector
     "cython>=0.29",
     "pytest>=3.5.0",
     "pytest-cov>=2.5.0",
@@ -211,6 +212,15 @@ image = [
     "torchvision",  # For got_ocr2
     "gguf",  # For flux and sd3.5 series
     "pypdfium2",  # For PDF input on the OCR API
+]
+sdapi = [
+    "xinference[image]",
+    "piexif",
+    "opencv-python-headless",
+    "scikit-image",
+    "einops",
+    "adetailer>=26.2.0,<27",
+    "spandrel>=0.4.1",
 ]
 video = [
     "diffusers>=0.32.0",

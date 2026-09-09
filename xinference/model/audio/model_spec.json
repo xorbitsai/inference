@@ -2082,6 +2082,19 @@
     "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
     "model_description": "This is a custom model description.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio",
       "text2audio_voice_cloning"
@@ -2117,6 +2130,19 @@
     "cache_name": "Qwen3-TTS-12Hz-0.6B-Base-MLX",
     "model_description": "Qwen3-TTS Base 8-bit optimized for Apple Silicon with mlx-audio.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio",
       "text2audio_voice_cloning"
@@ -2143,6 +2169,19 @@
     "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
     "model_description": "This is a custom model description.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio",
       "text2audio_voice_cloning"
@@ -2178,6 +2217,19 @@
     "cache_name": "Qwen3-TTS-12Hz-1.7B-Base-MLX",
     "model_description": "Qwen3-TTS Base 8-bit optimized for Apple Silicon with mlx-audio.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio",
       "text2audio_voice_cloning"
@@ -2204,6 +2256,19 @@
     "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
     "model_description": "This is a custom model description.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio"
     ],
@@ -2238,6 +2303,21 @@
     "cache_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice-MLX",
     "model_description": "Qwen3-TTS CustomVoice 8-bit optimized for Apple Silicon with mlx-audio.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish",
+      "beijing_dialect",
+      "sichuan_dialect"
+    ],
     "model_ability": [
       "text2audio"
     ],
@@ -2263,6 +2343,19 @@
     "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
     "model_description": "This is a custom model description.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio"
     ],
@@ -2297,6 +2390,21 @@
     "cache_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice-MLX",
     "model_description": "Qwen3-TTS CustomVoice 8-bit optimized for Apple Silicon with mlx-audio.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish",
+      "beijing_dialect",
+      "sichuan_dialect"
+    ],
     "model_ability": [
       "text2audio"
     ],
@@ -2322,6 +2430,19 @@
     "model_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
     "model_description": "This is a custom model description.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio",
       "text2audio_voice_design"
@@ -2357,6 +2478,19 @@
     "cache_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign-MLX",
     "model_description": "Qwen3-TTS VoiceDesign 8-bit optimized for Apple Silicon with mlx-audio.",
     "multilingual": true,
+    "model_lang": [
+      "auto",
+      "chinese",
+      "english",
+      "french",
+      "german",
+      "italian",
+      "japanese",
+      "korean",
+      "portuguese",
+      "russian",
+      "spanish"
+    ],
     "model_ability": [
       "text2audio",
       "text2audio_voice_design"
@@ -2545,6 +2679,13 @@
       "text2audio_emotion_control"
     ],
     "multilingual": true,
+    "model_lang": [
+      "ZH",
+      "EN",
+      "JA",
+      "ES",
+      "AR"
+    ],
     "virtualenv": {
       "packages": [
         "transformers==4.52.1",
@@ -2653,6 +2794,53 @@
       "text2audio_voice_cloning"
     ],
     "multilingual": true,
+    "model_lang": [
+      "Arabic",
+      "Cantonese",
+      "Chinese",
+      "Czech",
+      "Dutch",
+      "English",
+      "Finnish",
+      "French",
+      "German",
+      "Greek",
+      "Hindi",
+      "Indonesian",
+      "Italian",
+      "Japanese",
+      "Korean",
+      "Polish",
+      "Portuguese",
+      "Romanian",
+      "Russian",
+      "Spanish",
+      "Thai",
+      "Turkish",
+      "Ukrainian",
+      "Vietnamese",
+      "ZH_Anhui",
+      "ZH_Fujian",
+      "ZH_Gansu",
+      "ZH_Guizhou",
+      "ZH_Hebei",
+      "ZH_Henan",
+      "ZH_Hubei",
+      "ZH_Hunan",
+      "ZH_Jiangxi",
+      "ZH_Liaoning",
+      "ZH_Minnan",
+      "ZH_Ningxia",
+      "ZH_Shaanxi",
+      "ZH_Shandong",
+      "ZH_Shanghai",
+      "ZH_Shanxi",
+      "ZH_Sichuan",
+      "ZH_Tianjin",
+      "ZH_Wenzhou",
+      "ZH_Wu",
+      "ZH_Yunnan"
+    ],
     "virtualenv": {
       "packages": [
         "transformers==5.6.2",
@@ -2693,6 +2881,53 @@
       "text2audio_voice_cloning"
     ],
     "multilingual": true,
+    "model_lang": [
+      "Arabic",
+      "Cantonese",
+      "Chinese",
+      "Czech",
+      "Dutch",
+      "English",
+      "Finnish",
+      "French",
+      "German",
+      "Greek",
+      "Hindi",
+      "Indonesian",
+      "Italian",
+      "Japanese",
+      "Korean",
+      "Polish",
+      "Portuguese",
+      "Romanian",
+      "Russian",
+      "Spanish",
+      "Thai",
+      "Turkish",
+      "Ukrainian",
+      "Vietnamese",
+      "ZH_Anhui",
+      "ZH_Fujian",
+      "ZH_Gansu",
+      "ZH_Guizhou",
+      "ZH_Hebei",
+      "ZH_Henan",
+      "ZH_Hubei",
+      "ZH_Hunan",
+      "ZH_Jiangxi",
+      "ZH_Liaoning",
+      "ZH_Minnan",
+      "ZH_Ningxia",
+      "ZH_Shaanxi",
+      "ZH_Shandong",
+      "ZH_Shanghai",
+      "ZH_Shanxi",
+      "ZH_Sichuan",
+      "ZH_Tianjin",
+      "ZH_Wenzhou",
+      "ZH_Wu",
+      "ZH_Yunnan"
+    ],
     "virtualenv": {
       "packages": [
         "transformers==5.6.2",

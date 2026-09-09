@@ -14,8 +14,9 @@ export const NO_AUTH = 'no_auth';
 export const SETUP_COMPLETE_FLAG = 'xinference_setup_complete';
 
 export const LANGUAGES = [
+  { label: '🇹🇼 繁體中文', value: 'zh-TW' },
+  { label: '🇨🇳 简体中文', value: 'zh' },
   { label: '🇺🇸 English', value: 'en' },
-  { label: '🇨🇳 中文', value: 'zh' },
   { label: '🇰🇷 한국어', value: 'ko' },
   { label: '🇯🇵 日本語', value: 'ja' },
 ] as const;

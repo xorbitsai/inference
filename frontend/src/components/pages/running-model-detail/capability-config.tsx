@@ -840,6 +840,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       seed: -1,
       prompt_speech: [],
       prompt_text: '',
+      language: '',
       instruct: '',
       use_emo_vector: false,
       emo_vector: [...EMPTY_INDEX_TTS_EMOTION_VECTOR],
@@ -855,6 +856,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       const promptSpeech = supportsVoiceCloning ? firstUpload(values, 'prompt_speech') : undefined;
       const kwargs: Record<string, unknown> = {};
       const promptText = stringValue(values.prompt_text).trim();
+      const language = stringValue(values.language).trim();
       const instruct = stringValue(values.instruct).trim();
       const seed = parseScalarSeed(values.seed);
       const responseFormat = stringValue(values.response_format).trim().toLowerCase() || 'mp3';
@@ -862,6 +864,10 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
 
       if (seed !== undefined) {
         kwargs.seed = seed;
+      }
+
+      if (language) {
+        kwargs.language = language;
       }
 
       if (promptSpeech) {

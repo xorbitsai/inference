@@ -2,7 +2,8 @@ import { ModelAbility, ModelType } from '@/constants';
 
 export const LANGUAGES_CHECKBOX_OPTIONS = [
   { label: 'English', value: 'en' },
-  { label: 'Chinese', value: 'zh' },
+  { label: '简体中文', value: 'zh' },
+  { label: '繁體中文', value: 'zh-TW' },
 ];
 export const LANGUAGES_OPTIONS = [
   { value: 'ab', label: 'Abkhazian', count: 1 },

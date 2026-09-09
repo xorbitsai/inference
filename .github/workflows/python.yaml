@@ -358,6 +358,12 @@ jobs:
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \
               xinference
+            run_pytest \
+              xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py \
+              xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \
+              xinference/model/llm/vllm/xavier/test/test_v1_engine.py \
+              xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py \
+              xinference/model/llm/vllm/xavier/test/test_review_regressions.py
           fi
         working-directory: .
 

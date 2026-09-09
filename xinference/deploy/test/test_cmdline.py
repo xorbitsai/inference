@@ -568,3 +568,41 @@ def test_launch_replica_config_rejects_global_placement_options(
     assert result.exit_code == 2
     assert "cannot be used together with" in result.output
     assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize("option", ["--replica-config", "--replica_config"])
+def test_launch_pd_roles_and_devices(monkeypatch, option):
+    config = [
+        {
+            "role": role,
+            "devices": [{"worker_ip": "worker:9978", "gpu_idx": [i], "n_gpu": 1}],
+        }
+        for i, role in enumerate(["prefill", "decode"])
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", "vLLM", option
+    )
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica_config"] == config
+    assert calls["launch_kwargs"]["replica"] == 2
+
+
+@pytest.mark.parametrize(
+    "roles,engine",
+    [
+        (["prefill"], "vLLM"),
+        (["prefill", "hybrid"], "vLLM"),
+        (["prefill", "decode"], "transformers"),
+        (["invalid", "decode"], "vLLM"),
+    ],
+)
+def test_launch_invalid_pd_config(monkeypatch, roles, engine):
+    config = [
+        {"role": role, "devices": [{"worker_ip": "worker:9978"}]} for role in roles
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", engine, "--replica-config"
+    )
+    assert result.exit_code == 2
+    assert "--replica-config" in result.output
+    assert "launch_kwargs" not in calls

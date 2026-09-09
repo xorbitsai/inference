@@ -77,6 +77,7 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     model_revision: Optional[str]
     multilingual: bool
     language: Optional[str]
+    model_lang: Optional[List[str]]
     model_ability: Optional[List[str]]
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
@@ -94,6 +95,7 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
             "model_name": self.model_name,
+            "model_lang": self.model_lang or [],
             "model_family": self.model_family,
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,

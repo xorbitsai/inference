@@ -55,6 +55,7 @@ from .utils import (
     GLM5_TOOL_CALL_FAMILY,
     KIMI_K3_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
+    MINICPM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
 )
 
@@ -227,6 +228,8 @@ def _register_model_family_metadata(model_spec: "LLMFamilyV2") -> None:
                 DEEPSEEK_TOOL_CALL_FAMILY.add(model_spec.model_name)
             elif tool_parser == "kimi-k3":
                 KIMI_K3_TOOL_CALL_FAMILY.add(model_spec.model_name)
+            elif tool_parser == "minicpm5":
+                MINICPM5_TOOL_CALL_FAMILY.add(model_spec.model_name)
             else:
                 warnings.warn(
                     f"Unknown tool parser {tool_parser} for model family "

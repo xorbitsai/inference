@@ -97,6 +97,14 @@ class CollectiveManager(xo.StatelessActor):
     async def unregister_rank(self, rank: int):
         self._rank_to_ref.pop(rank, None)
         await self._tracker_ref.unregister_rank(rank)  # type: ignore
+        await asyncio.gather(
+            *(
+                ref.release_consumer_leases_v1(rank)
+                for other, ref in self._rank_to_ref.items()
+                if other != 0
+            ),
+            return_exceptions=True,
+        )
         logger.debug(f"Unregister rank: {rank}")
 
     async def register_rank(self, rank: int, address: str, update: bool = False):

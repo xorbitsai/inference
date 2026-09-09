@@ -788,6 +788,11 @@ def test_match_llm():
             "MiniMaxM3SparseForConditionalGeneration",
             {"pytorch": {"none"}},
         ),
+        (
+            "minicpm5-2b",
+            "LlamaForCausalLM",
+            {"pytorch": {"none"}, "awq": {"Int4"}},
+        ),
     ],
 )
 def test_recent_sglang_engine_registration(
@@ -847,6 +852,7 @@ def test_recent_sglang_engine_registration(
             {"pytorch", "bnb", "awq", "gptq"},
         ),
         ("MiniMax-M3", "0.24.0", {"pytorch"}),
+        ("minicpm5-2b", "0.21.0", {"pytorch", "awq", "ggufv2"}),
     ],
 )
 def test_recent_vllm_engine_registration(
@@ -899,6 +905,8 @@ def test_recent_vllm_engine_registration(
         ("MiniCPM-V-4.6-Thinking", "sglang", "0.5.12"),
         ("MiniMax-M3", "vllm", "0.24.0"),
         ("MiniMax-M3", "sglang", "0.5.16"),
+        ("minicpm5-2b", "vllm", "0.21.0"),
+        ("minicpm5-2b", "sglang", "0.5.16"),
     ],
 )
 def test_recent_model_engine_minimum_versions(model_name, engine_name, minimum_version):
@@ -915,6 +923,38 @@ def test_recent_model_engine_minimum_versions(model_name, engine_name, minimum_v
         for requirement in [Requirement(package.split(";", 1)[0].strip())]
     }
     assert requirements[engine_name].specifier.contains(minimum_version)
+
+
+def test_minicpm5_2b_builtin_family_has_all_published_formats():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "minicpm5-2b"
+    )
+    specs = {
+        spec.model_format: {
+            (candidate.quantization, candidate.model_id)
+            for candidate in family.model_specs
+            if candidate.model_hub == "huggingface"
+            and candidate.model_format == spec.model_format
+        }
+        for spec in family.model_specs
+        if spec.model_hub == "huggingface"
+    }
+
+    assert specs == {
+        "pytorch": {("none", "openbmb/MiniCPM5-2B")},
+        "ggufv2": {
+            ("F16", "openbmb/MiniCPM5-2B-GGUF"),
+            ("Q4_K_M", "openbmb/MiniCPM5-2B-GGUF"),
+            ("Q8_0", "openbmb/MiniCPM5-2B-GGUF"),
+        },
+        "mlx": {("4bit", "openbmb/MiniCPM5-2B-MLX")},
+        # Despite repository name, config.json declares AWQ GEMM packing.
+        "awq": {("Int4", "openbmb/MiniCPM5-2B-GPTQ")},
+    }
+    assert family.tool_parser == "minicpm5"
+    assert "<think>\\n\\n</think>" in family.chat_template
 
 
 def test_match_deepseek_v4_flash_0731():

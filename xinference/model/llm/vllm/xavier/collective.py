@@ -40,7 +40,13 @@ class CollectiveRank:
     def init_rank(self):
         from xoscar.collective import xoscar_pygloo as xp
 
-        self._context = xp.rendezvous.Context(self._rank, self._world_size)
+        logger.debug(
+            f"init_rank called: rank={self._rank}, world_size={self._world_size}, "
+            f"rank_address={self._rank_address}, store_address={self._store_address}, "
+            f"store_port={self._store_port}, world_addresses={self._world_addresses}"
+        )
+
+        self._context = xp.rendezvous.Context(rank=self._rank, size=self._world_size)
 
         attr = xp.transport.tcp.attr(self._rank_address.split(":")[0])
         self._device = xp.transport.tcp.CreateDevice(attr)
@@ -50,6 +56,17 @@ class CollectiveRank:
         opt.numWorkers = self._world_size
         opt.isServer = self._rank == 0
         opt.waitWorkers = False
+
+        if self._store_address is None:
+            raise ValueError(
+                f"store_address is None for rank {self._rank}. "
+                f"This usually means the rank 0 model was not properly initialized before other ranks."
+            )
+        if self._store_port is None:
+            raise ValueError(
+                f"store_port is None for rank {self._rank}. "
+                f"This usually means the rank 0 model was not properly initialized before other ranks."
+            )
 
         self._tcp_store = xp.rendezvous.TCPStore(self._store_address, opt)
         if self._world_addresses:

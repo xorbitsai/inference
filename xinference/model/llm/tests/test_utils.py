@@ -2830,3 +2830,50 @@ def test_qwen3_family_get_full_context_handles_string_arguments():
         assert base_messages[2]["tool_calls"][0]["function"]["arguments"] == (
             '{"city":"北京"}'
         ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"
+
+
+def test_minicpm5_get_full_context_handles_string_arguments():
+    from .. import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "minicpm5-2b"
+    )
+    messages = [
+        {"role": "user", "content": "What is the weather in Beijing?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"Beijing"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": "Sunny"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name=family.model_name,
+        model_ability=family.model_ability,
+        chat_template=family.chat_template,
+    )
+
+    prompt = mixin.get_full_context(
+        messages,
+        chat_template=family.chat_template,
+        tokenizer=None,
+    )
+
+    assert (
+        '<function name="get_weather"><param name="city">Beijing</param></function>'
+        in prompt
+    )
+    assert "<tool_response>\nSunny\n</tool_response>" in prompt
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city":"Beijing"}'
+    )

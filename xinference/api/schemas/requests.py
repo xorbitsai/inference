@@ -74,36 +74,62 @@ class SDAPIOptionsRequest(BaseModel):
 
 
 class SDAPITxt2imgRequst(BaseModel):
-    model: Optional[str]
-    prompt: Optional[str] = ""
-    negative_prompt: Optional[str] = ""
-    steps: Optional[int] = None
-    seed: Optional[int] = -1
-    cfg_scale: Optional[float] = 7.0
-    override_settings: Optional[dict] = {}
-    width: Optional[int] = 512
-    height: Optional[int] = 512
+    model: Optional[str] = None
+    prompt: str = ""
+    negative_prompt: str = ""
+    steps: Optional[int] = Field(None, ge=1)
+    seed: int = -1
+    subseed: int = -1
+    subseed_strength: float = Field(0.0, ge=0, le=1)
+    seed_resize_from_h: int = Field(0, ge=0)
+    seed_resize_from_w: int = Field(0, ge=0)
+    batch_size: int = Field(1, ge=1)
+    n_iter: int = Field(1, ge=1)
+    cfg_scale: float = 7.0
+    override_settings: dict = Field(default_factory=dict)
+    width: int = Field(512, ge=8)
+    height: int = Field(512, ge=8)
     sampler_name: Optional[str] = None
-    denoising_strength: Optional[float] = None
+    scheduler: Optional[str] = None
+    denoising_strength: Optional[float] = Field(None, gt=0, le=1)
     kwargs: Optional[str] = None
     user: Optional[str] = None
+    enable_hr: bool = False
+    hr_scale: float = Field(2.0, ge=1)
+    hr_upscaler: str = "Latent"
+    hr_second_pass_steps: int = Field(0, ge=0)
+    alwayson_scripts: dict = Field(default_factory=dict)
+    request_id: Optional[str] = None
 
 
-class SDAPIImg2imgRequst(BaseModel):
-    model: Optional[str]
-    init_images: Optional[list]
-    prompt: Optional[str] = ""
-    negative_prompt: Optional[str] = ""
-    steps: Optional[int] = None
-    seed: Optional[int] = -1
-    cfg_scale: Optional[float] = 7.0
-    override_settings: Optional[dict] = {}
-    width: Optional[int] = 512
-    height: Optional[int] = 512
-    sampler_name: Optional[str] = None
-    denoising_strength: Optional[float] = None
-    kwargs: Optional[str] = None
-    user: Optional[str] = None
+class SDAPIImg2imgRequst(SDAPITxt2imgRequst):
+    init_images: List[str] = Field(..., min_items=1)
+    mask: Optional[str] = None
+    mask_blur: int = Field(0, ge=0)
+    inpaint_full_res: bool = False
+    inpaint_full_res_padding: int = Field(0, ge=0)
+    inpainting_mask_invert: int = Field(0, ge=0, le=1)
+    resize_mode: int = Field(0, ge=0, le=2)
+
+
+class SDAPIControlNetDetect(BaseModel):
+    controlnet_masks: List[str] = Field(default_factory=list)
+    low_vram: bool = False
+    controlnet_module: str = "none"
+    controlnet_input_images: List[str] = Field(default_factory=list)
+    controlnet_images: List[str] = Field(default_factory=list)
+    controlnet_processor_res: int = Field(512, ge=64)
+    controlnet_threshold_a: float = 64
+    controlnet_threshold_b: float = 64
+
+
+class SDAPIProgress(BaseModel):
+    request_id: str
+
+
+class SDAPIInterrupt(BaseModel):
+    model: str
+    request_id: str
 
 
 class TextToVideoRequest(BaseModel):

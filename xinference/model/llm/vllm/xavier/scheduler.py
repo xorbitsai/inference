@@ -21,7 +21,7 @@ import xoscar as xo
 from vllm.config import CacheConfig, LoRAConfig, SchedulerConfig
 from vllm.core.block.interfaces import Block
 from vllm.core.interfaces import BlockSpaceManager
-from vllm.core.scheduler import ScheduledSequenceGroup, Scheduler, SchedulerOutputs
+from vllm.core.scheduler import Scheduler, SchedulerOutputs
 from vllm.sequence import (
     SequenceData,
     SequenceGroup,
@@ -32,12 +32,20 @@ from vllm.sequence import (
 )
 
 from .block_manager import XavierBlockManager
+from .cache_lifecycle import PDCacheLifecycleMixin
 from .utils import hash_block_tokens
+from .xavier_remote_kvcache_manager import XavierRemoteKVCacheManager
+
+try:
+    from .....core.pd_model import PDModelActor
+except ImportError:
+    # Fallback for when PDModelActor is not available
+    PDModelActor = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
 
-class XavierScheduler(Scheduler):
+class XavierScheduler(PDCacheLifecycleMixin, Scheduler):
     # same as vllm.core.block.prefix_caching_block.PrefixCachingBlock._none_hash
     _none_hash: int = -1
 
@@ -69,11 +77,20 @@ class XavierScheduler(Scheduler):
         xavier_config["virtual_engine"] = virtual_engine  # type: ignore
         self.block_manager.xavier_config = xavier_config
         self._xavier_config = xavier_config
+
+        from .xavier_scheduler_hook import XavierEngineHook
+
+        self._scheduler_hook: XavierEngineHook = XavierEngineHook()
+
+        self._scheduler_hook.post_scheduler_init(self)
         self._virtual_engine = virtual_engine
-        self._block_tracker_ref = None
-        self._transfer_ref = None
+        # Xavier Transfer related
+        self._block_tracker_ref: Optional[XavierRemoteKVCacheManager] = None
+        self._transfer_ref: Optional[XavierRemoteKVCacheManager] = None
         self._transferring: Deque[SequenceGroup] = deque()
         self._transfer_status: Dict[SequenceGroup, Set[int]] = {}
+        self._role = xavier_config.get("role", "decode")  # type: ignore
+        self._unpin_handlers: Dict[str, xo.ActorRefType["PDModelActor"]] = {}
 
     async def _get_block_tracker_ref(self):
         if self._block_tracker_ref is None:
@@ -163,7 +180,12 @@ class XavierScheduler(Scheduler):
 
         if details:
             tracker_ref = await self._get_block_tracker_ref()
-            remote = await tracker_ref.query_blocks(virtual_engine, list(details))
+            current_rank = (
+                self._xavier_config.get("rank") if self._xavier_config else None
+            )
+            remote = await tracker_ref.query_blocks(
+                virtual_engine, list(details), exclude_rank=current_rank
+            )
             # Not all queried blocks have corresponding results in other replicas.
             # Therefore, it is necessary to record which local block data was actually transferred.
             local: Set[int] = set()
@@ -206,6 +228,12 @@ class XavierScheduler(Scheduler):
             self._transfer_status.pop(seq_group, None)
             self.waiting.appendleft(seq_group)
             self._transferring.remove(seq_group)
+
+            # Unpin prefill instance kvcache
+            _unpin_handler = self._unpin_handlers.get(seq_group.request_id, None)
+            if _unpin_handler is not None:
+                await _unpin_handler.free_prefill_model_cache(seq_group.request_id)
+            self.remove__unpin_handler(seq_group.request_id)
         else:
             # After the transfer is completed, update the corresponding metadata.
             self._transfer_status[seq_group] = local
@@ -218,11 +246,16 @@ class XavierScheduler(Scheduler):
             self.waiting.appendleft(seq_group)
             self._transferring.remove(seq_group)
 
+            # Unpin prefill instance kvcache
+            _unpin_handler = self._unpin_handlers.get(seq_group.request_id, None)
+            if _unpin_handler is not None:
+                await _unpin_handler.free_prefill_model_cache(seq_group.request_id)
+            self.remove__unpin_handler(seq_group.request_id)
+
     @no_type_check
     async def schedule(
         self,
     ) -> Tuple[List[SequenceGroupMetadata], SchedulerOutputs, bool]:
-        virtual_engine = self._virtual_engine
 
         # Schedule sequence groups.
         # This function call changes the internal states of the scheduler
@@ -236,11 +269,8 @@ class XavierScheduler(Scheduler):
             common_computed_block_nums = []
 
         allow_async_output_proc: bool = self.use_async_output_proc
-
-        """Xinference Change!!!
-        Additional data structures required by Xavier.
-        """
-        scheduled_seq_groups: List[ScheduledSequenceGroup] = []
+        virtual_engine = self._virtual_engine
+        scheduled_seq_groups = []
         has_transferring = False
 
         # Create input data structures.
@@ -465,3 +495,19 @@ class XavierScheduler(Scheduler):
         """
         res = super().get_num_unfinished_seq_groups()
         return res + len(self._transferring)
+
+    async def set_unpin_handler(
+        self, model_uid: str, request_id: str, pd_model_actor_address: str
+    ):
+        self._unpin_handlers[request_id] = await xo.actor_ref(
+            address=pd_model_actor_address,
+            uid=f"{model_uid}-{PDModelActor.default_uid()}",
+        )
+        logger.debug(f"[XaiverScheduler] Set unpin handle for request_id: {request_id}")
+
+    def remove__unpin_handler(self, request_id: str):
+        if request_id in self._unpin_handlers:
+            del self._unpin_handlers[request_id]
+            logger.debug(
+                f"[XaiverScheduler] Remove unpin handle for request_id: {request_id}"
+            )

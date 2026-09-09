@@ -311,7 +311,7 @@ export function Sidebar() {
         name: t('menu.resourcesAndSupport'),
         items: [
           {
-            path: `${XINFERENCE_DOCS_URL}/${locale === 'zh' ? 'zh-cn' : ''}`,
+            path: `${XINFERENCE_DOCS_URL}/${locale.startsWith('zh') ? 'zh-cn' : ''}`,
             name: t('menu.documentation'),
             target: '_blank',
             Icon: FileTextIcon,
@@ -325,7 +325,7 @@ export function Sidebar() {
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: locale === 'zh' ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
+            path: locale.startsWith('zh') ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
             name: t('menu.website'),
             target: '_blank',
             Icon: Globe,

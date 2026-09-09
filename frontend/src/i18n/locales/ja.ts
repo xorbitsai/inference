@@ -565,6 +565,8 @@ const ja = {
     replicaPlacementMode: 'レプリカ配置',
     placementAuto: '自動スケジューリング',
     placementCustom: 'レプリカごと (ワーカー & GPU)',
+    pdRole: 'PD ロール',
+    pdHybrid: 'ハイブリッド',
     replicaUid: 'レプリカエイリアス',
     replicaUidPlaceholder: '任意、このレプリカの識別に使用',
     replicaPlacementEmpty: 'レプリカごとの配置を指定するには、レプリカ数を増やしてください。',

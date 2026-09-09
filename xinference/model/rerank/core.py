@@ -141,7 +141,9 @@ class RerankModel:
         self._model_spec = model_family.model_specs[0]
         self._model_uid = model_uid
         self._model_path = model_path
-        self._quantization = quantization
+        # ``quantization`` is optional at launch time; fall back to the one
+        # resolved by ``match_rerank`` so GGUF file names render correctly.
+        self._quantization = quantization or self._model_spec.quantization
         self._device = device
         self._use_fp16 = use_fp16
         self._model = None
@@ -248,8 +250,13 @@ def create_rerank_model_instance(
 
     if model_engine is None:
         # unlike LLM and for compatibility,
-        # we use sentence_transformers as the default engine for all models
-        model_engine = "sentence_transformers"
+        # we use sentence_transformers as the default engine for all models,
+        # except GGUF specs which can only run on llama.cpp.
+        model_engine = (
+            "llama.cpp"
+            if model_family.model_specs[0].model_format == "ggufv2"
+            else "sentence_transformers"
+        )
 
     if enable_virtual_env is None:
         from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV

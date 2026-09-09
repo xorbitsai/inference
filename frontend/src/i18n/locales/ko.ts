@@ -564,6 +564,8 @@ const ko = {
     replicaPlacementMode: '레플리카 배치',
     placementAuto: '자동 스케줄링',
     placementCustom: '레플리카별 (워커 및 GPU)',
+    pdRole: 'PD 역할',
+    pdHybrid: '혼합',
     replicaUid: '복제본 별칭',
     replicaUidPlaceholder: '선택사항, 이 복제본을 식별하는 데 사용',
     replicaPlacementEmpty: '레플리카별 배치를 지정하려면 레플리카 수를 늘리세요.',

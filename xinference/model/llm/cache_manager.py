@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import logging
 import os
 from typing import TYPE_CHECKING, Optional
@@ -425,7 +426,15 @@ class LLMCacheManager(CacheManager):
     def cache(self) -> str:
         if self._model_uri is not None:
             return self.cache_uri()
-        else:
+        # SDK downloads share a repository-level temporary directory even
+        # across quantizations/revisions. Serialize cache checks and downloads
+        # for that repository across replica threads and worker processes.
+        from filelock import FileLock
+
+        key = hashlib.sha256(f"{self._model_hub}:{self._model_id}".encode()).hexdigest()
+        lock_dir = os.path.join(self._v2_cache_dir_prefix, ".download-locks")
+        os.makedirs(lock_dir, exist_ok=True)
+        with FileLock(os.path.join(lock_dir, key + ".lock")):
             if self._model_hub == "huggingface":
                 return self.cache_from_huggingface()
             elif self._model_hub == "modelscope":

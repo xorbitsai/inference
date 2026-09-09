@@ -11,6 +11,7 @@ import type { WorkerOption } from '../types';
 
 interface ReplicaConfigRow {
   replica_uid?: string;
+  role?: 'hybrid' | 'prefill' | 'decode';
   worker_ip: string;
   gpu_idx: string;
   n_gpu?: number | 'auto';
@@ -36,6 +37,9 @@ interface ReplicaPlacementConfigProps {
  */
 const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerOptions }) => {
   const { t } = useI18n();
+  const engine = useWatch('model_engine', form);
+  const supportsPD = String(engine).toLowerCase() === 'vllm';
+  const columns = supportsPD ? 'grid-cols-[1fr_2fr_1fr_1fr]' : 'grid-cols-[1fr_2fr_1fr]';
   const rows = (useWatch('replica_config', form) as ReplicaConfigRow[] | undefined) ?? [];
 
   const patchRow = (index: number, patch: Partial<ReplicaConfigRow>) => {
@@ -53,15 +57,16 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerO
 
   return (
     <div className="w-full space-y-2">
-      <div className="grid grid-cols-[1fr_2fr_1fr] gap-2 px-1 text-xs font-medium text-muted-foreground">
+      <div className={`grid ${columns} gap-2 px-1 text-xs font-medium text-muted-foreground`}>
         <span>{t('launchModel.replicaUid')}</span>
         <span>{t('launchModel.workerIp')}</span>
         <span>{t('launchModel.GPUIdx')}</span>
+        {supportsPD && <span>{t('launchModel.pdRole')}</span>}
       </div>
       {rows.map((row, index) => (
         <div
           key={index}
-          className="grid grid-cols-[1fr_2fr_1fr] items-center gap-2 rounded-md border border-border/70 p-2"
+          className={`grid ${columns} items-center gap-2 rounded-md border border-border/70 p-2`}
         >
           <Input
             value={row?.replica_uid ?? ''}
@@ -86,6 +91,17 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerO
               })
             }
           />
+          {supportsPD && (
+            <Select
+              value={row.role ?? 'hybrid'}
+              options={[
+                { label: t('launchModel.pdHybrid'), value: 'hybrid' },
+                { label: 'Prefill', value: 'prefill' },
+                { label: 'Decode', value: 'decode' },
+              ]}
+              onChange={(value) => patchRow(index, { role: value as ReplicaConfigRow['role'] })}
+            />
+          )}
         </div>
       ))}
     </div>

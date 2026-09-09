@@ -1,0 +1,46 @@
+name: PD GPU integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner label with at least two free NVIDIA GPUs
+        required: true
+        type: string
+      vllm_version:
+        description: vLLM version to validate
+        required: true
+        default: '0.21.0'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  pd:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 45
+    env:
+      NO_WEB_UI: '1'
+      XINFERENCE_TEST_PD_GPU: '1'
+      XINFERENCE_AUTH_ADVANCED: 'false'
+      XINFERENCE_ENABLE_VIRTUAL_ENV: '0'
+      VLLM_VERSION: ${{ inputs.vllm_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install community runtime
+        run: |
+          python -m venv .venv-pd
+          .venv-pd/bin/python -m pip install -U pip 'setuptools<82'
+          .venv-pd/bin/python -m pip install -e '.[dev]' "vllm==$VLLM_VERSION" openai
+      - name: Verify PD with actual KV transfer
+        run: .venv-pd/bin/python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py
+      - name: Upload runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pd-runtime-logs
+          path: ~/.xinference/logs/

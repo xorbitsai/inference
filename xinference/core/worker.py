@@ -5246,15 +5246,15 @@ class WorkerActor(xo.StatelessActor):
                         model_uid,
                         e,
                     )
-            coro = xo.destroy_actor(model_ref)
-            # see https://github.com/xorbitsai/xoscar/pull/140
-            # asyncio.wait_for cannot work for Xoscar actor call,
-            # because when time out, the coroutine will be cancelled via raise CancelledEror,
-            # inside actor call, the error will be caught and
-            # a CancelMessage will be sent to dest actor pool,
-            # however the actor pool may be stuck already,
-            # thus the timeout will never be raised
-            await xo.wait_for(coro, timeout=5)
+                coro = xo.destroy_actor(model_ref)
+                # see https://github.com/xorbitsai/xoscar/pull/140
+                # asyncio.wait_for cannot work for Xoscar actor call,
+                # because when time out, the coroutine will be cancelled via raise CancelledEror,
+                # inside actor call, the error will be caught and
+                # a CancelMessage will be sent to dest actor pool,
+                # however the actor pool may be stuck already,
+                # thus the timeout will never be raised
+                await xo.wait_for(coro, timeout=5)
         except Exception as e:
             logger.debug(
                 "Destroy model actor failed, model uid: %s, error: %s", model_uid, e
@@ -6254,3 +6254,7 @@ class WorkerActor(xo.StatelessActor):
         # permanent "loading" zombie -- the original 33% symptom. launch_builtin_model
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
+        if is_xavier and xavier_config.get("role") in ("prefill", "decode"):
+            await supervisor_ref.register_pd_replica(
+                origin_uid, rep_model_uid, self._model_uid_to_model[rep_model_uid]
+            )

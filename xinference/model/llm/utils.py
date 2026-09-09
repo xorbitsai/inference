@@ -212,6 +212,7 @@ LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
 QWEN_TOOL_CALL_FAMILY: Set[str] = set()
 GLM5_TOOL_CALL_FAMILY: Set[str] = set()
 KIMI_K3_TOOL_CALL_FAMILY: Set[str] = set()
+MINICPM5_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
@@ -255,11 +256,15 @@ class ChatModelMixin:
     @staticmethod
     @functools.lru_cache(maxsize=64)
     def _chat_template_needs_dict_arguments(chat_template: Optional[str]) -> bool:
-        # Detect Coder-style templates that iterate `tool_call.arguments|items`.
+        # Detect templates that iterate tool-call arguments as a mapping.
         # Content-driven (not name-driven) so future models copying this
         # template style are covered automatically.
         return chat_template is not None and (
             "tool_call.arguments|items" in chat_template
+            or (
+                "args_dict = tool_call.arguments" in chat_template
+                and "args_dict.items()" in chat_template
+            )
         )
 
     @staticmethod

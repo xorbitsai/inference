@@ -554,6 +554,8 @@ const zh = {
     replicaPlacementMode: '副本部署位置',
     placementAuto: '自动调度',
     placementCustom: '逐副本指定（Worker 与 GPU）',
+    pdRole: 'PD 角色',
+    pdHybrid: '混合',
     replicaUid: '副本别名',
     replicaUidPlaceholder: '可选，用于识别该副本',
     replicaPlacementEmpty: '请增大副本数量后再逐副本指定部署位置。',

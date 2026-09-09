@@ -29,6 +29,7 @@ export const parseReplicaGpuIndexes = (value) => {
  * @param {unknown[]} replicaConfig
  * @returns {Array<{
  *   replica_uid: unknown,
+ *   role: unknown,
  *   worker_ip: unknown,
  *   gpu_idx: string,
  *   n_gpu: unknown,
@@ -41,6 +42,7 @@ export const transformReplicaConfigToFormRows = (replicaConfig) =>
 
     return {
       replica_uid: (isRecord(entry) && entry.replica_uid) || '',
+      role: (isRecord(entry) && entry.role) || 'hybrid',
       worker_ip: deviceRecord.worker_ip || '',
       gpu_idx: Array.isArray(deviceRecord.gpu_idx) ? deviceRecord.gpu_idx.join(',') : '',
       n_gpu: deviceRecord.n_gpu,
@@ -55,6 +57,7 @@ export const transformReplicaConfigToFormRows = (replicaConfig) =>
  * @param {unknown[]} rows
  * @returns {Array<{
  *   replica_uid: string | undefined,
+ *   role: unknown,
  *   devices: Array<{
  *     worker_ip: unknown,
  *     n_gpu: number | 'auto',
@@ -74,6 +77,7 @@ export const transformReplicaFormRowsToConfig = (rows) =>
           : 'auto';
 
       return {
+        role: row.role || 'hybrid',
         replica_uid:
           typeof row.replica_uid === 'string' ? row.replica_uid.trim() || undefined : undefined,
         devices: [
