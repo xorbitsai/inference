@@ -305,6 +305,16 @@ def _batch_inference_one_step_internal(
         )
         for r in valid_req_list
     }
+    for r, generate_config in generate_config_mapping.items():
+        max_new_tokens = generate_config[0]
+        if r.effective_max_new_tokens is None:
+            if max_new_tokens == 0:
+                max_new_tokens = xinf_model_obj.get_context_len() - len(r.prompt_tokens)
+                logger.debug("No max_tokens set, setting to: %s", max_new_tokens)
+            r.effective_max_new_tokens = max_new_tokens
+        else:
+            max_new_tokens = r.effective_max_new_tokens
+        generate_config_mapping[r] = (max_new_tokens,) + generate_config[1:]
     s_time = time.time()
 
     prefill_reqs = []
@@ -337,19 +347,12 @@ def _batch_inference_one_step_internal(
                 top_k,
             ) = generate_config_mapping[r]
 
-            if max_new_tokens == 0:
-                # max_tokens not set, we change it to the possible maximum
-                max_new_tokens = xinf_model_obj.get_context_len() - len(r.prompt_tokens)
-                new_gen_conf = list(generate_config_mapping[r])
-                new_gen_conf[0] = max_new_tokens
-                generate_config_mapping[r] = tuple(new_gen_conf)
-                logger.debug("No max_tokens set, setting to: %s", max_new_tokens)
-
             token = _get_token_from_logits(
                 r, i, logits, temperature, repetition_penalty, top_p, top_k
             )
             r.is_prefill = False
             r.append_new_token(token)
+            r.visible_new_tokens_count = min(len(r.new_tokens), max_new_tokens)
 
         if decode_reqs:
             # Ensure all decode requests have the same kv_cache reference
@@ -401,12 +404,14 @@ def _batch_inference_one_step_internal(
             r.append_new_token(token)
 
             output = None
-            if not r.stopped:
+            was_stopped = r.stopped
+            if not was_stopped:
+                r.visible_new_tokens_count = min(len(r.new_tokens), max_new_tokens)
                 stopped = token in stop_token_ids
 
                 if stopped:
                     finish_reason = "stop"
-                elif len(r.new_tokens) == max_new_tokens:
+                elif len(r.new_tokens) >= max_new_tokens:
                     finish_reason = "length"
                     stopped = True
                 else:
@@ -445,10 +450,12 @@ def _batch_inference_one_step_internal(
                 So the implementation here is to decode all the tokens that have been generated each time,
                 and then take the slice.
                 """
-                if r.stopped or len(r.new_tokens) % stream_interval == 0:
+                if not was_stopped and (
+                    r.stopped or r.visible_new_tokens_count % stream_interval == 0
+                ):
                     if output is None:
                         output = tokenizer.decode(
-                            r.new_tokens,
+                            r.new_tokens[: r.visible_new_tokens_count],
                             skip_special_tokens=True,
                             spaces_between_special_tokens=False,
                             clean_up_tokenization_spaces=True,
@@ -469,8 +476,8 @@ def _batch_inference_one_step_internal(
                         chunk_id=r.chunk_id,
                         model_uid=model_uid,
                         prompt_tokens=len(r.prompt_tokens),
-                        completion_tokens=len(r.new_tokens),
-                        total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+                        completion_tokens=r.visible_new_tokens_count,
+                        total_tokens=len(r.prompt_tokens) + r.visible_new_tokens_count,
                     )
                     r.completion.append(completion_chunk)
                     if r.stopped:
@@ -481,31 +488,31 @@ def _batch_inference_one_step_internal(
                             chunk_id=r.chunk_id,
                             model_uid=model_uid,
                             prompt_tokens=len(r.prompt_tokens),
-                            completion_tokens=len(r.new_tokens),
-                            total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
+                            completion_tokens=r.visible_new_tokens_count,
+                            total_tokens=len(r.prompt_tokens)
+                            + r.visible_new_tokens_count,
                         )
                         r.completion.append(completion_chunk)
                         r.completion.append(eos_flag)
                         r.outputs.append(eos_flag)
 
-                    # last round, handle stream result
-                    # append usage information when enable `include_usage` for OPENAI API compatibility
-                    # The reason for counting the usage in the last round of the iteration is that,
-                    # these tokens are real generated and should be counted.
-                    if r.stopped and _i == decode_round - 1 and include_usage:
-                        r.completion.append(
-                            generate_completion_chunk(
-                                chunk_text=None,
-                                finish_reason=None,
-                                chunk_id=r.chunk_id,
-                                model_uid=model_uid,
-                                prompt_tokens=len(r.prompt_tokens),
-                                completion_tokens=len(r.new_tokens),
-                                total_tokens=len(r.prompt_tokens) + len(r.new_tokens),
-                                has_choice=False,
-                                has_content=False,
-                            )
+                # Append usage in the last decode round after all requests in
+                # the physical batch have finished advancing their cache.
+                if r.stopped and _i == decode_round - 1 and include_usage:
+                    r.completion.append(
+                        generate_completion_chunk(
+                            chunk_text=None,
+                            finish_reason=None,
+                            chunk_id=r.chunk_id,
+                            model_uid=model_uid,
+                            prompt_tokens=len(r.prompt_tokens),
+                            completion_tokens=r.visible_new_tokens_count,
+                            total_tokens=len(r.prompt_tokens)
+                            + r.visible_new_tokens_count,
+                            has_choice=False,
+                            has_content=False,
                         )
+                    )
             else:
                 # last round, handle non-stream result
                 if r.stopped and _i == decode_round - 1:
@@ -514,9 +521,14 @@ def _batch_inference_one_step_internal(
                         if r.finish_reason == "stop"
                         else (decode_round - stop_token_mapping[r])
                     )
+                    invalid_token_num = min(invalid_token_num, len(r.new_tokens))
+                    visible_token_count = min(
+                        len(r.new_tokens) - invalid_token_num,
+                        r.visible_new_tokens_count,
+                    )
                     outputs = (
                         tokenizer.decode(
-                            r.new_tokens[:-invalid_token_num],
+                            r.new_tokens[:visible_token_count],
                             skip_special_tokens=True,
                             spaces_between_special_tokens=False,
                             clean_up_tokenization_spaces=True,
@@ -530,7 +542,7 @@ def _batch_inference_one_step_internal(
                         r.finish_reason,
                         model_uid,
                         r,
-                        len(r.new_tokens) - invalid_token_num,
+                        visible_token_count,
                     )
                     r.completion = [completion]
 

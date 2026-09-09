@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from types import SimpleNamespace
+
 import pytest
 import torch
+from transformers import DynamicCache
 
 from ....scheduler.request import InferenceRequest
+from .. import utils as batch_utils
 from ..utils import _get_token_from_logits
 
 
@@ -49,3 +53,140 @@ def test_get_token_from_batched_logits(
     )
 
     assert token == 3
+
+
+def _make_dynamic_cache(batch_size: int, seq_len: int) -> DynamicCache:
+    return DynamicCache(
+        ddp_cache_data=[
+            (
+                torch.zeros((batch_size, 2, seq_len, 4)),
+                torch.zeros((batch_size, 2, seq_len, 4)),
+            )
+        ]
+    )
+
+
+class _TokenStreamModel:
+    def __call__(self, **kwargs):
+        input_ids = kwargs["input_ids"]
+        batch_size, seq_len = input_ids.shape
+        token = (seq_len + 1) % 10
+        logits = torch.full((batch_size, seq_len, 12), -100.0)
+        logits[:, :, token] = 100.0
+        return SimpleNamespace(
+            logits=logits,
+            past_key_values=_make_dynamic_cache(batch_size, seq_len + 1),
+        )
+
+
+class _TokenStreamTokenizer:
+    eos_token_id = 11
+
+    def decode(self, tokens, **kwargs):
+        return "".join(str(token % 10) for token in tokens)
+
+
+class _TokenStreamRuntime:
+    model_uid = "length-limit-model"
+
+    def __init__(self, context_length: int = 32):
+        self.context_length = context_length
+
+    def get_context_len(self) -> int:
+        return self.context_length
+
+    def get_builtin_stop_token_ids(self):
+        return ()
+
+    @staticmethod
+    def get_batch_size_and_seq_len_indexes_from_kv():
+        return 0, 2
+
+    def build_prefill_kwargs(self, prompts, req_list):
+        token_count = len(req_list[0].prompt_tokens)
+        return {"input_ids": torch.ones((len(req_list), token_count), dtype=torch.long)}
+
+    def build_decode_kwargs(self, prompts, req_list, batch_size, seq_len):
+        return {"input_ids": torch.ones((len(prompts), 1), dtype=torch.long)}
+
+
+def _make_token_limit_request(max_tokens, *, stream: bool, include_usage: bool = False):
+    generate_config = {
+        "max_tokens": max_tokens,
+        "stream": stream,
+        "stream_interval": 1,
+    }
+    if include_usage:
+        generate_config["stream_options"] = {"include_usage": True}
+    request = InferenceRequest("prompt", object(), True, "generate", generate_config)
+    request.sanitized_generate_config = {
+        "max_tokens": max_tokens,
+        "stream_interval": 1,
+        "stream_options": generate_config.get("stream_options"),
+        "temperature": 0.0,
+    }
+    request.prompt_tokens = list(range(14))
+    return request
+
+
+def _run_step(monkeypatch, request, *, decode_round: int):
+    monkeypatch.setattr(
+        batch_utils,
+        "_get_token_from_logits",
+        lambda req, i, logits, *args: int(torch.argmax(logits[i, -1]).item()),
+    )
+    runtime = _TokenStreamRuntime()
+    batch_utils._batch_inference_one_step_internal(
+        runtime,
+        [request],
+        runtime.model_uid,
+        _TokenStreamModel(),
+        _TokenStreamTokenizer(),
+        decode_round=decode_round,
+    )
+
+
+def test_none_max_tokens_persists_across_decode_steps(monkeypatch):
+    request = _make_token_limit_request(None, stream=False)
+
+    _run_step(monkeypatch, request, decode_round=15)
+
+    assert request.effective_max_new_tokens == 18
+    assert request.visible_new_tokens_count == 16
+    assert not request.stopped
+
+    _run_step(monkeypatch, request, decode_round=15)
+
+    assert request.stopped
+    assert request.finish_reason == "length"
+    assert request.visible_new_tokens_count == 18
+    assert len(request.new_tokens) == 31
+    assert request.completion[0]["choices"][0]["text"] == "5" + "2" * 17
+    assert request.completion[0]["usage"] == {
+        "prompt_tokens": 14,
+        "completion_tokens": 18,
+        "total_tokens": 32,
+    }
+
+
+def test_stream_output_and_usage_do_not_exceed_max_tokens(monkeypatch):
+    request = _make_token_limit_request(3, stream=True, include_usage=True)
+
+    _run_step(monkeypatch, request, decode_round=5)
+
+    assert request.stopped
+    assert request.finish_reason == "length"
+    assert request.visible_new_tokens_count == 3
+    assert len(request.new_tokens) == 6
+    text_chunks = [
+        chunk["choices"][0]["text"]
+        for chunk in request.completion
+        if isinstance(chunk, dict) and chunk.get("choices")
+    ]
+    assert "".join(text_chunks) == "522"
+    assert request.completion[-1]["choices"] == []
+    assert request.completion[-1]["usage"] == {
+        "prompt_tokens": 14,
+        "completion_tokens": 3,
+        "total_tokens": 17,
+    }
