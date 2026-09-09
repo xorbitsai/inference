@@ -16,7 +16,6 @@ from types import SimpleNamespace
 
 import pytest
 import torch
-from transformers import DynamicCache
 
 from ....scheduler.request import InferenceRequest
 from .. import utils as batch_utils
@@ -55,14 +54,12 @@ def test_get_token_from_batched_logits(
     assert token == 3
 
 
-def _make_dynamic_cache(batch_size: int, seq_len: int) -> DynamicCache:
-    return DynamicCache(
-        ddp_cache_data=[
-            (
-                torch.zeros((batch_size, 2, seq_len, 4)),
-                torch.zeros((batch_size, 2, seq_len, 4)),
-            )
-        ]
+def _make_legacy_cache(batch_size: int, seq_len: int):
+    return (
+        (
+            torch.zeros((batch_size, 2, seq_len, 4)),
+            torch.zeros((batch_size, 2, seq_len, 4)),
+        ),
     )
 
 
@@ -75,7 +72,7 @@ class _TokenStreamModel:
         logits[:, :, token] = 100.0
         return SimpleNamespace(
             logits=logits,
-            past_key_values=_make_dynamic_cache(batch_size, seq_len + 1),
+            past_key_values=_make_legacy_cache(batch_size, seq_len + 1),
         )
 
 
