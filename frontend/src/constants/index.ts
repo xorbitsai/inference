@@ -1,5 +1,6 @@
 export const XINFERENCE_DOCS_URL = 'https://inference.readthedocs.io';
 export const XINFERENCE_BASE_URL = 'https://xinference.co';
+export const XINFERENCE_CN_URL = 'https://xinference.cn';
 export const XINFERENCE_GITHUB = 'https://github.com/xorbitsai';
 export const XINFERENCE_IO = 'https://model.xinference.io';
 export const XAGENT_BASE_URL = 'https://xagent.co';

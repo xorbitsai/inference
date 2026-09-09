@@ -36,6 +36,7 @@ import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,
   XINFERENCE_BASE_URL,
+  XINFERENCE_CN_URL,
   XINFERENCE_GITHUB,
   XAGENT_BASE_URL,
   NO_AUTH,
@@ -325,7 +326,7 @@ export function Sidebar() {
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: XINFERENCE_BASE_URL,
+            path: locale.startsWith('zh') ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
             name: t('menu.website'),
             target: '_blank',
             Icon: Globe,
