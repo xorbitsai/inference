@@ -17,7 +17,7 @@ const ja = {
     securitySettings: 'セキュリティ設定',
     systemSettings: 'システム設定',
     auditCenter: '監査センター',
-    xagent: 'Xagent AI Agent',
+    xagent: 'Xagent Platform',
     contactUs: 'お問い合わせ',
     documentation: 'ドキュメント',
     website: '公式サイト',

@@ -36,8 +36,8 @@ import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,
   XINFERENCE_BASE_URL,
-  XINFERENCE_CN_URL,
   XINFERENCE_GITHUB,
+  XAGENT_BASE_URL,
   NO_AUTH,
 } from '@/constants';
 import ThemeToggle from '@/components/layout/theme-toggle';
@@ -325,14 +325,14 @@ export function Sidebar() {
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: locale.startsWith('zh') ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
+            path: XINFERENCE_BASE_URL,
             name: t('menu.website'),
             target: '_blank',
             Icon: Globe,
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: `${XINFERENCE_GITHUB}/xagent`,
+            path: XAGENT_BASE_URL,
             name: t('menu.xagent'),
             target: '_blank',
             Icon: BotIcon,

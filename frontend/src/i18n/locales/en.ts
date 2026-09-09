@@ -17,7 +17,7 @@ const en = {
     securitySettings: 'Security Settings',
     systemSettings: 'System Settings',
     auditCenter: 'Audit Center',
-    xagent: 'Xagent AI Agent',
+    xagent: 'Xagent Platform',
     contactUs: 'Contact Us',
     documentation: 'Documentation',
     website: 'Official Website',
