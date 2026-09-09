@@ -100,6 +100,9 @@ class _TokenStreamRuntime:
         return 0, 2
 
     def build_prefill_kwargs(self, prompts, req_list):
+        for request in req_list:
+            if request.prompt_tokens is None:
+                request.prompt_tokens = list(range(14))
         token_count = len(req_list[0].prompt_tokens)
         return {"input_ids": torch.ones((len(req_list), token_count), dtype=torch.long)}
 
@@ -107,11 +110,19 @@ class _TokenStreamRuntime:
         return {"input_ids": torch.ones((len(prompts), 1), dtype=torch.long)}
 
 
-def _make_token_limit_request(max_tokens, *, stream: bool, include_usage: bool = False):
+def _make_token_limit_request(
+    max_tokens,
+    *,
+    stream: bool,
+    include_usage: bool = False,
+    set_prompt_tokens: bool = True,
+    stop=None,
+):
     generate_config = {
         "max_tokens": max_tokens,
         "stream": stream,
         "stream_interval": 1,
+        "stop": stop,
     }
     if include_usage:
         generate_config["stream_options"] = {"include_usage": True}
@@ -120,9 +131,11 @@ def _make_token_limit_request(max_tokens, *, stream: bool, include_usage: bool =
         "max_tokens": max_tokens,
         "stream_interval": 1,
         "stream_options": generate_config.get("stream_options"),
+        "stop": stop,
         "temperature": 0.0,
     }
-    request.prompt_tokens = list(range(14))
+    if set_prompt_tokens:
+        request.prompt_tokens = list(range(14))
     return request
 
 
@@ -187,3 +200,54 @@ def test_stream_output_and_usage_do_not_exceed_max_tokens(monkeypatch):
         "completion_tokens": 3,
         "total_tokens": 17,
     }
+
+
+def test_none_max_tokens_is_resolved_after_fresh_request_prefill(monkeypatch):
+    request = _make_token_limit_request(None, stream=False, set_prompt_tokens=False)
+
+    _run_step(monkeypatch, request, decode_round=1)
+
+    assert request.prompt_tokens == list(range(14))
+    assert request.effective_max_new_tokens == 18
+    assert request.visible_new_tokens_count == 2
+    assert not request.stopped
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("stop", ["ZZ", "2"])
+def test_stop_strings_cannot_observe_tokens_beyond_max_tokens(
+    monkeypatch, stream, stop
+):
+    request = _make_token_limit_request(
+        1, stream=stream, include_usage=stream, stop=stop
+    )
+
+    _run_step(monkeypatch, request, decode_round=2)
+
+    if stream:
+        text = "".join(
+            chunk["choices"][0]["text"]
+            for chunk in request.completion
+            if isinstance(chunk, dict) and chunk.get("choices")
+        )
+        usage = request.completion[-1]["usage"]
+    else:
+        text = request.completion[0]["choices"][0]["text"]
+        usage = request.completion[0]["usage"]
+    assert text == "5"
+    assert request.finish_reason == "length"
+    assert usage == {
+        "prompt_tokens": 14,
+        "completion_tokens": 1,
+        "total_tokens": 15,
+    }
+
+
+def test_zero_elapsed_time_does_not_fail(monkeypatch):
+    request = _make_token_limit_request(1, stream=False)
+    monkeypatch.setattr(batch_utils.time, "time", lambda: 1.0)
+
+    _run_step(monkeypatch, request, decode_round=1)
+
+    assert request.stopped
+    assert request.finish_reason == "length"

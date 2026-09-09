@@ -305,16 +305,6 @@ def _batch_inference_one_step_internal(
         )
         for r in valid_req_list
     }
-    for r, generate_config in generate_config_mapping.items():
-        max_new_tokens = generate_config[0]
-        if r.effective_max_new_tokens is None:
-            if max_new_tokens == 0:
-                max_new_tokens = xinf_model_obj.get_context_len() - len(r.prompt_tokens)
-                logger.debug("No max_tokens set, setting to: %s", max_new_tokens)
-            r.effective_max_new_tokens = max_new_tokens
-        else:
-            max_new_tokens = r.effective_max_new_tokens
-        generate_config_mapping[r] = (max_new_tokens,) + generate_config[1:]
     s_time = time.time()
 
     prefill_reqs = []
@@ -327,8 +317,24 @@ def _batch_inference_one_step_internal(
         else:
             decode_reqs.append(r)
 
-    if prompts:  # prefill first
+    prefill_kws = None
+    if prompts:
+        # Prompt tokens are populated while building prefill inputs. Resolve an
+        # implicit max_tokens only after the actual prompt length is available.
         prefill_kws = xinf_model_obj.build_prefill_kwargs(prompts, prefill_reqs)
+
+    for r, generate_config in generate_config_mapping.items():
+        max_new_tokens = generate_config[0]
+        if r.effective_max_new_tokens is None:
+            if max_new_tokens == 0:
+                max_new_tokens = xinf_model_obj.get_context_len() - len(r.prompt_tokens)
+                logger.debug("No max_tokens set, setting to: %s", max_new_tokens)
+            r.effective_max_new_tokens = max_new_tokens
+        else:
+            max_new_tokens = r.effective_max_new_tokens
+        generate_config_mapping[r] = (max_new_tokens,) + generate_config[1:]
+
+    if prefill_kws is not None:  # prefill first
         out = model(**prefill_kws, use_cache=True)
 
         logits = out.logits
@@ -407,7 +413,8 @@ def _batch_inference_one_step_internal(
             was_stopped = r.stopped
             if not was_stopped:
                 r.visible_new_tokens_count = min(len(r.new_tokens), max_new_tokens)
-                stopped = token in stop_token_ids
+                visible_tokens = r.new_tokens[: r.visible_new_tokens_count]
+                stopped = bool(visible_tokens) and visible_tokens[-1] in stop_token_ids
 
                 if stopped:
                     finish_reason = "stop"
@@ -417,10 +424,11 @@ def _batch_inference_one_step_internal(
                 else:
                     finish_reason = None
 
-                # handle stop str
+                # Stop strings must only inspect user-visible tokens. The
+                # physical batch may continue decoding to keep its cache aligned.
                 if stop_str and r not in output_mapping:
                     output = tokenizer.decode(
-                        r.new_tokens,
+                        visible_tokens,
                         skip_special_tokens=True,
                         spaces_between_special_tokens=False,
                         clean_up_tokenization_spaces=True,
@@ -547,9 +555,12 @@ def _batch_inference_one_step_internal(
                     r.completion = [completion]
 
     e_time = time.time()
-    logger.debug(
-        f"Average throughput for a step: {(len(valid_req_list) * decode_round + len(prompts)) / (e_time - s_time)} token/s."
-    )
+    elapsed = e_time - s_time
+    if elapsed > 0:
+        logger.debug(
+            "Average throughput for a step: %s token/s.",
+            (len(valid_req_list) * decode_round + len(prompts)) / elapsed,
+        )
 
 
 def batch_inference_one_step(
