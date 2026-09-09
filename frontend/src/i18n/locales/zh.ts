@@ -17,7 +17,7 @@ const zh = {
     securitySettings: '安全设置',
     systemSettings: '系统设置',
     auditCenter: '审计中心',
-    xagent: 'Xagent Platform',
+    xagent: 'Xagent 平台',
     contactUs: '联系我们',
     documentation: '文档',
     website: '官网',

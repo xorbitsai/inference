@@ -17,7 +17,7 @@ const ko = {
     securitySettings: '보안 설정',
     systemSettings: '시스템 설정',
     auditCenter: '감사 센터',
-    xagent: 'Xagent Platform',
+    xagent: 'Xagent 플랫폼',
     contactUs: '문의하기',
     documentation: '문서',
     website: '공식 웹사이트',

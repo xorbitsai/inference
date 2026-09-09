@@ -29,7 +29,7 @@ const zhTW = {
     securitySettings: '安全設定',
     systemSettings: '系統設定',
     auditCenter: '審計中心',
-    xagent: 'Xagent Platform',
+    xagent: 'Xagent 平台',
     contactUs: '聯絡我們',
     documentation: '檔案',
     website: '官網',
