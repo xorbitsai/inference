@@ -84,7 +84,7 @@ def _get_token_from_logits(
             0
         ]
     else:
-        last_token_logits = logits[i : i + 1, -1, :]
+        last_token_logits = logits[i, -1, :]
 
     if temperature < 1e-5 or top_p < 1e-8:  # greedy
         _, indices = torch.topk(last_token_logits, 2)
