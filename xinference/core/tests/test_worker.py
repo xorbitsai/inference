@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -2316,21 +2317,68 @@ async def _make_gpu_worker(pool, cuda_devices=(0, 1)):
     return worker, sup
 
 
-def _patch_gpu_sources(monkeypatch, gpu_mem, children_map=None, calls=None):
+def _patch_gpu_sources(
+    monkeypatch, gpu_mem, children_map=None, calls=None, error=None, node_info=None
+):
     import psutil
 
-    def _fake_get_per_process_gpu_memory():
+    def _fake_get_per_process_gpu_memory(*, strict=False):
         if calls is not None:
-            calls.append("called")
+            calls.append(("called", strict))
+        if error is not None:
+            raise error
         return gpu_mem
 
-    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {})
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: node_info or {}
+    )
     monkeypatch.setattr(
         "xinference.device_utils.get_per_process_gpu_memory",
         _fake_get_per_process_gpu_memory,
     )
     _FakeProcess._children_map = children_map or {}
     monkeypatch.setattr(psutil, "Process", _FakeProcess)
+
+
+def _fake_pynvml(*, init_error=None, process_error=None):
+    class NVMLError(Exception):
+        pass
+
+    def nvml_init():
+        if init_error is not None:
+            raise init_error
+
+    def get_processes(_handle):
+        if process_error is not None:
+            raise process_error
+        return []
+
+    return SimpleNamespace(
+        NVMLError=NVMLError,
+        nvmlInit=nvml_init,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 1,
+        nvmlDeviceGetHandleByIndex=lambda _index: object(),
+        nvmlDeviceGetComputeRunningProcesses=get_processes,
+    )
+
+
+def test_get_per_process_gpu_memory_strict_distinguishes_empty_from_failure(
+    monkeypatch,
+):
+    from xinference.device_utils import get_per_process_gpu_memory
+
+    fake = _fake_pynvml()
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    assert get_per_process_gpu_memory(strict=True) == {}
+
+    nvml_error = fake.NVMLError("driver unavailable")
+    monkeypatch.setitem(sys.modules, "pynvml", _fake_pynvml(init_error=nvml_error))
+    with pytest.raises(type(nvml_error), match="driver unavailable"):
+        get_per_process_gpu_memory(strict=True)
+
+    # Preserve the historical non-strict compatibility behavior.
+    assert get_per_process_gpu_memory() == {}
 
 
 @pytest.mark.asyncio
@@ -2405,6 +2453,28 @@ async def test_report_status_replicas_do_not_cross_or_double_count(
 
 
 @pytest.mark.asyncio
+async def test_report_status_tolerates_zombie_process_during_pid_expansion(
+    setup_pool, monkeypatch
+):
+    import psutil
+
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={})
+
+    def raise_zombie(_pid):
+        raise psutil.ZombieProcess(100)
+
+    monkeypatch.setattr(psutil, "Process", raise_zombie)
+
+    await worker.report_status()
+
+    assert sup.report_worker_status_calls[-1][1]["model_gpu_memory"] == {}
+
+
+@pytest.mark.asyncio
 async def test_report_status_skips_gpu_collection_when_cpu_only(
     setup_pool, monkeypatch
 ):
@@ -2421,6 +2491,45 @@ async def test_report_status_skips_gpu_collection_when_cpu_only(
     status = sup.report_worker_status_calls[-1][1]
     assert "model_gpu_memory" not in status
     assert calls == []  # NVML never queried on CPU-only worker
+
+
+@pytest.mark.asyncio
+async def test_report_status_publishes_explicit_empty_gpu_snapshot(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={}, total_devices=[0]
+    )
+    calls: list = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={}, calls=calls)
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status["model_gpu_memory"] == {}
+    assert calls == [("called", True)]
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_gpu_snapshot_on_collection_failure(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(
+        monkeypatch,
+        gpu_mem={},
+        error=RuntimeError("NVML unavailable"),
+        node_info={"cpu": "ok"},
+    )
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status == {"cpu": "ok"}
 
 
 @pytest.mark.asyncio

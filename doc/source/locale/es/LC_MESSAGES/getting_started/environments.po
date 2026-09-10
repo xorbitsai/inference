@@ -471,3 +471,10 @@ msgstr ""
 "de auditoría. El valor predeterminado es 90. Consulte "
 ":ref:`user_guide_audit_security`."
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "Antigüedad máxima en segundos de la última instantánea válida de memoria de GPU por modelo que conserva el supervisor cuando un worker omite el campo porque la recopilación falló o se omitió. Una instantánea vacía explícita sigue borrando la caché inmediatamente. El valor predeterminado es 90."

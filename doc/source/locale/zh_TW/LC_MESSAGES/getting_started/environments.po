@@ -396,3 +396,10 @@ msgid ""
 ":ref:`user_guide_audit_security`."
 msgstr "稽核日誌檔案的保留天數。預設值為 90。參見 :ref:`user_guide_audit_security`。"
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "當 Worker 因收集失敗或略過收集而省略該欄位時，Supervisor 保留最近一次有效的單模型 GPU 記憶體快照的最大秒數。明確的空快照仍會立即清除快取。預設值為 90。"

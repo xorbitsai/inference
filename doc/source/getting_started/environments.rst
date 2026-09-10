@@ -53,6 +53,13 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT
 Health check timeout (seconds) at Xinference startup.
 Default value is 10.
 
+XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum age in seconds of the last valid per-model GPU-memory snapshot retained
+by the supervisor after a worker omits the field because collection failed or
+was skipped. An explicit empty snapshot still clears the cache immediately.
+Default value is 90.
+
 XINFERENCE_DISABLE_HEALTH_CHECK
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Xinference will automatically report health check at Xinference startup.

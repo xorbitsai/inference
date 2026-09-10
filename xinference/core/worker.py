@@ -869,6 +869,7 @@ class WorkerActor(xo.StatelessActor):
         # memory back to the owning replica deterministically, without reading
         # any process environ.
         self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
+        self._gpu_memory_collection_fail_count = 0
 
         if is_metrics_disabled():
             logger.info(
@@ -5475,7 +5476,9 @@ class WorkerActor(xo.StatelessActor):
 
                         from ..device_utils import get_per_process_gpu_memory
 
-                        gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
+                        gpu_mem = await asyncio.to_thread(
+                            get_per_process_gpu_memory, strict=True
+                        )
                         model_gpu_mem: Dict[str, Dict[int, int]] = {}
 
                         for m_uid in set(self._model_uid_to_pid) | set(
@@ -5497,7 +5500,11 @@ class WorkerActor(xo.StatelessActor):
                                             recursive=True
                                         )
                                     )
-                                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                except (
+                                    psutil.NoSuchProcess,
+                                    psutil.AccessDenied,
+                                    psutil.ZombieProcess,
+                                ):
                                     pass
                             per_gpu: Dict[int, int] = {}
                             for pid in pids:
@@ -5507,10 +5514,30 @@ class WorkerActor(xo.StatelessActor):
                             if per_gpu:
                                 model_gpu_mem[m_uid] = per_gpu
 
-                        if model_gpu_mem:
-                            status["model_gpu_memory"] = model_gpu_mem
+                        # An explicit empty mapping means collection succeeded
+                        # and no tracked model currently owns GPU memory.
+                        status["model_gpu_memory"] = model_gpu_mem
                     except Exception:
-                        pass
+                        # Field absence means collection failed or was skipped;
+                        # Supervisor retains the last trustworthy value until TTL.
+                        self._gpu_memory_collection_fail_count += 1
+                        logger.warning(
+                            "Failed to collect per-model GPU memory "
+                            "(consecutive failures: %s)",
+                            self._gpu_memory_collection_fail_count,
+                            exc_info=(
+                                self._gpu_memory_collection_fail_count == 1
+                                or self._gpu_memory_collection_fail_count % 10 == 0
+                            ),
+                        )
+                    else:
+                        if self._gpu_memory_collection_fail_count:
+                            logger.info(
+                                "Per-model GPU memory collection recovered after "
+                                "%s consecutive failure(s)",
+                                self._gpu_memory_collection_fail_count,
+                            )
+                        self._gpu_memory_collection_fail_count = 0
         except asyncio.CancelledError:
             raise
         except Exception:
