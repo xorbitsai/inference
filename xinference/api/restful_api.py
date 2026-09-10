@@ -4050,11 +4050,24 @@ def run_in_subprocess(
     host: str,
     port: int,
     logging_conf: Optional[dict] = None,
+    environment: Optional[Dict[str, str]] = None,
 ) -> multiprocessing.Process:
     p = multiprocessing.Process(
-        target=run,
-        args=(supervisor_address, host, port, logging_conf),
+        target=_run_with_environment,
+        args=(supervisor_address, host, port, logging_conf, environment),
     )
     p.daemon = True
     p.start()
     return p
+
+
+def _run_with_environment(
+    supervisor_address: str,
+    host: str,
+    port: int,
+    logging_conf: Optional[dict],
+    environment: Optional[Dict[str, str]],
+):
+    if environment:
+        os.environ.update(environment)
+    run(supervisor_address, host, port, logging_conf)

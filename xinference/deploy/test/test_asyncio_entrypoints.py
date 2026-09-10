@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 
 def _fail_if_get_event_loop_is_called():
     raise AssertionError("entry point must not rely on an implicit event loop")
@@ -72,3 +74,48 @@ def test_worker_entrypoint_creates_event_loop(monkeypatch):
     worker.main("worker", "supervisor", "endpoint", "host", 1234, {"version": 1})
 
     assert calls == [("worker", "supervisor", "endpoint", "host", 1234, {"version": 1})]
+
+
+def test_local_subprocess_applies_environment_before_start(monkeypatch):
+    from .. import local
+
+    calls = []
+
+    def fake_run(*args):
+        calls.append((os.environ.get("XINFERENCE_DISABLE_METRICS"), args))
+
+    monkeypatch.delenv("XINFERENCE_DISABLE_METRICS", raising=False)
+    monkeypatch.setattr(local, "run", fake_run)
+
+    local._run_with_environment(
+        "worker",
+        "host",
+        1234,
+        {"version": 1},
+        None,
+        {"XINFERENCE_DISABLE_METRICS": "1"},
+    )
+
+    assert calls == [("1", ("worker", "host", 1234, {"version": 1}, None))]
+
+
+def test_restful_api_subprocess_applies_environment_before_start(monkeypatch):
+    from ...api import restful_api
+
+    calls = []
+
+    def fake_run(*args):
+        calls.append((os.environ.get("XINFERENCE_DISABLE_METRICS"), args))
+
+    monkeypatch.delenv("XINFERENCE_DISABLE_METRICS", raising=False)
+    monkeypatch.setattr(restful_api, "run", fake_run)
+
+    restful_api._run_with_environment(
+        "supervisor",
+        "host",
+        1234,
+        {"version": 1},
+        {"XINFERENCE_DISABLE_METRICS": "1"},
+    )
+
+    assert calls == [("1", ("supervisor", "host", 1234, {"version": 1}))]

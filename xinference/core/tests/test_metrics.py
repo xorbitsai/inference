@@ -11,14 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
-
 import pytest
 import requests
 
 
 @pytest.fixture
-def setup_cluster(request, monkeypatch):
+def setup_cluster(request):
     import xoscar as xo
 
     from ...api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
@@ -26,18 +24,20 @@ def setup_cluster(request, monkeypatch):
     from ...deploy.local import health_check
     from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
 
+    # Pass configuration directly to each child. Python 3.14 uses forkserver by
+    # default on Linux, and that server may have started before this fixture.
+    environment = {"XINFERENCE_AUTH_ADVANCED": "false"}
     if getattr(request, "param", False):
-        monkeypatch.setenv("XINFERENCE_DISABLE_METRICS", "1")
-
-    # This fixture is used by tests that exercise unauthenticated requests;
-    # advanced auth defaults to on, so it must be explicitly disabled here,
-    # before any subprocess (which inherits this env) is started.
-    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+        environment["XINFERENCE_DISABLE_METRICS"] = "1"
 
     metrics_port = xo.utils.get_next_port()
     supervisor_address = f"localhost:{xo.utils.get_next_port()}"
     local_cluster = supervisor_run_in_subprocess(
-        supervisor_address, "localhost", metrics_port, TEST_LOGGING_CONF
+        supervisor_address,
+        "localhost",
+        metrics_port,
+        TEST_LOGGING_CONF,
+        environment=environment,
     )
 
     if not health_check(address=supervisor_address, max_attempts=20, sleep_interval=1):
@@ -50,6 +50,7 @@ def setup_cluster(request, monkeypatch):
             host="localhost",
             port=port,
             logging_conf=TEST_FILE_LOGGING_CONF,
+            environment=environment,
         )
         endpoint = f"http://localhost:{port}"
         if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
