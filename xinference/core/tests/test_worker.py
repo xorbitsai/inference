@@ -166,10 +166,21 @@ class MockWorkerActor(WorkerActor):
             self._registered = True
             self._supervisor_ref_generation += 1
 
-    def set_gpu_attribution_tables_for_test(self, pid, subpool, total_devices):
+    def set_gpu_attribution_tables_for_test(
+        self, pid, subpool, total_devices, subpool_addresses=None
+    ):
         self._model_uid_to_pid = dict(pid)
         self._model_uid_to_subpool_pids = {k: set(v) for k, v in subpool.items()}
+        self._model_uid_to_subpool_addresses = {
+            k: set(v) for k, v in (subpool_addresses or {}).items()
+        }
         self._total_gpu_devices = list(total_devices)
+
+    def set_subpool_process_pid_for_test(self, address, pid):
+        self._main_pool.sub_processes[address] = SimpleNamespace(pid=pid)
+
+    def remove_subpool_process_for_test(self, address):
+        self._main_pool.sub_processes.pop(address, None)
 
 
 @pytest.mark.asyncio
@@ -2453,6 +2464,31 @@ async def test_report_status_replicas_do_not_cross_or_double_count(
 
 
 @pytest.mark.asyncio
+async def test_report_status_ignores_none_subpool_pid(setup_pool, monkeypatch):
+    import psutil
+
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {None, 100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 512}})
+    fake_process = psutil.Process
+    expanded_pids = []
+
+    def record_process(pid):
+        assert pid is not None
+        expanded_pids.append(pid)
+        return fake_process(pid)
+
+    monkeypatch.setattr(psutil, "Process", record_process)
+
+    await worker.report_status()
+
+    assert expanded_pids == [100]
+    assert sup.report_worker_status_calls[-1][1]["model_gpu_memory"] == {"A": {0: 512}}
+
+
+@pytest.mark.asyncio
 async def test_report_status_tolerates_zombie_process_during_pid_expansion(
     setup_pool, monkeypatch
 ):
@@ -2530,6 +2566,91 @@ async def test_report_status_omits_gpu_snapshot_on_collection_failure(
 
     status = sup.report_worker_status_calls[-1][1]
     assert status == {"cpu": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_ambiguous_gpu_pid_ownership(setup_pool, monkeypatch):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {100}, "B": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}})
+
+    await worker.report_status()
+
+    assert "model_gpu_memory" not in sup.report_worker_status_calls[-1][1]
+
+
+def test_refresh_model_subpool_pids_replaces_stale_pid():
+    class _Process:
+        def __init__(self, pid):
+            self.pid = pid
+
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(
+            sub_processes={"pool-a": _Process(200), "pool-b": _Process(300)}
+        ),
+        _model_uid_to_subpool_addresses={"A": {"pool-a", "pool-b"}},
+        _model_uid_to_subpool_pids={"A": {100}},
+    )
+
+    WorkerActor._refresh_model_subpool_pids(worker)  # type: ignore[arg-type]
+
+    assert worker._model_uid_to_subpool_pids == {"A": {200, 300}}
+
+
+def test_refresh_model_subpool_pids_preserves_snapshot_when_address_unresolved():
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(sub_processes={}),
+        _model_uid_to_subpool_addresses={"A": {"pool-a"}},
+        _model_uid_to_subpool_pids={"A": {100}},
+    )
+
+    with pytest.raises(RuntimeError, match="ownership is incomplete"):
+        WorkerActor._refresh_model_subpool_pids(worker)  # type: ignore[arg-type]
+
+    assert worker._model_uid_to_subpool_pids == {"A": {100}}
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_snapshot_when_subpool_address_unresolved(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={},
+        subpool={"A": {100}},
+        subpool_addresses={"A": {"missing-pool"}},
+        total_devices=[0],
+    )
+    calls = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}}, calls=calls)
+
+    await worker.report_status()
+
+    assert "model_gpu_memory" not in sup.report_worker_status_calls[-1][1]
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_report_status_uses_refreshed_subpool_pid(setup_pool, monkeypatch):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_subpool_process_pid_for_test("dynamic-pool", 200)
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={},
+        subpool={"A": {100}},
+        subpool_addresses={"A": {"dynamic-pool"}},
+        total_devices=[0],
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={200: {0: 2048}})
+
+    try:
+        await worker.report_status()
+
+        status = sup.report_worker_status_calls[-1][1]
+        assert status["model_gpu_memory"] == {"A": {0: 2048}}
+    finally:
+        await worker.remove_subpool_process_for_test("dynamic-pool")
 
 
 @pytest.mark.asyncio

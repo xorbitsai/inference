@@ -869,6 +869,9 @@ class WorkerActor(xo.StatelessActor):
         # memory back to the owning replica deterministically, without reading
         # any process environ.
         self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
+        # Sub-pool addresses are stable across process restarts and allow the
+        # corresponding OS PID ownership snapshot to be refreshed dynamically.
+        self._model_uid_to_subpool_addresses: Dict[str, Set[str]] = {}
         self._gpu_memory_collection_fail_count = 0
 
         if is_metrics_disabled():
@@ -4636,6 +4639,9 @@ class WorkerActor(xo.StatelessActor):
                                 subpool_pids.add(_proc.pid)
                         except Exception:
                             continue
+                    self._model_uid_to_subpool_addresses[model_uid] = set(
+                        all_subpool_addresses
+                    )
                     self._model_uid_to_subpool_pids[model_uid] = subpool_pids
                     model_spec = model.model_family.to_description()
                     # ``to_description`` is derived from the model family alone and
@@ -5288,6 +5294,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_launch_args.pop(model_uid, None)
             self._model_uid_to_pid.pop(model_uid, None)
             self._model_uid_to_subpool_pids.pop(model_uid, None)
+            self._model_uid_to_subpool_addresses.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -5458,6 +5465,119 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
         return model_desc
 
+    def _refresh_model_subpool_pids(self) -> None:
+        """Refresh model PID ownership from stable sub-pool addresses.
+
+        If any expected address cannot be resolved, keep all prior PID snapshots
+        and fail the collection. Publishing a partial snapshot would otherwise
+        make the supervisor discard valid GPU-memory data for the unresolved
+        replica.
+        """
+        address_mapping = self._model_uid_to_subpool_addresses
+        refreshed_by_model: Dict[str, Set[int]] = {}
+        unresolved: List[Tuple[str, str]] = []
+
+        for model_uid, addresses in address_mapping.items():
+            refreshed: Set[int] = set()
+            for address in addresses:
+                try:
+                    process = self._main_pool.sub_processes.get(address)
+                    if process is None or process.pid is None:
+                        unresolved.append((model_uid, address))
+                    else:
+                        refreshed.add(process.pid)
+                except Exception:
+                    unresolved.append((model_uid, address))
+                    logger.debug(
+                        "Failed to resolve model sub-pool PID: model_uid=%s "
+                        "subpool_address=%s",
+                        model_uid,
+                        address,
+                        exc_info=True,
+                    )
+            refreshed_by_model[model_uid] = refreshed
+
+        if unresolved:
+            logger.debug(
+                "Expected model sub-pool addresses could not be resolved: %s",
+                unresolved,
+            )
+            raise RuntimeError(
+                f"model sub-pool PID ownership is incomplete: {unresolved}"
+            )
+
+        for model_uid, refreshed in refreshed_by_model.items():
+            previous = self._model_uid_to_subpool_pids.get(model_uid, set())
+            if refreshed != previous:
+                logger.info(
+                    "Refreshed model sub-pool PIDs: model_uid=%s old=%s new=%s",
+                    model_uid,
+                    sorted(previous),
+                    sorted(refreshed),
+                )
+                self._model_uid_to_subpool_pids[model_uid] = refreshed
+
+    async def _collect_model_gpu_memory(self) -> Dict[str, Dict[int, int]]:
+        """Collect a complete and unambiguous per-model GPU-memory snapshot."""
+        import psutil
+
+        from ..device_utils import get_per_process_gpu_memory
+
+        self._refresh_model_subpool_pids()
+        gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory, strict=True)
+
+        candidate_pids: Dict[str, Set[int]] = {}
+        model_uids = (
+            set(self._model_uid_to_pid)
+            | set(self._model_uid_to_subpool_pids)
+            | set(self._model_uid_to_subpool_addresses)
+        )
+        process_errors = (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            psutil.ZombieProcess,
+        )
+        for model_uid in model_uids:
+            pids = {
+                pid
+                for pid in self._model_uid_to_subpool_pids.get(model_uid, set())
+                if pid is not None
+            }
+            own_pid = self._model_uid_to_pid.get(model_uid)
+            if own_pid is not None:
+                pids.add(own_pid)
+            for base_pid in list(pids):
+                try:
+                    pids.update(
+                        child.pid
+                        for child in psutil.Process(base_pid).children(recursive=True)
+                    )
+                except process_errors:
+                    continue
+            candidate_pids[model_uid] = pids
+
+        pid_owners: Dict[int, Set[str]] = {}
+        for model_uid, pids in candidate_pids.items():
+            for pid in pids:
+                pid_owners.setdefault(pid, set()).add(model_uid)
+        ambiguous = {
+            pid: owners for pid, owners in pid_owners.items() if len(owners) > 1
+        }
+        if ambiguous:
+            details = {pid: sorted(owners) for pid, owners in ambiguous.items()}
+            logger.debug("Ambiguous model GPU process ownership: %s", details)
+            raise RuntimeError(f"ambiguous model GPU process ownership: {details}")
+
+        model_gpu_memory: Dict[str, Dict[int, int]] = {}
+        for model_uid, pids in candidate_pids.items():
+            per_gpu: Dict[int, int] = {}
+            for pid in pids:
+                for gpu_idx, memory in gpu_mem.get(pid, {}).items():
+                    per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + memory
+            if per_gpu:
+                model_gpu_memory[model_uid] = per_gpu
+        return model_gpu_memory
+
     async def report_status(self):
         status = dict()
         try:
@@ -5465,61 +5585,14 @@ class WorkerActor(xo.StatelessActor):
             async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
 
-                # Collect per-model GPU memory. Each replica's GPU holders are
-                # its registered sub-pool PIDs (primary ModelActor pool +
-                # per-device vLLM/SGLang rank pools) plus their recursive
-                # children (e.g. vLLM V1 forked EngineCore). Attribution is
-                # deterministic and reads no process environ.
+                # Collect a complete snapshot. Field absence means the sample
+                # failed; explicit {} means success with no model-owned GPU use.
                 if self._total_gpu_devices:
                     try:
-                        import psutil
-
-                        from ..device_utils import get_per_process_gpu_memory
-
-                        gpu_mem = await asyncio.to_thread(
-                            get_per_process_gpu_memory, strict=True
+                        status["model_gpu_memory"] = (
+                            await self._collect_model_gpu_memory()
                         )
-                        model_gpu_mem: Dict[str, Dict[int, int]] = {}
-
-                        for m_uid in set(self._model_uid_to_pid) | set(
-                            self._model_uid_to_subpool_pids
-                        ):
-                            pids: Set[int] = set(
-                                self._model_uid_to_subpool_pids.get(m_uid, set())
-                            )
-                            own_pid = self._model_uid_to_pid.get(m_uid)
-                            if own_pid is not None:
-                                pids.add(own_pid)
-                            # Recursive children cover GPU holders forked outside
-                            # the registered sub-pools (e.g. vLLM V1 EngineCore).
-                            for base in list(pids):
-                                try:
-                                    pids.update(
-                                        c.pid
-                                        for c in psutil.Process(base).children(
-                                            recursive=True
-                                        )
-                                    )
-                                except (
-                                    psutil.NoSuchProcess,
-                                    psutil.AccessDenied,
-                                    psutil.ZombieProcess,
-                                ):
-                                    pass
-                            per_gpu: Dict[int, int] = {}
-                            for pid in pids:
-                                if pid in gpu_mem:
-                                    for gpu_idx, mem in gpu_mem[pid].items():
-                                        per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
-                            if per_gpu:
-                                model_gpu_mem[m_uid] = per_gpu
-
-                        # An explicit empty mapping means collection succeeded
-                        # and no tracked model currently owns GPU memory.
-                        status["model_gpu_memory"] = model_gpu_mem
                     except Exception:
-                        # Field absence means collection failed or was skipped;
-                        # Supervisor retains the last trustworthy value until TTL.
                         self._gpu_memory_collection_fail_count += 1
                         logger.warning(
                             "Failed to collect per-model GPU memory "
