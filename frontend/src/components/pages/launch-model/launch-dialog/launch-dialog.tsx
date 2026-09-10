@@ -35,8 +35,7 @@ import type { FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
 import ConfigCache from './config-cache';
 import { getLatestModelConfigHistory, saveLaunchConfigHistory } from './launch-history';
-import type { LaunchConfigHistoryItem } from './launch-history';
-import { selectLatestModelLaunchHistory } from './launch-history-utils.mjs';
+import { replaceLaunchHistoryFormSnapshot, useLaunchHistoryForm } from './use-launch-history-form';
 import type { CatalogModel, LaunchFieldConfig, RequestModelType, WorkerOption } from '../types';
 import {
   MODEL_ENGINE_TYPES,
@@ -48,7 +47,6 @@ import {
   renderLaunchFields,
   syncLinkedField,
   toOptionValue,
-  transformFetchToForm,
   transformFormToFetch,
   validateReplicaPlacement,
   normalizeProgress,
@@ -139,7 +137,11 @@ export default function LaunchDialog({
   const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
-  const launchHistoryFormEditedRef = useRef(false);
+  const {
+    markFormEdited: markLaunchHistoryFormEdited,
+    resetFormEdited: resetLaunchHistoryFormEdited,
+    handleHistoryRefreshed: handleLaunchHistoryRefreshed,
+  } = useLaunchHistoryForm(form, isOpen, model?.model_name);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
@@ -1875,31 +1877,11 @@ export default function LaunchDialog({
     if (!isOpen || clusterAuth === null) return;
 
     downloadHubTouchedRef.current = false;
-    launchHistoryFormEditedRef.current = false;
+    resetLaunchHistoryFormEdited();
     const latestConfig = getLatestModelConfigHistory(model?.model_name, clusterAuth.auth === true);
 
-    form.resetFields();
-
-    if (latestConfig) {
-      form.setFieldsValue(transformFetchToForm(latestConfig.data));
-    }
-  }, [clusterAuth, form, isOpen, model?.model_name]);
-
-  const handleLaunchHistoryRefreshed = useCallback(
-    (history: LaunchConfigHistoryItem[]) => {
-      if (!isOpen) return;
-
-      const latestConfig = selectLatestModelLaunchHistory(
-        history,
-        model?.model_name,
-        launchHistoryFormEditedRef.current
-      );
-      if (latestConfig) {
-        form.setFieldsValue(transformFetchToForm(latestConfig.data));
-      }
-    },
-    [form, isOpen, model?.model_name]
-  );
+    replaceLaunchHistoryFormSnapshot(form, latestConfig);
+  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited]);
 
   useEffect(() => {
     if (!isOpen || (clusterAuth?.auth && !hasSettingsRead)) return;
@@ -1980,8 +1962,13 @@ export default function LaunchDialog({
                   modelName={model?.model_name}
                   refreshKey={configCacheRefreshKey}
                   onHistoryRefreshed={handleLaunchHistoryRefreshed}
+                  onUserChange={markLaunchHistoryFormEdited}
                 />
-                <CommandLine form={form} canCopyCommandLine={isReady} />
+                <CommandLine
+                  form={form}
+                  canCopyCommandLine={isReady}
+                  onUserChange={markLaunchHistoryFormEdited}
+                />
               </div>
             </div>
           </DialogHeader>
@@ -1989,9 +1976,7 @@ export default function LaunchDialog({
             id={formId}
             form={form}
             onFinish={handleLaunch}
-            onChange={() => {
-              launchHistoryFormEditedRef.current = true;
-            }}
+            onUserChange={markLaunchHistoryFormEdited}
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >
