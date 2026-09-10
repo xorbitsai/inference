@@ -256,7 +256,7 @@ export const refreshLaunchConfigHistory = async (
   const local = readLaunchConfigHistory(authenticated);
   try {
     const response = await request.get<LaunchHistoryResponseItem[]>('/v1/launch_history', {
-      params: { model_name: modelName },
+      params: { scope: 'mine' },
     });
     if (!Array.isArray(response)) throw new Error('Launch history response is not an array');
 
@@ -264,12 +264,7 @@ export const refreshLaunchConfigHistory = async (
       source: 'server',
       pending_sync: false,
     }) as LaunchConfigHistoryItem[];
-    const otherModels = local.filter((item) => item.model_name !== modelName);
-    const currentModel = local.filter((item) => item.model_name === modelName);
-    const merged = [
-      ...otherModels,
-      ...(mergeLaunchHistories(server, currentModel) as LaunchConfigHistoryItem[]),
-    ].sort((left, right) => right.updated_at - left.updated_at);
+    const merged = mergeLaunchHistories(server, local) as LaunchConfigHistoryItem[];
     writeLaunchConfigHistory(merged, authenticated);
     return { history: merged, usedLocalFallback: false, syncFailed };
   } catch (error) {

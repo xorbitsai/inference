@@ -540,6 +540,17 @@ const ja = {
     noPackagesInstalled: 'インストールされたパッケージはありません',
     lastConfig: '最終設定',
     configCache: '設定キャッシュ',
+    currentModelConfigHistory: '現在のモデル設定',
+    myOtherModelConfigHistory: '自分の他モデル設定履歴',
+    noExactModelConfigHistory:
+      'このモデルに完全一致する設定はありません。他モデルの設定履歴をテンプレートとして使用できます。',
+    searchOtherModelConfigHistory: 'モデル名またはモデル UID を検索',
+    sourceModel: '元のモデル',
+    useAsConfigTemplate: 'テンプレートとして使用',
+    confirmUseOtherModelConfigTemplate:
+      'この設定はモデル {{sourceModel}} のものです。起動パラメーターは現在のモデル {{currentModel}} と互換性がない可能性があります。現在のモデル名を維持し、以前のモデル UID を消去します。すべてのパラメーターを確認してからデプロイしてください。',
+    noOtherModelConfigHistory: '他モデルの設定履歴はありません。',
+    noMatchingOtherModelConfigHistory: '一致する他モデルの設定履歴はありません。',
     newCache: '新規キャッシュ',
     noConfigCache: '設定キャッシュはありません。',
     loadCache: '使用する',

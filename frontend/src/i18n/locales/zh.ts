@@ -529,6 +529,17 @@ const zh = {
     noPackagesInstalled: '未安装任何包',
     lastConfig: '最后配置',
     configCache: '配置缓存',
+    currentModelConfigHistory: '当前模型配置',
+    myOtherModelConfigHistory: '我的其他模型历史配置',
+    noExactModelConfigHistory:
+      '当前模型暂无完全匹配的配置。你可以从其他模型历史配置中选择一条作为模板。',
+    searchOtherModelConfigHistory: '搜索模型名称或模型 UID',
+    sourceModel: '来源模型',
+    useAsConfigTemplate: '作为模板使用',
+    confirmUseOtherModelConfigTemplate:
+      '该配置来自模型 {{sourceModel}}，启动参数可能与当前模型 {{currentModel}} 不兼容。系统将保留当前模型名称并清除旧模型 UID，请检查全部参数后再部署。',
+    noOtherModelConfigHistory: '暂无其他模型历史配置。',
+    noMatchingOtherModelConfigHistory: '没有匹配的其他模型历史配置。',
     newCache: '新建缓存',
     noConfigCache: '当前没有配置缓存！',
     loadCache: '使用',

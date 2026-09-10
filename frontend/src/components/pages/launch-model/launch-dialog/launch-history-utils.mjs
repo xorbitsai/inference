@@ -74,6 +74,48 @@ export const selectLatestModelLaunchHistory = (items, modelName, formEdited = fa
   return getModelLaunchHistory(items, modelName)[0] || null;
 };
 
+export const getOtherModelLaunchHistory = (items, modelName, search = '') => {
+  if (!modelName) return [];
+  const keyword = String(search).trim().toLocaleLowerCase();
+  return items
+    .filter((item) => {
+      if (!item.is_owner || item.model_name === modelName) return false;
+      if (!keyword) return true;
+      return [item.model_name, item.model_uid]
+        .filter((value) => typeof value === 'string')
+        .some((value) => value.toLocaleLowerCase().includes(keyword));
+    })
+    .sort((left, right) => right.updated_at - left.updated_at);
+};
+
+const TEMPLATE_METADATA_KEYS = [
+  'id',
+  'created_by',
+  'updated_by',
+  'created_at',
+  'updated_at',
+  'autostart_enabled',
+  'autostart_priority',
+  'autostart_max_retries',
+  'autostart_retry_interval_seconds',
+  'is_owner',
+  'source',
+  'pending_sync',
+];
+
+export const buildLaunchTemplateData = (data, currentModelName) => {
+  if (!data || typeof data !== 'object' || Array.isArray(data) || !currentModelName) return null;
+  const next =
+    typeof structuredClone === 'function'
+      ? structuredClone(data)
+      : JSON.parse(JSON.stringify(data));
+
+  for (const key of TEMPLATE_METADATA_KEYS) delete next[key];
+  delete next.model_uid;
+  next.model_name = currentModelName;
+  return next;
+};
+
 export const migrateLegacyLaunchHistory = (items, authenticated) => {
   if (authenticated) return [];
   return normalizeLaunchHistory(items, {

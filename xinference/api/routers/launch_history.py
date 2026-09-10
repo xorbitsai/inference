@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Awaitable, Callable, Literal, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Security
 
@@ -31,12 +31,17 @@ logger = logging.getLogger(__name__)
 
 def list_launch_history(
     model_name: Optional[str] = Query(None),
+    scope: Optional[Literal["mine"]] = Query(None),
     api: "RESTfulAPI" = Depends(get_api),
     user: Optional[dict] = None,
 ) -> JSONResponse:
     try:
         username = user.get("username", "") if user else ""
-        data = api._launch_history_store.list(model_name=model_name, username=username)
+        data = api._launch_history_store.list(
+            model_name=model_name,
+            username=username,
+            owner_only=scope == "mine",
+        )
         for item in data:
             item["is_owner"] = (item.get("created_by") or "") == username
         return JSONResponse(content=data)
@@ -112,10 +117,11 @@ def register_routes(api: "RESTfulAPI") -> None:
 
         def list_handler_authed(
             model_name: Optional[str] = Query(None),
+            scope: Optional[Literal["mine"]] = Query(None),
             user: dict = Security(auth, scopes=["models:list"]),
             api_: "RESTfulAPI" = Depends(get_api),
         ) -> JSONResponse:
-            return list_launch_history(model_name, api_, user)
+            return list_launch_history(model_name, scope, api_, user)
 
         list_handler = list_handler_authed
 
@@ -140,9 +146,10 @@ def register_routes(api: "RESTfulAPI") -> None:
 
         def list_handler_anon(
             model_name: Optional[str] = Query(None),
+            scope: Optional[Literal["mine"]] = Query(None),
             api_: "RESTfulAPI" = Depends(get_api),
         ) -> JSONResponse:
-            return list_launch_history(model_name, api_, None)
+            return list_launch_history(model_name, scope, api_, None)
 
         list_handler = list_handler_anon
 

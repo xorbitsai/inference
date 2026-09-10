@@ -541,6 +541,17 @@ const zhTW = {
     noPackagesInstalled: '未安裝任何包',
     lastConfig: '最後設定',
     configCache: '設定快取',
+    currentModelConfigHistory: '目前模型設定',
+    myOtherModelConfigHistory: '我的其他模型歷史設定',
+    noExactModelConfigHistory:
+      '目前模型暫無完全相符的設定。你可以從其他模型歷史設定中選擇一筆作為範本。',
+    searchOtherModelConfigHistory: '搜尋模型名稱或模型 UID',
+    sourceModel: '來源模型',
+    useAsConfigTemplate: '作為範本使用',
+    confirmUseOtherModelConfigTemplate:
+      '此設定來自模型 {{sourceModel}}，啟動參數可能與目前模型 {{currentModel}} 不相容。系統將保留目前模型名稱並清除舊模型 UID，請檢查全部參數後再部署。',
+    noOtherModelConfigHistory: '暫無其他模型歷史設定。',
+    noMatchingOtherModelConfigHistory: '沒有相符的其他模型歷史設定。',
     newCache: '新建快取',
     noConfigCache: '當前沒有設定快取！',
     loadCache: '使用',

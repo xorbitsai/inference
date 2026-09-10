@@ -20,7 +20,8 @@ import sqlite3
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
 from xinference.api.routers import launch_history
 from xinference.core.launch_history_store import LaunchHistoryStore
@@ -82,6 +83,41 @@ def test_list_filters_by_model_name(store):
     rows = store.list(model_name="qwen")
     assert len(rows) == 1
     assert rows[0]["model_name"] == "qwen"
+
+
+def test_list_owner_only_filters_by_username(store):
+    store.upsert("llama", "", {"owner": "alice"}, username="alice")
+    store.upsert("qwen", "", {"owner": "bob"}, username="bob")
+
+    rows = store.list(username="alice", owner_only=True)
+
+    assert len(rows) == 1
+    assert rows[0]["created_by"] == "alice"
+    assert rows[0]["data"] == {"owner": "alice"}
+
+
+def test_list_owner_only_combines_with_model_name(store):
+    store.upsert("llama", "alice-uid", {"owner": "alice"}, username="alice")
+    store.upsert("llama", "bob-uid", {"owner": "bob"}, username="bob")
+    store.upsert("qwen", "alice-uid", {"owner": "alice"}, username="alice")
+
+    rows = store.list(model_name="llama", username="alice", owner_only=True)
+
+    assert len(rows) == 1
+    assert rows[0]["model_name"] == "llama"
+    assert rows[0]["model_uid"] == "alice-uid"
+    assert rows[0]["created_by"] == "alice"
+
+
+def test_list_owner_only_supports_anonymous_records(store):
+    store.upsert("llama", "anonymous", {"owner": "anonymous"})
+    store.upsert("llama", "alice", {"owner": "alice"}, username="alice")
+
+    rows = store.list(username="", owner_only=True)
+
+    assert len(rows) == 1
+    assert rows[0]["model_uid"] == "anonymous"
+    assert rows[0]["created_by"] == ""
 
 
 def test_list_emits_utc_z_timestamps(store):
@@ -348,7 +384,7 @@ def test_list_handler_returns_store_data(mock_api):
     response = launch_history.list_launch_history(model_name="llama", api=mock_api)
     assert _json_body(response) == [{"model_name": "llama", "is_owner": True}]
     mock_api._launch_history_store.list.assert_called_once_with(
-        model_name="llama", username=""
+        model_name="llama", username="", owner_only=False
     )
 
 
@@ -373,6 +409,22 @@ def test_list_handler_marks_anonymous_record_as_owner(mock_api):
     ]
     response = launch_history.list_launch_history(model_name="llama", api=mock_api)
     assert _json_body(response)[0]["is_owner"] is True
+
+
+def test_list_handler_scope_mine_forwards_owner_filter(mock_api):
+    mock_api._launch_history_store.list.return_value = []
+
+    response = launch_history.list_launch_history(
+        model_name="llama",
+        scope="mine",
+        api=mock_api,
+        user={"username": "alice"},
+    )
+
+    assert _json_body(response) == []
+    mock_api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username="alice", owner_only=True
+    )
 
 
 def test_list_handler_raises_500_on_error(mock_api):
@@ -482,8 +534,9 @@ def test_auth_off_get_handler_forwards_blank_username():
     api._launch_history_store.list.return_value = []
     get_handler = captured[("/v1/launch_history", ("GET",))]
     get_handler(model_name="llama", api_=api)
-    _, kwargs = api._launch_history_store.list.call_args
-    assert kwargs["username"] == ""
+    api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username="", owner_only=False
+    )
 
 
 def test_auth_on_get_handler_scopes_by_username():
@@ -491,8 +544,49 @@ def test_auth_on_get_handler_scopes_by_username():
     api._launch_history_store.list.return_value = []
     get_handler = captured[("/v1/launch_history", ("GET",))]
     get_handler(model_name="llama", user={"username": "alice"}, api_=api)
-    _, kwargs = api._launch_history_store.list.call_args
-    assert kwargs["username"] == "alice"
+    api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username="alice", owner_only=False
+    )
+
+
+def test_auth_off_get_handler_forwards_scope_mine():
+    api, captured = _register_and_capture(is_auth=False)
+    api._launch_history_store.list.return_value = []
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+
+    get_handler(model_name=None, scope="mine", api_=api)
+
+    api._launch_history_store.list.assert_called_once_with(
+        model_name=None, username="", owner_only=True
+    )
+
+
+def test_auth_on_get_handler_forwards_scope_mine():
+    api, captured = _register_and_capture(is_auth=True)
+    api._launch_history_store.list.return_value = []
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+
+    get_handler(model_name=None, scope="mine", user={"username": "alice"}, api_=api)
+
+    api._launch_history_store.list.assert_called_once_with(
+        model_name=None, username="alice", owner_only=True
+    )
+
+
+def test_get_handler_rejects_unknown_scope():
+    api, captured = _register_and_capture(is_auth=False)
+    app = FastAPI()
+    app.state.api = api
+    app.add_api_route(
+        "/v1/launch_history",
+        captured[("/v1/launch_history", ("GET",))],
+        methods=["GET"],
+    )
+
+    response = TestClient(app).get("/v1/launch_history", params={"scope": "all"})
+
+    assert response.status_code == 422
+    api._launch_history_store.list.assert_not_called()
 
 
 def test_auth_off_delete_handler_exposes_no_user_param():

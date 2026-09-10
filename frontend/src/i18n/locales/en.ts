@@ -553,6 +553,17 @@ const en = {
     noPackagesInstalled: 'No packages installed',
     lastConfig: 'Last Config',
     configCache: 'Config Cache',
+    currentModelConfigHistory: 'Current Model Configurations',
+    myOtherModelConfigHistory: 'My Other Model Configuration History',
+    noExactModelConfigHistory:
+      'No exactly matching configuration for this model. You can use one of your other model configurations as a template.',
+    searchOtherModelConfigHistory: 'Search model name or model UID',
+    sourceModel: 'Source Model',
+    useAsConfigTemplate: 'Use as Template',
+    confirmUseOtherModelConfigTemplate:
+      'This configuration comes from {{sourceModel}}. Startup parameters may be incompatible with {{currentModel}}. The current model name will be preserved and the old model UID will be cleared. Review all parameters before deploying.',
+    noOtherModelConfigHistory: 'No other model configuration history.',
+    noMatchingOtherModelConfigHistory: 'No matching other model configuration history.',
     newCache: 'New Cache',
     noConfigCache: 'No config cache for now!',
     loadCache: 'Use',

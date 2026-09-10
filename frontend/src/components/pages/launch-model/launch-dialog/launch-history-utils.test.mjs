@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildLaunchTemplateData,
   getLaunchHistoryItemKey,
   getLaunchHistoryStorageKey,
   getModelLaunchHistory,
+  getOtherModelLaunchHistory,
   mergeLaunchHistories,
   migrateLegacyLaunchHistory,
   normalizeLaunchHistory,
@@ -68,6 +70,26 @@ test('an empty server result preserves pending local records only', () => {
   assert.deepEqual(mergeLaunchHistories([], [pending, mirror]), [pending]);
 });
 
+test('merges server history with pending local records across models', () => {
+  const server = item({ model_name: 'qwen', model_uid: 'server-qwen', updated_at: 3 });
+  const pending = item({
+    model_name: 'llama',
+    model_uid: 'pending-llama',
+    source: 'local',
+    pending_sync: true,
+    updated_at: 4,
+  });
+  const staleMirror = item({
+    model_name: 'mistral',
+    model_uid: 'stale-mistral',
+    source: 'local',
+    pending_sync: false,
+    updated_at: 5,
+  });
+
+  assert.deepEqual(mergeLaunchHistories([server], [pending, staleMirror]), [pending, server]);
+});
+
 test('same model uid from different creators remains separate', () => {
   const alice = item();
   const bob = item({ created_by: 'bob', is_owner: false });
@@ -130,4 +152,91 @@ test('applies the latest refreshed model history only before the user edits', ()
 
   assert.equal(selectLatestModelLaunchHistory(history, 'llama', false)?.model_uid, 'uid-2');
   assert.equal(selectLatestModelLaunchHistory(history, 'llama', true), null);
+});
+
+test('filters owned records from other models and sorts newest first', () => {
+  const result = getOtherModelLaunchHistory(
+    [
+      item({ model_name: 'llama', updated_at: 5 }),
+      item({ model_name: 'qwen', model_uid: 'qwen-old', updated_at: 2 }),
+      item({ model_name: 'mistral', model_uid: 'mistral-new', updated_at: 4 }),
+      item({ model_name: 'gemma', is_owner: false, updated_at: 6 }),
+    ],
+    'llama'
+  );
+
+  assert.deepEqual(
+    result.map((entry) => entry.model_uid),
+    ['mistral-new', 'qwen-old']
+  );
+});
+
+test('searches other model history by model name and model uid case-insensitively', () => {
+  const history = [
+    item({ model_name: 'Qwen3-Coder', model_uid: 'coder-1' }),
+    item({ model_name: 'mistral', model_uid: 'PROD-UID' }),
+  ];
+
+  assert.deepEqual(
+    getOtherModelLaunchHistory(history, 'llama', 'QWEN').map((entry) => entry.model_name),
+    ['Qwen3-Coder']
+  );
+  assert.deepEqual(
+    getOtherModelLaunchHistory(history, 'llama', 'prod-uid').map((entry) => entry.model_name),
+    ['mistral']
+  );
+});
+
+test('builds a safe cross-model template without mutating history data', () => {
+  const historyData = {
+    model_name: 'old-model',
+    model_uid: 'old-uid',
+    model_engine: 'vllm',
+    n_gpu: 2,
+    envs: { TOKEN: 'value' },
+    id: 9,
+    created_by: 'alice',
+    updated_by: 'alice',
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-02T00:00:00Z',
+    autostart_enabled: true,
+    autostart_priority: 1,
+    autostart_max_retries: 2,
+    autostart_retry_interval_seconds: 3,
+    is_owner: true,
+    source: 'server',
+    pending_sync: false,
+  };
+  const original = structuredClone(historyData);
+
+  const template = buildLaunchTemplateData(historyData, 'current-model');
+
+  assert.deepEqual(historyData, original);
+  assert.equal(template.model_name, 'current-model');
+  assert.equal('model_uid' in template, false);
+  assert.equal(template.model_engine, 'vllm');
+  assert.deepEqual(template.envs, { TOKEN: 'value' });
+  assert.notEqual(template.envs, historyData.envs);
+  for (const key of [
+    'id',
+    'created_by',
+    'updated_by',
+    'created_at',
+    'updated_at',
+    'autostart_enabled',
+    'autostart_priority',
+    'autostart_max_retries',
+    'autostart_retry_interval_seconds',
+    'is_owner',
+    'source',
+    'pending_sync',
+  ]) {
+    assert.equal(key in template, false, `${key} should not be copied to the launch template`);
+  }
+});
+
+test('rejects invalid cross-model template inputs', () => {
+  assert.equal(buildLaunchTemplateData(null, 'llama'), null);
+  assert.equal(buildLaunchTemplateData([], 'llama'), null);
+  assert.equal(buildLaunchTemplateData({}, ''), null);
 });

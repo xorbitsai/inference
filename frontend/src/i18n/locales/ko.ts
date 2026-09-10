@@ -539,6 +539,17 @@ const ko = {
     noPackagesInstalled: '설치된 패키지가 없습니다',
     lastConfig: '마지막 설정',
     configCache: '구성 캐시',
+    currentModelConfigHistory: '현재 모델 구성',
+    myOtherModelConfigHistory: '내 다른 모델 구성 기록',
+    noExactModelConfigHistory:
+      '현재 모델과 정확히 일치하는 구성이 없습니다. 다른 모델 구성 기록을 템플릿으로 사용할 수 있습니다.',
+    searchOtherModelConfigHistory: '모델 이름 또는 모델 UID 검색',
+    sourceModel: '원본 모델',
+    useAsConfigTemplate: '템플릿으로 사용',
+    confirmUseOtherModelConfigTemplate:
+      '이 구성은 모델 {{sourceModel}}에서 가져왔으며 시작 매개변수가 현재 모델 {{currentModel}}과 호환되지 않을 수 있습니다. 현재 모델 이름은 유지되고 이전 모델 UID는 지워집니다. 배포 전에 모든 매개변수를 확인하세요.',
+    noOtherModelConfigHistory: '다른 모델 구성 기록이 없습니다.',
+    noMatchingOtherModelConfigHistory: '일치하는 다른 모델 구성 기록이 없습니다.',
     newCache: '새 캐시',
     noConfigCache: '현재 구성 캐시가 없습니다!',
     loadCache: '사용하기',

@@ -302,3 +302,9 @@ The configuration history dialog can remove records owned by the current user.
 Records used by automatic startup are protected from deletion. In authenticated
 deployments, browser caches are separated by the username in the access token;
 configuration data owned by another user is not placed in that cache.
+
+The history dialog also lists configurations owned by the current user for
+other model names. These records are never applied automatically. After the
+user confirms **Use as Template**, Xinference keeps the current model name,
+removes the previous model UID and history or automatic-startup metadata, and
+copies the remaining launch options into the form without starting a model.
