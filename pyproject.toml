@@ -27,12 +27,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries",
 ]
 dynamic = ["version"]
 dependencies = [
-    "xoscar>=0.9.10",
+    "xoscar>=0.10.0",
     "psutil>=5.9.0",
     "torch",
     "pillow",
