@@ -39,6 +39,7 @@ class DummySupervisor:
     )
     _clear_worker_model_gpu_memory = SupervisorActor._clear_worker_model_gpu_memory
     _process_model_gpu_memory_report = SupervisorActor._process_model_gpu_memory_report
+    _expire_worker_model_gpu_memory = SupervisorActor._expire_worker_model_gpu_memory
     _is_valid_model_gpu_memory = staticmethod(
         SupervisorActor._is_valid_model_gpu_memory
     )

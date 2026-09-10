@@ -5372,7 +5372,7 @@ class SupervisorActor(xo.StatelessActor):
         # Use the timestamp (not the dict) as the cache-validity sentinel
         # so that a genuinely empty model list ({}) is also cached.
         now = time.time()
-        SupervisorActor._expire_worker_model_gpu_memory(self, now)
+        self._expire_worker_model_gpu_memory(now)
         if (
             XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
             and self._list_models_result_cache_time > 0
@@ -5391,7 +5391,7 @@ class SupervisorActor(xo.StatelessActor):
         # cache (which may have been filled by the preceding sweep).
         async with self._list_models_sweep_lock:
             now = time.time()
-            SupervisorActor._expire_worker_model_gpu_memory(self, now)
+            self._expire_worker_model_gpu_memory(now)
             if (
                 XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
                 and self._list_models_result_cache_time > 0
