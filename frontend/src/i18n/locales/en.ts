@@ -560,6 +560,20 @@ const en = {
     lastUpdated: 'Last Updated',
     defaultConfig: 'Default Config',
     confirmDeleteConfigCache: 'Delete this cached configuration? This action is irreversible.',
+    clearMyConfigCache: 'Clear my config cache',
+    confirmClearMyConfigCache:
+      'Clear my non-autostart configuration history for this model? This cannot be undone.',
+    loadingConfigHistory: 'Loading configuration history from the server...',
+    configHistoryLocalFallback: 'Failed to load server history. Showing the local cache.',
+    configHistorySyncFailed:
+      'Configuration history could not be synchronized and will be retried later.',
+    configHistoryPendingSync: 'Pending synchronization',
+    configHistoryCreator: 'Created by',
+    onlyDeleteOwnConfig: 'Only configurations you created can be deleted.',
+    autostartConfigDeleteProtected:
+      'Autostart configurations cannot be deleted here. Disable autostart first.',
+    deleteConfigHistoryFailed: 'Failed to delete configuration history.',
+    partialConfigHistoryDeleteFailed: 'Some configuration history records could not be deleted.',
     invalidConfigCache: 'The model engine required by this cached configuration is unavailable.',
     commandLineParsing: 'Command Line Argument Parsing',
     commandLineParsingFailed: 'Failed to process command line: {{error}}',

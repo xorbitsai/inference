@@ -37,6 +37,8 @@ def list_launch_history(
     try:
         username = user.get("username", "") if user else ""
         data = api._launch_history_store.list(model_name=model_name, username=username)
+        for item in data:
+            item["is_owner"] = item.get("created_by", "") == username
         return JSONResponse(content=data)
     except Exception as e:
         logger.error(e, exc_info=True)

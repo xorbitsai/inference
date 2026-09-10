@@ -547,6 +547,20 @@ const ja = {
     lastUpdated: '最終更新',
     defaultConfig: 'デフォルト設定',
     confirmDeleteConfigCache: 'この設定キャッシュを削除しますか？この操作は元に戻せません。',
+    clearMyConfigCache: '自分の設定キャッシュをクリア',
+    confirmClearMyConfigCache:
+      'このモデルについて、自分が所有する自動起動以外の設定履歴を消去しますか？この操作は元に戻せません。',
+    loadingConfigHistory: 'サーバーから設定履歴を読み込んでいます...',
+    configHistoryLocalFallback:
+      'サーバー履歴の読み込みに失敗したため、ローカルキャッシュを表示しています。',
+    configHistorySyncFailed: '設定履歴を同期できませんでした。後で再試行します。',
+    configHistoryPendingSync: '同期待ち',
+    configHistoryCreator: '作成者',
+    onlyDeleteOwnConfig: '自分が作成した設定のみ削除できます。',
+    autostartConfigDeleteProtected:
+      '自動起動設定はここでは削除できません。先に自動起動を無効にしてください。',
+    deleteConfigHistoryFailed: '設定履歴の削除に失敗しました。',
+    partialConfigHistoryDeleteFailed: '一部の設定履歴を削除できませんでした。',
     invalidConfigCache: 'この設定キャッシュに必要なモデルエンジンは現在利用できません。',
     commandLineParsing: 'コマンドライン引数解析',
     commandLineParsingFailed: 'コマンドラインの処理に失敗しました: {{error}}',

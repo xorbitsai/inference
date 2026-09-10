@@ -346,10 +346,33 @@ def _request_with_json(body):
 def test_list_handler_returns_store_data(mock_api):
     mock_api._launch_history_store.list.return_value = [{"model_name": "llama"}]
     response = launch_history.list_launch_history(model_name="llama", api=mock_api)
-    assert _json_body(response) == [{"model_name": "llama"}]
+    assert _json_body(response) == [{"model_name": "llama", "is_owner": True}]
     mock_api._launch_history_store.list.assert_called_once_with(
         model_name="llama", username=""
     )
+
+
+def test_list_handler_marks_owner_and_other_users(mock_api):
+    mock_api._launch_history_store.list.return_value = [
+        {"model_name": "llama", "created_by": "alice", "data": {"envs": {"A": "1"}}},
+        {"model_name": "llama", "created_by": "bob", "data": {"model_engine": "vllm"}},
+    ]
+    response = launch_history.list_launch_history(
+        model_name="llama", api=mock_api, user={"username": "alice"}
+    )
+    body = _json_body(response)
+    assert body[0]["is_owner"] is True
+    assert body[1]["is_owner"] is False
+    assert body[0]["data"] == {"envs": {"A": "1"}}
+    assert body[1]["data"] == {"model_engine": "vllm"}
+
+
+def test_list_handler_marks_anonymous_record_as_owner(mock_api):
+    mock_api._launch_history_store.list.return_value = [
+        {"model_name": "llama", "created_by": ""}
+    ]
+    response = launch_history.list_launch_history(model_name="llama", api=mock_api)
+    assert _json_body(response)[0]["is_owner"] is True
 
 
 def test_list_handler_raises_500_on_error(mock_api):

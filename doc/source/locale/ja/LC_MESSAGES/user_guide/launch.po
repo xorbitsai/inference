@@ -239,3 +239,24 @@ msgid ""
 msgstr ""
 "一部のハイブリッド推論モデル（例：Qwen3）はオプションの *思考モード* をサポートしています。起動時に ``--enable-thinking``"
 " パラメータを使用してこの機能を有効にできます。"
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Launch Configuration History"
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:173
+msgid ""
+"After a model is launched successfully from the Web UI, Xinference stores its "
+"launch configuration in the Supervisor launch-history database and keeps a "
+"user-scoped browser cache for fast access and temporary network failures. When "
+"the deployment dialog is opened again, the newest server-backed configuration "
+"is restored unless the user has already started editing the form."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:180
+msgid ""
+"The configuration history dialog can remove records owned by the current user. "
+"Records used by automatic startup are protected from deletion. In authenticated "
+"deployments, browser caches are separated by the username in the access token; "
+"configuration data owned by another user is not placed in that cache."
+msgstr ""

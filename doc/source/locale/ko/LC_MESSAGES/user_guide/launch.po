@@ -245,3 +245,24 @@ msgid ""
 msgstr ""
 "일부 하이브리드 추론 모델(예: Qwen3)은 선택적 *사고 모드*를 지원합니다. 시작 시 ``--enable-thinking`` "
 "매개변수를 사용하여 이 기능을 활성화할 수 있습니다."
+
+#: ../../source/user_guide/launch.rst:171
+msgid "Launch Configuration History"
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:173
+msgid ""
+"After a model is launched successfully from the Web UI, Xinference stores its "
+"launch configuration in the Supervisor launch-history database and keeps a "
+"user-scoped browser cache for fast access and temporary network failures. When "
+"the deployment dialog is opened again, the newest server-backed configuration "
+"is restored unless the user has already started editing the form."
+msgstr ""
+
+#: ../../source/user_guide/launch.rst:180
+msgid ""
+"The configuration history dialog can remove records owned by the current user. "
+"Records used by automatic startup are protected from deletion. In authenticated "
+"deployments, browser caches are separated by the username in the access token; "
+"configuration data owned by another user is not placed in that cache."
+msgstr ""
