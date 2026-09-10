@@ -5341,7 +5341,7 @@ class SupervisorActor(xo.StatelessActor):
         self, worker_address: str, status: Dict[str, Any]
     ) -> None:
         """Apply the internal three-state GPU-memory telemetry protocol."""
-        if "model_gpu_memory" not in status:
+        if not isinstance(status, dict) or "model_gpu_memory" not in status:
             # Collection was skipped or failed. Keep the last valid snapshot
             # until its trust TTL expires.
             return

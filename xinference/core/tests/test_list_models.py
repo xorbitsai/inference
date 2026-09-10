@@ -330,6 +330,11 @@ def test_model_gpu_memory_report_three_state_protocol():
     assert supervisor._worker_model_gpu_memory[address] == initial
     assert supervisor._worker_model_gpu_memory_update_time[address] == first_timestamp
 
+    # A malformed RPC payload is also treated as a failed sample.
+    supervisor._process_model_gpu_memory_report(address, None)  # type: ignore[arg-type]
+    assert supervisor._worker_model_gpu_memory[address] == initial
+    assert supervisor._worker_model_gpu_memory_update_time[address] == first_timestamp
+
     # Invalid structures are also treated as failed telemetry, not as clear.
     invalid_status = {"model_gpu_memory": {"qwen3-rep0": {"bad": 1}}}
     supervisor._process_model_gpu_memory_report(address, invalid_status)
