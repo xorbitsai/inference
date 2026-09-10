@@ -5597,7 +5597,7 @@ class WorkerActor(xo.StatelessActor):
                 logger.error(
                     "Failed to upload worker heartbeat: %s(%s)",
                     type(ex).__name__,
-                    ex or "(empty message)",
+                    str(ex) or "(empty message)",
                     exc_info=(
                         heartbeat_fail_count == 1 or heartbeat_fail_count % 10 == 0
                     ),
@@ -5621,7 +5621,7 @@ class WorkerActor(xo.StatelessActor):
                     logger.error(
                         "Failed to collect or upload full worker status: %s(%s)",
                         type(ex).__name__,
-                        ex or "(empty message)",
+                        str(ex) or "(empty message)",
                         exc_info=(
                             status_fail_count == 1 or status_fail_count % 10 == 0
                         ),
