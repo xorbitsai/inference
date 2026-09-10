@@ -52,8 +52,11 @@ export const mergeLaunchHistories = (serverItems, localItems) => {
   }
   for (const item of localItems) {
     const key = getLaunchHistoryItemKey(item);
-    if (item.pending_sync && !merged.has(key)) {
-      merged.set(key, item);
+    if (item.pending_sync) {
+      const existing = merged.get(key);
+      if (!existing || item.updated_at > existing.updated_at) {
+        merged.set(key, item);
+      }
     }
   }
   return [...merged.values()].sort((left, right) => right.updated_at - left.updated_at);

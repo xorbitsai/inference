@@ -1752,12 +1752,19 @@ export default function LaunchDialog({
           ...newValues,
           model_uid: launchResponse?.model_uid || newValues.model_uid || newValues.model_name,
         };
-        void saveLaunchConfigHistory(launchedValues, clusterAuth?.auth).then((historySaved) => {
-          if (!historySaved) {
+        void saveLaunchConfigHistory(launchedValues, clusterAuth?.auth)
+          .then((historySaved) => {
+            if (!historySaved) {
+              toast.warning(t('launchModel.configHistorySyncFailed'));
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to save launch config history', error);
             toast.warning(t('launchModel.configHistorySyncFailed'));
-          }
-          setConfigCacheRefreshKey((key) => key + 1);
-        });
+          })
+          .finally(() => {
+            setConfigCacheRefreshKey((key) => key + 1);
+          });
         let autostartSaved = false;
         if (saveAutostart) {
           try {

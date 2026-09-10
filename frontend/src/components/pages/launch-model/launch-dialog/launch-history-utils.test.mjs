@@ -51,6 +51,17 @@ test('server records replace local mirrors with the same identity', () => {
   assert.deepEqual(mergeLaunchHistories([server], [local]), [server]);
 });
 
+test('newer pending local records replace stale server mirrors', () => {
+  const server = item({ data: { value: 'server' }, updated_at: 100 });
+  const local = item({
+    data: { value: 'local' },
+    updated_at: 200,
+    source: 'local',
+    pending_sync: true,
+  });
+  assert.deepEqual(mergeLaunchHistories([server], [local]), [local]);
+});
+
 test('an empty server result preserves pending local records only', () => {
   const pending = item({ source: 'local', pending_sync: true });
   const mirror = item({ model_uid: 'uid-2', pending_sync: false });

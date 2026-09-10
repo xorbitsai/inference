@@ -126,6 +126,7 @@ export default function ConfigCache({
 
     try {
       await deleteLaunchHistory(item);
+      setConfigHistory(removeCachedLaunchHistoryItem(item, authenticated));
       await refreshConfigHistory(false);
     } catch {
       toast.error(t('launchModel.deleteConfigHistoryFailed'));
@@ -143,14 +144,7 @@ export default function ConfigCache({
 
     const cached = readLaunchConfigHistory(authenticated);
     const nextCached = cached.filter(
-      (item) =>
-        !(
-          item.model_name === modelName &&
-          item.is_owner &&
-          !item.autostart_enabled &&
-          item.source === 'local' &&
-          item.pending_sync
-        )
+      (item) => !(item.model_name === modelName && item.is_owner && !item.autostart_enabled)
     );
     writeLaunchConfigHistory(nextCached, authenticated);
     setConfigHistory(nextCached);
