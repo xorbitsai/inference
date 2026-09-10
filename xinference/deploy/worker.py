@@ -97,22 +97,16 @@ def main(
     # which will raise error after sub pool is created
     multiprocessing.set_start_method("spawn")
 
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(
-        _start_worker(
-            address,
-            supervisor_address,
-            supervisor_endpoint,
-            metrics_exporter_host,
-            metrics_exporter_port,
-            logging_conf,
-        )
-    )
-
     try:
-        loop.run_until_complete(task)
+        asyncio.run(
+            _start_worker(
+                address,
+                supervisor_address,
+                supervisor_endpoint,
+                metrics_exporter_host,
+                metrics_exporter_port,
+                logging_conf,
+            )
+        )
     except KeyboardInterrupt:
-        task.cancel()
-        loop.run_until_complete(task)
-        # avoid displaying exception-unhandled warnings
-        task.exception()
+        pass

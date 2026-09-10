@@ -18,13 +18,16 @@ import requests
 
 
 @pytest.fixture
-def setup_cluster():
+def setup_cluster(request, monkeypatch):
     import xoscar as xo
 
     from ...api.restful_api import run_in_subprocess as restful_api_run_in_subprocess
     from ...conftest import TEST_FILE_LOGGING_CONF, TEST_LOGGING_CONF, api_health_check
     from ...deploy.local import health_check
     from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
+
+    if getattr(request, "param", False):
+        monkeypatch.setenv("XINFERENCE_DISABLE_METRICS", "1")
 
     # This fixture is used by tests that exercise unauthenticated requests;
     # advanced auth defaults to on, so it must be explicitly disabled here,
@@ -52,7 +55,11 @@ def setup_cluster():
         if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
-        yield f"http://localhost:{port}", f"http://localhost:{metrics_port}/metrics", supervisor_address
+        yield (
+            f"http://localhost:{port}",
+            f"http://localhost:{metrics_port}/metrics",
+            supervisor_address,
+        )
         restful_api_proc.kill()
     finally:
         local_cluster.kill()
@@ -97,17 +104,9 @@ async def test_metrics_exporter_server(setup_cluster):
     )
 
 
-@pytest.fixture
-def disable_metrics():
-    try:
-        os.environ["XINFERENCE_DISABLE_METRICS"] = "1"
-        yield
-    finally:
-        os.environ.pop("XINFERENCE_DISABLE_METRICS", None)
-
-
 @pytest.mark.asyncio
-async def test_disable_metrics_exporter_server(disable_metrics, setup_cluster):
+@pytest.mark.parametrize("setup_cluster", [True], indirect=True)
+async def test_disable_metrics_exporter_server(setup_cluster):
     endpoint, metrics_exporter_address, supervisor_address = setup_cluster
 
     from ...client import Client

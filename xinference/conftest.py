@@ -160,11 +160,7 @@ def run_test_cluster(address: str, logging_conf: Optional[Dict] = None):
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    loop = asyncio.get_event_loop()
-    task = loop.create_task(
-        _start_test_cluster(address=address, logging_conf=logging_conf)
-    )
-    loop.run_until_complete(task)
+    asyncio.run(_start_test_cluster(address=address, logging_conf=logging_conf))
 
 
 def run_test_cluster_in_subprocess(
