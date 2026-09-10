@@ -5581,44 +5581,62 @@ class WorkerActor(xo.StatelessActor):
             raise
 
     async def _periodical_report_status(self):
-        """
-        Periodically send heartbeat and status reports to supervisor.
-        Heartbeat is sent every interval, full status is sent every N intervals.
-        """
+        """Periodically send independent heartbeat and full status reports."""
         report_count = 0
-        _heartbeat_fail_count = 0
+        heartbeat_fail_count = 0
+        status_fail_count = 0
         while True:
+            report_due = report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0
+
             try:
-                # Always send heartbeat for liveness detection
                 await self.heartbeat()
-
-                # Send full status every N heartbeats
-                if report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0:
-                    await self.report_status()
-
-                report_count += 1
-                _heartbeat_fail_count = 0  # reset on success
             except asyncio.CancelledError:  # pragma: no cover
                 break
             except Exception as ex:  # pragma: no cover
-                # Isolation.stop() cancels this coroutine during normal shutdown.
-                # Every other exception is treated as recoverable: a transient RPC
-                # RuntimeError must not permanently stop heartbeats and let the
-                # supervisor evict an otherwise healthy worker. The failing RPC
-                # path conditionally invalidates only its own cached ref.
-                report_count = 0
-                _heartbeat_fail_count += 1
-                # §4.4: Log exception type and full traceback.
-                # Print full traceback on 1st failure and every 10th consecutive failure
-                # to avoid log bloat during prolonged outages.
+                heartbeat_fail_count += 1
                 logger.error(
-                    "Failed to upload node info: %s(%s)",
+                    "Failed to upload worker heartbeat: %s(%s)",
                     type(ex).__name__,
                     ex or "(empty message)",
                     exc_info=(
-                        _heartbeat_fail_count == 1 or _heartbeat_fail_count % 10 == 0
+                        heartbeat_fail_count == 1 or heartbeat_fail_count % 10 == 0
                     ),
                 )
+            else:
+                if heartbeat_fail_count:
+                    logger.info(
+                        "Worker heartbeat upload recovered after %s consecutive "
+                        "failure(s)",
+                        heartbeat_fail_count,
+                    )
+                heartbeat_fail_count = 0
+
+            if report_due:
+                try:
+                    await self.report_status()
+                except asyncio.CancelledError:  # pragma: no cover
+                    break
+                except Exception as ex:  # pragma: no cover
+                    status_fail_count += 1
+                    logger.error(
+                        "Failed to collect or upload full worker status: %s(%s)",
+                        type(ex).__name__,
+                        ex or "(empty message)",
+                        exc_info=(
+                            status_fail_count == 1 or status_fail_count % 10 == 0
+                        ),
+                    )
+                else:
+                    if status_fail_count:
+                        logger.info(
+                            "Full worker status reporting recovered after %s "
+                            "consecutive failure(s)",
+                            status_fail_count,
+                        )
+                    status_fail_count = 0
+
+            # Keep the full-status cadence independent from heartbeat failures.
+            report_count += 1
             try:
                 await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover

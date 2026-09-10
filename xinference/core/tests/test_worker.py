@@ -2684,9 +2684,73 @@ async def test_periodical_report_status_recovers_from_runtime_error(
 
     await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
 
+    # The full report is due on the first loop and must still run even when
+    # heartbeat fails. Its cancellation then stops the loop normally.
+    assert heartbeat_calls == 1
+    assert report_calls == 1
+    assert sleep_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_periodical_report_failure_does_not_stop_later_heartbeat(monkeypatch):
+    heartbeat_calls = 0
+    report_calls = 0
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 2:
+                raise asyncio.CancelledError
+
+        async def report_status(self):
+            nonlocal report_calls
+            report_calls += 1
+            raise RuntimeError("status upload failed")
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
     assert heartbeat_calls == 2
     assert report_calls == 1
     assert sleep_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_failure_does_not_reset_full_status_cadence(monkeypatch):
+    heartbeat_calls = 0
+    report_heartbeats = []
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 1:
+                raise RuntimeError("heartbeat failed")
+            if heartbeat_calls == 4:
+                raise asyncio.CancelledError
+
+        async def report_status(self):
+            report_heartbeats.append(heartbeat_calls)
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_STATUS_REPORT_MULTIPLIER", 2)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
+    assert report_heartbeats == [1, 3]
+    assert sleep_calls == 3
 
 
 def test_clear_supervisor_refs_does_not_remove_newer_reference():
@@ -2856,7 +2920,9 @@ async def test_periodical_report_status_reregisters_after_heartbeat_failure(
 
     assert stale_supervisor.heartbeat_calls == [worker.address]
     assert stale_supervisor.add_worker_calls == []
-    assert fresh_supervisor.heartbeat_calls == [worker.address]
+    # The due full report reconnects immediately after heartbeat invalidates
+    # the stale reference; it does not wait for a second heartbeat interval.
+    assert fresh_supervisor.heartbeat_calls == []
     assert fresh_supervisor.add_worker_calls == [
         (
             worker.address,
@@ -2869,7 +2935,7 @@ async def test_periodical_report_status_reregisters_after_heartbeat_failure(
     ]
     assert worker._supervisor_ref is fresh_supervisor
     assert worker._registered is True
-    assert sleep_calls == 1
+    assert sleep_calls == 0
 
 
 @pytest.mark.asyncio
