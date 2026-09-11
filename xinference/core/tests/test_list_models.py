@@ -398,6 +398,43 @@ async def test_list_models_expires_stale_gpu_memory(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_list_models_fallback_does_not_restore_expired_gpu_memory(monkeypatch):
+    address = "worker-1:30001"
+    replica_uid = build_replica_model_uid("qwen3", 0)
+    worker = _DummyWorker(
+        {
+            replica_uid: {
+                "model_name": "qwen3",
+                "model_type": "LLM",
+            }
+        }
+    )
+    supervisor = DummySupervisor(address, {address: worker})
+    supervisor._model_uid_to_replica_info["qwen3"] = _replica_info(1)
+    supervisor._worker_model_gpu_memory = {address: {replica_uid: {0: 100}}}
+    supervisor._worker_model_gpu_memory_update_time = {address: time_module.time()}
+    monkeypatch.setattr(
+        "xinference.core.supervisor.XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL", 90
+    )
+
+    first = await supervisor.list_models()
+
+    assert "gpu_memory" in first["qwen3"]
+    # The per-worker fallback cache must contain only the raw worker response.
+    assert "replica" not in supervisor._list_models_cache[address][replica_uid]
+    assert "gpu_memory" not in supervisor._list_models_cache[address][replica_uid]
+
+    supervisor._worker_address_to_worker[address] = _FailingWorker(RuntimeError("boom"))
+    supervisor._worker_model_gpu_memory_update_time[address] = time_module.time() - 91
+
+    second = await supervisor.list_models()
+
+    assert address not in supervisor._worker_model_gpu_memory
+    assert "gpu_memory" not in second["qwen3"]
+    assert second["qwen3"]["replica"] == 1
+
+
+@pytest.mark.asyncio
 async def test_list_models_debounce_cache_hit():
     """When called within the debounce window, list_models must return the
     cached whole-result without issuing any worker RPCs."""

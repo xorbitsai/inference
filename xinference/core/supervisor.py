@@ -5461,8 +5461,12 @@ class SupervisorActor(xo.StatelessActor):
                     replica_gpu_cache[replica_uid] = [str(a) for a in accelerators]
             self._replica_gpu_cache = replica_gpu_cache
 
+            # Keep worker-returned specs in _list_models_cache pristine. The
+            # replica count and GPU-memory fields below are response-only
+            # decorations; mutating cached specs would let stale telemetry leak
+            # back into a later fallback response after a worker RPC failure.
             running_model_info = {
-                parse_replica_model_uid(k)[0]: v for k, v in ret.items()
+                parse_replica_model_uid(k)[0]: dict(v) for k, v in ret.items()
             }
 
             # Aggregate per-process GPU memory (real-time, from
