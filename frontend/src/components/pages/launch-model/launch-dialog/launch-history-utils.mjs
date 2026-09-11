@@ -74,12 +74,13 @@ export const selectLatestModelLaunchHistory = (items, modelName, formEdited = fa
   return getModelLaunchHistory(items, modelName)[0] || null;
 };
 
-export const getOtherModelLaunchHistory = (items, modelName, search = '') => {
-  if (!modelName) return [];
+export const getOtherModelLaunchHistory = (items, modelName, modelType, search = '') => {
+  if (!modelName || !modelType) return [];
   const keyword = String(search).trim().toLocaleLowerCase();
   return items
     .filter((item) => {
-      if (!item.is_owner || item.model_name === modelName) return false;
+      if (!item.is_owner || item.model_name === modelName || item.data?.model_type !== modelType)
+        return false;
       if (!keyword) return true;
       return [item.model_name, item.model_uid]
         .filter((value) => typeof value === 'string')
@@ -103,8 +104,16 @@ const TEMPLATE_METADATA_KEYS = [
   'pending_sync',
 ];
 
-export const buildLaunchTemplateData = (data, currentModelName) => {
-  if (!data || typeof data !== 'object' || Array.isArray(data) || !currentModelName) return null;
+export const buildLaunchTemplateData = (data, currentModelName, currentModelType) => {
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    Array.isArray(data) ||
+    !currentModelName ||
+    !currentModelType ||
+    data.model_type !== currentModelType
+  )
+    return null;
   const next =
     typeof structuredClone === 'function'
       ? structuredClone(data)
@@ -113,6 +122,7 @@ export const buildLaunchTemplateData = (data, currentModelName) => {
   for (const key of TEMPLATE_METADATA_KEYS) delete next[key];
   delete next.model_uid;
   next.model_name = currentModelName;
+  next.model_type = currentModelType;
   return next;
 };
 

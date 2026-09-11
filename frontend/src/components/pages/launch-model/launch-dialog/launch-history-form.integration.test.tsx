@@ -5,6 +5,7 @@ import React, { act } from 'react';
 // @ts-expect-error -- jsdom does not publish declarations in this dependency tree.
 import { JSDOM } from 'jsdom';
 import type { Root } from 'react-dom/client';
+import { ModelType } from '@/constants';
 import type { FormInstance, FormValues } from '@/types/form';
 import type { LaunchConfigHistoryItem } from './launch-history';
 
@@ -87,16 +88,19 @@ function deferred<T>() {
 function historyItem(
   modelUid: string,
   updatedAt: number,
-  data: FormValues
+  data: FormValues,
+  options: { modelName?: string; modelType?: string } = {}
 ): LaunchConfigHistoryItem {
+  const modelName = options.modelName ?? 'demo';
+  const modelType = options.modelType ?? ModelType.LLM;
   return {
     data: {
-      model_name: 'demo',
-      model_type: 'LLM',
-      model_uid: modelUid,
       ...data,
+      model_name: modelName,
+      model_type: modelType,
+      model_uid: modelUid,
     },
-    model_name: 'demo',
+    model_name: modelName,
     model_uid: modelUid,
     created_by: '',
     updated_at: updatedAt,
@@ -126,6 +130,7 @@ function Harness({ form, initialItem, onSubmit }: HarnessProps) {
         <ConfigCache
           form={form}
           modelName="demo"
+          modelType={ModelType.LLM}
           onHistoryRefreshed={handleHistoryRefreshed}
           onUserChange={markFormEdited}
         />
@@ -336,6 +341,122 @@ describe('launch history form integration', () => {
 
     assert.equal(form.getFieldValue('model_uid'), undefined);
     assert.equal(form.getFieldValue('model_path'), undefined);
+  });
+
+  it('keeps a confirmed same-type template when history refresh completes later', async () => {
+    const template = historyItem(
+      'other-uid',
+      1,
+      {
+        model_engine: 'vLLM',
+        model_path: '/other/path',
+      },
+      { modelName: 'other-model' }
+    );
+    const server = historyItem('server', 2, {
+      model_engine: 'Transformers',
+      model_path: '/server/path',
+    });
+    const refresh = deferred<{
+      history: LaunchConfigHistoryItem[];
+      usedLocalFallback: boolean;
+      syncFailed: boolean;
+    }>();
+    readHistory = () => [template];
+    refreshHistory = () => refresh.promise;
+    const form = createForm();
+    const submitted: FormValues[] = [];
+
+    await act(async () => {
+      root.render(<Harness form={form} onSubmit={(values) => submitted.push(values)} />);
+    });
+
+    await click(
+      Array.from(container.querySelectorAll('button')).find((item) =>
+        item.textContent?.includes('Config Cache')
+      ) ?? null
+    );
+    await flush();
+    await click(
+      Array.from(document.querySelectorAll('button')).find(
+        (item) => item.textContent === 'Use as Template'
+      ) ?? null
+    );
+    await flush();
+    await click(
+      Array.from(document.querySelectorAll('button'))
+        .filter((item) => item.textContent === 'Use as Template')
+        .at(-1) ?? null
+    );
+
+    assert.equal(form.getFieldValue('model_name'), 'demo');
+    assert.equal(form.getFieldValue('model_type'), ModelType.LLM);
+    assert.equal(form.getFieldValue('model_uid'), undefined);
+    assert.equal(form.getFieldValue('model_path'), '/other/path');
+
+    await act(async () => {
+      refresh.resolve({ history: [server], usedLocalFallback: false, syncFailed: false });
+      await refresh.promise;
+    });
+
+    assert.equal(form.getFieldValue('model_path'), '/other/path');
+
+    await click(
+      Array.from(container.querySelectorAll('button')).find(
+        (item) => item.textContent === 'Launch'
+      ) ?? null
+    );
+    assert.equal(submitted.length, 1);
+    assert.equal(submitted[0].model_name, 'demo');
+    assert.equal(submitted[0].model_type, ModelType.LLM);
+    assert.equal(submitted[0].model_path, '/other/path');
+  });
+
+  it('does not offer a different-type history as a launch template', async () => {
+    const audioHistory = historyItem(
+      'audio-uid',
+      1,
+      { model_path: '/audio/path' },
+      { modelName: 'whisper', modelType: ModelType.Audio }
+    );
+    const refresh = deferred<{
+      history: LaunchConfigHistoryItem[];
+      usedLocalFallback: boolean;
+      syncFailed: boolean;
+    }>();
+    readHistory = () => [audioHistory];
+    refreshHistory = () => refresh.promise;
+    const form = createForm();
+    const submitted: FormValues[] = [];
+
+    await act(async () => {
+      root.render(<Harness form={form} onSubmit={(values) => submitted.push(values)} />);
+    });
+
+    await click(
+      Array.from(container.querySelectorAll('button')).find((item) =>
+        item.textContent?.includes('Config Cache')
+      ) ?? null
+    );
+    await flush();
+
+    assert.equal(
+      Array.from(document.querySelectorAll('button')).some(
+        (item) => item.textContent === 'Use as Template'
+      ),
+      false
+    );
+    assert.equal(form.getFieldValue('model_type'), ModelType.LLM);
+    assert.equal(form.getFieldValue('model_path'), undefined);
+
+    await click(
+      Array.from(container.querySelectorAll('button')).find(
+        (item) => item.textContent === 'Launch'
+      ) ?? null
+    );
+    assert.equal(submitted.length, 1);
+    assert.equal(submitted[0].model_type, ModelType.LLM);
+    assert.equal(Object.hasOwn(submitted[0], 'model_path'), false);
   });
 
   it('replaces a cached snapshot and excludes stale optional fields from launch payload', async () => {

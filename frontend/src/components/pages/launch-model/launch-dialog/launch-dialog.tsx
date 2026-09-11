@@ -1960,6 +1960,7 @@ export default function LaunchDialog({
                 <ConfigCache
                   form={form}
                   modelName={model?.model_name}
+                  modelType={modelType}
                   refreshKey={configCacheRefreshKey}
                   onHistoryRefreshed={handleLaunchHistoryRefreshed}
                   onUserChange={markLaunchHistoryFormEdited}

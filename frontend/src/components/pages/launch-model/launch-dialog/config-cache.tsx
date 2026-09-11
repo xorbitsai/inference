@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import type { FormInstance, FormValues } from '@/types/form';
+import type { RequestModelType } from '../types';
 import { transformFetchToForm, transformFormToFetch } from '../utils';
 import {
   deleteLaunchHistory,
@@ -36,6 +37,7 @@ import {
 interface ConfigCacheProps {
   form: FormInstance;
   modelName?: string;
+  modelType: RequestModelType;
   refreshKey?: number;
   onHistoryRefreshed?: (history: LaunchConfigHistoryItem[]) => void;
   onUserChange?: () => void;
@@ -64,6 +66,7 @@ const isSameConfig = (left: FormValues, right: FormValues) => {
 export default function ConfigCache({
   form,
   modelName,
+  modelType,
   refreshKey,
   onHistoryRefreshed,
   onUserChange,
@@ -84,12 +87,12 @@ export default function ConfigCache({
     [configHistory, modelName]
   );
   const otherModelConfigHistory = useMemo(
-    () => getOtherModelLaunchHistory(configHistory, modelName, historySearch),
-    [configHistory, historySearch, modelName]
+    () => getOtherModelLaunchHistory(configHistory, modelName, modelType, historySearch),
+    [configHistory, historySearch, modelName, modelType]
   ) as LaunchConfigHistoryItem[];
   const allOtherModelConfigHistory = useMemo(
-    () => getOtherModelLaunchHistory(configHistory, modelName),
-    [configHistory, modelName]
+    () => getOtherModelLaunchHistory(configHistory, modelName, modelType),
+    [configHistory, modelName, modelType]
   ) as LaunchConfigHistoryItem[];
   const currentFetchValues = useMemo(() => {
     void formUpdateKey;
@@ -139,9 +142,10 @@ export default function ConfigCache({
     setPendingTemplateConfig(undefined);
     if (!item || !modelName) return;
 
-    const templateData = buildLaunchTemplateData(item.data, modelName);
+    const templateData = buildLaunchTemplateData(item.data, modelName, modelType);
     if (!templateData) return;
 
+    onUserChange?.();
     form.resetFields();
     form.setFieldsValue(transformFetchToForm(templateData));
     setConfigCacheOpen(false);

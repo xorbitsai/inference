@@ -14,7 +14,7 @@ import {
 } from './launch-history-utils.mjs';
 
 const item = (overrides = {}) => ({
-  data: { model_name: 'llama' },
+  data: { model_name: 'llama', model_type: 'LLM' },
   model_name: 'llama',
   model_uid: 'uid-1',
   created_by: 'alice',
@@ -162,7 +162,8 @@ test('filters owned records from other models and sorts newest first', () => {
       item({ model_name: 'mistral', model_uid: 'mistral-new', updated_at: 4 }),
       item({ model_name: 'gemma', is_owner: false, updated_at: 6 }),
     ],
-    'llama'
+    'llama',
+    'LLM'
   );
 
   assert.deepEqual(
@@ -178,11 +179,13 @@ test('searches other model history by model name and model uid case-insensitivel
   ];
 
   assert.deepEqual(
-    getOtherModelLaunchHistory(history, 'llama', 'QWEN').map((entry) => entry.model_name),
+    getOtherModelLaunchHistory(history, 'llama', 'LLM', 'QWEN').map((entry) => entry.model_name),
     ['Qwen3-Coder']
   );
   assert.deepEqual(
-    getOtherModelLaunchHistory(history, 'llama', 'prod-uid').map((entry) => entry.model_name),
+    getOtherModelLaunchHistory(history, 'llama', 'LLM', 'prod-uid').map(
+      (entry) => entry.model_name
+    ),
     ['mistral']
   );
 });
@@ -191,6 +194,7 @@ test('builds a safe cross-model template without mutating history data', () => {
   const historyData = {
     model_name: 'old-model',
     model_uid: 'old-uid',
+    model_type: 'LLM',
     model_engine: 'vllm',
     n_gpu: 2,
     envs: { TOKEN: 'value' },
@@ -209,10 +213,11 @@ test('builds a safe cross-model template without mutating history data', () => {
   };
   const original = structuredClone(historyData);
 
-  const template = buildLaunchTemplateData(historyData, 'current-model');
+  const template = buildLaunchTemplateData(historyData, 'current-model', 'LLM');
 
   assert.deepEqual(historyData, original);
   assert.equal(template.model_name, 'current-model');
+  assert.equal(template.model_type, 'LLM');
   assert.equal('model_uid' in template, false);
   assert.equal(template.model_engine, 'vllm');
   assert.deepEqual(template.envs, { TOKEN: 'value' });
@@ -235,8 +240,32 @@ test('builds a safe cross-model template without mutating history data', () => {
   }
 });
 
-test('rejects invalid cross-model template inputs', () => {
-  assert.equal(buildLaunchTemplateData(null, 'llama'), null);
-  assert.equal(buildLaunchTemplateData([], 'llama'), null);
-  assert.equal(buildLaunchTemplateData({}, ''), null);
+test('filters out history from a different model type', () => {
+  const history = [
+    item({ model_name: 'qwen', model_uid: 'qwen-llm' }),
+    item({
+      model_name: 'whisper',
+      model_uid: 'whisper-audio',
+      data: { model_name: 'whisper', model_type: 'audio' },
+    }),
+  ];
+
+  assert.deepEqual(
+    getOtherModelLaunchHistory(history, 'llama', 'LLM').map((entry) => entry.model_uid),
+    ['qwen-llm']
+  );
+});
+
+test('rejects invalid or incompatible cross-model template inputs', () => {
+  assert.equal(buildLaunchTemplateData(null, 'llama', 'LLM'), null);
+  assert.equal(buildLaunchTemplateData([], 'llama', 'LLM'), null);
+  assert.equal(buildLaunchTemplateData({}, '', 'LLM'), null);
+  assert.equal(
+    buildLaunchTemplateData(
+      { model_name: 'whisper', model_type: 'audio', model_path: '/audio/path' },
+      'llama',
+      'LLM'
+    ),
+    null
+  );
 });
