@@ -8,7 +8,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend ./
 RUN npm run build
 
-FROM continuumio/miniconda3:23.10.0-1
+# Debian 12 (Bookworm); Bullseye security support ended in August 2026.
+FROM continuumio/miniconda3:24.11.1-0
 
 RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
