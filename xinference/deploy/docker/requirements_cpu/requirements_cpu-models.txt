@@ -13,8 +13,8 @@ diffusers>=0.32.0
 gdown
 pyarrow
 HyperPyYAML
-onnxruntime-gpu==1.16.0; sys_platform == 'linux'
-onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'
+# CPU-only runtime with Python 3.12 wheels; do not install onnxruntime-gpu here.
+onnxruntime==1.30.0
 pyworld>=0.3.4  # For CosyVoice
 
 # Fish Speech
