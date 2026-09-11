@@ -15,6 +15,13 @@ RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
   && apt-get -yq clean
 
+# Keep the existing model dependency stack on Python 3.11: the pinned
+# onnxruntime-gpu 1.16.0 does not provide Python 3.12 wheels.
+RUN /opt/conda/bin/conda install -n base --override-channels -c conda-forge \
+    'python=3.11' pip -y && \
+    /opt/conda/bin/conda clean --all -y && \
+    python -c "import sys; assert sys.version_info[:2] == (3, 11)"
+
 ARG PIP_INDEX=https://pypi.org/simple
 COPY xinference/deploy/docker/requirements_cpu/ /opt/inference/xinference/deploy/docker/requirements_cpu/
 RUN --mount=type=cache,target=/root/.cache/pip \
