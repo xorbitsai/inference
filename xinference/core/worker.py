@@ -2355,6 +2355,17 @@ class WorkerActor(xo.StatelessActor):
                 generate_fn,
             ) = self._custom_register_type_to_cls[model_type]
             model_spec = model_spec_cls.parse_raw(model)
+            # parse_raw() applies the caller's JSON verbatim, and
+            # Config.extra = "allow" lets it set is_builtin as well.
+            # A client-submitted registration is never a vetted
+            # built-in, so reset it regardless of what the payload
+            # requested; allow_trust_remote_code() trusts this flag
+            # to enable trust_remote_code. This mirrors the same
+            # reset in Supervisor.register_model, needed here too
+            # since a supervisor forwards raw registrations to a
+            # specific worker via worker_ip.
+            if hasattr(model_spec, "is_builtin"):
+                model_spec.is_builtin = False
             try:
                 register_fn(model_spec, persist)
             except ValueError as e:

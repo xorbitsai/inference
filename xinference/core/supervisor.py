@@ -2198,6 +2198,14 @@ class SupervisorActor(xo.StatelessActor):
             ) = self._custom_register_type_to_cls[model_type]
 
             model_spec = model_spec_cls.parse_raw(model)
+            # parse_raw() applies the caller's JSON verbatim, and
+            # Config.extra = "allow" lets it set is_builtin as well.
+            # A client-submitted registration is never a vetted
+            # built-in, so reset it regardless of what the payload
+            # requested; allow_trust_remote_code() trusts this flag
+            # to enable trust_remote_code.
+            if hasattr(model_spec, "is_builtin"):
+                model_spec.is_builtin = False
 
             # check if model already registered
             try:
