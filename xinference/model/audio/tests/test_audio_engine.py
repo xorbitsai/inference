@@ -30,8 +30,9 @@ from .. import (
     _audio_model_variant_identity,
     _install,
     _normalize_legacy_audio_model,
-    load_model_family_from_json,
 )
+from .. import engine_family as audio_engine_family
+from .. import load_model_family_from_json
 from .. import platform as audio_platform
 from .. import sys as audio_sys
 from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
@@ -62,6 +63,7 @@ from ..engine_family import (
 )
 from ..funasr import FunASRModel
 from ..whisper import WhisperModel
+from ..yue2 import _YUE2_VENDOR_ROOT
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -347,6 +349,32 @@ def test_yue2_pytorch_engine_matches_cuda_model_spec():
     )
     with patch.object(engine_mod, "has_cuda_device", return_value=True):
         assert PyTorchYuE2AudioModel.match(_get_spec("YuE2-3B")) is True
+
+
+def test_yue2_engine_discovery_uses_vendored_runtime(monkeypatch):
+    engine_mod = __import__(
+        PyTorchYuE2AudioModel.__module__, fromlist=["has_cuda_device"]
+    )
+    find_spec = audio_engine_family.importlib.util.find_spec
+
+    def find_spec_without_external_yue2(name, *args, **kwargs):
+        if name == "yue2" and _YUE2_VENDOR_ROOT not in sys.path:
+            return None
+        return find_spec(name, *args, **kwargs)
+
+    monkeypatch.setattr(
+        sys, "path", [path for path in sys.path if path != _YUE2_VENDOR_ROOT]
+    )
+    monkeypatch.setattr(engine_mod, "has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        audio_engine_family.importlib.util,
+        "find_spec",
+        find_spec_without_external_yue2,
+    )
+
+    assert get_engine_params_by_name("audio", "YuE2-3B", enable_virtual_env=False) == {
+        "PyTorch": [{"model_name": "YuE2-3B", "model_format": "pytorch"}]
+    }
 
 
 def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):

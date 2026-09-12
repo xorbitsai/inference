@@ -33,7 +33,7 @@ from .vllm import VLLMQwen3ASRModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
-from .yue2 import YuE2Model
+from .yue2 import YuE2Model, _ensure_vendored_source_path
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
@@ -246,6 +246,7 @@ class PyTorchYuE2AudioModel(YuE2Model, AudioEngineModel):
     def check_lib(cls):
         if virtual_env_allows_missing_engine():
             return True
+        _ensure_vendored_source_path()
         return super().check_lib()
 
     @classmethod
