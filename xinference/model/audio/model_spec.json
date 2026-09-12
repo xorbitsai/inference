@@ -1938,708 +1938,6 @@
   },
   {
     "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Small",
-    "model_family": "Irodori-TTS",
-    "model_description": "Irodori-TTS v4.1 Small is a Japanese 48 kHz TTS model with voice design, zero-shot voice cloning, and emoji-based style control.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "none"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Small",
-    "cache_name": "Irodori-TTS-v4.1-Small-INT8-Weight-Only",
-    "model_family": "Irodori-TTS",
-    "model_description": "INT8 weight-only Irodori-TTS v4.1 Small for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "int8-weight-only/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "int8-weight-only/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "INT8-Weight-Only"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Small",
-    "cache_name": "Irodori-TTS-v4.1-Small-INT8-Dynamic",
-    "model_family": "Irodori-TTS",
-    "model_description": "INT8 dynamic Irodori-TTS v4.1 Small for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "int8-dynamic/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "int8-dynamic/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "INT8-Dynamic"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Small",
-    "cache_name": "Irodori-TTS-v4.1-Small-INT4-Weight-Only",
-    "model_family": "Irodori-TTS",
-    "model_description": "INT4 weight-only Irodori-TTS v4.1 Small for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "int4-weight-only/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "int4-weight-only/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "INT4-Weight-Only"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Small",
-    "cache_name": "Irodori-TTS-v4.1-Small-Float8-Weight-Only",
-    "model_family": "Irodori-TTS",
-    "model_description": "Float8 weight-only Irodori-TTS v4.1 Small for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "float8-weight-only/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "float8-weight-only/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "Float8-Weight-Only"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Small",
-    "cache_name": "Irodori-TTS-v4.1-Small-Float8-Dynamic",
-    "model_family": "Irodori-TTS",
-    "model_description": "Float8 dynamic Irodori-TTS v4.1 Small for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "float8-dynamic/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "float8-dynamic/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "Float8-Dynamic"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Anime",
-    "model_family": "Irodori-TTS",
-    "model_description": "Irodori-TTS v4.1 Anime is a Japanese 48 kHz anime-style TTS model with voice design, zero-shot voice cloning, and emoji-based style control.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "none"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Anime",
-    "cache_name": "Irodori-TTS-v4.1-Anime-INT8-Weight-Only",
-    "model_family": "Irodori-TTS",
-    "model_description": "INT8 weight-only Irodori-TTS v4.1 Anime for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "int8-weight-only/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "int8-weight-only/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "INT8-Weight-Only"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Anime",
-    "cache_name": "Irodori-TTS-v4.1-Anime-INT8-Dynamic",
-    "model_family": "Irodori-TTS",
-    "model_description": "INT8 dynamic Irodori-TTS v4.1 Anime for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "int8-dynamic/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "int8-dynamic/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "INT8-Dynamic"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Anime",
-    "cache_name": "Irodori-TTS-v4.1-Anime-INT4-Weight-Only",
-    "model_family": "Irodori-TTS",
-    "model_description": "INT4 weight-only Irodori-TTS v4.1 Anime for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "int4-weight-only/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "int4-weight-only/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "INT4-Weight-Only"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Anime",
-    "cache_name": "Irodori-TTS-v4.1-Anime-Float8-Weight-Only",
-    "model_family": "Irodori-TTS",
-    "model_description": "Float8 weight-only Irodori-TTS v4.1 Anime for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "float8-weight-only/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "float8-weight-only/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "Float8-Weight-Only"
-  },
-  {
-    "version": 2,
-    "model_name": "Irodori-TTS-v4.1-Anime",
-    "cache_name": "Irodori-TTS-v4.1-Anime-Float8-Dynamic",
-    "model_family": "Irodori-TTS",
-    "model_description": "Float8 dynamic Irodori-TTS v4.1 Anime for lower-memory Japanese voice design and voice cloning.",
-    "model_ability": [
-      "text2audio",
-      "text2audio_voice_design",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": false,
-    "model_lang": [
-      "JA"
-    ],
-    "model_format": "pytorch",
-    "model_file_name": "float8-dynamic/model.safetensors",
-    "cache_config": {
-      "allow_patterns": [
-        "float8-dynamic/model.safetensors",
-        "tokenizer/*"
-      ]
-    },
-    "virtualenv": {
-      "packages": [
-        "argbind>=0.3.7",
-        "descript-audiotools>=0.7.2",
-        "einops",
-        "huggingface-hub>=0.34.0",
-        "peft>=0.18.0",
-        "protobuf==3.19.6",
-        "safetensors>=0.7.0",
-        "sentencepiece>=0.2.1,<0.3",
-        "soundfile>=0.12.0",
-        "tqdm==4.66.5",
-        "transformers>=5.12.1,<6",
-        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
-        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1789182316,
-    "featured": false,
-    "quantization": "Float8-Dynamic"
-  },
-  {
-    "version": 2,
     "model_name": "ACE-Step1.5",
     "model_family": "ace_step_1_5",
     "model_description": "ACE-Step 1.5 generates complete songs from lyrics and a music description. The default integration uses the bundled turbo DiT model and supports optional 5Hz LM reasoning.",
@@ -2785,5 +2083,123 @@
     },
     "updated_at": 1789230828,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Irodori-TTS-v4.1-Small",
+    "cache_name": "Irodori-TTS-v4.1-Small-Float8-Dynamic",
+    "model_family": "Irodori-TTS",
+    "model_description": "Float8 dynamic Irodori-TTS v4.1 Small for lower-memory Japanese voice design and voice cloning.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": false,
+    "model_lang": [
+      "JA"
+    ],
+    "model_format": "pytorch",
+    "model_file_name": "float8-dynamic/model.safetensors",
+    "cache_config": {
+      "allow_patterns": [
+        "float8-dynamic/model.safetensors",
+        "tokenizer/*"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "argbind>=0.3.7",
+        "descript-audiotools>=0.7.2",
+        "einops",
+        "huggingface-hub>=0.34.0",
+        "peft>=0.18.0",
+        "protobuf==3.19.6",
+        "safetensors>=0.7.0",
+        "sentencepiece>=0.2.1,<0.3",
+        "soundfile>=0.12.0",
+        "tqdm==4.66.5",
+        "transformers>=5.12.1,<6",
+        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
+        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Aratako/Irodori-TTS-v4.1-Small-Quantized",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1789231715,
+    "featured": false,
+    "quantization": "Float8-Dynamic"
+  },
+  {
+    "version": 2,
+    "model_name": "Irodori-TTS-v4.1-Anime",
+    "cache_name": "Irodori-TTS-v4.1-Anime-Float8-Dynamic",
+    "model_family": "Irodori-TTS",
+    "model_description": "Float8 dynamic Irodori-TTS v4.1 Anime for lower-memory Japanese voice design and voice cloning.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": false,
+    "model_lang": [
+      "JA"
+    ],
+    "model_format": "pytorch",
+    "model_file_name": "float8-dynamic/model.safetensors",
+    "cache_config": {
+      "allow_patterns": [
+        "float8-dynamic/model.safetensors",
+        "tokenizer/*"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "argbind>=0.3.7",
+        "descript-audiotools>=0.7.2",
+        "einops",
+        "huggingface-hub>=0.34.0",
+        "peft>=0.18.0",
+        "protobuf==3.19.6",
+        "safetensors>=0.7.0",
+        "sentencepiece>=0.2.1,<0.3",
+        "soundfile>=0.12.0",
+        "tqdm==4.66.5",
+        "transformers>=5.12.1,<6",
+        "torchao>=0.16,<0.17 ; platform_machine == \"x86_64\"",
+        "torchao @ https://files.pythonhosted.org/packages/d0/3d/0c5a5833a135a045510e06c06b3d4cf316b06d59415bc21e0b021a000cc8/torchao-0.16.0-py3-none-any.whl ; platform_machine == \"aarch64\"",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "phasefield-audio/Irodori-TTS-v4.1-Anime",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1789231717,
+    "featured": false,
+    "quantization": "Float8-Dynamic"
   }
 ]
