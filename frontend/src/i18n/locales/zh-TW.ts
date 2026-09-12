@@ -55,6 +55,7 @@ const zhTW = {
     modelVersion: '模型版本',
     format: '格式',
     size: '參數規模（B）',
+    diskUsage: '磁碟用量',
     quantization: '量化',
     statusAndProgress: '狀態 / 進度',
     path: '快取路徑',

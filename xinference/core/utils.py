@@ -65,6 +65,52 @@ def normalize_n_worker(value: Any) -> int:
     return n_worker
 
 
+def get_path_size(path: str, follow_file_symlinks: bool = False) -> int:
+    """Return disk space allocated to files under *path*.
+
+    Directory symlinks are never traversed. File symlinks may be followed for
+    model caches, whose payload files commonly link to Hub-managed blobs.
+    """
+
+    if not path:
+        return 0
+    if os.path.islink(path):
+        if os.path.isdir(path) or (follow_file_symlinks and os.path.isfile(path)):
+            path = os.path.realpath(path)
+        else:
+            return 0
+
+    seen_inodes: Set[Tuple[int, int]] = set()
+
+    def get_file_size(file_path: str) -> int:
+        if os.path.islink(file_path) and not follow_file_symlinks:
+            return 0
+        try:
+            file_stat = os.stat(file_path)
+        except OSError:
+            return 0
+
+        inode = (file_stat.st_dev, file_stat.st_ino)
+        if inode in seen_inodes:
+            return 0
+        seen_inodes.add(inode)
+
+        blocks = getattr(file_stat, "st_blocks", 0)
+        return blocks * 512 if blocks else file_stat.st_size
+
+    if os.path.isfile(path):
+        return get_file_size(path)
+
+    total = 0
+    for root, dirs, files in os.walk(path, followlinks=False):
+        dirs[:] = [
+            name for name in dirs if not os.path.islink(os.path.join(root, name))
+        ]
+        for name in files:
+            total += get_file_size(os.path.join(root, name))
+    return total
+
+
 def log_async(
     logger,
     level=logging.DEBUG,

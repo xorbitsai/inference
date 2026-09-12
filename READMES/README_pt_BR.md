@@ -48,6 +48,11 @@ Xorbits Inference (Xinference) é uma biblioteca poderosa e versátil para model
 - Inferência distribuída: modelos podem ser executados entre vários workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Melhorias no vLLM: compartilhamento do KV-cache entre réplicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Novos modelos
+- Suporte integrado para [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) : [#5506](https://github.com/xorbitsai/inference/pull/5506)
+- Suporte integrado para a série Fish Audio ([S1-mini](https://huggingface.co/fishaudio/s1-mini), [S2-Pro](https://huggingface.co/fishaudio/s2-pro)) : [#5490](https://github.com/xorbitsai/inference/pull/5490)
+- Suporte integrado para [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR) : [#5475](https://github.com/xorbitsai/inference/pull/5475)
+- Suporte integrado para [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr) : [#5468](https://github.com/xorbitsai/inference/pull/5468)
+- Suporte integrado para a série JoyAI de edição de imagens ([Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers), [Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)) : [#5458](https://github.com/xorbitsai/inference/pull/5458)
 - Suporte integrado para [Breeze-TTS-2](https://huggingface.co/BreezeBlue/Breeze-TTS-2) : [#5437](https://github.com/xorbitsai/inference/pull/5437)
 - Suporte integrado para a série WeMM-Embedding ([2B](https://huggingface.co/tencent/WeMM-Embedding-2B), [4B](https://huggingface.co/tencent/WeMM-Embedding-4B), [9B](https://huggingface.co/tencent/WeMM-Embedding-9B)) : [#5439](https://github.com/xorbitsai/inference/pull/5439)
 - Suporte integrado para [NaviDC-OCR](https://huggingface.co/StarDoc-AI/NaviDC-OCR) : [#5431](https://github.com/xorbitsai/inference/pull/5431)
@@ -63,19 +68,10 @@ Xorbits Inference (Xinference) é uma biblioteca poderosa e versátil para model
 - Suporte integrado para [Ideogram4](https://huggingface.co/ideogram-ai/ideogram-4-nf4-diffusers) : [#5367](https://github.com/xorbitsai/inference/pull/5367)
 - Suporte integrado para [DeepSeek-V4-Flash-0731](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731) : [#5371](https://github.com/xorbitsai/inference/pull/5371)
 - Suporte integrado para [FireRedTTS3](https://huggingface.co/FireRedTeam/FireRedTTS3) : [#5352](https://github.com/xorbitsai/inference/pull/5352)
+- Suporte integrado para [MiniMax-H3 Lightning LoRA](https://huggingface.co/lightx2v/Minimax-h3-Turbo) : [#5338](https://github.com/xorbitsai/inference/pull/5338)
 - Suporte integrado para [MiniMax-Music3](https://huggingface.co/MiniMaxAI/MiniMax-Music3) : [#5345](https://github.com/xorbitsai/inference/pull/5345)
 - Suporte integrado para a série Qwen3.8 ([27B](https://huggingface.co/Qwen/Qwen3.8-27B), [2.4T-A95B](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B)) : [#5337](https://github.com/xorbitsai/inference/pull/5337), [#5339](https://github.com/xorbitsai/inference/pull/5339)
 - Suporte integrado para [jina-reranker-m0](https://huggingface.co/jinaai/jina-reranker-m0) : [#5327](https://github.com/xorbitsai/inference/pull/5327)
-- Suporte integrado para [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2) : [#5322](https://github.com/xorbitsai/inference/pull/5322)
-- Suporte integrado para [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) : [#5319](https://github.com/xorbitsai/inference/pull/5319)
-- Suporte integrado para a série Ling-3.0 ([tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny), [flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)) : [#5311](https://github.com/xorbitsai/inference/pull/5311)
-- Suporte integrado para [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) e [Lightning LoRA](https://huggingface.co/lightx2v/Minimax-h3-Turbo) : [#5321](https://github.com/xorbitsai/inference/pull/5321), [#5338](https://github.com/xorbitsai/inference/pull/5338)
-- Suporte integrado para a série Wan2.2 Animate 2 ([14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers), [14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)) : [#5309](https://github.com/xorbitsai/inference/pull/5309)
-- Suporte integrado para [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1) : [#5306](https://github.com/xorbitsai/inference/pull/5306)
-- Suporte integrado para a série CAMPPlus de embeddings de voz ([chinês](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common), [chinês-inglês avançado](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)) : [#5298](https://github.com/xorbitsai/inference/pull/5298)
-- Suporte integrado para [DeepDoc](https://huggingface.co/Xorbits/deepdoc) : [#5230](https://github.com/xorbitsai/inference/pull/5230)
-- Suporte integrado para [jina-reranker-v3.5](https://huggingface.co/jinaai/jina-reranker-v3.5) : [#5269](https://github.com/xorbitsai/inference/pull/5269)
-- Suporte integrado para a série R3 ([embedding](https://huggingface.co/tencent/R3-embedding-0.6b), [reranking](https://huggingface.co/tencent/R3-rerank-0.6b)) : [#5272](https://github.com/xorbitsai/inference/pull/5272)
 ### Integrações
 - [Xagent](https://github.com/xorbitsai/xagent): plataforma de agentes enterprise com planejamento, memória e integração de ferramentas.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): plataforma LLMOps para construir aplicações rapidamente com visualização e controle.

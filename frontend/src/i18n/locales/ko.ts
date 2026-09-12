@@ -43,6 +43,7 @@ const ko = {
     modelVersion: '모델 버전',
     format: '형식',
     size: '파라미터 규모(B)',
+    diskUsage: '디스크 사용량',
     quantization: '양자화',
     statusAndProgress: '상태 / 진행률',
     path: '캐시 경로',

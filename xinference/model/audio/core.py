@@ -29,6 +29,7 @@ from .fireredtts3 import FireRedTTS3Model
 from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .indextts2 import Indextts2
+from .irodori_tts import IrodoriTTSModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
@@ -84,6 +85,7 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     default_transcription_config: Optional[Dict[str, Any]]
     engine: Optional[str]
     model_format: Optional[str]
+    quantization: Optional[str]
     cache_name: Optional[str]
     virtualenv: Optional[VirtualEnvSettings]
 
@@ -101,6 +103,7 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,
             "model_engine": getattr(self, "model_engine", None),
+            "quantization": self.quantization or "none",
         }
 
     def to_version_info(self):
@@ -164,6 +167,7 @@ def match_audio(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_engine: Optional[str] = None,
+    quantization: Optional[str] = None,
 ) -> AudioModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS
@@ -187,6 +191,21 @@ def match_audio(
             ]
             if engine_families:
                 model_families = engine_families
+        if quantization is not None or any(
+            family.quantization is not None for family in model_families
+        ):
+            selected_quantization = (quantization or "none").lower()
+            quantized_families = [
+                family
+                for family in model_families
+                if (family.quantization or "none").lower() == selected_quantization
+            ]
+            if not quantized_families:
+                raise ValueError(
+                    f"Audio model {model_name} does not support quantization "
+                    f"{quantization or 'none'}."
+                )
+            model_families = quantized_families
         if download_hub is not None:
             if download_hub == "modelscope":
                 return (
@@ -222,6 +241,7 @@ def create_audio_model_instance(
     ] = None,
     model_path: Optional[str] = None,
     model_engine: Optional[str] = None,
+    quantization: Optional[str] = None,
     **kwargs,
 ) -> Union[
     AceStepModel,
@@ -243,6 +263,7 @@ def create_audio_model_instance(
     KokoroZHModel,
     MegaTTSModel,
     Indextts2,
+    IrodoriTTSModel,
     Qwen3ASRModel,
     Qwen3TTSModel,
     VoxCPMModel,
@@ -258,7 +279,12 @@ def create_audio_model_instance(
     model_name, model_engine = resolve_audio_model_name_and_engine(
         model_name, model_engine
     )
-    model_spec = match_audio(model_name, download_hub, model_engine=model_engine)
+    model_spec = match_audio(
+        model_name,
+        download_hub,
+        model_engine=model_engine,
+        quantization=quantization,
+    )
     audio_cls = None
 
     if model_spec.model_family == "ace_step_1_5":
@@ -336,6 +362,7 @@ def create_audio_model_instance(
         KokoroZHModel,
         MegaTTSModel,
         Indextts2,
+        IrodoriTTSModel,
         Qwen3ASRModel,
         Qwen3TTSModel,
         VoxCPMModel,
@@ -384,6 +411,8 @@ def create_audio_model_instance(
         model = MegaTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "IndexTTS2":
         model = Indextts2(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Irodori-TTS":
+        model = IrodoriTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "qwen3_asr":
         if (model_spec.engine or "").lower() == "mlx":
             model = MLXAudioSTTModel(model_uid, model_path, model_spec, **kwargs)

@@ -76,6 +76,7 @@ def _audio_model_variant_identity(model: "AudioModelFamilyV2"):
         model.model_name,
         model.engine,
         model.model_format,
+        model.quantization,
         model.cache_name,
         model.model_hub,
     )

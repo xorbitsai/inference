@@ -51,6 +51,11 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新模型
+- 内置支持 [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B): [#5506](https://github.com/xorbitsai/inference/pull/5506)
+- 内置支持 Fish Audio 系列（[S1-mini](https://huggingface.co/fishaudio/s1-mini)、[S2-Pro](https://huggingface.co/fishaudio/s2-pro)）: [#5490](https://github.com/xorbitsai/inference/pull/5490)
+- 内置支持 [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR): [#5475](https://github.com/xorbitsai/inference/pull/5475)
+- 内置支持 [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr): [#5468](https://github.com/xorbitsai/inference/pull/5468)
+- 内置支持 JoyAI 图像编辑系列（[Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers)、[Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)）: [#5458](https://github.com/xorbitsai/inference/pull/5458)
 - 内置支持 [Breeze-TTS-2](https://huggingface.co/BreezeBlue/Breeze-TTS-2): [#5437](https://github.com/xorbitsai/inference/pull/5437)
 - 内置支持 WeMM-Embedding 系列（[2B](https://huggingface.co/tencent/WeMM-Embedding-2B)、[4B](https://huggingface.co/tencent/WeMM-Embedding-4B)、[9B](https://huggingface.co/tencent/WeMM-Embedding-9B)）: [#5439](https://github.com/xorbitsai/inference/pull/5439)
 - 内置支持 [NaviDC-OCR](https://huggingface.co/StarDoc-AI/NaviDC-OCR): [#5431](https://github.com/xorbitsai/inference/pull/5431)
@@ -66,19 +71,10 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 内置支持 [Ideogram4](https://huggingface.co/ideogram-ai/ideogram-4-nf4-diffusers): [#5367](https://github.com/xorbitsai/inference/pull/5367)
 - 内置支持 [DeepSeek-V4-Flash-0731](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731): [#5371](https://github.com/xorbitsai/inference/pull/5371)
 - 内置支持 [FireRedTTS3](https://huggingface.co/FireRedTeam/FireRedTTS3): [#5352](https://github.com/xorbitsai/inference/pull/5352)
+- 内置支持 [MiniMax-H3 Lightning LoRA](https://huggingface.co/lightx2v/Minimax-h3-Turbo): [#5338](https://github.com/xorbitsai/inference/pull/5338)
 - 内置支持 [MiniMax-Music3](https://huggingface.co/MiniMaxAI/MiniMax-Music3): [#5345](https://github.com/xorbitsai/inference/pull/5345)
 - 内置支持 Qwen3.8 系列（[27B](https://huggingface.co/Qwen/Qwen3.8-27B)、[2.4T-A95B](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B)）: [#5337](https://github.com/xorbitsai/inference/pull/5337), [#5339](https://github.com/xorbitsai/inference/pull/5339)
 - 内置支持 [jina-reranker-m0](https://huggingface.co/jinaai/jina-reranker-m0): [#5327](https://github.com/xorbitsai/inference/pull/5327)
-- 内置支持 [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2): [#5322](https://github.com/xorbitsai/inference/pull/5322)
-- 内置支持 [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5): [#5319](https://github.com/xorbitsai/inference/pull/5319)
-- 内置支持 Ling-3.0 系列（[tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny)、[flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)）: [#5311](https://github.com/xorbitsai/inference/pull/5311)
-- 内置支持 [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) 和 [Lightning LoRA](https://huggingface.co/lightx2v/Minimax-h3-Turbo): [#5321](https://github.com/xorbitsai/inference/pull/5321), [#5338](https://github.com/xorbitsai/inference/pull/5338)
-- 内置支持 Wan2.2 Animate 2 系列（[14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers)、[14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)）: [#5309](https://github.com/xorbitsai/inference/pull/5309)
-- 内置支持 [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1): [#5306](https://github.com/xorbitsai/inference/pull/5306)
-- 内置支持 CAMPPlus 声纹嵌入系列（[中文](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common)、[中英高级版](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)）: [#5298](https://github.com/xorbitsai/inference/pull/5298)
-- 内置支持 [DeepDoc](https://huggingface.co/Xorbits/deepdoc): [#5230](https://github.com/xorbitsai/inference/pull/5230)
-- 内置支持 [jina-reranker-v3.5](https://huggingface.co/jinaai/jina-reranker-v3.5): [#5269](https://github.com/xorbitsai/inference/pull/5269)
-- 内置支持 R3 系列（[嵌入](https://huggingface.co/tencent/R3-embedding-0.6b)、[重排](https://huggingface.co/tencent/R3-rerank-0.6b)）: [#5272](https://github.com/xorbitsai/inference/pull/5272)
 ### 集成
 - [Xagent](https://github.com/xorbitsai/xagent)：企业级 Agent 平台，用于构建和运行具备规划、记忆与工具调用能力的智能体，不再受限于僵化的工作流。
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。

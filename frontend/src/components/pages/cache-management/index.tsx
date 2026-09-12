@@ -50,7 +50,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { ModelType } from '@/constants';
 import request from '@/lib/request';
-import { cn, copyToClipboard } from '@/lib/utils';
+import { cn, copyToClipboard, formatFileSize } from '@/lib/utils';
 import type { ModelCachedItem, ModelDownloadItem, ModelEnvItem } from '@/types/services';
 
 type TabValue = 'models' | 'environments';
@@ -114,6 +114,12 @@ function includesQuery(query: string, ...values: unknown[]): boolean {
       .toLowerCase()
       .includes(query)
   );
+}
+
+function formatDiskUsage(sizeBytes?: number): string {
+  return typeof sizeBytes === 'number' && Number.isFinite(sizeBytes)
+    ? formatFileSize(Math.max(0, sizeBytes))
+    : '-';
 }
 
 function SummaryCard({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
@@ -532,6 +538,7 @@ export default function CacheManagement() {
                   <col className="w-[15%]" />
                   <col className="w-[6%]" />
                   <col className="w-[5%]" />
+                  <col className="w-[7%]" />
                   <col className="w-[4%]" />
                   <col className="w-[15%]" />
                   <col className="w-[12%]" />
@@ -545,6 +552,7 @@ export default function CacheManagement() {
                     <TableHead>{t('cacheManagement.modelVersion')}</TableHead>
                     <TableHead>{t('cacheManagement.format')}</TableHead>
                     <TableHead>{t('cacheManagement.size')}</TableHead>
+                    <TableHead>{t('cacheManagement.diskUsage')}</TableHead>
                     <TableHead>{t('cacheManagement.quantization')}</TableHead>
                     <TableHead>{t('cacheManagement.statusAndProgress')}</TableHead>
                     <TableHead>{t('cacheManagement.path')}</TableHead>
@@ -645,6 +653,7 @@ export default function CacheManagement() {
                           <TableCell className="font-semibold tabular-nums">
                             {download.model_size_in_billions ?? '-'}
                           </TableCell>
+                          <TableCell>-</TableCell>
                           <TableCell>{download.quantization || '-'}</TableCell>
                           <TableCell>
                             <div className="w-full space-y-2">
@@ -741,7 +750,7 @@ export default function CacheManagement() {
                             className={cn('hover:bg-transparent', !isDetailsExpanded && 'border-0')}
                             aria-hidden={!isDetailsExpanded}
                           >
-                            <TableCell colSpan={10} className="p-0">
+                            <TableCell colSpan={11} className="p-0">
                               <Collapsible open={isDetailsExpanded}>
                                 <CollapsibleContent forceMount>
                                   <div className="space-y-3 bg-muted/10 px-4 py-3">
@@ -784,6 +793,9 @@ export default function CacheManagement() {
                       <TableCell>{item.model_format || '-'}</TableCell>
                       <TableCell className="font-semibold tabular-nums">
                         {item.model_size_in_billions ?? '-'}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {formatDiskUsage(item.size_bytes)}
                       </TableCell>
                       <TableCell>{item.quantization || '-'}</TableCell>
                       <TableCell>
@@ -842,7 +854,7 @@ export default function CacheManagement() {
 
                   {filteredDownloads.length === 0 && filteredCachedModels.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={10} className="h-64 text-center text-muted-foreground">
+                      <TableCell colSpan={11} className="h-64 text-center text-muted-foreground">
                         {t('cacheManagement.noModelCacheItems')}
                       </TableCell>
                     </TableRow>
@@ -859,6 +871,7 @@ export default function CacheManagement() {
                   <col className="w-[14%]" />
                   <col className="w-[12%]" />
                   <col className="w-[10%]" />
+                  <col className="w-[10%]" />
                   <col className="w-[21%]" />
                   <col className="w-[21%]" />
                   <col className="w-[11%]" />
@@ -869,6 +882,7 @@ export default function CacheManagement() {
                     <TableHead>{t('cacheManagement.modelName')}</TableHead>
                     <TableHead>{t('cacheManagement.engine')}</TableHead>
                     <TableHead>{t('cacheManagement.pythonVersion')}</TableHead>
+                    <TableHead>{t('cacheManagement.diskUsage')}</TableHead>
                     <TableHead>{t('cacheManagement.path')}</TableHead>
                     <TableHead>{t('cacheManagement.realPath')}</TableHead>
                     <TableHead>{t('cacheManagement.worker')}</TableHead>
@@ -884,6 +898,9 @@ export default function CacheManagement() {
                         <TableCell className="break-words font-medium">{item.model_name}</TableCell>
                         <TableCell className="break-words">{item.model_engine}</TableCell>
                         <TableCell>{item.python_version}</TableCell>
+                        <TableCell className="tabular-nums">
+                          {formatDiskUsage(item.size_bytes)}
+                        </TableCell>
                         <TableCell>
                           <PathCell path={item.path} copyLabel={t('cacheManagement.copyPath')} />
                         </TableCell>
@@ -917,7 +934,7 @@ export default function CacheManagement() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-64 text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="h-64 text-center text-muted-foreground">
                         {t('cacheManagement.noVirtualEnvironments')}
                       </TableCell>
                     </TableRow>

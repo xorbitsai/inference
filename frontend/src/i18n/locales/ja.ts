@@ -43,6 +43,7 @@ const ja = {
     modelVersion: 'モデルバージョン',
     format: '形式',
     size: 'パラメーター規模（B）',
+    diskUsage: 'ディスク使用量',
     quantization: '量子化',
     statusAndProgress: 'ステータス / 進捗',
     path: 'キャッシュパス',

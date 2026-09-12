@@ -20,6 +20,7 @@ from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
     filter_virtualenv_packages_by_markers,
+    get_path_size,
     is_valid_model_uid,
     iter_replica_model_uid,
     merge_virtual_env_packages,
@@ -46,6 +47,40 @@ def test_normalize_n_worker(value, expected):
 def test_normalize_n_worker_rejects_non_positive_or_non_integral_values(value):
     with pytest.raises(ValueError, match="n_worker must be a positive integer"):
         normalize_n_worker(value)
+
+
+def test_get_path_size_handles_file_symlinks_without_double_counting(tmp_path):
+    payload = tmp_path / "payload.bin"
+    payload.write_bytes(b"x" * 4096)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "first.bin").symlink_to(payload)
+    (cache_dir / "second.bin").symlink_to(payload)
+
+    expected = get_path_size(str(payload))
+    assert get_path_size(str(cache_dir)) == 0
+    assert get_path_size(str(cache_dir), follow_file_symlinks=True) == expected
+
+
+def test_get_path_size_never_traverses_directory_symlinks(tmp_path):
+    payload_dir = tmp_path / "payload"
+    payload_dir.mkdir()
+    (payload_dir / "payload.bin").write_bytes(b"x" * 4096)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "linked-directory").symlink_to(payload_dir, target_is_directory=True)
+
+    assert get_path_size(str(cache_dir), follow_file_symlinks=True) == 0
+
+
+def test_get_path_size_follows_root_directory_symlink(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "payload.bin").write_bytes(b"x" * 4096)
+    cache_link = tmp_path / "cache-link"
+    cache_link.symlink_to(cache_dir, target_is_directory=True)
+
+    assert get_path_size(str(cache_link)) == get_path_size(str(cache_dir))
 
 
 def test_replica_model_uid():

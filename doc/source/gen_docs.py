@@ -525,7 +525,11 @@ def main():
                 elif 'modelscope' in model_src:
                     model_id = model_src['modelscope']['model_id']
             rendered_model['engine_specs'].append(
-                {'engine': model.get('engine'), 'model_id': model_id}
+                {
+                    'engine': model.get('engine'),
+                    'quantization': model.get('quantization'),
+                    'model_id': model_id,
+                }
             )
 
         sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
@@ -535,7 +539,21 @@ def main():
 
         for model in sorted_models:
             engine_specs = model['engine_specs']
-            if len(engine_specs) > 1:
+            if any(spec['quantization'] is not None for spec in engine_specs):
+                model['specifications'] = '\n'.join(
+                    f"- **{spec['quantization'] or 'none'} model ID:** {spec['model_id']}"
+                    for spec in engine_specs
+                )
+                model['launch_engine'] = None
+                model['available_engines_section'] = (
+                    '\n\nAvailable quantizations\n'
+                    '^^^^^^^^^^^^^^^^^^^^^^^\n\n'
+                    + '\n'.join(
+                        f"* ``{spec['quantization'] or 'none'}``"
+                        for spec in engine_specs
+                    )
+                )
+            elif len(engine_specs) > 1:
                 model['specifications'] = '\n'.join(
                     f"- **{spec['engine']} model ID:** {spec['model_id']}"
                     for spec in engine_specs

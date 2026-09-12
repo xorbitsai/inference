@@ -1,0 +1,11 @@
+argbind>=0.3.7
+descript-audiotools>=0.7.2
+einops
+numpy
+torch
+torchaudio
+tqdm
+tensorboard
+numba>=0.5.7
+jupyterlab
+huggingface-hub

@@ -297,6 +297,34 @@ export default function LaunchDialog({
   );
 
   const quantizationOptions = useMemo(() => {
+    if (modelType === ModelType.Audio) {
+      const quantizations = Array.from(
+        new Set(
+          (model?.modelSpecs || [])
+            .map((spec) => toOptionValue(spec.quantization))
+            .filter(Boolean)
+        )
+      );
+
+      return quantizations.map((quantization) => {
+        const matchingSpecs = (model?.modelSpecs || []).filter(
+          (spec) => toOptionValue(spec.quantization) === quantization
+        );
+        const cached = matchingSpecs.some(
+          (spec) =>
+            cacheIndex.quantizations.has(
+              createCacheKey(toOptionValue(spec.model_format), '', quantization)
+            )
+        );
+
+        return {
+          label: quantization,
+          value: quantization,
+          suffix: cached ? t('launchModel.cached') : undefined,
+        };
+      });
+    }
+
     const quantizations =
       modelType === ModelType.LLM
         ? selectedFormatIndex?.sizes.get(modelSizeInBillionsKey)?.quantizations
@@ -317,6 +345,7 @@ export default function LaunchDialog({
     }));
   }, [
     cacheIndex.quantizations,
+    model?.modelSpecs,
     modelFormatValue,
     modelSizeInBillionsKey,
     modelType,
@@ -514,10 +543,22 @@ export default function LaunchDialog({
   }, [form, modelFormatValue, modelSizeInBillionsOptions, modelSizeInBillionsValue, modelType]);
 
   useEffect(() => {
-    if (modelFormatValue && quantizationOptions.length === 0) return;
+    if (
+      modelType !== ModelType.Audio &&
+      modelFormatValue &&
+      quantizationOptions.length === 0
+    ) {
+      return;
+    }
 
-    syncLinkedField(form, 'quantization', quantizationValue, quantizationOptions);
-  }, [form, modelFormatValue, quantizationOptions, quantizationValue]);
+    syncLinkedField(
+      form,
+      'quantization',
+      quantizationValue,
+      quantizationOptions,
+      modelType === ModelType.Audio
+    );
+  }, [form, modelFormatValue, modelType, quantizationOptions, quantizationValue]);
 
   useEffect(() => {
     if (multimodalProjectorValue && multimodalProjectorOptions.length === 0) return;
@@ -1136,6 +1177,13 @@ export default function LaunchDialog({
         label: t('launchModel.modelEngine'),
         fieldProps: { options: modelEngineOptions },
         show: !!modelEngineOptions.length,
+      },
+      {
+        name: 'quantization',
+        type: 'select',
+        label: t('launchModel.quantization'),
+        fieldProps: { options: quantizationOptions },
+        show: !!quantizationOptions.length,
       },
       {
         name: 'replica',

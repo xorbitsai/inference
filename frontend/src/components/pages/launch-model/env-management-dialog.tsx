@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyToClipboard } from '@/lib/utils';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 import type { ModelEnvItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -106,6 +106,7 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                 <TableHead>{t('launchModel.modelName')}</TableHead>
                 <TableHead>{t('launchModel.envPath')}</TableHead>
                 <TableHead>{t('launchModel.pythonVersion')}</TableHead>
+                <TableHead>{t('cacheManagement.diskUsage')}</TableHead>
                 <TableHead>{t('launchModel.ipAddress')}</TableHead>
                 <TableHead>{t('common.operation')}</TableHead>
               </TableRow>
@@ -131,6 +132,9 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                     </TableCell>
 
                     <TableCell>{item.python_version}</TableCell>
+                    <TableCell>
+                      {typeof item.size_bytes === 'number' ? formatFileSize(item.size_bytes) : '-'}
+                    </TableCell>
                     <TableCell>{item.actor_ip_address}</TableCell>
                     <TableCell>
                       <Button
@@ -146,7 +150,7 @@ const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvD
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
                     No virtual environments for now.
                   </TableCell>
                 </TableRow>

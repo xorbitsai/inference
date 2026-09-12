@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyToClipboard } from '@/lib/utils';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 import type { ModelCachedItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -113,6 +113,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
               <TableRow>
                 <TableHead>{t('launchModel.model_format')}</TableHead>
                 <TableHead>{t('launchModel.model_size_in_billions')}</TableHead>
+                <TableHead>{t('cacheManagement.diskUsage')}</TableHead>
                 <TableHead>{t('launchModel.quantizations')}</TableHead>
                 <TableHead>{t('launchModel.path')}</TableHead>
                 <TableHead>{t('launchModel.real_path')}</TableHead>
@@ -126,6 +127,9 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                   <TableRow key={`${item.model_version}:${item.actor_ip_address}`}>
                     <TableCell>{item.model_format || '-'}</TableCell>
                     <TableCell>{item.model_size_in_billions || '-'}</TableCell>
+                    <TableCell>
+                      {typeof item.size_bytes === 'number' ? formatFileSize(item.size_bytes) : '-'}
+                    </TableCell>
                     <TableCell>{item.quantization || '-'}</TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
@@ -172,7 +176,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, on
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-40 text-center text-muted-foreground">
                     No cache for now.
                   </TableCell>
                 </TableRow>

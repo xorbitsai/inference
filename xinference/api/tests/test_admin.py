@@ -377,6 +377,7 @@ async def test_list_virtual_envs_returns_list(mock_api, mock_supervisor):
     )
     assert response.status_code == 200
     assert _json_body(response) == {"list": [{"name": "venv1"}]}
+    mock_supervisor.list_virtual_envs.assert_called_once_with("qwen", "vllm", None)
 
 
 @pytest.mark.asyncio

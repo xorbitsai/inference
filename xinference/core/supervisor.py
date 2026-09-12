@@ -143,6 +143,7 @@ def _merge_audio_model_registrations(
             (
                 spec.get("model_engine"),
                 spec.get("model_format"),
+                spec.get("quantization"),
                 spec.get("cache_name"),
                 spec.get("model_hub"),
                 spec.get("model_id"),
@@ -153,6 +154,7 @@ def _merge_audio_model_registrations(
             identity = (
                 spec.get("model_engine"),
                 spec.get("model_format"),
+                spec.get("quantization"),
                 spec.get("cache_name"),
                 spec.get("model_hub"),
                 spec.get("model_id"),

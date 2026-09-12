@@ -43,6 +43,7 @@ const zh = {
     modelVersion: '模型版本',
     format: '格式',
     size: '参数规模（B）',
+    diskUsage: '磁盘占用',
     quantization: '量化',
     statusAndProgress: '状态 / 进度',
     path: '缓存路径',

@@ -51,6 +51,8 @@ The following is a list of built-in audio models in Xinference:
   
    indextts2
   
+   irodori-tts-v4.1-anime
+   irodori-tts-v4.1-small
    kokoro-82m
   
    kokoro-82m-v1.1-zh

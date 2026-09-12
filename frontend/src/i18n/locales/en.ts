@@ -43,6 +43,7 @@ const en = {
     modelVersion: 'Model Version',
     format: 'Format',
     size: 'Parameter Size (B)',
+    diskUsage: 'Disk Usage',
     quantization: 'Quantization',
     statusAndProgress: 'Status / Progress',
     path: 'Cache Path',
