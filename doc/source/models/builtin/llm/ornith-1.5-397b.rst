@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 397 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 397
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** ornith-ai/Ornith-1.5-397B
 - **Model Hubs**:  `ModelScope <https://modelscope.cn/models/ornith-ai/Ornith-1.5-397B>`__
 

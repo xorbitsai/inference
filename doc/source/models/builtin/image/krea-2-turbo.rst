@@ -17,3 +17,6 @@ Specifications
 Execute the following command to launch the model::
 
    xinference launch --model-name Krea-2-Turbo --model-type image
+
+
+
