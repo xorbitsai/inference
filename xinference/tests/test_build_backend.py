@@ -281,3 +281,24 @@ def test_project_declares_router_dependencies_and_all_includes_router():
 
     assert scripts["xinference-router"] == "xinference.deploy.router:main"
     assert scripts["xinference-router-agent"] == "xinference.deploy.router_agent:main"
+
+
+def test_project_declares_supported_python_versions_and_xoscar_floor():
+    with open(os.path.join(_REPO_ROOT, "pyproject.toml"), "rb") as f:
+        project = tomllib.load(f)["project"]
+    cpu_requirements_path = os.path.join(
+        _REPO_ROOT,
+        "xinference",
+        "deploy",
+        "docker",
+        "requirements_cpu",
+        "requirements_cpu-base.txt",
+    )
+    with open(cpu_requirements_path) as f:
+        cpu_requirements = {line.strip() for line in f if line.strip()}
+
+    assert project["requires-python"] == ">=3.10"
+    assert "Programming Language :: Python :: 3.9" not in project["classifiers"]
+    assert "Programming Language :: Python :: 3.14" in project["classifiers"]
+    assert "xoscar>=0.10.0" in project["dependencies"]
+    assert "xoscar>=0.10.0" in cpu_requirements

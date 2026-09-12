@@ -33,7 +33,9 @@ import type {
 } from '@/types/services';
 import type { FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
-import ConfigCache, { getLatestModelConfigHistory, saveLaunchConfigHistory } from './config-cache';
+import ConfigCache from './config-cache';
+import { getLatestModelConfigHistory, saveLaunchConfigHistory } from './launch-history';
+import { replaceLaunchHistoryFormSnapshot, useLaunchHistoryForm } from './use-launch-history-form';
 import type { CatalogModel, LaunchFieldConfig, RequestModelType, WorkerOption } from '../types';
 import {
   MODEL_ENGINE_TYPES,
@@ -45,7 +47,6 @@ import {
   renderLaunchFields,
   syncLinkedField,
   toOptionValue,
-  transformFetchToForm,
   transformFormToFetch,
   validateReplicaPlacement,
   normalizeProgress,
@@ -136,6 +137,11 @@ export default function LaunchDialog({
   const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
+  const {
+    markFormEdited: markLaunchHistoryFormEdited,
+    resetFormEdited: resetLaunchHistoryFormEdited,
+    handleHistoryRefreshed: handleLaunchHistoryRefreshed,
+  } = useLaunchHistoryForm(form, isOpen, model?.model_name);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cacheUidRef = useRef<string | undefined>(undefined);
   const isCanceledLaunchRef = useRef(false);
@@ -1748,8 +1754,19 @@ export default function LaunchDialog({
           ...newValues,
           model_uid: launchResponse?.model_uid || newValues.model_uid || newValues.model_name,
         };
-        saveLaunchConfigHistory(launchedValues);
-        setConfigCacheRefreshKey((key) => key + 1);
+        void saveLaunchConfigHistory(launchedValues, clusterAuth?.auth)
+          .then((historySaved) => {
+            if (!historySaved) {
+              toast.warning(t('launchModel.configHistorySyncFailed'));
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to save launch config history', error);
+            toast.warning(t('launchModel.configHistorySyncFailed'));
+          })
+          .finally(() => {
+            setConfigCacheRefreshKey((key) => key + 1);
+          });
         let autostartSaved = false;
         if (saveAutostart) {
           try {
@@ -1857,17 +1874,14 @@ export default function LaunchDialog({
   }, [fetchModelEngine, fetchWorkers, isOpen]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || clusterAuth === null) return;
 
     downloadHubTouchedRef.current = false;
-    const latestConfig = getLatestModelConfigHistory(model?.model_name);
+    resetLaunchHistoryFormEdited();
+    const latestConfig = getLatestModelConfigHistory(model?.model_name, clusterAuth.auth === true);
 
-    form.resetFields();
-
-    if (latestConfig) {
-      form.setFieldsValue(transformFetchToForm(latestConfig.data));
-    }
-  }, [form, isOpen, model?.model_name]);
+    replaceLaunchHistoryFormSnapshot(form, latestConfig);
+  }, [clusterAuth, form, isOpen, model?.model_name, resetLaunchHistoryFormEdited]);
 
   useEffect(() => {
     if (!isOpen || (clusterAuth?.auth && !hasSettingsRead)) return;
@@ -1946,9 +1960,16 @@ export default function LaunchDialog({
                 <ConfigCache
                   form={form}
                   modelName={model?.model_name}
+                  modelType={modelType}
                   refreshKey={configCacheRefreshKey}
+                  onHistoryRefreshed={handleLaunchHistoryRefreshed}
+                  onUserChange={markLaunchHistoryFormEdited}
                 />
-                <CommandLine form={form} canCopyCommandLine={isReady} />
+                <CommandLine
+                  form={form}
+                  canCopyCommandLine={isReady}
+                  onUserChange={markLaunchHistoryFormEdited}
+                />
               </div>
             </div>
           </DialogHeader>
@@ -1956,6 +1977,7 @@ export default function LaunchDialog({
             id={formId}
             form={form}
             onFinish={handleLaunch}
+            onUserChange={markLaunchHistoryFormEdited}
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >

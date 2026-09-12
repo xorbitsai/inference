@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import { useWatch } from '@/hooks/use-form';
+import { useFormContext } from '@/components/ui/form';
 import type { FormInstance } from '@/types/form';
 import type { WorkerOption } from '../types';
 
@@ -37,6 +38,7 @@ interface ReplicaPlacementConfigProps {
  */
 const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerOptions }) => {
   const { t } = useI18n();
+  const { notifyUserChange } = useFormContext();
   const engine = useWatch('model_engine', form);
   const supportsPD = String(engine).toLowerCase() === 'vllm';
   const columns = supportsPD ? 'grid-cols-[1fr_2fr_1fr_1fr]' : 'grid-cols-[1fr_2fr_1fr]';
@@ -45,6 +47,7 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerO
   const patchRow = (index: number, patch: Partial<ReplicaConfigRow>) => {
     const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
     form.setFieldsValue({ replica_config: next });
+    notifyUserChange();
   };
 
   if (rows.length === 0) {

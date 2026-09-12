@@ -288,3 +288,23 @@ Example usage:
 .. code-block:: bash
 
   xinference launch -n qwen3-xxx --model-engine vllm --enable-thinking
+
+Launch Configuration History
+============================
+
+After a model is launched successfully from the Web UI, Xinference stores its
+launch configuration in the Supervisor launch-history database and keeps a
+user-scoped browser cache for fast access and temporary network failures. When
+the deployment dialog is opened again, the newest server-backed configuration
+is restored unless the user has already started editing the form.
+
+The configuration history dialog can remove records owned by the current user.
+Records used by automatic startup are protected from deletion. In authenticated
+deployments, browser caches are separated by the username in the access token;
+configuration data owned by another user is not placed in that cache.
+
+The history dialog also lists configurations owned by the current user for
+other model names. These records are never applied automatically. After the
+user confirms **Use as Template**, Xinference keeps the current model name,
+removes the previous model UID and history or automatic-startup metadata, and
+copies the remaining launch options into the form without starting a model.

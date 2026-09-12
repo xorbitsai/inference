@@ -2097,7 +2097,7 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     import xinference.model.llm as llm_module
 
     spec_path = os.path.join(os.path.dirname(llm_module.__file__), "llm_family.json")
-    with open(spec_path) as f:
+    with open(spec_path, encoding="utf-8") as f:
         downloaded_entry = json.load(f)[0]
     model_name = "downloaded-only-llm-refresh-test"
     downloaded_entry["model_name"] = model_name
@@ -2105,7 +2105,7 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "llm")
     os.makedirs(builtin_dir, exist_ok=True)
     catalog_path = os.path.join(builtin_dir, "llm_models.json")
-    with open(catalog_path, "w") as f:
+    with open(catalog_path, "w", encoding="utf-8") as f:
         json.dump([downloaded_entry], f)
 
     register_builtin_model()
@@ -2121,7 +2121,7 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     assert len(active) == 1
     assert active[0].is_builtin is False
 
-    with open(catalog_path, "w") as f:
+    with open(catalog_path, "w", encoding="utf-8") as f:
         json.dump([], f)
     register_builtin_model()
     assert not any(f.model_name == model_name for f in BUILTIN_LLM_FAMILIES)

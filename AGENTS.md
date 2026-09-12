@@ -56,7 +56,7 @@ Notes:
   `build_web.py`) unless `NO_WEB_UI=1` is set.
 - For Python 3.12 and newer, CI installs `setuptools<82`; use the same pin if
   packaging or editable installs fail.
-- The project supports Python 3.10 through 3.13 in CI.
+- The project supports Python 3.10 through 3.14 in CI.
 - Optional model engines have extras in `pyproject.toml`, such as
   `transformers`, `vllm`, `mlx`, `embedding`, `rerank`, `image`, `video`, and
   `audio`.
@@ -186,7 +186,8 @@ The main CI workflow:
 
 - Runs `pre-commit run --all-files`.
 - Runs UI `npm ci`, `npx eslint .`, and Prettier check.
-- Tests Python 3.10 through 3.13 across Linux, macOS, and Windows.
+- Tests Python 3.10 through 3.14: every supported version on Linux, and the
+  minimum and maximum supported versions on macOS and Windows.
 - Has special GPU and macOS Metal jobs for model-specific paths.
 
 Before marking a change done, run the smallest meaningful validation command

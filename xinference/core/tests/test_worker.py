@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -165,10 +166,21 @@ class MockWorkerActor(WorkerActor):
             self._registered = True
             self._supervisor_ref_generation += 1
 
-    def set_gpu_attribution_tables_for_test(self, pid, subpool, total_devices):
+    def set_gpu_attribution_tables_for_test(
+        self, pid, subpool, total_devices, subpool_addresses=None
+    ):
         self._model_uid_to_pid = dict(pid)
         self._model_uid_to_subpool_pids = {k: set(v) for k, v in subpool.items()}
+        self._model_uid_to_subpool_addresses = {
+            k: set(v) for k, v in (subpool_addresses or {}).items()
+        }
         self._total_gpu_devices = list(total_devices)
+
+    def set_subpool_process_pid_for_test(self, address, pid):
+        self._main_pool.sub_processes[address] = SimpleNamespace(pid=pid)
+
+    def remove_subpool_process_for_test(self, address):
+        self._main_pool.sub_processes.pop(address, None)
 
 
 @pytest.mark.asyncio
@@ -2316,21 +2328,68 @@ async def _make_gpu_worker(pool, cuda_devices=(0, 1)):
     return worker, sup
 
 
-def _patch_gpu_sources(monkeypatch, gpu_mem, children_map=None, calls=None):
+def _patch_gpu_sources(
+    monkeypatch, gpu_mem, children_map=None, calls=None, error=None, node_info=None
+):
     import psutil
 
-    def _fake_get_per_process_gpu_memory():
+    def _fake_get_per_process_gpu_memory(*, strict=False):
         if calls is not None:
-            calls.append("called")
+            calls.append(("called", strict))
+        if error is not None:
+            raise error
         return gpu_mem
 
-    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {})
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: node_info or {}
+    )
     monkeypatch.setattr(
         "xinference.device_utils.get_per_process_gpu_memory",
         _fake_get_per_process_gpu_memory,
     )
     _FakeProcess._children_map = children_map or {}
     monkeypatch.setattr(psutil, "Process", _FakeProcess)
+
+
+def _fake_pynvml(*, init_error=None, process_error=None):
+    class NVMLError(Exception):
+        pass
+
+    def nvml_init():
+        if init_error is not None:
+            raise init_error
+
+    def get_processes(_handle):
+        if process_error is not None:
+            raise process_error
+        return []
+
+    return SimpleNamespace(
+        NVMLError=NVMLError,
+        nvmlInit=nvml_init,
+        nvmlShutdown=lambda: None,
+        nvmlDeviceGetCount=lambda: 1,
+        nvmlDeviceGetHandleByIndex=lambda _index: object(),
+        nvmlDeviceGetComputeRunningProcesses=get_processes,
+    )
+
+
+def test_get_per_process_gpu_memory_strict_distinguishes_empty_from_failure(
+    monkeypatch,
+):
+    from xinference.device_utils import get_per_process_gpu_memory
+
+    fake = _fake_pynvml()
+    monkeypatch.setitem(sys.modules, "pynvml", fake)
+    assert get_per_process_gpu_memory(strict=True) == {}
+
+    nvml_error = fake.NVMLError("driver unavailable")
+    monkeypatch.setitem(sys.modules, "pynvml", _fake_pynvml(init_error=nvml_error))
+    with pytest.raises(type(nvml_error), match="driver unavailable"):
+        get_per_process_gpu_memory(strict=True)
+
+    # Preserve the historical non-strict compatibility behavior.
+    assert get_per_process_gpu_memory() == {}
 
 
 @pytest.mark.asyncio
@@ -2405,6 +2464,53 @@ async def test_report_status_replicas_do_not_cross_or_double_count(
 
 
 @pytest.mark.asyncio
+async def test_report_status_ignores_none_subpool_pid(setup_pool, monkeypatch):
+    import psutil
+
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {None, 100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 512}})
+    fake_process = psutil.Process
+    expanded_pids = []
+
+    def record_process(pid):
+        assert pid is not None
+        expanded_pids.append(pid)
+        return fake_process(pid)
+
+    monkeypatch.setattr(psutil, "Process", record_process)
+
+    await worker.report_status()
+
+    assert expanded_pids == [100]
+    assert sup.report_worker_status_calls[-1][1]["model_gpu_memory"] == {"A": {0: 512}}
+
+
+@pytest.mark.asyncio
+async def test_report_status_tolerates_zombie_process_during_pid_expansion(
+    setup_pool, monkeypatch
+):
+    import psutil
+
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={})
+
+    def raise_zombie(_pid):
+        raise psutil.ZombieProcess(100)
+
+    monkeypatch.setattr(psutil, "Process", raise_zombie)
+
+    await worker.report_status()
+
+    assert sup.report_worker_status_calls[-1][1]["model_gpu_memory"] == {}
+
+
+@pytest.mark.asyncio
 async def test_report_status_skips_gpu_collection_when_cpu_only(
     setup_pool, monkeypatch
 ):
@@ -2421,6 +2527,130 @@ async def test_report_status_skips_gpu_collection_when_cpu_only(
     status = sup.report_worker_status_calls[-1][1]
     assert "model_gpu_memory" not in status
     assert calls == []  # NVML never queried on CPU-only worker
+
+
+@pytest.mark.asyncio
+async def test_report_status_publishes_explicit_empty_gpu_snapshot(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={}, total_devices=[0]
+    )
+    calls: list = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={}, calls=calls)
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status["model_gpu_memory"] == {}
+    assert calls == [("called", True)]
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_gpu_snapshot_on_collection_failure(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(
+        monkeypatch,
+        gpu_mem={},
+        error=RuntimeError("NVML unavailable"),
+        node_info={"cpu": "ok"},
+    )
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status == {"cpu": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_ambiguous_gpu_pid_ownership(setup_pool, monkeypatch):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {100}, "B": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}})
+
+    await worker.report_status()
+
+    assert "model_gpu_memory" not in sup.report_worker_status_calls[-1][1]
+
+
+def test_refresh_model_subpool_pids_replaces_stale_pid():
+    class _Process:
+        def __init__(self, pid):
+            self.pid = pid
+
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(
+            sub_processes={"pool-a": _Process(200), "pool-b": _Process(300)}
+        ),
+        _model_uid_to_subpool_addresses={"A": {"pool-a", "pool-b"}},
+        _model_uid_to_subpool_pids={"A": {100}},
+    )
+
+    WorkerActor._refresh_model_subpool_pids(worker)  # type: ignore[arg-type]
+
+    assert worker._model_uid_to_subpool_pids == {"A": {200, 300}}
+
+
+def test_refresh_model_subpool_pids_preserves_snapshot_when_address_unresolved():
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(sub_processes={}),
+        _model_uid_to_subpool_addresses={"A": {"pool-a"}},
+        _model_uid_to_subpool_pids={"A": {100}},
+    )
+
+    with pytest.raises(RuntimeError, match="ownership is incomplete"):
+        WorkerActor._refresh_model_subpool_pids(worker)  # type: ignore[arg-type]
+
+    assert worker._model_uid_to_subpool_pids == {"A": {100}}
+
+
+@pytest.mark.asyncio
+async def test_report_status_omits_snapshot_when_subpool_address_unresolved(
+    setup_pool, monkeypatch
+):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={},
+        subpool={"A": {100}},
+        subpool_addresses={"A": {"missing-pool"}},
+        total_devices=[0],
+    )
+    calls = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}}, calls=calls)
+
+    await worker.report_status()
+
+    assert "model_gpu_memory" not in sup.report_worker_status_calls[-1][1]
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_report_status_uses_refreshed_subpool_pid(setup_pool, monkeypatch):
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_subpool_process_pid_for_test("dynamic-pool", 200)
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={},
+        subpool={"A": {100}},
+        subpool_addresses={"A": {"dynamic-pool"}},
+        total_devices=[0],
+    )
+    _patch_gpu_sources(monkeypatch, gpu_mem={200: {0: 2048}})
+
+    try:
+        await worker.report_status()
+
+        status = sup.report_worker_status_calls[-1][1]
+        assert status["model_gpu_memory"] == {"A": {0: 2048}}
+    finally:
+        await worker.remove_subpool_process_for_test("dynamic-pool")
 
 
 @pytest.mark.asyncio
@@ -2684,9 +2914,73 @@ async def test_periodical_report_status_recovers_from_runtime_error(
 
     await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
 
+    # The full report is due on the first loop and must still run even when
+    # heartbeat fails. Its cancellation then stops the loop normally.
+    assert heartbeat_calls == 1
+    assert report_calls == 1
+    assert sleep_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_periodical_report_failure_does_not_stop_later_heartbeat(monkeypatch):
+    heartbeat_calls = 0
+    report_calls = 0
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 2:
+                raise asyncio.CancelledError
+
+        async def report_status(self):
+            nonlocal report_calls
+            report_calls += 1
+            raise RuntimeError("status upload failed")
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
     assert heartbeat_calls == 2
     assert report_calls == 1
     assert sleep_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_failure_does_not_reset_full_status_cadence(monkeypatch):
+    heartbeat_calls = 0
+    report_heartbeats = []
+    sleep_calls = 0
+
+    class DummyWorker:
+        async def heartbeat(self):
+            nonlocal heartbeat_calls
+            heartbeat_calls += 1
+            if heartbeat_calls == 1:
+                raise RuntimeError("heartbeat failed")
+            if heartbeat_calls == 4:
+                raise asyncio.CancelledError
+
+        async def report_status(self):
+            report_heartbeats.append(heartbeat_calls)
+
+    async def fake_sleep(_interval):
+        nonlocal sleep_calls
+        sleep_calls += 1
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_STATUS_REPORT_MULTIPLIER", 2)
+
+    await WorkerActor._periodical_report_status(DummyWorker())  # type: ignore[arg-type]
+
+    assert report_heartbeats == [1, 3]
+    assert sleep_calls == 3
 
 
 def test_clear_supervisor_refs_does_not_remove_newer_reference():
@@ -2856,7 +3150,9 @@ async def test_periodical_report_status_reregisters_after_heartbeat_failure(
 
     assert stale_supervisor.heartbeat_calls == [worker.address]
     assert stale_supervisor.add_worker_calls == []
-    assert fresh_supervisor.heartbeat_calls == [worker.address]
+    # The due full report reconnects immediately after heartbeat invalidates
+    # the stale reference; it does not wait for a second heartbeat interval.
+    assert fresh_supervisor.heartbeat_calls == []
     assert fresh_supervisor.add_worker_calls == [
         (
             worker.address,
@@ -2869,7 +3165,7 @@ async def test_periodical_report_status_reregisters_after_heartbeat_failure(
     ]
     assert worker._supervisor_ref is fresh_supervisor
     assert worker._registered is True
-    assert sleep_calls == 1
+    assert sleep_calls == 0
 
 
 @pytest.mark.asyncio

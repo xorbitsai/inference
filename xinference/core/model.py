@@ -836,8 +836,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # Directly delegate to model, let model decide how to handle (batching or not)
         kwargs.pop("raw_params", None)
         if hasattr(self._model, "generate"):
-            # not support request_id for generate
-            kwargs.pop("request_id", None)
+            request_id = kwargs.pop("request_id", None)
+            if request_id is not None and getattr(
+                self._model, "_batch_scheduler", None
+            ):
+                # Batched Transformers models read request IDs from the generation
+                # config. Keep the actor-only keyword away from the model method,
+                # whose signature does not accept arbitrary keyword arguments.
+                generate_config = args[0] if args else kwargs.get("generate_config")
+                generate_config = dict(generate_config or {})
+                generate_config["request_id"] = str(request_id)
+                if args:
+                    args = (generate_config, *args[1:])
+                else:
+                    kwargs["generate_config"] = generate_config
             return await self._call_wrapper_json(
                 self._model.generate, prompt, *args, **kwargs
             )

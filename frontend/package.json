@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "format": "prettier . --write",
     "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs",
-    "test:capability-task-panel": "node --test src/components/pages/running-model-detail/panels/capability-task-panel.test.mjs"
+    "test:capability-task-panel": "node --test src/components/pages/running-model-detail/panels/capability-task-panel.test.mjs",
+    "test:launch-history": "node --test src/components/pages/launch-model/launch-dialog/launch-history-utils.test.mjs && node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/launch-history-form.integration.test.tsx"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

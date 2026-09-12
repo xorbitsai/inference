@@ -148,6 +148,10 @@ async def test_autostart_transitional_model_preserves_retry_attempts(model_statu
 
 class _DummyReplicaDeathSupervisor:
     mark_replica_dead = SupervisorActor.mark_replica_dead
+    _clear_replica_model_gpu_memory = SupervisorActor._clear_replica_model_gpu_memory
+    _invalidate_list_models_debounce_cache = (
+        SupervisorActor._invalidate_list_models_debounce_cache
+    )
     _get_model_uid_and_replica_index = staticmethod(
         SupervisorActor._get_model_uid_and_replica_index
     )
@@ -157,6 +161,11 @@ class _DummyReplicaDeathSupervisor:
 
     def __init__(self, remaining_after_evict: int):
         self._unexpected_down_replicas: dict = {}
+        self._worker_model_gpu_memory: dict = {}
+        self._worker_model_gpu_memory_update_time: dict = {}
+        self._list_models_result_cache: dict = {}
+        self._list_models_result_cache_time = 0.0
+        self._list_models_cache_version = 0
         self._replica_model_uid_to_worker: dict = {"uid-1-rep0": object()}
         self._replica_model_uid_to_worker_shards: dict = {}
         self._model_uid_to_replica_info = {
@@ -230,6 +239,10 @@ class _StopCheckLoop(Exception):
 
 
 class _DummyDeadWorkerSupervisor:
+    _clear_worker_model_gpu_memory = SupervisorActor._clear_worker_model_gpu_memory
+    _invalidate_list_models_debounce_cache = (
+        SupervisorActor._invalidate_list_models_debounce_cache
+    )
     _get_model_uid_and_replica_index = staticmethod(
         SupervisorActor._get_model_uid_and_replica_index
     )
@@ -261,6 +274,10 @@ class _DummyDeadWorkerSupervisor:
         }
         self._worker_address_to_worker = {"dead-worker:1000": worker_ref}
         self._worker_model_gpu_memory = {"dead-worker:1000": {}}
+        self._worker_model_gpu_memory_update_time = {"dead-worker:1000": 1.0}
+        self._list_models_result_cache: dict = {}
+        self._list_models_result_cache_time = 0.0
+        self._list_models_cache_version = 0
         self._replica_model_uid_to_worker = {"uid-1-rep0": worker_ref}
         self._replica_model_uid_to_worker_shards: dict = {}
         self._model_uid_to_replica_info = {

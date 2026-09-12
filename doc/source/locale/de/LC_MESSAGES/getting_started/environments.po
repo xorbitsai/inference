@@ -463,3 +463,10 @@ msgstr ""
 "Anzahl der Tage, die Audit-Log-Dateien aufbewahrt werden. Der "
 "Standardwert ist 90. Siehe :ref:`user_guide_audit_security`."
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "Maximales Alter in Sekunden für den letzten gültigen GPU-Speicher-Snapshot pro Modell, den der Supervisor behält, wenn ein Worker das Feld auslässt, weil die Erfassung fehlgeschlagen ist oder übersprungen wurde. Ein explizit leerer Snapshot löscht den Cache weiterhin sofort. Der Standardwert ist 90."

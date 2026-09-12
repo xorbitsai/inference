@@ -141,18 +141,24 @@ class LaunchHistoryStore:
         self,
         model_name: Optional[str] = None,
         username: Optional[str] = None,
+        owner_only: bool = False,
     ) -> List[Dict[str, Any]]:
+        filters = []
+        params: List[Any] = []
+        if model_name:
+            filters.append("model_name = ?")
+            params.append(model_name)
+        if owner_only:
+            filters.append("created_by = ?")
+            params.append(username or "")
+
+        query = "SELECT * FROM launch_history"
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
+        query += " ORDER BY updated_at DESC"
+
         with self._get_conn() as conn:
-            if model_name:
-                rows = conn.execute(
-                    "SELECT * FROM launch_history WHERE model_name = ? "
-                    "ORDER BY updated_at DESC",
-                    (model_name,),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM launch_history ORDER BY updated_at DESC"
-                ).fetchall()
+            rows = conn.execute(query, params).fetchall()
         return [self._row_to_item(row, username) for row in rows]
 
     @staticmethod

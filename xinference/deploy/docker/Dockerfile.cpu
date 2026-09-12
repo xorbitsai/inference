@@ -8,7 +8,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend ./
 RUN npm run build
 
-FROM continuumio/miniconda3:23.10.0-1
+# Debian 12 (Bookworm); Bullseye security support ended in August 2026.
+FROM continuumio/miniconda3:24.11.1-0
 
 RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
@@ -22,7 +23,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt && \
     pip install -i "$PIP_INDEX" --no-build-isolation "gptqmodel<6.0.0" && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-ml.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy  only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt && \
+    pip install -i "$PIP_INDEX" --only-binary=pynini --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt && \
     pip install -i "$PIP_INDEX" "xllamacpp" && \
     pip install -i "$PIP_INDEX" "kernels==0.14.1"
 
@@ -35,7 +36,8 @@ COPY . /opt/inference
 COPY --from=web-builder /opt/inference/xinference/ui/web/dist /opt/inference/xinference/ui/web/dist
 WORKDIR /opt/inference
 RUN --mount=type=cache,target=/root/.cache/pip \
-    NO_WEB_UI=1 pip install -i "$PIP_INDEX" --no-deps "."
+    NO_WEB_UI=1 pip install -i "$PIP_INDEX" --no-deps "." && \
+    python -c "import onnxruntime as ort; assert 'CPUExecutionProvider' in ort.get_available_providers(); assert 'CUDAExecutionProvider' not in ort.get_available_providers()"
 
 ENTRYPOINT []
 CMD ["/bin/bash"]

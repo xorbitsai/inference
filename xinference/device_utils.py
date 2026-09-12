@@ -632,10 +632,13 @@ def get_gpu_info() -> Dict:
     return spec.get_gpu_info_fn()
 
 
-def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
+def get_per_process_gpu_memory(*, strict: bool = False) -> Dict[int, Dict[int, int]]:
     """Query per-process GPU memory usage via pynvml.
 
-    Returns: {pid: {gpu_index: memory_bytes}}
+    Returns ``{pid: {gpu_index: memory_bytes}}``.  The historical default keeps
+    returning an empty mapping when NVML is unavailable.  Workers use
+    ``strict=True`` so collection failures are distinguishable from a
+    successful collection that found no GPU processes.
     """
     result: Dict[int, Dict[int, int]] = {}
     try:
@@ -648,34 +651,40 @@ def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
             nvmlShutdown,
         )
     except ImportError:
+        if strict:
+            raise
         return result
 
+    initialized = False
     try:
         nvmlInit()
-    except Exception:
-        return result
-
-    try:
+        initialized = True
         device_count = nvmlDeviceGetCount()
         for i in range(device_count):
             try:
                 handle = nvmlDeviceGetHandleByIndex(i)
                 processes = nvmlDeviceGetComputeRunningProcesses(handle)
             except NVMLError:
+                if strict:
+                    raise
                 continue
             for proc in processes:
                 mem = getattr(proc, "usedGpuMemory", None)
                 if mem is None:
                     continue
-                if proc.pid not in result:
-                    result[proc.pid] = {}
-                result[proc.pid][i] = mem
+                result.setdefault(proc.pid, {})[i] = mem
     except NVMLError:
-        pass
+        if strict:
+            raise
+    except Exception:
+        if strict:
+            raise
     finally:
-        try:
-            nvmlShutdown()
-        except Exception:
-            pass
+        if initialized:
+            try:
+                nvmlShutdown()
+            except Exception:
+                if strict:
+                    logger.warning("Failed to shut down NVML", exc_info=True)
 
     return result

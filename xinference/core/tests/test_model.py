@@ -15,6 +15,7 @@
 import asyncio
 import json
 import types
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -429,3 +430,33 @@ async def test_chat_with_non_dict_usage_does_not_crash(_chat_pool):
             first if isinstance(first, (bytes, str)) else first.decode()
         )
     assert parsed["choices"][0]["message"]["content"] == "hi"
+
+
+class _BatchGenerateModel:
+    allow_batch = True
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self._batch_scheduler = object()
+        self.generate_config = None
+
+    async def generate(self, prompt, generate_config=None):
+        self.generate_config = generate_config
+        return {"prompt": prompt}
+
+
+@pytest.mark.asyncio
+async def test_generate_moves_request_id_into_batch_config():
+    model = _BatchGenerateModel()
+    actor = ModelActor("test:123", "test:345", model, "test_model")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    generate_config = {"max_tokens": 1}
+
+    result = await actor.generate(
+        "prompt", generate_config, request_id=123, raw_params={"ignored": True}
+    )
+
+    assert json.loads(result) == {"prompt": "prompt"}
+    assert model.generate_config == {"max_tokens": 1, "request_id": "123"}
+    assert generate_config == {"max_tokens": 1}

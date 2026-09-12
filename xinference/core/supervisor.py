@@ -54,6 +54,7 @@ from ..constants import (
     XINFERENCE_LAUNCH_STRATEGY,
     XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+    XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL,
     XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS,
     XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS,
     XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS,
@@ -282,6 +283,7 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
             {}
         )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
+        self._worker_model_gpu_memory_update_time: Dict[str, float] = {}
         # Replicas currently down due to worker failure. Key is
         # (base_model_uid, replica_index), value is model_name. Populated on the
         # death-detection paths, cleared on redeploy. Serialized in
@@ -1659,6 +1661,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_cluster_metrics_data(self) -> Dict:
         """Return all data needed to refresh Supervisor-side Prometheus gauges."""
+        self._expire_worker_model_gpu_memory()
         workers: Dict[str, Any] = {}
         for addr, ws in self._worker_status.items():
             workers[addr] = ws.status
@@ -4339,7 +4342,7 @@ class SupervisorActor(xo.StatelessActor):
                     await self._handle_dead_worker(address)
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
-                    self._worker_model_gpu_memory.pop(address, None)
+                    self._clear_worker_model_gpu_memory(address)
                 if dead_nodes:
                     # Autostart owns relaunching a model TERMINATED above, same
                     # trigger as mark_replica_dead's last-replica-death path.
@@ -4417,7 +4420,7 @@ class SupervisorActor(xo.StatelessActor):
                             await self._handle_dead_worker(address)
                             self._worker_status.pop(address, None)
                             self._worker_address_to_worker.pop(address, None)
-                            self._worker_model_gpu_memory.pop(address, None)
+                            self._clear_worker_model_gpu_memory(address)
                             self._schedule_autostart()
                             dead_nodes.append(address)
                             self._reverse_ping_failures.pop(address, None)
@@ -4487,6 +4490,8 @@ class SupervisorActor(xo.StatelessActor):
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
+        for replica_model_uid in rep_model_uids:
+            self._clear_replica_model_gpu_memory(replica_model_uid)
         self._invalidate_list_models_debounce_cache()
 
         await self._cleanup_distributed_actors(model_uid)
@@ -4990,6 +4995,7 @@ class SupervisorActor(xo.StatelessActor):
                 ),
             },
         )
+        self._clear_replica_model_gpu_memory(replica_model_uid)
         self._unexpected_down_replicas.pop((model_uid, replica_id), None)
         self._invalidate_list_models_debounce_cache()
         if remaining_replica_count > 0:
@@ -5137,6 +5143,7 @@ class SupervisorActor(xo.StatelessActor):
         # worker_ref.terminate_model.
         self._replica_model_uid_to_worker.pop(replica_model_uid, None)
         self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        self._clear_replica_model_gpu_memory(replica_model_uid)
         replica_info.replica_to_worker_refs.pop(replica_idx, None)
         replica_info.active_replica_ids.remove(replica_idx)
         self._refresh_replica_scheduler(replica_info)
@@ -5265,6 +5272,96 @@ class SupervisorActor(xo.StatelessActor):
         info["replica"] = replica_info.replica
         return info
 
+    def _clear_worker_model_gpu_memory(self, worker_address: str) -> bool:
+        removed = self._worker_model_gpu_memory.pop(worker_address, None) is not None
+        self._worker_model_gpu_memory_update_time.pop(worker_address, None)
+        if removed:
+            self._invalidate_list_models_debounce_cache()
+        return removed
+
+    def _clear_replica_model_gpu_memory(self, replica_model_uid: str) -> bool:
+        """Remove one replica without discarding other models on its worker."""
+        changed = False
+        for worker_address, per_model in list(self._worker_model_gpu_memory.items()):
+            if per_model.pop(replica_model_uid, None) is None:
+                continue
+            changed = True
+            if not per_model:
+                self._worker_model_gpu_memory.pop(worker_address, None)
+                self._worker_model_gpu_memory_update_time.pop(worker_address, None)
+        if changed:
+            self._invalidate_list_models_debounce_cache()
+        return changed
+
+    def _expire_worker_model_gpu_memory(self, now: Optional[float] = None) -> bool:
+        """Drop GPU-memory snapshots that have exceeded their trust TTL."""
+        now = time.time() if now is None else now
+        expired_workers = [
+            worker_address
+            for worker_address in self._worker_model_gpu_memory
+            if now - self._worker_model_gpu_memory_update_time.get(worker_address, 0.0)
+            > XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
+        ]
+        if not expired_workers:
+            return False
+
+        for worker_address in expired_workers:
+            self._worker_model_gpu_memory.pop(worker_address, None)
+            self._worker_model_gpu_memory_update_time.pop(worker_address, None)
+            logger.info(
+                "Expired model GPU memory snapshot for worker %s after %ss",
+                worker_address,
+                XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL,
+            )
+        self._invalidate_list_models_debounce_cache()
+        return True
+
+    @staticmethod
+    def _is_valid_model_gpu_memory(value: object) -> bool:
+        if not isinstance(value, dict):
+            return False
+        return all(
+            isinstance(replica_uid, str)
+            and isinstance(per_gpu, dict)
+            and bool(per_gpu)
+            and all(
+                (
+                    (isinstance(gpu_idx, int) and not isinstance(gpu_idx, bool))
+                    or (isinstance(gpu_idx, str) and gpu_idx.isdigit())
+                )
+                and isinstance(memory, int)
+                and not isinstance(memory, bool)
+                and memory >= 0
+                for gpu_idx, memory in per_gpu.items()
+            )
+            for replica_uid, per_gpu in value.items()
+        )
+
+    def _process_model_gpu_memory_report(
+        self, worker_address: str, status: Dict[str, Any]
+    ) -> None:
+        """Apply the internal three-state GPU-memory telemetry protocol."""
+        if not isinstance(status, dict) or "model_gpu_memory" not in status:
+            # Collection was skipped or failed. Keep the last valid snapshot
+            # until its trust TTL expires.
+            return
+
+        model_gpu_memory = status.pop("model_gpu_memory")
+        if not self._is_valid_model_gpu_memory(model_gpu_memory):
+            logger.warning(
+                "Ignoring invalid model_gpu_memory from worker %s: %s",
+                worker_address,
+                type(model_gpu_memory).__name__,
+            )
+            return
+
+        if model_gpu_memory:
+            self._worker_model_gpu_memory[worker_address] = model_gpu_memory
+            self._worker_model_gpu_memory_update_time[worker_address] = time.time()
+            self._invalidate_list_models_debounce_cache()
+        else:
+            self._clear_worker_model_gpu_memory(worker_address)
+
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         # Fast path: return cached result if within debounce window.
@@ -5275,6 +5372,7 @@ class SupervisorActor(xo.StatelessActor):
         # Use the timestamp (not the dict) as the cache-validity sentinel
         # so that a genuinely empty model list ({}) is also cached.
         now = time.time()
+        self._expire_worker_model_gpu_memory(now)
         if (
             XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
             and self._list_models_result_cache_time > 0
@@ -5293,6 +5391,7 @@ class SupervisorActor(xo.StatelessActor):
         # cache (which may have been filled by the preceding sweep).
         async with self._list_models_sweep_lock:
             now = time.time()
+            self._expire_worker_model_gpu_memory(now)
             if (
                 XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
                 and self._list_models_result_cache_time > 0
@@ -5362,8 +5461,12 @@ class SupervisorActor(xo.StatelessActor):
                     replica_gpu_cache[replica_uid] = [str(a) for a in accelerators]
             self._replica_gpu_cache = replica_gpu_cache
 
+            # Keep worker-returned specs in _list_models_cache pristine. The
+            # replica count and GPU-memory fields below are response-only
+            # decorations; mutating cached specs would let stale telemetry leak
+            # back into a later fallback response after a worker RPC failure.
             running_model_info = {
-                parse_replica_model_uid(k)[0]: v for k, v in ret.items()
+                parse_replica_model_uid(k)[0]: dict(v) for k, v in ret.items()
             }
 
             # Aggregate per-process GPU memory (real-time, from
@@ -5609,7 +5712,8 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         self._worker_status.pop(worker_address, None)
-        self._worker_model_gpu_memory.pop(worker_address, None)
+        self._clear_worker_model_gpu_memory(worker_address)
+        self._invalidate_list_models_debounce_cache()
         try:
             from .otel import get_cluster_metrics_collector
 
@@ -5633,6 +5737,10 @@ class SupervisorActor(xo.StatelessActor):
             # replicas. Do NOT fabricate a _worker_status entry here, otherwise
             # the registry would stay stale forever.
             raise WorkerNotRegisteredError(worker_address)
+
+        # Remove the internal telemetry extension before storing or forwarding
+        # ordinary ResourceStatus/GPUStatus data to OTEL.
+        self._process_model_gpu_memory_report(worker_address, status)
 
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
@@ -5659,14 +5767,6 @@ class SupervisorActor(xo.StatelessActor):
                     "Failed to feed worker status into OTEL collector for worker_address=%s",
                     worker_address,
                 )
-
-        # Extract and store per-model GPU memory data
-        if isinstance(status, dict):
-            model_gpu_mem = status.pop("model_gpu_memory", None)
-            if model_gpu_mem:
-                self._worker_model_gpu_memory[worker_address] = model_gpu_mem  # type: ignore[assignment]
-            elif worker_address in self._worker_model_gpu_memory:
-                del self._worker_model_gpu_memory[worker_address]
 
     async def receive_heartbeat(self, worker_address: str):
         """

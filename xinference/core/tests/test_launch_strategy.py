@@ -582,6 +582,9 @@ async def test_terminate_model_replica_updates_active_replica_set():
         _clear_unexpected_down_replicas = (
             SupervisorActor._clear_unexpected_down_replicas
         )
+        _clear_replica_model_gpu_memory = (
+            SupervisorActor._clear_replica_model_gpu_memory
+        )
 
         def __init__(self):
             self._model_replica_locks = {}
@@ -605,6 +608,15 @@ async def test_terminate_model_replica_updates_active_replica_set():
             self._collective_manager_mapping = {}
             self._block_tracker_mapping = {}
             self._unexpected_down_replicas = {}
+            self._worker_model_gpu_memory = {
+                "worker:1000": {
+                    build_replica_model_uid("demo-model", replica_id): {
+                        replica_id: (replica_id + 1) * 100
+                    }
+                    for replica_id in range(3)
+                }
+            }
+            self._worker_model_gpu_memory_update_time = {"worker:1000": 0.0}
 
         def _invalidate_list_models_debounce_cache(self):
             pass
@@ -624,6 +636,11 @@ async def test_terminate_model_replica_updates_active_replica_set():
     )
     assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 0
     assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 2
+    cached_gpu_memory = supervisor._worker_model_gpu_memory["worker:1000"]
+    assert build_replica_model_uid("demo-model", 0) in cached_gpu_memory
+    assert build_replica_model_uid("demo-model", 1) not in cached_gpu_memory
+    assert build_replica_model_uid("demo-model", 2) in cached_gpu_memory
+    assert "worker:1000" in supervisor._worker_model_gpu_memory_update_time
     assert supervisor._status_guard_ref.updates[-1] == (
         "demo-model",
         {"replica": 2, "status": "READY"},

@@ -38,6 +38,7 @@ import {
   XINFERENCE_BASE_URL,
   XINFERENCE_CN_URL,
   XINFERENCE_GITHUB,
+  XAGENT_BASE_URL,
   NO_AUTH,
 } from '@/constants';
 import ThemeToggle from '@/components/layout/theme-toggle';
@@ -332,7 +333,7 @@ export function Sidebar() {
             Extra: SquareArrowOutUpRight,
           },
           {
-            path: `${XINFERENCE_GITHUB}/xagent`,
+            path: XAGENT_BASE_URL,
             name: t('menu.xagent'),
             target: '_blank',
             Icon: BotIcon,

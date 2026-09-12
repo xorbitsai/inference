@@ -70,6 +70,25 @@ async def _release_response(response: aiohttp.ClientResponse):
     await response.wait_for_close()
 
 
+def _schedule_session_close(client: Any) -> None:
+    if not getattr(client, "session", None):
+        return
+    loop = getattr(client, "_session_loop", None)
+    if loop is None or loop.is_closed():
+        return
+
+    def close_on_owner_loop():
+        loop.create_task(client.close())
+
+    try:
+        # Also queues cleanup while a manually driven loop is paused, and when
+        # the last reference is released by another thread.
+        loop.call_soon_threadsafe(close_on_owner_loop)
+    except RuntimeError:
+        # The owning loop may have closed since the check above.
+        pass
+
+
 class AsyncRESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -81,6 +100,7 @@ class AsyncRESTfulModelHandle:
         self._base_url = base_url
         self.auth_headers = auth_headers
         self.timeout = aiohttp.ClientTimeout(total=1800)
+        self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True)
         )
@@ -92,9 +112,7 @@ class AsyncRESTfulModelHandle:
             self.session = None
 
     def __del__(self):
-        if self.session:
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.close())
+        _schedule_session_close(self)
 
 
 class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
@@ -1277,6 +1295,7 @@ class AsyncClient:
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self.timeout = aiohttp.ClientTimeout(total=1800)
+        self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True), timeout=self.timeout
         )
@@ -1291,9 +1310,7 @@ class AsyncClient:
             self.session = None
 
     def __del__(self):
-        if self.session:
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.close())
+        _schedule_session_close(self)
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
