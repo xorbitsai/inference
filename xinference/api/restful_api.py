@@ -335,15 +335,36 @@ def _log_setup_required_notice() -> None:
 class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
+    _cluster_metrics_task: Optional[asyncio.Task[None]] = None
     QWEN38_REASONING_EFFORTS = {"xhigh", "medium", "low"}
     QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max"}
 
     @asynccontextmanager
     async def _lifespan(self, _app: FastAPI) -> AsyncIterator[None]:
         try:
+            if not is_metrics_disabled():
+                self._cluster_metrics_task = asyncio.create_task(
+                    self._cluster_metrics_update_loop(),
+                    name="cluster-metrics-updater",
+                )
             yield
         finally:
-            await self._close_token_router_client()
+            try:
+                task = self._cluster_metrics_task
+                self._cluster_metrics_task = None
+                if task is not None:
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception:
+                        logger.warning(
+                            "Cluster metrics updater failed during shutdown",
+                            exc_info=True,
+                        )
+            finally:
+                await self._close_token_router_client()
 
     def __init__(
         self,
@@ -413,6 +434,7 @@ class RESTfulAPI(CancelMixin):
 
         self._router = APIRouter()
         self._token_router_client: Optional[httpx.AsyncClient] = None
+        self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
         # Initialize allowed IP list once
         self._init_allowed_ip_list()
@@ -897,13 +919,6 @@ class RESTfulAPI(CancelMixin):
             self._app.include_router(self._router)
             self._app.add_route("/metrics", metrics)
 
-            # Start background task to periodically refresh cluster metrics
-            @self._app.on_event("startup")
-            async def _start_cluster_metrics_updater():
-                import asyncio
-
-                asyncio.create_task(self._cluster_metrics_update_loop())
-
         # Check all the routes returns Response.
         # This is to avoid `jsonable_encoder` performance issue:
         # https://github.com/xorbitsai/inference/issues/647
@@ -978,13 +993,10 @@ class RESTfulAPI(CancelMixin):
 
     async def _cluster_metrics_update_loop(self):
         """Periodically refresh Supervisor-side Prometheus Gauges (every 15s)."""
-        import asyncio
-
         from ..core.metrics import update_cluster_metrics, update_security_gauges
 
         while True:
             try:
-                await asyncio.sleep(15)
                 supervisor_ref = await self._get_supervisor_ref()
                 cluster_data = await supervisor_ref.get_cluster_metrics_data()
                 models_data = await supervisor_ref.list_models()
@@ -995,8 +1007,14 @@ class RESTfulAPI(CancelMixin):
                 )
                 if self._advanced_auth_service:
                     update_security_gauges(self._advanced_auth_service)
+            except asyncio.CancelledError:
+                raise
+            except (ConnectionError, xo.ActorNotExist, xo.ServerClosed) as e:
+                logger.warning("Failed to update cluster metrics: %s", e)
             except Exception:
                 logger.warning("Failed to update cluster metrics", exc_info=True)
+
+            await asyncio.sleep(15)
 
     async def _get_builtin_prompts(self) -> JSONResponse:
         """
