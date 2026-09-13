@@ -335,7 +335,7 @@ def _log_setup_required_notice() -> None:
 class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
-    _cluster_metrics_task: Optional[asyncio.Task[None]]
+    _cluster_metrics_task: Optional[asyncio.Task[None]] = None
     QWEN38_REASONING_EFFORTS = {"xhigh", "medium", "low"}
     QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max"}
 
@@ -358,6 +358,11 @@ class RESTfulAPI(CancelMixin):
                         await task
                     except asyncio.CancelledError:
                         pass
+                    except Exception:
+                        logger.warning(
+                            "Cluster metrics updater failed during shutdown",
+                            exc_info=True,
+                        )
             finally:
                 await self._close_token_router_client()
 
@@ -1004,6 +1009,8 @@ class RESTfulAPI(CancelMixin):
                     update_security_gauges(self._advanced_auth_service)
             except asyncio.CancelledError:
                 raise
+            except (ConnectionError, xo.ActorNotExist, xo.ServerClosed) as e:
+                logger.warning("Failed to update cluster metrics: %s", e)
             except Exception:
                 logger.warning("Failed to update cluster metrics", exc_info=True)
 
