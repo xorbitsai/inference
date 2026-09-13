@@ -25,6 +25,7 @@ from ._compat import LANCZOS
 logger = logging.getLogger(__name__)
 import os
 import random
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -271,7 +272,7 @@ def fix_read(fp, **kwargs) -> PILImage.Image:
     return image
 
 
-def _public_addresses(url):
+def _public_addresses(url, require_public=True):
     import socket
 
     parsed = urlparse(url)
@@ -287,7 +288,11 @@ def _public_addresses(url):
         item[4][0]
         for item in socket.getaddrinfo(parsed.hostname, port, type=socket.SOCK_STREAM)
     ]
-    if not addresses or any(not ipaddress.ip_address(ip).is_global for ip in addresses):
+    if not addresses:
+        raise ValueError("URL does not resolve to any address")
+    if require_public and any(
+        not ipaddress.ip_address(ip).is_global for ip in addresses
+    ):
         raise ValueError("URL must resolve only to public addresses")
     return parsed, addresses
 
@@ -301,28 +306,85 @@ def verify_url(url):
 
 
 @__import__("contextlib").contextmanager
-def _open_public_url(url, headers=None):
+def _open_public_url(url, headers=None, deadline=None, require_public=True):
     """Pin each connection to validated DNS results, including every redirect."""
     from urllib.parse import urljoin
 
     import urllib3
 
+    class _Tracked:
+        """Expose the in-flight connection so a watchdog can abort a stalled read."""
+
+        _active_conn = None
+
+        def _get_conn(self, timeout=None):
+            conn = super()._get_conn(timeout)  # type: ignore[misc]
+            self._active_conn = conn
+            return conn
+
+        def abort(self):
+            conn = self._active_conn
+            if conn is None:
+                return
+            # shutdown, not close: closing the fd does not wake a thread already
+            # blocked in recv().
+            sock = getattr(conn, "sock", None)
+            if sock is not None:
+                import socket as _socket
+
+                try:
+                    sock.shutdown(_socket.SHUT_RDWR)
+                except Exception:
+                    pass
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    class _TrackedHTTP(_Tracked, urllib3.HTTPConnectionPool):
+        pass
+
+    class _TrackedHTTPS(_Tracked, urllib3.HTTPSConnectionPool):
+        pass
+
     initial_host = urlparse(url).hostname
+
+    def left():
+        # Checked per hop, or the timeouts below multiply by the hop count.
+        remaining = None if deadline is None else deadline - time.monotonic()
+        if remaining is not None and remaining <= 0:
+            raise ValueError("Media fetch exceeded its time budget")
+        return remaining
+
     for _ in range(6):
-        parsed, addresses = _public_addresses(url)
+        left()
+        parsed, addresses = _public_addresses(url, require_public=require_public)
+        # getaddrinfo takes as long as the resolver wants and cannot be bounded,
+        # so what is left is measured after it rather than before.
+        remaining = left()
         options = dict(
             host=addresses[0],
             port=parsed.port or (443 if parsed.scheme == "https" else 80),
-            timeout=urllib3.Timeout(connect=10, read=30),
+            timeout=urllib3.Timeout(
+                connect=10 if remaining is None else min(remaining, 10),
+                read=30 if remaining is None else min(remaining, 30),
+            ),
         )
         if parsed.scheme == "https":
-            pool = urllib3.HTTPSConnectionPool(
+            pool = _TrackedHTTPS(
                 **options,
                 server_hostname=parsed.hostname,
                 assert_hostname=parsed.hostname,
             )
         else:
-            pool = urllib3.HTTPConnectionPool(**options)
+            pool = _TrackedHTTP(**options)
+        # urllib3 timeouts are per recv(), and http.client reads status and
+        # headers a line at a time, so a byte-at-a-time server stretches the
+        # header phase without limit.  Closing the socket is the only way out.
+        watchdog = None if remaining is None else threading.Timer(remaining, pool.abort)
+        if watchdog is not None:
+            watchdog.daemon = True
+            watchdog.start()
         request_headers = {"Host": parsed.netloc}
         if parsed.hostname == initial_host:
             request_headers.update(headers or {})
@@ -350,6 +412,8 @@ def _open_public_url(url, headers=None):
             yield response, url
             return
         finally:
+            if watchdog is not None:
+                watchdog.cancel()
             if response is not None:
                 response.close()
             pool.close()

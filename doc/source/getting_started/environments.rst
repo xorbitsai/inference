@@ -233,3 +233,41 @@ XINFERENCE_AUDIT_LOG_RETENTION_DAYS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Number of days audit log files are retained.
 Default value is 90. See :ref:`user_guide_audit_security`.
+
+.. _environments_media:
+
+XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Refuse client-supplied ``image_url`` / ``video_url`` / ``audio_url`` values that
+resolve to loopback, private, or link-local addresses, which otherwise let a
+chat request probe the server's own network (SSRF).
+Default value is ``true``.
+
+.. versionadded:: 3.5
+   Enabled by default. Requests referencing intranet hosts such as
+   ``http://minio.internal/x.png`` or a Kubernetes Service DNS name now fail.
+   Set this to ``false`` if the deployment is not publicly exposed and the
+   server is trusted to reach those hosts.
+
+XINFERENCE_MEDIA_ALLOW_LOCAL_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow ``file://`` URLs and bare filesystem paths in chat media parts. When
+disabled, such values are rejected instead of being read off the server's disk.
+Default value is ``false``.
+
+.. versionadded:: 3.5
+   Disabled by default. Server-local paths that previously worked
+   (an ``image_url`` of ``/data/img.png``) now error. Send the media as a
+   ``data:`` URI or an HTTP(S) URL, or set this to ``true`` when every API
+   caller is already trusted with the server's filesystem.
+
+XINFERENCE_MEDIA_FETCH_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total wall-clock seconds allowed for fetching one remote media URL, redirects
+included. A single request's media as a whole is capped at three times this
+value. Default value is 20.
+
+XINFERENCE_MEDIA_MAX_BYTES
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum size in bytes of one fetched media file.
+Default value is 67108864 (64 MiB).

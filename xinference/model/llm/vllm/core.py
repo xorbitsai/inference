@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import contextlib
 import copy
 import importlib
 import itertools
@@ -62,6 +63,7 @@ from ....types import (
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import cache_model_tokenizer_and_config
+from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -2633,7 +2635,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
-        temp_dir = None
+        workspace = contextlib.ExitStack()
         try:
             if "internvl" not in model_family.lower():
                 from qwen_omni_utils import (
@@ -2645,14 +2647,16 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 # Work on a copy so request messages never retain paths that are
                 # removed when the request-level temporary directory is cleaned.
                 messages = copy.deepcopy(messages)
+                temp_dir = workspace.enter_context(media_workspace("xinference-vllm-"))
+                # qwen_omni_utils fetches urls itself and follows redirects, so the
+                # bytes have to be pulled here instead.  to_thread: blocking I/O on
+                # the model actor's event loop.
+                await asyncio.to_thread(materialize_messages_media, messages, temp_dir)
                 if (
                     "vision" in self.model_family.model_ability
                     or "omni" in self.model_family.model_ability
                 ):
-                    import tempfile
-
-                    temp_dir = tempfile.TemporaryDirectory(prefix="xinference-vllm-")
-                    self._handle_base64_media(messages, temp_dir.name)
+                    self._handle_base64_media(messages, temp_dir)
 
                 messages = self._transform_messages(messages)
 
@@ -2680,30 +2684,36 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     model_family
                 )
 
+                # These readers open files and fetch URLs; async_chat runs on the
+                # model actor's event loop, so they must not block it.
                 if "omni" in self.model_family.model_ability:
-                    audios, images, videos, video_kwargs = process_mm_info(
-                        messages, use_audio_in_video=True, return_video_kwargs=True
+                    audios, images, videos, video_kwargs = await asyncio.to_thread(
+                        process_mm_info,
+                        messages,
+                        use_audio_in_video=True,
+                        return_video_kwargs=True,
                     )
                 elif "audio" in self.model_family.model_ability:
-                    audios = process_audio_info(messages, use_audio_in_video=False)
+                    audios = await asyncio.to_thread(
+                        process_audio_info, messages, use_audio_in_video=False
+                    )
                 elif "vision" in self.model_family.model_ability:
-                    images, videos, video_kwargs = process_vision_info(  # type: ignore
-                        messages, return_video_kwargs=True
+                    images, videos, video_kwargs = await asyncio.to_thread(  # type: ignore
+                        process_vision_info, messages, return_video_kwargs=True
                     )
 
                 prompt = self.get_full_context(
                     messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
                 )
             else:
-                prompt, images = self.get_specific_prompt(model_family, messages)
+                # get_specific_prompt fetches through load_media_bytes, so the urls
+                # only need gating here.
+                await asyncio.to_thread(validate_messages_media, messages)
+                prompt, images = await asyncio.to_thread(
+                    self.get_specific_prompt, model_family, messages
+                )
         finally:
-            if temp_dir is not None:
-                try:
-                    temp_dir.cleanup()
-                except Exception:
-                    logger.warning(
-                        "Failed to clean up temporary media directory", exc_info=True
-                    )
+            workspace.close()
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
         if images:
             inputs["multi_modal_data"]["image"] = images
