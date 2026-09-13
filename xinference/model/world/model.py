@@ -875,7 +875,8 @@ class LingBotWorldV2Model(WorldModel):
         with tempfile.TemporaryDirectory(prefix="xinference-world-") as output_dir:
             with _materialize_reference(image, ".png") as image_path:
                 output_path = os.path.join(output_dir, "world.mp4")
-                command = self._torchrun_command("generate.py")
+                command = self._torchrun_command("--module")
+                command.append("xinference.model.world.lingbot_runner")
                 command.extend(
                     [
                         "--task",

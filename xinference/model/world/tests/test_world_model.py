@@ -386,6 +386,15 @@ def test_lingbot_world_v2_pins_transformers_compatible_tokenizers():
     assert model_spec.virtualenv.index_strategy == "unsafe-best-match"
 
 
+def test_lingbot_world_v2_uses_memory_conservative_1_3b_defaults():
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+    defaults = model_spec.default_generate_config
+
+    assert defaults["frame_num"] == 81
+    assert defaults["offload_model"] is True
+    assert defaults["t5_cpu"] is True
+
+
 @pytest.mark.parametrize(
     "model_name",
     [
@@ -447,6 +456,9 @@ def test_lingbot_world_v2_generation_builds_official_runner_command(
     )
 
     command = captured["command"]
+    assert command[command.index("--module") + 1] == (
+        "xinference.model.world.lingbot_runner"
+    )
     assert command[command.index("--task") + 1] == "i2v-1.3B"
     assert command[command.index("--infer_mode") + 1] == "causal_fast"
     assert command[command.index("--assets_dir") + 1] == "/weights/lingbot-assets"

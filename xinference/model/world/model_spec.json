@@ -162,9 +162,11 @@
         "inference_mode": "causal_fast",
         "default_generate_config": {
           "size": "480*832",
-          "frame_num": 361,
+          "frame_num": 81,
           "chunk_size": 4,
           "base_seed": 42,
+          "offload_model": true,
+          "t5_cpu": true,
           "local_attn_size": 18,
           "sink_size": 6,
           "response_format": "url"
