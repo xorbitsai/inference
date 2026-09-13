@@ -42,6 +42,8 @@ class WorldModelFamilyV1(CacheableModelSpec, ModelInstanceInfoMixin):
     source_url: str
     source_revision: str
     source_subdir: Optional[str]
+    inference_task: Optional[str]
+    inference_mode: Optional[str]
     auxiliary_model_id: Optional[str]
     auxiliary_model_revision: Optional[str]
     auxiliary_model_allow_patterns: Optional[List[str]]

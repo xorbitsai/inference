@@ -33,7 +33,12 @@ from ..core import (
     match_world_model,
     resolve_world_model_engine,
 )
-from ..engine import PyTorchAstraModel, PyTorchHYWorldPlayModel, PyTorchMatrixGameModel
+from ..engine import (
+    PyTorchAstraModel,
+    PyTorchHYWorldPlayModel,
+    PyTorchLingBotWorldV2Model,
+    PyTorchMatrixGameModel,
+)
 from ..engine_family import WORLD_ENGINES
 
 
@@ -82,6 +87,9 @@ def test_materialize_reference_removes_temporary_file():
     ("model_name", "model_class"),
     [
         ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel),
+        ("LingBot-World-V2-14B-Causal-Fast", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-14B-Causal-Pretrain", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-1.3B-Causal-Fast", PyTorchLingBotWorldV2Model),
         ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel),
         ("Astra", PyTorchAstraModel),
     ],
@@ -123,10 +131,25 @@ def test_world_model_rejects_unknown_engine():
         )
 
 
+def test_lingbot_world_v2_rejects_old_host_torch(monkeypatch):
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version", lambda name: "2.3.1"
+    )
+
+    assert PyTorchLingBotWorldV2Model.check_host() == (
+        False,
+        "LingBot-World-V2 requires host torch>=2.4.0; found torch 2.3.1",
+    )
+
+
 @pytest.mark.parametrize(
     ("model_name", "model_class"),
     [
         ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel),
+        ("LingBot-World-V2-14B-Causal-Fast", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-14B-Causal-Pretrain", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-1.3B-Causal-Fast", PyTorchLingBotWorldV2Model),
         ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel),
         ("Astra", PyTorchAstraModel),
     ],
@@ -318,6 +341,18 @@ def test_world_engine_rejects_cpu_only_host_before_virtualenv(monkeypatch):
     ("model_name", "model_id"),
     [
         ("Matrix-Game-3.0-5B", "Skywork/Matrix-Game-3.0"),
+        (
+            "LingBot-World-V2-14B-Causal-Fast",
+            "Robbyant/lingbot-world-v2-14b-causal-fast",
+        ),
+        (
+            "LingBot-World-V2-14B-Causal-Pretrain",
+            "Robbyant/lingbot-world-v2-14b-causal-pretrain",
+        ),
+        (
+            "LingBot-World-V2-1.3B-Causal-Fast",
+            "Robbyant/lingbot-world-v2-1.3b-causal-fast",
+        ),
         ("HY-WorldPlay-5B", "Tencent-Hunyuan/HY-WorldPlay"),
         ("Astra", "Xorbits/Astra"),
     ],
@@ -328,6 +363,170 @@ def test_world_models_have_modelscope_sources(model_name, model_id):
     assert model_spec.model_hub == "modelscope"
     assert model_spec.model_id == model_id
     assert model_spec.model_revision == "master"
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "LingBot-World-V2-14B-Causal-Fast",
+        "LingBot-World-V2-14B-Causal-Pretrain",
+        "LingBot-World-V2-1.3B-Causal-Fast",
+    ],
+)
+def test_lingbot_world_v2_has_requested_hub_revisions(model_name):
+    assert match_world_model(model_name, "huggingface").model_revision == "main"
+    assert match_world_model(model_name, "modelscope").model_revision == "master"
+
+
+def test_lingbot_world_v2_pins_transformers_compatible_tokenizers():
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+
+    assert model_spec.virtualenv is not None
+    assert "tokenizers>=0.21,<0.22" in model_spec.virtualenv.packages
+    assert model_spec.virtualenv.index_strategy == "unsafe-best-match"
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "LingBot-World-V2-14B-Causal-Pretrain",
+        "LingBot-World-V2-1.3B-Causal-Fast",
+    ],
+)
+def test_lingbot_world_v2_uses_same_hub_for_shared_assets(model_name):
+    huggingface_spec = match_world_model(model_name, "huggingface")
+    modelscope_spec = match_world_model(model_name, "modelscope")
+
+    assert (
+        huggingface_spec.auxiliary_model_id
+        == "robbyant/lingbot-world-v2-14b-causal-fast"
+    )
+    assert huggingface_spec.auxiliary_model_revision == "main"
+    assert (
+        modelscope_spec.auxiliary_model_id
+        == "Robbyant/lingbot-world-v2-14b-causal-fast"
+    )
+    assert modelscope_spec.auxiliary_model_revision == "master"
+
+
+def test_lingbot_world_v2_generation_builds_official_runner_command(
+    tmp_path, monkeypatch
+):
+    from .. import model as world_model_module
+
+    model_spec = match_world_model("LingBot-World-V2-1.3B-Causal-Fast", "huggingface")
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    code_path = tmp_path / "code"
+    action_path = code_path / "examples" / "03"
+    action_path.mkdir(parents=True)
+    (action_path / "poses.npy").write_bytes(b"poses")
+    image_path = tmp_path / "input.png"
+    image_path.write_bytes(b"image")
+    output_root = tmp_path / "responses"
+
+    model = PyTorchLingBotWorldV2Model("lingbot", str(model_path), model_spec)
+    model._code_path = str(code_path)
+    model._assets_model_path = "/weights/lingbot-assets"
+    monkeypatch.setattr(model, "_gpu_count", lambda: 4)
+    monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
+    captured = {}
+
+    def fake_run(command, cwd, env, log_path, request_id=None):
+        captured.update(command=command, cwd=cwd, env=env, request_id=request_id)
+        output_path = command[command.index("--save_file") + 1]
+        Path(output_path).write_bytes(b"lingbot")
+
+    monkeypatch.setattr(model, "_run_command", fake_run)
+    result = model.world_generate(
+        "explore the scene",
+        image=str(image_path),
+        generation_config={"frame_num": 81},
+        model_kwargs={"offload_model": False},
+        request_id="lingbot-request",
+    )
+
+    command = captured["command"]
+    assert command[command.index("--task") + 1] == "i2v-1.3B"
+    assert command[command.index("--infer_mode") + 1] == "causal_fast"
+    assert command[command.index("--assets_dir") + 1] == "/weights/lingbot-assets"
+    assert command[command.index("--action_path") + 1] == str(action_path)
+    assert command[command.index("--frame_num") + 1] == "81"
+    assert command[command.index("--ulysses_size") + 1] == "4"
+    assert command[command.index("--offload_model") + 1] == "false"
+    assert "--dit_fsdp" in command
+    assert "--t5_fsdp" in command
+    assert captured["cwd"] == str(code_path)
+    assert captured["request_id"] == "lingbot-request"
+    assert Path(result["data"][0]["url"]).read_bytes() == b"lingbot"
+
+
+def test_lingbot_world_v2_loads_shared_assets(tmp_path, monkeypatch):
+    from .. import model as world_model_module
+
+    model_spec = match_world_model(
+        "LingBot-World-V2-14B-Causal-Pretrain", "huggingface"
+    )
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    assets_path = tmp_path / "assets"
+    assets_path.mkdir()
+    (assets_path / "models_t5_umt5-xxl-enc-bf16.pth").write_bytes(b"t5")
+    (assets_path / "Wan2.1_VAE.pth").write_bytes(b"vae")
+    (assets_path / "google" / "umt5-xxl").mkdir(parents=True)
+    model = PyTorchLingBotWorldV2Model("lingbot", str(model_path), model_spec)
+    captured = {}
+
+    def fake_world_load(self):
+        self._code_path = "/code/lingbot-world-v2"
+
+    def fake_download(allow_patterns=None):
+        captured["allow_patterns"] = allow_patterns
+        return str(assets_path)
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    monkeypatch.setattr(model, "_download_auxiliary_model", fake_download)
+    model.load()
+
+    assert model._assets_model_path == str(assets_path)
+    assert captured["allow_patterns"] == [
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth",
+        "google/umt5-xxl/*",
+    ]
+
+
+def test_lingbot_world_v2_rejects_invalid_inputs(tmp_path, monkeypatch):
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+    model = PyTorchLingBotWorldV2Model("lingbot", "/weights/lingbot", model_spec)
+    model._code_path = str(tmp_path)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 1)
+
+    with pytest.raises(ValueError, match="requires an input image"):
+        model.world_generate("explore")
+    with pytest.raises(ValueError, match="does not support video input"):
+        model.world_generate("explore", image="image", video="video")
+    with pytest.raises(ValueError, match=r"frame_num must equal 4 \* k \+ 1"):
+        model.world_generate(
+            "explore",
+            image="image",
+            generation_config={"frame_num": 80},
+        )
+    with pytest.raises(ValueError, match="directory containing poses.npy"):
+        model.world_generate("explore", image="image")
+
+
+def test_lingbot_world_v2_rejects_invalid_parallelism(tmp_path, monkeypatch):
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+    action_path = tmp_path / "examples" / "03"
+    action_path.mkdir(parents=True)
+    (action_path / "poses.npy").write_bytes(b"poses")
+    model = PyTorchLingBotWorldV2Model("lingbot", "/weights/lingbot", model_spec)
+    model._code_path = str(tmp_path)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 5)
+
+    with pytest.raises(ValueError, match="attention heads must be divisible"):
+        model.world_generate("explore", image="image")
 
 
 def test_matrix_game_generation_builds_official_runner_command(tmp_path, monkeypatch):
@@ -696,6 +895,11 @@ def test_generation_config_and_model_kwargs_must_not_overlap():
     ("model_name", "model_class", "needs_image"),
     [
         ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel, True),
+        (
+            "LingBot-World-V2-14B-Causal-Fast",
+            PyTorchLingBotWorldV2Model,
+            True,
+        ),
         ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel, False),
         ("Astra", PyTorchAstraModel, True),
     ],
