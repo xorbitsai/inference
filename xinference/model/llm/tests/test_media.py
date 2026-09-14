@@ -18,6 +18,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import BytesIO
+from typing import Any
 from urllib.parse import urlparse
 
 import pytest
@@ -142,6 +143,13 @@ def test_local_paths_rejected(url):
         validate_media_url(url)
 
 
+@pytest.mark.parametrize("url", ["file:////etc/hostname", "file:///x%00"])
+def test_unparsable_file_urls_are_a_client_error(url):
+    """These reach url2pathname/realpath, which raise OSError, not ValueError."""
+    with pytest.raises(ValueError):
+        validate_media_url(url)
+
+
 def test_local_paths_allowed_by_opt_in(monkeypatch):
     monkeypatch.setenv("XINFERENCE_MEDIA_ALLOW_LOCAL_PATH", "true")
     assert validate_media_url("/etc/hostname") == "file"
@@ -169,7 +177,7 @@ def test_data_uri_scheme_is_case_insensitive(prefix):
     [
         "data:image/png;base64,!!!!",
         "data:image/png;base64",  # no comma at all
-        "data:image/png;base64,QUJD=",  # invalid padding
+        "data:image/png;base64,QUJDR",  # length not a multiple of 4
         "data:image;base64,QUJD",  # mediatype without subtype
         "datax:image/png;base64,QUJD",
     ],
@@ -529,11 +537,11 @@ def test_materialize_rewrites_list_valued_media(server, allow_loopback):
 
 
 def test_deep_nesting_is_a_client_error():
-    """json.loads accepts nesting far deeper than the walker can recurse."""
-    import json
-
-    deep = json.loads('{"video": ' + "[" * 3000 + '"/etc/hostname"' + "]" * 3000 + "}")
-    messages = [{"role": "user", "content": [dict(type="video", **deep)]}]
+    """A client can nest media values far deeper than the walker can recurse."""
+    deep: Any = "/etc/hostname"
+    for _ in range(3000):
+        deep = [deep]
+    messages = [{"role": "user", "content": [{"type": "video", "video": deep}]}]
     with pytest.raises(ValueError, match="too deep"):
         validate_messages_media(messages)
     with media_workspace() as workspace:

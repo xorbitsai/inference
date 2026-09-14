@@ -183,11 +183,23 @@ _ACTIVE_WORKSPACES: Set[str] = set()
 
 
 def local_path(url: str) -> str:
-    return url[len("file://") :] if url.lower().startswith("file://") else url
+    if not url.lower().startswith("file://"):
+        return url
+    # Stripping the prefix leaves "/C:/..." on Windows, which no open() accepts.
+    from urllib.request import url2pathname
+
+    try:
+        return url2pathname(urlparse(url).path)
+    except Exception:
+        # 3.14 rejects a non-localhost authority with URLError, an OSError.
+        raise ValueError(f"Invalid file media url: {url}") from None
 
 
 def _is_materialized(path: str) -> bool:
-    resolved = os.path.realpath(path)
+    try:
+        resolved = os.path.realpath(path)
+    except (OSError, ValueError):  # embedded NUL and friends
+        return False
     return any(
         resolved.startswith(workspace + os.sep)
         for workspace in tuple(_ACTIVE_WORKSPACES)
@@ -279,6 +291,9 @@ def _read_bounded(reader: Any, deadline: float, limit: int) -> bytes:
             raise ValueError("Media fetch exceeded its time budget")
         chunk = read(64 * 1024)
         if not chunk:
+            # The watchdog shuts the socket down, which reads as a clean EOF.
+            if time.monotonic() > deadline:
+                raise ValueError("Media fetch exceeded its time budget")
             return b"".join(chunks)
         total += len(chunk)
         if total > limit:
@@ -303,7 +318,8 @@ def fetch_media(url: str, deadline: Optional[float] = None) -> bytes:
     except Exception:
         # Socket-level timeouts surface as library-specific errors; the budget
         # is what the caller was promised.
-        if time.monotonic() > deadline:
+        # Windows' coarse clock can fire the socket timeout a tick early.
+        if time.monotonic() > deadline - 0.1:
             raise ValueError("Media fetch exceeded its time budget") from None
         raise
 
