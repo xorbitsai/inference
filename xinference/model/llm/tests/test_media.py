@@ -217,6 +217,21 @@ def test_fetch_media_enforces_total_deadline(server, allow_loopback):
     assert time.monotonic() - started < 10
 
 
+def test_fetch_media_enforces_deadline_without_read1(
+    server, allow_loopback, monkeypatch
+):
+    """urllib3 < 2.1 has no HTTPResponse.read1, and read() blocks until it fills."""
+    import urllib3
+
+    monkeypatch.setattr(urllib3.HTTPResponse, "read1", None, raising=False)
+    # The handler defaults to HTTP/1.0, so the response owns the socket and
+    # conn.sock is already None by the time the watchdog fires.
+    started = time.monotonic()
+    with pytest.raises(ValueError, match="time budget"):
+        fetch_media(f"{server}/slow")
+    assert time.monotonic() - started < 10
+
+
 @pytest.fixture
 def only_public_test_host(monkeypatch):
     """Treat one fake hostname as public and every literal address as private."""

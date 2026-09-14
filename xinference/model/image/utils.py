@@ -313,31 +313,33 @@ def _open_public_url(url, headers=None, deadline=None, require_public=True):
     import urllib3
 
     class _Tracked:
-        """Expose the in-flight connection so a watchdog can abort a stalled read."""
+        """Expose the in-flight socket so a watchdog can abort a stalled read."""
 
-        _active_conn = None
+        _active_sock = None
 
         def _get_conn(self, timeout=None):
             conn = super()._get_conn(timeout)  # type: ignore[misc]
-            self._active_conn = conn
+            connect = conn.connect
+
+            def tracked_connect():
+                connect()
+                # Keep our own reference: a Connection: close response takes the
+                # socket over and clears conn.sock before the body is read.
+                self._active_sock = conn.sock
+
+            conn.connect = tracked_connect
             return conn
 
         def abort(self):
-            conn = self._active_conn
-            if conn is None:
+            import socket as _socket
+
+            sock = self._active_sock
+            if sock is None:
                 return
             # shutdown, not close: closing the fd does not wake a thread already
             # blocked in recv().
-            sock = getattr(conn, "sock", None)
-            if sock is not None:
-                import socket as _socket
-
-                try:
-                    sock.shutdown(_socket.SHUT_RDWR)
-                except Exception:
-                    pass
             try:
-                conn.close()
+                sock.shutdown(_socket.SHUT_RDWR)
             except Exception:
                 pass
 
