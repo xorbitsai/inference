@@ -970,3 +970,15 @@ msgstr "Unverarbeitete REST-Anfragen codieren ``kwargs`` als JSON-Zeichenfolge. 
 #~ " Hash-Namen. Xinference erkennt und verwendet automatisch das richtige "
 #~ "Snapshot-Verzeichnis, sodass Sie sich keine Sorgen um die genauen Hash-Werte"
 #~ " machen müssen."
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Invalid and silent audio"
+msgstr "Ungültige und stumme Audiodaten"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid "FunASR transcription models return HTTP 200 with an empty transcription when no speech is detected. An empty audio upload is invalid and returns HTTP 400."
+msgstr "FunASR-Transkriptionsmodelle geben HTTP 200 mit einer leeren Transkription zurück, wenn keine Sprache erkannt wird. Ein leerer Audio-Upload ist ungültig und gibt HTTP 400 zurück."
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid "MegaTTS3 voice cloning requires decodable reference audio with samples and detectable sound. Empty, undecodable, or effectively silent ``prompt_speech`` input, and empty ``prompt_latent`` input, return HTTP 400 before inference."
+msgstr "Für das Klonen von Stimmen mit MegaTTS3 sind dekodierbare Referenz-Audiodaten mit Samples und erkennbarem Ton erforderlich. Leere, nicht dekodierbare oder praktisch stumme ``prompt_speech``-Eingaben sowie leere ``prompt_latent``-Eingaben geben vor der Inferenz HTTP 400 zurück."

@@ -901,3 +901,15 @@ msgstr "원시 REST 요청은 ``kwargs``를 JSON 문자열로 인코딩합니다
 #~ msgstr ""
 #~ "``snapshots/`` 디렉토리는 해시 이름이 포함된 특정 버전의 모델 파일을 포함합니다. Xinference는 자동으로 올바른 "
 #~ "스냅샷 디렉토리를 감지하고 사용하므로 정확한 해시 값에 대해 걱정할 필요가 없습니다."
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Invalid and silent audio"
+msgstr "유효하지 않거나 무음인 오디오"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid "FunASR transcription models return HTTP 200 with an empty transcription when no speech is detected. An empty audio upload is invalid and returns HTTP 400."
+msgstr "FunASR 전사 모델은 음성이 감지되지 않으면 빈 전사와 함께 HTTP 200을 반환합니다. 빈 오디오 업로드는 유효하지 않으며 HTTP 400을 반환합니다."
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid "MegaTTS3 voice cloning requires decodable reference audio with samples and detectable sound. Empty, undecodable, or effectively silent ``prompt_speech`` input, and empty ``prompt_latent`` input, return HTTP 400 before inference."
+msgstr "MegaTTS3 음성 복제에는 샘플과 감지 가능한 소리가 포함된 디코딩 가능한 참조 오디오가 필요합니다. 비어 있거나 디코딩할 수 없거나 사실상 무음인 ``prompt_speech`` 입력과 빈 ``prompt_latent`` 입력은 추론 전에 HTTP 400을 반환합니다."

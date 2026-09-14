@@ -41,6 +41,16 @@ The Audio API provides four methods for interacting with audio:
      - /v1/audio/embeddings
 
 
+Invalid and silent audio
+------------------------
+
+* FunASR transcription models return HTTP 200 with an empty transcription when
+  no speech is detected. An empty audio upload is invalid and returns HTTP 400.
+* MegaTTS3 voice cloning requires decodable reference audio with samples and
+  detectable sound. Empty, undecodable, or effectively silent ``prompt_speech``
+  input, and empty ``prompt_latent`` input, return HTTP 400 before inference.
+
+
 Supported models
 -------------------
 

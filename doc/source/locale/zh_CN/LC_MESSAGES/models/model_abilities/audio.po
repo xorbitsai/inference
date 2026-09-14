@@ -1004,3 +1004,15 @@ msgstr ""
 #~ "的特定版本模型文件。Xinference会自动检测并"
 #~ "使用正确的快照目录，因此您无需担心精确"
 #~ "的哈希值。"
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Invalid and silent audio"
+msgstr "无效或无声音频"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid "FunASR transcription models return HTTP 200 with an empty transcription when no speech is detected. An empty audio upload is invalid and returns HTTP 400."
+msgstr "FunASR 转写模型在未检测到语音时会返回 HTTP 200 和空转写结果。上传空音频属于无效请求，并返回 HTTP 400。"
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid "MegaTTS3 voice cloning requires decodable reference audio with samples and detectable sound. Empty, undecodable, or effectively silent ``prompt_speech`` input, and empty ``prompt_latent`` input, return HTTP 400 before inference."
+msgstr "MegaTTS3 声音克隆要求参考音频可解码、包含采样且能检测到声音。空的、无法解码的或近乎无声的 ``prompt_speech`` 输入，以及空的 ``prompt_latent`` 输入，会在推理前返回 HTTP 400。"
