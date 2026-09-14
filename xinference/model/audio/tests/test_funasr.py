@@ -150,6 +150,30 @@ def test_funasr_converts_missing_or_invalid_timestamps():
     assert invalid["segments"] == []
 
 
+def test_funasr_converts_timestamps_without_sentence_info():
+    model = _new_funasr_model()
+    input_data = {
+        "text": "hello world",
+        "timestamp": [[1000, 1500], [1500, 2500]],
+    }
+    expected = {
+        "task": "transcribe",
+        "text": "hello world",
+        "duration": 1.5,
+        "words": [
+            {"start": 1.0, "end": 1.5},
+            {"start": 1.5, "end": 2.5},
+        ],
+        "segments": [],
+    }
+
+    assert model.convert_to_openai_format(input_data) == expected
+    assert (
+        model.convert_to_openai_format({**input_data, "sentence_info": None})
+        == expected
+    )
+
+
 def test_funasr_rejects_empty_audio():
     import pytest
 

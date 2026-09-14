@@ -106,13 +106,6 @@ class FunASRModel:
             {"start": start / 1000, "end": end / 1000}
             for start, end in normalized_timestamps
         ]
-        if "sentence_info" not in input_data:
-            return {
-                "task": "transcribe",
-                "text": text,
-                "words": word_timestamps,
-                "duration": duration,
-            }
         output = {
             "task": "transcribe",
             "duration": duration,
@@ -120,7 +113,7 @@ class FunASRModel:
             "words": word_timestamps,
             "segments": [],
         }
-        for sentence in input_data["sentence_info"] or []:
+        for sentence in input_data.get("sentence_info") or []:
             seg_start = sentence["start"] / 1000
             seg_end = sentence["end"] / 1000
             output["segments"].append(
