@@ -1020,7 +1020,8 @@ def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
         packages = family.virtualenv.packages
         assert 'transformers==4.57.1 ; #engine# == "Transformers"' in packages
         assert 'vllm==0.29.0 ; #engine# == "vllm"' in packages
-        assert 'transformers==5.17.0 ; #engine# == "vllm"' in packages
+        assert 'transformers==5.16.1 ; #engine# == "vllm"' in packages
+        assert 'tokenizers==0.23.2 ; #engine# == "vllm"' in packages
         assert 'vllm-spark2-5-plugin==0.1.0 ; #engine# == "vllm"' in packages
         assert 'openai>=2.25.0 ; #engine# == "vllm"' in packages
 

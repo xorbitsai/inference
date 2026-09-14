@@ -35423,7 +35423,8 @@
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "vllm==0.29.0 ; #engine# == \"vllm\"",
-        "transformers==5.17.0 ; #engine# == \"vllm\"",
+        "transformers==5.16.1 ; #engine# == \"vllm\"",
+        "tokenizers==0.23.2 ; #engine# == \"vllm\"",
         "vllm-spark2-5-plugin==0.1.0 ; #engine# == \"vllm\"",
         "openai>=2.25.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
@@ -35499,7 +35500,8 @@
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "vllm==0.29.0 ; #engine# == \"vllm\"",
-        "transformers==5.17.0 ; #engine# == \"vllm\"",
+        "transformers==5.16.1 ; #engine# == \"vllm\"",
+        "tokenizers==0.23.2 ; #engine# == \"vllm\"",
         "vllm-spark2-5-plugin==0.1.0 ; #engine# == \"vllm\"",
         "openai>=2.25.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
