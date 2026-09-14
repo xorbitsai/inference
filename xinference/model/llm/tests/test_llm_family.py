@@ -561,6 +561,40 @@ def test_builtin_gemma_4_sglang_requires_supported_runtime():
     assert modern_kernel is True
 
 
+@pytest.mark.parametrize("model_name", ["Spark-X2.5", "Spark-X2.5-Base"])
+def test_builtin_spark_x2_5_sglang_requires_official_runtime(model_name):
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+        normalize_sglang_kernel_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    assert family.virtualenv is not None
+
+    packages = expand_engine_dependency_placeholders(
+        family.virtualenv.packages, "sglang"
+    )
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(
+        packages, "sglang", "13.0", "linux"
+    )
+    packages, modern_kernel = normalize_sglang_kernel_packages(packages)
+
+    assert (
+        "sglang @ git+https://github.com/sgl-project/sglang.git@20621aa1"
+        "#subdirectory=python" in packages
+    )
+    assert "torch==2.13.0+cu130" in packages
+    assert "sglang-kernel==0.4.6.post1" in packages
+    assert "sgl-deep-gemm==0.1.5.post3" in packages
+    assert "flashinfer_python[cu13]==0.6.17" in packages
+    assert not any("sgl_kernel-0.3.21" in package for package in packages)
+    assert modern_kernel is True
+
+
 def test_builtin_gemma_4_llama_cpp_requires_assistant_architecture():
     from ....core.utils import (
         filter_virtualenv_packages_by_markers,
