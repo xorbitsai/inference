@@ -41,12 +41,16 @@ def _patch_t5_checkpoint_loading() -> None:
         self.checkpoint_path = checkpoint_path
         self.tokenizer_path = tokenizer_path
 
-        model = t5_module.umt5_xxl(
-            encoder_only=True,
-            return_tokenizer=False,
-            dtype=dtype,
-            device=device,
-        ).eval().requires_grad_(False)
+        model = (
+            t5_module.umt5_xxl(
+                encoder_only=True,
+                return_tokenizer=False,
+                dtype=dtype,
+                device=device,
+            )
+            .eval()
+            .requires_grad_(False)
+        )
         t5_module.logging.info("loading %s", checkpoint_path)
         try:
             state_dict = torch.load(
