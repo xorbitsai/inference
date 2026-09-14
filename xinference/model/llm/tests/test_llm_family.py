@@ -588,6 +588,7 @@ def test_builtin_spark_x2_5_sglang_requires_official_runtime(model_name):
         "#subdirectory=python" in packages
     )
     assert "torch==2.13.0+cu130" in packages
+    assert "nvidia-cusparselt-cu13==0.8.1" in packages
     assert "sglang-kernel==0.4.6.post1" in packages
     assert "sgl-deep-gemm==0.1.5.post3" in packages
     assert "flashinfer_python[cu13]==0.6.17" in packages
