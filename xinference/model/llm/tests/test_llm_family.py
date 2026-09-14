@@ -957,6 +957,134 @@ def test_minicpm5_2b_builtin_family_has_all_published_formats():
     assert "<think>\\n\\n</think>" in family.chat_template
 
 
+def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..sglang.core import (
+        SGLANG_SUPPORTED_CHAT_MODELS,
+        SGLANG_SUPPORTED_MODELS,
+    )
+    from ..transformers.spark_x2_5 import (
+        SparkX25PytorchChatModel,
+        SparkX25PytorchModel,
+    )
+    from ..utils import GLM5_TOOL_CALL_FAMILY
+    from ..vllm import core as vllm_core
+
+    families = {family.model_name: family for family in BUILTIN_LLM_FAMILIES}
+    instruction = families["Spark-X2.5"]
+    base = families["Spark-X2.5-Base"]
+
+    assert instruction.context_length == 1048576
+    assert instruction.model_ability == ["chat", "tools", "reasoning", "hybrid"]
+    assert instruction.architectures == ["Spark2_5ForCausalLM"]
+    assert instruction.tool_parser == "glm5"
+    assert "Spark2_5ForCausalLM" in vllm_core.VLLM_SUPPORTED_CHAT_MODELS
+    assert "Spark2_5ForCausalLM" in vllm_core.VLLM_SUPPORTED_MODELS
+    assert "Spark2_5ForCausalLM" in SGLANG_SUPPORTED_CHAT_MODELS
+    assert "Spark2_5ForCausalLM" in SGLANG_SUPPORTED_MODELS
+    assert instruction.model_name in GLM5_TOOL_CALL_FAMILY
+
+    expected_instruction_specs = {
+        ("pytorch", "1_7", "none", "XHToken/Spark-X2.5-1.7B"),
+        ("pytorch", 4, "none", "XHToken/Spark-X2.5-4B"),
+        ("pytorch", "1_7", "Int8", "XHToken/Spark-X2.5-1.7B-INT8"),
+        ("pytorch", 4, "Int8", "XHToken/Spark-X2.5-4B-INT8"),
+        ("fp8", "1_7", "FP8", "XHToken/Spark-X2.5-1.7B-FP8"),
+        ("fp8", 4, "FP8", "XHToken/Spark-X2.5-4B-FP8"),
+        ("ggufv2", "1_7", "Q4_K_M", "XHToken/Spark-X2.5-1.7B-GGUF"),
+        ("ggufv2", "1_7", "Q8_0", "XHToken/Spark-X2.5-1.7B-GGUF"),
+        ("ggufv2", 4, "Q4_K_M", "XHToken/Spark-X2.5-4B-GGUF"),
+        ("ggufv2", 4, "Q8_0", "XHToken/Spark-X2.5-4B-GGUF"),
+    }
+    for model_hub, revision in (("huggingface", "main"), ("modelscope", "master")):
+        specs = {
+            (
+                spec.model_format,
+                spec.model_size_in_billions,
+                spec.quantization,
+                spec.model_id,
+            )
+            for spec in instruction.model_specs
+            if spec.model_hub == model_hub
+        }
+        assert specs == expected_instruction_specs
+        assert all(
+            spec.model_revision == revision
+            for spec in instruction.model_specs
+            if spec.model_hub == model_hub
+        )
+
+    assert base.model_ability == ["generate"]
+    huggingface_base_specs = {
+        (spec.model_size_in_billions, spec.model_id, spec.model_revision)
+        for spec in base.model_specs
+        if spec.model_hub == "huggingface"
+    }
+    assert huggingface_base_specs == {
+        ("1_7", "XHToken/Spark-X2.5-1.7B-Base", "main"),
+        (4, "XHToken/Spark-X2.5-4B-Base", "main"),
+    }
+    modelscope_base_specs = {
+        (spec.model_size_in_billions, spec.model_id, spec.model_revision)
+        for spec in base.model_specs
+        if spec.model_hub == "modelscope"
+    }
+    assert modelscope_base_specs == {
+        ("1_7", "XHToken/Spark-X2.5-1.7B-Base", "master"),
+        (4, "XHToken/Spark-X2.5-4B-Base", "master"),
+    }
+
+    instruction_spec = next(
+        spec
+        for spec in instruction.model_specs
+        if spec.model_hub == "huggingface"
+        and spec.model_format == "pytorch"
+        and spec.quantization == "none"
+    )
+    base_spec = next(
+        spec for spec in base.model_specs if spec.model_hub == "huggingface"
+    )
+    assert SparkX25PytorchChatModel.match_json(
+        instruction, instruction_spec, instruction_spec.quantization
+    ) is True
+    assert SparkX25PytorchModel.match_json(
+        base, base_spec, base_spec.quantization
+    ) is True
+
+    vllm_model = object.__new__(vllm_core.VLLMModel)
+    vllm_model.model_family = instruction
+    vllm_model.model_spec = instruction_spec
+    vllm_model._device_count = 1
+    vllm_model._n_worker = 1
+    vllm_model._shard = 0
+    vllm_model._address = None
+    with patch.object(vllm_core, "VLLM_VERSION", version.parse("0.21.0")):
+        assert vllm_model._sanitize_model_config({})["trust_remote_code"] is True
+
+    class Tokenizer:
+        def __init__(self):
+            self.calls = []
+
+        def apply_chat_template(self, messages, **kwargs):
+            self.calls.append((messages, kwargs))
+            return "prompt"
+
+    tokenizer = Tokenizer()
+    model = SparkX25PytorchChatModel.__new__(SparkX25PytorchChatModel)
+    model.model_family = instruction
+    model.reasoning_parser = None
+    model._tokenizer = tokenizer
+    assert model._get_full_prompt(
+        [{"role": "user", "content": "hello"}],
+        [{"type": "function", "function": {"name": "weather"}}],
+        {},
+    ) == "prompt"
+    assert tokenizer.calls[0][1]["tools"] == [
+        {"type": "function", "function": {"name": "weather"}}
+    ]
+    assert "chat_template" not in tokenizer.calls[0][1]
+
+
 def test_match_deepseek_v4_flash_0731():
     family = match_llm(
         "DeepSeek-V4-Flash-0731",

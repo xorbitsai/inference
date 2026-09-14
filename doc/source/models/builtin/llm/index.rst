@@ -781,6 +781,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes.
 
+   * - :ref:`spark-x2.5 <models_llm_spark-x2.5>`
+     - chat, tools, reasoning, hybrid
+     - 1048576
+     - Spark-X2.5 is a compact general-purpose instruction model series with 1.7B and 4B checkpoints, native 1M-token context, reasoning, and tool-use support.
+
+   * - :ref:`spark-x2.5-base <models_llm_spark-x2.5-base>`
+     - generate
+     - 1048576
+     - Spark-X2.5 base checkpoints in 1.7B and 4B sizes for continued pretraining and completion workloads.
+
    * - :ref:`telechat <models_llm_telechat>`
      - chat
      - 8192
@@ -1142,6 +1152,10 @@ The following is a list of built-in LLM in Xinference:
   
    skywork-or1-preview
   
+   spark-x2.5
+
+   spark-x2.5-base
+
    telechat
   
    tiny-llama
@@ -1162,4 +1176,3 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
-

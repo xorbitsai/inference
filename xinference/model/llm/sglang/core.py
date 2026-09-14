@@ -124,6 +124,7 @@ SGLANG_SUPPORTED_MODELS = [
     "MixtralForCausalLM",
     "Qwen2ForCausalLM",
     "OPTForCausalLM",
+    "Spark2_5ForCausalLM",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "LlamaForCausalLM",
@@ -141,6 +142,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "Qwen3_5MoeForCausalLM",
     "HunYuanDenseV1ForCausalLM",
     "HYV3ForCausalLM",
+    "Spark2_5ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
@@ -1003,6 +1005,18 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
+        if not chat_template and self.model_family.has_architecture(
+            "Spark2_5ForCausalLM"
+        ):
+            chat_template_path = os.path.join(self.model_path, "chat_template.jinja")
+            try:
+                with open(chat_template_path, encoding="utf-8") as template_file:
+                    chat_template = template_file.read()
+            except OSError as exc:
+                raise ValueError(
+                    "Spark-X2.5 SGLang requires chat_template.jinja from the "
+                    "official model snapshot"
+                ) from exc
         # fix: Object of type list_iterator is not JSON serializable
         tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
