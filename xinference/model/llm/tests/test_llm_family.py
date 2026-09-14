@@ -1015,6 +1015,15 @@ def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
         )
 
     assert base.model_ability == ["generate"]
+    for family in (instruction, base):
+        assert family.virtualenv is not None
+        packages = family.virtualenv.packages
+        assert 'transformers==4.57.1 ; #engine# == "Transformers"' in packages
+        assert 'vllm==0.29.0 ; #engine# == "vllm"' in packages
+        assert 'transformers==5.17.0 ; #engine# == "vllm"' in packages
+        assert 'vllm-spark2-5-plugin==0.1.0 ; #engine# == "vllm"' in packages
+        assert 'openai>=2.25.0 ; #engine# == "vllm"' in packages
+
     huggingface_base_specs = {
         (spec.model_size_in_billions, spec.model_id, spec.model_revision)
         for spec in base.model_specs

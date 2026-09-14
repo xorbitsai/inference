@@ -35415,13 +35415,17 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "transformers>=4.57.1 ; #engine# == \"Transformers\"",
+        "transformers==4.57.1 ; #engine# == \"Transformers\"",
         "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
         "#system_numpy# ; #engine# == \"Transformers\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm==0.29.0 ; #engine# == \"vllm\"",
+        "transformers==5.17.0 ; #engine# == \"vllm\"",
+        "vllm-spark2-5-plugin==0.1.0 ; #engine# == \"vllm\"",
+        "openai>=2.25.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
@@ -35489,11 +35493,15 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "transformers>=4.57.1 ; #engine# == \"Transformers\"",
+        "transformers==4.57.1 ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
         "#system_numpy# ; #engine# == \"Transformers\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm==0.29.0 ; #engine# == \"vllm\"",
+        "transformers==5.17.0 ; #engine# == \"vllm\"",
+        "vllm-spark2-5-plugin==0.1.0 ; #engine# == \"vllm\"",
+        "openai>=2.25.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
