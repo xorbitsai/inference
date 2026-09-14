@@ -508,6 +508,24 @@ def test_lingbot_world_v2_loads_shared_assets(tmp_path, monkeypatch):
     ]
 
 
+def test_lingbot_world_v2_uses_main_model_assets(tmp_path, monkeypatch):
+    from .. import model as world_model_module
+
+    model_spec = match_world_model("LingBot-World-V2-14B-Causal-Fast", "huggingface")
+    (tmp_path / "models_t5_umt5-xxl-enc-bf16.pth").write_bytes(b"t5")
+    (tmp_path / "Wan2.1_VAE.pth").write_bytes(b"vae")
+    (tmp_path / "google" / "umt5-xxl").mkdir(parents=True)
+    model = PyTorchLingBotWorldV2Model("lingbot", str(tmp_path), model_spec)
+
+    def fake_world_load(self):
+        self._code_path = "/code/lingbot-world-v2"
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    model.load()
+
+    assert model._assets_model_path == str(tmp_path)
+
+
 def test_lingbot_world_v2_rejects_invalid_inputs(tmp_path, monkeypatch):
     model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
     model = PyTorchLingBotWorldV2Model("lingbot", "/weights/lingbot", model_spec)

@@ -60,7 +60,11 @@ def _patch_t5_checkpoint_loading() -> None:
                 weights_only=True,
             )
         except (RuntimeError, TypeError, ValueError):
-            state_dict = torch.load(checkpoint_path, map_location="cpu")
+            state_dict = torch.load(
+                checkpoint_path,
+                map_location="cpu",
+                weights_only=True,
+            )
         model.load_state_dict(state_dict)
         del state_dict
 

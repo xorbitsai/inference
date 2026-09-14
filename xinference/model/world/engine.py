@@ -50,15 +50,14 @@ class PyTorchLingBotWorldV2Model(LingBotWorldV2Model, PyTorchWorldEngineModel):
             return host_result
         try:
             torch_version = metadata.version("torch")
-        except metadata.PackageNotFoundError:
-            return False, "LingBot-World-V2 requires host torch>=2.4.0"
-        try:
             if Version(torch_version) < Version("2.4.0"):
                 return (
                     False,
                     "LingBot-World-V2 requires host torch>=2.4.0; "
                     f"found torch {torch_version}",
                 )
+        except metadata.PackageNotFoundError:
+            return False, "LingBot-World-V2 requires host torch>=2.4.0"
         except InvalidVersion:
             return (
                 False,

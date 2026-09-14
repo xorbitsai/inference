@@ -754,6 +754,7 @@ class LingBotWorldV2Model(WorldModel):
     def load(self):
         super().load()
         if self._has_assets(self._model_path):
+            self._assets_model_path = self._model_path
             return
         if not self._model_spec.auxiliary_model_id:
             raise RuntimeError(
