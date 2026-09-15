@@ -2890,6 +2890,7 @@ def test_spark_x2_5_get_full_context_handles_string_arguments():
         chat_template = spark_template
 
         def apply_chat_template(self, rendered_messages, **kwargs):
+            kwargs.pop("add_generation_prompt", None)
             return mixin._build_from_raw_template(
                 rendered_messages, self.chat_template, **kwargs
             )
