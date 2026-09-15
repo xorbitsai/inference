@@ -2901,9 +2901,7 @@ def test_spark_x2_5_get_full_context_handles_string_arguments():
         assert "<arg_key>city</arg_key><arg_value>北京</arg_value>" in prompt
         assert '<tool_response>{"temperature":25}</tool_response>' in prompt
         assert prompt.endswith("<|assistant|>")
-    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
-        '{"city":"北京"}'
-    )
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == ('{"city":"北京"}')
 
 
 def test_minicpm5_get_full_context_handles_string_arguments():
