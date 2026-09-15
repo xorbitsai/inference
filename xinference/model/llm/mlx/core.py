@@ -54,6 +54,7 @@ from ....types import (
 from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..media import validate_messages_media
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -2146,6 +2147,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[MLXGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        validate_messages_media(messages)
         messages = self._transform_messages(messages)  # type: ignore
         tools = generate_config.pop("tools", []) if generate_config else None
         if tools is not None and not isinstance(tools, list):

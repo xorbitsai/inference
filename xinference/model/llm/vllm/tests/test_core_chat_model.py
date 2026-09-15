@@ -290,6 +290,86 @@ class TestVLLMBase64Media:
         assert messages[0]["content"][0]["video_url"]["url"] == data_uri
         assert not captured["video_path"].exists()
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("url", ["/etc/hostname", "file:///etc/hostname"])
+    async def test_async_chat_rejects_local_media_url(self, model, monkeypatch, url):
+        qwen_omni_utils = types.ModuleType("qwen_omni_utils")
+        qwen_omni_utils.process_vision_info = MagicMock()
+        qwen_omni_utils.process_audio_info = MagicMock()
+        qwen_omni_utils.process_mm_info = MagicMock()
+        monkeypatch.setitem(sys.modules, "qwen_omni_utils", qwen_omni_utils)
+
+        model.model_uid = "test-model"
+        model.model_family = MagicMock()
+        model.model_family.model_family = "qwen2-vl"
+        model.model_family.model_ability = ["chat", "vision"]
+
+        messages = [
+            {
+                "role": "user",
+                "content": [{"type": "image_url", "image_url": {"url": url}}],
+            }
+        ]
+        with pytest.raises(ValueError, match="Local file"):
+            await model.async_chat(messages, {})
+        qwen_omni_utils.process_vision_info.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_chat_runs_media_reader_off_event_loop(
+        self, model, monkeypatch
+    ):
+        import asyncio
+
+        data_uri = "data:image/png;base64," + base64.b64encode(b"png-bytes").decode()
+        messages = [
+            {
+                "role": "user",
+                "content": [{"type": "image_url", "image_url": {"url": data_uri}}],
+            }
+        ]
+        captured = {}
+
+        def process_vision_info(transformed_messages, *, return_video_kwargs):
+            try:
+                asyncio.get_running_loop()
+                captured["on_loop"] = True
+            except RuntimeError:
+                captured["on_loop"] = False
+            return ["image"], None, None
+
+        qwen_omni_utils = types.ModuleType("qwen_omni_utils")
+        qwen_omni_utils.process_vision_info = process_vision_info
+        qwen_omni_utils.process_audio_info = MagicMock()
+        qwen_omni_utils.process_mm_info = MagicMock()
+        monkeypatch.setitem(sys.modules, "qwen_omni_utils", qwen_omni_utils)
+
+        model.model_uid = "test-model"
+        model.model_family = MagicMock()
+        model.model_family.model_family = "qwen2-vl"
+        model.model_family.model_name = "qwen2-vl"
+        model.model_family.model_ability = ["chat", "vision"]
+        model.model_family.chat_template = "chat-template"
+        model.reasoning_parser = None
+        model._get_chat_template_kwargs_from_generate_config = MagicMock(
+            return_value={}
+        )
+
+        async def get_chat_template_and_tokenizer(_model_family):
+            return "chat-template", None
+
+        model._get_chat_template_and_tokenizer = get_chat_template_and_tokenizer
+        model.get_full_context = MagicMock(return_value="prompt")
+        model._sanitize_chat_config = MagicMock(return_value={"stream": False})
+
+        async def async_generate(inputs, *_args, **_kwargs):
+            return {"completion": "ok"}
+
+        model.async_generate = async_generate
+        model._to_chat_completion = MagicMock(return_value={"result": "ok"})
+
+        assert await model.async_chat(messages, {}) == {"result": "ok"}
+        assert captured["on_loop"] is False
+
 
 class TestVLLMChatModel:
 

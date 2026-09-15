@@ -406,3 +406,76 @@ msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
 #: ../../source/getting_started/environments.rst:58
 msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
 msgstr "当 Worker 因采集失败或跳过采集而省略该字段时，Supervisor 保留最近一次有效的单模型 GPU 显存快照的最大秒数。显式的空快照仍会立即清除缓存。默认值为 90。"
+
+#: ../../source/getting_started/environments.rst:240
+msgid "XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS"
+msgstr "XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS"
+
+#: ../../source/getting_started/environments.rst:241
+msgid ""
+"Refuse client-supplied ``image_url`` / ``video_url`` / ``audio_url`` "
+"values that resolve to loopback, private, or link-local addresses, which "
+"otherwise let a chat request probe the server's own network (SSRF). "
+"Default value is ``true``."
+msgstr ""
+"拒绝客户端传入的、解析到回环地址、私有地址或链路本地地址的 ``image_url`` / "
+"``video_url`` / ``audio_url``，否则一个对话请求就能探测服务端所在的内网"
+"（SSRF）。默认值为 ``true``。"
+
+#: ../../source/getting_started/environments.rst:246
+msgid ""
+"Enabled by default. Requests referencing intranet hosts such as "
+"``http://minio.internal/x.png`` or a Kubernetes Service DNS name now fail."
+" Set this to ``false`` if the deployment is not publicly exposed and the "
+"server is trusted to reach those hosts."
+msgstr ""
+"默认启用。引用内网主机的请求（例如 ``http://minio.internal/x.png`` 或 "
+"Kubernetes Service 的 DNS 名称）从此会失败。如果该部署不对公网暴露，且信任"
+"服务端访问这些主机，可将其设为 ``false``。"
+
+#: ../../source/getting_started/environments.rst:253
+msgid "XINFERENCE_MEDIA_ALLOW_LOCAL_PATH"
+msgstr "XINFERENCE_MEDIA_ALLOW_LOCAL_PATH"
+
+#: ../../source/getting_started/environments.rst:254
+msgid ""
+"Allow ``file://`` URLs and bare filesystem paths in chat media parts. When"
+" disabled, such values are rejected instead of being read off the server's"
+" disk. Default value is ``false``."
+msgstr ""
+"允许对话媒体部分使用 ``file://`` URL 和裸文件系统路径。关闭时，这类取值会被"
+"拒绝，而不是从服务端磁盘上读取。默认值为 ``false``。"
+
+#: ../../source/getting_started/environments.rst:258
+msgid ""
+"Disabled by default. Server-local paths that previously worked (an "
+"``image_url`` of ``/data/img.png``) now error. Send the media as a "
+"``data:`` URI or an HTTP(S) URL, or set this to ``true`` when every API "
+"caller is already trusted with the server's filesystem."
+msgstr ""
+"默认关闭。此前可用的服务端本地路径（例如 ``image_url`` 为 ``/data/img.png``）"
+"从此会报错。请改用 ``data:`` URI 或 HTTP(S) URL 传递媒体；若所有 API 调用方"
+"本就被信任可访问服务端文件系统，可将其设为 ``true``。"
+
+#: ../../source/getting_started/environments.rst:265
+msgid "XINFERENCE_MEDIA_FETCH_TIMEOUT"
+msgstr "XINFERENCE_MEDIA_FETCH_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst:266
+msgid ""
+"Total wall-clock seconds allowed for fetching one remote media URL, "
+"redirects included. A single request's media as a whole is capped at three "
+"times this value. Default value is 20."
+msgstr ""
+"抓取单个远程媒体 URL 允许的总耗时（秒），包含重定向在内。单个请求的全部媒体"
+"合计上限为该值的三倍。默认值为 20。"
+
+#: ../../source/getting_started/environments.rst:270
+msgid "XINFERENCE_MEDIA_MAX_BYTES"
+msgstr "XINFERENCE_MEDIA_MAX_BYTES"
+
+#: ../../source/getting_started/environments.rst:271
+msgid ""
+"Maximum size in bytes of one fetched media file. Default value is 67108864"
+" (64 MiB)."
+msgstr "单个已抓取媒体文件的最大字节数。默认值为 67108864（64 MiB）。"

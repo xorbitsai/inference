@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import functools
 import importlib.util
 import inspect
@@ -37,7 +36,6 @@ from typing import (
     cast,
 )
 
-import requests
 from PIL import Image
 
 from ...types import (
@@ -58,6 +56,7 @@ from ...types import (
     ToolCallDelta,
 )
 from .core import chat_context_var
+from .media import load_media_bytes
 from .reasoning_parser import ReasoningParser
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 
@@ -1423,41 +1422,11 @@ def get_model_version(
 
 
 def _decode_image(_url):
-    if _url.startswith("data:"):
-        logging.info("Parse url by base64 decoder.")
-        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-        # e.g. f"data:image/jpeg;base64,{base64_image}"
-        _type, data = _url.split(";")
-        _, ext = _type.split("/")
-        data = data[len("base64,") :]
-        data = base64.b64decode(data.encode("utf-8"))
-        return Image.open(BytesIO(data)).convert("RGB")
-    else:
-        try:
-            response = requests.get(_url)
-        except requests.exceptions.MissingSchema:
-            return Image.open(_url).convert("RGB")
-        else:
-            return Image.open(BytesIO(response.content)).convert("RGB")
+    return _decode_image_without_rgb(_url).convert("RGB")
 
 
 def _decode_image_without_rgb(_url):
-    if _url.startswith("data:"):
-        logging.info("Parse url by base64 decoder.")
-        # https://platform.openai.com/docs/guides/vision/uploading-base-64-encoded-images
-        # e.g. f"data:image/jpeg;base64,{base64_image}"
-        _type, data = _url.split(";")
-        _, ext = _type.split("/")
-        data = data[len("base64,") :]
-        data = base64.b64decode(data.encode("utf-8"))
-        return Image.open(BytesIO(data))
-    else:
-        try:
-            response = requests.get(_url)
-        except requests.exceptions.MissingSchema:
-            return Image.open(_url)
-        else:
-            return Image.open(BytesIO(response.content))
+    return Image.open(BytesIO(load_media_bytes(_url)))
 
 
 @typing.no_type_check

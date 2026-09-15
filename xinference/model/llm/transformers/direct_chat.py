@@ -21,6 +21,7 @@ from ....types import (
     CompletionChunk,
     PytorchGenerateConfig,
 )
+from ..media import validate_messages_media
 from ..utils import ChatModelMixin, generate_completion, generate_completion_chunk
 
 
@@ -241,6 +242,9 @@ class PytorchDirectChatMixin(ChatModelMixin):
         messages: List[Dict],
         generate_config: Optional[PytorchGenerateConfig] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        # Single funnel for every direct-chat model, including families that
+        # never call _transform_messages (deepseek_vl2) or override it (qwen2_audio).
+        validate_messages_media(messages)
         stream = bool(generate_config and generate_config.get("stream"))
         if stream:
             return self._to_chat_completion_chunks(

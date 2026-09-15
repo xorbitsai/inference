@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import logging
 import uuid
 from typing import (
@@ -30,6 +31,7 @@ from ....types import ChatCompletion, ChatCompletionChunk, Completion, LoRA
 from ...utils import check_dependency_available
 from ..core import LLM
 from ..llm_family import LLMFamilyV2, LLMSpecV1
+from ..media import materialize_messages_media, media_workspace, validate_messages_media
 from ..utils import ChatModelMixin, generate_chat_completion, generate_completion_chunk
 
 logger = logging.getLogger(__name__)
@@ -473,6 +475,22 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
                 if self._model.backend == "pytorch" and sequence_end:
                     await self._model.end_session(session_id)
 
+    async def _collect_pil_images(self, messages: List[Dict]):
+        """Load the images lmdeploy's template needs, from server-owned copies.
+
+        The template fetches urls itself and follows redirects, so the bytes are
+        pulled here first; nothing outlives the workspace because the images come
+        back already decoded.
+        """
+        import copy
+
+        messages = copy.deepcopy(messages)
+        with media_workspace("xinference-lmdeploy-") as temp_dir:
+            await asyncio.to_thread(materialize_messages_media, messages, temp_dir)
+            return await self._model.vl_prompt_template.async_collect_pil_images(
+                messages
+            )
+
     # copy from lmdeploy
     # Reference: lmdeploy.serve.vl_async_engine.py
     async def _get_prompt_input(
@@ -483,12 +501,17 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         **kwargs,
     ):
         """get input_ids, embeddings and offsets."""
+        # to_thread: both calls block (DNS, then media reads) and this runs on
+        # the model actor's event loop.
+        await asyncio.to_thread(validate_messages_media, messages)
         IMAGE_TOKEN = "<IMAGE_TOKEN>"
         IMAGE_DUMMY_TOKEN_INDEX = 0
         import numpy as np
 
         model_family = self.model_family.model_family or self.model_family.model_name
-        decorated, _ = self.get_specific_prompt(model_family, messages)  # type: ignore
+        decorated, _ = await asyncio.to_thread(
+            self.get_specific_prompt, model_family, messages  # type: ignore
+        )
         prompt = messages  # type: ignore
 
         decorated = decorated.replace("<image>", "<img><IMAGE_TOKEN></img>")
@@ -498,9 +521,7 @@ class LMDeployChatModel(LMDeployModel, ChatModelMixin):
         results = {}
         input_ids = []  # type: ignore
         if len(segs) > 1:
-            images = await self._model.vl_prompt_template.async_collect_pil_images(
-                prompt
-            )
+            images = await self._collect_pil_images(prompt)
 
             features = await self._model.vl_encoder.async_infer(images)
 
