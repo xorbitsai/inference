@@ -58,6 +58,57 @@ try:
 except ImportError:
     pass
 
+logger = logging.getLogger(__name__)
+
+# How long a starting worker waits for the supervisor REST endpoint to become
+# reachable before giving up: 60 attempts * 5 seconds = 5 minutes.
+_SUPERVISOR_CONNECT_MAX_ATTEMPTS = 60
+_SUPERVISOR_CONNECT_RETRY_INTERVAL = 5.0
+
+
+def _resolve_supervisor_internal_address(
+    endpoint: str,
+    max_attempts: Optional[int] = None,
+    retry_interval: Optional[float] = None,
+) -> str:
+    """Resolve the supervisor's internal actor address via its REST API.
+
+    A worker cannot join the cluster until the supervisor is reachable. This
+    is the first network operation a worker performs, so instead of crashing
+    (or hanging) before emitting any log line, retry with explicit warnings
+    until the supervisor responds or ``max_attempts`` is exhausted.
+    """
+    if max_attempts is None:
+        max_attempts = _SUPERVISOR_CONNECT_MAX_ATTEMPTS
+    if retry_interval is None:
+        retry_interval = _SUPERVISOR_CONNECT_RETRY_INTERVAL
+    for attempt in range(1, max_attempts + 1):
+        try:
+            client = RESTfulClient(base_url=endpoint)
+            return client._get_supervisor_internal_address()
+        except Exception as e:
+            if attempt >= max_attempts:
+                logger.error(
+                    "Failed to connect to supervisor at %s after %d attempts. "
+                    "Please check that the supervisor is running and that the "
+                    "-e/--endpoint value is correct.",
+                    endpoint,
+                    attempt,
+                )
+                raise
+            logger.warning(
+                "Supervisor at %s is not ready (%s: %s), "
+                "retrying in %.0f seconds (attempt %d/%d)",
+                endpoint,
+                type(e).__name__,
+                e,
+                retry_interval,
+                attempt,
+                max_attempts,
+            )
+            time.sleep(retry_interval)
+    raise RuntimeError("unreachable")  # pragma: no cover
+
 
 def get_endpoint(endpoint: Optional[str]) -> str:
     # user didn't specify the endpoint.
@@ -357,8 +408,11 @@ def worker(
 
     endpoint = get_endpoint(endpoint)
 
-    client = RESTfulClient(base_url=endpoint)
-    supervisor_internal_addr = client._get_supervisor_internal_address()
+    logger.info(
+        "Starting Xinference worker. Supervisor endpoint: %s",
+        endpoint,
+    )
+    supervisor_internal_addr = _resolve_supervisor_internal_address(endpoint)
 
     address = f"{host}:{worker_port or get_next_port()}"
     main(
