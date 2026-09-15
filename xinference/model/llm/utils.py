@@ -261,6 +261,7 @@ class ChatModelMixin:
         # template style are covered automatically.
         return chat_template is not None and (
             "tool_call.arguments|items" in chat_template
+            or "tool_call.function.arguments is not mapping" in chat_template
             or (
                 "args_dict = tool_call.arguments" in chat_template
                 and "args_dict.items()" in chat_template
@@ -347,7 +348,10 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
-        if self._chat_template_needs_dict_arguments(chat_template):
+        normalization_template = chat_template
+        if normalization_template is None and tokenizer is not None:
+            normalization_template = getattr(tokenizer, "chat_template", None)
+        if self._chat_template_needs_dict_arguments(normalization_template):
             messages = self._normalize_tool_call_arguments_to_dict(messages)
         if (
             "vision" not in self.model_family.model_ability
