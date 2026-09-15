@@ -66,6 +66,137 @@
   },
   {
     "version": 1,
+    "model_family": "LingBot-World-V2",
+    "model_description": "An image-conditioned interactive world model from Robbyant with causal long-horizon generation and action control.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "image2world"
+    ],
+    "default_model_config": {},
+    "source_url": "https://github.com/robbyant/lingbot-world-v2.git",
+    "source_revision": "1895d300d8ac936401689b26389f51cbd36530eb",
+    "virtualenv": {
+      "packages": [
+        "#system_torch# ; #engine# == \"pytorch\"",
+        "#system_torchvision#",
+        "opencv-python>=4.9.0.80",
+        "diffusers>=0.31.0",
+        "transformers>=4.49.0,<=4.51.3",
+        "tokenizers>=0.21,<0.22",
+        "accelerate>=1.1.1",
+        "tqdm",
+        "imageio[ffmpeg]",
+        "easydict",
+        "ftfy",
+        "imageio-ffmpeg",
+        "einops",
+        "flash-attn",
+        "numpy>=1.23.5,<2",
+        "pillow",
+        "safetensors",
+        "scipy",
+        "modelscope"
+      ],
+      "index_strategy": "unsafe-best-match",
+      "no_build_isolation": true
+    },
+    "model_specs": [
+      {
+        "model_name": "LingBot-World-V2-14B-Causal-Fast",
+        "inference_task": "i2v-A14B",
+        "inference_mode": "causal_fast",
+        "default_generate_config": {
+          "size": "480*832",
+          "frame_num": 361,
+          "chunk_size": 4,
+          "base_seed": 42,
+          "local_attn_size": 18,
+          "sink_size": 6,
+          "response_format": "url"
+        },
+        "model_src": {
+          "huggingface": {
+            "model_id": "robbyant/lingbot-world-v2-14b-causal-fast",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "Robbyant/lingbot-world-v2-14b-causal-fast",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_name": "LingBot-World-V2-14B-Causal-Pretrain",
+        "inference_task": "i2v-A14B",
+        "inference_mode": "causal_pretrain",
+        "default_generate_config": {
+          "size": "480*832",
+          "frame_num": 81,
+          "chunk_size": 4,
+          "base_seed": 42,
+          "response_format": "url"
+        },
+        "auxiliary_model_id": "robbyant/lingbot-world-v2-14b-causal-fast",
+        "auxiliary_model_revision": "main",
+        "auxiliary_model_allow_patterns": [
+          "models_t5_umt5-xxl-enc-bf16.pth",
+          "Wan2.1_VAE.pth",
+          "google/umt5-xxl/*"
+        ],
+        "model_src": {
+          "huggingface": {
+            "model_id": "robbyant/lingbot-world-v2-14b-causal-pretrain",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "Robbyant/lingbot-world-v2-14b-causal-pretrain",
+            "model_revision": "master",
+            "auxiliary_model_id": "Robbyant/lingbot-world-v2-14b-causal-fast",
+            "auxiliary_model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_name": "LingBot-World-V2-1.3B-Causal-Fast",
+        "inference_task": "i2v-1.3B",
+        "inference_mode": "causal_fast",
+        "default_generate_config": {
+          "size": "480*832",
+          "frame_num": 81,
+          "chunk_size": 4,
+          "base_seed": 42,
+          "offload_model": true,
+          "t5_cpu": true,
+          "local_attn_size": 18,
+          "sink_size": 6,
+          "response_format": "url"
+        },
+        "auxiliary_model_id": "robbyant/lingbot-world-v2-14b-causal-fast",
+        "auxiliary_model_revision": "main",
+        "auxiliary_model_allow_patterns": [
+          "models_t5_umt5-xxl-enc-bf16.pth",
+          "Wan2.1_VAE.pth",
+          "google/umt5-xxl/*"
+        ],
+        "model_src": {
+          "huggingface": {
+            "model_id": "robbyant/lingbot-world-v2-1.3b-causal-fast",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "Robbyant/lingbot-world-v2-1.3b-causal-fast",
+            "model_revision": "master",
+            "auxiliary_model_id": "Robbyant/lingbot-world-v2-14b-causal-fast",
+            "auxiliary_model_revision": "master"
+          }
+        }
+      }
+    ],
+    "updated_at": 1788998400,
+    "featured": false
+  },
+  {
+    "version": 1,
     "model_name": "HY-WorldPlay-5B",
     "model_family": "HY-WorldPlay",
     "model_description": "A 5B autoregressive world model from Tencent Hunyuan for long-horizon interactive video generation.",

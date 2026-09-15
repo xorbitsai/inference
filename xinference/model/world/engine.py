@@ -20,7 +20,7 @@ from packaging.version import InvalidVersion, Version
 
 from ..utils import has_cuda_device
 from .engine_family import SUPPORTED_ENGINES, WorldEngineModel
-from .model import AstraModel, HYWorldPlayModel, MatrixGameModel
+from .model import AstraModel, HYWorldPlayModel, LingBotWorldV2Model, MatrixGameModel
 
 if TYPE_CHECKING:
     from .core import WorldModelFamilyV1
@@ -40,6 +40,34 @@ class PyTorchMatrixGameModel(MatrixGameModel, PyTorchWorldEngineModel):
     @classmethod
     def match(cls, model_family: "WorldModelFamilyV1") -> bool:
         return model_family.model_family == "Matrix-Game-3.0"
+
+
+class PyTorchLingBotWorldV2Model(LingBotWorldV2Model, PyTorchWorldEngineModel):
+    @classmethod
+    def check_host(cls) -> Union[bool, Tuple[bool, str]]:
+        host_result = super().check_host()
+        if host_result is not True:
+            return host_result
+        try:
+            torch_version = metadata.version("torch")
+            if Version(torch_version) < Version("2.4.0"):
+                return (
+                    False,
+                    "LingBot-World-V2 requires host torch>=2.4.0; "
+                    f"found torch {torch_version}",
+                )
+        except metadata.PackageNotFoundError:
+            return False, "LingBot-World-V2 requires host torch>=2.4.0"
+        except InvalidVersion:
+            return (
+                False,
+                f"LingBot-World-V2 cannot validate host torch {torch_version!r}",
+            )
+        return True
+
+    @classmethod
+    def match(cls, model_family: "WorldModelFamilyV1") -> bool:
+        return model_family.model_family == "LingBot-World-V2"
 
 
 class PyTorchHYWorldPlayModel(HYWorldPlayModel, PyTorchWorldEngineModel):
@@ -104,6 +132,7 @@ def register_builtin_world_engines() -> None:
     # added without changing the public generation API or model actor contract.
     SUPPORTED_ENGINES["PyTorch"] = [
         PyTorchMatrixGameModel,
+        PyTorchLingBotWorldV2Model,
         PyTorchHYWorldPlayModel,
         PyTorchAstraModel,
     ]
