@@ -39,7 +39,7 @@ def patch_spark_x2_5_plugin(env_path: str) -> bool:
         logger.debug("Spark-X2.5 vLLM plugin not found in %s", env_path)
         return False
 
-    with open(target_file, "r") as f:
+    with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
     if "[xinference-patch] vLLM 0.29" in content:
         return False
@@ -49,7 +49,7 @@ def patch_spark_x2_5_plugin(env_path: str) -> bool:
         )
         return False
 
-    with open(target_file, "w") as f:
+    with open(target_file, "w", encoding="utf-8") as f:
         f.write(content.replace(_ORIGINAL, _PATCHED))
     logger.info("Patched Spark-X2.5 vLLM plugin: %s", target_file)
     return True
