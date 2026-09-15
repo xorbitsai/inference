@@ -3841,5 +3841,53 @@
     },
     "updated_at": 1787333415,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "YuE2-3B",
+    "model_family": "yue2",
+    "model_description": "YuE2 generates complete 48 kHz stereo songs from lyrics and a music description, with optional symbolic score planning.",
+    "model_ability": [
+      "text2music"
+    ],
+    "multilingual": true,
+    "default_model_config": {
+      "backend": "torch",
+      "memory_budget_gib": 24,
+      "quantization": "none",
+      "offload_ar": false,
+      "vae_core_frames": null,
+      "verify_hashes": true
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.6",
+        "huggingface-hub==0.36.2",
+        "safetensors==0.7.0",
+        "tiktoken==0.12.0",
+        "numpy==2.2.6",
+        "accelerate==1.13.0",
+        "modelscope>=1.21.0",
+        "soundfile==0.13.1",
+        "#system_torch#"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "m-a-p/YuE2-3B",
+        "model_revision": "main",
+        "vae_model_id": "m-a-p/YuE2-Vae",
+        "vae_model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "m-a-p/YuE2-3B",
+        "model_revision": "master",
+        "vae_model_id": "m-a-p/YuE2-Vae",
+        "vae_model_revision": "master"
+      }
+    },
+    "updated_at": 1789171152,
+    "featured": true
   }
 ]

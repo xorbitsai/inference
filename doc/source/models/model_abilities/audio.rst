@@ -129,6 +129,7 @@ Music generation
 
 * :ref:`ACE-Step1.5 <models_builtin_ace-step1.5>`
 * :ref:`MiniMax-Music3 <models_builtin_minimax-music3>` (NVIDIA CUDA only)
+* :ref:`YuE2-3B <models_builtin_yue2-3b>` (NVIDIA CUDA with BF16 support only)
 
 Speaker embeddings
 ~~~~~~~~~~~~~~~~~~

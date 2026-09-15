@@ -43,6 +43,7 @@ from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
 from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
+from .yue2 import YuE2Model
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,7 @@ def create_audio_model_instance(
     FireRedTTS3Model,
     MeloTTSModel,
     MiniMaxMusic3Model,
+    YuE2Model,
     KokoroModel,
     KokoroMLXModel,
     KokoroZHModel,
@@ -296,6 +298,9 @@ def create_audio_model_instance(
         and model_spec.model_name not in AUDIO_ENGINES
     ):
         raise ValueError("MiniMax-Music3 requires an NVIDIA CUDA device.")
+
+    if model_spec.model_family == "yue2" and model_spec.model_name not in AUDIO_ENGINES:
+        raise ValueError("YuE2 requires an NVIDIA CUDA device.")
 
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
