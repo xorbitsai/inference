@@ -10,17 +10,19 @@ from ._base import VllmPatch
 logger = logging.getLogger(__name__)
 
 _PLUGIN_RELATIVE_PATH = os.path.join("vllm_spark2_5_plugin", "spark2_5.py")
-_ORIGINAL = '''        loader = AutoWeightsLoader(
+_ORIGINAL = """        loader = AutoWeightsLoader(
             self,
             skip_prefixes=(["lm_head."] if self.config.tie_word_embeddings else None),
-        )'''
-_PATCHED = '''        # [xinference-patch] vLLM 0.29 derives tied-weight aliases itself.
-        loader = AutoWeightsLoader(self)'''
+        )"""
+_PATCHED = """        # [xinference-patch] vLLM 0.29 derives tied-weight aliases itself.
+        loader = AutoWeightsLoader(self)"""
 
 
 def _get_plugin_file(env_path: str) -> Optional[str]:
     patterns = [
-        os.path.join(env_path, "lib", "python*", "site-packages", _PLUGIN_RELATIVE_PATH),
+        os.path.join(
+            env_path, "lib", "python*", "site-packages", _PLUGIN_RELATIVE_PATH
+        ),
         os.path.join(env_path, "Lib", "site-packages", _PLUGIN_RELATIVE_PATH),
     ]
     for pattern in patterns:
@@ -42,7 +44,9 @@ def patch_spark_x2_5_plugin(env_path: str) -> bool:
     if "[xinference-patch] vLLM 0.29" in content:
         return False
     if _ORIGINAL not in content:
-        logger.debug("Spark-X2.5 plugin has no compatible patch target: %s", target_file)
+        logger.debug(
+            "Spark-X2.5 plugin has no compatible patch target: %s", target_file
+        )
         return False
 
     with open(target_file, "w") as f:

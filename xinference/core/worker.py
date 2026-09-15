@@ -161,9 +161,9 @@ _sglang_source_build_env_lock = threading.Lock()
 @contextmanager
 def _sglang_source_build_environment(packages: List[str]):
     uses_sglang_source_snapshot = any(
-        package.split(";", 1)[0].strip().startswith(
-            "sglang @ git+https://github.com/sgl-project/sglang.git@"
-        )
+        package.split(";", 1)[0]
+        .strip()
+        .startswith("sglang @ git+https://github.com/sgl-project/sglang.git@")
         for package in packages
     )
     if not uses_sglang_source_snapshot:

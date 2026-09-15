@@ -994,14 +994,8 @@ def test_minicpm5_2b_builtin_family_has_all_published_formats():
 
 def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
     from ..llm_family import BUILTIN_LLM_FAMILIES
-    from ..sglang.core import (
-        SGLANG_SUPPORTED_CHAT_MODELS,
-        SGLANG_SUPPORTED_MODELS,
-    )
-    from ..transformers.spark_x2_5 import (
-        SparkX25PytorchChatModel,
-        SparkX25PytorchModel,
-    )
+    from ..sglang.core import SGLANG_SUPPORTED_CHAT_MODELS, SGLANG_SUPPORTED_MODELS
+    from ..transformers.spark_x2_5 import SparkX25PytorchChatModel, SparkX25PytorchModel
     from ..utils import GLM5_TOOL_CALL_FAMILY
     from ..vllm import core as vllm_core
 
@@ -1089,12 +1083,15 @@ def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
     base_spec = next(
         spec for spec in base.model_specs if spec.model_hub == "huggingface"
     )
-    assert SparkX25PytorchChatModel.match_json(
-        instruction, instruction_spec, instruction_spec.quantization
-    ) is True
-    assert SparkX25PytorchModel.match_json(
-        base, base_spec, base_spec.quantization
-    ) is True
+    assert (
+        SparkX25PytorchChatModel.match_json(
+            instruction, instruction_spec, instruction_spec.quantization
+        )
+        is True
+    )
+    assert (
+        SparkX25PytorchModel.match_json(base, base_spec, base_spec.quantization) is True
+    )
 
     vllm_model = object.__new__(vllm_core.VLLMModel)
     vllm_model.model_family = instruction
@@ -1119,11 +1116,14 @@ def test_spark_x2_5_builtin_families_cover_official_hubs_and_formats():
     model.model_family = instruction
     model.reasoning_parser = None
     model._tokenizer = tokenizer
-    assert model._get_full_prompt(
-        [{"role": "user", "content": "hello"}],
-        [{"type": "function", "function": {"name": "weather"}}],
-        {},
-    ) == "prompt"
+    assert (
+        model._get_full_prompt(
+            [{"role": "user", "content": "hello"}],
+            [{"type": "function", "function": {"name": "weather"}}],
+            {},
+        )
+        == "prompt"
+    )
     assert tokenizer.calls[0][1]["tools"] == [
         {"type": "function", "function": {"name": "weather"}}
     ]

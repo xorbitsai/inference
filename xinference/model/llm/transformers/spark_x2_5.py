@@ -24,14 +24,6 @@ from .core import PytorchChatModel, PytorchModel, register_non_default_model
 class _SparkX25PytorchMixin:
     _ARCHITECTURE = "Spark2_5ForCausalLM"
 
-    def _sanitize_model_config(
-        self, pytorch_model_config: Optional[PytorchModelConfig]
-    ) -> PytorchModelConfig:
-        config = super()._sanitize_model_config(pytorch_model_config)
-        config["trust_remote_code"] = allow_trust_remote_code(self.model_family)
-        config.setdefault("torch_dtype", "auto")
-        return config  # type: ignore
-
     @classmethod
     def _match_spark_x2_5(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -62,6 +54,14 @@ class _SparkX25PytorchMixin:
 class SparkX25PytorchModel(_SparkX25PytorchMixin, PytorchModel):
     """Transformers adapter for Spark-X2.5 base checkpoints."""
 
+    def _sanitize_model_config(
+        self, pytorch_model_config: Optional[PytorchModelConfig]
+    ) -> PytorchModelConfig:
+        config = super()._sanitize_model_config(pytorch_model_config)
+        config["trust_remote_code"] = allow_trust_remote_code(self.model_family)
+        config.setdefault("torch_dtype", "auto")
+        return config
+
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -77,6 +77,14 @@ class SparkX25PytorchModel(_SparkX25PytorchMixin, PytorchModel):
 @register_transformer
 class SparkX25PytorchChatModel(_SparkX25PytorchMixin, PytorchChatModel):
     """Transformers adapter for Spark-X2.5 instruction checkpoints."""
+
+    def _sanitize_model_config(
+        self, pytorch_model_config: Optional[PytorchModelConfig]
+    ) -> PytorchModelConfig:
+        config = super()._sanitize_model_config(pytorch_model_config)
+        config["trust_remote_code"] = allow_trust_remote_code(self.model_family)
+        config.setdefault("torch_dtype", "auto")
+        return config
 
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
         chat_template_kwargs = (
