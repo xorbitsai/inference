@@ -876,3 +876,15 @@ msgstr "原始 REST 請求將 ``kwargs`` 編碼為 JSON 字串。Xinference 同�
 #~ "directory, so you don't need to worry about the exact hash values."
 #~ msgstr ""
 #~ "``snapshots/`` 目錄包含具有雜湊名稱的特定版本模型檔案。Xinference會自動偵測並使用正確的快照目錄，因此您無需擔心精確的雜湊值。"
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Invalid and silent audio"
+msgstr "無效或無聲音訊"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid "FunASR transcription models return HTTP 200 with an empty transcription when no speech is detected. An empty audio upload is invalid and returns HTTP 400."
+msgstr "FunASR 轉錄模型在未偵測到語音時會傳回 HTTP 200 和空的轉錄結果。上傳空音訊屬於無效請求，並傳回 HTTP 400。"
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid "MegaTTS3 voice cloning requires decodable reference audio with samples and detectable sound. Empty, undecodable, or effectively silent ``prompt_speech`` input, and empty ``prompt_latent`` input, return HTTP 400 before inference."
+msgstr "MegaTTS3 聲音複製要求參考音訊可解碼、包含取樣且能偵測到聲音。空白、無法解碼或近乎無聲的 ``prompt_speech`` 輸入，以及空白的 ``prompt_latent`` 輸入，會在推論前傳回 HTTP 400。"

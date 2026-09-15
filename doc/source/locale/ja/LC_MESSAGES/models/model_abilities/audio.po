@@ -902,3 +902,15 @@ msgstr "生の REST リクエストでは、``kwargs`` を JSON 文字列とし�
 #~ msgstr ""
 #~ "``snapshots/`` ディレクトリには、ハッシュ名を持つ特定バージョンのモデルファイルが含まれています。Xinference "
 #~ "は自動的に正しいスナップショットディレクトリを検出して使用するため、正確なハッシュ値を気にする必要はありません。"
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Invalid and silent audio"
+msgstr "無効または無音のオーディオ"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid "FunASR transcription models return HTTP 200 with an empty transcription when no speech is detected. An empty audio upload is invalid and returns HTTP 400."
+msgstr "FunASR 文字起こしモデルは、音声が検出されない場合、空の文字起こしとともに HTTP 200 を返します。空の音声アップロードは無効であり、HTTP 400 を返します。"
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid "MegaTTS3 voice cloning requires decodable reference audio with samples and detectable sound. Empty, undecodable, or effectively silent ``prompt_speech`` input, and empty ``prompt_latent`` input, return HTTP 400 before inference."
+msgstr "MegaTTS3 の音声クローンには、サンプルと検出可能な音を含むデコード可能な参照音声が必要です。空、デコード不能、または実質的に無音の ``prompt_speech`` 入力、および空の ``prompt_latent`` 入力は、推論前に HTTP 400 を返します。"

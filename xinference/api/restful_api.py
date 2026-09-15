@@ -70,7 +70,7 @@ from ..constants import (
     is_metrics_disabled,
 )
 from ..core.event import Event, EventCollectorActor, EventType
-from ..core.exceptions import ModelNotReadyError
+from ..core.exceptions import InvalidAudioInputError, ModelNotReadyError
 from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
 from ..core.supervisor import SupervisorActor
@@ -2267,6 +2267,9 @@ class RESTfulAPI(CancelMixin):
                 **parsed_kwargs,
             )
             return Response(content=transcription, media_type="application/json")
+        except InvalidAudioInputError as e:
+            logger.warning("Invalid transcription audio for model %s: %s", model_uid, e)
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
@@ -2378,6 +2381,9 @@ class RESTfulAPI(CancelMixin):
                     media_type=_audio_response_media_type(body.response_format),
                     content=out,
                 )
+        except InvalidAudioInputError as e:
+            logger.warning("Invalid speech audio for model %s: %s", model_uid, e)
+            raise HTTPException(status_code=400, detail=e.client_message) from e
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
