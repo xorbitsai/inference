@@ -61,9 +61,12 @@ import type {
   ModelEnvItem,
   VirtualEnvPackage,
 } from '@/types/services';
-import { sortPackages, type PackageSort } from './package-sort-utils';
 
 type TabValue = 'models' | 'environments';
+type PackageSort = {
+  key: 'name' | 'size';
+  direction: 'asc' | 'desc';
+};
 const ACTIVE_CACHE_DOWNLOAD_STAGES = new Set(['pending', 'resuming', 'downloading', 'pausing']);
 const MODEL_REGISTRATION_TYPES = [
   ModelType.LLM,
@@ -134,6 +137,22 @@ function formatDiskUsage(sizeBytes?: number): string {
   return typeof sizeBytes === 'number' && Number.isFinite(sizeBytes)
     ? formatFileSize(Math.max(0, sizeBytes))
     : '-';
+}
+
+function sortPackages(
+  packages: VirtualEnvPackage[],
+  { key, direction }: PackageSort
+): VirtualEnvPackage[] {
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  return [...packages].sort((left, right) => {
+    const comparison =
+      key === 'name'
+        ? left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+        : left.size_bytes - right.size_bytes || left.name.localeCompare(right.name);
+
+    return comparison * multiplier;
+  });
 }
 
 function SummaryCard({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
