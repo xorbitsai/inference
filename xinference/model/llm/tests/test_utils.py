@@ -2832,6 +2832,79 @@ def test_qwen3_family_get_full_context_handles_string_arguments():
         ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"
 
 
+def test_spark_x2_5_get_full_context_handles_string_arguments():
+    # Regression for Spark's official template, which rejects OpenAI's JSON
+    # string arguments before rendering tool-call continuation history.
+    spark_template = """
+{%- for message in messages %}
+    {%- if message.role == 'assistant' and message.tool_calls %}
+        {%- for tool_call in message.tool_calls %}
+            {%- if tool_call.function.arguments is not mapping %}
+                {{- raise_exception('tool_call.function.arguments must be a dictionary; normalize JSON strings before apply_chat_template') }}
+            {%- endif %}
+            {%- set args = tool_call.function.arguments %}
+            {{- '<tool_call>' + tool_call.function.name }}
+            {%- for k, v in args.items() %}
+                {{- '<arg_key>' ~ k ~ '</arg_key><arg_value>' ~ (v if v is string else v | tojson) ~ '</arg_value>' }}
+            {%- endfor %}
+            {{- '</tool_call>' }}
+        {%- endfor %}
+    {%- elif message.role == 'tool' %}
+        {{- '<tool_response>' + message.content + '</tool_response>' }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}<|assistant|>{%- endif %}
+"""
+    messages = [
+        {"role": "user", "content": "北京天气？"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-weather",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call-weather",
+            "content": '{"temperature":25}',
+        },
+        {"role": "user", "content": "继续回答。"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="Spark-X2.5", model_ability=["chat", "tools"]
+    )
+
+    # SGLang passes the downloaded chat_template.jinja text directly.
+    sglang_prompt = mixin.get_full_context(messages, spark_template)
+
+    class Tokenizer:
+        chat_template = spark_template
+
+        def apply_chat_template(self, rendered_messages, **kwargs):
+            kwargs.pop("add_generation_prompt", None)
+            return mixin._build_from_raw_template(
+                rendered_messages, self.chat_template, **kwargs
+            )
+
+    # Transformers and vLLM pass ``None`` and let tokenizer select template.
+    tokenizer_prompt = mixin.get_full_context(messages, None, tokenizer=Tokenizer())
+    for prompt in (sglang_prompt, tokenizer_prompt):
+        assert "<tool_call>get_weather" in prompt
+        assert "<arg_key>city</arg_key><arg_value>北京</arg_value>" in prompt
+        assert '<tool_response>{"temperature":25}</tool_response>' in prompt
+        assert prompt.endswith("<|assistant|>")
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == ('{"city":"北京"}')
+
+
 def test_minicpm5_get_full_context_handles_string_arguments():
     from .. import BUILTIN_LLM_FAMILIES
 

@@ -60,6 +60,7 @@ from ....types import (
     CompletionUsage,
     LoRA,
 )
+from ...utils import allow_trust_remote_code
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import cache_model_tokenizer_and_config
@@ -324,6 +325,7 @@ VLLM_SUPPORTED_MULTI_MODEL_LIST: List[str] = []
 VLLM_SUPPORTED_MODELS = [
     "LlamaForCausalLM",
     "MistralForCausalLM",
+    "Spark2_5ForCausalLM",
 ]
 VLLM_SUPPORTED_CHAT_MODELS = [
     "LlamaForCausalLM",
@@ -336,6 +338,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "GlmForCausalLM",
     "ChatGLMModel",
     "Qwen3_5MoeForCausalLM",
+    "Spark2_5ForCausalLM",
 ]
 
 
@@ -1313,11 +1316,19 @@ class VLLMModel(LLM):
             model_config.setdefault("tokenizer_mode", "deepseek_v32")
         else:
             model_config.setdefault("tokenizer_mode", "auto")
-        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
-        model_config["trust_remote_code"] = (
-            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
-            and XINFERENCE_TRUST_REMOTE_CODE
-        )
+        if "Spark2_5ForCausalLM" in architectures:
+            # The official vLLM deployment uses the model's remote-code loader.
+            model_config["trust_remote_code"] = allow_trust_remote_code(
+                self.model_family
+            )
+        else:
+            # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+            model_config["trust_remote_code"] = (
+                bool(
+                    model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE)
+                )
+                and XINFERENCE_TRUST_REMOTE_CODE
+            )
         model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
         model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
         if (
@@ -2292,7 +2303,13 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 or model_family in MINICPM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
-        assert self.model_family.chat_template is not None
+        chat_template = self.model_family.chat_template
+        if self.model_family.has_architecture("Spark2_5ForCausalLM"):
+            # The official checkpoint supplies its chat template in tokenizer_config.
+            chat_template = None
+        assert chat_template is not None or self.model_family.has_architecture(
+            "Spark2_5ForCausalLM"
+        )
 
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
@@ -2308,7 +2325,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         logger.debug("tokenizer class: %s", type(tokenizer).__name__)
         full_prompt = self.get_full_context(
             messages,
-            self.model_family.chat_template,
+            chat_template,
             tokenizer=tokenizer,
             **full_context_kwargs,
         )
