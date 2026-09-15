@@ -863,7 +863,8 @@ class LingBotWorldV2Model(WorldModel):
             )
         if gpu_count > 1:
             config.setdefault("dit_fsdp", True)
-            config.setdefault("t5_fsdp", True)
+            if not config.get("t5_cpu"):
+                config.setdefault("t5_fsdp", True)
         elif config.get("dit_fsdp") or config.get("t5_fsdp"):
             raise ValueError("LingBot-World-V2 FSDP options require multiple GPUs")
         if config.get("t5_cpu") and config.get("t5_fsdp"):

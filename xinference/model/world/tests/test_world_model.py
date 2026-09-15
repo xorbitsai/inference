@@ -467,7 +467,7 @@ def test_lingbot_world_v2_generation_builds_official_runner_command(
     assert command[command.index("--ulysses_size") + 1] == "4"
     assert command[command.index("--offload_model") + 1] == "false"
     assert "--dit_fsdp" in command
-    assert "--t5_fsdp" in command
+    assert "--t5_fsdp" not in command
     assert captured["cwd"] == str(code_path)
     assert captured["request_id"] == "lingbot-request"
     assert Path(result["data"][0]["url"]).read_bytes() == b"lingbot"
