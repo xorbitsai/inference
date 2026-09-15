@@ -365,16 +365,29 @@ def test_yue2_engine_discovery_uses_vendored_runtime(monkeypatch):
     monkeypatch.setattr(
         sys, "path", [path for path in sys.path if path != _YUE2_VENDOR_ROOT]
     )
-    monkeypatch.setattr(engine_mod, "has_cuda_device", lambda: True)
     monkeypatch.setattr(
         audio_engine_family.importlib.util,
         "find_spec",
         find_spec_without_external_yue2,
     )
 
-    assert get_engine_params_by_name("audio", "YuE2-3B", enable_virtual_env=False) == {
-        "PyTorch": [{"model_name": "YuE2-3B", "model_format": "pytorch"}]
-    }
+    for module_name in tuple(sys.modules):
+        if module_name == "yue2" or module_name.startswith("yue2."):
+            monkeypatch.delitem(sys.modules, module_name)
+
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=True),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["YuE2-3B"]:
+            generate_engine_config_by_model_name(model_spec)
+
+        assert get_engine_params_by_name(
+            "audio", "YuE2-3B", enable_virtual_env=False
+        ) == {"PyTorch": [{"model_name": "YuE2-3B", "model_format": None}]}
+
+    assert "yue2" not in sys.modules
 
 
 def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
