@@ -3,6 +3,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowDown,
+  ArrowUp,
   Ban,
   Box,
   ChevronRight,
@@ -61,6 +63,10 @@ import type {
 } from '@/types/services';
 
 type TabValue = 'models' | 'environments';
+type PackageSort = {
+  key: 'name' | 'size';
+  direction: 'asc' | 'desc';
+};
 const ACTIVE_CACHE_DOWNLOAD_STAGES = new Set(['pending', 'resuming', 'downloading', 'pausing']);
 const MODEL_REGISTRATION_TYPES = [
   ModelType.LLM,
@@ -133,6 +139,22 @@ function formatDiskUsage(sizeBytes?: number): string {
     : '-';
 }
 
+function sortPackages(
+  packages: VirtualEnvPackage[],
+  { key, direction }: PackageSort
+): VirtualEnvPackage[] {
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  return [...packages].sort((left, right) => {
+    const comparison =
+      key === 'name'
+        ? left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+        : left.size_bytes - right.size_bytes || left.name.localeCompare(right.name);
+
+    return comparison * multiplier;
+  });
+}
+
 function SummaryCard({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
     <Card className="gap-3 py-4 shadow-none">
@@ -193,6 +215,7 @@ export default function CacheManagement() {
   const [pendingAction, setPendingAction] = useState<PendingAction>();
   const [packageEnvironment, setPackageEnvironment] = useState<ModelEnvItem>();
   const [environmentPackages, setEnvironmentPackages] = useState<VirtualEnvPackage[]>([]);
+  const [packageSort, setPackageSort] = useState<PackageSort>({ key: 'name', direction: 'asc' });
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<number>();
   const downloadsInFlight = useRef(false);
@@ -206,6 +229,11 @@ export default function CacheManagement() {
     if (canViewEnvironments) tabs.push('environments');
     return tabs;
   }, [canViewCache, canViewDownloads, canViewEnvironments]);
+
+  const sortedEnvironmentPackages = useMemo(
+    () => sortPackages(environmentPackages, packageSort),
+    [environmentPackages, packageSort]
+  );
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab) && availableTabs[0]) {
@@ -258,6 +286,7 @@ export default function CacheManagement() {
     const requestId = packageRequestGuardRef.current.start();
     setPackageEnvironment(item);
     setEnvironmentPackages([]);
+    setPackageSort({ key: 'name', direction: 'asc' });
     setPackagesLoading(true);
     const params = new URLSearchParams({
       model_name: item.model_name,
@@ -287,6 +316,13 @@ export default function CacheManagement() {
     setPackageEnvironment(undefined);
     setEnvironmentPackages([]);
     setPackagesLoading(false);
+  }, []);
+
+  const togglePackageSort = useCallback((key: PackageSort['key']) => {
+    setPackageSort((current) => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+    }));
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -1038,9 +1074,54 @@ export default function CacheManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('cacheManagement.packageName')}</TableHead>
+                <TableHead
+                  aria-sort={
+                    packageSort.key === 'name'
+                      ? packageSort.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => togglePackageSort('name')}
+                  >
+                    {t('cacheManagement.packageName')}
+                    {packageSort.key === 'name' &&
+                      (packageSort.direction === 'asc' ? (
+                        <ArrowUp className="size-3.5" />
+                      ) : (
+                        <ArrowDown className="size-3.5" />
+                      ))}
+                  </button>
+                </TableHead>
                 <TableHead>{t('cacheManagement.packageVersion')}</TableHead>
-                <TableHead className="text-right">{t('cacheManagement.packageSize')}</TableHead>
+                <TableHead
+                  className="text-right"
+                  aria-sort={
+                    packageSort.key === 'size'
+                      ? packageSort.direction === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                    onClick={() => togglePackageSort('size')}
+                  >
+                    {t('cacheManagement.packageSize')}
+                    {packageSort.key === 'size' &&
+                      (packageSort.direction === 'asc' ? (
+                        <ArrowUp className="size-3.5" />
+                      ) : (
+                        <ArrowDown className="size-3.5" />
+                      ))}
+                  </button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1050,8 +1131,8 @@ export default function CacheManagement() {
                     {t('cacheManagement.loadingPackages')}
                   </TableCell>
                 </TableRow>
-              ) : environmentPackages.length ? (
-                environmentPackages.map((item) => (
+              ) : sortedEnvironmentPackages.length ? (
+                sortedEnvironmentPackages.map((item) => (
                   <TableRow key={`${item.name}:${item.version}`}>
                     <TableCell className="break-all font-medium">{item.name}</TableCell>
                     <TableCell>{item.version}</TableCell>
