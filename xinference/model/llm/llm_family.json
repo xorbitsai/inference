@@ -35685,5 +35685,325 @@
       ]
     },
     "tool_parser": "minicpm5"
+  },
+  {
+    "version": 2,
+    "context_length": 1048576,
+    "model_name": "Spark-X2.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning",
+      "hybrid"
+    ],
+    "model_description": "Spark-X2.5 is a compact general-purpose instruction model series with 1.7B and 4B checkpoints, native 1M-token context, reasoning, and tool-use support.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_7",
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-1.7B",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-1.7B",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-4B",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-4B",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_7",
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-INT8",
+            "model_revision": "main",
+            "quantizations": [
+              "Int8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-INT8",
+            "model_revision": "master",
+            "quantizations": [
+              "Int8"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-4B-INT8",
+            "model_revision": "main",
+            "quantizations": [
+              "Int8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-4B-INT8",
+            "model_revision": "master",
+            "quantizations": [
+              "Int8"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": "1_7",
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-FP8",
+            "model_revision": "main",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-FP8",
+            "model_revision": "master",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-4B-FP8",
+            "model_revision": "main",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-4B-FP8",
+            "model_revision": "master",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_7",
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-GGUF",
+            "model_revision": "main",
+            "model_file_name_template": "Spark-X2.5-1.7B-{quantization}.gguf",
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-GGUF",
+            "model_revision": "master",
+            "model_file_name_template": "Spark-X2.5-1.7B-{quantization}.gguf",
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-4B-GGUF",
+            "model_revision": "main",
+            "model_file_name_template": "Spark-X2.5-4B-{quantization}.gguf",
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-4B-GGUF",
+            "model_revision": "master",
+            "model_file_name_template": "Spark-X2.5-4B-{quantization}.gguf",
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ]
+          }
+        }
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      1
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "glm5",
+    "architectures": [
+      "Spark2_5ForCausalLM"
+    ],
+    "model_type": "spark2_5",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "transformers==4.57.1 ; #engine# == \"Transformers\"",
+        "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#system_numpy# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "sglang @ git+https://github.com/sgl-project/sglang.git@20621aa1#subdirectory=python ; #engine# == \"sglang\"",
+        "torch==2.13.0+cu130 ; #engine# == \"sglang\"",
+        "torchvision==0.28.0+cu130 ; #engine# == \"sglang\"",
+        "torchaudio==2.11.0+cu130 ; #engine# == \"sglang\"",
+        "nvidia-cusparselt-cu13==0.8.1 ; #engine# == \"sglang\"",
+        "nvidia-nccl-cu13==2.29.7 ; #engine# == \"sglang\"",
+        "transformers==5.12.1 ; #engine# == \"sglang\"",
+        "tokenizers==0.22.2 ; #engine# == \"sglang\"",
+        "kernels==0.14.1 ; #engine# == \"sglang\"",
+        "sglang-kernel==0.4.6.post1 ; #engine# == \"sglang\"",
+        "sgl-deep-gemm==0.1.5.post3 ; #engine# == \"sglang\"",
+        "flash-attn-4==4.0.0b18 ; #engine# == \"sglang\"",
+        "flashinfer_python[cu13]==0.6.17 ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm==0.29.0 ; #engine# == \"vllm\"",
+        "transformers==5.16.1 ; #engine# == \"vllm\"",
+        "tokenizers==0.23.2 ; #engine# == \"vllm\"",
+        "vllm-spark2-5-plugin==0.1.0 ; #engine# == \"vllm\"",
+        "openai>=2.25.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1789488152
+  },
+  {
+    "version": 2,
+    "context_length": 1048576,
+    "model_name": "Spark-X2.5-Base",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Spark-X2.5 base checkpoints in 1.7B and 4B sizes for continued pretraining and completion workloads.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_7",
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-Base",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-1.7B-Base",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "model_id": "XHToken/Spark-X2.5-4B-Base",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "XHToken/Spark-X2.5-4B-Base",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "Spark2_5ForCausalLM"
+    ],
+    "model_type": "spark2_5",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "transformers==4.57.1 ; #engine# == \"Transformers\"",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#system_numpy# ; #engine# == \"Transformers\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "sglang @ git+https://github.com/sgl-project/sglang.git@20621aa1#subdirectory=python ; #engine# == \"sglang\"",
+        "torch==2.13.0+cu130 ; #engine# == \"sglang\"",
+        "torchvision==0.28.0+cu130 ; #engine# == \"sglang\"",
+        "torchaudio==2.11.0+cu130 ; #engine# == \"sglang\"",
+        "nvidia-cusparselt-cu13==0.8.1 ; #engine# == \"sglang\"",
+        "nvidia-nccl-cu13==2.29.7 ; #engine# == \"sglang\"",
+        "transformers==5.12.1 ; #engine# == \"sglang\"",
+        "tokenizers==0.22.2 ; #engine# == \"sglang\"",
+        "kernels==0.14.1 ; #engine# == \"sglang\"",
+        "sglang-kernel==0.4.6.post1 ; #engine# == \"sglang\"",
+        "sgl-deep-gemm==0.1.5.post3 ; #engine# == \"sglang\"",
+        "flash-attn-4==4.0.0b18 ; #engine# == \"sglang\"",
+        "flashinfer_python[cu13]==0.6.17 ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm==0.29.0 ; #engine# == \"vllm\"",
+        "transformers==5.16.1 ; #engine# == \"vllm\"",
+        "tokenizers==0.23.2 ; #engine# == \"vllm\"",
+        "vllm-spark2-5-plugin==0.1.0 ; #engine# == \"vllm\"",
+        "openai>=2.25.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1789488154
   }
 ]
