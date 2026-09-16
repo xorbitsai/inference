@@ -51,6 +51,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         response_model=ImageList,
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
     )
+    router.add_api_route(
+        "/v1/images/docanalyze",
+        api.create_doc_analyze,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
 
     # SD WebUI API
     router.add_api_route(

@@ -2800,6 +2800,48 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def create_doc_analyze(
+        self,
+        model: str = Form(...),
+        file: UploadFile = File(media_type="application/octet-stream"),
+        kwargs: Optional[str] = Form(None),
+    ) -> Response:
+        assert file.filename != "" and file.size != 0, "File can't be empty"
+        model_uid = model
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
+
+        request_id = None
+        try:
+            if kwargs is not None:
+                parsed_kwargs = json.loads(kwargs)
+            else:
+                parsed_kwargs = {}
+            request_id = parsed_kwargs.get("request_id")
+            self._add_running_task(request_id)
+            file_bytes = await file.read()
+            file_name = file.filename
+            data = await model_ref.docanalyze(
+                file_bytes=file_bytes,
+                file_name=file_name,
+                **parsed_kwargs,
+            )
+            return Response(content=data, media_type="application/json")
+        except asyncio.CancelledError:
+            err_str = f"The request has been cancelled: {request_id}"
+            logger.error(err_str)
+            await self._report_error_event(model_uid, err_str)
+            raise HTTPException(status_code=409, detail=err_str)
+        except HTTPException:
+            raise
+        except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_image_edits(
         self,
         request: Request,

@@ -20,6 +20,7 @@ from typing import Dict, List, Literal, Optional, Union, cast
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
+from .docanalyze.mineru25 import Mineru2_5Model
 from .engine_family import ImageEngineModel
 from .ocr.ocr_family import OCRModel
 
@@ -250,6 +251,40 @@ def create_ocr_model_instance(
     )
 
 
+def create_document_parse_model_instance(
+    model_uid: str,
+    model_spec: ImageModelFamilyV2,
+    model_engine: Optional[str] = None,
+    model_path: Optional[str] = None,
+    **kwargs,
+) -> Mineru2_5Model:
+    from .cache_manager import ImageCacheManager
+
+    if not model_path:
+        cache_manager = ImageCacheManager(model_spec)
+        model_path = cache_manager.cache()
+
+    backend_by_engine = {
+        "transformers": "transformers",
+        "vllm": "vllm-async-engine",
+    }
+
+    normalized_engine = (model_engine or "vLLM").lower()
+    if normalized_engine not in backend_by_engine:
+        raise ValueError(
+            f"MinerU2.5 only supports transformers and vLLM, got {model_engine}"
+        )
+
+    model = Mineru2_5Model(
+        model_uid,
+        model_path,
+        model_spec=model_spec,
+        backend=backend_by_engine[normalized_engine],
+        **kwargs,
+    )
+    return model
+
+
 def create_image_model_instance(
     model_uid: str,
     model_name: str,
@@ -283,6 +318,15 @@ def create_image_model_instance(
             quantization=quantization,
         )
         return create_ocr_model_instance(
+            model_uid=model_uid,
+            model_spec=model_spec,
+            model_engine=model_engine,
+            model_path=model_path,
+            **kwargs,
+        )
+
+    if model_spec.model_ability and "docanalyze" in model_spec.model_ability:
+        return create_document_parse_model_instance(
             model_uid=model_uid,
             model_spec=model_spec,
             model_engine=model_engine,
