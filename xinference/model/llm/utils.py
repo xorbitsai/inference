@@ -266,15 +266,15 @@ class ChatModelMixin:
         if prompt_tokens_details is not None:
             if not isinstance(prompt_tokens_details, dict):
                 details_dump = getattr(prompt_tokens_details, "model_dump", None)
-                prompt_tokens_details = (
-                    details_dump()
-                    if callable(details_dump)
-                    else {
+                dumped_details = details_dump() if callable(details_dump) else None
+                if isinstance(dumped_details, dict):
+                    prompt_tokens_details = dumped_details
+                else:
+                    prompt_tokens_details = {
                         "cached_tokens": getattr(
                             prompt_tokens_details, "cached_tokens", None
                         )
                     }
-                )
             if prompt_tokens_details.get("cached_tokens") is not None:
                 sanitized["prompt_tokens_details"] = {
                     "cached_tokens": prompt_tokens_details["cached_tokens"]

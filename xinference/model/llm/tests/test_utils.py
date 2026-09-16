@@ -80,6 +80,14 @@ def filter_ids_and_created(data):
             total_tokens=5,
             prompt_tokens_details=SimpleNamespace(cached_tokens=1),
         ),
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+            prompt_tokens_details=SimpleNamespace(
+                model_dump=lambda: None, cached_tokens=1
+            ),
+        ),
     ],
 )
 def test_sanitize_usage_accepts_dict_and_object(usage):
