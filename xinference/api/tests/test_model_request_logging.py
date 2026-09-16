@@ -406,3 +406,144 @@ def test_rotated_request_logs_keep_restrictive_permissions(tmp_path):
     ]
     assert len(files) >= 2
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in files)
+
+
+def test_swallowed_stream_failure_is_logged_once(monkeypatch):
+    from ..streaming_outcome import FailureOrigin, report_stream_failure
+
+    events = _enable_capture(monkeypatch)
+
+    async def endpoint(request: Request):
+        await request.json()
+
+        async def generate():
+            yield b"one"
+            try:
+                raise RuntimeError("backend failed")
+            except RuntimeError as exc:
+                report_stream_failure(request, exc, FailureOrigin.MODEL_GENERATOR)
+                yield b'event: error\\ndata: {"error":"backend failed"}\\n\\n'
+
+        return StreamingResponse(generate())
+
+    with TestClient(_app("/v1/chat/completions", endpoint)).stream(
+        "POST", "/v1/chat/completions", json={"model": "llm", "stream": True}
+    ) as response:
+        body = b"".join(response.iter_bytes())
+
+    assert body == b'oneevent: error\\ndata: {"error":"backend failed"}\\n\\n'
+    terminal = [event for event in events if event["event"] != "model_request_started"]
+    assert len(terminal) == 1
+    assert terminal[0]["event"] == "model_request_failed"
+    assert terminal[0]["status_code"] == 200
+    assert terminal[0]["http_success"] is True
+    assert terminal[0]["success"] is False
+    assert terminal[0]["stream_completed"] is False
+    assert terminal[0]["stream_outcome"] == "failed"
+    assert terminal[0]["failure_origin"] == "model_generator"
+    assert terminal[0]["error"] == {
+        "type": "RuntimeError",
+        "message": "backend failed",
+    }
+
+
+def test_first_stream_terminal_outcome_wins(monkeypatch):
+    from ..streaming_outcome import (
+        FailureOrigin,
+        get_stream_outcome_reporter,
+        report_stream_failure,
+    )
+
+    events = _enable_capture(monkeypatch)
+
+    async def endpoint(request: Request):
+        await request.json()
+        reporter = get_stream_outcome_reporter(request)
+
+        async def generate():
+            error = ValueError("first failure")
+            report_stream_failure(request, error, FailureOrigin.PROTOCOL)
+            reporter.completed()
+            report_stream_failure(
+                request, RuntimeError("second failure"), FailureOrigin.SERVER
+            )
+            yield b"unchanged"
+
+        return StreamingResponse(generate())
+
+    response = TestClient(_app("/v1/chat/completions", endpoint)).post(
+        "/v1/chat/completions", json={"model": "llm", "stream": True}
+    )
+
+    assert response.content == b"unchanged"
+    assert events[-1]["event"] == "model_request_failed"
+    assert events[-1]["failure_origin"] == "protocol"
+    assert events[-1]["error"]["message"] == "first failure"
+
+
+def test_client_disconnect_outcome_is_not_logged_as_success(monkeypatch):
+    from ..streaming_outcome import report_client_disconnect
+
+    events = _enable_capture(monkeypatch)
+
+    async def endpoint(request: Request):
+        await request.json()
+
+        async def generate():
+            yield b"one"
+            report_client_disconnect(request)
+            return
+
+        return StreamingResponse(generate())
+
+    response = TestClient(_app("/v1/chat/completions", endpoint)).post(
+        "/v1/chat/completions", json={"model": "llm", "stream": True}
+    )
+
+    assert response.content == b"one"
+    assert events[-1]["event"] == "model_request_failed"
+    assert events[-1]["status_code"] == 200
+    assert events[-1]["stream_outcome"] == "client_disconnected"
+    assert events[-1]["failure_origin"] == "client"
+
+
+@pytest.mark.asyncio
+async def test_outward_stream_cancellation_is_not_classified_as_disconnect(monkeypatch):
+    import asyncio
+    import time
+
+    events = _enable_capture(monkeypatch)
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "client": ("testclient", 123),
+            "scheme": "http",
+        }
+    )
+
+    async def source():
+        yield b"one"
+        raise asyncio.CancelledError()
+
+    wrapped = ModelRequestLoggingRoute._wrap_stream(
+        source(),
+        request,
+        "request-id",
+        "/v1/chat/completions",
+        "model",
+        "llm",
+        200,
+        time.perf_counter(),
+    )
+    assert await anext(wrapped) == b"one"
+    with pytest.raises(asyncio.CancelledError):
+        await anext(wrapped)
+
+    assert events[-1]["event"] == "model_request_failed"
+    assert events[-1]["stream_outcome"] == "cancelled"
+    assert events[-1]["failure_origin"] == "server"

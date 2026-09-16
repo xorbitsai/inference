@@ -41,6 +41,12 @@ from ..constants import (
     XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS,
 )
 from ..deploy.utils import SafeTimedAndSizeRotatingFileHandler
+from .streaming_outcome import (
+    FailureOrigin,
+    StreamOutcome,
+    StreamState,
+    get_stream_outcome_reporter,
+)
 
 logger = logging.getLogger(__name__)
 _MODEL_REQUEST_LOGGER_NAME = "xinference.model_request"
@@ -522,6 +528,7 @@ class ModelRequestLoggingRoute(APIRoute):
         stream: bool,
         stream_completed: Optional[bool] = None,
         error: Optional[Dict[str, str]] = None,
+        stream_outcome: Optional[StreamOutcome] = None,
     ) -> None:
         if not XINFERENCE_MODEL_REQUEST_LOG_ENABLED:
             return
@@ -529,6 +536,14 @@ class ModelRequestLoggingRoute(APIRoute):
         model_type = str(
             getattr(request.state, "_audit_model_type", "") or model_type
         ).lower()
+        if (
+            stream_outcome is not None
+            and stream_outcome.state is not StreamState.COMPLETED
+        ):
+            error = error or {
+                "type": stream_outcome.error_type or stream_outcome.state.value,
+                "message": stream_outcome.error_message or stream_outcome.state.value,
+            }
         success = status_code < 400 and error is None
         event = _base_event(
             "model_request_finished" if success else "model_request_failed",
@@ -548,6 +563,11 @@ class ModelRequestLoggingRoute(APIRoute):
         )
         if stream_completed is not None:
             event["stream_completed"] = stream_completed
+        if stream_outcome is not None:
+            event["http_success"] = status_code < 400
+            event["stream_outcome"] = stream_outcome.state.value
+            if stream_outcome.failure_origin is not None:
+                event["failure_origin"] = stream_outcome.failure_origin.value
         if not success:
             event["error"] = error or {
                 "type": "HTTPError",
@@ -568,37 +588,52 @@ class ModelRequestLoggingRoute(APIRoute):
         started_at: float,
     ) -> AsyncIterator[Any]:
         context_token = _set_current_model_request_id(request_id)
+        reporter = get_stream_outcome_reporter(request)
+        outward_error: Optional[BaseException] = None
         try:
             async for item in iterator:
                 yield item
+        except asyncio.CancelledError as exc:
+            outward_error = exc
+            reporter.cancelled(exc)
+            raise
+        except GeneratorExit as exc:
+            outward_error = exc
+            reporter.client_disconnected(exc)
+            raise
         except BaseException as exc:
-            await cls._log_response(
-                request,
-                request_id,
-                endpoint,
-                model_uid,
-                model_type,
-                status_code,
-                started_at,
-                stream=True,
-                stream_completed=False,
-                error={
-                    "type": type(exc).__name__,
-                    "message": str(exc) or type(exc).__name__,
-                },
-            )
+            outward_error = exc
+            reporter.failed(exc, FailureOrigin.SERVER)
             raise
         else:
-            await cls._log_response(
-                request,
-                request_id,
-                endpoint,
-                model_uid,
-                model_type,
-                status_code,
-                started_at,
-                stream=True,
-                stream_completed=True,
-            )
+            reporter.completed()
         finally:
-            _reset_current_model_request_id(context_token)
+            outcome = reporter.outcome
+            error = None
+            if outcome.state is not StreamState.COMPLETED:
+                error = {
+                    "type": outcome.error_type
+                    or (
+                        type(outward_error).__name__
+                        if outward_error
+                        else outcome.state.value
+                    ),
+                    "message": outcome.error_message
+                    or (str(outward_error) if outward_error else outcome.state.value),
+                }
+            try:
+                await cls._log_response(
+                    request,
+                    request_id,
+                    endpoint,
+                    model_uid,
+                    model_type,
+                    status_code,
+                    started_at,
+                    stream=True,
+                    stream_completed=outcome.state is StreamState.COMPLETED,
+                    error=error,
+                    stream_outcome=outcome,
+                )
+            finally:
+                _reset_current_model_request_id(context_token)

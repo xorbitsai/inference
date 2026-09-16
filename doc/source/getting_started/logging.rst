@@ -138,3 +138,12 @@ caller-provided ``request-id`` or ``x-request-id`` value (in that order), or
 generates an ``xinf-`` prefixed UUID. The same correlation ID is attached to
 Supervisor model lookup logs without replacing model operation request IDs used
 for cancellation or progress tracking.
+
+For streaming responses, the terminal request log separates HTTP delivery from
+stream execution with ``http_success``, ``stream_completed``,
+``stream_outcome``, and, for non-successful outcomes, ``failure_origin``. A
+response can therefore have HTTP status 200 while ``success`` and
+``stream_completed`` are false. Endpoints report swallowed generator failures
+through request state; the logging layer does not parse, buffer, or log stream
+chunks. Failure origins are ``model_generator``, ``upstream``, ``protocol``,
+``client``, or ``server``.

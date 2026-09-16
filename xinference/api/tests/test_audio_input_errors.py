@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 import xoscar as xo
@@ -31,6 +32,7 @@ class _InvalidAudioActor(xo.StatelessActor):
 class _Request:
     def __init__(self, form):
         self._form = form
+        self.state = SimpleNamespace()
 
     async def form(self):
         return self._form
@@ -170,3 +172,60 @@ async def test_invalid_audio_detail_is_stable_across_actor_boundary(monkeypatch)
         assert exc_info.value.detail == "Invalid audio file: audio is empty."
         assert "address=" not in exc_info.value.detail
         assert "pid=" not in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_speech_stream_failure_reports_model_origin_and_runs_cleanup(monkeypatch):
+    from ..streaming_outcome import (
+        FailureOrigin,
+        StreamState,
+        get_stream_outcome_reporter,
+    )
+
+    calls = {"decrease": 0}
+
+    class StreamingAudioModel:
+        uid = b"audio-model-rep0"
+
+        async def speech(self, **kwargs):
+            async def chunks():
+                yield b"audio-one"
+                raise RuntimeError("audio backend failed")
+
+            return chunks()
+
+        async def decrease_serve_count(self):
+            calls["decrease"] += 1
+
+    async def fake_require_model(*args):
+        return StreamingAudioModel()
+
+    monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
+    request = _Request(
+        {
+            "model": "megatts-test",
+            "input": "test",
+            "voice": "",
+            "response_format": "mp3",
+            "speed": 1.0,
+            "stream": True,
+        }
+    )
+    response = await RESTfulAPI.create_speech(
+        _API(),
+        request,
+        prompt_speech=_UploadFile(b"prompt"),
+        prompt_latent=None,
+    )
+
+    chunks = []
+    with pytest.raises(RuntimeError, match="audio backend failed"):
+        async for chunk in response.body_iterator:
+            chunks.append(chunk)
+
+    outcome = get_stream_outcome_reporter(request).outcome
+    assert chunks
+    assert outcome.state is StreamState.FAILED
+    assert outcome.failure_origin is FailureOrigin.MODEL_GENERATOR
+    assert outcome.error_message == "audio backend failed"
+    assert calls["decrease"] == 1
