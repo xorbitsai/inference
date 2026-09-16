@@ -157,6 +157,19 @@ def rpc_context(func: _F) -> _F:
 
         return async_wrapped  # type: ignore[return-value]
 
+    if inspect.isasyncgenfunction(func):
+
+        @wraps(func)
+        def async_gen_wrapped(*args: Any, **kwargs: Any) -> Any:
+            metadata, token = pop_rpc_metadata(kwargs, kwargs.get("request_id"))
+            try:
+                result = func(*args, **kwargs)
+                return wrap_async_iterator(result, metadata)
+            finally:
+                _reset_rpc_metadata(token)
+
+        return async_gen_wrapped  # type: ignore[return-value]
+
     @wraps(func)
     def sync_wrapped(*args: Any, **kwargs: Any) -> Any:
         _, token = pop_rpc_metadata(kwargs, kwargs.get("request_id"))

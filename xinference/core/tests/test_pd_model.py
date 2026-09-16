@@ -8,6 +8,7 @@ import xoscar as xo
 
 from ..pd_model import PDModelActor, RoundRobinSchedulingPolicy
 from ..replica_config import ReplicaConfig, validate_pd_replica_configs
+from ..rpc_context import RPC_METADATA_KEY, get_current_rpc_metadata, rpc_context
 
 
 def test_round_robin_updates():
@@ -58,6 +59,13 @@ async def router():
     return actor, prefill, decode
 
 
+def _assert_free_model_cache_called(model, request_id):
+    model.free_model_cache.assert_awaited_once()
+    call = model.free_model_cache.await_args
+    assert call.args == (request_id,)
+    assert call.kwargs[RPC_METADATA_KEY]["operation_request_id"] == request_id
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["chat", "generate"])
 async def test_infer_preserves_decode_config(router, method):
@@ -75,7 +83,7 @@ async def test_infer_preserves_decode_config(router, method):
     assert d_call.args[1]["max_tokens"] == 32
     assert p_call.kwargs["request_id"] == d_call.kwargs["request_id"] == "r"
     assert not actor._request_set
-    prefill.free_model_cache.assert_awaited_once_with("r")
+    _assert_free_model_cache_called(prefill, "r")
 
 
 @pytest.mark.asyncio
@@ -97,7 +105,7 @@ async def test_stream_cleanup_on_disconnect(router):
     assert await anext(stream) == b"first"
     await stream.aclose()
     assert closed and not actor._request_set
-    prefill.free_model_cache.assert_awaited_once_with("r")
+    _assert_free_model_cache_called(prefill, "r")
 
 
 @pytest.mark.asyncio
@@ -112,7 +120,39 @@ async def test_failure_releases_cache(router, failure):
     with pytest.raises(type(error)):
         await actor._infer("chat", [], {"max_tokens": 32}, request_id="r")
     assert not actor._request_set
-    prefill.free_model_cache.assert_awaited_once_with("r")
+    _assert_free_model_cache_called(prefill, "r")
+
+
+@pytest.mark.asyncio
+async def test_free_prefill_model_cache_propagates_operation_metadata():
+    calls = []
+
+    class Prefill:
+        @rpc_context
+        async def free_model_cache(self, request_id, **kwargs):
+            calls.append((request_id, get_current_rpc_metadata(), kwargs))
+
+    actor = PDModelActor("pd")
+    actor._request_set.add("operation-id")
+    actor._prefill_replicas = {"p": Prefill()}
+
+    await actor.free_prefill_model_cache(
+        "operation-id",
+        **{
+            RPC_METADATA_KEY: {
+                "version": 1,
+                "correlation_id": "http-id",
+                "actor_call_id": "router-call",
+            }
+        },
+    )
+
+    request_id, metadata, kwargs = calls[0]
+    assert request_id == "operation-id"
+    assert kwargs == {}
+    assert metadata.correlation_id == "http-id"
+    assert metadata.operation_request_id == "operation-id"
+    assert metadata.parent_call_id == "router-call"
 
 
 @pytest.mark.asyncio
@@ -126,16 +166,20 @@ async def test_abort_both_stages(router):
 
 
 class FakeStage(xo.StatelessActor):
+    @rpc_context
     async def decrease_serve_count(self):
         pass
 
+    @rpc_context
     async def set_unpin_handler(self, *args):
         pass
 
+    @rpc_context
     async def free_model_cache(self, request_id):
         pass
 
     @xo.generator
+    @rpc_context
     async def chat(self, messages, config, **kwargs):
         if not config.get("stream"):
             return b"non-stream"
@@ -230,4 +274,4 @@ async def test_abort_failure_still_cleans_request(router):
     with pytest.raises(RuntimeError, match="replica offline"):
         await actor.abort_request("r")
     assert not actor._request_set
-    prefill.free_model_cache.assert_awaited_once_with("r")
+    _assert_free_model_cache_called(prefill, "r")

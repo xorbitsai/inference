@@ -245,7 +245,12 @@ class PDModelActor(xo.StatelessActor):
             if self._prefill_replicas:
                 await asyncio.gather(
                     *[
-                        model.free_model_cache(request_id)
+                        actor_call(
+                            model,
+                            "free_model_cache",
+                            request_id,
+                            _rpc_operation_request_id=request_id,
+                        )
                         for model in self._prefill_replicas.values()
                     ],
                     return_exceptions=True,

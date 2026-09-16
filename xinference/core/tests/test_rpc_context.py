@@ -144,6 +144,69 @@ async def test_stream_iteration_restores_rpc_context_and_closes_iterator():
 
 
 @pytest.mark.asyncio
+async def test_rpc_context_supports_async_generator_functions():
+    observations = []
+    closed = False
+
+    @rpc_context
+    async def stream(**kwargs):
+        nonlocal closed
+        try:
+            metadata = get_current_rpc_metadata()
+            observations.append((metadata.correlation_id, kwargs))
+            yield b"one"
+            observations.append((get_current_rpc_metadata().correlation_id, kwargs))
+            yield b"two"
+        finally:
+            assert get_current_rpc_metadata().correlation_id == "stream-id"
+            closed = True
+
+    iterator = stream(
+        **{
+            RPC_METADATA_KEY: {
+                "version": 1,
+                "correlation_id": "stream-id",
+                "actor_call_id": "stream-call",
+            }
+        }
+    )
+    assert get_current_rpc_metadata() is None
+    assert [chunk async for chunk in iterator] == [b"one", b"two"]
+    assert observations == [("stream-id", {}), ("stream-id", {})]
+    assert closed is True
+    assert get_current_rpc_metadata() is None
+
+
+@pytest.mark.asyncio
+async def test_rpc_context_closes_async_generator_with_metadata():
+    closed_with = []
+
+    @rpc_context
+    async def stream(**kwargs):
+        try:
+            yield b"one"
+            yield b"two"
+        finally:
+            metadata = get_current_rpc_metadata()
+            closed_with.append(metadata.correlation_id)
+
+    iterator = stream(
+        **{
+            RPC_METADATA_KEY: {
+                "version": 1,
+                "correlation_id": "stream-id",
+                "actor_call_id": "stream-call",
+            }
+        }
+    )
+    assert await anext(iterator) == b"one"
+    await iterator.aclose()
+
+    assert closed_with == ["stream-id"]
+    assert get_current_rpc_metadata() is None
+
+
+@pytest.mark.asyncio
 async def test_direct_rpc_without_metadata_preserves_behavior():
     received = []
 

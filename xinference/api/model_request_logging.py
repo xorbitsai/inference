@@ -229,7 +229,11 @@ def _set_current_model_request_id(request_id: str) -> Token[Optional[str]]:
 
 
 def _reset_current_model_request_id(token: Token[Optional[str]]) -> None:
-    _MODEL_REQUEST_ID_CONTEXT.reset(token)
+    try:
+        _MODEL_REQUEST_ID_CONTEXT.reset(token)
+    except ValueError:
+        # Stream cleanup may run in a task other than the one that started it.
+        pass
 
 
 def _get_model_request_logger() -> Optional[logging.Logger]:
