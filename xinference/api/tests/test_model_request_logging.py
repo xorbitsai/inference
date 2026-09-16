@@ -113,6 +113,17 @@ def test_invalid_request_id_is_replaced(monkeypatch):
     assert events[0]["request_id"] == response.headers["x-request-id"]
 
 
+def test_negative_content_length_is_treated_as_unknown_size():
+    request = Request(
+        {
+            "type": "http",
+            "headers": [(b"content-length", b"-1")],
+        }
+    )
+
+    assert model_request_logging._body_size(request) is None
+
+
 def test_body_over_size_limit_is_not_serialized(monkeypatch):
     events = _enable_capture(monkeypatch)
     monkeypatch.setattr(
@@ -142,6 +153,22 @@ def test_returned_authorization_failure_does_not_log_body(monkeypatch):
         "/v1/completions", json={"model": "llm", "secret": "do-not-log"}
     )
     assert response.status_code == 403
+    assert [event["event"] for event in events] == ["model_request_failed"]
+    assert "request_body" not in events[0]
+    assert "do-not-log" not in json.dumps(events)
+
+
+def test_raised_payload_too_large_does_not_log_body(monkeypatch):
+    events = _enable_capture(monkeypatch)
+
+    async def endpoint(request: Request):
+        await request.json()
+        raise HTTPException(status_code=413, detail="payload too large")
+
+    response = TestClient(_app("/v1/completions", endpoint)).post(
+        "/v1/completions", json={"model": "llm", "secret": "do-not-log"}
+    )
+    assert response.status_code == 413
     assert [event["event"] for event in events] == ["model_request_failed"]
     assert "request_body" not in events[0]
     assert "do-not-log" not in json.dumps(events)
@@ -303,6 +330,22 @@ def test_log_scheduling_failure_does_not_change_response(monkeypatch, caplog):
     assert response.status_code == 200
     assert response.json() == {"ok": True}
     assert "Failed to schedule a model request log write" in caplog.text
+
+
+def test_request_log_handler_creates_parent_directory(tmp_path):
+    log_file = tmp_path / "nested" / "logs" / "model_request.log"
+    handler = _ModelRequestRotatingFileHandler(
+        filename=str(log_file),
+        when="midnight",
+        backupCount=1,
+        maxBytes=0,
+        retention_days=1,
+        encoding="utf8",
+    )
+    try:
+        assert log_file.exists()
+    finally:
+        handler.close()
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits are required")

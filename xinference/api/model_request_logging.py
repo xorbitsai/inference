@@ -47,6 +47,7 @@ _MODEL_REQUEST_LOGGER_NAME = "xinference.model_request"
 _LOGGER_LOCK = threading.Lock()
 _LOGGER_CONFIGURED = False
 _MAX_REQUEST_ID_LENGTH = 256
+_BODY_LOG_EXCLUDED_STATUS_CODES = frozenset({401, 403, 413})
 _MODEL_REQUEST_ID_CONTEXT: ContextVar[Optional[str]] = ContextVar(
     "xinference_model_request_id", default=None
 )
@@ -281,9 +282,10 @@ def _body_size(request: Request) -> Optional[int]:
     content_length = request.headers.get("content-length")
     if content_length is not None:
         try:
-            return int(content_length)
+            value = int(content_length)
         except ValueError:
             return None
+        return value if value >= 0 else None
     cached_body = getattr(request, "_body", None)
     return len(cached_body) if isinstance(cached_body, bytes) else None
 
@@ -406,10 +408,11 @@ class ModelRequestLoggingRoute(APIRoute):
                 elif not isinstance(status_code, int):
                     status_code = 500
 
-                # Authentication/authorization failures must never persist the body.
-                if XINFERENCE_MODEL_REQUEST_LOG_ENABLED and status_code not in (
-                    401,
-                    403,
+                # Authentication/authorization failures and rejected oversized
+                # payloads must never persist the body.
+                if (
+                    XINFERENCE_MODEL_REQUEST_LOG_ENABLED
+                    and status_code not in _BODY_LOG_EXCLUDED_STATUS_CODES
                 ):
                     model_uid, stream = await self._log_started(request, request_id)
                 await self._log_response(
@@ -434,10 +437,9 @@ class ModelRequestLoggingRoute(APIRoute):
 
             _reset_current_model_request_id(context_token)
             response.headers.setdefault("X-Request-ID", request_id)
-            if XINFERENCE_MODEL_REQUEST_LOG_ENABLED and response.status_code not in (
-                401,
-                403,
-                413,
+            if (
+                XINFERENCE_MODEL_REQUEST_LOG_ENABLED
+                and response.status_code not in _BODY_LOG_EXCLUDED_STATUS_CODES
             ):
                 model_uid, stream = await self._log_started(request, request_id)
 
