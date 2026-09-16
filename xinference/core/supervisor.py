@@ -84,6 +84,7 @@ from .replica_config import (
     validate_pd_replica_configs,
 )
 from .resource import GPUStatus, ResourceStatus
+from .rpc_context import actor_call
 from .utils import (
     assign_replica_gpu,
     build_replica_model_uid,
@@ -5233,7 +5234,7 @@ class SupervisorActor(xo.StatelessActor):
         ), "worker_ref must be a single worker"
         try:
             return await xo.wait_for(
-                worker_ref.get_model(model_uid=replica_model_uid),
+                actor_call(worker_ref, "get_model", model_uid=replica_model_uid),
                 XINFERENCE_GET_MODEL_RPC_TIMEOUT,
             )
         except ModelNotReadyError:
@@ -5599,7 +5600,15 @@ class SupervisorActor(xo.StatelessActor):
 
         pd_ref = self._pd_model_mapping.get(model_uid)
         if pd_ref is not None:
-            return {"msg": await pd_ref.abort_request(request_id, block_duration)}
+            return {
+                "msg": await actor_call(
+                    pd_ref,
+                    "abort_request",
+                    request_id,
+                    block_duration,
+                    _rpc_operation_request_id=request_id,
+                )
+            }
         res = {"msg": AbortRequestMessage.NO_OP.name}
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if not replica_info:
@@ -5615,8 +5624,19 @@ class SupervisorActor(xo.StatelessActor):
             assert not isinstance(
                 worker_ref, (list, tuple)
             ), "worker_ref must be a single worker"
-            model_ref = await worker_ref.get_model(model_uid=rep_mid)
-            result_info = await model_ref.abort_request(request_id, block_duration)
+            model_ref = await actor_call(
+                worker_ref,
+                "get_model",
+                model_uid=rep_mid,
+                _rpc_operation_request_id=request_id,
+            )
+            result_info = await actor_call(
+                model_ref,
+                "abort_request",
+                request_id,
+                block_duration,
+                _rpc_operation_request_id=request_id,
+            )
             res["msg"] = result_info
             if result_info == AbortRequestMessage.DONE.name:
                 break
@@ -7305,8 +7325,14 @@ class SupervisorActor(xo.StatelessActor):
     def record_metrics(name, op, kwargs):
         record_metrics(name, op, kwargs)
 
+    @log_async(logger=logger)
     async def get_progress(self, request_id: str) -> float:
-        return await self._progress_tracker.get_progress(request_id)
+        return await actor_call(
+            self._progress_tracker,
+            "get_progress",
+            request_id,
+            _rpc_operation_request_id=request_id,
+        )
 
     async def call_collective_manager(
         self, model_uid: str, func_name: str, *args, **kwargs

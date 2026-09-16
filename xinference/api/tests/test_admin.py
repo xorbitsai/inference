@@ -18,7 +18,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from xinference.api.routers import admin, models
 from xinference.core.virtual_env_manager import VirtualEnvConflictError
@@ -26,6 +26,21 @@ from xinference.core.virtual_env_manager import VirtualEnvConflictError
 
 def _json_body(response):
     return json.loads(response.body.decode())
+
+
+def _request(request_id: str = "http-request-id") -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/v1/requests/req-123/progress",
+            "headers": [(b"x-request-id", request_id.encode())],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "client": ("testclient", 123),
+            "scheme": "http",
+        }
+    )
 
 
 @pytest.fixture
@@ -476,17 +491,26 @@ async def test_remove_virtual_env_returns_conflict_for_active_model(
 @pytest.mark.asyncio
 async def test_get_progress_returns_progress(mock_api, mock_supervisor):
     mock_supervisor.get_progress.return_value = 0.75
-    response = await admin.get_progress(request_id="req-123", api=mock_api)
+    response = await admin.get_progress(
+        request=_request(), request_id="req-123", api=mock_api
+    )
     assert response.status_code == 200
     assert _json_body(response) == {"progress": 0.75}
-    mock_supervisor.get_progress.assert_called_once_with("req-123")
+    mock_supervisor.get_progress.assert_called_once()
+    args, kwargs = mock_supervisor.get_progress.call_args
+    assert args == ("req-123",)
+    metadata = kwargs["__xinf_rpc_metadata__"]
+    assert metadata["correlation_id"] == "http-request-id"
+    assert metadata["operation_request_id"] == "req-123"
 
 
 @pytest.mark.asyncio
 async def test_get_progress_raises_400_on_key_error(mock_api, mock_supervisor):
     mock_supervisor.get_progress.side_effect = KeyError("req-missing")
     with pytest.raises(HTTPException) as exc_info:
-        await admin.get_progress(request_id="req-missing", api=mock_api)
+        await admin.get_progress(
+            request=_request(), request_id="req-missing", api=mock_api
+        )
     assert exc_info.value.status_code == 400
 
 

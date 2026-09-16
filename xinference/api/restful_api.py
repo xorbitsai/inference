@@ -73,6 +73,7 @@ from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import InvalidAudioInputError, ModelNotReadyError
 from ..core.http_protocol import create_hardened_http_protocol
 from ..core.replica_config import ReplicaConfig
+from ..core.rpc_context import actor_call, correlate_model_ref
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
@@ -2512,7 +2513,12 @@ class RESTfulAPI(CancelMixin):
         try:
             if not model_uid:
                 raise ValueError("Unknown model")
-            await (await self._get_supervisor_ref()).get_model(model_uid)
+            await actor_call(
+                await self._get_supervisor_ref(),
+                "get_model",
+                model_uid,
+                _rpc_correlation_id=get_model_request_id(request),
+            )
             return Response()
         except ModelNotReadyError as e:
             raise HTTPException(
@@ -3819,8 +3825,14 @@ class RESTfulAPI(CancelMixin):
                 block_duration,
             )
             supervisor_ref = await self._get_supervisor_ref()
-            res = await supervisor_ref.abort_request(
-                model_uid, request_id, block_duration
+            res = await actor_call(
+                supervisor_ref,
+                "abort_request",
+                model_uid,
+                request_id,
+                block_duration,
+                _rpc_correlation_id=get_model_request_id(request),
+                _rpc_operation_request_id=request_id,
             )
             self._cancel_running_task(request_id, block_duration)
             return JSONResponse(content=res)
@@ -3968,7 +3980,13 @@ class RESTfulAPI(CancelMixin):
         try:
             result = {
                 "progress": float(
-                    await (await self._get_supervisor_ref()).get_progress(request_id)
+                    await actor_call(
+                        await self._get_supervisor_ref(),
+                        "get_progress",
+                        request_id,
+                        _rpc_correlation_id=get_model_request_id(request),
+                        _rpc_operation_request_id=request_id,
+                    )
                 )
             }
             return JSONResponse(content=result)
@@ -3986,9 +4004,18 @@ class RESTfulAPI(CancelMixin):
             if not sd_models:
                 raise ValueError("No running sd models")
 
+            correlation_id = get_model_request_id(request)
             model_list = []
             for model_uid in sd_models:
-                model = await (await self._get_supervisor_ref()).get_model(model_uid)
+                model = correlate_model_ref(
+                    await actor_call(
+                        supervisor_ref,
+                        "get_model",
+                        model_uid,
+                        _rpc_correlation_id=correlation_id,
+                    ),
+                    correlation_id,
+                )
                 result = json.loads(await model.controlnet_model_list())
                 model_list.extend(result["model_list"])
             return Response(
@@ -4032,7 +4059,16 @@ class RESTfulAPI(CancelMixin):
                 raise ValueError("No running sd models")
 
             # random pick one model to process detect
-            model = await supervisor_ref.get_model(sd_models[0])
+            correlation_id = get_model_request_id(request)
+            model = correlate_model_ref(
+                await actor_call(
+                    supervisor_ref,
+                    "get_model",
+                    sd_models[0],
+                    _rpc_correlation_id=correlation_id,
+                ),
+                correlation_id,
+            )
             result = await model.controlnet_module_list()
             return Response(content=result, media_type="application/json")
         except ValueError as e:
@@ -4050,7 +4086,16 @@ class RESTfulAPI(CancelMixin):
                 raise ValueError("No running sd models")
 
             # random pick one model to process detect
-            model = await supervisor_ref.get_model(sd_models[0])
+            correlation_id = get_model_request_id(request)
+            model = correlate_model_ref(
+                await actor_call(
+                    supervisor_ref,
+                    "get_model",
+                    sd_models[0],
+                    _rpc_correlation_id=correlation_id,
+                ),
+                correlation_id,
+            )
             result = await model.controlnet_control_types()
             return Response(content=result, media_type="application/json")
         except ValueError as e:
@@ -4073,7 +4118,16 @@ class RESTfulAPI(CancelMixin):
                 raise ValueError("No running sd models")
 
             # random pick one model to process detect
-            model = await supervisor_ref.get_model(sd_models[0])
+            correlation_id = get_model_request_id(request)
+            model = correlate_model_ref(
+                await actor_call(
+                    supervisor_ref,
+                    "get_model",
+                    sd_models[0],
+                    _rpc_correlation_id=correlation_id,
+                ),
+                correlation_id,
+            )
 
             kwargs = dict(body)
             kwargs.pop("controlnet_images", None)
@@ -4108,7 +4162,13 @@ class RESTfulAPI(CancelMixin):
         model = await require_model(
             self._get_supervisor_ref, body.model, self._report_error_event
         )
-        result = await model.abort_request(body.request_id)
+        result = await actor_call(
+            model,
+            "abort_request",
+            body.request_id,
+            _rpc_correlation_id=get_model_request_id(request),
+            _rpc_operation_request_id=body.request_id,
+        )
         return JSONResponse(content={"status": result})
 
 

@@ -19,9 +19,11 @@ from pydantic import BaseModel
 
 from ... import __version__
 from ...constants import XINFERENCE_TOKEN_ROUTER_ENABLED
+from ...core.rpc_context import actor_call
 from ...core.virtual_env_manager import VirtualEnvConflictError
 from ...types import PeftModelConfig
 from ..dependencies import get_api
+from ..model_request_logging import get_model_request_id
 from ..responses import JSONResponse
 
 if TYPE_CHECKING:
@@ -481,12 +483,21 @@ async def remove_virtual_env(
 
 
 async def get_progress(
+    request: Request,
     request_id: str,
     api: "RESTfulAPI" = Depends(get_api),
 ) -> JSONResponse:
     try:
         supervisor_ref = await api._get_supervisor_ref()
-        result = {"progress": await supervisor_ref.get_progress(request_id)}
+        result = {
+            "progress": await actor_call(
+                supervisor_ref,
+                "get_progress",
+                request_id,
+                _rpc_correlation_id=get_model_request_id(request),
+                _rpc_operation_request_id=request_id,
+            )
+        }
         return JSONResponse(content=result)
     except KeyError as e:
         raise HTTPException(status_code=400, detail=str(e))

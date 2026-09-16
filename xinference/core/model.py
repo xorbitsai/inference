@@ -55,6 +55,7 @@ logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
 from .exceptions import ModelNotReadyError
+from .rpc_context import rpc_context
 from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
 
 try:
@@ -362,6 +363,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
 
+    @rpc_context
     async def decrease_serve_count(self):
         self._serve_count = max(0, self._serve_count - 1)
         await self.record_metrics(
@@ -927,6 +929,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     },
                 )
 
+    @log_async(logger=logger)
     async def abort_request(
         self,
         request_id: str,

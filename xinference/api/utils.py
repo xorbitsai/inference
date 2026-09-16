@@ -25,6 +25,7 @@ from typing import Any, Callable, Optional
 from fastapi import HTTPException, Request
 
 from ..core.exceptions import ModelNotReadyError
+from ..core.rpc_context import actor_call, correlate_model_ref
 from .model_request_logging import get_current_model_request_id
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,13 @@ async def require_model(
         request_id = get_current_model_request_id()
         if request_id is None:
             return await supervisor.get_model(model_uid)
-        return await supervisor.get_model(model_uid, _correlation_id=request_id)
+        model_ref = await actor_call(
+            supervisor,
+            "get_model",
+            model_uid,
+            _rpc_correlation_id=request_id,
+        )
+        return correlate_model_ref(model_ref, request_id)
     except HTTPException:
         raise
     except ModelNotReadyError as e:
