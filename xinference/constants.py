@@ -415,6 +415,30 @@ XINFERENCE_LOG_MAX_BYTES = int(
     os.environ.get("XINFERENCE_LOG_MAX_BYTES", str(100 * 1024 * 1024))
 )
 XINFERENCE_LOG_BACKUP_COUNT = int(os.environ.get("XINFERENCE_LOG_BACKUP_COUNT", "300"))
+
+# Dedicated REST API model request log.  It is disabled by default because JSON
+# bodies may contain sensitive values and large Base64/latent payloads.
+XINFERENCE_MODEL_REQUEST_LOG_ENABLED = (
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_ENABLED", "false").lower() == "true"
+)
+XINFERENCE_MODEL_REQUEST_LOG_FILE = os.environ.get(
+    "XINFERENCE_MODEL_REQUEST_LOG_FILE", "model_request.log"
+)
+XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS", "7")
+)
+XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES", str(1024 * 1024 * 1024))
+)
+XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT", "7")
+)
+# Maximum request body size captured by the dedicated model request log.
+# Requests without a valid Content-Length or above this limit are not pre-read.
+XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES", str(16 * 1024 * 1024))
+)
+
 XINFERENCE_LOG_ARG_MAX_LENGTH = 100
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD = int(
     os.environ.get(XINFERENCE_ENV_HEALTH_CHECK_FAILURE_THRESHOLD, 5)

@@ -79,6 +79,7 @@ from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
 from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
 from .frontend_static import mount_frontend
+from .model_request_logging import ModelRequestLoggingRoute, get_model_request_id
 from .pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     PDF_MAGIC,
@@ -432,7 +433,7 @@ class RESTfulAPI(CancelMixin):
             XINFERENCE_SYSTEM_SETTINGS_PATH
         )
 
-        self._router = APIRouter()
+        self._router = APIRouter(route_class=ModelRequestLoggingRoute)
         self._token_router_client: Optional[httpx.AsyncClient] = None
         self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
@@ -597,6 +598,9 @@ class RESTfulAPI(CancelMixin):
     async def _audit_middleware(self, request: Request, call_next):
         started = time.perf_counter()
         response = await call_next(request)
+        model_request_id = getattr(request.state, "model_request_id", None)
+        if model_request_id:
+            response.headers.setdefault("X-Request-ID", str(model_request_id))
         model_uid = getattr(request.state, "_audit_model_uid", "")
         if model_uid:
             latency_s = time.perf_counter() - started
@@ -716,11 +720,7 @@ class RESTfulAPI(CancelMixin):
         *,
         forward_external_credential: bool = True,
     ) -> tuple[httpx.Response, str]:
-        request_id = (
-            request.headers.get("request-id")
-            or request.headers.get("x-request-id")
-            or f"xinf-{uuid.uuid4()}"
-        )
+        request_id = get_model_request_id(request)
         upstream_url = f"{runtime['endpoint']}/v1/chat/completions"
         client = self._get_token_router_client()
         upstream_request = client.build_request(
@@ -742,7 +742,7 @@ class RESTfulAPI(CancelMixin):
         raw_body: Dict[str, Any],
         runtime: Dict[str, Any],
     ) -> Response:
-        request_id = request.headers.get("x-request-id") or f"xinf-{uuid.uuid4()}"
+        request_id = get_model_request_id(request)
         endpoint = runtime["endpoint"]
         upstream_url = f"{endpoint}/v1/chat/completions"
         client = self._get_token_router_client()
@@ -1875,6 +1875,8 @@ class RESTfulAPI(CancelMixin):
         )
 
     async def create_message(self, request: Request) -> Response:
+        # Keep Anthropic protocol response IDs backward compatible. The route-level
+        # correlation ID is exposed separately through ``X-Request-ID``.
         request_id = (
             request.headers.get("request-id")
             or request.headers.get("x-request-id")

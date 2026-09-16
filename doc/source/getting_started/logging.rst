@@ -111,3 +111,30 @@ access-log diagnostics are required. Uvicorn error logs remain enabled and use
 the same Xinference logging configuration. In systemd deployments, journal
 output should remain enabled as a fallback for process lifecycle messages and
 failures that occur before application logging is initialized.
+
+Model request body logging
+##########################
+
+Xinference can write inference request metadata and request bodies to a separate
+JSON-lines file. This diagnostic feature is disabled by default because prompts,
+media references, and other request values may contain sensitive data. Enable it
+only on trusted systems with appropriate access controls and retention policies.
+Authentication and authorization failures do not persist request bodies.
+Multipart uploads record field values and original filenames, but not uploaded
+file bytes. Requests larger than the configured capture limit, or requests
+without a known size, record an omission reason instead of the body.
+
+The following environment variables configure the feature:
+
+- ``XINFERENCE_MODEL_REQUEST_LOG_ENABLED``: Enable request body logging (default: ``false``).
+- ``XINFERENCE_MODEL_REQUEST_LOG_FILE``: Log filename or absolute path (default: ``model_request.log``).
+- ``XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES``: Maximum captured request size (default: ``16777216``). Set to ``-1`` to disable the size limit; this is not recommended for internet-facing deployments.
+- ``XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS``: Maximum age of rotated files in days (default: ``7``).
+- ``XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES``: Size-based rotation threshold (default: ``1073741824``).
+- ``XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT``: Maximum number of rotated files (default: ``7``).
+
+Each inference response includes ``X-Request-ID``. Xinference preserves a valid
+caller-provided ``request-id`` or ``x-request-id`` value (in that order), or
+generates an ``xinf-`` prefixed UUID. The same correlation ID is attached to
+Supervisor model lookup logs without replacing model operation request IDs used
+for cancellation or progress tracking.

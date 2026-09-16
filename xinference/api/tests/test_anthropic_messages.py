@@ -48,6 +48,7 @@ async def test_standard_path_requires_version_header(root_path):
         )
 
     assert response.status_code == 400
+    assert response.headers["request-id"].startswith("req_")
     assert response.json()["error"]["type"] == "invalid_request_error"
     assert "anthropic-version" in response.json()["error"]["message"]
 
