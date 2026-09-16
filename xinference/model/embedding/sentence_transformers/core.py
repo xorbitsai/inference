@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 
 import numpy as np
@@ -38,23 +39,36 @@ logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
+def _atomic_write_text(path: str, content: str) -> None:
+    directory = os.path.dirname(os.path.abspath(path))
+    temp_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = file.name
+            file.write(content)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
 def _patch_json_file(path: str, update: Any) -> None:
     with open(path, encoding="utf-8") as file:
         data = json.load(file)
 
     update(data)
-
-    temp_path = f"{path}.{os.getpid()}.tmp"
-    try:
-        with open(temp_path, "w", encoding="utf-8") as file:
-            json.dump(data, file, indent=2, ensure_ascii=False)
-            file.write("\n")
-        os.replace(temp_path, path)
-    finally:
-        try:
-            os.remove(temp_path)
-        except FileNotFoundError:
-            pass
+    content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    _atomic_write_text(path, content)
 
 
 def _copy_python_sources(source_dir: str, target_dir: str) -> None:
@@ -89,8 +103,21 @@ def _patch_python_source(
     if original not in source:
         raise RuntimeError(f"Unable to apply ModelScope compatibility patch to {path}")
 
-    with open(path, "w", encoding="utf-8") as file:
-        file.write(source.replace(original, replacement, 1))
+    _atomic_write_text(path, source.replace(original, replacement, 1))
+
+
+def _patch_jina_clip_config(data: Dict[str, Any], text_model_path: str) -> None:
+    data["auto_map"] = {
+        "AutoConfig": "configuration_clip.JinaCLIPConfig",
+        "AutoModel": "modeling_clip.JinaCLIPModel",
+    }
+    text_config = data.get("text_config")
+    if text_config is None:
+        text_config = {}
+    elif not isinstance(text_config, dict):
+        raise RuntimeError("Invalid Jina CLIP text_config: expected a JSON object")
+    text_config["hf_model_name_or_path"] = text_model_path
+    data["text_config"] = text_config
 
 
 def _patch_jina_clip_custom_st(model_path: str) -> None:
@@ -176,13 +203,6 @@ def _prepare_modelscope_jina_clip_v2(
     _patch_xlm_roberta_modeling(text_model_path)
     _copy_python_sources_to_transformers_cache(text_model_path)
 
-    def patch_clip_config(data: Dict[str, Any]) -> None:
-        data["auto_map"] = {
-            "AutoConfig": "configuration_clip.JinaCLIPConfig",
-            "AutoModel": "modeling_clip.JinaCLIPModel",
-        }
-        data.setdefault("text_config", {})["hf_model_name_or_path"] = text_model_path
-
     def patch_processor_config(data: Dict[str, Any]) -> None:
         data["auto_map"] = {
             "AutoImageProcessor": "processing_clip.JinaCLIPImageProcessor",
@@ -200,7 +220,10 @@ def _prepare_modelscope_jina_clip_v2(
             ),
         }
 
-    _patch_json_file(os.path.join(model_path, "config.json"), patch_clip_config)
+    _patch_json_file(
+        os.path.join(model_path, "config.json"),
+        lambda data: _patch_jina_clip_config(data, text_model_path),
+    )
     _patch_json_file(
         os.path.join(model_path, "preprocessor_config.json"), patch_processor_config
     )

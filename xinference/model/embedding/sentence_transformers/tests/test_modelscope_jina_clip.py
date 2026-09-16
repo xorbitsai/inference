@@ -14,12 +14,73 @@
 
 import json
 
+import pytest
+
 from ....utils import ModelArtifactSource
 from .. import core
 
 
 def _write_json(path, data):
     path.write_text(json.dumps(data), encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("initial", "expected_existing"),
+    [
+        ({}, None),
+        ({"text_config": None}, None),
+        ({"text_config": {"existing": "value"}}, "value"),
+    ],
+)
+def test_patch_jina_clip_config(initial, expected_existing):
+    core._patch_jina_clip_config(initial, "/models/jina-embeddings-v3")
+
+    assert initial["text_config"]["hf_model_name_or_path"] == (
+        "/models/jina-embeddings-v3"
+    )
+    assert initial["text_config"].get("existing") == expected_existing
+
+
+def test_patch_jina_clip_config_rejects_invalid_text_config():
+    with pytest.raises(RuntimeError, match="expected a JSON object"):
+        core._patch_jina_clip_config({"text_config": []}, "/model")
+
+
+def test_atomic_write_failure_preserves_original_and_cleans_temp_files(
+    monkeypatch, tmp_path
+):
+    path = tmp_path / "source.py"
+    path.write_text("original", encoding="utf-8")
+
+    def fail_replace(source, target):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(core.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        core._atomic_write_text(str(path), "replacement")
+
+    assert path.read_text(encoding="utf-8") == "original"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_atomic_write_uses_unique_temp_files(monkeypatch, tmp_path):
+    path = tmp_path / "source.py"
+    path.write_text("original", encoding="utf-8")
+    replace = core.os.replace
+    temp_paths = []
+
+    def record_replace(source, target):
+        temp_paths.append(source)
+        replace(source, target)
+
+    monkeypatch.setattr(core.os, "replace", record_replace)
+
+    core._atomic_write_text(str(path), "first")
+    core._atomic_write_text(str(path), "second")
+
+    assert len(set(temp_paths)) == 2
+    assert path.read_text(encoding="utf-8") == "second"
 
 
 def test_prepare_modelscope_jina_clip_v2(monkeypatch, tmp_path):
@@ -35,7 +96,7 @@ def test_prepare_modelscope_jina_clip_v2(monkeypatch, tmp_path):
     ):
         directory.mkdir()
 
-    _write_json(model_path / "config.json", {"text_config": {}})
+    _write_json(model_path / "config.json", {"text_config": None})
     _write_json(model_path / "preprocessor_config.json", {})
     (model_path / "custom_st.py").write_text(
         "from transformers import AutoConfig, AutoImageProcessor, AutoModel, AutoTokenizer\n"
