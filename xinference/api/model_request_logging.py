@@ -450,16 +450,17 @@ class ModelRequestLoggingRoute(APIRoute):
                 getattr(request.state, "_audit_model_type", "") or model_type
             ).lower()
             if isinstance(response, StreamingResponse):
-                response.body_iterator = self._wrap_stream(
-                    response.body_iterator,
-                    request,
-                    request_id,
-                    endpoint,
-                    actual_model_uid,
-                    actual_model_type,
-                    response.status_code,
-                    started_at,
-                )
+                if XINFERENCE_MODEL_REQUEST_LOG_ENABLED:
+                    response.body_iterator = self._wrap_stream(
+                        response.body_iterator,
+                        request,
+                        request_id,
+                        endpoint,
+                        actual_model_uid,
+                        actual_model_type,
+                        response.status_code,
+                        started_at,
+                    )
             else:
                 await self._log_response(
                     request,

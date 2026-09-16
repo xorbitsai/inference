@@ -237,6 +237,33 @@ def test_multipart_logs_fields_and_filenames_not_bytes(monkeypatch):
     assert "secret-audio-bytes" not in json.dumps(events)
 
 
+def test_disabled_logging_does_not_wrap_stream(monkeypatch):
+    monkeypatch.setattr(
+        model_request_logging, "XINFERENCE_MODEL_REQUEST_LOG_ENABLED", False
+    )
+
+    def unexpected_wrap(*args, **kwargs):
+        raise AssertionError("disabled logging must not wrap streaming responses")
+
+    monkeypatch.setattr(ModelRequestLoggingRoute, "_wrap_stream", unexpected_wrap)
+
+    async def endpoint(request: Request):
+        await request.json()
+
+        async def generate():
+            yield b"one"
+            yield b"two"
+
+        return StreamingResponse(generate())
+
+    response = TestClient(_app("/v1/chat/completions", endpoint)).post(
+        "/v1/chat/completions", json={"model": "llm", "stream": True}
+    )
+
+    assert response.content == b"onetwo"
+    assert response.headers["x-request-id"].startswith("xinf-")
+
+
 def test_stream_completion_is_logged(monkeypatch):
     events = _enable_capture(monkeypatch)
 
