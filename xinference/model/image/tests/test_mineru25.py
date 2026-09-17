@@ -1,9 +1,12 @@
+import ast
 import asyncio
+import json
 import logging
 import sys
 from io import BytesIO
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, mock_open
 
 import pytest
 from fastapi import HTTPException, UploadFile
@@ -18,6 +21,71 @@ def mock_module(monkeypatch, name, **attributes):
     module = ModuleType(name)
     module.__dict__.update(attributes)
     monkeypatch.setitem(sys.modules, name, module)
+
+
+def test_docanalyze_response_preserves_serialized_json(monkeypatch):
+    from xinference.api import restful_api
+    from xinference.core.model import ModelActor
+
+    result = [{"type": "text", "text": "document content"}]
+    actor = SimpleNamespace(_lock=None, _add_running_task=Mock())
+    payload = asyncio.run(
+        ModelActor._call_wrapper(actor, "json", AsyncMock(return_value=result))
+    )
+    model_ref = SimpleNamespace(docanalyze=AsyncMock(return_value=payload))
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model_ref))
+    api = SimpleNamespace(
+        _get_supervisor_ref=Mock(),
+        _report_error_event=AsyncMock(),
+        _add_running_task=Mock(),
+    )
+    file = UploadFile(file=BytesIO(b"pdf"), filename="document.pdf", size=3)
+    response = asyncio.run(
+        restful_api.RESTfulAPI.create_doc_analyze(
+            api, model="mineru", file=file, kwargs=None
+        )
+    )
+    assert response.status_code == 200
+    assert response.media_type == "application/json"
+    assert json.loads(response.body) == result
+
+
+@pytest.mark.parametrize("invalid_json", [False, True])
+def test_download_config_closes_file(invalid_json):
+    # Load only the helper to avoid importing optional download dependencies.
+    source = (
+        Path(__file__).resolve().parents[3] / "thirdparty/mineru/cli/models_download.py"
+    )
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "download_and_modify_json"
+    )
+    file_open = mock_open(
+        read_data=(
+            "invalid"
+            if invalid_json
+            else '{"config_version": "1.3.0", "models-dir": {}}'
+        )
+    )
+    namespace = {
+        "json": json,
+        "os": SimpleNamespace(path=SimpleNamespace(exists=lambda path: True)),
+        "open": file_open,
+        "download_json": Mock(),
+    }
+    exec(
+        compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"),
+        namespace,
+    )
+    if invalid_json:
+        with pytest.raises(json.JSONDecodeError):
+            namespace[function.name]("url", "config.json", {})
+    else:
+        namespace[function.name]("url", "config.json", {"models-dir": {"vlm": "model"}})
+    assert file_open.return_value.__exit__.call_count == (1 if invalid_json else 2)
+    namespace["download_json"].assert_not_called()
 
 
 @pytest.mark.parametrize(

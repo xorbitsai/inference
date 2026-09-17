@@ -19,7 +19,8 @@ def download_json(url):
 def download_and_modify_json(url, local_filename, modifications):
     """下载JSON并修改内容"""
     if os.path.exists(local_filename):
-        data = json.load(open(local_filename))
+        with open(local_filename, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         config_version = data.get('config_version', '0.0.0')
         if config_version < '1.3.0':
             data = download_json(url)
