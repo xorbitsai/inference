@@ -43,6 +43,7 @@ from ..engine import (
     MLXKokoroAudioModel,
     MLXWhisperAudioModel,
     PyTorchF5TTSAudioModel,
+    PyTorchFishAudioModel,
     PyTorchFunASRAudioModel,
     PyTorchKokoroAudioModel,
     PyTorchMeloTTSAudioModel,
@@ -188,6 +189,7 @@ def apple_mlx_engines():
     model_names = (
         "whisper-tiny",
         "F5-TTS",
+        "FishAudio-S2-Pro",
         "Kokoro-82M",
         "SenseVoiceSmall",
         "Fun-ASR-Nano-2512",
@@ -399,6 +401,7 @@ def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
     expected_engines = {
         "whisper-tiny": ["transformers", "MLX"],
         "F5-TTS": ["PyTorch", "MLX"],
+        "FishAudio-S2-Pro": ["PyTorch", "MLX"],
         "Kokoro-82M": ["PyTorch", "MLX"],
         "SenseVoiceSmall": ["PyTorch", "MLX"],
         "Fun-ASR-Nano-2512": ["PyTorch", "MLX"],
@@ -444,6 +447,18 @@ def test_create_consolidated_audio_engines(apple_mlx_engines):
         ("whisper-tiny-mlx", None, MLXWhisperAudioModel, "mlx-community/whisper-tiny"),
         ("F5-TTS", None, PyTorchF5TTSAudioModel, "SWivid/F5-TTS"),
         ("F5-TTS-MLX", None, MLXF5TTSAudioModel, "lucasnewman/f5-tts-mlx"),
+        (
+            "FishAudio-S2-Pro",
+            None,
+            PyTorchFishAudioModel,
+            "fishaudio/s2-pro",
+        ),
+        (
+            "FishAudio-S2-Pro",
+            "MLX",
+            MLXAudioTTSEngineModel,
+            "mlx-community/fish-audio-s2-pro-8bit",
+        ),
         ("Kokoro-82M", None, PyTorchKokoroAudioModel, "hexgrad/Kokoro-82M"),
         ("Kokoro-82M-MLX", None, MLXKokoroAudioModel, "prince-canuma/Kokoro-82M"),
         (
@@ -679,6 +694,7 @@ def test_mlx_audio_specs_pin_isolated_runtime(apple_mlx_engines):
     for model_name in (
         "SenseVoiceSmall",
         "Fun-ASR-Nano-2512",
+        "FishAudio-S2-Pro",
         "Qwen3-ASR-0.6B",
         "Qwen3-TTS-12Hz-0.6B-Base",
         "MeloTTS-English",

@@ -1115,6 +1115,8 @@
     "model_name": "FishAudio-S2-Pro",
     "model_description": "Built with Fish Audio. Fish Audio S2-Pro supports multilingual zero-shot synthesis, voice cloning, multi-speaker speech, and fine-grained inline prosody and emotion control. The Fish Audio Research License permits research and non-commercial use; commercial use requires a separate license.",
     "model_family": "FishAudio",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot",
@@ -1131,7 +1133,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1788514328,
+    "updated_at": 1789619180,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -1152,6 +1154,39 @@
         "#system_torchaudio#",
         "#system_torchcodec#",
         "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "FishAudio-S2-Pro",
+    "cache_name": "FishAudio-S2-Pro-MLX",
+    "model_description": "Fish Audio S2-Pro 8-bit optimized for Apple Silicon with mlx-audio. The Fish Audio Research License permits research and non-commercial use; commercial use requires a separate license.",
+    "model_family": "FishAudio",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/fish-audio-s2-pro-8bit",
+        "model_revision": "c8d4481b3f7cbfe64d855c8b7cda7739502fc3ff"
+      },
+      "modelscope": {
+        "model_id": "mlx-community/fish-audio-s2-pro-8bit",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1789619180,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile ; #engine# == \"MLX\""
       ]
     }
   },

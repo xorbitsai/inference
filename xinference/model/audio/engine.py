@@ -21,6 +21,7 @@ from .ace_step import AceStepModel, is_ace_step_python_supported
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
+from .fish_speech import FishSpeechModel
 from .funasr import FunASRModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
@@ -60,6 +61,7 @@ MLX_AUDIO_STT_MODEL_NAMES = {
 }
 
 MLX_AUDIO_TTS_MODEL_NAMES = {
+    "FishAudio-S2-Pro",
     "MeloTTS-English",
     "MeloTTS-English-v3",
     "Qwen3-TTS-12Hz-0.6B-Base",
@@ -150,6 +152,25 @@ class PyTorchKokoroAudioModel(KokoroModel, AudioEngineModel):
     @classmethod
     def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
         return model_family.model_name == "Kokoro-82M"
+
+
+class PyTorchFishAudioModel(FishSpeechModel, AudioEngineModel):
+    required_libs = ("torch",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "FishAudio-S2-Pro"
+            and model_family.model_family == "FishAudio"
+            and _is_engine_or_unspecified(model_family, "PyTorch")
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "FishAudio-S2-Pro"
+            and model_family.model_family == "FishAudio"
+        )
 
 
 class PyTorchFunASRAudioModel(FunASRModel, AudioEngineModel):
@@ -379,6 +400,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchYuE2AudioModel,
         PyTorchF5TTSAudioModel,
         PyTorchKokoroAudioModel,
+        PyTorchFishAudioModel,
         PyTorchFunASRAudioModel,
         PyTorchQwen3TTSAudioModel,
         PyTorchMeloTTSAudioModel,
