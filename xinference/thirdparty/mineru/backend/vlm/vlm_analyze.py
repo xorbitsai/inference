@@ -3,6 +3,7 @@ import os
 import time
 
 from loguru import logger
+from ...utils.cache_key import config_cache_key
 
 from .custom_logits_processors import enable_custom_logits_processors
 from .model_output_to_middle_json import result_to_middle_json
@@ -34,7 +35,7 @@ class ModelSingleton:
         server_url: str | None,
         **kwargs,
     ) -> MinerUClient:
-        key = (backend, model_path, server_url)
+        key = (backend, model_path, server_url, config_cache_key(kwargs))
         if key not in self._models:
             start_time = time.time()
             model = None

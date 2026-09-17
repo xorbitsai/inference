@@ -1,4 +1,4 @@
-import uuid
+import shutil
 import os
 import re
 import tempfile
@@ -83,10 +83,13 @@ async def parse_pdf(
     # 获取命令行配置参数
     config = getattr(app.state, "config", {})
 
+    unique_dir = None
+    zip_path = None
+    zip_response_created = False
     try:
         # 创建唯一的输出目录
-        unique_dir = os.path.join(output_dir, str(uuid.uuid4()))
-        os.makedirs(unique_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
+        unique_dir = tempfile.mkdtemp(prefix="mineru_request_", dir=output_dir)
 
         # 处理上传的PDF文件
         pdf_file_names = []
@@ -115,6 +118,7 @@ async def parse_pdf(
                         content={"error": f"Failed to load file: {str(e)}"}
                     )
             else:
+                cleanup_file(temp_path)
                 return JSONResponse(
                     status_code=400,
                     content={"error": f"Unsupported file type: {file_suffix}"}
@@ -196,12 +200,14 @@ async def parse_pdf(
                         for image_path in image_paths:
                             zf.write(image_path, arcname=os.path.join(safe_pdf_name, "images", os.path.basename(image_path)))
 
-            return FileResponse(
+            response = FileResponse(
                 path=zip_path,
                 media_type="application/zip",
                 filename="results.zip",
                 background=BackgroundTask(cleanup_file, zip_path)
             )
+            zip_response_created = True
+            return response
         else:
             # 构建 JSON 结果
             result_dict = {}
@@ -251,6 +257,14 @@ async def parse_pdf(
             status_code=500,
             content={"error": f"Failed to process file: {str(e)}"}
         )
+    finally:
+        if unique_dir is not None:
+            try:
+                shutil.rmtree(unique_dir)
+            except OSError as e:
+                logger.warning(f"fail clean directory {unique_dir}: {e}")
+        if zip_path is not None and not zip_response_created:
+            cleanup_file(zip_path)
 
 
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))

@@ -2816,7 +2816,16 @@ class RESTfulAPI(CancelMixin):
         request_id = None
         try:
             if kwargs is not None:
-                parsed_kwargs = json.loads(kwargs)
+                try:
+                    parsed_kwargs = json.loads(kwargs)
+                except json.JSONDecodeError:
+                    raise HTTPException(
+                        status_code=400, detail="kwargs must be a valid JSON object"
+                    )
+                if not isinstance(parsed_kwargs, dict):
+                    raise HTTPException(
+                        status_code=400, detail="kwargs must be a JSON object"
+                    )
             else:
                 parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")

@@ -18,7 +18,7 @@ from ....mineru.version import __version__
 heading_level_import_success = False
 llm_aided_config = get_llm_aided_config()
 if llm_aided_config:
-    title_aided_config = llm_aided_config.get('title_aided', {})
+    title_aided_config = llm_aided_config.get('title_aided') or {}
     if title_aided_config.get('enable', False):
         try:
             from mineru.utils.llm_aided import llm_aided_title

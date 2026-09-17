@@ -2,6 +2,7 @@ import os
 
 import torch
 from loguru import logger
+from ...utils.cache_key import config_cache_key
 
 from .model_list import AtomicModel
 from ...model.layout.doclayoutyolo import DocLayoutYOLOModel
@@ -128,7 +129,7 @@ class AtomModelSingleton:
                 kwargs.get('enable_merge_det_boxes', True)
             )
         else:
-            key = atom_model_name
+            key = (atom_model_name, config_cache_key(kwargs))
 
         if key not in self._models:
             self._models[key] = atom_model_init(model_name=atom_model_name, **kwargs)
@@ -171,12 +172,10 @@ def atom_model_init(model_name: str, **kwargs):
     elif model_name == AtomicModel.ImgOrientationCls:
         atom_model = img_orientation_cls_model_init()
     else:
-        logger.error('model name not allow')
-        exit(1)
+        raise ValueError(f"Model name '{model_name}' is not allowed")
 
     if atom_model is None:
-        logger.error('model init failed')
-        exit(1)
+        raise RuntimeError(f"Failed to initialize model '{model_name}'")
     else:
         return atom_model
 
