@@ -56,6 +56,7 @@ def test_routes_keep_auth_dependencies():
                 "create_variations",
                 "create_inpainting",
                 "create_ocr",
+                "create_doc_analyze",
                 "create_image_edits",
                 "sdapi_options",
                 "sdapi_sd_models",
@@ -75,6 +76,10 @@ def test_routes_keep_auth_dependencies():
     )
     register_routes(handlers)
     routes = {route.path: route for route in handlers._router.routes}
+    docanalyze_route = routes["/v1/images/docanalyze"]
+    assert docanalyze_route.endpoint is handlers.create_doc_analyze
+    assert docanalyze_route.methods == {"POST"}
+    assert docanalyze_route.dependencies[0].scopes == ["models:read"]
     assert (
         len([path for path in routes if path.startswith(("/sdapi", "/controlnet"))])
         == 13
