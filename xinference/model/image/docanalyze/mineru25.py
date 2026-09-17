@@ -71,7 +71,7 @@ class Mineru2_5Model:
         backend = self._kwargs.pop("backend", "vllm-async-engine")
         batch_size = self._kwargs.pop("batch_size", 8)
         if backend == "vllm-engine":
-            raise Exception(
+            raise NotImplementedError(
                 "vlm-vllm-engine backend is not supported in async mode, please use vlm-vllm-async-engine backend"
             )
 
@@ -80,7 +80,7 @@ class Mineru2_5Model:
             and VLLM_INSTALLED
             and VLLM_VERSION < version.parse("0.10.1")
         ):
-            raise Exception(
+            raise RuntimeError(
                 f"vllm version: {VLLM_VERSION} < 0.10.1, disable vlm-async-engine backend, please upgrade vllm to >=0.10.1"
             )
 
@@ -195,7 +195,7 @@ def read_fn(file_bytes: bytes, file_name: str):
     elif file_suffix in image_suffixes:
         file_bytes = images_bytes_to_pdf_bytes(file_bytes)
     else:
-        raise Exception(f"Unknown file suffix: {file_suffix}")
+        raise ValueError(f"Unknown file suffix: {file_suffix}")
     return file_bytes
 
 

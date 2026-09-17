@@ -1308,7 +1308,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     @log_async(
         logger=logger,
-        ignore_kwargs=["image"],
+        ignore_kwargs=["file_bytes"],
     )
     async def docanalyze(
         self,

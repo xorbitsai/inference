@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from io import BytesIO
 from types import ModuleType, SimpleNamespace
@@ -6,6 +7,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import HTTPException, UploadFile
+from packaging.version import parse
 from pydantic import ValidationError
 
 from ..docanalyze import mineru25
@@ -148,3 +150,67 @@ def test_empty_uploads_return_bad_request(monkeypatch, filename, size):
         )
     assert error.value.status_code == 400
     model_ref.docanalyze.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "backend,error_type",
+    [("vllm-engine", NotImplementedError), ("vllm-async-engine", RuntimeError)],
+)
+def test_backend_and_version_errors_use_specific_types(
+    monkeypatch, backend, error_type
+):
+    mock_module(
+        monkeypatch,
+        "xinference.thirdparty.mineru_vl_utils",
+        MinerUClient=Mock(),
+        MinerULogitsProcessor=Mock(),
+    )
+    mock_module(
+        monkeypatch,
+        "xinference.thirdparty.mineru.backend.vlm.custom_logits_processors",
+        enable_custom_logits_processors=lambda: False,
+    )
+    monkeypatch.setattr(mineru25, "VLLM_INSTALLED", True)
+    monkeypatch.setattr(mineru25, "VLLM_VERSION", parse("0.10.0"))
+    model = mineru25.Mineru2_5Model(
+        "mineru", model_spec=SimpleNamespace(model_ability=[]), backend=backend
+    )
+    with pytest.raises(error_type):
+        model.load()
+
+
+def test_unsupported_file_suffix_raises_value_error(monkeypatch):
+    mock_module(
+        monkeypatch,
+        "xinference.thirdparty.mineru.cli.common",
+        image_suffixes=["png"],
+        pdf_suffixes=["pdf"],
+    )
+    mock_module(
+        monkeypatch,
+        "xinference.thirdparty.mineru.utils.pdf_image_tools",
+        images_bytes_to_pdf_bytes=Mock(),
+    )
+    with pytest.raises(ValueError, match="Unknown file suffix: txt"):
+        mineru25.read_fn(b"text", "document.txt")
+
+
+def test_docanalyze_logging_omits_file_bytes(caplog):
+    from xinference.core.model import ModelActor
+
+    actor = SimpleNamespace(
+        _require_ready=Mock(),
+        _model=SimpleNamespace(docanalyze=AsyncMock()),
+        _call_wrapper_json=AsyncMock(return_value="[]"),
+    )
+    with caplog.at_level(logging.DEBUG, logger="xinference.core.model"):
+        result = asyncio.run(
+            ModelActor.docanalyze(
+                actor, file_bytes=b"private-document-payload", file_name="document.pdf"
+            )
+        )
+    assert result == "[]"
+    assert "Enter docanalyze" in caplog.text
+    assert "document.pdf" in caplog.text
+    assert "private-document-payload" not in caplog.text
+    assert "file_bytes=" not in caplog.text
