@@ -43,6 +43,7 @@ dependencies = [
     "requests",
     "aiohttp",
     "pydantic",
+    "anyio",
     "fastapi>=0.110.3,<0.137",
     "python-multipart>=0.0.18",  # required by FastAPI's Form/File/UploadFile params; used to come in transitively via gradio
     "orjson",  # used by core.utils.json_dumps for all REST API JSON responses; used to come in transitively via gradio

@@ -14,6 +14,7 @@
 """Opt-in JSON-lines logging for model inference HTTP requests."""
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -24,8 +25,9 @@ import uuid
 from contextvars import ContextVar, Token
 from datetime import datetime
 from http import HTTPStatus
-from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional, Tuple
 
+import anyio
 from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
 from sse_starlette.sse import EventSourceResponse
@@ -44,6 +46,7 @@ from ..constants import (
 from ..deploy.utils import SafeTimedAndSizeRotatingFileHandler
 from .streaming_outcome import (
     FailureOrigin,
+    StreamingOutcomeReporter,
     StreamOutcome,
     StreamState,
     get_stream_outcome_reporter,
@@ -125,6 +128,67 @@ def is_model_inference_request(request: Request) -> bool:
         request.method.upper() == "POST"
         and _request_route_path(request) in _MODEL_INFERENCE_PATHS
     )
+
+
+def _event_source_supports_close_handler(response: EventSourceResponse) -> bool:
+    try:
+        return (
+            "client_close_handler_callable"
+            in inspect.signature(type(response).__init__).parameters
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _observe_event_source_disconnect(
+    response: EventSourceResponse, reporter: StreamingOutcomeReporter
+) -> None:
+    """Report SSE disconnects across supported sse-starlette versions."""
+
+    if _event_source_supports_close_handler(response):
+        previous_close_handler = response.client_close_handler_callable
+
+        async def handle_client_disconnect(message: Dict[str, Any]) -> None:
+            reporter.client_disconnected()
+            if previous_close_handler is not None:
+                await previous_close_handler(message)
+
+        response.client_close_handler_callable = handle_client_disconnect
+        return
+
+    # sse-starlette 1.6.5-2.1 uses ``listen_for_disconnect`` and 2.2
+    # uses ``_listen_for_disconnect``.  Wrap the listener's receive callable
+    # instead of adding the newer close-handler attribute: those releases do
+    # not consult that attribute.
+    listener_name = next(
+        (
+            name
+            for name in ("listen_for_disconnect", "_listen_for_disconnect")
+            if hasattr(response, name)
+        ),
+        None,
+    )
+    if listener_name is None:
+        logger.warning(
+            "Cannot observe EventSourceResponse client disconnects with this "
+            "sse-starlette version."
+        )
+        return
+
+    previous_listener = getattr(response, listener_name)
+
+    async def listen_for_disconnect(
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+    ) -> None:
+        async def receive_and_report() -> Dict[str, Any]:
+            message = await receive()
+            if message.get("type") == "http.disconnect":
+                reporter.client_disconnected()
+            return message
+
+        await previous_listener(receive_and_report)
+
+    setattr(response, listener_name, listen_for_disconnect)
 
 
 def _valid_request_id(value: Any) -> bool:
@@ -460,18 +524,7 @@ class ModelRequestLoggingRoute(APIRoute):
                 if XINFERENCE_MODEL_REQUEST_LOG_ENABLED:
                     reporter = get_stream_outcome_reporter(request)
                     if isinstance(response, EventSourceResponse):
-                        previous_close_handler = response.client_close_handler_callable
-
-                        async def handle_client_disconnect(
-                            message: Dict[str, Any],
-                        ) -> None:
-                            reporter.client_disconnected()
-                            if previous_close_handler is not None:
-                                await previous_close_handler(message)
-
-                        response.client_close_handler_callable = (
-                            handle_client_disconnect
-                        )
+                        _observe_event_source_disconnect(response, reporter)
                     response.body_iterator = self._wrap_stream(
                         response.body_iterator,
                         request,
@@ -591,6 +644,72 @@ class ModelRequestLoggingRoute(APIRoute):
         await _write_event_async(event)
 
     @classmethod
+    async def _finalize_stream(
+        cls,
+        source: AsyncIterator[Any],
+        reporter: StreamingOutcomeReporter,
+        request: Request,
+        request_id: str,
+        endpoint: str,
+        model_uid: str,
+        model_type: str,
+        status_code: int,
+        started_at: float,
+        outward_error: Optional[BaseException],
+    ) -> Optional[BaseException]:
+        cleanup_error: Optional[BaseException] = None
+        close = getattr(source, "aclose", None)
+        if close is not None:
+            context_token = _set_current_model_request_id(request_id)
+            try:
+                await close()
+            except BaseException as exc:
+                cleanup_error = exc
+                if isinstance(exc, asyncio.CancelledError):
+                    reporter.cancelled(exc, FailureOrigin.SERVER)
+                else:
+                    reporter.failed(exc, FailureOrigin.SERVER)
+            finally:
+                _reset_current_model_request_id(context_token)
+
+        outcome = reporter.outcome
+        error = None
+        if outcome.state is not StreamState.COMPLETED:
+            effective_error = outward_error or cleanup_error
+            error = {
+                "type": outcome.error_type
+                or (
+                    type(effective_error).__name__
+                    if effective_error is not None
+                    else outcome.state.value
+                ),
+                "message": outcome.error_message
+                or (
+                    str(effective_error)
+                    if effective_error is not None
+                    else outcome.state.value
+                ),
+            }
+        context_token = _set_current_model_request_id(request_id)
+        try:
+            await cls._log_response(
+                request,
+                request_id,
+                endpoint,
+                model_uid,
+                model_type,
+                status_code,
+                started_at,
+                stream=True,
+                stream_completed=outcome.state is StreamState.COMPLETED,
+                error=error,
+                stream_outcome=outcome,
+            )
+        finally:
+            _reset_current_model_request_id(context_token)
+        return cleanup_error
+
+    @classmethod
     async def _wrap_stream(
         cls,
         iterator: AsyncIterator[Any],
@@ -629,30 +748,13 @@ class ModelRequestLoggingRoute(APIRoute):
             reporter.failed(exc, FailureOrigin.MODEL_GENERATOR)
             raise
         finally:
-            close = getattr(source, "aclose", None)
-            if close is not None:
-                context_token = _set_current_model_request_id(request_id)
-                try:
-                    await close()
-                finally:
-                    _reset_current_model_request_id(context_token)
-
-            outcome = reporter.outcome
-            error = None
-            if outcome.state is not StreamState.COMPLETED:
-                error = {
-                    "type": outcome.error_type
-                    or (
-                        type(outward_error).__name__
-                        if outward_error
-                        else outcome.state.value
-                    ),
-                    "message": outcome.error_message
-                    or (str(outward_error) if outward_error else outcome.state.value),
-                }
-            context_token = _set_current_model_request_id(request_id)
-            try:
-                await cls._log_response(
+            # EventSourceResponse cancels its AnyIO task group after a client
+            # disconnect.  Finalization must finish outside that cancellation
+            # scope or the async log write can be cancelled before it runs.
+            with anyio.CancelScope(shield=True):
+                cleanup_error = await cls._finalize_stream(
+                    source,
+                    reporter,
                     request,
                     request_id,
                     endpoint,
@@ -660,10 +762,10 @@ class ModelRequestLoggingRoute(APIRoute):
                     model_type,
                     status_code,
                     started_at,
-                    stream=True,
-                    stream_completed=outcome.state is StreamState.COMPLETED,
-                    error=error,
-                    stream_outcome=outcome,
+                    outward_error,
                 )
-            finally:
-                _reset_current_model_request_id(context_token)
+
+            # Preserve the exception already leaving the generator.  If cleanup
+            # was the only failure, propagate it after the terminal event exists.
+            if cleanup_error is not None and outward_error is None:
+                raise cleanup_error
