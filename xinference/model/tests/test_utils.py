@@ -20,6 +20,7 @@ import shutil
 import sys
 import threading
 from contextvars import copy_context
+from types import ModuleType
 
 import pytest
 import tqdm as tqdm_module
@@ -30,6 +31,7 @@ from ...utils import get_real_path
 from ..utils import (
     CACHE_SOURCE_MANIFEST,
     CancellableDownloader,
+    ModelArtifactSource,
     _apply_virtualenv_engine_overrides,
     _collect_virtualenv_engine_markers,
     _extract_engine_markers_from_packages,
@@ -183,6 +185,58 @@ def test_retry_snapshot_download_preserves_default_without_environment(monkeypat
 
     assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
     assert received["max_workers"] == 8
+
+
+def test_model_artifact_source_modelscope(monkeypatch, tmp_path):
+    calls = []
+
+    def snapshot_download(model_id, **kwargs):
+        calls.append((model_id, kwargs))
+        return str(tmp_path)
+
+    modelscope_module = ModuleType("modelscope")
+    hub_module = ModuleType("modelscope.hub")
+    snapshot_module = ModuleType("modelscope.hub.snapshot_download")
+    snapshot_module.snapshot_download = snapshot_download
+    monkeypatch.setitem(sys.modules, "modelscope", modelscope_module)
+    monkeypatch.setitem(sys.modules, "modelscope.hub", hub_module)
+    monkeypatch.setitem(
+        sys.modules, "modelscope.hub.snapshot_download", snapshot_module
+    )
+
+    result = ModelArtifactSource("modelscope").snapshot_download(
+        "org/auxiliary-model",
+        revision="master",
+        allow_patterns=["*.py", "config.json"],
+    )
+
+    assert result == str(tmp_path)
+    assert calls == [
+        (
+            "org/auxiliary-model",
+            {
+                "revision": "master",
+                "allow_file_pattern": ["*.py", "config.json"],
+            },
+        )
+    ]
+
+
+def test_model_artifact_source_huggingface(monkeypatch, tmp_path):
+    calls = []
+
+    def snapshot_download(model_id, **kwargs):
+        calls.append((model_id, kwargs))
+        return str(tmp_path)
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", snapshot_download)
+
+    result = ModelArtifactSource("huggingface").snapshot_download(
+        "org/auxiliary-model", allow_patterns=["*.json"]
+    )
+
+    assert result == str(tmp_path)
+    assert calls == [("org/auxiliary-model", {"allow_patterns": ["*.json"]})]
 
 
 def test_create_symlink_ignores_downloaded_cache_source_manifest(tmp_path, monkeypatch):

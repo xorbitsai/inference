@@ -14,12 +14,16 @@
 
 import shutil
 
+import pytest
+import torch
+
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
     EmbeddingModelFamilyV2,
     TransformersEmbeddingSpecV1,
     create_embedding_model_instance,
 )
+from ..core import _normalize_transformers_dtype_kwargs, _transformers_dtype_compat
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
@@ -36,6 +40,59 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
         )
     ],
 )
+
+
+@pytest.mark.parametrize(
+    ("version", "kwargs", "expected"),
+    [
+        (
+            "4.57.6",
+            {"dtype": torch.float16},
+            {"torch_dtype": torch.float16},
+        ),
+        (
+            "5.0.0",
+            {"torch_dtype": torch.bfloat16},
+            {"dtype": torch.bfloat16},
+        ),
+        (
+            "5.0.0",
+            {"dtype": torch.float32},
+            {"dtype": torch.float32},
+        ),
+        (
+            "5.0.0",
+            {"dtype": torch.float32, "torch_dtype": torch.float16},
+            {"dtype": torch.float32},
+        ),
+    ],
+)
+def test_normalize_transformers_dtype_kwargs(version, kwargs, expected):
+    original = dict(kwargs)
+    assert _normalize_transformers_dtype_kwargs(kwargs, version) == expected
+    assert kwargs == original
+
+
+def test_transformers_dtype_compat_restores_automodel(monkeypatch):
+    import transformers
+
+    calls = []
+
+    class FakeAutoModel:
+        @classmethod
+        def from_pretrained(cls, *args, **kwargs):
+            calls.append((args, kwargs))
+            return "model"
+
+    original_descriptor = FakeAutoModel.__dict__["from_pretrained"]
+    monkeypatch.setattr(transformers, "AutoModel", FakeAutoModel)
+    monkeypatch.setattr(transformers, "__version__", "4.57.6")
+
+    with _transformers_dtype_compat():
+        assert FakeAutoModel.from_pretrained("model", dtype=torch.float16) == "model"
+
+    assert calls == [(("model",), {"torch_dtype": torch.float16})]
+    assert FakeAutoModel.__dict__["from_pretrained"] is original_descriptor
 
 
 # todo Refer to the return format of sentence_transformer

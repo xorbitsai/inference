@@ -36,6 +36,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -1074,6 +1075,56 @@ def retry_snapshot_download(
     if download_workers is not None:
         kwargs.setdefault("max_workers", int(download_workers))
     return retry_download(download_func, model_name, model_info, *args, **kwargs)
+
+
+class ModelArtifactSource:
+    """Download auxiliary model artifacts from the selected model hub.
+
+    Some model runtimes need companion repositories in addition to the main
+    model snapshot. Keeping source selection here prevents those runtimes from
+    silently falling back to Hugging Face in ModelScope-only deployments.
+    """
+
+    def __init__(self, hub: Literal["huggingface", "modelscope"]):
+        if hub not in ("huggingface", "modelscope"):
+            raise ValueError(f"Unsupported model artifact source: {hub}")
+        self.hub = hub
+
+    @property
+    def is_modelscope(self) -> bool:
+        return self.hub == "modelscope"
+
+    def snapshot_download(
+        self,
+        model_id: str,
+        *,
+        revision: Optional[str] = None,
+        allow_patterns: Optional[List[str]] = None,
+    ) -> str:
+        download_kwargs: Dict[str, Any] = {}
+        if revision is not None:
+            download_kwargs["revision"] = revision
+
+        if self.is_modelscope:
+            from modelscope.hub.snapshot_download import (
+                snapshot_download as download_func,
+            )
+
+            if allow_patterns is not None:
+                download_kwargs["allow_file_pattern"] = allow_patterns
+        else:
+            from huggingface_hub import snapshot_download as download_func
+
+            if allow_patterns is not None:
+                download_kwargs["allow_patterns"] = allow_patterns
+
+        return retry_snapshot_download(
+            download_func,
+            model_id,
+            None,
+            model_id,
+            **download_kwargs,
+        )
 
 
 def valid_model_revision(

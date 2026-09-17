@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os
 from io import BytesIO
 from typing import TYPE_CHECKING, Optional
 
@@ -46,14 +47,21 @@ class KokoroModel:
     def model_ability(self):
         return self._model_spec.model_ability
 
+    def _resolve_voice(self, voice: str) -> str:
+        if voice.endswith(".pt"):
+            return voice
+
+        local_voice = os.path.join(self._model_path, "voices", f"{voice}.pt")
+        if os.path.isfile(local_voice):
+            return local_voice
+        return voice
+
     def load(self):
         if self._device is None:
             self._device = get_available_device()
         else:
             if not is_device_available(self._device):
                 raise ValueError(f"Device {self._device} is not available!")
-
-        import os
 
         from kokoro import KModel, KPipeline
 
@@ -110,6 +118,7 @@ class KokoroModel:
         else:
             logger.info("Using voice: %s", voice)
         logger.info("Speech kwargs: %s", kwargs)
+        voice = self._resolve_voice(voice)
         generator = self._model(text=input, voice=voice, speed=speed, **kwargs)
         results = list(generator)
         audio = np.concatenate([r[2] for r in results])

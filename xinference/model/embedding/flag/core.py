@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 import logging
-from typing import List, Optional, Tuple, Union, no_type_check
+import threading
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, no_type_check
 
 import numpy as np
 import torch
@@ -37,6 +40,46 @@ FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed els
 from ...utils import allow_trust_remote_code
 
 logger = logging.getLogger(__name__)
+_TRANSFORMERS_DTYPE_PATCH_LOCK = threading.RLock()
+
+
+def _normalize_transformers_dtype_kwargs(
+    kwargs: Dict[str, Any], transformers_version: str
+) -> Dict[str, Any]:
+    from packaging.version import Version
+
+    normalized = dict(kwargs)
+    if Version(transformers_version).major >= 5:
+        source_key, target_key = "torch_dtype", "dtype"
+    else:
+        source_key, target_key = "dtype", "torch_dtype"
+    if source_key in normalized:
+        if target_key not in normalized:
+            normalized[target_key] = normalized[source_key]
+        normalized.pop(source_key)
+    return normalized
+
+
+@contextmanager
+def _transformers_dtype_compat() -> Iterator[None]:
+    import transformers
+    from transformers import AutoModel
+
+    with _TRANSFORMERS_DTYPE_PATCH_LOCK:
+        original_descriptor = inspect.getattr_static(AutoModel, "from_pretrained")
+        original_from_pretrained = AutoModel.from_pretrained
+
+        def from_pretrained_compat(cls, *args, **kwargs):
+            normalized = _normalize_transformers_dtype_kwargs(
+                kwargs, transformers.__version__
+            )
+            return original_from_pretrained(*args, **normalized)
+
+        setattr(AutoModel, "from_pretrained", classmethod(from_pretrained_compat))
+        try:
+            yield
+        finally:
+            setattr(AutoModel, "from_pretrained", original_descriptor)
 
 
 class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
@@ -95,13 +138,14 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
             model_kwargs = {"use_fp16": True}
         else:
             model_kwargs = {}
-        self._model = BGEM3FlagModel(
-            self._model_path,
-            device=self._device,
-            trust_remote_code=allow_trust_remote_code(self.model_family),
-            return_sparse=self._return_sparse,
-            **model_kwargs,
-        )
+        with _transformers_dtype_compat():
+            self._model = BGEM3FlagModel(
+                self._model_path,
+                device=self._device,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
+                return_sparse=self._return_sparse,
+                **model_kwargs,
+            )
         self._tokenizer = self._model.tokenizer
 
     def _create_embedding(

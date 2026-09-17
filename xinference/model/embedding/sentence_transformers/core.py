@@ -13,8 +13,11 @@
 # limitations under the License.
 
 import importlib.util
+import json
 import logging
 import os
+import shutil
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 
 import numpy as np
@@ -23,6 +26,7 @@ import torch
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import (
+    ModelArtifactSource,
     allow_trust_remote_code,
     check_dependency_available,
     is_flash_attn_available,
@@ -33,6 +37,198 @@ from ..wemm import ensure_wemm_video_reader, is_wemm_model, normalize_wemm_input
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
+
+
+def _atomic_write_text(path: str, content: str) -> None:
+    directory = os.path.dirname(os.path.abspath(path))
+    temp_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = file.name
+            file.write(content)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
+def _patch_json_file(path: str, update: Any) -> None:
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+
+    update(data)
+    content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    _atomic_write_text(path, content)
+
+
+def _copy_python_sources(source_dir: str, target_dir: str) -> None:
+    os.makedirs(target_dir, exist_ok=True)
+    for filename in os.listdir(source_dir):
+        source_path = os.path.join(source_dir, filename)
+        if filename.endswith(".py") and os.path.isfile(source_path):
+            shutil.copyfile(source_path, os.path.join(target_dir, filename))
+
+
+def _copy_python_sources_to_transformers_cache(source_dir: str) -> None:
+    from transformers.dynamic_module_utils import (
+        HF_MODULES_CACHE,
+        TRANSFORMERS_DYNAMIC_MODULE_NAME,
+        create_dynamic_module,
+    )
+
+    submodule = os.path.basename(source_dir)
+    full_submodule = os.path.join(TRANSFORMERS_DYNAMIC_MODULE_NAME, submodule)
+    create_dynamic_module(full_submodule)
+    _copy_python_sources(source_dir, os.path.join(HF_MODULES_CACHE, full_submodule))
+
+
+def _patch_python_source(
+    path: str, original: str, replacement: str, marker: str
+) -> None:
+    with open(path, encoding="utf-8") as file:
+        source = file.read()
+
+    if marker in source:
+        return
+    if original not in source:
+        raise RuntimeError(f"Unable to apply ModelScope compatibility patch to {path}")
+
+    _atomic_write_text(path, source.replace(original, replacement, 1))
+
+
+def _patch_jina_clip_config(data: Dict[str, Any], text_model_path: str) -> None:
+    data["auto_map"] = {
+        "AutoConfig": "configuration_clip.JinaCLIPConfig",
+        "AutoModel": "modeling_clip.JinaCLIPModel",
+    }
+    text_config = data.get("text_config")
+    if text_config is None:
+        text_config = {}
+    elif not isinstance(text_config, dict):
+        raise RuntimeError("Invalid Jina CLIP text_config: expected a JSON object")
+    text_config["hf_model_name_or_path"] = text_model_path
+    data["text_config"] = text_config
+
+
+def _patch_jina_clip_custom_st(model_path: str) -> None:
+    custom_st_path = os.path.join(model_path, "custom_st.py")
+    _patch_python_source(
+        custom_st_path,
+        "from transformers import AutoConfig, AutoImageProcessor, AutoModel, AutoTokenizer",
+        "from transformers import (\n"
+        "    AutoConfig,\n"
+        "    AutoImageProcessor,\n"
+        "    AutoModel,\n"
+        "    XLMRobertaTokenizerFast,\n"
+        ")",
+        "XLMRobertaTokenizerFast",
+    )
+    _patch_python_source(
+        custom_st_path,
+        "        self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "            tokenizer_name_or_path or model_name_or_path,\n"
+        "            **tokenizer_kwargs,\n"
+        "        )",
+        "        tokenizer_source = tokenizer_name_or_path or model_name_or_path\n"
+        "        tokenizer_kwargs.pop('config', None)\n"
+        "        self.tokenizer = XLMRobertaTokenizerFast.from_pretrained(\n"
+        "            tokenizer_source,\n"
+        "            **tokenizer_kwargs,\n"
+        "        )",
+        "tokenizer_kwargs.pop('config', None)",
+    )
+
+
+def _patch_jina_clip_modeling(model_path: str) -> None:
+    modeling_path = os.path.join(model_path, "modeling_clip.py")
+    _patch_python_source(
+        modeling_path,
+        "    AutoTokenizer,\n",
+        "    AutoTokenizer,\n    XLMRobertaTokenizerFast,\n",
+        "XLMRobertaTokenizerFast",
+    )
+    _patch_python_source(
+        modeling_path,
+        "            self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "                self.config._name_or_path, trust_remote_code=True\n"
+        "            )",
+        "            self.tokenizer = XLMRobertaTokenizerFast.from_pretrained(\n"
+        "                self.config._name_or_path\n"
+        "            )",
+        "self.tokenizer = XLMRobertaTokenizerFast.from_pretrained",
+    )
+
+
+def _patch_xlm_roberta_modeling(model_path: str) -> None:
+    modeling_path = os.path.join(model_path, "modeling_xlm_roberta.py")
+    _patch_python_source(
+        modeling_path,
+        "        self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "            self.name_or_path, trust_remote_code=True\n"
+        "        )",
+        "        self.tokenizer = None",
+        "self.tokenizer = None",
+    )
+
+
+def _prepare_modelscope_jina_clip_v2(
+    model_path: str, artifact_source: ModelArtifactSource
+) -> None:
+    clip_impl_path = artifact_source.snapshot_download(
+        "jinaai/jina-clip-implementation",
+        allow_patterns=["*.py", "configuration.json"],
+    )
+    _copy_python_sources(clip_impl_path, model_path)
+    _patch_jina_clip_custom_st(model_path)
+    _patch_jina_clip_modeling(model_path)
+
+    text_model_path = artifact_source.snapshot_download(
+        "jinaai/jina-embeddings-v3", allow_patterns=["config.json"]
+    )
+    text_impl_path = artifact_source.snapshot_download(
+        "jinaai/xlm-roberta-flash-implementation",
+        allow_patterns=["*.py", "configuration.json"],
+    )
+    _copy_python_sources(text_impl_path, text_model_path)
+    _patch_xlm_roberta_modeling(text_model_path)
+    _copy_python_sources_to_transformers_cache(text_model_path)
+
+    def patch_processor_config(data: Dict[str, Any]) -> None:
+        data["auto_map"] = {
+            "AutoImageProcessor": "processing_clip.JinaCLIPImageProcessor",
+            "AutoProcessor": "processing_clip.JinaCLIPProcessor",
+        }
+
+    def patch_text_config(data: Dict[str, Any]) -> None:
+        data["_name_or_path"] = text_model_path
+        data["auto_map"] = {
+            "AutoConfig": "configuration_xlm_roberta.XLMRobertaFlashConfig",
+            "AutoModel": "modeling_lora.XLMRobertaLoRA",
+            "AutoModelForMaskedLM": "modeling_xlm_roberta.XLMRobertaForMaskedLM",
+            "AutoModelForPreTraining": (
+                "modeling_xlm_roberta.XLMRobertaForPreTraining"
+            ),
+        }
+
+    _patch_json_file(
+        os.path.join(model_path, "config.json"),
+        lambda data: _patch_jina_clip_config(data, text_model_path),
+    )
+    _patch_json_file(
+        os.path.join(model_path, "preprocessor_config.json"), patch_processor_config
+    )
+    _patch_json_file(os.path.join(text_model_path, "config.json"), patch_text_config)
+
 
 # jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
 # v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
@@ -242,6 +438,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             "The `dimensions` argument must be an integer, "
             f"but got {type(dimensions)}: {dimensions}"
         )
+
+        if (
+            self.model_family.model_name == "jina-clip-v2"
+            and self._model_spec.model_hub == "modelscope"
+        ):
+            _prepare_modelscope_jina_clip_v2(
+                self._model_path, ModelArtifactSource("modelscope")
+            )
 
         if (
             "gte" in self.model_family.model_name.lower()
@@ -628,7 +832,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     all_embeddings = [wemm_out[0]]
                 else:
                     all_embeddings = [wemm_out]
-                sentences = [sentences]
+                sentences = [sentences]  # type: ignore[list-item]
             elif hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) == 1:
                 all_embeddings = [wemm_out]
             else:
