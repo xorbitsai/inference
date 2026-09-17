@@ -48,6 +48,7 @@ async def test_standard_path_requires_version_header(root_path):
         )
 
     assert response.status_code == 400
+    assert response.headers["request-id"].startswith("req_")
     assert response.json()["error"]["type"] == "invalid_request_error"
     assert "anthropic-version" in response.json()["error"]["message"]
 
@@ -211,3 +212,54 @@ async def test_missing_physical_model_returns_anthropic_not_found(monkeypatch):
         "type": "not_found_error",
         "message": "model not found",
     }
+
+
+@pytest.mark.asyncio
+async def test_physical_stream_failure_is_reported_as_model_generator(monkeypatch):
+    from xinference.api.streaming_outcome import (
+        FailureOrigin,
+        StreamingOutcomeReporter,
+        StreamState,
+    )
+
+    api = make_rest_api()
+    app = make_app(api)
+    reporter = StreamingOutcomeReporter()
+
+    class FakeModel:
+        uid = "physical-model"
+
+        async def chat(self, messages, kwargs, raw_params=None):
+            async def chunks():
+                yield 'data: {"choices":[{"delta":{"content":"one"}}]}\n\n'
+                raise RuntimeError("physical backend failed")
+
+            return chunks()
+
+        async def decrease_serve_count(self):
+            return None
+
+    async def fake_require_model(*args, **kwargs):
+        return FakeModel()
+
+    monkeypatch.setattr(restful_api_module, "require_model", fake_require_model)
+    monkeypatch.setattr(
+        restful_api_module, "get_stream_outcome_reporter", lambda request: reporter
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/anthropic/v1/messages",
+            json={
+                "model": "physical-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "stream": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert "event: error" in response.text
+    assert "physical backend failed" in response.text
+    assert reporter.outcome.state is StreamState.FAILED
+    assert reporter.outcome.failure_origin is FailureOrigin.MODEL_GENERATOR

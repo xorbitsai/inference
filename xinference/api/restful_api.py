@@ -79,6 +79,7 @@ from ..router.constants import TOKEN_ROUTER_BACKEND_AUTHORIZATION_HEADER
 from ..router.credentials import token_router_data_plane_token
 from ..types import CreateChatCompletion, PeftModelConfig, max_tokens_field
 from .frontend_static import mount_frontend
+from .model_request_logging import ModelRequestLoggingRoute, get_model_request_id
 from .pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     PDF_MAGIC,
@@ -113,6 +114,13 @@ from .schemas import (
     TextToVideoRequest,
     UpdateModelRequest,
     WorldGenerationRequest,
+)
+from .streaming_outcome import (
+    FailureOrigin,
+    get_stream_outcome_reporter,
+    observe_stream,
+    report_client_disconnect,
+    report_stream_failure,
 )
 from .utils import get_request_route_path, require_model
 
@@ -432,7 +440,7 @@ class RESTfulAPI(CancelMixin):
             XINFERENCE_SYSTEM_SETTINGS_PATH
         )
 
-        self._router = APIRouter()
+        self._router = APIRouter(route_class=ModelRequestLoggingRoute)
         self._token_router_client: Optional[httpx.AsyncClient] = None
         self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
@@ -597,6 +605,9 @@ class RESTfulAPI(CancelMixin):
     async def _audit_middleware(self, request: Request, call_next):
         started = time.perf_counter()
         response = await call_next(request)
+        model_request_id = getattr(request.state, "model_request_id", None)
+        if model_request_id:
+            response.headers.setdefault("X-Request-ID", str(model_request_id))
         model_uid = getattr(request.state, "_audit_model_uid", "")
         if model_uid:
             latency_s = time.perf_counter() - started
@@ -716,11 +727,7 @@ class RESTfulAPI(CancelMixin):
         *,
         forward_external_credential: bool = True,
     ) -> tuple[httpx.Response, str]:
-        request_id = (
-            request.headers.get("request-id")
-            or request.headers.get("x-request-id")
-            or f"xinf-{uuid.uuid4()}"
-        )
+        request_id = get_model_request_id(request)
         upstream_url = f"{runtime['endpoint']}/v1/chat/completions"
         client = self._get_token_router_client()
         upstream_request = client.build_request(
@@ -742,7 +749,7 @@ class RESTfulAPI(CancelMixin):
         raw_body: Dict[str, Any],
         runtime: Dict[str, Any],
     ) -> Response:
-        request_id = request.headers.get("x-request-id") or f"xinf-{uuid.uuid4()}"
+        request_id = get_model_request_id(request)
         endpoint = runtime["endpoint"]
         upstream_url = f"{endpoint}/v1/chat/completions"
         client = self._get_token_router_client()
@@ -789,13 +796,20 @@ class RESTfulAPI(CancelMixin):
 
             async def body_stream() -> AsyncIterator[bytes]:
                 try:
-                    async for chunk in upstream_response.aiter_raw():
+                    async for chunk in observe_stream(
+                        upstream_response.aiter_raw(),
+                        get_stream_outcome_reporter(request),
+                        failure_origin=FailureOrigin.UPSTREAM,
+                    ):
                         if await request.is_disconnected():
+                            report_client_disconnect(request)
                             break
                         yield chunk
-                except asyncio.CancelledError:
+                except asyncio.CancelledError as exc:
+                    report_client_disconnect(request, exc)
                     raise
-                except Exception:
+                except Exception as exc:
+                    report_stream_failure(request, exc, FailureOrigin.UPSTREAM)
                     logger.exception(
                         "Token Router stream failed: virtual_model_uid=%s "
                         "router_uid=%s instance_id=%s",
@@ -1751,14 +1765,20 @@ class RESTfulAPI(CancelMixin):
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
-                    async for item in iterator:
+                    async for item in observe_stream(
+                        iterator,
+                        get_stream_outcome_reporter(request),
+                        failure_origin=FailureOrigin.MODEL_GENERATOR,
+                    ):
                         yield item
-                except asyncio.CancelledError:
+                except asyncio.CancelledError as exc:
+                    report_client_disconnect(request, exc)
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during generate."
                     )
                     return
                 except Exception as ex:
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
                     ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
@@ -1875,6 +1895,8 @@ class RESTfulAPI(CancelMixin):
         )
 
     async def create_message(self, request: Request) -> Response:
+        # Keep Anthropic protocol response IDs backward compatible. The route-level
+        # correlation ID is exposed separately through ``X-Request-ID``.
         request_id = (
             request.headers.get("request-id")
             or request.headers.get("x-request-id")
@@ -1991,23 +2013,42 @@ class RESTfulAPI(CancelMixin):
                     await asyncio.shield(cleanup_task)
 
                 async def router_chunks() -> AsyncIterator[Dict[str, Any]]:
+                    reporter = get_stream_outcome_reporter(request)
+                    upstream_chunks = observe_stream(
+                        upstream_response.aiter_raw(),
+                        reporter,
+                        failure_origin=FailureOrigin.UPSTREAM,
+                    )
+                    protocol_chunks = observe_stream(
+                        self._iter_openai_sse_bytes(upstream_chunks),
+                        reporter,
+                        failure_origin=FailureOrigin.PROTOCOL,
+                    )
                     try:
-                        async for chunk in self._iter_openai_sse_bytes(
-                            upstream_response.aiter_raw()
-                        ):
+                        async for chunk in protocol_chunks:
                             if await request.is_disconnected():
+                                report_client_disconnect(request)
                                 break
                             yield chunk
-                    except asyncio.CancelledError:
+                    except asyncio.CancelledError as exc:
+                        report_client_disconnect(request, exc)
                         raise
                     except Exception as exc:
+                        report_stream_failure(request, exc, FailureOrigin.PROTOCOL)
                         logger.exception("Anthropic Token Router stream failed")
                         yield {"error": {"type": "api_error", "message": str(exc)}}
                     finally:
                         await release_resources()
 
+                anthropic_events = anthropic_stream_events(
+                    router_chunks(), model_uid, request_id
+                )
                 return EventSourceResponse(
-                    anthropic_stream_events(router_chunks(), model_uid, request_id),
+                    observe_stream(
+                        anthropic_events,
+                        get_stream_outcome_reporter(request),
+                        failure_origin=FailureOrigin.PROTOCOL,
+                    ),
                     ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                     headers={"request-id": request_id},
                     background=BackgroundTask(release_resources),
@@ -2059,14 +2100,28 @@ class RESTfulAPI(CancelMixin):
                 return self._anthropic_error(status_code, str(exc), request_id)
 
             async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
+                reporter = get_stream_outcome_reporter(request)
+                model_chunks = observe_stream(
+                    iterator,
+                    reporter,
+                    failure_origin=FailureOrigin.MODEL_GENERATOR,
+                )
+                protocol_chunks = observe_stream(
+                    self._iter_model_openai_chunks(model_chunks),
+                    reporter,
+                    failure_origin=FailureOrigin.PROTOCOL,
+                )
                 try:
-                    async for chunk in self._iter_model_openai_chunks(iterator):
+                    async for chunk in protocol_chunks:
                         if await request.is_disconnected():
+                            report_client_disconnect(request)
                             break
                         yield chunk
-                except asyncio.CancelledError:
+                except asyncio.CancelledError as exc:
+                    report_client_disconnect(request, exc)
                     raise
                 except Exception as exc:
+                    report_stream_failure(request, exc, FailureOrigin.MODEL_GENERATOR)
                     exc = await self._get_model_last_error(model.uid, exc)
                     logger.exception("Anthropic physical model stream failed")
                     await self._report_error_event(model_uid, str(exc))
@@ -2082,8 +2137,15 @@ class RESTfulAPI(CancelMixin):
                         ):
                             await model.decrease_serve_count()
 
+            anthropic_events = anthropic_stream_events(
+                physical_chunks(), model_uid, request_id
+            )
             return EventSourceResponse(
-                anthropic_stream_events(physical_chunks(), model_uid, request_id),
+                observe_stream(
+                    anthropic_events,
+                    get_stream_outcome_reporter(request),
+                    failure_origin=FailureOrigin.PROTOCOL,
+                ),
                 ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                 headers={"request-id": request_id},
             )
@@ -2366,7 +2428,11 @@ class RESTfulAPI(CancelMixin):
 
                 async def stream_results():
                     try:
-                        async for item in out:
+                        async for item in observe_stream(
+                            out,
+                            get_stream_outcome_reporter(request),
+                            failure_origin=FailureOrigin.MODEL_GENERATOR,
+                        ):
                             yield item
                     finally:
                         await model.decrease_serve_count()
@@ -2929,6 +2995,7 @@ class RESTfulAPI(CancelMixin):
             if stream:
                 return EventSourceResponse(
                     self._stream_image_edit(
+                        request,
                         model_ref,
                         primary_image,
                         reference_images,
@@ -2967,6 +3034,7 @@ class RESTfulAPI(CancelMixin):
 
     async def _stream_image_edit(
         self,
+        request: Request,
         model_ref,
         primary_image: Image.Image,
         reference_images: list,
@@ -3031,6 +3099,7 @@ class RESTfulAPI(CancelMixin):
             }
 
         except Exception as e:
+            report_stream_failure(request, e, FailureOrigin.MODEL_GENERATOR)
             yield {
                 "event": "error",
                 "data": json.dumps(
@@ -3540,13 +3609,18 @@ class RESTfulAPI(CancelMixin):
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
-                    async for item in iterator:
+                    async for item in observe_stream(
+                        iterator,
+                        get_stream_outcome_reporter(request),
+                        failure_origin=FailureOrigin.MODEL_GENERATOR,
+                    ):
                         yield item
                     yield "[DONE]"
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
                 # See https://github.com/sysid/sse-starlette/blob/main/examples/example.py#L48
-                except asyncio.CancelledError:
+                except asyncio.CancelledError as exc:
+                    report_client_disconnect(request, exc)
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during chat."
                     )
@@ -3555,6 +3629,7 @@ class RESTfulAPI(CancelMixin):
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
                     return
                 except Exception as ex:
+                    report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
                     ex = await self._get_model_last_error(model.uid, ex)
                     logger.exception("Chat completion stream got an error: %s", ex)
                     await self._report_error_event(model_uid, str(ex))
