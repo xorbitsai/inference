@@ -493,6 +493,16 @@ const en = {
     customModels: 'Custom Models',
     flexibleModels: 'Flexible Models',
   },
+  documentParsing: {
+    uploadLabel: 'Upload PDF or image',
+    uploadDescription: 'PDF, PNG, JPEG, JP2, WebP, GIF or BMP. One file per request.',
+    engineHint:
+      'Uses the engine selected when the model was deployed. Results are returned as structured JSON.',
+    submit: 'Parse document',
+    uploadRequired: 'Upload a PDF or image before parsing.',
+    invalidFile: 'Only PDF and supported image files (PNG, JPEG, JP2, WebP, GIF, BMP) are allowed.',
+    emptyFile: 'The uploaded file cannot be empty.',
+  },
   launchModel: {
     modelType: 'Model Type',
     modelAbility: 'Model Ability',
@@ -511,6 +521,9 @@ const en = {
     image2image: 'Image to Image',
     inpainting: 'Image Inpainting',
     ocr: 'Optical Character Recognition (OCR)',
+    docanalyze: 'Document Parsing',
+    docanalyzeDescription:
+      'Parse PDFs or images to extract text, tables, formulas and document structure as structured JSON.',
     audio2text: 'Audio to Text',
     speaker_embedding: 'Speaker Embedding',
     text2audio: 'Text to Audio',

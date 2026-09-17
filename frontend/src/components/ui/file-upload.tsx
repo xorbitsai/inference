@@ -7,11 +7,11 @@ import { Upload, X } from 'lucide-react';
 import { cn, getFileMeta } from '@/lib/utils';
 import type { FileUploadValue } from '@/types/common';
 
-
 export interface FileUploadProps {
   value?: FileUploadValue[];
   onChange?: (value: FileUploadValue[]) => void;
   accept?: string;
+  validateFile?: (file: File) => void;
   label?: ReactNode;
   description?: ReactNode;
   icon?: ReactNode;
@@ -44,8 +44,6 @@ async function toUploadValue(file: File): Promise<FileUploadValue> {
     url: URL.createObjectURL(file),
   };
 }
-
-
 
 function HiddenInput({
   accept,
@@ -196,6 +194,7 @@ export function FileUpload({
   onChange,
   accept,
   label = 'Upload file',
+  validateFile,
   description = 'Drag a file here or click to browse',
   icon,
   children,
@@ -206,10 +205,19 @@ export function FileUpload({
 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [validationError, setValidationError] = useState('');
 
   const updateFiles = async (files: File[]) => {
     const file = files[0];
     if (!file || disabled) return;
+
+    try {
+      validateFile?.(file);
+    } catch (error) {
+      setValidationError(error instanceof Error ? error.message : 'Invalid file type.');
+      return;
+    }
+    setValidationError('');
 
     onChange?.([await toUploadValue(file)]);
   };
@@ -246,6 +254,11 @@ export function FileUpload({
         </span>
         {showResult && (
           <FileUploadResult fileList={value} onRemove={disabled ? undefined : removeFile} />
+        )}
+        {validationError && (
+          <p role="alert" className="mt-2 text-xs text-destructive">
+            {validationError}
+          </p>
         )}
       </div>
     );
@@ -289,6 +302,11 @@ export function FileUpload({
           </>
         )}
       </label>
+      {validationError && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {validationError}
+        </p>
+      )}
     </div>
   );
 }

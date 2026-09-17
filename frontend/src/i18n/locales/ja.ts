@@ -480,6 +480,16 @@ const ja = {
     customModels: 'カスタムモデル',
     flexibleModels: 'フレキシブルモデル',
   },
+  documentParsing: {
+    uploadLabel: 'PDF または画像をアップロード',
+    uploadDescription: 'PDF、PNG、JPEG、JP2、WebP、GIF、BMP に対応。1 回につき 1 ファイル。',
+    engineHint: 'モデルのデプロイ時に選択したエンジンを使用し、解析結果を構造化 JSON で返します。',
+    submit: 'ドキュメントを解析',
+    uploadRequired: '解析する PDF または画像をアップロードしてください。',
+    invalidFile:
+      'PDF および対応する画像ファイル（PNG、JPEG、JP2、WebP、GIF、BMP）のみ使用できます。',
+    emptyFile: '空のファイルはアップロードできません。',
+  },
   launchModel: {
     modelType: 'モデルタイプ',
     modelAbility: 'モデル機能',
@@ -498,6 +508,9 @@ const ja = {
     image2image: '画像から画像',
     inpainting: '画像修復',
     ocr: '光学文字認識 (OCR)',
+    docanalyze: 'ドキュメント解析',
+    docanalyzeDescription:
+      'PDF または画像からテキスト、表、数式、文書構造を抽出し、構造化 JSON で返します。',
     audio2text: '音声からテキスト',
     speaker_embedding: '話者埋め込み',
     text2audio: 'テキストから音声',

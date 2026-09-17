@@ -56,6 +56,7 @@ import {
   uploadList,
 } from './utils';
 import { parseScalarSeed } from './seed-utils';
+import { validateDocumentFile } from './document-upload-utils';
 
 function appendKwargsIfPresent(formData: FormData, kwargs: Record<string, unknown>) {
   if (isEmpty(kwargs)) {
@@ -425,23 +426,19 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
   [ModelAbility.Docanalyze]: {
     ability: ModelAbility.Docanalyze,
     label: 'Document Parsing',
+    labelKey: 'launchModel.docanalyze',
+    descriptionKey: 'launchModel.docanalyzeDescription',
     icon: FileSearch,
-    requestApi: '/v1/images/ocr',
+    requestApi: '/v1/images/docanalyze',
     codeExample: {
       method: 'POST',
       contentType: 'form',
       fields: [
         { key: 'model', required: true },
-        { key: 'image', required: true, type: 'file', value: './document.pdf' },
+        { key: 'file', required: true, type: 'file', value: '/path/to/document.pdf' },
         {
           key: 'kwargs',
-          value: {
-            backend: 'hybrid-auto-engine',
-            parse_method: 'auto',
-            language: 'ch',
-            output_format: 'markdown',
-            return_dict: true,
-          },
+          value: { request_id: 'document-request-1' },
           stringify: true,
           comment: 'Optional(other key/value)',
         },
@@ -449,29 +446,23 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     },
     initialValues: {
       file: [],
-      backend: 'hybrid-auto-engine',
-      parse_method: 'auto',
-      language: 'ch',
-      output_format: 'markdown',
     },
+    submitLabel: 'Parse document',
+    submitLabelKey: 'documentParsing.submit',
     formPanel: DocumentParsingPanel,
     resultPanel: ResultPanels.Universal,
-    transformValues: ({ modelUid, values }) => {
+    transformValues: ({ modelUid, values, requestId, t }) => {
       const file = firstUpload(values, 'file');
+      if (!file)
+        throw new Error(
+          t?.('documentParsing.uploadRequired') || 'Upload a PDF or image before parsing.'
+        );
+      validateDocumentFile(file.file, t);
       const formData = new FormData();
 
       formData.append('model', modelUid);
-      if (file) formData.append('image', file.file);
-      formData.append(
-        'kwargs',
-        JSON.stringify({
-          backend: stringValue(values.backend, 'hybrid-auto-engine'),
-          parse_method: stringValue(values.parse_method, 'auto'),
-          language: stringValue(values.language, 'ch'),
-          output_format: stringValue(values.output_format, 'markdown'),
-          return_dict: true,
-        })
-      );
+      formData.append('file', file.file);
+      appendKwargsIfPresent(formData, requestId ? { request_id: requestId } : {});
 
       return formData;
     },

@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useWatch } from '@/hooks/use-form';
+import { useI18n } from '@/contexts/i18n-context';
 import { ModelAbility } from '@/constants';
 import {
   SAMPLING_METHOD_OPTIONS,
@@ -39,23 +40,7 @@ import {
 import { createRandomSeed, MAX_SEED, parseScalarSeed } from '../seed-utils';
 import type { CapabilityFormProps } from '../types';
 import { isJsonObject } from '../utils';
-
-const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
-  (value) => ({ label: value, value })
-);
-
-const DOCUMENT_PARSE_METHOD_OPTIONS = ['auto', 'txt', 'ocr'].map((value) => ({
-  label: value,
-  value,
-}));
-
-const DOCUMENT_LANGUAGE_OPTIONS = [
-  { label: 'Chinese', value: 'ch' },
-  { label: 'English', value: 'en' },
-  { label: 'Traditional Chinese', value: 'chinese_cht' },
-];
-
-const DOCUMENT_OUTPUT_OPTIONS = ['markdown', 'json'].map((value) => ({ label: value, value }));
+import { DOCUMENT_UPLOAD_ACCEPT, validateDocumentFile } from '../document-upload-utils';
 
 const SPEECH_RESPONSE_FORMAT_OPTIONS = ['mp3', 'wav', 'flac', 'ogg'].map((value) => ({
   label: value.toUpperCase(),
@@ -835,29 +820,18 @@ export function SpeechPanel({ form, model }: CapabilityFormProps) {
 }
 
 export function DocumentParsingPanel() {
+  const { t } = useI18n();
   return (
     <>
       <FormField name="file" rules={[{ required: true }]}>
         <FileUpload
-          accept=".pdf,image/*"
-          label="Upload document"
-          description="PDF, PNG, JPG, WebP, BMP or GIF"
+          accept={DOCUMENT_UPLOAD_ACCEPT}
+          validateFile={(file) => validateDocumentFile(file, t)}
+          label={t('documentParsing.uploadLabel')}
+          description={t('documentParsing.uploadDescription')}
         />
       </FormField>
-      <div className="grid grid-cols-2 gap-3">
-        <FormField name="backend" label="Backend">
-          <Select options={DOCUMENT_BACKEND_OPTIONS} allowClear={false} />
-        </FormField>
-        <FormField name="parse_method" label="Parse Method">
-          <Select options={DOCUMENT_PARSE_METHOD_OPTIONS} allowClear={false} />
-        </FormField>
-        <FormField name="language" label="Language">
-          <Select options={DOCUMENT_LANGUAGE_OPTIONS} allowClear={false} />
-        </FormField>
-        <FormField name="output_format" label="Output">
-          <Select options={DOCUMENT_OUTPUT_OPTIONS} allowClear={false} />
-        </FormField>
-      </div>
+      <p className="text-xs text-muted-foreground">{t('documentParsing.engineHint')}</p>
     </>
   );
 }
