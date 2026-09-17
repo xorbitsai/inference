@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 import os
@@ -21,12 +22,14 @@ import uuid
 import pytest
 from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.testclient import TestClient
+from sse_starlette.sse import EventSourceResponse
 from starlette.responses import JSONResponse, StreamingResponse
 
 from .. import model_request_logging
 from ..model_request_logging import (
     ModelRequestLoggingRoute,
     _ModelRequestRotatingFileHandler,
+    get_current_model_request_id,
 )
 
 
@@ -286,6 +289,77 @@ def test_stream_completion_is_logged(monkeypatch):
     assert events[-1]["stream_completed"] is True
 
 
+def test_event_source_completion_tracks_lifecycle_context_and_wire_format(monkeypatch):
+    events = _enable_capture(monkeypatch)
+    generator_request_ids = []
+    terminal_events_seen_before_completion = []
+
+    async def endpoint(request: Request):
+        await request.json()
+        request_id = request.state.model_request_id
+
+        async def generate():
+            generator_request_ids.append(get_current_model_request_id())
+            terminal_events_seen_before_completion.extend(
+                event for event in events if event["event"] != "model_request_started"
+            )
+            yield {"data": "one"}
+            await asyncio.sleep(0.02)
+            generator_request_ids.append(get_current_model_request_id())
+            yield {"event": "message", "data": "two"}
+
+        response = EventSourceResponse(generate(), ping=3600)
+        response.headers["expected-request-id"] = request_id
+        return response
+
+    with TestClient(_app("/v1/chat/completions", endpoint)).stream(
+        "POST", "/v1/chat/completions", json={"model": "llm", "stream": True}
+    ) as response:
+        body = b"".join(response.iter_bytes())
+
+    assert body == b"data: one\r\n\r\nevent: message\r\ndata: two\r\n\r\n"
+    assert generator_request_ids == [response.headers["expected-request-id"]] * 2
+    assert terminal_events_seen_before_completion == []
+    terminal = [event for event in events if event["event"] != "model_request_started"]
+    assert len(terminal) == 1
+    assert terminal[0]["event"] == "model_request_finished"
+    assert terminal[0]["stream"] is True
+    assert terminal[0]["stream_completed"] is True
+    assert terminal[0]["stream_outcome"] == "completed"
+    assert terminal[0]["elapsed_ms"] >= 15
+
+
+def test_event_source_raised_failure_is_logged(monkeypatch):
+    events = _enable_capture(monkeypatch)
+
+    async def endpoint(request: Request):
+        await request.json()
+
+        async def generate():
+            yield {"data": "one"}
+            raise RuntimeError("event source failed")
+
+        return EventSourceResponse(generate(), ping=3600)
+
+    with pytest.raises(RuntimeError, match="event source failed"):
+        with TestClient(_app("/v1/chat/completions", endpoint)).stream(
+            "POST", "/v1/chat/completions", json={"model": "llm", "stream": True}
+        ) as response:
+            b"".join(response.iter_bytes())
+
+    terminal = [event for event in events if event["event"] != "model_request_started"]
+    assert len(terminal) == 1
+    assert terminal[0]["event"] == "model_request_failed"
+    assert terminal[0]["stream"] is True
+    assert terminal[0]["stream_completed"] is False
+    assert terminal[0]["stream_outcome"] == "failed"
+    assert terminal[0]["failure_origin"] == "model_generator"
+    assert terminal[0]["error"] == {
+        "type": "RuntimeError",
+        "message": "event source failed",
+    }
+
+
 def test_stream_failure_is_logged(monkeypatch):
     events = _enable_capture(monkeypatch)
 
@@ -447,6 +521,48 @@ def test_swallowed_stream_failure_is_logged_once(monkeypatch):
     }
 
 
+def test_event_source_swallowed_failure_is_logged_once(monkeypatch):
+    from ..streaming_outcome import FailureOrigin, report_stream_failure
+
+    events = _enable_capture(monkeypatch)
+
+    async def endpoint(request: Request):
+        await request.json()
+
+        async def generate():
+            yield {"data": "one"}
+            try:
+                raise RuntimeError("event source failed")
+            except RuntimeError as exc:
+                report_stream_failure(request, exc, FailureOrigin.MODEL_GENERATOR)
+                yield {"event": "error", "data": "event source failed"}
+
+        return EventSourceResponse(generate(), ping=3600)
+
+    with TestClient(_app("/v1/chat/completions", endpoint)).stream(
+        "POST", "/v1/chat/completions", json={"model": "llm", "stream": True}
+    ) as response:
+        body = b"".join(response.iter_bytes())
+
+    assert body == (
+        b"data: one\r\n\r\n" b"event: error\r\ndata: event source failed\r\n\r\n"
+    )
+    terminal = [event for event in events if event["event"] != "model_request_started"]
+    assert len(terminal) == 1
+    assert terminal[0]["event"] == "model_request_failed"
+    assert terminal[0]["status_code"] == 200
+    assert terminal[0]["http_success"] is True
+    assert terminal[0]["success"] is False
+    assert terminal[0]["stream"] is True
+    assert terminal[0]["stream_completed"] is False
+    assert terminal[0]["stream_outcome"] == "failed"
+    assert terminal[0]["failure_origin"] == "model_generator"
+    assert terminal[0]["error"] == {
+        "type": "RuntimeError",
+        "message": "event source failed",
+    }
+
+
 def test_first_stream_terminal_outcome_wins(monkeypatch):
     from ..streaming_outcome import (
         FailureOrigin,
@@ -508,8 +624,90 @@ def test_client_disconnect_outcome_is_not_logged_as_success(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_event_source_client_disconnect_is_logged_and_chains_handler(monkeypatch):
+    events = _enable_capture(monkeypatch)
+    first_chunk_sent = asyncio.Event()
+    existing_handler_calls = []
+    request_body = json.dumps({"model": "llm", "stream": True}).encode()
+
+    async def endpoint(request: Request):
+        await request.json()
+
+        async def generate():
+            yield {"data": "one"}
+            await asyncio.Event().wait()
+
+        async def existing_close_handler(message):
+            existing_handler_calls.append(message["type"])
+
+        return EventSourceResponse(
+            generate(),
+            ping=3600,
+            client_close_handler_callable=existing_close_handler,
+        )
+
+    app = _app("/v1/chat/completions", endpoint)
+    request_sent = False
+    sent_messages = []
+
+    async def receive():
+        nonlocal request_sent
+        if not request_sent:
+            request_sent = True
+            return {
+                "type": "http.request",
+                "body": request_body,
+                "more_body": False,
+            }
+        await first_chunk_sent.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        sent_messages.append(message)
+        if message["type"] == "http.response.body" and message.get("body"):
+            first_chunk_sent.set()
+
+    await app(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/v1/chat/completions",
+            "raw_path": b"/v1/chat/completions",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(request_body)).encode()),
+            ],
+            "client": ("testclient", 123),
+            "server": ("testserver", 80),
+        },
+        receive,
+        send,
+    )
+
+    body = b"".join(
+        message.get("body", b"")
+        for message in sent_messages
+        if message["type"] == "http.response.body"
+    )
+    assert body == b"data: one\r\n\r\n"
+    assert existing_handler_calls == ["http.disconnect"]
+    terminal = [event for event in events if event["event"] != "model_request_started"]
+    assert len(terminal) == 1
+    assert terminal[0]["event"] == "model_request_failed"
+    assert terminal[0]["stream"] is True
+    assert terminal[0]["stream_completed"] is False
+    assert terminal[0]["stream_outcome"] == "client_disconnected"
+    assert terminal[0]["failure_origin"] == "client"
+
+
+@pytest.mark.asyncio
 async def test_outward_stream_cancellation_is_not_classified_as_disconnect(monkeypatch):
-    import asyncio
     import time
 
     events = _enable_capture(monkeypatch)

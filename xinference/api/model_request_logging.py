@@ -28,6 +28,7 @@ from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple
 
 from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
+from sse_starlette.sse import EventSourceResponse
 from starlette.datastructures import FormData, UploadFile
 from starlette.responses import Response, StreamingResponse
 
@@ -455,8 +456,22 @@ class ModelRequestLoggingRoute(APIRoute):
             actual_model_type = str(
                 getattr(request.state, "_audit_model_type", "") or model_type
             ).lower()
-            if isinstance(response, StreamingResponse):
+            if isinstance(response, (StreamingResponse, EventSourceResponse)):
                 if XINFERENCE_MODEL_REQUEST_LOG_ENABLED:
+                    reporter = get_stream_outcome_reporter(request)
+                    if isinstance(response, EventSourceResponse):
+                        previous_close_handler = response.client_close_handler_callable
+
+                        async def handle_client_disconnect(
+                            message: Dict[str, Any],
+                        ) -> None:
+                            reporter.client_disconnected()
+                            if previous_close_handler is not None:
+                                await previous_close_handler(message)
+
+                        response.client_close_handler_callable = (
+                            handle_client_disconnect
+                        )
                     response.body_iterator = self._wrap_stream(
                         response.body_iterator,
                         request,
@@ -587,11 +602,19 @@ class ModelRequestLoggingRoute(APIRoute):
         status_code: int,
         started_at: float,
     ) -> AsyncIterator[Any]:
-        context_token = _set_current_model_request_id(request_id)
         reporter = get_stream_outcome_reporter(request)
         outward_error: Optional[BaseException] = None
+        source = iterator.__aiter__()
         try:
-            async for item in iterator:
+            while True:
+                context_token = _set_current_model_request_id(request_id)
+                try:
+                    item = await source.__anext__()
+                except StopAsyncIteration:
+                    reporter.completed()
+                    break
+                finally:
+                    _reset_current_model_request_id(context_token)
                 yield item
         except asyncio.CancelledError as exc:
             outward_error = exc
@@ -603,11 +626,17 @@ class ModelRequestLoggingRoute(APIRoute):
             raise
         except BaseException as exc:
             outward_error = exc
-            reporter.failed(exc, FailureOrigin.SERVER)
+            reporter.failed(exc, FailureOrigin.MODEL_GENERATOR)
             raise
-        else:
-            reporter.completed()
         finally:
+            close = getattr(source, "aclose", None)
+            if close is not None:
+                context_token = _set_current_model_request_id(request_id)
+                try:
+                    await close()
+                finally:
+                    _reset_current_model_request_id(context_token)
+
             outcome = reporter.outcome
             error = None
             if outcome.state is not StreamState.COMPLETED:
@@ -621,6 +650,7 @@ class ModelRequestLoggingRoute(APIRoute):
                     "message": outcome.error_message
                     or (str(outward_error) if outward_error else outcome.state.value),
                 }
+            context_token = _set_current_model_request_id(request_id)
             try:
                 await cls._log_response(
                     request,
