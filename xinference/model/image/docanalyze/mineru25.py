@@ -69,6 +69,7 @@ class Mineru2_5Model:
         from ....thirdparty.mineru_vl_utils import MinerUClient, MinerULogitsProcessor
 
         backend = self._kwargs.pop("backend", "vllm-async-engine")
+        batch_size = self._kwargs.pop("batch_size", 8)
         if backend == "vllm-engine":
             raise Exception(
                 "vlm-vllm-engine backend is not supported in async mode, please use vlm-vllm-async-engine backend"
@@ -147,7 +148,7 @@ class Mineru2_5Model:
             vllm_llm=vllm_llm,
             vllm_async_llm=vllm_async_llm,
             server_url=None,
-            batch_size=8,
+            batch_size=batch_size,
         )
 
     async def docanalyze(
@@ -170,17 +171,18 @@ class Mineru2_5Model:
         pdf_bytes = convert_pdf_bytes_to_bytes_by_pypdfium2(file_bytes)
 
         images_list, pdf_doc = load_images_from_pdf(pdf_bytes, image_type=ImageType.PIL)
-        images_base64_list = [image_dict["img_pil"] for image_dict in images_list]
-
-        results = await self._model.aio_batch_two_step_extract(
-            images=images_base64_list
-        )
-        middle_json = result_to_middle_json(results, images_list, pdf_doc)
-        pdf_info = middle_json["pdf_info"]
-        content_list = vlm_union_make(pdf_info, MakeMode.CONTENT_LIST)
-
-        check_json_structure(content_list)
-        return content_list
+        try:
+            images_base64_list = [image_dict["img_pil"] for image_dict in images_list]
+            results = await self._model.aio_batch_two_step_extract(
+                images=images_base64_list
+            )
+            middle_json = result_to_middle_json(results, images_list, pdf_doc)
+            pdf_info = middle_json["pdf_info"]
+            content_list = vlm_union_make(pdf_info, MakeMode.CONTENT_LIST)
+            check_json_structure(content_list)
+            return content_list
+        finally:
+            pdf_doc.close()
 
 
 def read_fn(file_bytes: bytes, file_name: str):
@@ -216,8 +218,6 @@ def result_to_middle_json(token_list, images_list, pdf_doc):
     if table_enable:
         merge_table(middle_json["pdf_info"])
 
-    # 关闭pdf文档
-    pdf_doc.close()
     return middle_json
 
 

@@ -2806,7 +2806,8 @@ class RESTfulAPI(CancelMixin):
         file: UploadFile = File(media_type="application/octet-stream"),
         kwargs: Optional[str] = Form(None),
     ) -> Response:
-        assert file.filename != "" and file.size != 0, "File can't be empty"
+        if not file.filename or file.size == 0:
+            raise HTTPException(status_code=400, detail="File can't be empty")
         model_uid = model
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -2821,6 +2822,8 @@ class RESTfulAPI(CancelMixin):
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             file_bytes = await file.read()
+            if not file_bytes:
+                raise HTTPException(status_code=400, detail="File can't be empty")
             file_name = file.filename
             data = await model_ref.docanalyze(
                 file_bytes=file_bytes,

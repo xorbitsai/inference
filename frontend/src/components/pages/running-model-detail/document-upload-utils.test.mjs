@@ -22,6 +22,12 @@ function loadSource(file, mocks = {}) {
 }
 
 const uploadUtils = loadSource('./document-upload-utils.ts');
+test('supported files with missing MIME types are accepted', () => {
+  for (const name of ['document.pdf', 'image.PNG']) {
+    assert.doesNotThrow(() => uploadUtils.validateDocumentFile({ name, size: 1 }));
+  }
+  assert.throws(() => uploadUtils.validateDocumentFile({ name: 'document.txt', size: 1 }));
+});
 const locales = ['zh', 'zh-TW', 'en', 'ja', 'ko'];
 const abilities = new Proxy({}, { get: (_, key) => String(key).toLowerCase() });
 const config = loadSource('./capability-config.tsx', {

@@ -42,6 +42,6 @@ class DocAnalyzeTableResponse(DocAnalyzeBaseResponse):
 
 class DocAnalyzeCodeResponse(DocAnalyzeBaseResponse):
     sub_type: str
+    code_body: Optional[str] = ""
     guess_lang: Optional[str] = ""
-    table_caption: List[str] = []
-    table_footnote: List[str] = []
+    code_caption: List[str] = []

@@ -304,6 +304,7 @@ def create_image_model_instance(
 ) -> Union[
     ImageEngineModel,
     OCRModel,
+    Mineru2_5Model,
 ]:
     from .cache_manager import ImageCacheManager
 
