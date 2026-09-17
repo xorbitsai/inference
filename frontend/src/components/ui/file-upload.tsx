@@ -215,6 +215,7 @@ export function FileUpload({
       validateFile?.(file);
     } catch (error) {
       setValidationError(error instanceof Error ? error.message : 'Invalid file type.');
+      onChange?.([]);
       return;
     }
     setValidationError('');
