@@ -32,6 +32,34 @@ async def _engine_results(*values):
         yield value
 
 
+class _ClosableAsyncIterator:
+    def __init__(self, *values):
+        self._values = iter(values)
+        self.closed = False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._values)
+        except StopIteration:
+            raise StopAsyncIteration
+
+    async def aclose(self):
+        self.closed = True
+
+
+class _AsyncIterableOnly:
+    def __init__(self, *values):
+        self.iterator = _ClosableAsyncIterator(*values)
+        self.aiter_calls = 0
+
+    def __aiter__(self):
+        self.aiter_calls += 1
+        return self.iterator
+
+
 @pytest.mark.asyncio
 async def test_abort_request_statuses():
     model = _new_model(None)
@@ -80,6 +108,25 @@ async def test_early_stream_close_aborts_engine_request():
 
     engine.abort.assert_awaited_once_with("request-1")
     assert "request-1" not in model._active_request_ids
+
+
+@pytest.mark.asyncio
+async def test_early_close_closes_same_concrete_async_iterator():
+    class Engine:
+        abort = AsyncMock()
+
+    engine = Engine()
+    model = _new_model(engine)
+    results = _AsyncIterableOnly("first", "second")
+    stream = model._track_engine_request("request-1", results)
+
+    assert results.aiter_calls == 1
+    assert await anext(stream) == "first"
+    await stream.aclose()
+
+    engine.abort.assert_awaited_once_with("request-1")
+    assert results.aiter_calls == 1
+    assert results.iterator.closed
 
 
 @pytest.mark.asyncio

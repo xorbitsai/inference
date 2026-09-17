@@ -2156,11 +2156,12 @@ class VLLMModel(LLM):
     def _track_engine_request(self, request_id: str, results_generator: Any) -> Any:
         """Track a vLLM request and abort it when consumption ends early."""
         self._active_request_ids.add(request_id)
+        results_iterator = aiter(results_generator)
 
         async def tracked_results():
             completed = False
             try:
-                async for request_output in results_generator:
+                async for request_output in results_iterator:
                     yield request_output
                 completed = True
             finally:
@@ -2173,6 +2174,20 @@ class VLLMModel(LLM):
                     )
                 finally:
                     self._active_request_ids.discard(request_id)
+                    if not completed:
+                        close = getattr(results_iterator, "aclose", None)
+                        if close is not None:
+                            try:
+                                close_result = close()
+                                if inspect.isawaitable(close_result):
+                                    await close_result
+                            except Exception:
+                                logger.debug(
+                                    "Failed to close interrupted vLLM result "
+                                    "iterator: %s",
+                                    request_id,
+                                    exc_info=True,
+                                )
 
         return tracked_results()
 
