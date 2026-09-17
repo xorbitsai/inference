@@ -1720,6 +1720,8 @@ class RESTfulAPI(CancelMixin):
         }
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+        request_id = str(kwargs.pop("request_id", None) or uuid.uuid4().hex)
+        raw_kwargs.pop("request_id", None)
 
         # guided_decoding params
         kwargs.update(self.extract_guided_params(raw_body=raw_body))
@@ -1747,7 +1749,10 @@ class RESTfulAPI(CancelMixin):
                 try:
                     try:
                         iterator = await model.generate(
-                            body.prompt, kwargs, raw_params=raw_kwargs
+                            body.prompt,
+                            kwargs,
+                            raw_params=raw_kwargs,
+                            request_id=request_id,
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
@@ -1757,6 +1762,13 @@ class RESTfulAPI(CancelMixin):
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during generate."
                     )
+                    try:
+                        await asyncio.shield(model.abort_request(request_id))
+                    except Exception:
+                        logger.exception(
+                            "Failed to abort disconnected completion request %s",
+                            request_id,
+                        )
                     return
                 except Exception as ex:
                     ex = await self._get_model_last_error(model.uid, ex)
@@ -1781,7 +1793,12 @@ class RESTfulAPI(CancelMixin):
             )
         else:
             try:
-                data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
+                data = await model.generate(
+                    body.prompt,
+                    kwargs,
+                    raw_params=raw_kwargs,
+                    request_id=request_id,
+                )
                 return Response(data, media_type="application/json")
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
@@ -3381,6 +3398,8 @@ class RESTfulAPI(CancelMixin):
 
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+        request_id = str(kwargs.pop("request_id", None) or uuid.uuid4().hex)
+        raw_kwargs.pop("request_id", None)
 
         enable_thinking = raw_body.get("enable_thinking")
         if enable_thinking is None:
@@ -3536,6 +3555,7 @@ class RESTfulAPI(CancelMixin):
                             messages,
                             kwargs,
                             raw_params=raw_kwargs,
+                            request_id=request_id,
                         )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
@@ -3550,6 +3570,12 @@ class RESTfulAPI(CancelMixin):
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during chat."
                     )
+                    try:
+                        await asyncio.shield(model.abort_request(request_id))
+                    except Exception:
+                        logger.exception(
+                            "Failed to abort disconnected chat request %s", request_id
+                        )
                     # See https://github.com/sysid/sse-starlette/blob/main/examples/error_handling.py#L13
                     # Use return to stop the generator from continuing.
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
@@ -3581,6 +3607,7 @@ class RESTfulAPI(CancelMixin):
                     messages,
                     kwargs,
                     raw_params=raw_kwargs,
+                    request_id=request_id,
                 )
                 return Response(content=data, media_type="application/json")
             except Exception as e:

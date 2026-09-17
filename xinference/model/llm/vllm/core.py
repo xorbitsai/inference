@@ -16,6 +16,7 @@ import asyncio
 import contextlib
 import copy
 import importlib
+import inspect
 import itertools
 import json
 import logging
@@ -33,6 +34,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypedDict,
@@ -509,6 +511,7 @@ class VLLMModel(LLM):
         super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
+        self._active_request_ids: Set[str] = set()
         self.lora_modules = peft_model
         self.lora_requests: List[Any] = []
         self._xavier_config = None
@@ -2010,6 +2013,8 @@ class VLLMModel(LLM):
             lora_request=lora_request,
         )
 
+        results_generator = self._track_engine_request(request_id, results_generator)
+
         async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
             previous_texts = [""] * sanitized_generate_config["n"]
             previous_logprobs_counts = [0] * sanitized_generate_config["n"]
@@ -2147,6 +2152,55 @@ class VLLMModel(LLM):
             return self._convert_request_output_to_completion(
                 request_id, model=self.model_uid, request_output=final_output
             )
+
+    def _track_engine_request(self, request_id: str, results_generator: Any) -> Any:
+        """Track a vLLM request and abort it when consumption ends early."""
+        self._active_request_ids.add(request_id)
+
+        async def tracked_results():
+            completed = False
+            try:
+                async for request_output in results_generator:
+                    yield request_output
+                completed = True
+            finally:
+                try:
+                    if not completed:
+                        await self.abort_request(request_id)
+                except Exception:
+                    logger.exception(
+                        "Failed to abort interrupted vLLM request: %s", request_id
+                    )
+                finally:
+                    self._active_request_ids.discard(request_id)
+
+        return tracked_results()
+
+    async def abort_request(self, request_id: str) -> str:
+        """Abort an active request in the underlying asynchronous vLLM engine."""
+        from ...scheduler.core import AbortRequestMessage
+
+        if self._engine is None or request_id not in self._active_request_ids:
+            return AbortRequestMessage.NOT_FOUND.name
+
+        abort = getattr(self._engine, "abort", None)
+        if abort is None:
+            return AbortRequestMessage.NO_OP.name
+
+        # Claim the request before awaiting so concurrent aborts cannot invoke the
+        # engine twice. Restore it if the engine rejects the abort, allowing the
+        # stream cleanup path (or a later explicit abort) to retry.
+        self._active_request_ids.discard(request_id)
+        try:
+            result = abort(request_id)
+            if inspect.isawaitable(result):
+                await result
+        except BaseException:
+            self._active_request_ids.add(request_id)
+            raise
+
+        logger.info("Aborted vLLM request: %s", request_id)
+        return AbortRequestMessage.DONE.name
 
 
 class VLLMChatModel(VLLMModel, ChatModelMixin):
