@@ -287,6 +287,55 @@ def test_mlx_audio_tts_fish_maps_reference_and_sampling_args(monkeypatch):
     assert not os.path.exists(reference_path)
 
 
+@pytest.mark.parametrize(
+    "caption_key", ["caption", "instruct", "instruction", "prompt_text"]
+)
+@pytest.mark.parametrize("reference_key", [None, "prompt_speech", "reference_speech"])
+def test_mlx_audio_irodori_voice_design_and_cloning(
+    monkeypatch, caption_key, reference_key
+):
+    from .. import utils
+
+    def consume_seed(kwargs):
+        return kwargs.pop("seed", None)
+
+    monkeypatch.setattr(utils, "apply_mlx_audio_seed", consume_seed)
+    captured = {}
+
+    class FakeModel:
+        def generate(
+            self, *, text, caption, rng_seed, seconds, num_steps, ref_audio=None
+        ):
+            assert text == "こんにちは"
+            assert caption == "穏やかな声"
+            assert rng_seed == 42
+            assert seconds == 3
+            assert num_steps == 8
+            if reference_key:
+                captured["path"] = ref_audio
+                with open(ref_audio, "rb") as audio_file:
+                    assert audio_file.read() == b"reference"
+            else:
+                assert ref_audio is None
+            yield SimpleNamespace(
+                audio=np.zeros(480, dtype=np.float32), sample_rate=48000
+            )
+
+    model = MLXAudioTTSModel(
+        "uid", "/fake/path", _model_spec("Irodori-TTS-v4.1-Small", "Irodori-TTS")
+    )
+    model._model = FakeModel()
+    kwargs = {caption_key: "穏やかな声", "seed": 42, "seconds": 3, "num_steps": 8}
+    if reference_key:
+        kwargs[reference_key] = b"reference"
+    result = model.speech("こんにちは", "", response_format="wav", **kwargs)
+    with wave.open(BytesIO(result), "rb") as wav_file:
+        assert wav_file.getframerate() == 48000
+        assert wav_file.getnframes() == 480
+    if reference_key:
+        assert not os.path.exists(captured["path"])
+
+
 def test_mlx_audio_tts_qwen_splits_and_joins_long_text():
     class FakeModel:
         calls = None
