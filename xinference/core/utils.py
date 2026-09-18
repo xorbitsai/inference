@@ -33,6 +33,12 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
 )
+from .rpc_context import (
+    _reset_rpc_metadata,
+    get_current_rpc_metadata,
+    pop_rpc_metadata,
+    wrap_async_iterator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,9 +133,6 @@ def log_async(
 
         @wraps(func)
         async def wrapped(*args, **kwargs):
-            # ``_correlation_id`` is internal RPC metadata. Consume it here so
-            # actor methods and model backends never observe a new keyword.
-            correlation_id = kwargs.pop("_correlation_id", None)
             operation_request_id = kwargs.get("request_id")
             if not operation_request_id:
                 try:
@@ -138,6 +141,8 @@ def log_async(
                 except TypeError:
                     operation_request_id = ""
 
+            metadata, context_token = pop_rpc_metadata(kwargs, operation_request_id)
+            correlation_id = metadata.correlation_id if metadata else None
             request_id = correlation_id or operation_request_id
             if not request_id:
                 request_id = uuid.uuid1()
@@ -160,9 +165,14 @@ def log_async(
             )
             fields = {
                 "request_id": request_id_text,
+                "correlation_id": correlation_id or "",
                 "operation_request_id": (
-                    str(operation_request_id) if operation_request_id else ""
+                    metadata.operation_request_id
+                    if metadata and metadata.operation_request_id
+                    else str(operation_request_id) if operation_request_id else ""
                 ),
+                "actor_call_id": metadata.actor_call_id if metadata else "",
+                "parent_call_id": metadata.parent_call_id if metadata else "",
                 "operation": func_name,
             }
             logger.log(
@@ -173,6 +183,7 @@ def log_async(
             start_time = time.perf_counter()
             try:
                 ret = await func(*args, **kwargs)
+                ret = wrap_async_iterator(ret, get_current_rpc_metadata())
                 elapsed = time.perf_counter() - start_time
                 logger.log(
                     level,
@@ -211,6 +222,8 @@ def log_async(
                         extra={"xinference_fields": error_fields},
                     )
                 raise
+            finally:
+                _reset_rpc_metadata(context_token)
 
         return wrapped
 
@@ -220,38 +233,84 @@ def log_async(
 def log_sync(logger, level=logging.DEBUG, log_exception=True):
     import time
     from functools import wraps
+    from inspect import signature
 
     def decorator(func):
+        sig = signature(func)
+
         @wraps(func)
         def wrapped(*args, **kwargs):
+            operation_request_id = kwargs.get("request_id")
+            if not operation_request_id:
+                try:
+                    bound_args = sig.bind_partial(*args, **kwargs)
+                    operation_request_id = bound_args.arguments.get("request_id", "")
+                except TypeError:
+                    operation_request_id = ""
+            metadata, context_token = pop_rpc_metadata(kwargs, operation_request_id)
+            correlation_id = metadata.correlation_id if metadata else None
+            display_id = correlation_id or operation_request_id
+            request_prefix = f"[request {display_id}] " if display_id else ""
             formatted_args = ",".join(map(truncate_log_arg, args))
             formatted_kwargs = ",".join(
-                map(lambda x: "%s=%s" % (x[0], truncate_log_arg(x[1])), kwargs.items())
+                [
+                    "%s=%s" % (key, truncate_log_arg(value))
+                    for key, value in kwargs.items()
+                ]
             )
+            fields = {
+                "correlation_id": correlation_id or "",
+                "operation_request_id": (
+                    metadata.operation_request_id
+                    if metadata and metadata.operation_request_id
+                    else str(operation_request_id) if operation_request_id else ""
+                ),
+                "actor_call_id": metadata.actor_call_id if metadata else "",
+                "parent_call_id": metadata.parent_call_id if metadata else "",
+                "operation": func.__name__,
+            }
             logger.log(
                 level,
-                f"Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+                f"{request_prefix}Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
+                extra={"xinference_fields": {**fields, "phase": "enter"}},
             )
             start = time.time()
             try:
                 ret = func(*args, **kwargs)
                 logger.log(
                     level,
-                    f"Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
+                    f"{request_prefix}Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
+                    extra={"xinference_fields": {**fields, "phase": "leave"}},
                 )
                 return ret
             except Exception as e:
                 if log_exception:
                     logger.error(
-                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        f"{request_prefix}Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
                         exc_info=True,
+                        extra={
+                            "xinference_fields": {
+                                **fields,
+                                "phase": "error",
+                                "error_type": type(e).__name__,
+                            }
+                        },
                     )
                 else:
                     logger.log(
                         level,
-                        f"Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        f"{request_prefix}Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        extra={
+                            "xinference_fields": {
+                                **fields,
+                                "phase": "error",
+                                "error_type": type(e).__name__,
+                            }
+                        },
                     )
                 raise
+            finally:
+                _reset_rpc_metadata(context_token)
 
         return wrapped
 

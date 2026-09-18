@@ -1162,7 +1162,13 @@ async def test_log_async_separates_correlation_and_operation_request_ids(caplog)
 
     with caplog.at_level(logging.DEBUG, logger=test_logger.name):
         result = await operation(
-            request_id="operation-id", _correlation_id="http-correlation-id"
+            request_id="operation-id",
+            __xinf_rpc_metadata__={
+                "version": 1,
+                "correlation_id": "http-correlation-id",
+                "actor_call_id": "actor-call-id",
+                "parent_call_id": "parent-call-id",
+            },
         )
 
     assert result == "ok"
@@ -1171,7 +1177,10 @@ async def test_log_async_separates_correlation_and_operation_request_ids(caplog)
     assert len(records) == 2
     assert records[0].xinference_fields == {
         "request_id": "http-correlation-id",
+        "correlation_id": "http-correlation-id",
         "operation_request_id": "operation-id",
+        "actor_call_id": "actor-call-id",
+        "parent_call_id": "parent-call-id",
         "operation": "operation",
         "phase": "enter",
     }

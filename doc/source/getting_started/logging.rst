@@ -147,3 +147,11 @@ response can therefore have HTTP status 200 while ``success`` and
 through request state; the logging layer does not parse, buffer, or log stream
 chunks. Failure origins are ``model_generator``, ``upstream``, ``protocol``,
 ``client``, or ``server``.
+
+Correlation metadata is propagated independently across REST API, Supervisor,
+Worker, ModelActor, PD, cancellation, and progress actor calls. Actor log records
+can include ``correlation_id``, ``operation_request_id``, ``actor_call_id``, and
+``parent_call_id``. The correlation ID is observability-only; the operation
+request ID retains its existing cancellation, progress, batching, and backend
+abort semantics. Xinference consumes the internal metadata envelope at actor
+boundaries and does not pass it to model implementations.

@@ -269,6 +269,33 @@ def test_disabled_logging_does_not_wrap_stream(monkeypatch):
     assert response.headers["x-request-id"].startswith("xinf-")
 
 
+@pytest.mark.asyncio
+async def test_stream_cleanup_from_another_task_does_not_raise(monkeypatch):
+    monkeypatch.setattr(
+        model_request_logging, "XINFERENCE_MODEL_REQUEST_LOG_ENABLED", False
+    )
+
+    async def generate():
+        yield b"one"
+        yield b"two"
+
+    request = Request({"type": "http", "method": "POST", "path": "/", "headers": []})
+    stream = ModelRequestLoggingRoute._wrap_stream(
+        generate(),
+        request,
+        "request-id",
+        "/v1/chat/completions",
+        "model",
+        "LLM",
+        200,
+        0.0,
+    )
+
+    assert await asyncio.create_task(anext(stream)) == b"one"
+    await asyncio.create_task(stream.aclose())
+    assert model_request_logging.get_current_model_request_id() is None
+
+
 def test_stream_completion_is_logged(monkeypatch):
     events = _enable_capture(monkeypatch)
 

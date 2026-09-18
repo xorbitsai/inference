@@ -8,6 +8,7 @@ import pytest
 from fastapi import APIRouter
 from starlette.requests import Request
 
+from ...core.rpc_context import RPC_METADATA_KEY
 from ..restful_api import RESTfulAPI
 from ..routers.images import register_routes
 from ..schemas import SDAPIControlNetDetect, SDAPIImg2imgRequst, SDAPITxt2imgRequst
@@ -128,11 +129,23 @@ async def test_progress_and_interrupt(api):
     supervisor.get_progress = AsyncMock(return_value=0.5)
     result = await api.sdapi_progress(request(query=b"request_id=r"))
     assert json.loads(result.body)["progress"] == 0.5
+    progress_args, progress_kwargs = supervisor.get_progress.await_args
+    assert progress_args == ("r",)
+    progress_metadata = progress_kwargs[RPC_METADATA_KEY]
+    assert progress_metadata["correlation_id"].startswith("xinf-")
+    assert progress_metadata["operation_request_id"] == "r"
+    assert progress_metadata["actor_call_id"]
+
     actor = SimpleNamespace(abort_request=AsyncMock(return_value="DONE"))
     supervisor.get_model = AsyncMock(return_value=actor)
     result = await api.sdapi_interrupt(request({"model": "sd", "request_id": "r"}))
     assert json.loads(result.body)["status"] == "DONE"
-    actor.abort_request.assert_awaited_once_with("r")
+    abort_args, abort_kwargs = actor.abort_request.await_args
+    assert abort_args == ("r",)
+    abort_metadata = abort_kwargs[RPC_METADATA_KEY]
+    assert abort_metadata["correlation_id"].startswith("xinf-")
+    assert abort_metadata["operation_request_id"] == "r"
+    assert abort_metadata["actor_call_id"]
 
 
 @pytest.mark.asyncio

@@ -142,5 +142,12 @@ async def test_require_model_forwards_correlation_id_without_changing_signature(
     finally:
         _reset_current_model_request_id(token)
 
-    assert result is model
-    assert calls == [("test-model", {"_correlation_id": "http-request-id"})]
+    assert result.uid == model.uid
+    assert len(calls) == 1
+    model_uid, kwargs = calls[0]
+    assert model_uid == "test-model"
+    metadata = kwargs["__xinf_rpc_metadata__"]
+    assert metadata["version"] == 1
+    assert metadata["correlation_id"] == "http-request-id"
+    assert metadata["actor_call_id"]
+    assert "operation_request_id" not in metadata

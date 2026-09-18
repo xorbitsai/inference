@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 import xoscar as xo
 
+from .rpc_context import actor_call
 from .utils import log_async
 
 if TYPE_CHECKING:
@@ -244,7 +245,12 @@ class PDModelActor(xo.StatelessActor):
             if self._prefill_replicas:
                 await asyncio.gather(
                     *[
-                        model.free_model_cache(request_id)
+                        actor_call(
+                            model,
+                            "free_model_cache",
+                            request_id,
+                            _rpc_operation_request_id=request_id,
+                        )
                         for model in self._prefill_replicas.values()
                     ],
                     return_exceptions=True,
@@ -284,16 +290,30 @@ class PDModelActor(xo.StatelessActor):
             prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)
         self._request_set.add(request_id)
         try:
-            result = await getattr(prefill, method)(
-                inputs, *prefill_args, **prefill_kwargs
+            result = await actor_call(
+                prefill, method, inputs, *prefill_args, **prefill_kwargs
             )
             if hasattr(result, "__aiter__"):
                 async for _ in result:
                     pass
             if request_id not in self._request_set:
                 raise asyncio.CancelledError(f"PD request {request_id} was aborted")
-            await decode.set_unpin_handler(self._model_uid, request_id, self.address)
-            result = await getattr(decode, method)(inputs, *args, **kwargs)
+            await actor_call(
+                decode,
+                "set_unpin_handler",
+                self._model_uid,
+                request_id,
+                self.address,
+                _rpc_operation_request_id=request_id,
+            )
+            result = await actor_call(
+                decode,
+                method,
+                inputs,
+                *args,
+                _rpc_operation_request_id=request_id,
+                **kwargs,
+            )
         except BaseException:
             await self.free_prefill_model_cache(request_id)
             raise
@@ -313,25 +333,38 @@ class PDModelActor(xo.StatelessActor):
                         await result.destroy()
                 finally:
                     try:
-                        await decode.decrease_serve_count()
+                        await actor_call(
+                            decode,
+                            "decrease_serve_count",
+                            _rpc_operation_request_id=request_id,
+                        )
                     finally:
                         await self.free_prefill_model_cache(request_id)
 
         return stream()
 
     @xo.generator
+    @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
         return await self._infer("generate", prompt, *args, **kwargs)
 
     @xo.generator
+    @log_async(logger=logger)
     async def chat(self, messages, *args, **kwargs):
         return await self._infer("chat", messages, *args, **kwargs)
 
+    @log_async(logger=logger)
     async def abort_request(self, request_id, block_duration=30):
         try:
             results = await asyncio.gather(
                 *[
-                    model.abort_request(request_id, block_duration)
+                    actor_call(
+                        model,
+                        "abort_request",
+                        request_id,
+                        block_duration,
+                        _rpc_operation_request_id=request_id,
+                    )
                     for model in [
                         *self._prefill_replicas.values(),
                         *self._decode_replicas.values(),
