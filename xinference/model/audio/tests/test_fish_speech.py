@@ -275,9 +275,26 @@ def test_stream_ignores_upstream_header_and_final(monkeypatch):
     )
 
 
-def test_builtin_catalog_has_fish_audio_s1_and_s2_sources():
+@pytest.mark.parametrize(
+    "system, processor, supports_mlx",
+    [
+        ("linux", "x86_64", False),
+        ("win32", "AMD64", False),
+        ("darwin", "i386", False),
+        ("darwin", "arm", True),
+    ],
+)
+def test_builtin_catalog_has_fish_audio_s1_and_s2_sources(
+    monkeypatch, system, processor, supports_mlx
+):
+    from .. import platform, sys
+
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    # The catalog loader intentionally hides MLX variants on unsupported hosts.
+    with monkeypatch.context() as platform_patch:
+        platform_patch.setattr(sys, "platform", system)
+        platform_patch.setattr(platform, "processor", lambda: processor)
+        load_model_family_from_json("model_spec.json", models)
 
     expected = {
         FISH_AUDIO_S1_MINI: "fishaudio/s1-mini",
@@ -314,6 +331,9 @@ def test_builtin_catalog_has_fish_audio_s1_and_s2_sources():
         assert all("tqdm" not in spec.virtualenv.packages for spec in pytorch_specs)
 
     mlx_specs = [spec for spec in models[FISH_AUDIO_S2_PRO] if spec.engine == "MLX"]
+    if not supports_mlx:
+        assert mlx_specs == []
+        return
     assert {spec.model_id for spec in mlx_specs} == {
         "mlx-community/fish-audio-s2-pro-8bit"
     }
