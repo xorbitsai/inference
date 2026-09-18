@@ -26,6 +26,7 @@ class _Request:
 
     def __init__(self, body):
         self._body = body
+        self.state = SimpleNamespace()
 
     async def json(self):
         return self._body
