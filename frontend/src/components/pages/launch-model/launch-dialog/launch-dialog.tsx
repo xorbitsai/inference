@@ -58,6 +58,7 @@ import {
   GPU_IDX_PATTERN,
 } from '../utils';
 import CommandLine from './command-line';
+import { audioSpecsForEngine } from './audio-quantization';
 import DownloadProgressDetails, { type DownloadProgressFile } from './download-progress-details';
 import ReplicaPlacementConfig from './replica-placement-config';
 import { FormField } from '@/components/ui/form-field';
@@ -298,24 +299,16 @@ export default function LaunchDialog({
 
   const quantizationOptions = useMemo(() => {
     if (modelType === ModelType.Audio) {
+      const audioSpecs = audioSpecsForEngine(model?.modelSpecs || [], modelEngineValue);
       const quantizations = Array.from(
-        new Set(
-          (model?.modelSpecs || [])
-            .map((spec) => toOptionValue(spec.quantization))
-            .filter(Boolean)
-        )
+        new Set(audioSpecs.map((spec) => toOptionValue(spec.quantization)).filter(Boolean))
       );
 
       return quantizations.map((quantization) => {
-        const matchingSpecs = (model?.modelSpecs || []).filter(
+        const matchingSpecs = audioSpecs.filter(
           (spec) => toOptionValue(spec.quantization) === quantization
         );
-        const cached = matchingSpecs.some(
-          (spec) =>
-            cacheIndex.quantizations.has(
-              createCacheKey(toOptionValue(spec.model_format), '', quantization)
-            )
-        );
+        const cached = matchingSpecs.some(isCachedSpec);
 
         return {
           label: quantization,
@@ -346,6 +339,7 @@ export default function LaunchDialog({
   }, [
     cacheIndex.quantizations,
     model?.modelSpecs,
+    modelEngineValue,
     modelFormatValue,
     modelSizeInBillionsKey,
     modelType,
@@ -543,11 +537,7 @@ export default function LaunchDialog({
   }, [form, modelFormatValue, modelSizeInBillionsOptions, modelSizeInBillionsValue, modelType]);
 
   useEffect(() => {
-    if (
-      modelType !== ModelType.Audio &&
-      modelFormatValue &&
-      quantizationOptions.length === 0
-    ) {
+    if (modelType !== ModelType.Audio && modelFormatValue && quantizationOptions.length === 0) {
       return;
     }
 
