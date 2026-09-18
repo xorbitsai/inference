@@ -792,7 +792,7 @@
   {
     "version": 2,
     "model_name": "FishAudio-S2-Pro",
-    "model_description": "Built with Fish Audio. Fish Audio S2-Pro supports multilingual zero-shot synthesis, voice cloning, multi-speaker speech, and fine-grained inline prosody and emotion control. The Fish Audio Research License permits research and non-commercial use; commercial use requires a separate license.",
+    "model_description": "Fish Audio S2-Pro 8-bit optimized for Apple Silicon with mlx-audio. The Fish Audio Research License permits research and non-commercial use; commercial use requires a separate license.",
     "model_family": "FishAudio",
     "model_ability": [
       "text2audio",
@@ -802,37 +802,25 @@
     "multilingual": true,
     "model_src": {
       "huggingface": {
-        "model_id": "fishaudio/s2-pro",
-        "model_revision": "main"
+        "model_id": "mlx-community/fish-audio-s2-pro-8bit",
+        "model_revision": "c8d4481b3f7cbfe64d855c8b7cda7739502fc3ff"
       },
       "modelscope": {
-        "model_id": "fishaudio/s2-pro",
+        "model_id": "mlx-community/fish-audio-s2-pro-8bit",
         "model_revision": "master"
       }
     },
-    "updated_at": 1788624705,
+    "updated_at": 1789705974,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "transformers>=4.45.2,<=4.57.3",
-        "hydra-core>=1.3.2",
-        "omegaconf~=2.3.0",
-        "loguru>=0.6.0",
-        "natsort>=8.4.0",
-        "einops>=0.7.0",
-        "soundfile>=0.12",
-        "click",
-        "loralib>=0.1.2",
-        "pydantic>=2.9,<3",
-        "descript-audio-codec",
-        "descript-audiotools",
-        "safetensors>=0.5.2",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_torchcodec#",
-        "#system_numpy#"
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "soundfile ; #engine# == \"MLX\""
       ]
-    }
+    },
+    "cache_name": "FishAudio-S2-Pro-MLX",
+    "engine": "MLX",
+    "model_format": "mlx"
   },
   {
     "version": 2,
