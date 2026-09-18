@@ -22,6 +22,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import xoscar as xo
 
+from .rpc_context import RpcMetadata, actor_call, get_current_rpc_metadata, rpc_context
+
 TO_REMOVE_PROGRESS_INTERVAL = float(
     os.getenv("XINFERENCE_REMOVE_PROGRESS_INTERVAL", 5 * 60)
 )  # 5min
@@ -93,6 +95,7 @@ class ProgressTrackerActor(xo.StatelessActor):
 
             await asyncio.sleep(self._check_interval)
 
+    @rpc_context
     def start(
         self,
         request_id: str,
@@ -106,6 +109,7 @@ class ProgressTrackerActor(xo.StatelessActor):
             details=details,
         )
 
+    @rpc_context
     def set_progress(
         self,
         request_id: str,
@@ -125,13 +129,16 @@ class ProgressTrackerActor(xo.StatelessActor):
             "Setting progress, request id: %s, progress: %s", request_id, progress
         )
 
+    @rpc_context
     def get_progress(self, request_id: str) -> float:
         return self._request_id_to_progress[request_id].progress
 
+    @rpc_context
     def get_progress_info(self, request_id: str) -> Tuple[float, Optional[str]]:
         info = self._request_id_to_progress[request_id]
         return info.progress, info.info
 
+    @rpc_context
     def get_progress_details(
         self, request_id: str
     ) -> Tuple[float, Optional[str], Optional[Dict[str, Any]]]:
@@ -152,6 +159,7 @@ class Progressor:
         self.request_id = request_id
         self.progress_tracker_ref = progress_tracker_ref
         self.loop = loop
+        self._rpc_metadata: Optional[RpcMetadata] = get_current_rpc_metadata()
         # uploading when progress changes over this span
         # to prevent from frequently uploading
         self._upload_span = upload_span
@@ -164,7 +172,13 @@ class Progressor:
 
     async def start(self):
         if self.request_id:
-            await self.progress_tracker_ref.start(self.request_id)
+            await actor_call(
+                self.progress_tracker_ref,
+                "start",
+                self.request_id,
+                _rpc_operation_request_id=self.request_id,
+                _rpc_parent_metadata=self._rpc_metadata,
+            )
 
     def split_stages(self, n_stage: int, stage_weight: Optional[List[float]] = None):
         if self.request_id:
@@ -219,8 +233,15 @@ class Progressor:
                 or info
                 or details is not None
             ):
-                set_progress = self.progress_tracker_ref.set_progress(
-                    self.request_id, self._current_progress, info, details
+                set_progress = actor_call(
+                    self.progress_tracker_ref,
+                    "set_progress",
+                    self.request_id,
+                    self._current_progress,
+                    info,
+                    details,
+                    _rpc_operation_request_id=self.request_id,
+                    _rpc_parent_metadata=self._rpc_metadata,
                 )
                 asyncio.run_coroutine_threadsafe(set_progress, self.loop)  # type: ignore
                 self._last_report_progress = self._current_progress

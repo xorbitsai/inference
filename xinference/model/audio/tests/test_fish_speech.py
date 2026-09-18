@@ -27,8 +27,13 @@ from ..core import create_audio_model_instance
 from ..fish_speech import FISH_AUDIO_S1_MINI, FISH_AUDIO_S2_PRO, FishSpeechModel
 
 
+class _ModelSpec(SimpleNamespace):
+    def copy(self):
+        return _ModelSpec(**self.__dict__)
+
+
 def _model_spec(model_name):
-    return SimpleNamespace(
+    return _ModelSpec(
         model_name=model_name,
         model_family="FishAudio",
         model_ability=[
@@ -270,9 +275,26 @@ def test_stream_ignores_upstream_header_and_final(monkeypatch):
     )
 
 
-def test_builtin_catalog_has_fish_audio_s1_and_s2_sources():
+@pytest.mark.parametrize(
+    "system, processor, supports_mlx",
+    [
+        ("linux", "x86_64", False),
+        ("win32", "AMD64", False),
+        ("darwin", "i386", False),
+        ("darwin", "arm", True),
+    ],
+)
+def test_builtin_catalog_has_fish_audio_s1_and_s2_sources(
+    monkeypatch, system, processor, supports_mlx
+):
+    from .. import platform, sys
+
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    # The catalog loader intentionally hides MLX variants on unsupported hosts.
+    with monkeypatch.context() as platform_patch:
+        platform_patch.setattr(sys, "platform", system)
+        platform_patch.setattr(platform, "processor", lambda: processor)
+        load_model_family_from_json("model_spec.json", models)
 
     expected = {
         FISH_AUDIO_S1_MINI: "fishaudio/s1-mini",
@@ -280,8 +302,10 @@ def test_builtin_catalog_has_fish_audio_s1_and_s2_sources():
     }
     for model_name, model_id in expected.items():
         specs = models[model_name]
+        pytorch_specs = [spec for spec in specs if spec.engine in (None, "PyTorch")]
         assert {
-            spec.model_hub: (spec.model_id, spec.model_revision) for spec in specs
+            spec.model_hub: (spec.model_id, spec.model_revision)
+            for spec in pytorch_specs
         } == {
             "huggingface": (model_id, "main"),
             "modelscope": (model_id, "master"),
@@ -293,14 +317,30 @@ def test_builtin_catalog_has_fish_audio_s1_and_s2_sources():
                 "text2audio_zero_shot",
                 "text2audio_voice_cloning",
             }
-            for spec in specs
+            for spec in pytorch_specs
         )
-        assert all("#system_torch#" in spec.virtualenv.packages for spec in specs)
-        assert all("#system_torchcodec#" in spec.virtualenv.packages for spec in specs)
+        assert all(
+            "#system_torch#" in spec.virtualenv.packages for spec in pytorch_specs
+        )
+        assert all(
+            "#system_torchcodec#" in spec.virtualenv.packages for spec in pytorch_specs
+        )
         # transformers already provides tqdm. Listing it explicitly makes the
         # virtualenv manager pin the host version, which may not exist on the
         # configured PyTorch wheel index.
-        assert all("tqdm" not in spec.virtualenv.packages for spec in specs)
+        assert all("tqdm" not in spec.virtualenv.packages for spec in pytorch_specs)
+
+    mlx_specs = [spec for spec in models[FISH_AUDIO_S2_PRO] if spec.engine == "MLX"]
+    if not supports_mlx:
+        assert mlx_specs == []
+        return
+    assert {spec.model_id for spec in mlx_specs} == {
+        "mlx-community/fish-audio-s2-pro-8bit"
+    }
+    assert {spec.model_hub: spec.model_revision for spec in mlx_specs} == {
+        "huggingface": "c8d4481b3f7cbfe64d855c8b7cda7739502fc3ff",
+        "modelscope": "master",
+    }
 
 
 @pytest.mark.parametrize("model_name", [FISH_AUDIO_S1_MINI, FISH_AUDIO_S2_PRO])

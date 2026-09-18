@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 
 import pytest
@@ -1145,3 +1146,44 @@ def test_virtual_env_usage_final_release_clears_reference(tmp_path):
     worker._release_virtual_env_usage("model-1")
     assert real_path not in worker._virtual_env_usages
     assert not worker._model_uid_to_virtual_env_path
+
+
+@pytest.mark.asyncio
+async def test_log_async_separates_correlation_and_operation_request_ids(caplog):
+    from ..utils import log_async
+
+    test_logger = logging.getLogger("xinference.test.log_async.correlation")
+    received = []
+
+    @log_async(test_logger)
+    async def operation(*, request_id=None):
+        received.append(request_id)
+        return "ok"
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = await operation(
+            request_id="operation-id",
+            __xinf_rpc_metadata__={
+                "version": 1,
+                "correlation_id": "http-correlation-id",
+                "actor_call_id": "actor-call-id",
+                "parent_call_id": "parent-call-id",
+            },
+        )
+
+    assert result == "ok"
+    assert received == ["operation-id"]
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[0].xinference_fields == {
+        "request_id": "http-correlation-id",
+        "correlation_id": "http-correlation-id",
+        "operation_request_id": "operation-id",
+        "actor_call_id": "actor-call-id",
+        "parent_call_id": "parent-call-id",
+        "operation": "operation",
+        "phase": "enter",
+    }
+    assert records[1].xinference_fields["request_id"] == "http-correlation-id"
+    assert records[1].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[1].xinference_fields["phase"] == "leave"

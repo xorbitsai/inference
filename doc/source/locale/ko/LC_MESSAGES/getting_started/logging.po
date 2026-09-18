@@ -104,3 +104,51 @@ msgid ""
 " milliseconds. An example of the log directory structure is shown below::"
 msgstr ""
 "분산 배포에서 Xinference supervisor와 Xinference worker는 각각 로그 디렉토리 아래에 자신의 하위 디렉토리를 생성합니다. 하위 디렉토리의 이름은 클러스터 역할 이름으로 시작하며, 그 다음에 시작 시간(밀리초 단위)이 옵니다. 다음과 같습니다::"
+
+#: ../../source/getting_started/logging.rst
+msgid "Model request body logging"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Xinference can write inference request metadata and request bodies to a separate JSON-lines file. This diagnostic feature is disabled by default because prompts, media references, and other request values may contain sensitive data. Enable it only on trusted systems with appropriate access controls and retention policies. Authentication and authorization failures do not persist request bodies. Multipart uploads record field values and original filenames, but not uploaded file bytes. Requests larger than the configured capture limit, or requests without a known size, record an omission reason instead of the body."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "The following environment variables configure the feature:"
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_ENABLED``: Enable request body logging (default: ``false``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_FILE``: Log filename or absolute path (default: ``model_request.log``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES``: Maximum captured request size (default: ``16777216``). Set to ``-1`` to disable the size limit; this is not recommended for internet-facing deployments."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS``: Maximum age of rotated files in days (default: ``7``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES``: Size-based rotation threshold (default: ``1073741824``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "``XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT``: Maximum number of rotated files (default: ``7``)."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Each inference response includes ``X-Request-ID``. Xinference preserves a valid caller-provided ``request-id`` or ``x-request-id`` value (in that order), or generates an ``xinf-`` prefixed UUID. The same correlation ID is attached to Supervisor model lookup logs without replacing model operation request IDs used for cancellation or progress tracking."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:143
+msgid "For streaming responses, the terminal request log separates HTTP delivery from stream execution with ``http_success``, ``stream_completed``, ``stream_outcome``, and, for non-successful outcomes, ``failure_origin``. A response can therefore have HTTP status 200 while ``success`` and ``stream_completed`` are false. Endpoints report swallowed generator failures through request state; the logging layer does not parse, buffer, or log stream chunks. Failure origins are ``model_generator``, ``upstream``, ``protocol``, ``client``, or ``server``."
+msgstr ""
+
+#: ../../source/getting_started/logging.rst:153
+msgid "Correlation metadata is propagated independently across REST API, Supervisor, Worker, ModelActor, PD, cancellation, and progress actor calls. Actor log records can include ``correlation_id``, ``operation_request_id``, ``actor_call_id``, and ``parent_call_id``. The correlation ID is observability-only; the operation request ID retains its existing cancellation, progress, batching, and backend abort semantics. Xinference consumes the internal metadata envelope at actor boundaries and does not pass it to model implementations."
+msgstr ""

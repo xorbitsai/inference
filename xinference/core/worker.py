@@ -5489,6 +5489,7 @@ class WorkerActor(xo.StatelessActor):
                     exc_info=True,
                 )
 
+    @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status:

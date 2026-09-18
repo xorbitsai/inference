@@ -453,6 +453,8 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
         generate_kwargs = dict(kwargs)
         prompt_speech = generate_kwargs.pop("prompt_speech", None)
         prompt_text = generate_kwargs.pop("prompt_text", None)
+        reference_text = generate_kwargs.pop("reference_text", None)
+        prompt_text = prompt_text or reference_text
         reference_speech = generate_kwargs.pop("reference_speech", None)
         language = generate_kwargs.pop("language", None)
         instruct = (
@@ -490,6 +492,27 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
                     )
                 generate_kwargs["ref_audio"] = prompt_audio_path
                 generate_kwargs["ref_text"] = prompt_text
+        elif model_family == "FishAudio":
+            reference_audio_path = prompt_audio_path or reference_audio_path
+            generate_kwargs.update(
+                text=input,
+                voice=voice or None,
+                speed=speed,
+            )
+            if reference_audio_path:
+                from mlx_audio.utils import load_audio
+
+                sample_rate = int(getattr(self._model, "sample_rate", 44100))
+                generate_kwargs["ref_audio"] = load_audio(
+                    reference_audio_path,
+                    sample_rate=sample_rate,
+                )
+                generate_kwargs["ref_text"] = prompt_text
+            if instruct:
+                generate_kwargs["instruct"] = instruct
+            max_new_tokens = generate_kwargs.pop("max_new_tokens", None)
+            if max_new_tokens is not None:
+                generate_kwargs.setdefault("max_tokens", max_new_tokens)
         elif model_family == "VoxCPM":
             generate_kwargs["text"] = input
             generate_kwargs["ref_audio"] = reference_audio_path or prompt_audio_path
