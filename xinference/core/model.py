@@ -1306,10 +1306,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         raise AttributeError(f"Model {self._model.model_spec} is not for ocr.")
 
-    @log_async(
-        logger=logger,
-        ignore_kwargs=["file_bytes"],
-    )
+    @request_limit
+    @log_async(logger=logger, ignore_kwargs=["file_bytes"])
     async def docanalyze(
         self,
         file_bytes: bytes,

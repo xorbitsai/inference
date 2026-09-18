@@ -2802,6 +2802,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_doc_analyze(
         self,
+        request: Request,
         model: str = Form(...),
         file: UploadFile = File(media_type="application/octet-stream"),
         kwargs: Optional[str] = Form(None),
@@ -2809,6 +2810,9 @@ class RESTfulAPI(CancelMixin):
         if not file.filename or file.size == 0:
             raise HTTPException(status_code=400, detail="File can't be empty")
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
+        self._check_model_access(request, model_uid, "image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )

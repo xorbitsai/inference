@@ -63,10 +63,7 @@ class Mineru2_5Model:
         return self._abilities
 
     def load(self):
-        from ....thirdparty.mineru.backend.vlm.custom_logits_processors import (
-            enable_custom_logits_processors,
-        )
-        from ....thirdparty.mineru_vl_utils import MinerUClient, MinerULogitsProcessor
+        from ....thirdparty.mineru_vl_utils import MinerUClient
 
         backend = self._kwargs.pop("backend", "vllm-async-engine")
         batch_size = self._kwargs.pop("batch_size", 8)
@@ -118,10 +115,15 @@ class Mineru2_5Model:
                 )
 
             elif backend == "vllm-async-engine":
-                try:
+                from ....thirdparty.mineru.backend.vlm.custom_logits_processors import (
+                    enable_custom_logits_processors,
+                )
 
+                try:
                     from vllm.engine.arg_utils import AsyncEngineArgs
                     from vllm.v1.engine.async_llm import AsyncLLM
+
+                    from ....thirdparty.mineru_vl_utils import MinerULogitsProcessor
                 except ImportError:
                     raise ImportError(
                         "Please install vllm to use the vllm-async-engine backend."

@@ -12,6 +12,7 @@ import pytest
 from fastapi import HTTPException, UploadFile
 from packaging.version import parse
 from pydantic import ValidationError
+from starlette.requests import Request
 
 from ..docanalyze import mineru25
 from ..docanalyze.schemas import DocAnalyzeCodeResponse
@@ -38,11 +39,18 @@ def test_docanalyze_response_preserves_serialized_json(monkeypatch):
         _get_supervisor_ref=Mock(),
         _report_error_event=AsyncMock(),
         _add_running_task=Mock(),
+        _set_trace_model=Mock(),
+        _set_trace_model_type=Mock(),
+        _check_model_access=Mock(),
     )
     file = UploadFile(file=BytesIO(b"pdf"), filename="document.pdf", size=3)
     response = asyncio.run(
         restful_api.RESTfulAPI.create_doc_analyze(
-            api, model="mineru", file=file, kwargs=None
+            api,
+            request=Request({"type": "http", "headers": []}),
+            model="mineru",
+            file=file,
+            kwargs=None,
         )
     )
     assert response.status_code == 200
@@ -208,12 +216,19 @@ def test_empty_uploads_return_bad_request(monkeypatch, filename, size):
         _get_supervisor_ref=Mock(),
         _report_error_event=AsyncMock(),
         _add_running_task=Mock(),
+        _set_trace_model=Mock(),
+        _set_trace_model_type=Mock(),
+        _check_model_access=Mock(),
     )
     file = UploadFile(file=BytesIO(b""), filename=filename, size=size)
     with pytest.raises(HTTPException) as error:
         asyncio.run(
             restful_api.RESTfulAPI.create_doc_analyze(
-                api, model="mineru", file=file, kwargs=None
+                api,
+                request=Request({"type": "http", "headers": []}),
+                model="mineru",
+                file=file,
+                kwargs=None,
             )
         )
     assert error.value.status_code == 400
@@ -268,6 +283,11 @@ def test_docanalyze_logging_omits_file_bytes(caplog):
 
     actor = SimpleNamespace(
         _require_ready=Mock(),
+        _serve_count=0,
+        _request_limits=1,
+        _metrics_labels={},
+        model_uid=lambda: "mineru",
+        record_metrics=AsyncMock(),
         _model=SimpleNamespace(docanalyze=AsyncMock()),
         _call_wrapper_json=AsyncMock(return_value="[]"),
     )

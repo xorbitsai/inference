@@ -18,6 +18,7 @@ import pytest
 from fastapi import File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.background import BackgroundTask
+from starlette.requests import Request
 
 
 def load_vendor_nodes(relative_path, names, namespace):
@@ -148,12 +149,19 @@ def test_invalid_api_kwargs_are_bad_requests(monkeypatch, kwargs):
         _get_supervisor_ref=Mock(),
         _report_error_event=AsyncMock(),
         _add_running_task=Mock(),
+        _set_trace_model=Mock(),
+        _set_trace_model_type=Mock(),
+        _check_model_access=Mock(),
     )
     file = UploadFile(file=BytesIO(b"pdf"), filename="document.pdf", size=3)
     with pytest.raises(HTTPException) as error:
         asyncio.run(
             restful_api.RESTfulAPI.create_doc_analyze(
-                api, model="mineru", file=file, kwargs=kwargs
+                api,
+                request=Request({"type": "http", "headers": []}),
+                model="mineru",
+                file=file,
+                kwargs=kwargs,
             )
         )
     assert error.value.status_code == 400
