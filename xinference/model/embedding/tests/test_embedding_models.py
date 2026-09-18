@@ -86,25 +86,25 @@ def test_engine_supported():
 
 def test_multimodal_model_abilities_are_exposed():
     expected = {
-        "jina-clip-v2": ["vision"],
-        "jina-embeddings-v4": ["vision"],
+        "jina-clip-v2": ["embed_vision"],
+        "jina-embeddings-v4": ["embed_vision"],
         "jina-embeddings-v5-omni-nano": [
-            "vision",
-            "video",
-            "audio",
+            "embed_vision",
+            "embed_video",
+            "embed_audio",
         ],
         "jina-embeddings-v5-omni-small": [
-            "vision",
-            "video",
-            "audio",
+            "embed_vision",
+            "embed_video",
+            "embed_audio",
         ],
-        "gme-Qwen2-VL-2B-Instruct": ["vision"],
-        "gme-Qwen2-VL-7B-Instruct": ["vision"],
-        "Qwen3-VL-Embedding-2B": ["vision", "video"],
-        "Qwen3-VL-Embedding-8B": ["vision", "video"],
-        "WeMM-Embedding-2B": ["vision", "video"],
-        "WeMM-Embedding-4B": ["vision", "video"],
-        "WeMM-Embedding-9B": ["vision", "video"],
+        "gme-Qwen2-VL-2B-Instruct": ["embed_vision"],
+        "gme-Qwen2-VL-7B-Instruct": ["embed_vision"],
+        "Qwen3-VL-Embedding-2B": ["embed_vision", "embed_video"],
+        "Qwen3-VL-Embedding-8B": ["embed_vision", "embed_video"],
+        "WeMM-Embedding-2B": ["embed_vision", "embed_video"],
+        "WeMM-Embedding-4B": ["embed_vision", "embed_video"],
+        "WeMM-Embedding-9B": ["embed_vision", "embed_video"],
     }
 
     for model_name, abilities in expected.items():

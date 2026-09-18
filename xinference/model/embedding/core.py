@@ -23,7 +23,14 @@ from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from xoscar import extensible
 
-from ..._compat import ROOT_KEY, BaseModel, ErrorWrapper, Field, ValidationError
+from ..._compat import (
+    ROOT_KEY,
+    BaseModel,
+    ErrorWrapper,
+    Field,
+    ValidationError,
+    validator,
+)
 from ...device_utils import empty_cache
 from ...types import Embedding
 from ...utils import make_hashable
@@ -95,7 +102,7 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     max_tokens: int
     language: List[str]
     # Extra accepted input modalities. Text is implicit for every embedding model.
-    model_ability: List[Literal["vision", "video", "audio"]] = Field(
+    model_ability: List[Literal["embed_vision", "embed_video", "embed_audio"]] = Field(
         default_factory=list
     )
     model_specs: List["EmbeddingSpecV1"]
@@ -106,6 +113,13 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
 
     class Config:
         extra = "allow"
+
+    @validator("model_ability", pre=True, each_item=True)
+    def normalize_legacy_model_ability(cls, ability: Any) -> Any:
+        # Persisted custom V2 registrations may still use unprefixed modalities.
+        if isinstance(ability, str) and ability in ("vision", "video", "audio"):
+            return f"embed_{ability}"
+        return ability
 
     def to_description(self):
         spec = self.model_specs[0]

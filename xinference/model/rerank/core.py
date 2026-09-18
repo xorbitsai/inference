@@ -17,7 +17,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
-from ..._compat import BaseModel, Field
+from ..._compat import BaseModel, Field, validator
 from ...constants import XINFERENCE_TRUST_REMOTE_CODE
 from ...types import Rerank
 from ..core import VirtualEnvSettings
@@ -76,8 +76,8 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     model_specs: List[RerankSpecV1]
     language: List[str]
     # Extra accepted input modalities. Text is implicit for every rerank model.
-    model_ability: List[Literal["vision", "video", "audio"]] = Field(
-        default_factory=list
+    model_ability: List[Literal["rerank_vision", "rerank_video", "rerank_audio"]] = (
+        Field(default_factory=list)
     )
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]
@@ -88,6 +88,13 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
 
     class Config:
         extra = "allow"
+
+    @validator("model_ability", pre=True, each_item=True)
+    def normalize_legacy_model_ability(cls, ability: Any) -> Any:
+        # Persisted custom V2 registrations may still use unprefixed modalities.
+        if isinstance(ability, str) and ability in ("vision", "video", "audio"):
+            return f"rerank_{ability}"
+        return ability
 
     def to_description(self):
         spec = self.model_specs[0]
