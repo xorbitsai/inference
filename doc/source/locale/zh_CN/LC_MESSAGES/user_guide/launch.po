@@ -19,6 +19,34 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM 启动推荐"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available only for LLMs. The first version recommends placement for a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "在 LLM 的部署对话框中，使用启动推荐按钮获取建议配置，检查后再部署。该按钮仅适用于 LLM。首个版本仅推荐单副本的放置方案。 自定义模型路径和自定义引擎参数需要手动配置。"
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 是只读接口。提供 ``model_name`` 和 ``model_type=\"LLM\"``；可选的 ``constraints`` 对象接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的约束均为硬性要求，不会被静默放宽。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "响应中的 ``status`` 为 ``recommended`` 或 ``no_recommendation``。推荐成功时，``config`` 包含与启动接口兼容的字段，例如 ``model_engine``、``model_format``、``model_size_in_billions``、``quantization`` 和 ``worker_ip``。``reasons`` 和 ``warnings`` 中的条目包含 ``code`` 和 ``message`` 字段。如果没有配置满足约束，请查看说明并调整约束，或手动配置启动参数。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "推荐不保证内存充足或启动成功。它不会预留资源、下载模型文件或安装依赖。现有启动行为不变；部署仍需单独执行。"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "未指定模型大小时，选择符合条件的最小规格；显式指定的大小约束会被遵守。``config`` 还包含实际生效的 ``enable_virtual_env``，以及提供的 ``n_gpu`` 和 ``gpu_idx`` 约束。``n_gpu=null`` 请求使用 CPU，而 ``n_gpu=\"auto\"`` 使用现有启动分配策略，不会计算所需的 GPU 数量。"
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` 和 ``no_recommendation`` 均返回 HTTP 200。未知模型返回 HTTP 404；无效请求返回 HTTP 422。原因和警告代码使用小写蛇形命名（snake_case）。响应始终包含 ``memory_not_verified`` 警告。"
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "模型加载指南"
@@ -208,7 +236,7 @@ msgstr " ``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用于控�
 msgid ""
 "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when"
 " supported)."
-msgstr " ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``（文本转图像模型，当支持时）。"
+msgstr " ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` （文本转图像模型，当支持时）。"
 
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"

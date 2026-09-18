@@ -6,6 +6,50 @@ Model Launching Instructions
 
 This document aims to provide a functional overview of model launching.
 
+LLM launch recommendations
+==========================
+
+In an LLM's deployment dialog, use the launch recommendation button to get a
+suggested configuration, then review it before deploying. The button is available
+only for LLMs. The first version recommends placement for a single replica.
+Custom model paths and custom engine parameters require manual configuration.
+
+``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and
+``model_type="LLM"``; the optional ``constraints`` object accepts
+``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and
+``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed.
+
+.. code-block:: bash
+
+    curl -X POST http://127.0.0.1:9997/v1/models/recommend \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model_name": "qwen2.5-instruct",
+        "model_type": "LLM",
+        "constraints": {"model_size_in_billions": "7", "n_gpu": 1}
+      }'
+
+The response ``status`` is ``recommended`` or ``no_recommendation``. On success,
+``config`` contains launch-compatible fields such as ``model_engine``,
+``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``.
+``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields.
+If no configuration satisfies the constraints, review the explanation and adjust
+the constraints or configure the launch manually.
+
+A recommendation does not guarantee sufficient memory or a successful launch.
+It reserves no resources, downloads no model files, and installs no dependencies.
+Existing launch behavior is unchanged; deployment remains a separate action.
+
+When size is omitted, the smallest eligible model size is selected; an explicit
+size constraint is respected. ``config`` also includes the effective
+``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints.
+``n_gpu=null`` requests CPU placement, while ``n_gpu="auto"`` uses the existing
+launch allocation policy rather than calculating the required GPU count.
+
+Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model
+returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use
+lower snake_case. The ``memory_not_verified`` warning is always included.
+
 Download without launching
 ==========================
 

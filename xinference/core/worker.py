@@ -3155,6 +3155,66 @@ class WorkerActor(xo.StatelessActor):
             model_type, model_name, enable_virtual_env=enable_virtual_env
         )
 
+    async def get_model_recommendation_info(
+        self, model_name: str, enable_virtual_env: Optional[bool] = None
+    ) -> dict:
+        """Worker-local discovery only; never prepare environments or allocate GPUs."""
+        from ..device_utils import get_available_device
+        from ..model.llm.cache_manager import LLMCacheManager
+        from ..model.llm.llm_family import match_llm
+        from .model_recommendation import spec_key
+
+        family = await self.get_model_registration("LLM", model_name)
+        if family is None:
+            return {"model_exists": False}
+        effective_venv = (
+            XINFERENCE_ENABLE_VIRTUAL_ENV
+            if enable_virtual_env is None
+            else enable_virtual_env
+        )
+        installed = await self.query_engines_by_model_name(model_name, "LLM", False)
+        engines = (
+            await self.query_engines_by_model_name(model_name, "LLM", True)
+            if effective_venv
+            else installed
+        )
+        launch_specs, cached_specs = set(), set()
+        for params in (engines or {}).values():
+            if not isinstance(params, list):
+                continue
+            for param in params:
+                for quant in param["quantizations"]:
+                    # Resolve the same default hub and exact spec as launch.
+                    matched = match_llm(
+                        model_name,
+                        param["model_format"],
+                        param["model_size_in_billions"],
+                        quant,
+                    )
+                    if matched is None:
+                        continue
+                    key = spec_key(param, quant)
+                    launch_specs.add(key)
+                    path = LLMCacheManager.get_cache_dir_for_spec(
+                        model_name, matched.model_specs[0]
+                    )
+                    # Launch reuses this exact format/size/quantization path.
+                    # Do not instantiate CacheManager: its constructor mkdirs.
+                    if os.path.exists(path):
+                        cached_specs.add(key)
+        return {
+            "model_exists": True,
+            "platform": platform.system(),
+            "device": get_available_device(),
+            "gpu_indices": list(self._total_gpu_devices),
+            "gpu_count": gpu_count(),
+            "enable_virtual_env": effective_venv,
+            "installed_engines": installed or {},
+            "engines": engines or {},
+            "launch_specs": launch_specs,
+            "cached_specs": cached_specs,
+        }
+
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
 

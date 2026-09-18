@@ -490,6 +490,14 @@ const ko = {
     emptyFile: '빈 파일은 업로드할 수 없습니다.',
   },
   launchModel: {
+    recommendSetup: '실행 환경 준비가 필요할 수 있습니다.',
+    recommendMemory: '사용 가능한 메모리가 확인되지 않았습니다.',
+    recommendConfiguration: '구성 추천',
+    recommendUnavailable:
+      '사용자 지정 엔진 매개변수, 사용자 지정 경로, 여러 워커 또는 복제본 배치에서는 추천을 사용할 수 없습니다.',
+    recommendFailed: '추천 구성을 적용할 수 없습니다. 장치 설정을 확인하고 다시 시도하세요.',
+    recommendApplied: '추천 구성을 적용했습니다. 배포 전에 확인하세요.',
+    noRecommendation: '적합한 구성을 찾지 못했습니다.',
     modelType: '모델 유형',
     modelAbility: '모델 기능',
     generate: '텍스트 생성',

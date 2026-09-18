@@ -3978,6 +3978,30 @@ class RESTfulAPI(CancelMixin):
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
+    async def recommend_model(self, request: Request) -> JSONResponse:
+        from .._compat import ValidationError
+        from ..core.model_recommendation import (
+            ModelRecommendationRequest,
+            RecommendationModelNotFound,
+        )
+
+        try:
+            body = ModelRecommendationRequest.parse_obj(await request.json())
+        except (ValidationError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        try:
+            result = await (await self._get_supervisor_ref()).recommend_model(
+                body.dict(exclude_unset=True)
+            )
+            return JSONResponse(content=result)
+        except RecommendationModelNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except Exception as exc:
+            logger.error("Model recommendation failed", exc_info=True)
+            raise HTTPException(
+                status_code=500, detail="Model recommendation failed"
+            ) from exc
+
     async def query_engines_by_model_name(
         self, request: Request, model_name: str, model_type: Optional[str] = None
     ) -> JSONResponse:

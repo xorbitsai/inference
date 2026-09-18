@@ -19,6 +19,34 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM 실행 권장 설정"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available only for LLMs. The first version recommends placement for a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "LLM 배포 대화 상자에서 실행 권장 설정 버튼으로 제안된 설정을 얻고 검토한 후 배포하세요. 이 버튼은 LLM에서만 사용할 수 있습니다. 첫 버전은 단일 복제본의 배치를 권장합니다. 사용자 지정 모델 경로와 사용자 지정 엔진 매개변수는 수동으로 구성해야 합니다."
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 는 읽기 전용입니다. ``model_name`` 과 ``model_type=\"LLM\"`` 을 지정하세요. 선택 사항인 ``constraints`` 객체에는 ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, ``gpu_idx`` 를 지정할 수 있습니다. 지정한 제약 조건은 필수 요구 사항이며 알림 없이 완화되지 않습니다."
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "응답의 ``status`` 는 ``recommended`` 또는 ``no_recommendation`` 입니다. 성공 시 ``config`` 에는 ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, ``worker_ip`` 등 실행과 호환되는 필드가 포함됩니다. ``reasons`` 와 ``warnings`` 의 항목에는 ``code`` 와 ``message`` 필드가 포함됩니다. 제약 조건을 만족하는 설정이 없으면 설명을 확인하고 제약 조건을 조정하거나 실행 설정을 수동으로 구성하세요."
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "권장 설정은 충분한 메모리나 실행 성공을 보장하지 않습니다. 리소스를 예약하거나 모델 파일을 다운로드하거나 의존성을 설치하지 않습니다. 기존 실행 동작은 그대로 유지되며 배포는 별도로 수행해야 합니다."
+
+#: ../../source/user_guide/launch.rst:42
+msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "크기를 생략하면 조건을 만족하는 가장 작은 모델 크기가 선택되며, 명시적인 크기 제약 조건은 준수됩니다. ``config`` 에는 실제로 적용되는 ``enable_virtual_env`` 와 지정된 ``n_gpu`` 및 ``gpu_idx`` 제약 조건도 포함됩니다. ``n_gpu=null`` 은 CPU 배치를 요청하고, ``n_gpu=\"auto\"`` 는 필요한 GPU 수를 계산하지 않고 기존 실행 할당 정책을 사용합니다."
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` 와 ``no_recommendation`` 은 모두 HTTP 200을 반환합니다. 알 수 없는 모델은 HTTP 404를, 잘못된 요청은 HTTP 422를 반환합니다. 이유 및 경고 코드는 소문자 snake_case를 사용합니다. ``memory_not_verified`` 경고는 항상 포함됩니다."
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "모델 로딩 가이드"
@@ -134,8 +162,8 @@ msgid ""
 "replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
 "parameter to choose launch strategy."
 msgstr ""
-"현재 전략은 *유휴 우선*입니다: 스케줄러는 항상 가장 유휴한 GPU에 복제본을 할당하려고 시도합니다. "
-"``XINFERENCE_ENV_LAUNCH_STRATEGY`` 매개변수를 사용하여 시작 전략을 선택하세요."
+"현재 전략은 *유휴 우선* 입니다: 스케줄러는 항상 가장 유휴한 GPU에 복제본을 할당하려고 시도합니다. "
+"``XINFERENCE_LAUNCH_STRATEGY`` 매개변수를 사용하여 시작 전략을 선택하세요."
 
 #: ../../source/user_guide/launch.rst:59
 msgid "Set Environment Variables"
@@ -158,7 +186,7 @@ msgstr "Web UI용."
 msgid ""
 "When using the command line, use ``--env`` to specify an environment "
 "variable."
-msgstr "명령줄에서 사용할 때 ``--env``로 환경 변수를 지정합니다."
+msgstr "명령줄에서 사용할 때 ``--env`` 로 환경 변수를 지정합니다."
 
 #: ../../source/user_guide/launch.rst:74
 #: ../../source/user_guide/launch.rst:123
@@ -173,7 +201,7 @@ msgid ""
 "this during model launching."
 msgstr ""
 "vLLM을 예로 들면, V1과 V0 두 가지 버전이 있으며, 기본적으로 자동으로 어떤 버전을 사용할지 판단합니다. 모델을 로드할 때 "
-"``VLLM_USE_V1=0``을 설정하여 강제로 V0을 사용하려면 해당 환경 변수를 지정할 수 있습니다."
+"``VLLM_USE_V1=0`` 을 설정하여 강제로 V0을 사용하려면 해당 환경 변수를 지정할 수 있습니다."
 
 #: ../../source/user_guide/launch.rst:84
 msgid "Configuring Model Virtual Environment"
@@ -184,7 +212,7 @@ msgid ""
 "For this part, please refer to :ref:`toggling virtual environments and "
 "customizing dependencies <model_launching_virtualenv>`."
 msgstr ""
-"이 부분에 대해서는 :ref:`스위치 가상 공간 및 맞춤 종속성 <model_launching_virtualenv>`을 참조하세요."
+"이 부분에 대해서는 :ref:`스위치 가상 공간 및 맞춤 종속성 <model_launching_virtualenv>` 을 참조하세요."
 
 #: ../../source/user_guide/launch.rst:91
 msgid "Batching / Continuous Batching"
@@ -208,14 +236,14 @@ msgid ""
 "``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
 "batching behavior."
 msgstr ""
-"``XINFERENCE_BATCH_SIZE``와 ``XINFERENCE_BATCH_INTERVAL``은 일반적인 배치 처리 동작을 "
+"``XINFERENCE_BATCH_SIZE`` 와 ``XINFERENCE_BATCH_INTERVAL`` 은 일반적인 배치 처리 동작을 "
 "제어하는 데 사용됩니다."
 
 #: ../../source/user_guide/launch.rst:99
 msgid ""
 "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
 "supported)."
-msgstr "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``（텍스트-이미지 모델, 지원 시)."
+msgstr "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` (텍스트-이미지 모델, 지원 시)."
 
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
@@ -243,7 +271,7 @@ msgid ""
 "*thinking mode*. You can enable this at launch time via ``--enable-"
 "thinking``."
 msgstr ""
-"일부 하이브리드 추론 모델(예: Qwen3)은 선택적 *사고 모드*를 지원합니다. 시작 시 ``--enable-thinking`` "
+"일부 하이브리드 추론 모델(예: Qwen3)은 선택적 *사고 모드* 를 지원합니다. 시작 시 ``--enable-thinking`` "
 "매개변수를 사용하여 이 기능을 활성화할 수 있습니다."
 
 #: ../../source/user_guide/launch.rst:171

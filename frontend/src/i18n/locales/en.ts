@@ -504,6 +504,14 @@ const en = {
     emptyFile: 'The uploaded file cannot be empty.',
   },
   launchModel: {
+    recommendSetup: 'Environment setup may be required.',
+    recommendMemory: 'Available memory has not been verified.',
+    recommendConfiguration: 'Recommend configuration',
+    recommendUnavailable:
+      'Recommendation is unavailable with custom engine parameters, custom paths, multiple workers, or replica placement.',
+    recommendFailed: 'Could not apply a recommendation. Check device settings and try again.',
+    recommendApplied: 'Recommended configuration applied. Review it before deploying.',
+    noRecommendation: 'No suitable configuration was found.',
     modelType: 'Model Type',
     modelAbility: 'Model Ability',
     generate: 'Text Generation',

@@ -491,6 +491,14 @@ const ja = {
     emptyFile: '空のファイルはアップロードできません。',
   },
   launchModel: {
+    recommendSetup: '実行環境の準備が必要な場合があります。',
+    recommendMemory: '利用可能なメモリは未検証です。',
+    recommendConfiguration: '構成を推奨',
+    recommendUnavailable:
+      'カスタムエンジンパラメーター、カスタムパス、複数のワーカー、レプリカ配置では推奨を利用できません。',
+    recommendFailed: '推奨構成を適用できませんでした。デバイス設定を確認して再試行してください。',
+    recommendApplied: '推奨構成を適用しました。デプロイ前に確認してください。',
+    noRecommendation: '適切な構成が見つかりませんでした。',
     modelType: 'モデルタイプ',
     modelAbility: 'モデル機能',
     generate: 'テキスト生成',

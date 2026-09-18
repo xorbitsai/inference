@@ -18,6 +18,34 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM の起動設定の推奨"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available only for LLMs. The first version recommends placement for a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "LLM のデプロイダイアログで起動設定の推奨ボタンを使い、提案された設定を確認してからデプロイしてください。このボタンは LLM でのみ利用できます。初期バージョンでは単一レプリカの配置を推奨します。 カスタムモデルパスとカスタムエンジンパラメーターは手動で設定する必要があります。"
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` は読み取り専用です。``model_name`` と ``model_type=\"LLM\"`` を指定します。任意の ``constraints`` オブジェクトには ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu``、``gpu_idx`` を指定できます。指定した制約は必須条件であり、暗黙に緩和されることはありません。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "応答の ``status`` は ``recommended`` または ``no_recommendation`` です。成功時の ``config`` には、``model_engine``、``model_format``、``model_size_in_billions``、``quantization``、``worker_ip`` など、起動と互換性のあるフィールドが含まれます。``reasons`` と ``warnings`` の各項目には ``code`` と ``message`` フィールドが含まれます。制約を満たす設定がない場合は、説明を確認して制約を調整するか、起動設定を手動で行ってください。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "推奨はメモリ容量の充足や起動の成功を保証しません。リソースの予約、モデルファイルのダウンロード、依存関係のインストールは行いません。既存の起動動作は変わらず、デプロイは別途実行する必要があります。"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "サイズを省略すると、条件を満たす最小のモデルサイズが選択されます。サイズを明示的に指定した場合は、その制約が守られます。 ``config`` には、有効な ``enable_virtual_env`` と、指定された ``n_gpu`` および ``gpu_idx`` の制約も含まれます。 ``n_gpu=null`` は CPU への配置を要求し、 ``n_gpu=\"auto\"`` は必要な GPU 数を計算せず、既存の起動時の割り当てポリシーを使用します。"
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` と ``no_recommendation`` はどちらも HTTP 200 を返します。未知のモデルは HTTP 404、不正なリクエストは HTTP 422 を返します。理由と警告のコードは小文字の snake_case を使用します。 ``memory_not_verified`` 警告は常に含まれます。"
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "模型ロードガイド"
@@ -179,7 +207,7 @@ msgid ""
 "For this part, please refer to :ref:`toggling virtual environments and "
 "customizing dependencies <model_launching_virtualenv>`."
 msgstr ""
-"この部分については、:ref:`スイッチ仮想空間とカスタム依存関係<model_launching_virtualenv>`を参照してください。"
+"この部分については、 :ref:`仮想環境の切り替えと依存関係のカスタマイズ <model_launching_virtualenv>` を参照してください。"
 
 #: ../../source/user_guide/launch.rst:91
 msgid "Batching / Continuous Batching"
@@ -191,7 +219,7 @@ msgid ""
 "``transformers`` engine, continuous batching is available and can be enabled"
 " via environment variables at launch time."
 msgstr ""
-"Xinferenceは、スループットを向上させるためにバッチ処理をサポートしています。``transformers``エンジンに基づく大規模言語モデルでは、連続バッチ処理機能を有効にすることができ、この機能は起動時に環境変数を通じて設定可能です。"
+"Xinferenceは、スループットを向上させるためにバッチ処理をサポートしています。 ``transformers`` エンジンに基づく大規模言語モデルでは、連続バッチ処理機能を有効にすることができ、この機能は起動時に環境変数を通じて設定可能です。"
 
 #: ../../source/user_guide/launch.rst:96
 msgid "Key settings:"
@@ -224,7 +252,7 @@ msgid ""
 "For detailed behavior, supported models, and aborting requests, see "
 ":ref:`Continuous Batching <user_guide_continuous_batching>`."
 msgstr ""
-"詳細な動作、サポートされるモデル、および中断リクエストに関する情報については、:ref:`連続バッチ処理 "
+"詳細な動作、サポートされるモデル、および中断リクエストに関する情報については、 :ref:`連続バッチ処理 "
 "<user_guide_continuous_batching>` を参照してください。"
 
 #: ../../source/user_guide/launch.rst:118

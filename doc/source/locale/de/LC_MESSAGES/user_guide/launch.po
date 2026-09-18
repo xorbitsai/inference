@@ -18,6 +18,34 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "Empfehlungen zum Starten von LLMs"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available only for LLMs. The first version recommends placement for a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "Verwenden Sie im Bereitstellungsdialog eines LLMs die Schaltfläche für Startempfehlungen, um einen Konfigurationsvorschlag zu erhalten. Prüfen Sie ihn vor der Bereitstellung. Die Schaltfläche ist nur für LLMs verfügbar. Die erste Version empfiehlt die Platzierung einer einzelnen Replik. Benutzerdefinierte Modellpfade und Engine-Parameter müssen manuell konfiguriert werden."
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` ist schreibgeschützt. Geben Sie ``model_name`` und ``model_type=\"LLM\"`` an. Das optionale Objekt ``constraints`` akzeptiert ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu`` und ``gpu_idx``. Angegebene Einschränkungen sind verbindlich und werden niemals stillschweigend gelockert."
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "Der ``status`` der Antwort ist ``recommended`` oder ``no_recommendation``. Bei Erfolg enthält ``config`` mit dem Modellstart kompatible Felder wie ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization`` und ``worker_ip``. Die Einträge in ``reasons`` und ``warnings`` enthalten die Felder ``code`` und ``message``. Falls keine Konfiguration die Einschränkungen erfüllt, prüfen Sie die Erklärung und passen Sie die Einschränkungen an oder konfigurieren Sie den Start manuell."
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "Eine Empfehlung garantiert weder ausreichend Speicher noch einen erfolgreichen Start. Sie reserviert keine Ressourcen, lädt keine Modelldateien herunter und installiert keine Abhängigkeiten. Das bisherige Startverhalten bleibt unverändert; die Bereitstellung erfolgt weiterhin separat."
+
+#: ../../source/user_guide/launch.rst:42
+msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "Wird die Größe weggelassen, wird die kleinste geeignete Modellgröße gewählt; eine explizite Größenvorgabe wird eingehalten. ``config`` enthält außerdem den wirksamen Wert von ``enable_virtual_env`` sowie angegebene Einschränkungen für ``n_gpu`` und ``gpu_idx``. ``n_gpu=null`` fordert eine CPU-Platzierung an, während ``n_gpu=\"auto\"`` die bestehende Zuweisungsrichtlinie beim Start verwendet, ohne die erforderliche GPU-Anzahl zu berechnen."
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "Sowohl ``recommended`` als auch ``no_recommendation`` liefern HTTP 200. Ein unbekanntes Modell liefert HTTP 404; ungültige Anfragen liefern HTTP 422. Codes für Gründe und Warnungen verwenden snake_case in Kleinbuchstaben. Die Warnung ``memory_not_verified`` ist immer enthalten."
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "Modell-Ladeanleitung"

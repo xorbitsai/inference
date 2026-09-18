@@ -63,6 +63,8 @@ import DownloadProgressDetails, { type DownloadProgressFile } from './download-p
 import ReplicaPlacementConfig from './replica-placement-config';
 import { FormField } from '@/components/ui/form-field';
 import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs';
+import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
+import { useRecommendation } from './use-recommendation';
 
 interface LaunchDialogProps {
   model?: CatalogModel;
@@ -166,6 +168,32 @@ export default function LaunchDialog({
   const replicaValue = Number(useWatch('replica', form)) || 1;
   const modelUidValue = toOptionValue(useWatch('model_uid', form));
   const isCustomPlacement = replicaPlacementModeValue === 'custom';
+  const enableVirtualEnvValue = useWatch('enable_virtual_env', form);
+  const effectiveVirtualEnv =
+    typeof enableVirtualEnvValue === 'boolean' ? enableVirtualEnvValue : undefined;
+  const recommendationEngineContext = useRef<{
+    modelName?: string;
+    enableVirtualEnv: boolean;
+  } | null>(null);
+  const applyRecommendationEngines = useCallback(
+    (engines: ModelEngine, enableVirtualEnv: boolean) => {
+      modelEngineRequestIdRef.current += 1;
+      recommendationEngineContext.current = { modelName: model?.model_name, enableVirtualEnv };
+      setModelEngineMap(engines);
+    },
+    [model?.model_name]
+  );
+  const recommendation = useRecommendation(
+    form,
+    model?.model_name,
+    isOpen && isLLM && !loading,
+    markLaunchHistoryFormEdited,
+    applyRecommendationEngines
+  );
+  const cannotRecommend = recommendationUnavailable(launchFormValues);
+  const recommendationWarnings = recommendation.result
+    ? recommendationWarningKeys(recommendation.result)
+    : [];
 
   const fetchWorkers = useCallback(async () => {
     if (clusterAuth?.auth && !isAdmin) {
@@ -184,6 +212,15 @@ export default function LaunchDialog({
   }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
     const requestId = ++modelEngineRequestIdRef.current;
+    // Applying an effective environment can trigger this effect. Its catalog
+    // was already refreshed and validated with that exact environment.
+    const recommendedContext = recommendationEngineContext.current;
+    recommendationEngineContext.current = null;
+    if (
+      recommendedContext?.modelName === model?.model_name &&
+      recommendedContext?.enableVirtualEnv === effectiveVirtualEnv
+    )
+      return;
 
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});
@@ -196,7 +233,12 @@ export default function LaunchDialog({
 
     setModelEngineMap({});
 
-    const res = await request.get<ModelEngine>(url);
+    const res = await request.get<ModelEngine>(url, {
+      params:
+        isLLM && effectiveVirtualEnv !== undefined
+          ? { enable_virtual_env: effectiveVirtualEnv }
+          : undefined,
+    });
 
     if (requestId !== modelEngineRequestIdRef.current) return;
 
@@ -212,7 +254,7 @@ export default function LaunchDialog({
         form.setFieldValue('model_engine', soleEngine);
       }
     }
-  }, [form, isLLM, model?.model_name, modelType]);
+  }, [form, isLLM, model?.model_name, modelType, effectiveVirtualEnv]);
 
   const engineIndex = useMemo(() => buildEngineIndex(modelEngineMap), [modelEngineMap]);
   const cacheIndex = useMemo(() => {
@@ -1885,6 +1927,8 @@ export default function LaunchDialog({
   };
 
   const handleClose = () => {
+    recommendation.invalidate();
+    recommendationEngineContext.current = null;
     modelEngineRequestIdRef.current += 1;
     setLoading(false);
     setIsDownloading(false);
@@ -2011,6 +2055,39 @@ export default function LaunchDialog({
               </div>
             </div>
           </DialogHeader>
+          {isLLM && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading || recommendation.pending || cannotRecommend}
+                loading={recommendation.pending}
+                onClick={recommendation.recommend}
+              >
+                {t('launchModel.recommendConfiguration')}
+              </Button>
+              {cannotRecommend && (
+                <p className="text-sm text-muted-foreground">
+                  {t('launchModel.recommendUnavailable')}
+                </p>
+              )}
+              <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
+                {recommendation.failed && t('launchModel.recommendFailed')}
+                {recommendation.result && (
+                  <p>
+                    {t(
+                      recommendation.result.status === 'recommended'
+                        ? 'launchModel.recommendApplied'
+                        : 'launchModel.noRecommendation'
+                    )}
+                    {recommendationWarnings.map((key) => (
+                      <span key={key}> {t(key)}</span>
+                    ))}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           <Form
             id={formId}
             form={form}

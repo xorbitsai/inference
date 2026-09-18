@@ -27,6 +27,18 @@ logger = logging.getLogger(__name__)
 
 
 class LLMCacheManager(CacheManager):
+    @staticmethod
+    def get_cache_dir_for_spec(model_name, spec):
+        """Compute a cache path without initializing or creating directories."""
+        from ...constants import XINFERENCE_CACHE_DIR
+
+        return os.path.join(
+            XINFERENCE_CACHE_DIR,
+            "v2",
+            f"{model_name.replace('.', '_')}-{spec.model_format}-"
+            f"{getattr(spec, 'model_size_in_billions', None)}b-{spec.quantization}",
+        )
+
     def __init__(
         self,
         llm_family: "LLMFamilyV2",
@@ -50,10 +62,8 @@ class LLMCacheManager(CacheManager):
         # Set when caching a gguf drafter: a single file rather than a snapshot.
         self._draft_file_name: Optional[str] = None
         self._use_draft_model = use_draft_model
-        self._cache_dir = os.path.join(
-            self._v2_cache_dir_prefix,
-            f"{self._model_name.replace('.', '_')}-{self._model_format}-"
-            f"{self._model_size_in_billions}b-{self._quantization}",
+        self._cache_dir = self.get_cache_dir_for_spec(
+            self._model_name, llm_family.model_specs[0]
         )
         if use_draft_model:
             # Cache the paired drafter checkpoint instead of the target model,
