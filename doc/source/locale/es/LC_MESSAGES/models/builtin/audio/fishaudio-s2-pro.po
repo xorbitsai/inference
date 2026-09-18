@@ -1,0 +1,70 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-17 12:35+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:5
+msgid "FishAudio-S2-Pro"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:7
+msgid "**Model Name:** FishAudio-S2-Pro"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:8
+msgid "**Model Family:** FishAudio"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:9
+msgid ""
+"**Abilities:** ['text2audio', 'text2audio_zero_shot', "
+"'text2audio_voice_cloning']"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:10
+msgid "**Multilingual:** True"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:13
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:15
+msgid "**PyTorch model ID:** fishaudio/s2-pro"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:16
+msgid "**MLX model ID:** mlx-community/fish-audio-s2-pro-8bit"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:18
+msgid "Execute the following command to launch the model::"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:23
+msgid "Available engines"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:25
+msgid "``PyTorch``"
+msgstr ""
+
+#: ../../source/models/builtin/audio/fishaudio-s2-pro.rst:26
+msgid "``MLX``"
+msgstr ""

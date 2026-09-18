@@ -223,6 +223,70 @@ def test_mlx_audio_tts_qwen_requires_reference_text():
         model.speech("hello", "", prompt_speech=b"reference")
 
 
+def test_mlx_audio_tts_fish_maps_reference_and_sampling_args(monkeypatch):
+    mlx_audio = ModuleType("mlx_audio")
+    mlx_audio.__path__ = []
+    mlx_audio_utils = ModuleType("mlx_audio.utils")
+    reference_audio = np.array([0.0, 0.25], dtype=np.float32)
+    reference_path = None
+
+    def load_audio(path, *, sample_rate):
+        nonlocal reference_path
+        reference_path = path
+        with open(path, "rb") as audio_file:
+            assert audio_file.read() == b"reference"
+        assert sample_rate == 44100
+        return reference_audio
+
+    mlx_audio_utils.load_audio = load_audio
+    monkeypatch.setitem(sys.modules, "mlx_audio", mlx_audio)
+    monkeypatch.setitem(sys.modules, "mlx_audio.utils", mlx_audio_utils)
+
+    class FakeModel:
+        kwargs = None
+        sample_rate = 44100
+
+        def generate(self, **kwargs):
+            self.kwargs = kwargs
+            yield SimpleNamespace(
+                audio=np.array([0.0, 0.25], dtype=np.float32), sample_rate=44100
+            )
+            yield SimpleNamespace(
+                audio=np.array([-0.25, 0.0], dtype=np.float32), sample_rate=44100
+            )
+
+    model = MLXAudioTTSModel(
+        "uid",
+        "/fake/path",
+        _model_spec("FishAudio-S2-Pro", "FishAudio"),
+    )
+    model._model = FakeModel()
+
+    result = model.speech(
+        "hello",
+        "",
+        response_format="wav",
+        speed=1.1,
+        prompt_speech=b"reference",
+        reference_text="reference text",
+        instruct_text="Speak calmly",
+        max_new_tokens=2048,
+    )
+
+    with wave.open(BytesIO(result), "rb") as wav_file:
+        assert wav_file.getframerate() == 44100
+        assert wav_file.getnframes() == 4
+    assert model._model.kwargs["text"] == "hello"
+    assert model._model.kwargs["speed"] == 1.1
+    assert model._model.kwargs["ref_audio"] is reference_audio
+    assert model._model.kwargs["ref_text"] == "reference text"
+    assert model._model.kwargs["instruct"] == "Speak calmly"
+    assert model._model.kwargs["max_tokens"] == 2048
+    assert "max_new_tokens" not in model._model.kwargs
+    assert reference_path is not None
+    assert not os.path.exists(reference_path)
+
+
 def test_mlx_audio_tts_qwen_splits_and_joins_long_text():
     class FakeModel:
         calls = None
