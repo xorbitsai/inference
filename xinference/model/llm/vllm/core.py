@@ -116,6 +116,7 @@ class VLLMModelConfig(TypedDict, total=False):
     guided_decoding_backend: Optional[str]
     scheduling_policy: Optional[str]
     reasoning_content: bool
+    enable_thinking: bool
     model_quantization: Optional[str]
     mm_processor_kwargs: NotRequired[dict[str, Any]]
     min_pixels: NotRequired[int]
@@ -489,6 +490,9 @@ def _update_vllm_supported_lists() -> None:
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "KimiK3ForConditionalGeneration"
         )
+
+    if effective_version >= version.parse("0.28.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "BailingMoeV3ForCausalLM")
 
 
 _update_vllm_supported_lists()
@@ -1372,6 +1376,8 @@ class VLLMModel(LLM):
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
+        if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
+            model_config.setdefault("enable_thinking", True)
 
         config_dict_list = [
             "additional_config",
@@ -2167,8 +2173,19 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 False,
                 "vLLM chat mode supports pytorch/gptq/awq/fp4/fp8/bnb/ggufv2 formats only",
             )
+        is_ling3 = llm_family.has_architecture("BailingMoeV3ForCausalLM")
+        if is_ling3:
+            if llm_spec.model_format not in ("pytorch", "fp8", "fp4"):
+                return False, "Ling-3.0 vLLM supports pytorch/fp8/fp4 checkpoints only"
+            if _get_effective_vllm_version_for_family(llm_family) < version.parse(
+                "0.28.0"
+            ):
+                return False, "Ling-3.0 requires vLLM >= 0.28.0"
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            # The official INT4 checkpoint uses compressed-tensors; vLLM
+            # infers its quantization method from the checkpoint configuration.
+            offline_ling_int4 = is_ling3 and quantization == "Int4"
+            if quantization not in (None, "none") and not offline_ling_int4:
                 return (
                     False,
                     "pytorch format with quantization is not supported in vLLM chat",
@@ -2193,7 +2210,10 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             and not _virtual_env_allows_missing_vllm()
         ):
             return False, "Qwen3_5MoeForCausalLM requires vLLM >= 0.27.0"
-        if not llm_family.matches_supported_architectures(VLLM_SUPPORTED_CHAT_MODELS):
+        supported_architectures = list(VLLM_SUPPORTED_CHAT_MODELS)
+        if is_ling3:
+            _append_unique(supported_architectures, "BailingMoeV3ForCausalLM")
+        if not llm_family.matches_supported_architectures(supported_architectures):
             return (
                 False,
                 f"Model architectures {llm_family.architectures} are not supported by vLLM chat",

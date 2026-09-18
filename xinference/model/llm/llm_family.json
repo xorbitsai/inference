@@ -34307,6 +34307,95 @@
             ]
           }
         }
+      },
+      {
+        "model_size_in_billions": 124,
+        "activated_size_in_billions": "5_1",
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-flash-GGUF",
+            "model_revision": "main",
+            "model_file_name_template": "{quantization}/Ling-3.0-flash-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Ling-3.0-flash-{quantization}-{part}.gguf",
+            "quantizations": [
+              "BF16",
+              "Q4_K_M",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_K_M": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q5_K_M": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q6_K": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q8_0": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ]
+            }
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-flash-GGUF",
+            "model_revision": "master",
+            "model_file_name_template": "{quantization}/Ling-3.0-flash-{quantization}.gguf",
+            "model_file_name_split_template": "{quantization}/Ling-3.0-flash-{quantization}-{part}.gguf",
+            "quantizations": [
+              "BF16",
+              "Q4_K_M",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_K_M": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q5_K_M": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q6_K": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q8_0": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ]
+            }
+          }
+        }
       }
     ],
     "architectures": [
@@ -34325,17 +34414,20 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "transformers>=4.57.1,<5.0.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
         "fla-core>=0.5.2 ; #engine# == \"Transformers\"",
         "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "einops ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
-        "#system_numpy# ; #engine# == \"Transformers\""
+        "#system_numpy# ; #engine# == \"Transformers\"",
+        "vllm==0.29.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "xllamacpp==2026.9.10809 ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": false,
-    "updated_at": 1786709780
+    "updated_at": 1789686666
   },
   {
     "model_name": "Ornith-1.5-35B-A3B",
