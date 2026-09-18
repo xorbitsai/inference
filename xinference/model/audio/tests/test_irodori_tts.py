@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import platform
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -73,8 +74,6 @@ class _FakeRuntime:
 def test_irodori_catalog_registers_quantization_variants(
     monkeypatch, system, processor, supports_mlx
 ):
-    from .. import platform, sys
-
     torchao_x86_64_package = 'torchao>=0.16,<0.17 ; platform_machine == "x86_64"'
     torchao_aarch64_package = (
         "torchao @ https://files.pythonhosted.org/packages/d0/3d/"
