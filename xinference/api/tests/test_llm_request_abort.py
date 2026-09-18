@@ -52,6 +52,7 @@ async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
         generate=AsyncMock(return_value=disconnected_stream()),
         abort_request=AsyncMock(return_value="DONE"),
         decrease_serve_count=AsyncMock(),
+        is_vllm_backend=AsyncMock(return_value=True),
     )
 
     async def require_model(*_args, **_kwargs):
@@ -89,6 +90,7 @@ async def test_chat_passes_request_id_outside_generation_config(monkeypatch):
     model = SimpleNamespace(
         uid=b"chat-model",
         chat=AsyncMock(return_value=b'{"choices": []}'),
+        is_vllm_backend=AsyncMock(return_value=True),
     )
     supervisor = SimpleNamespace(
         describe_model=AsyncMock(return_value={"model_family": "test-family"})
@@ -118,3 +120,38 @@ async def test_chat_passes_request_id_outside_generation_config(monkeypatch):
     assert call.kwargs["request_id"] == "chat-request"
     assert "request_id" not in call.args[1]
     assert "request_id" not in call.kwargs["raw_params"]
+
+
+@pytest.mark.asyncio
+async def test_non_vllm_chat_keeps_request_id_in_generation_config(monkeypatch):
+    model = SimpleNamespace(
+        uid=b"chat-model",
+        chat=AsyncMock(return_value=b'{"choices": []}'),
+        is_vllm_backend=AsyncMock(return_value=False),
+    )
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={"model_family": "test-family"})
+    )
+
+    async def require_model(*_args, **_kwargs):
+        return model
+
+    monkeypatch.setattr(restful_api, "require_model", require_model)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+    response = await api.create_chat_completion(
+        _Request(
+            {
+                "model": "chat-model",
+                "messages": [{"role": "user", "content": "hello"}],
+                "stream": False,
+                "request_id": "chat-request",
+            }
+        )
+    )
+
+    assert response.body == b'{"choices": []}'
+    call = model.chat.await_args
+    assert call.args[1]["request_id"] == "chat-request"
+    assert "request_id" not in call.kwargs

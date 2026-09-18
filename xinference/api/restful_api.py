@@ -1720,8 +1720,7 @@ class RESTfulAPI(CancelMixin):
         }
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
-        request_id = str(kwargs.pop("request_id", None) or uuid.uuid4().hex)
-        raw_kwargs.pop("request_id", None)
+        request_id = str(kwargs.get("request_id") or uuid.uuid4().hex)
 
         # guided_decoding params
         kwargs.update(self.extract_guided_params(raw_body=raw_body))
@@ -1741,6 +1740,12 @@ class RESTfulAPI(CancelMixin):
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
+        is_vllm_backend = await model.is_vllm_backend()
+        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        if is_vllm_backend:
+            kwargs.pop("request_id", None)
+            raw_kwargs.pop("request_id", None)
+            model_call_kwargs["request_id"] = request_id
 
         if body.stream:
 
@@ -1751,8 +1756,7 @@ class RESTfulAPI(CancelMixin):
                         iterator = await model.generate(
                             body.prompt,
                             kwargs,
-                            raw_params=raw_kwargs,
-                            request_id=request_id,
+                            **model_call_kwargs,
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
@@ -1796,8 +1800,7 @@ class RESTfulAPI(CancelMixin):
                 data = await model.generate(
                     body.prompt,
                     kwargs,
-                    raw_params=raw_kwargs,
-                    request_id=request_id,
+                    **model_call_kwargs,
                 )
                 return Response(data, media_type="application/json")
             except Exception as e:
@@ -3398,8 +3401,7 @@ class RESTfulAPI(CancelMixin):
 
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
-        request_id = str(kwargs.pop("request_id", None) or uuid.uuid4().hex)
-        raw_kwargs.pop("request_id", None)
+        request_id = str(kwargs.get("request_id") or uuid.uuid4().hex)
 
         enable_thinking = raw_body.get("enable_thinking")
         if enable_thinking is None:
@@ -3476,6 +3478,12 @@ class RESTfulAPI(CancelMixin):
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
+        is_vllm_backend = await model.is_vllm_backend()
+        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        if is_vllm_backend:
+            kwargs.pop("request_id", None)
+            raw_kwargs.pop("request_id", None)
+            model_call_kwargs["request_id"] = request_id
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
@@ -3543,7 +3551,7 @@ class RESTfulAPI(CancelMixin):
             except MessageRoleOrderError as ve:
                 raise HTTPException(status_code=400, detail=str(ve))
 
-        if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
+        if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
 
@@ -3554,8 +3562,7 @@ class RESTfulAPI(CancelMixin):
                         iterator = await model.chat(
                             messages,
                             kwargs,
-                            raw_params=raw_kwargs,
-                            request_id=request_id,
+                            **model_call_kwargs,
                         )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
@@ -3606,8 +3613,7 @@ class RESTfulAPI(CancelMixin):
                 data = await model.chat(
                     messages,
                     kwargs,
-                    raw_params=raw_kwargs,
-                    request_id=request_id,
+                    **model_call_kwargs,
                 )
                 return Response(content=data, media_type="application/json")
             except Exception as e:
