@@ -19,6 +19,7 @@ from packaging.version import Version
 
 from ..cache_manager import LLMCacheManager
 from ..llm_family import match_llm
+from ..sglang import core as sglang_core
 from ..transformers.ling3 import Ling3PytorchChatModel
 from ..vllm import core as vllm_core
 
@@ -55,6 +56,8 @@ def test_official_checkpoints(
     assert "vision" not in family.model_ability
     monkeypatch.setattr(vllm_core, "_virtual_env_allows_missing_vllm", lambda: True)
     assert vllm_core.VLLMChatModel.match_json(family, spec, quantization) is True
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    assert sglang_core.SGLANGChatModel.match_json(family, spec, quantization) is True
     result = Ling3PytorchChatModel.match_json(family, spec, quantization)
     assert (result is True) == (model_format != "fp4")
 
@@ -105,11 +108,31 @@ def test_int4_exception_does_not_change_other_models(family, monkeypatch):
     assert "pytorch format with quantization" in result[1]
 
 
+def test_sglang_ling_defaults_and_exceptions(family, monkeypatch):
+    model = object.__new__(sglang_core.SGLANGChatModel)
+    model.model_family = family
+    model.model_spec = family.model_specs[0]
+    model._n_worker = 1
+    monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
+    assert model._sanitize_model_config({})["enable_thinking"] is True
+    assert model._get_launch_timeout() == 900.0
+
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    family.architectures = ["LlamaForCausalLM"]
+    assert model._get_launch_timeout() == 300.0
+    result = sglang_core.SGLANGChatModel.match_json(
+        family, family.model_specs[0], "Int4"
+    )
+    assert result[0] is False
+    assert "pytorch format with quantization" in result[1]
+
+
 @pytest.mark.parametrize(
     "engine,requirement",
     [
         ("Transformers", "transformers>=4.57.1,<5.0.0"),
         ("vllm", "vllm==0.29.0"),
+        ("sglang", "sglang==0.5.19"),
         ("llama.cpp", "xllamacpp==2026.9.10809"),
     ],
 )
@@ -119,6 +142,10 @@ def test_engine_install_requirements(family, engine, requirement):
 
     packages = expand_engine_dependency_placeholders(family.virtualenv.packages, engine)
     prepared = filter_virtualenv_packages_by_markers(packages, engine, None)
+    if engine == "sglang":
+        assert {"numpy<2.3", "pandas<3", "sglang==0.5.19"} <= set(prepared)
+        assert not any(p.startswith("nvidia-cusparselt-cu13") for p in prepared)
+        return
     name = requirement.split("=")[0].rstrip(">")
     assert [p for p in prepared if p.startswith(name)] == [requirement]
 

@@ -1256,7 +1256,8 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "numpy<2.3 ; #engine# == \"sglang\"",
+        "pandas<3 ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -34423,11 +34424,13 @@
         "#system_numpy# ; #engine# == \"Transformers\"",
         "vllm==0.29.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "sglang==0.5.19 ; #engine# == \"sglang\"",
         "xllamacpp==2026.9.10809 ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": false,
-    "updated_at": 1789686666
+    "updated_at": 1789707682
   },
   {
     "model_name": "Ornith-1.5-35B-A3B",
