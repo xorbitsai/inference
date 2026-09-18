@@ -29,9 +29,9 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
 
 def test_multimodal_model_abilities_are_exposed():
     expected = {
-        "Qwen3-VL-Reranker-2B": ["vision", "video"],
-        "Qwen3-VL-Reranker-8B": ["vision", "video"],
-        "jina-reranker-m0": ["vision"],
+        "Qwen3-VL-Reranker-2B": ["rerank_vision", "rerank_video"],
+        "Qwen3-VL-Reranker-8B": ["rerank_vision", "rerank_video"],
+        "jina-reranker-m0": ["rerank_vision"],
     }
     for model_name, abilities in expected.items():
         family = BUILTIN_RERANK_MODELS[model_name][0]

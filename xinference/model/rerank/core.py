@@ -76,8 +76,8 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     model_specs: List[RerankSpecV1]
     language: List[str]
     # Extra accepted input modalities. Text is implicit for every rerank model.
-    model_ability: List[Literal["vision", "video", "audio"]] = Field(
-        default_factory=list
+    model_ability: List[Literal["rerank_vision", "rerank_video", "rerank_audio"]] = (
+        Field(default_factory=list)
     )
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]

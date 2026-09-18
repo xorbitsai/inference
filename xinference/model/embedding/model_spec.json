@@ -1471,7 +1471,7 @@
     "dimensions": 1024,
     "max_tokens": 8192,
     "model_ability": [
-      "vision"
+      "embed_vision"
     ],
     "language": [
       "89 languages supported"
@@ -1514,7 +1514,7 @@
     "dimensions": 2048,
     "max_tokens": 32768,
     "model_ability": [
-      "vision"
+      "embed_vision"
     ],
     "language": [
       "30+ languages supported"
@@ -1641,9 +1641,9 @@
     "dimensions": 768,
     "max_tokens": 8192,
     "model_ability": [
-      "vision",
-      "video",
-      "audio"
+      "embed_vision",
+      "embed_video",
+      "embed_audio"
     ],
     "language": [
       "multilingual"
@@ -1690,9 +1690,9 @@
     "dimensions": 1024,
     "max_tokens": 32768,
     "model_ability": [
-      "vision",
-      "video",
-      "audio"
+      "embed_vision",
+      "embed_video",
+      "embed_audio"
     ],
     "language": [
       "multilingual"
@@ -1739,7 +1739,7 @@
     "dimensions": 1536,
     "max_tokens": 32768,
     "model_ability": [
-      "vision"
+      "embed_vision"
     ],
     "language": [
       "en",
@@ -1782,7 +1782,7 @@
     "dimensions": 3584,
     "max_tokens": 32768,
     "model_ability": [
-      "vision"
+      "embed_vision"
     ],
     "language": [
       "en",
@@ -1825,8 +1825,8 @@
     "dimensions": 2048,
     "max_tokens": 8192,
     "model_ability": [
-      "vision",
-      "video"
+      "embed_vision",
+      "embed_video"
     ],
     "language": [
       "zh",
@@ -1870,8 +1870,8 @@
     "dimensions": 4096,
     "max_tokens": 8192,
     "model_ability": [
-      "vision",
-      "video"
+      "embed_vision",
+      "embed_video"
     ],
     "language": [
       "zh",
@@ -1915,8 +1915,8 @@
     "dimensions": 2048,
     "max_tokens": 262144,
     "model_ability": [
-      "vision",
-      "video"
+      "embed_vision",
+      "embed_video"
     ],
     "language": [
       "zh",
@@ -1963,8 +1963,8 @@
     "dimensions": 2560,
     "max_tokens": 262144,
     "model_ability": [
-      "vision",
-      "video"
+      "embed_vision",
+      "embed_video"
     ],
     "language": [
       "zh",
@@ -2011,8 +2011,8 @@
     "dimensions": 4096,
     "max_tokens": 262144,
     "model_ability": [
-      "vision",
-      "video"
+      "embed_vision",
+      "embed_video"
     ],
     "language": [
       "zh",

@@ -95,7 +95,7 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     max_tokens: int
     language: List[str]
     # Extra accepted input modalities. Text is implicit for every embedding model.
-    model_ability: List[Literal["vision", "video", "audio"]] = Field(
+    model_ability: List[Literal["embed_vision", "embed_video", "embed_audio"]] = Field(
         default_factory=list
     )
     model_specs: List["EmbeddingSpecV1"]
