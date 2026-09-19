@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import platform
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -61,7 +62,18 @@ class _FakeRuntime:
         return SimpleNamespace(sample_rate=48000, audio="audio")
 
 
-def test_irodori_catalog_registers_quantization_variants():
+@pytest.mark.parametrize(
+    "system, processor, supports_mlx",
+    [
+        ("linux", "x86_64", False),
+        ("win32", "AMD64", False),
+        ("darwin", "i386", False),
+        ("darwin", "arm", True),
+    ],
+)
+def test_irodori_catalog_registers_quantization_variants(
+    monkeypatch, system, processor, supports_mlx
+):
     torchao_x86_64_package = 'torchao>=0.16,<0.17 ; platform_machine == "x86_64"'
     torchao_aarch64_package = (
         "torchao @ https://files.pythonhosted.org/packages/d0/3d/"
@@ -69,7 +81,16 @@ def test_irodori_catalog_registers_quantization_variants():
         'torchao-0.16.0-py3-none-any.whl ; platform_machine == "aarch64"'
     )
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    with monkeypatch.context() as platform_patch:
+        platform_patch.setattr(sys, "platform", system)
+        platform_patch.setattr(platform, "processor", lambda: processor)
+        load_model_family_from_json("model_spec.json", models)
+    mlx_specs = [
+        spec for spec in models["Irodori-TTS-v4.1-Small"] if spec.engine == "MLX"
+    ]
+    assert {spec.model_hub for spec in mlx_specs} == (
+        {"huggingface", "modelscope"} if supports_mlx else set()
+    )
 
     expected_model_names = {
         "Irodori-TTS-v4.1-Small",
@@ -95,7 +116,7 @@ def test_irodori_catalog_registers_quantization_variants():
     }
 
     for model_name in expected_model_names:
-        specs = models[model_name]
+        specs = [spec for spec in models[model_name] if spec.engine != "MLX"]
         assert {spec.quantization for spec in specs} == expected_quantizations
         assert {spec.model_hub for spec in specs} == {"huggingface", "modelscope"}
         assert {spec.model_revision for spec in specs} == {"main", "master"}

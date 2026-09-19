@@ -539,7 +539,27 @@ def main():
 
         for model in sorted_models:
             engine_specs = model['engine_specs']
-            if any(spec['quantization'] is not None for spec in engine_specs):
+            engines = list(dict.fromkeys(spec['engine'] for spec in engine_specs))
+            if len(engines) > 1 and any(spec['quantization'] is not None for spec in engine_specs):
+                model['specifications'] = '\n'.join(
+                    f"- **{spec['engine']} ({spec['quantization'] or 'none'}) model ID:** {spec['model_id']}"
+                    for spec in engine_specs
+                )
+                model['launch_engine'] = engines[0]
+                model['available_engines_section'] = (
+                    '\n\nAvailable engines\n'
+                    '^^^^^^^^^^^^^^^^^\n\n'
+                    + '\n'.join(f"* ``{engine}``" for engine in engines)
+                    + '\n\nAvailable quantizations by engine\n'
+                    '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n'
+                    + '\n'.join(
+                        f"* ``{engine}``: " + ', '.join(
+                            f"``{spec['quantization'] or 'none'}``"
+                            for spec in engine_specs if spec['engine'] == engine
+                        ) for engine in engines
+                    )
+                )
+            elif any(spec['quantization'] is not None for spec in engine_specs):
                 model['specifications'] = '\n'.join(
                     f"- **{spec['quantization'] or 'none'} model ID:** {spec['model_id']}"
                     for spec in engine_specs

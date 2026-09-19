@@ -449,7 +449,7 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
     ) -> Dict[str, Any]:
         from .utils import apply_mlx_audio_seed
 
-        apply_mlx_audio_seed(kwargs)
+        seed = apply_mlx_audio_seed(kwargs)
         generate_kwargs = dict(kwargs)
         prompt_speech = generate_kwargs.pop("prompt_speech", None)
         prompt_text = generate_kwargs.pop("prompt_text", None)
@@ -513,6 +513,21 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             max_new_tokens = generate_kwargs.pop("max_new_tokens", None)
             if max_new_tokens is not None:
                 generate_kwargs.setdefault("max_tokens", max_new_tokens)
+        elif model_family == "Irodori-TTS":
+            caption = generate_kwargs.pop("caption", None)
+            instruction = generate_kwargs.pop("instruction", None)
+            if caption is None:
+                caption = instruct or instruction or prompt_text
+            generate_kwargs.update(text=input, caption=caption)
+            if prompt_audio_path or reference_audio_path:
+                generate_kwargs["ref_audio"] = prompt_audio_path or reference_audio_path
+            if seed is not None:
+                # Irodori reseeds inside its sampler using rng_seed.
+                generate_kwargs.setdefault("rng_seed", seed)
+            if speed != 1.0:
+                logger.warning("Irodori-TTS does not support speed; ignoring it")
+            if voice:
+                logger.warning("Irodori-TTS does not support named voices; ignoring it")
         elif model_family == "VoxCPM":
             generate_kwargs["text"] = input
             generate_kwargs["ref_audio"] = reference_audio_path or prompt_audio_path
