@@ -479,6 +479,16 @@ const ko = {
     customModels: '커스텀 모델',
     flexibleModels: '유연한 모델',
   },
+  documentParsing: {
+    uploadLabel: 'PDF 또는 이미지 업로드',
+    uploadDescription: 'PDF, PNG, JPEG, JP2, WebP, GIF, BMP 지원. 요청당 파일 1개.',
+    engineHint: '모델 배포 시 선택한 엔진을 사용하며, 분석 결과는 구조화된 JSON으로 반환됩니다.',
+    submit: '문서 분석',
+    uploadRequired: '분석할 PDF 또는 이미지를 먼저 업로드하세요.',
+    invalidFile:
+      'PDF 및 지원되는 이미지 파일(PNG, JPEG, JP2, WebP, GIF, BMP)만 업로드할 수 있습니다.',
+    emptyFile: '빈 파일은 업로드할 수 없습니다.',
+  },
   launchModel: {
     modelType: '모델 유형',
     modelAbility: '모델 기능',
@@ -503,6 +513,9 @@ const ko = {
     image2image: '이미지에서 이미지',
     inpainting: '이미지 인페인팅',
     ocr: '광학 문자 인식 (OCR)',
+    docanalyze: '문서 분석',
+    docanalyzeDescription:
+      'PDF 또는 이미지에서 텍스트, 표, 수식 및 문서 구조를 추출하여 구조화된 JSON으로 반환합니다.',
     audio2text: '오디오에서 텍스트',
     speaker_embedding: '화자 임베딩',
     text2audio: '텍스트에서 오디오',

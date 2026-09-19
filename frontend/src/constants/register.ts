@@ -217,12 +217,14 @@ export enum ModelAbilityForImage {
   Image2Image = 'image2image',
   Inpainting = 'inpainting',
   Ocr = 'ocr',
+  Docanalyze = 'docanalyze',
 }
 export const MODEL_ABILITY_IMAGE_OPTIONS = [
   { label: 'Text2Image', value: ModelAbilityForImage.Text2Image },
   { label: 'Image2Image', value: ModelAbilityForImage.Image2Image },
   { label: 'Inpainting', value: ModelAbilityForImage.Inpainting },
   { label: 'Ocr', value: ModelAbilityForImage.Ocr },
+  { label: 'Document Parsing', value: ModelAbilityForImage.Docanalyze },
 ];
 export enum ModelAbilityForAudio {
   Text2audio = 'text2audio',

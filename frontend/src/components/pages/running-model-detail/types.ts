@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import type { TFunc } from '@/contexts/i18n-context';
 
 import type { FileUploadValue } from '@/types/common';
 import type { ModelAbility } from '@/constants';
@@ -32,17 +33,21 @@ export interface TransformContext {
   model: RunningModelDetail;
   values: FormValues;
   requestId?: string;
+  t?: TFunc;
 }
 
 export interface CapabilityConfig {
   ability: ModelAbility;
   label: string;
+  labelKey?: string;
+  descriptionKey?: string;
   icon: LucideIcon;
   requestApi: string;
   initialValues?: FormValues;
   showProgress?: boolean;
   stream?: boolean;
   submitLabel?: string;
+  submitLabelKey?: string;
   formPanel: ComponentType<CapabilityFormProps>;
   resultPanel: ComponentType<CapabilityResultProps>;
   transformValues: (

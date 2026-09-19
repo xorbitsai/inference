@@ -51,7 +51,11 @@ const FormContent: FC<FormContentProps> = ({
 
   const isLLM = modelType === ModelType.LLM;
   const renderModelAbilityField = () => {
-    const options = MODEL_ABILITY_OPTIONS_MAP[modelType] || [];
+    const options = (MODEL_ABILITY_OPTIONS_MAP[modelType] || []).map((option) =>
+      option.value === ModelAbility.Docanalyze
+        ? { ...option, label: t('launchModel.docanalyze') }
+        : option
+    );
     const componentType = modelAbilityComponentMap[modelType];
     const handleChange = (
       values: string[],
@@ -96,6 +100,7 @@ const FormContent: FC<FormContentProps> = ({
       <FormField
         name="model_ability"
         label={t('registerModel.modelAbilities')}
+        tooltip={modelType === ModelType.Image ? t('launchModel.docanalyzeDescription') : undefined}
         rules={[{ required: true }]}
       >
         {componentType === 'radio' ? (

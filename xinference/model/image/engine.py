@@ -16,6 +16,7 @@ import platform
 from typing import TYPE_CHECKING
 
 from ..utils import has_cuda_device
+from .docanalyze.mineru25 import Mineru2_5Model
 from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
 from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
 from .sensenova_u1 import SenseNovaU1Model
@@ -34,7 +35,7 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_family not in ("ocr", "sensenova_u1")
+        return model_family.model_family not in ("ocr", "sensenova_u1", "docanalyze")
 
 
 class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
@@ -88,8 +89,34 @@ class SGLangImageModel(SGLangDiffusionModel, ImageEngineModel):
         return model_family.model_name in SGLANG_SUPPORTED_IMAGE_MODELS
 
 
+class TransformersMinerUImageModel(Mineru2_5Model, ImageEngineModel):
+    required_libs = ("torch", "transformers")
+
+    @classmethod
+    def match(cls, model_family):
+        return model_family.model_name == "MinerU2.5"
+
+
+class VLLMMinerUImageModel(Mineru2_5Model, ImageEngineModel):
+    required_libs = ("vllm",)
+
+    @classmethod
+    def match(cls, model_family):
+        return (
+            platform.system() == "Linux"
+            and has_cuda_device()
+            and model_family.model_name == "MinerU2.5"
+        )
+
+
 def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["diffusers"] = [HiDreamO1ImageModel, DiffusersImageModel]
-    SUPPORTED_ENGINES["transformers"] = [TransformersSenseNovaU1ImageModel]
-    SUPPORTED_ENGINES["vLLM"] = [VLLMImageModel]
+    SUPPORTED_ENGINES["transformers"] = [
+        TransformersSenseNovaU1ImageModel,
+        TransformersMinerUImageModel,
+    ]
+    SUPPORTED_ENGINES["vLLM"] = [
+        VLLMImageModel,
+        VLLMMinerUImageModel,
+    ]
     SUPPORTED_ENGINES["SGLang"] = [SGLangImageModel]

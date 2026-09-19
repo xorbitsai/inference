@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { ModelAbility, ModelType, RequestEvents } from '@/constants';
 import { createForm } from '@/hooks/use-form';
+import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { EventStreamController, postEventStreamFetcher } from '@/lib/eventStream';
 import { eventBus } from '@/lib/event-bus';
@@ -65,6 +66,7 @@ function audioFileName(modelName: string, blob: Blob) {
 
 const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTaskPanelProps>(
   ({ config, model, modelUid }, ref) => {
+    const { t } = useI18n();
     const form = useMemo(() => createForm(), []);
     const runTokenRef = useRef(0);
     const activeRequestRef = useRef<
@@ -222,7 +224,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       let requestStarted = false;
       let streamResponseStarted = false;
       const requestPromise = Promise.resolve(
-        config.transformValues({ modelUid, model, values, requestId })
+        config.transformValues({ modelUid, model, values, requestId, t })
       ).then(async (body) => {
         if (runTokenRef.current !== runToken) return;
 
@@ -399,7 +401,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       <div className="flex items-center gap-3">
         <Button type="submit" className="h-11 flex-1 rounded-full" loading={loading}>
           <Sparkles className={cn('size-4', loading && 'hidden')} />
-          {config.submitLabel || 'Generate'}
+          {config.submitLabelKey ? t(config.submitLabelKey) : config.submitLabel || 'Generate'}
         </Button>
         <Button
           type="button"
@@ -427,8 +429,15 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
               <span className="flex size-8 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Icon className="size-4" />
               </span>
-              <h2 className="min-w-0 truncate text-lg font-semibold">{config.label}</h2>
+              <h2 className="min-w-0 truncate text-lg font-semibold">
+                {config.labelKey ? t(config.labelKey) : config.label}
+              </h2>
             </div>
+            {config.descriptionKey && (
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                {t(config.descriptionKey)}
+              </p>
+            )}
           </div>
 
           <Form
