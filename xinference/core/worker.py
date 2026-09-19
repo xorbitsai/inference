@@ -34,6 +34,7 @@ from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
+    Awaitable,
     Callable,
     Dict,
     List,
@@ -42,6 +43,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
     no_type_check,
 )
@@ -141,6 +143,8 @@ if TYPE_CHECKING:
     from .progress_tracker import Progressor
 
 logger = getLogger(__name__)
+
+_T = TypeVar("_T")
 
 # Track which virtualenv paths have already been set up (install_packages +
 # post-install hooks) within the current process lifetime. Maps venv_path to
@@ -1556,6 +1560,75 @@ class WorkerActor(xo.StatelessActor):
             # clear the leader's in-flight initialization.
             self._clear_unregistered_supervisor_refs()
             raise
+
+    async def _run_on_actor_loop(
+        self, coroutine_factory: Callable[[], Awaitable[_T]]
+    ) -> _T:
+        """Run a coroutine factory on the worker actor's event loop."""
+        running_loop = asyncio.get_running_loop()
+        if self._actor_loop is None:
+            # Test/local fallback. Production initializes the actor loop in
+            # __post_create__ before starting the status-reporting isolation.
+            self._actor_loop = running_loop
+            if self._supervisor_init_lock is None:
+                self._supervisor_init_lock = asyncio.Lock()
+
+        if running_loop is self._actor_loop:
+            return await coroutine_factory()
+
+        async def _invoke() -> _T:
+            # Invoke the factory only after execution has moved to the actor
+            # loop. This keeps xoscar coroutine/future creation loop-local.
+            return await coroutine_factory()
+
+        future = asyncio.run_coroutine_threadsafe(_invoke(), self._actor_loop)
+        try:
+            return await asyncio.wrap_future(future)
+        except asyncio.CancelledError:
+            # Do not leave the actor-loop RPC running after the isolation-loop
+            # caller has been cancelled during worker shutdown.
+            future.cancel()
+            raise
+
+    async def _call_supervisor_on_actor_loop(
+        self,
+        method_name: str,
+        *args: Any,
+        add_worker: bool,
+    ) -> Any:
+        """Execute one complete Supervisor RPC lifecycle on the actor loop."""
+        supervisor_ref, supervisor_generation = (
+            await self._get_supervisor_ref_with_generation(add_worker)
+        )
+        try:
+            method = getattr(supervisor_ref, method_name)
+            return await xo.wait_for(
+                method(*args),
+                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self._clear_supervisor_refs(
+                expected_supervisor_ref=supervisor_ref,
+                expected_generation=supervisor_generation,
+            )
+            raise
+
+    async def _call_supervisor(
+        self,
+        method_name: str,
+        *args: Any,
+        add_worker: bool,
+    ) -> Any:
+        """Call Supervisor without creating xoscar clients on isolation loops."""
+        return await self._run_on_actor_loop(
+            lambda: self._call_supervisor_on_actor_loop(
+                method_name,
+                *args,
+                add_worker=add_worker,
+            )
+        )
 
     async def _get_supervisor_ref_on_actor_loop(
         self, add_worker: bool
@@ -5665,33 +5738,26 @@ class WorkerActor(xo.StatelessActor):
             raise
         except Exception:
             logger.exception("Report status got error.")
-        supervisor_ref = None
-        supervisor_generation = None
         try:
-            (
-                supervisor_ref,
-                supervisor_generation,
-            ) = await self._get_supervisor_ref_with_generation()
-            await xo.wait_for(
-                supervisor_ref.report_worker_status(self.address, status),
-                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            await self._call_supervisor(
+                "report_worker_status",
+                self.address,
+                status,
+                add_worker=True,
             )
+        except asyncio.CancelledError:
+            raise
         except Exception:
             logger.warning(
-                "Failed to report worker status, clearing cached supervisor references",
+                "Failed to report worker status, retrying after supervisor "
+                "re-registration",
                 exc_info=True,
             )
-            if supervisor_ref is not None and supervisor_generation is not None:
-                self._clear_supervisor_refs(
-                    expected_supervisor_ref=supervisor_ref,
-                    expected_generation=supervisor_generation,
-                )
-            supervisor_ref, _ = await self._get_supervisor_ref_with_generation(
-                add_worker=True
-            )
-            await xo.wait_for(
-                supervisor_ref.report_worker_status(self.address, status),
-                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            await self._call_supervisor(
+                "report_worker_status",
+                self.address,
+                status,
+                add_worker=True,
             )
 
     async def ping(self) -> bool:
@@ -5711,24 +5777,11 @@ class WorkerActor(xo.StatelessActor):
         next attempt can refresh a supervisor whose internal address changed
         after a restart.
         """
-        (
-            supervisor_ref,
-            supervisor_generation,
-        ) = await self._get_supervisor_ref_with_generation(add_worker=False)
-        try:
-            await xo.wait_for(
-                supervisor_ref.receive_heartbeat(self.address),
-                XINFERENCE_TCP_REQUEST_TIMEOUT,
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            if supervisor_generation is not None:
-                self._clear_supervisor_refs(
-                    expected_supervisor_ref=supervisor_ref,
-                    expected_generation=supervisor_generation,
-                )
-            raise
+        await self._call_supervisor(
+            "receive_heartbeat",
+            self.address,
+            add_worker=False,
+        )
 
     async def _periodical_report_status(self):
         """Periodically send independent heartbeat and full status reports."""
