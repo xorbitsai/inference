@@ -540,6 +540,46 @@ class DummySupervisorRef:
         return None
 
 
+class _ActorLoopThread:
+    def __init__(self):
+        self.loop: Optional[asyncio.AbstractEventLoop] = None
+        self.thread: Optional[threading.Thread] = None
+        self.thread_id: Optional[int] = None
+        self._ready = threading.Event()
+
+    def __enter__(self):
+        def run_loop():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self.loop = loop
+            self.thread_id = threading.get_ident()
+            self._ready.set()
+            try:
+                loop.run_forever()
+            finally:
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
+                loop.close()
+
+        self.thread = threading.Thread(target=run_loop, daemon=True)
+        self.thread.start()
+        assert self._ready.wait(timeout=5)
+        assert self.loop is not None
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        assert self.loop is not None
+        assert self.thread is not None
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join(timeout=5)
+        assert not self.thread.is_alive()
+
+
 class DummyActorRef:
     def __init__(self, address: str):
         self.address = address
@@ -553,10 +593,15 @@ async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
 
     class DummyWorker:
         heartbeat = WorkerActor.heartbeat
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
         _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
 
         def __init__(self):
             self.address = "test://worker"
+            self._actor_loop = None
+            self._supervisor_init_lock = None
             self._supervisor_ref = FailingSupervisorRef()
             self._supervisor_ref_address = "test://supervisor"
             self._supervisor_ref_lock = threading.Lock()
@@ -582,6 +627,181 @@ async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
     assert worker._event_collector_ref is None
     assert worker._cache_tracker_ref is None
     assert worker._progress_tracker_ref is None
+
+
+@pytest.mark.asyncio
+async def test_run_on_actor_loop_invokes_coroutine_factory_after_loop_switch():
+    factory_loops = []
+    coroutine_loops = []
+
+    with _ActorLoopThread() as actor_thread:
+        worker = SimpleNamespace(
+            _actor_loop=actor_thread.loop,
+            _supervisor_init_lock=None,
+        )
+
+        def coroutine_factory():
+            factory_loops.append(asyncio.get_running_loop())
+
+            async def run():
+                coroutine_loops.append(asyncio.get_running_loop())
+                return "ok"
+
+            return run()
+
+        result = await WorkerActor._run_on_actor_loop(worker, coroutine_factory)
+
+        assert result == "ok"
+        assert factory_loops == [actor_thread.loop]
+        assert coroutine_loops == [actor_thread.loop]
+
+
+@pytest.mark.asyncio
+async def test_worker_heartbeat_rpc_runs_on_actor_loop():
+    rpc_loops = []
+    ref_lookup_loops = []
+
+    class SupervisorRef:
+        async def receive_heartbeat(self, worker_address: str):
+            assert worker_address == "test://worker"
+            rpc_loops.append(asyncio.get_running_loop())
+
+    class DummyWorker:
+        heartbeat = WorkerActor.heartbeat
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+
+        def __init__(self, actor_loop):
+            self.address = "test://worker"
+            self._actor_loop = actor_loop
+            self._supervisor_init_lock = None
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert add_worker is False
+            ref_lookup_loops.append(asyncio.get_running_loop())
+            return SupervisorRef(), 1
+
+        def _clear_supervisor_refs(self, **kwargs):
+            pytest.fail("a successful heartbeat must not clear the supervisor ref")
+
+    with _ActorLoopThread() as actor_thread:
+        worker = DummyWorker(actor_thread.loop)
+        caller_loop = asyncio.get_running_loop()
+
+        await worker.heartbeat()
+
+        assert caller_loop is not actor_thread.loop
+        assert ref_lookup_loops == [actor_thread.loop]
+        assert rpc_loops == [actor_thread.loop]
+
+
+@pytest.mark.asyncio
+async def test_worker_report_status_upload_runs_on_actor_loop(monkeypatch):
+    rpc_loops = []
+    ref_lookup_loops = []
+
+    class SupervisorRef:
+        async def report_worker_status(self, worker_address: str, status):
+            rpc_loops.append(asyncio.get_running_loop())
+            assert worker_address == "test://worker"
+            assert status == {"cpu": "ok"}
+
+    class DummyWorker:
+        report_status = WorkerActor.report_status
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+
+        def __init__(self, actor_loop):
+            self.address = "test://worker"
+            self._actor_loop = actor_loop
+            self._supervisor_init_lock = None
+            self._total_gpu_devices = []
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert add_worker is True
+            ref_lookup_loops.append(asyncio.get_running_loop())
+            return SupervisorRef(), 1
+
+        def _clear_supervisor_refs(self, **kwargs):
+            pytest.fail("a successful status upload must not clear the supervisor ref")
+
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
+
+    with _ActorLoopThread() as actor_thread:
+        worker = DummyWorker(actor_thread.loop)
+        caller_loop = asyncio.get_running_loop()
+
+        await worker.report_status()
+
+        assert caller_loop is not actor_thread.loop
+        assert ref_lookup_loops == [actor_thread.loop]
+        assert rpc_loops == [actor_thread.loop]
+
+
+@pytest.mark.asyncio
+async def test_actor_loop_dispatch_cancellation_releases_registration_lock():
+    registration_started = threading.Event()
+    registration_cancelled = threading.Event()
+
+    class DummyWorker:
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
+
+        def __init__(self, actor_loop):
+            self._actor_loop = actor_loop
+            self._supervisor_init_lock = None
+
+        async def _get_supervisor_ref_with_generation(self, add_worker=True):
+            assert add_worker is True
+            if self._supervisor_init_lock is None:
+                self._supervisor_init_lock = asyncio.Lock()
+            try:
+                async with self._supervisor_init_lock:
+                    registration_started.set()
+                    await asyncio.Event().wait()
+            finally:
+                registration_cancelled.set()
+            raise AssertionError("registration wait should be cancelled")
+
+    with _ActorLoopThread() as actor_thread:
+        worker = DummyWorker(actor_thread.loop)
+        task = asyncio.create_task(
+            worker._call_supervisor(
+                "report_worker_status",
+                "test://worker",
+                {},
+                add_worker=True,
+            )
+        )
+        assert await asyncio.to_thread(registration_started.wait, 5)
+
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert await asyncio.to_thread(registration_cancelled.wait, 5)
+
+        async def inspect_actor_loop():
+            current_task = asyncio.current_task()
+            pending_tasks = [
+                task
+                for task in asyncio.all_tasks()
+                if task is not current_task and not task.done()
+            ]
+            assert worker._supervisor_init_lock is not None
+            return worker._supervisor_init_lock.locked(), pending_tasks
+
+        inspection = asyncio.run_coroutine_threadsafe(
+            inspect_actor_loop(), actor_thread.loop
+        )
+        lock_is_held, pending_tasks = await asyncio.wrap_future(inspection)
+
+        assert lock_is_held is False
+        assert pending_tasks == []
 
 
 class DummyReplicaWorkerRef(DummyActorRef):
@@ -3104,6 +3324,9 @@ async def test_periodical_report_status_reregisters_after_heartbeat_failure(
         _clear_unregistered_supervisor_refs = (
             WorkerActor._clear_unregistered_supervisor_refs
         )
+        _run_on_actor_loop = WorkerActor._run_on_actor_loop
+        _call_supervisor_on_actor_loop = WorkerActor._call_supervisor_on_actor_loop
+        _call_supervisor = WorkerActor._call_supervisor
         heartbeat = WorkerActor.heartbeat
         report_status = WorkerActor.report_status
 
