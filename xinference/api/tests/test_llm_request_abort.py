@@ -42,6 +42,83 @@ def _new_api():
     return api
 
 
+async def _create_streaming_response(monkeypatch, kind, source):
+    method = "generate" if kind == "completion" else "chat"
+    model = SimpleNamespace(
+        uid=f"{kind}-model".encode(),
+        abort_request=AsyncMock(return_value="DONE"),
+        decrease_serve_count=AsyncMock(),
+        is_vllm_backend=AsyncMock(return_value=True),
+        **{method: AsyncMock(return_value=source)},
+    )
+
+    async def require_model(*_args, **_kwargs):
+        return model
+
+    monkeypatch.setattr(restful_api, "require_model", require_model)
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    api = _new_api()
+    if kind == "completion":
+        api._get_supervisor_ref = AsyncMock()
+        body = {
+            "model": "completion-model",
+            "prompt": "hello",
+            "stream": True,
+            "request_id": "completion-request",
+        }
+        response = await api.create_completion(_Request(body))
+    else:
+        supervisor = SimpleNamespace(
+            describe_model=AsyncMock(return_value={"model_family": "test-family"})
+        )
+        api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+        body = {
+            "model": "chat-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": True,
+            "request_id": "chat-request",
+        }
+        response = await api.create_chat_completion(_Request(body))
+    return response, model
+
+
+async def _run_asgi_disconnect(response, phase, next_item_started):
+    first_body_started = asyncio.Event()
+
+    async def receive():
+        await first_body_started.wait()
+        if phase == "next_item":
+            await next_item_started.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.body" and message.get("body"):
+            first_body_started.set()
+            if phase == "send":
+                await asyncio.Event().wait()
+
+    await asyncio.wait_for(
+        response({"type": "http", "asgi": {"version": "3.0"}}, receive, send),
+        timeout=5,
+    )
+
+
+def _tracked_stream(*, wait_after_first):
+    closed = asyncio.Event()
+    next_item_started = asyncio.Event()
+
+    async def generate():
+        try:
+            yield b'{"choices": []}'
+            if wait_after_first:
+                next_item_started.set()
+                await asyncio.Event().wait()
+        finally:
+            closed.set()
+
+    return generate(), closed, next_item_started
+
+
 @pytest.mark.asyncio
 async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
     async def disconnected_stream():
@@ -84,6 +161,50 @@ async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
     assert "request_id" not in call.kwargs["raw_params"]
     model.abort_request.assert_awaited_once_with("completion-request")
     model.decrease_serve_count.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("phase", ["send", "next_item"])
+async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, phase):
+    source, closed, next_item_started = _tracked_stream(wait_after_first=True)
+    response, model = await _create_streaming_response(monkeypatch, kind, source)
+
+    await _run_asgi_disconnect(response, phase, next_item_started)
+
+    model.abort_request.assert_awaited_once_with(f"{kind}-request")
+    model.decrease_serve_count.assert_awaited_once()
+    assert closed.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+async def test_explicit_stream_close_aborts_and_cleans_stream(monkeypatch, kind):
+    source, closed, _ = _tracked_stream(wait_after_first=True)
+    response, model = await _create_streaming_response(monkeypatch, kind, source)
+
+    assert await anext(response.body_iterator) == b'{"choices": []}'
+    await response.body_iterator.aclose()
+
+    model.abort_request.assert_awaited_once_with(f"{kind}-request")
+    model.decrease_serve_count.assert_awaited_once()
+    assert closed.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+async def test_normal_stream_completion_does_not_abort(monkeypatch, kind):
+    source, closed, _ = _tracked_stream(wait_after_first=False)
+    response, model = await _create_streaming_response(monkeypatch, kind, source)
+
+    chunks = [chunk async for chunk in response.body_iterator]
+
+    assert chunks[0] == b'{"choices": []}'
+    if kind == "chat":
+        assert chunks[-1] == "[DONE]"
+    model.abort_request.assert_not_awaited()
+    model.decrease_serve_count.assert_awaited_once()
+    assert closed.is_set()
 
 
 @pytest.mark.asyncio

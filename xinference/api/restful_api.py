@@ -25,7 +25,17 @@ import uuid
 import warnings
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Union, get_type_hints
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+    get_type_hints,
+)
 
 import httpx
 import xoscar as xo
@@ -149,6 +159,121 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
     "user-agent",
     "x-request-id",
 }
+
+
+class _SSERequestAbortController:
+    """Abort and close an interrupted model stream exactly once."""
+
+    def __init__(self, model: Any, request_id: str, request: Request, kind: str):
+        self._model = model
+        self._request_id = request_id
+        self._request = request
+        self._kind = kind
+        self._abort_task: Optional[asyncio.Task] = None
+        self._body_iterator: Optional[AsyncIterator[Any]] = None
+
+    def bind_body_iterator(self, body_iterator: AsyncIterator[Any]) -> None:
+        self._body_iterator = body_iterator
+
+    async def abort(self) -> None:
+        if self._abort_task is None:
+            self._abort_task = asyncio.create_task(
+                self._model.abort_request(self._request_id)
+            )
+        try:
+            await asyncio.shield(self._abort_task)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                "Failed to abort disconnected %s request %s",
+                self._kind,
+                self._request_id,
+            )
+
+    async def handle_disconnect(self, _message: Dict[str, Any]) -> None:
+        report_client_disconnect(self._request)
+        logger.info(
+            "Disconnected from client (via refresh/close) %s during %s.",
+            self._request.client,
+            self._kind,
+        )
+        await self.abort()
+
+        # During an ASGI send the generator is suspended at ``yield``, so the
+        # response task itself never receives CancelledError. Close it here to
+        # run its finally block and release the remote iterator immediately.
+        close = getattr(self._body_iterator, "aclose", None)
+        if close is not None:
+            try:
+                await close()
+            except RuntimeError:
+                # The generator may instead be running in __anext__. The task
+                # group cancellation closes it after this callback returns.
+                pass
+            except Exception:
+                logger.debug(
+                    "Failed to close disconnected %s response iterator %s",
+                    self._kind,
+                    self._request_id,
+                    exc_info=True,
+                )
+
+
+def _observe_sse_disconnect(
+    response: EventSourceResponse,
+    handler: Callable[[Dict[str, Any]], Awaitable[None]],
+) -> None:
+    """Attach a disconnect handler across supported sse-starlette versions."""
+
+    if hasattr(response, "client_close_handler_callable"):
+        previous_handler = response.client_close_handler_callable
+
+        async def chained_handler(message: Dict[str, Any]) -> None:
+            await handler(message)
+            if previous_handler is not None:
+                await previous_handler(message)
+
+        response.client_close_handler_callable = chained_handler
+        return
+
+    listener_name = next(
+        (
+            name
+            for name in ("listen_for_disconnect", "_listen_for_disconnect")
+            if hasattr(response, name)
+        ),
+        None,
+    )
+    if listener_name is None:
+        logger.warning(
+            "Cannot abort model requests on SSE disconnects with this sse-starlette version."
+        )
+        return
+
+    previous_listener = getattr(response, listener_name)
+
+    async def listen_for_disconnect(
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+    ) -> None:
+        async def receive_and_abort() -> Dict[str, Any]:
+            message = await receive()
+            if message.get("type") == "http.disconnect":
+                await handler(message)
+            return message
+
+        await previous_listener(receive_and_abort)
+
+    setattr(response, listener_name, listen_for_disconnect)
+
+
+async def _close_async_iterator(iterator: Any) -> None:
+    close = getattr(iterator, "aclose", None)
+    if close is None:
+        return
+    result = close()
+    if inspect.isawaitable(result):
+        await result
 
 
 def _request_credential(request: Request) -> str:
@@ -1763,9 +1888,14 @@ class RESTfulAPI(CancelMixin):
             model_call_kwargs["request_id"] = request_id
 
         if body.stream:
+            abort_controller = _SSERequestAbortController(
+                model, request_id, request, "generate"
+            )
 
             async def stream_results():
                 iterator = None
+                observed_iterator = None
+                completed = False
                 try:
                     try:
                         iterator = await model.generate(
@@ -1775,24 +1905,20 @@ class RESTfulAPI(CancelMixin):
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
-                    async for item in observe_stream(
+                    observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
                         failure_origin=FailureOrigin.MODEL_GENERATOR,
-                    ):
+                    )
+                    async for item in observed_iterator:
                         yield item
+                    completed = True
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during generate."
                     )
-                    try:
-                        await asyncio.shield(model.abort_request(request_id))
-                    except Exception:
-                        logger.exception(
-                            "Failed to abort disconnected completion request %s",
-                            request_id,
-                        )
+                    await abort_controller.abort()
                     return
                 except Exception as ex:
                     report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
@@ -1803,6 +1929,17 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
+                    if not completed:
+                        await abort_controller.abort()
+                    if observed_iterator is not None:
+                        try:
+                            await _close_async_iterator(observed_iterator)
+                        except Exception:
+                            logger.debug(
+                                "Failed to close completion stream %s",
+                                request_id,
+                                exc_info=True,
+                            )
                     if iterator is not None:
                         from xoscar.api import IteratorWrapper
 
@@ -1813,9 +1950,13 @@ class RESTfulAPI(CancelMixin):
                         ):
                             await model.decrease_serve_count()
 
-            return EventSourceResponse(
-                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            body_iterator = stream_results()
+            response = EventSourceResponse(
+                body_iterator, ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
             )
+            abort_controller.bind_body_iterator(body_iterator)
+            _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+            return response
         else:
             try:
                 data = await model.generate(
@@ -3629,9 +3770,14 @@ class RESTfulAPI(CancelMixin):
         if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
+            abort_controller = _SSERequestAbortController(
+                model, request_id, request, "chat"
+            )
 
             async def stream_results():
                 iterator = None
+                observed_iterator = None
+                completed = False
                 try:
                     try:
                         iterator = await model.chat(
@@ -3642,12 +3788,14 @@ class RESTfulAPI(CancelMixin):
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
-                    async for item in observe_stream(
+                    observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
                         failure_origin=FailureOrigin.MODEL_GENERATOR,
-                    ):
+                    )
+                    async for item in observed_iterator:
                         yield item
+                    completed = True
                     yield "[DONE]"
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
@@ -3657,12 +3805,7 @@ class RESTfulAPI(CancelMixin):
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during chat."
                     )
-                    try:
-                        await asyncio.shield(model.abort_request(request_id))
-                    except Exception:
-                        logger.exception(
-                            "Failed to abort disconnected chat request %s", request_id
-                        )
+                    await abort_controller.abort()
                     # See https://github.com/sysid/sse-starlette/blob/main/examples/error_handling.py#L13
                     # Use return to stop the generator from continuing.
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
@@ -3676,6 +3819,17 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
+                    if not completed:
+                        await abort_controller.abort()
+                    if observed_iterator is not None:
+                        try:
+                            await _close_async_iterator(observed_iterator)
+                        except Exception:
+                            logger.debug(
+                                "Failed to close chat stream %s",
+                                request_id,
+                                exc_info=True,
+                            )
                     if iterator is not None:
                         from xoscar.api import IteratorWrapper
 
@@ -3686,9 +3840,13 @@ class RESTfulAPI(CancelMixin):
                         ):
                             await model.decrease_serve_count()
 
-            return EventSourceResponse(
-                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            body_iterator = stream_results()
+            response = EventSourceResponse(
+                body_iterator, ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
             )
+            abort_controller.bind_body_iterator(body_iterator)
+            _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+            return response
         else:
             try:
                 data = await model.chat(
