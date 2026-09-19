@@ -25,8 +25,19 @@ import uuid
 import warnings
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Union, get_type_hints
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+    get_type_hints,
+)
 
+import anyio
 import httpx
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
@@ -149,6 +160,198 @@ _TOKEN_ROUTER_REQUEST_HEADERS = {
     "user-agent",
     "x-request-id",
 }
+
+
+class _SSERequestAbortController:
+    """Abort and close an interrupted model stream exactly once."""
+
+    def __init__(self, model: Any, request_id: str, request: Request, kind: str):
+        self._model = model
+        self._request_id = request_id
+        self._request = request
+        self._kind = kind
+        self._abort_task: Optional[asyncio.Task] = None
+        self._body_iterator: Optional[AsyncIterator[Any]] = None
+        self._stream_task: Optional[asyncio.Task] = None
+
+    def bind_body_iterator(self, body_iterator: AsyncIterator[Any]) -> None:
+        self._body_iterator = body_iterator
+
+    def bind_stream_task(self) -> None:
+        self._stream_task = asyncio.current_task()
+
+    async def abort(self) -> None:
+        if self._abort_task is None:
+            self._abort_task = asyncio.create_task(
+                self._model.abort_request(self._request_id)
+            )
+        try:
+            await asyncio.shield(self._abort_task)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                "Failed to abort disconnected %s request %s",
+                self._kind,
+                self._request_id,
+            )
+
+    async def handle_disconnect(self, _message: Dict[str, Any]) -> None:
+        with anyio.CancelScope(shield=True):
+            report_client_disconnect(self._request)
+            logger.info(
+                "Disconnected from client (via refresh/close) %s during %s.",
+                self._request.client,
+                self._kind,
+            )
+            await self.abort()
+
+            # Cancel and join the response's stream task before the disconnect
+            # listener returns. EventSourceResponse cancels its AnyIO task
+            # group after this callback, which is too late for cleanup code
+            # containing cancellation checkpoints.
+            stream_task = self._stream_task
+            if (
+                stream_task is not None
+                and stream_task is not asyncio.current_task()
+                and not stream_task.done()
+            ):
+                stream_task.cancel()
+                try:
+                    await stream_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    logger.debug(
+                        "Disconnected %s stream task %s failed during cleanup",
+                        self._kind,
+                        self._request_id,
+                        exc_info=True,
+                    )
+
+            # During an ASGI send the generator is suspended at ``yield``, so
+            # the response task itself never receives CancelledError. Close it
+            # here to run its finally block and release the remote iterator.
+            close = getattr(self._body_iterator, "aclose", None)
+            if close is not None:
+                try:
+                    await close()
+                except RuntimeError:
+                    # The generator may instead be running in __anext__. The
+                    # task-group cancellation closes it after this returns.
+                    pass
+                except Exception:
+                    logger.debug(
+                        "Failed to close disconnected %s response iterator %s",
+                        self._kind,
+                        self._request_id,
+                        exc_info=True,
+                    )
+
+
+def _observe_sse_disconnect(
+    response: EventSourceResponse,
+    handler: Callable[[Dict[str, Any]], Awaitable[None]],
+) -> None:
+    """Attach a disconnect handler across supported sse-starlette versions."""
+
+    if hasattr(response, "client_close_handler_callable"):
+        previous_handler = response.client_close_handler_callable
+
+        async def chained_handler(message: Dict[str, Any]) -> None:
+            await handler(message)
+            if previous_handler is not None:
+                await previous_handler(message)
+
+        response.client_close_handler_callable = chained_handler
+        return
+
+    listener_name = next(
+        (
+            name
+            for name in ("listen_for_disconnect", "_listen_for_disconnect")
+            if hasattr(response, name)
+        ),
+        None,
+    )
+    if listener_name is None:
+        logger.warning(
+            "Cannot abort model requests on SSE disconnects with this sse-starlette version."
+        )
+        return
+
+    previous_listener = getattr(response, listener_name)
+
+    async def listen_for_disconnect(
+        receive: Callable[[], Awaitable[Dict[str, Any]]],
+    ) -> None:
+        async def receive_and_abort() -> Dict[str, Any]:
+            message = await receive()
+            if message.get("type") == "http.disconnect":
+                await handler(message)
+            return message
+
+        await previous_listener(receive_and_abort)
+
+    setattr(response, listener_name, listen_for_disconnect)
+
+
+async def _close_async_iterator(iterator: Any) -> None:
+    close = getattr(iterator, "aclose", None)
+    if close is None:
+        return
+    result = close()
+    if inspect.isawaitable(result):
+        await result
+
+
+async def _cleanup_model_stream(
+    *,
+    abort_controller: _SSERequestAbortController,
+    interrupted: bool,
+    observed_iterator: Any,
+    model_iterator: Any,
+    model: Any,
+    request_id: str,
+    kind: str,
+) -> None:
+    """Finish all stream cleanup even under AnyIO task-group cancellation."""
+
+    from xoscar.api import IteratorWrapper
+
+    with anyio.CancelScope(shield=True):
+        if interrupted:
+            try:
+                await abort_controller.abort()
+            except (asyncio.CancelledError, Exception):
+                logger.exception(
+                    "Failed to abort interrupted %s request %s", kind, request_id
+                )
+
+        try:
+            if observed_iterator is not None:
+                await _close_async_iterator(observed_iterator)
+        except (asyncio.CancelledError, Exception):
+            logger.debug(
+                "Failed to close %s stream %s",
+                kind,
+                request_id,
+                exc_info=True,
+            )
+        finally:
+            if model_iterator is not None and (
+                inspect.isasyncgen(model_iterator)
+                or inspect.isgenerator(model_iterator)
+                or isinstance(model_iterator, IteratorWrapper)
+            ):
+                try:
+                    await model.decrease_serve_count()
+                except (asyncio.CancelledError, Exception):
+                    logger.exception(
+                        "Failed to release serve count for %s request %s",
+                        kind,
+                        request_id,
+                    )
 
 
 def _request_credential(request: Request) -> str:
@@ -1735,6 +1938,7 @@ class RESTfulAPI(CancelMixin):
         }
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+        request_id = str(kwargs.get("request_id") or uuid.uuid4().hex)
 
         # guided_decoding params
         kwargs.update(self.extract_guided_params(raw_body=raw_body))
@@ -1754,29 +1958,46 @@ class RESTfulAPI(CancelMixin):
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
+        is_vllm_backend = await model.is_vllm_backend()
+        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        if is_vllm_backend:
+            kwargs.pop("request_id", None)
+            raw_kwargs.pop("request_id", None)
+            model_call_kwargs["request_id"] = request_id
 
         if body.stream:
+            abort_controller = _SSERequestAbortController(
+                model, request_id, request, "generate"
+            )
 
             async def stream_results():
+                abort_controller.bind_stream_task()
                 iterator = None
+                observed_iterator = None
+                completed = False
                 try:
                     try:
                         iterator = await model.generate(
-                            body.prompt, kwargs, raw_params=raw_kwargs
+                            body.prompt,
+                            kwargs,
+                            **model_call_kwargs,
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
-                    async for item in observe_stream(
+                    observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
                         failure_origin=FailureOrigin.MODEL_GENERATOR,
-                    ):
+                    )
+                    async for item in observed_iterator:
                         yield item
+                    completed = True
                 except asyncio.CancelledError as exc:
                     report_client_disconnect(request, exc)
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during generate."
                     )
+                    await abort_controller.abort()
                     return
                 except Exception as ex:
                     report_stream_failure(request, ex, FailureOrigin.MODEL_GENERATOR)
@@ -1787,22 +2008,30 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    if iterator is not None:
-                        from xoscar.api import IteratorWrapper
+                    await _cleanup_model_stream(
+                        abort_controller=abort_controller,
+                        interrupted=not completed,
+                        observed_iterator=observed_iterator,
+                        model_iterator=iterator,
+                        model=model,
+                        request_id=request_id,
+                        kind="completion",
+                    )
 
-                        if (
-                            inspect.isasyncgen(iterator)
-                            or inspect.isgenerator(iterator)
-                            or isinstance(iterator, IteratorWrapper)
-                        ):
-                            await model.decrease_serve_count()
-
-            return EventSourceResponse(
-                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            body_iterator = stream_results()
+            response = EventSourceResponse(
+                body_iterator, ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
             )
+            abort_controller.bind_body_iterator(body_iterator)
+            _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+            return response
         else:
             try:
-                data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
+                data = await model.generate(
+                    body.prompt,
+                    kwargs,
+                    **model_call_kwargs,
+                )
                 return Response(data, media_type="application/json")
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
@@ -3514,6 +3743,7 @@ class RESTfulAPI(CancelMixin):
 
         raw_kwargs = {k: v for k, v in raw_body.items() if k not in exclude}
         kwargs = body.dict(exclude_unset=True, exclude=exclude)
+        request_id = str(kwargs.get("request_id") or uuid.uuid4().hex)
 
         enable_thinking = raw_body.get("enable_thinking")
         if enable_thinking is None:
@@ -3590,6 +3820,12 @@ class RESTfulAPI(CancelMixin):
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
+        is_vllm_backend = await model.is_vllm_backend()
+        model_call_kwargs: Dict[str, Any] = {"raw_params": raw_kwargs}
+        if is_vllm_backend:
+            kwargs.pop("request_id", None)
+            raw_kwargs.pop("request_id", None)
+            model_call_kwargs["request_id"] = request_id
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
@@ -3657,28 +3893,36 @@ class RESTfulAPI(CancelMixin):
             except MessageRoleOrderError as ve:
                 raise HTTPException(status_code=400, detail=str(ve))
 
-        if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
+        if "skip_special_tokens" in raw_kwargs and is_vllm_backend:
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
+            abort_controller = _SSERequestAbortController(
+                model, request_id, request, "chat"
+            )
 
             async def stream_results():
+                abort_controller.bind_stream_task()
                 iterator = None
+                observed_iterator = None
+                completed = False
                 try:
                     try:
                         iterator = await model.chat(
                             messages,
                             kwargs,
-                            raw_params=raw_kwargs,
+                            **model_call_kwargs,
                         )
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
-                    async for item in observe_stream(
+                    observed_iterator = observe_stream(
                         iterator,
                         get_stream_outcome_reporter(request),
                         failure_origin=FailureOrigin.MODEL_GENERATOR,
-                    ):
+                    )
+                    async for item in observed_iterator:
                         yield item
+                    completed = True
                     yield "[DONE]"
                 # Note that asyncio.CancelledError does not inherit from Exception.
                 # When the user uses ctrl+c to cancel the streaming chat, asyncio.CancelledError would be triggered.
@@ -3688,6 +3932,7 @@ class RESTfulAPI(CancelMixin):
                     logger.info(
                         f"Disconnected from client (via refresh/close) {request.client} during chat."
                     )
+                    await abort_controller.abort()
                     # See https://github.com/sysid/sse-starlette/blob/main/examples/error_handling.py#L13
                     # Use return to stop the generator from continuing.
                     # TODO: Cannot yield here. Yield here would leads to error for the next streaming request.
@@ -3701,25 +3946,29 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    if iterator is not None:
-                        from xoscar.api import IteratorWrapper
+                    await _cleanup_model_stream(
+                        abort_controller=abort_controller,
+                        interrupted=not completed,
+                        observed_iterator=observed_iterator,
+                        model_iterator=iterator,
+                        model=model,
+                        request_id=request_id,
+                        kind="chat",
+                    )
 
-                        if (
-                            inspect.isasyncgen(iterator)
-                            or inspect.isgenerator(iterator)
-                            or isinstance(iterator, IteratorWrapper)
-                        ):
-                            await model.decrease_serve_count()
-
-            return EventSourceResponse(
-                stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
+            body_iterator = stream_results()
+            response = EventSourceResponse(
+                body_iterator, ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
             )
+            abort_controller.bind_body_iterator(body_iterator)
+            _observe_sse_disconnect(response, abort_controller.handle_disconnect)
+            return response
         else:
             try:
                 data = await model.chat(
                     messages,
                     kwargs,
-                    raw_params=raw_kwargs,
+                    **model_call_kwargs,
                 )
                 return Response(content=data, media_type="application/json")
             except Exception as e:
