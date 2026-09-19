@@ -379,10 +379,32 @@ def test_streaming_serializes_request_until_generator_finishes(monkeypatch, mode
     assert second_prepare_entered.is_set()
 
 
-def test_builtin_catalog_has_huggingface_and_modelscope_sources():
+@pytest.mark.parametrize(
+    "system, processor, supports_mlx",
+    [
+        ("linux", "x86_64", False),
+        ("linux", "arm", False),
+        ("win32", "AMD64", False),
+        ("darwin", "i386", False),
+        ("darwin", "arm", True),
+    ],
+)
+def test_builtin_catalog_has_huggingface_and_modelscope_sources(
+    monkeypatch, system, processor, supports_mlx
+):
+    import platform
+    import sys
+
     models = {}
-    load_model_family_from_json("model_spec.json", models)
-    specs = models["Breeze-TTS-2"]
+    with monkeypatch.context() as patch:
+        patch.setattr(sys, "platform", system)
+        patch.setattr(platform, "processor", lambda: processor)
+        load_model_family_from_json("model_spec.json", models)
+    mlx_specs = [spec for spec in models["Breeze-TTS-2"] if spec.engine == "MLX"]
+    assert {spec.model_hub for spec in mlx_specs} == (
+        {"huggingface", "modelscope"} if supports_mlx else set()
+    )
+    specs = [spec for spec in models["Breeze-TTS-2"] if spec.engine == "PyTorch"]
 
     assert {spec.model_hub: (spec.model_id, spec.model_revision) for spec in specs} == {
         "huggingface": ("BreezeBlue/Breeze-TTS-2", "main"),
@@ -407,6 +429,8 @@ def test_flash_attention_dependency_is_added_only_when_requested():
     load_model_family_from_json("model_spec.json", models)
 
     for spec in models["Breeze-TTS-2"]:
+        if spec.engine != "PyTorch":
+            continue
         registered_packages = spec.virtualenv.packages.copy()
         eager_model = BreezeTTS2Model("eager", "/models/breeze", spec)
         flash_model = BreezeTTS2Model(
@@ -424,6 +448,11 @@ def test_flash_attention_dependency_is_added_only_when_requested():
 def test_create_audio_model_instance_dispatches_breeze(monkeypatch, model_spec):
     from .. import core
 
+    models = {}
+    load_model_family_from_json("model_spec.json", models)
+    model_spec = next(
+        spec for spec in models["Breeze-TTS-2"] if spec.engine == "PyTorch"
+    )
     monkeypatch.setattr(core, "match_audio", lambda *args, **kwargs: model_spec)
     model = create_audio_model_instance(
         "breeze", "Breeze-TTS-2", model_path="/models/breeze"

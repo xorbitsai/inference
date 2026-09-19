@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Tuple, Union
 
 from ..utils import has_cuda_device, virtual_env_allows_missing_engine
 from .ace_step import AceStepModel, is_ace_step_python_supported
+from .breeze_tts import BreezeTTS2Model
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -62,6 +63,7 @@ MLX_AUDIO_STT_MODEL_NAMES = {
 }
 
 MLX_AUDIO_TTS_MODEL_NAMES = {
+    "Breeze-TTS-2",
     "FishAudio-S2-Pro",
     "Irodori-TTS-v4.1-Small",
     "MeloTTS-English",
@@ -172,6 +174,23 @@ class PyTorchFishAudioModel(FishSpeechModel, AudioEngineModel):
         return (
             model_family.model_name == "FishAudio-S2-Pro"
             and model_family.model_family == "FishAudio"
+        )
+
+
+class PyTorchBreezeAudioModel(BreezeTTS2Model, AudioEngineModel):
+    required_libs = ("torch",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return cls.is_model_family_supported(
+            model_family
+        ) and _is_engine_or_unspecified(model_family, "PyTorch")
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            model_family.model_name == "Breeze-TTS-2"
+            and model_family.model_family == "Breeze-TTS-2"
         )
 
 
@@ -420,6 +439,7 @@ def register_builtin_audio_engines() -> None:
         PyTorchF5TTSAudioModel,
         PyTorchKokoroAudioModel,
         PyTorchFishAudioModel,
+        PyTorchBreezeAudioModel,
         PyTorchIrodoriAudioModel,
         PyTorchFunASRAudioModel,
         PyTorchQwen3TTSAudioModel,

@@ -3074,7 +3074,8 @@
   {
     "version": 2,
     "model_name": "Breeze-TTS-2",
-    "model_description": "Breeze TTS 2 supports bilingual voice design, voice cloning, voice direction, and low-latency streaming on NVIDIA CUDA GPUs. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
+    "engine": "PyTorch",
+    "model_description": "Breeze TTS 2 supports English/Chinese voice design, voice cloning, and voice direction. PyTorch supports streaming on NVIDIA CUDA GPUs; MLX uses an 8-bit checkpoint on Apple Silicon without streaming in Xinference. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
     "model_family": "Breeze-TTS-2",
     "model_ability": [
       "text2audio",
@@ -3105,6 +3106,39 @@
       }
     },
     "updated_at": 1787961433,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Breeze-TTS-2",
+    "cache_name": "Breeze-TTS-2-MLX",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_family": "Breeze-TTS-2",
+    "model_description": "Breeze TTS 2 supports English/Chinese voice design, voice cloning, and voice direction. PyTorch supports streaming on NVIDIA CUDA GPUs; MLX uses an 8-bit checkpoint on Apple Silicon without streaming in Xinference. Model weights and self-hosted outputs are restricted to research and non-commercial use by the BreezeBlue model license.",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.5.1 ; #engine# == \"MLX\"",
+        "soundfile ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Breeze-TTS-2-mlx-8bit",
+        "model_revision": "c6e4a2ff6ab9afba68b7853de802273ffe23fb49"
+      },
+      "modelscope": {
+        "model_id": "mlx-community/Breeze-TTS-2-mlx-8bit",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1789776000,
     "featured": false
   },
   {
