@@ -513,6 +513,43 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             max_new_tokens = generate_kwargs.pop("max_new_tokens", None)
             if max_new_tokens is not None:
                 generate_kwargs.setdefault("max_tokens", max_new_tokens)
+        elif model_family == "Breeze-TTS-2":
+            from .breeze_tts import _DEFAULT_INSTRUCTION, _validate_cfg_scale
+
+            instruction = generate_kwargs.pop("instruction", None)
+            instruction = instruct or instruction
+            if instruction is not None:
+                instruction = str(instruction).strip()
+            if prompt_text is not None:
+                prompt_text = str(prompt_text).strip()
+            ref_audio = prompt_audio_path or reference_audio_path
+            if ref_audio and not prompt_text:
+                raise ValueError(
+                    "Breeze-TTS-2 requires the reference audio transcript in "
+                    "`prompt_text` when reference audio is provided."
+                )
+            if not ref_audio:
+                instruction = instruction or prompt_text
+            guidance_scale = generate_kwargs.pop("guidance_scale", None)
+            cfg_scale = generate_kwargs.pop("cfg_scale", None)
+            if cfg_scale is None:
+                cfg_scale = guidance_scale if guidance_scale is not None else 1.0
+            max_new_tokens = generate_kwargs.pop("max_new_tokens", None)
+            if max_new_tokens is not None:
+                generate_kwargs.setdefault("max_tokens", max_new_tokens)
+            speaker = generate_kwargs.pop("speaker", None)
+            generate_kwargs.update(
+                text=input,
+                voice=speaker
+                or (voice if voice not in self._OPENAI_VOICES else None)
+                or "S0",
+                instruct=instruction or _DEFAULT_INSTRUCTION,
+                cfg_scale=_validate_cfg_scale(cfg_scale),
+                ref_audio=ref_audio,
+                ref_text=prompt_text if ref_audio else None,
+            )
+            if speed != 1.0:
+                logger.warning("Breeze-TTS-2 does not support speed; ignoring it")
         elif model_family == "Irodori-TTS":
             caption = generate_kwargs.pop("caption", None)
             instruction = generate_kwargs.pop("instruction", None)
