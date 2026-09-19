@@ -44,10 +44,16 @@ def _new_api():
 
 async def _create_streaming_response(monkeypatch, kind, source):
     method = "generate" if kind == "completion" else "chat"
+    decrease_completed = asyncio.Event()
+
+    async def decrease_serve_count():
+        await asyncio.sleep(0)
+        decrease_completed.set()
+
     model = SimpleNamespace(
         uid=f"{kind}-model".encode(),
         abort_request=AsyncMock(return_value="DONE"),
-        decrease_serve_count=AsyncMock(),
+        decrease_serve_count=AsyncMock(side_effect=decrease_serve_count),
         is_vllm_backend=AsyncMock(return_value=True),
         **{method: AsyncMock(return_value=source)},
     )
@@ -79,7 +85,7 @@ async def _create_streaming_response(monkeypatch, kind, source):
             "request_id": "chat-request",
         }
         response = await api.create_chat_completion(_Request(body))
-    return response, model
+    return response, model, decrease_completed
 
 
 async def _run_asgi_disconnect(response, phase, next_item_started):
@@ -114,6 +120,7 @@ def _tracked_stream(*, wait_after_first):
                 next_item_started.set()
                 await asyncio.Event().wait()
         finally:
+            await asyncio.sleep(0)
             closed.set()
 
     return generate(), closed, next_item_started
@@ -168,20 +175,25 @@ async def test_completion_disconnect_aborts_propagated_request_id(monkeypatch):
 @pytest.mark.parametrize("phase", ["send", "next_item"])
 async def test_real_sse_disconnect_aborts_and_cleans_stream(monkeypatch, kind, phase):
     source, closed, next_item_started = _tracked_stream(wait_after_first=True)
-    response, model = await _create_streaming_response(monkeypatch, kind, source)
+    response, model, decrease_completed = await _create_streaming_response(
+        monkeypatch, kind, source
+    )
 
     await _run_asgi_disconnect(response, phase, next_item_started)
 
     model.abort_request.assert_awaited_once_with(f"{kind}-request")
     model.decrease_serve_count.assert_awaited_once()
     assert closed.is_set()
+    assert decrease_completed.is_set()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["completion", "chat"])
 async def test_explicit_stream_close_aborts_and_cleans_stream(monkeypatch, kind):
     source, closed, _ = _tracked_stream(wait_after_first=True)
-    response, model = await _create_streaming_response(monkeypatch, kind, source)
+    response, model, decrease_completed = await _create_streaming_response(
+        monkeypatch, kind, source
+    )
 
     assert await anext(response.body_iterator) == b'{"choices": []}'
     await response.body_iterator.aclose()
@@ -189,13 +201,16 @@ async def test_explicit_stream_close_aborts_and_cleans_stream(monkeypatch, kind)
     model.abort_request.assert_awaited_once_with(f"{kind}-request")
     model.decrease_serve_count.assert_awaited_once()
     assert closed.is_set()
+    assert decrease_completed.is_set()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["completion", "chat"])
 async def test_normal_stream_completion_does_not_abort(monkeypatch, kind):
     source, closed, _ = _tracked_stream(wait_after_first=False)
-    response, model = await _create_streaming_response(monkeypatch, kind, source)
+    response, model, decrease_completed = await _create_streaming_response(
+        monkeypatch, kind, source
+    )
 
     chunks = [chunk async for chunk in response.body_iterator]
 
@@ -205,6 +220,34 @@ async def test_normal_stream_completion_does_not_abort(monkeypatch, kind):
     model.abort_request.assert_not_awaited()
     model.decrease_serve_count.assert_awaited_once()
     assert closed.is_set()
+    assert decrease_completed.is_set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+async def test_iterator_close_failure_still_releases_serve_count(monkeypatch, kind):
+    close_attempted = asyncio.Event()
+
+    async def failing_close_stream():
+        try:
+            yield b'{"choices": []}'
+            await asyncio.Event().wait()
+        finally:
+            await asyncio.sleep(0)
+            close_attempted.set()
+            raise RuntimeError("close failed")
+
+    response, model, decrease_completed = await _create_streaming_response(
+        monkeypatch, kind, failing_close_stream()
+    )
+
+    assert await anext(response.body_iterator) == b'{"choices": []}'
+    await response.body_iterator.aclose()
+
+    model.abort_request.assert_awaited_once_with(f"{kind}-request")
+    model.decrease_serve_count.assert_awaited_once()
+    assert close_attempted.is_set()
+    assert decrease_completed.is_set()
 
 
 @pytest.mark.asyncio

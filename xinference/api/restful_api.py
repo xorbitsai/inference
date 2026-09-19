@@ -37,6 +37,7 @@ from typing import (
     get_type_hints,
 )
 
+import anyio
 import httpx
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
@@ -171,9 +172,13 @@ class _SSERequestAbortController:
         self._kind = kind
         self._abort_task: Optional[asyncio.Task] = None
         self._body_iterator: Optional[AsyncIterator[Any]] = None
+        self._stream_task: Optional[asyncio.Task] = None
 
     def bind_body_iterator(self, body_iterator: AsyncIterator[Any]) -> None:
         self._body_iterator = body_iterator
+
+    def bind_stream_task(self) -> None:
+        self._stream_task = asyncio.current_task()
 
     async def abort(self) -> None:
         if self._abort_task is None:
@@ -192,32 +197,56 @@ class _SSERequestAbortController:
             )
 
     async def handle_disconnect(self, _message: Dict[str, Any]) -> None:
-        report_client_disconnect(self._request)
-        logger.info(
-            "Disconnected from client (via refresh/close) %s during %s.",
-            self._request.client,
-            self._kind,
-        )
-        await self.abort()
+        with anyio.CancelScope(shield=True):
+            report_client_disconnect(self._request)
+            logger.info(
+                "Disconnected from client (via refresh/close) %s during %s.",
+                self._request.client,
+                self._kind,
+            )
+            await self.abort()
 
-        # During an ASGI send the generator is suspended at ``yield``, so the
-        # response task itself never receives CancelledError. Close it here to
-        # run its finally block and release the remote iterator immediately.
-        close = getattr(self._body_iterator, "aclose", None)
-        if close is not None:
-            try:
-                await close()
-            except RuntimeError:
-                # The generator may instead be running in __anext__. The task
-                # group cancellation closes it after this callback returns.
-                pass
-            except Exception:
-                logger.debug(
-                    "Failed to close disconnected %s response iterator %s",
-                    self._kind,
-                    self._request_id,
-                    exc_info=True,
-                )
+            # Cancel and join the response's stream task before the disconnect
+            # listener returns. EventSourceResponse cancels its AnyIO task
+            # group after this callback, which is too late for cleanup code
+            # containing cancellation checkpoints.
+            stream_task = self._stream_task
+            if (
+                stream_task is not None
+                and stream_task is not asyncio.current_task()
+                and not stream_task.done()
+            ):
+                stream_task.cancel()
+                try:
+                    await stream_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    logger.debug(
+                        "Disconnected %s stream task %s failed during cleanup",
+                        self._kind,
+                        self._request_id,
+                        exc_info=True,
+                    )
+
+            # During an ASGI send the generator is suspended at ``yield``, so
+            # the response task itself never receives CancelledError. Close it
+            # here to run its finally block and release the remote iterator.
+            close = getattr(self._body_iterator, "aclose", None)
+            if close is not None:
+                try:
+                    await close()
+                except RuntimeError:
+                    # The generator may instead be running in __anext__. The
+                    # task-group cancellation closes it after this returns.
+                    pass
+                except Exception:
+                    logger.debug(
+                        "Failed to close disconnected %s response iterator %s",
+                        self._kind,
+                        self._request_id,
+                        exc_info=True,
+                    )
 
 
 def _observe_sse_disconnect(
@@ -274,6 +303,55 @@ async def _close_async_iterator(iterator: Any) -> None:
     result = close()
     if inspect.isawaitable(result):
         await result
+
+
+async def _cleanup_model_stream(
+    *,
+    abort_controller: _SSERequestAbortController,
+    interrupted: bool,
+    observed_iterator: Any,
+    model_iterator: Any,
+    model: Any,
+    request_id: str,
+    kind: str,
+) -> None:
+    """Finish all stream cleanup even under AnyIO task-group cancellation."""
+
+    from xoscar.api import IteratorWrapper
+
+    with anyio.CancelScope(shield=True):
+        if interrupted:
+            try:
+                await abort_controller.abort()
+            except (asyncio.CancelledError, Exception):
+                logger.exception(
+                    "Failed to abort interrupted %s request %s", kind, request_id
+                )
+
+        try:
+            if observed_iterator is not None:
+                await _close_async_iterator(observed_iterator)
+        except (asyncio.CancelledError, Exception):
+            logger.debug(
+                "Failed to close %s stream %s",
+                kind,
+                request_id,
+                exc_info=True,
+            )
+        finally:
+            if model_iterator is not None and (
+                inspect.isasyncgen(model_iterator)
+                or inspect.isgenerator(model_iterator)
+                or isinstance(model_iterator, IteratorWrapper)
+            ):
+                try:
+                    await model.decrease_serve_count()
+                except (asyncio.CancelledError, Exception):
+                    logger.exception(
+                        "Failed to release serve count for %s request %s",
+                        kind,
+                        request_id,
+                    )
 
 
 def _request_credential(request: Request) -> str:
@@ -1893,6 +1971,7 @@ class RESTfulAPI(CancelMixin):
             )
 
             async def stream_results():
+                abort_controller.bind_stream_task()
                 iterator = None
                 observed_iterator = None
                 completed = False
@@ -1929,26 +2008,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    if not completed:
-                        await abort_controller.abort()
-                    if observed_iterator is not None:
-                        try:
-                            await _close_async_iterator(observed_iterator)
-                        except Exception:
-                            logger.debug(
-                                "Failed to close completion stream %s",
-                                request_id,
-                                exc_info=True,
-                            )
-                    if iterator is not None:
-                        from xoscar.api import IteratorWrapper
-
-                        if (
-                            inspect.isasyncgen(iterator)
-                            or inspect.isgenerator(iterator)
-                            or isinstance(iterator, IteratorWrapper)
-                        ):
-                            await model.decrease_serve_count()
+                    await _cleanup_model_stream(
+                        abort_controller=abort_controller,
+                        interrupted=not completed,
+                        observed_iterator=observed_iterator,
+                        model_iterator=iterator,
+                        model=model,
+                        request_id=request_id,
+                        kind="completion",
+                    )
 
             body_iterator = stream_results()
             response = EventSourceResponse(
@@ -3775,6 +3843,7 @@ class RESTfulAPI(CancelMixin):
             )
 
             async def stream_results():
+                abort_controller.bind_stream_task()
                 iterator = None
                 observed_iterator = None
                 completed = False
@@ -3819,26 +3888,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    if not completed:
-                        await abort_controller.abort()
-                    if observed_iterator is not None:
-                        try:
-                            await _close_async_iterator(observed_iterator)
-                        except Exception:
-                            logger.debug(
-                                "Failed to close chat stream %s",
-                                request_id,
-                                exc_info=True,
-                            )
-                    if iterator is not None:
-                        from xoscar.api import IteratorWrapper
-
-                        if (
-                            inspect.isasyncgen(iterator)
-                            or inspect.isgenerator(iterator)
-                            or isinstance(iterator, IteratorWrapper)
-                        ):
-                            await model.decrease_serve_count()
+                    await _cleanup_model_stream(
+                        abort_controller=abort_controller,
+                        interrupted=not completed,
+                        observed_iterator=observed_iterator,
+                        model_iterator=iterator,
+                        model=model,
+                        request_id=request_id,
+                        kind="chat",
+                    )
 
             body_iterator = stream_results()
             response = EventSourceResponse(
