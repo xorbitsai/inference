@@ -394,6 +394,41 @@ def test_mlx_breeze_arguments_and_reference_cleanup(
         assert not os.path.exists(captured["path"])
 
 
+@pytest.mark.parametrize(
+    "payload, expected",
+    [
+        ({"instruct": "  Calm voice  "}, "Calm voice"),
+        ({"instruction": 123}, "123"),
+        ({"instruct": "   "}, "Speak clearly and naturally."),
+        ({"prompt_text": "  Calm voice  "}, "Calm voice"),
+        ({"prompt_text": 123}, "123"),
+    ],
+)
+def test_mlx_breeze_normalizes_instruction(payload, expected):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    kwargs = model._build_generation_kwargs("Hello", "", 1.0, payload, [])
+    assert kwargs["instruct"] == expected
+
+
+@pytest.mark.parametrize(
+    "transcript, expected", [(123, "123"), ("  Hello  ", "Hello"), ("  ", None)]
+)
+def test_mlx_breeze_normalizes_reference_transcript(monkeypatch, transcript, expected):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    monkeypatch.setattr(model, "_save_temp_audio", lambda audio: "/fake/reference.wav")
+    request = {"prompt_speech": b"reference", "prompt_text": transcript}
+    if expected is None:
+        with pytest.raises(ValueError, match="transcript"):
+            model._build_generation_kwargs("Hello", "", 1.0, request, [])
+    else:
+        kwargs = model._build_generation_kwargs("Hello", "", 1.0, request, [])
+        assert kwargs["ref_text"] == expected
+
+
 def test_mlx_breeze_parameter_precedence_and_validation():
     model = MLXAudioTTSModel(
         "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")

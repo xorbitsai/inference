@@ -518,8 +518,12 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
 
             instruction = generate_kwargs.pop("instruction", None)
             instruction = instruct or instruction
+            if instruction is not None:
+                instruction = str(instruction).strip()
+            if prompt_text is not None:
+                prompt_text = str(prompt_text).strip()
             ref_audio = prompt_audio_path or reference_audio_path
-            if ref_audio and not (prompt_text and prompt_text.strip()):
+            if ref_audio and not prompt_text:
                 raise ValueError(
                     "Breeze-TTS-2 requires the reference audio transcript in "
                     "`prompt_text` when reference audio is provided."
