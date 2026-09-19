@@ -368,6 +368,7 @@ class PytorchModelConfig(TypedDict, total=False):
     max_num_seqs: int
     enable_tensorizer: Optional[bool]
     reasoning_content: bool
+    enable_thinking: bool
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
     downsample_mode: NotRequired[str]
