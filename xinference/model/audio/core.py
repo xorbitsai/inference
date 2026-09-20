@@ -196,6 +196,12 @@ def match_audio(
             family.quantization is not None for family in model_families
         ):
             selected_quantization = (quantization or "none").lower()
+            if quantization is None:
+                available_quantizations = {
+                    (family.quantization or "none").lower() for family in model_families
+                }
+                if len(available_quantizations) == 1:
+                    selected_quantization = next(iter(available_quantizations))
             quantized_families = [
                 family
                 for family in model_families
@@ -279,7 +285,7 @@ def create_audio_model_instance(
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_name, model_engine = resolve_audio_model_name_and_engine(
-        model_name, model_engine
+        model_name, model_engine, use_default_engine=model_name == "MiniMax-Music3"
     )
     model_spec = match_audio(
         model_name,
@@ -297,7 +303,9 @@ def create_audio_model_instance(
         model_spec.model_family == "minimax_music3"
         and model_spec.model_name not in AUDIO_ENGINES
     ):
-        raise ValueError("MiniMax-Music3 requires an NVIDIA CUDA device.")
+        raise ValueError(
+            "MiniMax-Music3 requires an NVIDIA CUDA device or Apple Silicon MLX."
+        )
 
     if model_spec.model_family == "yue2" and model_spec.model_name not in AUDIO_ENGINES:
         raise ValueError("YuE2 requires an NVIDIA CUDA device.")

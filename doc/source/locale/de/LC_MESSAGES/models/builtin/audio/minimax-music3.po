@@ -1,0 +1,56 @@
+# MiniMax-Music3 model documentation.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-09-20 10:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: de\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "MiniMax-Music3"
+msgstr "MiniMax-Music3"
+
+msgid "**Model Name:** MiniMax-Music3"
+msgstr "**Modellname:** MiniMax-Music3"
+
+msgid "**Model Family:** minimax_music3"
+msgstr "**Modellfamilie:** minimax_music3"
+
+msgid "**Abilities:** ['text2music']"
+msgstr "**Fähigkeiten:** ['text2music']"
+
+msgid "**Multilingual:** True"
+msgstr "**Mehrsprachig:** True"
+
+msgid "Specifications"
+msgstr "Spezifikationen"
+
+msgid "**diffusers (none) model ID:** MiniMaxAI/MiniMax-Music3"
+msgstr "**diffusers (none) Modell-ID:** MiniMaxAI/MiniMax-Music3"
+
+msgid "**MLX (8-bit) model ID:** mlx-community/MiniMax-Music3-8bit"
+msgstr "**MLX (8-bit) Modell-ID:** mlx-community/MiniMax-Music3-8bit"
+
+msgid "Execute the following command to launch the model::"
+msgstr "Führen Sie den folgenden Befehl aus, um das Modell zu starten::"
+
+msgid "Available engines"
+msgstr "Verfügbare Engines"
+
+msgid "``diffusers``"
+msgstr "``diffusers``"
+
+msgid "``MLX``"
+msgstr "``MLX``"
+
+msgid "Available quantizations by engine"
+msgstr "Verfügbare Quantisierungen nach Engine"
+
+msgid "``diffusers``: ``none``"
+msgstr "``diffusers``: ``none``"
+
+msgid "``MLX``: ``8-bit``"
+msgstr "``MLX``: ``8-bit``"
