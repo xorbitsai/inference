@@ -285,7 +285,7 @@ def create_audio_model_instance(
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_name, model_engine = resolve_audio_model_name_and_engine(
-        model_name, model_engine, use_default_engine=model_name == "MiniMax-Music3"
+        model_name, model_engine, use_default_engine=True
     )
     model_spec = match_audio(
         model_name,

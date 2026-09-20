@@ -586,6 +586,25 @@ def test_breeze_engine_sources(apple_mlx_engines, hub):
 
 
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_default_engine_selects_matching_weights(apple_mlx_engines, monkeypatch, hub):
+    name = "Breeze-TTS-2"
+    # Keep the PyTorch spec first, but make MLX the only available engine.
+    monkeypatch.setitem(AUDIO_ENGINES, name, {"MLX": AUDIO_ENGINES[name]["MLX"]})
+    model = create_audio_model_instance(
+        "uid",
+        name,
+        model_path="/fake/path",
+        download_hub=hub,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, MLXAudioTTSEngineModel)
+    assert model.model_family.model_engine == "MLX"
+    assert model.model_family.model_id == "mlx-community/Breeze-TTS-2-mlx-8bit"
+    assert model.model_family.model_hub == hub
+    assert model.model_family.cache_name == "Breeze-TTS-2-MLX"
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
 @pytest.mark.parametrize("engine", [None, "MLX"])
 @pytest.mark.parametrize("quantization", [None, "8-bit"])
 def test_minimax_mlx_default_uses_mlx_weights(
