@@ -41,8 +41,8 @@ export function CorrelatedDialog({
     setLoading(true);
     setFailed(false);
     const params = new URLSearchParams({ request_id: requestId });
-    const anchor = new Date(String(anchorTimestamp || ''));
-    if (!Number.isNaN(anchor.getTime())) {
+    const anchor = anchorTimestamp ? new Date(String(anchorTimestamp)) : null;
+    if (anchor && !Number.isNaN(anchor.getTime())) {
       const windowMs = 24 * 60 * 60 * 1000;
       params.set('time_from', new Date(anchor.getTime() - windowMs).toISOString());
       params.set('time_to', new Date(anchor.getTime() + windowMs).toISOString());

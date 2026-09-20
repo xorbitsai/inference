@@ -53,10 +53,17 @@ export function LogDetail({
   const [correlatedOpen, setCorrelatedOpen] = useState(false);
   const [requestBodyOpen, setRequestBodyOpen] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyRequestIdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyRequestIdTimerRef.current) clearTimeout(copyRequestIdTimerRef.current);
     };
   }, []);
 
@@ -102,17 +109,17 @@ export function LogDetail({
   const requestId = typeof row.request_id === 'string' ? row.request_id : '';
   const canReadRequestBody = Boolean(
     requestId &&
-    clusterAuth?.auth !== false &&
-    clusterUIConfig?.auth_advanced &&
-    menuAuth.canReadModelRequestBody
+    (clusterAuth?.auth === false ||
+      !clusterUIConfig?.auth_advanced ||
+      menuAuth.canReadModelRequestBody)
   );
 
   const handleCopyRequestId = () => {
     if (!requestId) return;
     copyToClipboard(requestId);
     setRequestIdCopied(true);
-    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
-    copyTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
+    if (copyRequestIdTimerRef.current) clearTimeout(copyRequestIdTimerRef.current);
+    copyRequestIdTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
   };
 
   return (

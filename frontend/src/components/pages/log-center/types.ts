@@ -28,6 +28,7 @@ export type LogRow = Record<string, unknown> & {
   status_code?: number;
   elapsed_ms?: number;
   success?: boolean;
+  stream?: boolean;
   error?: { type?: string; message?: string };
 };
 
