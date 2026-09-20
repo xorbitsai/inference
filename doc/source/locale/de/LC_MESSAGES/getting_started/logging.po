@@ -164,3 +164,7 @@ msgstr ""
 #: ../../source/getting_started/logging.rst:153
 msgid "Correlation metadata is propagated independently across REST API, Supervisor, Worker, ModelActor, PD, cancellation, and progress actor calls. Actor log records can include ``correlation_id``, ``operation_request_id``, ``actor_call_id``, and ``parent_call_id``. The correlation ID is observability-only; the operation request ID retains its existing cancellation, progress, batching, and backend abort semantics. Xinference consumes the internal metadata envelope at actor boundaries and does not pass it to model implementations."
 msgstr ""
+
+#: ../../source/getting_started/logging.rst:137
+msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
+msgstr ""

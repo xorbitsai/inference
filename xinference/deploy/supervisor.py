@@ -94,6 +94,7 @@ def main(
             host=host,
             port=port,
             logging_conf=logging_conf,
+            api_role="supervisor",
         )
     finally:
         local_cluster.kill()
