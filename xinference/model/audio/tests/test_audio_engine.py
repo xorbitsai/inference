@@ -42,6 +42,7 @@ from ..engine import (
     MLXF5TTSAudioModel,
     MLXKokoroAudioModel,
     MLXWhisperAudioModel,
+    PyTorchBreezeAudioModel,
     PyTorchF5TTSAudioModel,
     PyTorchFishAudioModel,
     PyTorchFunASRAudioModel,
@@ -191,6 +192,7 @@ def apple_mlx_engines():
         "whisper-tiny",
         "F5-TTS",
         "FishAudio-S2-Pro",
+        "Breeze-TTS-2",
         "Irodori-TTS-v4.1-Small",
         "Kokoro-82M",
         "SenseVoiceSmall",
@@ -405,6 +407,7 @@ def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
         "F5-TTS": ["PyTorch", "MLX"],
         "FishAudio-S2-Pro": ["PyTorch", "MLX"],
         "Irodori-TTS-v4.1-Small": ["PyTorch", "MLX"],
+        "Breeze-TTS-2": ["PyTorch", "MLX"],
         "Kokoro-82M": ["PyTorch", "MLX"],
         "SenseVoiceSmall": ["PyTorch", "MLX"],
         "Fun-ASR-Nano-2512": ["PyTorch", "MLX"],
@@ -550,6 +553,33 @@ def test_irodori_engine_sources_and_quantized_pytorch(apple_mlx_engines, hub):
                 'mlx-audio[tts]==0.5.0 ; #engine# == "MLX"' in spec.virtualenv.packages
             )
             assert spec.cache_config is None
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_breeze_engine_sources(apple_mlx_engines, hub):
+    for engine, cls, model_id in (
+        (None, PyTorchBreezeAudioModel, "BreezeBlue/Breeze-TTS-2"),
+        ("PyTorch", PyTorchBreezeAudioModel, "BreezeBlue/Breeze-TTS-2"),
+        ("MLX", MLXAudioTTSEngineModel, "mlx-community/Breeze-TTS-2-mlx-8bit"),
+    ):
+        model = create_audio_model_instance(
+            "uid",
+            "Breeze-TTS-2",
+            model_path="/fake/path",
+            download_hub=hub,
+            model_engine=engine,
+            enable_virtual_env=False,
+        )
+        assert isinstance(model, cls)
+        assert model.model_family.model_id == model_id
+        assert model.model_family.model_hub == hub
+        if engine == "MLX":
+            assert model.model_family.cache_name == "Breeze-TTS-2-MLX"
+            assert model.model_family.cache_config is None
+            assert (
+                'mlx-audio[tts]==0.5.1 ; #engine# == "MLX"'
+                in model.model_family.virtualenv.packages
+            )
 
 
 def test_audio_engine_variants_keep_separate_cache_paths(apple_mlx_engines):

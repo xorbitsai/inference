@@ -336,6 +336,174 @@ def test_mlx_audio_irodori_voice_design_and_cloning(
         assert not os.path.exists(captured["path"])
 
 
+@pytest.mark.parametrize(
+    "instruction_key", [None, "instruct", "instruction", "prompt_text"]
+)
+@pytest.mark.parametrize("reference_key", [None, "prompt_speech", "reference_speech"])
+def test_mlx_breeze_arguments_and_reference_cleanup(
+    monkeypatch, instruction_key, reference_key
+):
+    from .. import utils
+
+    monkeypatch.setattr(
+        utils, "apply_mlx_audio_seed", lambda kwargs: kwargs.pop("seed", None)
+    )
+    captured = {}
+
+    class FakeModel:
+        def generate(
+            self, *, text, voice, instruct, cfg_scale, ref_audio, ref_text, max_tokens
+        ):
+            assert text == "Hello"
+            assert voice == "S0"
+            expected_instruction = (
+                "Calm voice" if instruction_key else "Speak clearly and naturally."
+            )
+            if reference_key and instruction_key == "prompt_text":
+                expected_instruction = "Speak clearly and naturally."
+            assert instruct == expected_instruction
+            assert cfg_scale == 4
+            assert max_tokens == 99
+            if reference_key:
+                assert ref_text == "Reference transcript"
+                captured["path"] = ref_audio
+                with open(ref_audio, "rb") as audio_file:
+                    assert audio_file.read() == b"reference"
+            else:
+                assert ref_audio is None and ref_text is None
+            yield SimpleNamespace(
+                audio=np.zeros(240, dtype=np.float32), sample_rate=24000
+            )
+
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    model._model = FakeModel()
+    kwargs = {"seed": 42, "guidance_scale": 4, "max_new_tokens": 99}
+    if instruction_key:
+        kwargs[instruction_key] = "Calm voice"
+    if reference_key:
+        kwargs.update(
+            {reference_key: b"reference", "prompt_text": "Reference transcript"}
+        )
+    result = model.speech("Hello", "alloy", response_format="wav", **kwargs)
+    with wave.open(BytesIO(result), "rb") as wav_file:
+        assert wav_file.getframerate() == 24000
+        assert wav_file.getnframes() == 240
+    if reference_key:
+        assert not os.path.exists(captured["path"])
+
+
+@pytest.mark.parametrize(
+    "payload, expected",
+    [
+        ({"instruct": "  Calm voice  "}, "Calm voice"),
+        ({"instruction": 123}, "123"),
+        ({"instruct": "   "}, "Speak clearly and naturally."),
+        ({"prompt_text": "  Calm voice  "}, "Calm voice"),
+        ({"prompt_text": 123}, "123"),
+    ],
+)
+def test_mlx_breeze_normalizes_instruction(payload, expected):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    kwargs = model._build_generation_kwargs("Hello", "", 1.0, payload, [])
+    assert kwargs["instruct"] == expected
+
+
+@pytest.mark.parametrize(
+    "transcript, expected", [(123, "123"), ("  Hello  ", "Hello"), ("  ", None)]
+)
+def test_mlx_breeze_normalizes_reference_transcript(monkeypatch, transcript, expected):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    monkeypatch.setattr(model, "_save_temp_audio", lambda audio: "/fake/reference.wav")
+    request = {"prompt_speech": b"reference", "prompt_text": transcript}
+    if expected is None:
+        with pytest.raises(ValueError, match="transcript"):
+            model._build_generation_kwargs("Hello", "", 1.0, request, [])
+    else:
+        kwargs = model._build_generation_kwargs("Hello", "", 1.0, request, [])
+        assert kwargs["ref_text"] == expected
+
+
+@pytest.mark.parametrize(
+    "voice, expected",
+    [
+        ("alloy", "S0"),
+        ("Alloy", "S0"),
+        ("ALLOY", "S0"),
+        ("Echo", "S0"),
+        ("", "S0"),
+        (None, "S0"),
+        ("S1", "S1"),
+    ],
+)
+def test_mlx_breeze_voice_aliases(voice, expected):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    kwargs = model._build_generation_kwargs("Hello", voice, 1.0, {}, [])
+    assert kwargs["voice"] == expected
+    kwargs = model._build_generation_kwargs("Hello", voice, 1.0, {"speaker": "S2"}, [])
+    assert kwargs["voice"] == "S2"
+
+
+def test_mlx_breeze_parameter_precedence_and_validation():
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    kwargs = model._build_generation_kwargs(
+        "Hello",
+        "S1",
+        1.0,
+        {
+            "instruct": "Calm",
+            "instruction": "Ignored",
+            "cfg_scale": 2,
+            "guidance_scale": 4,
+            "max_tokens": 100,
+            "max_new_tokens": 200,
+        },
+        [],
+    )
+    assert kwargs == {
+        "text": "Hello",
+        "voice": "S1",
+        "instruct": "Calm",
+        "cfg_scale": 2.0,
+        "ref_audio": None,
+        "ref_text": None,
+        "max_tokens": 100,
+    }
+    for scale in (0, -1, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="cfg_scale"):
+            model._build_generation_kwargs("Hello", "", 1.0, {"cfg_scale": scale}, [])
+
+
+def test_mlx_breeze_rejects_missing_transcript_and_cleans_temp_audio(monkeypatch):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    model._model = object()
+    paths = []
+    save = model._save_temp_audio
+
+    def capture(audio):
+        path = save(audio)
+        paths.append(path)
+        return path
+
+    monkeypatch.setattr(model, "_save_temp_audio", capture)
+    with pytest.raises(ValueError, match="transcript"):
+        model.speech("Hello", "", prompt_speech=b"reference")
+    assert paths and all(not os.path.exists(path) for path in paths)
+    with pytest.raises(RuntimeError, match="Streaming"):
+        model.speech("Hello", "", stream=True)
+
+
 def test_mlx_audio_tts_qwen_splits_and_joins_long_text():
     class FakeModel:
         calls = None

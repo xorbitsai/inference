@@ -1,0 +1,47 @@
+# Breeze-TTS-2 model documentation.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-09-19 10:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: ja\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Breeze-TTS-2"
+msgstr "Breeze-TTS-2"
+
+msgid "**Model Name:** Breeze-TTS-2"
+msgstr "**モデル名:** Breeze-TTS-2"
+
+msgid "**Model Family:** Breeze-TTS-2"
+msgstr "**モデルファミリー:** Breeze-TTS-2"
+
+msgid "**Abilities:** ['text2audio', 'text2audio_voice_design', 'text2audio_voice_cloning']"
+msgstr "**機能:** ['text2audio', 'text2audio_voice_design', 'text2audio_voice_cloning']"
+
+msgid "**Multilingual:** True"
+msgstr "**多言語:** True"
+
+msgid "Specifications"
+msgstr "仕様"
+
+msgid "**PyTorch model ID:** BreezeBlue/Breeze-TTS-2"
+msgstr "**PyTorch モデル ID:** BreezeBlue/Breeze-TTS-2"
+
+msgid "**MLX model ID:** mlx-community/Breeze-TTS-2-mlx-8bit"
+msgstr "**MLX モデル ID:** mlx-community/Breeze-TTS-2-mlx-8bit"
+
+msgid "Execute the following command to launch the model::"
+msgstr "次のコマンドを実行してモデルを起動します::"
+
+msgid "Available engines"
+msgstr "利用可能なエンジン"
+
+msgid "``PyTorch``"
+msgstr "``PyTorch``"
+
+msgid "``MLX``"
+msgstr "``MLX``"
