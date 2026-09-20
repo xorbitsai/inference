@@ -628,10 +628,20 @@ async def reset_monitor_config(request: Request) -> JSONResponse:
 
 
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
-_TEXT_FIELDS = {"message"}
+_TEXT_FIELDS = {"message", "error.message"}
+_LOG_SOURCE_EXCLUDES = ["@version", "request_body", "request_body_raw"]
+_LOG_SEARCH_TEXT_FIELDS = ["message", "error.message"]
+_LOG_SEARCH_KEYWORD_FIELDS = [
+    "request_id",
+    "correlation_id",
+    "endpoint",
+    "model_uid",
+    "event_type",
+]
 _ES_PIT_KEEP_ALIVE = "1m"
 _ES_SEARCH_AFTER_BATCH_SIZE = 5000
 _ES_MAX_SEARCH_AFTER_REQUESTS = 10
+_CORRELATED_LOG_MAX_TIME_RANGE = timedelta(days=7)
 
 
 def _get_es_total(data: dict[str, Any]) -> int:
@@ -833,12 +843,31 @@ async def search_logs(
     ]
 
     if q:
+        keyword_pattern = f"*{_escape_es_wildcard(q)}*"
         must.append(
             {
-                "simple_query_string": {
-                    "query": q,
-                    "fields": ["message"],
-                    "default_operator": "AND",
+                "bool": {
+                    "should": [
+                        {
+                            "simple_query_string": {
+                                "query": q,
+                                "fields": _LOG_SEARCH_TEXT_FIELDS,
+                                "default_operator": "AND",
+                            }
+                        },
+                        *[
+                            {
+                                "wildcard": {
+                                    field: {
+                                        "value": keyword_pattern,
+                                        "case_insensitive": True,
+                                    }
+                                }
+                            }
+                            for field in _LOG_SEARCH_KEYWORD_FIELDS
+                        ],
+                    ],
+                    "minimum_should_match": 1,
                 }
             }
         )
@@ -915,7 +944,7 @@ async def search_logs(
                 query=query,
                 page_from=page_from,
                 size=size,
-                source={"excludes": ["@version"]},
+                source={"excludes": _LOG_SOURCE_EXCLUDES},
                 error_context="ES log query",
             )
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
@@ -1016,7 +1045,7 @@ async def search_logs_context(
         },
         "sort": [{"@timestamp": "desc"}],
         "size": size + 1,
-        "_source": {"excludes": ["@version"]},
+        "_source": {"excludes": _LOG_SOURCE_EXCLUDES},
     }
 
     newer_body: dict[str, Any] = {
@@ -1030,7 +1059,7 @@ async def search_logs_context(
         },
         "sort": [{"@timestamp": "asc"}],
         "size": size + 1,
-        "_source": {"excludes": ["@version"]},
+        "_source": {"excludes": _LOG_SOURCE_EXCLUDES},
     }
 
     headers = {"Content-Type": "application/json"}
@@ -1098,6 +1127,186 @@ async def search_logs_context(
             "has_more_newer": has_more_newer,
         }
     )
+
+
+def _validate_request_id(request_id: str) -> str:
+    request_id = request_id.strip()
+    if (
+        not request_id
+        or len(request_id) > 256
+        or any(ord(char) < 32 or ord(char) == 127 for char in request_id)
+    ):
+        raise HTTPException(status_code=400, detail="Invalid request_id")
+    return request_id
+
+
+def _es_headers_and_auth(es_auth: str) -> tuple[dict[str, str], Any]:
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+    return headers, auth
+
+
+async def search_correlated_logs(
+    request_id: str = Query(...),
+    time_from: str = "now-24h",
+    time_to: str = "now",
+    size: int = 500,
+) -> JSONResponse:
+    """Return a cross-node, cross-log-type timeline for one request."""
+
+    request_id = _validate_request_id(request_id)
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    time_from, time_to = _freeze_es_time_bounds(time_from, time_to)
+    parsed_time_from = _parse_relative_time(time_from)
+    parsed_time_to = _parse_relative_time(time_to)
+    if parsed_time_from is None or parsed_time_to is None:
+        raise HTTPException(status_code=400, detail="Invalid correlated log time range")
+    if parsed_time_from.tzinfo is None:
+        parsed_time_from = parsed_time_from.replace(tzinfo=timezone.utc)
+    if parsed_time_to.tzinfo is None:
+        parsed_time_to = parsed_time_to.replace(tzinfo=timezone.utc)
+    if (
+        parsed_time_to < parsed_time_from
+        or parsed_time_to - parsed_time_from > _CORRELATED_LOG_MAX_TIME_RANGE
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Correlated log time range must not exceed 7 days",
+        )
+    size = max(1, min(size, 1000))
+    body = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"term": {"request_id": request_id}},
+                    {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}},
+                ]
+            }
+        },
+        "sort": [{"@timestamp": "asc"}],
+        "size": size + 1,
+        "_source": {"excludes": _LOG_SOURCE_EXCLUDES},
+    }
+    headers, auth = _es_headers_and_auth(os.environ.get("XINFERENCE_ES_AUTH", ""))
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error(
+                        "ES correlated log query failed: status=%d body=%s",
+                        resp.status,
+                        text[:500],
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
+                data = await resp.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES correlated log connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    raw_hits = [hit.get("_source", {}) for hit in data.get("hits", {}).get("hits", [])]
+    return JSONResponse(
+        content={
+            "hits": raw_hits[:size],
+            "total": _get_es_total(data),
+            "truncated": len(raw_hits) > size,
+            "request_id": request_id,
+        }
+    )
+
+
+async def get_model_request_body(
+    request_id: str,
+    api: "RESTfulAPI" = Depends(get_api),
+) -> JSONResponse:
+    """Return the protected request body for one request-start event."""
+
+    # Without authentication there is no identity to which the sensitive-body
+    # permission can be granted, so metadata stays available but body access is
+    # denied by default.
+    if not api.is_authenticated():
+        raise HTTPException(status_code=403, detail="Request body access is disabled")
+
+    request_id = _validate_request_id(request_id)
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+    es_index = os.environ.get(
+        "XINFERENCE_MODEL_REQUEST_ES_INDEX", "xinference-model-request-*"
+    )
+    body = {
+        "query": {
+            "bool": {
+                "filter": [{"term": {"request_id": request_id}}],
+                "should": [
+                    {"term": {"event_type": "model_request_started"}},
+                    {"term": {"event": "model_request_started"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+        "sort": [{"@timestamp": "asc"}],
+        "size": 1,
+        "_source": {
+            "includes": [
+                "request_id",
+                "event_type",
+                "event",
+                "endpoint",
+                "model_uid",
+                "api_protocol",
+                "request_body",
+                "request_body_raw",
+                "request_body_omitted",
+            ]
+        },
+    }
+    headers, auth = _es_headers_and_auth(os.environ.get("XINFERENCE_ES_AUTH", ""))
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error(
+                        "ES model request body query failed: status=%d body=%s",
+                        resp.status,
+                        text[:500],
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
+                data = await resp.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES model request body connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    hits = data.get("hits", {}).get("hits", [])
+    if not hits:
+        raise HTTPException(status_code=404, detail="Model request body not found")
+    source = hits[0].get("_source", {})
+    return JSONResponse(content=source)
 
 
 # --- Route registration ---
@@ -1854,6 +2063,24 @@ def register_routes(api: "RESTfulAPI") -> None:
         search_logs_context,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs/correlated",
+        search_correlated_logs,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/model-requests/{request_id}/body",
+        get_model_request_body,
+        methods=["GET"],
+        dependencies=(
+            [Security(auth, scopes=["logs:list", "model_requests:read_body"])]
+            if is_auth
+            else None
+        ),
     )
 
     router.add_api_route(

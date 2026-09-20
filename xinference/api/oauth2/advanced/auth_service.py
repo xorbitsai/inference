@@ -87,6 +87,7 @@ INITIAL_ADMIN_PERMISSIONS = [
     "virtualenv:list",
     "virtualenv:delete",
     "logs:list",
+    "model_requests:read_body",
     "monitor:view",
     "settings:read",
     "settings:write",

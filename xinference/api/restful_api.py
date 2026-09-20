@@ -824,7 +824,12 @@ class RESTfulAPI(CancelMixin):
             model_type = getattr(request.state, "_audit_model_type", "")
             self._record_audit(request, model_uid, model_type, audit_status, latency_s)
         elif self._advanced_auth_service and request.url.path.startswith(
-            ("/v1/models", "/v1/admin", "/v1/token_routers")
+            (
+                "/v1/models",
+                "/v1/admin",
+                "/v1/token_routers",
+                "/v1/cluster/model-requests/",
+            )
         ):
             from .oauth2.advanced.audit import classify_endpoint
 
