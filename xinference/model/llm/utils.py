@@ -1005,7 +1005,7 @@ class ChatModelMixin:
             )
         else:
             finish_reason = c["choices"][0]["finish_reason"]
-            delta_text = c["choices"][0]["delta"]["content"]
+            delta_text = c["choices"][0]["delta"].get("content") or ""
             current_text = (
                 previous_texts[-1] + delta_text if previous_texts else delta_text
             )

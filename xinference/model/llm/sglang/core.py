@@ -59,6 +59,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     tp_size: int
     mem_fraction_static: float
     log_level: str
+    launch_timeout: float
     attention_reduce_in_fp32: bool  # For gemma
     quantization: Optional[str]
     dtype: Optional[str]
@@ -67,6 +68,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     node_rank: Optional[int]
     dist_init_addr: Optional[str]
     reasoning_content: bool
+    enable_thinking: bool
     # engine-neutral speculative decoding options, translated into the
     # speculative_* server args below and never forwarded to the engine as-is
     draft_model_path: Optional[str]
@@ -145,6 +147,7 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "HunYuanDenseV1ForCausalLM",
     "HYV3ForCausalLM",
     "Spark2_5ForCausalLM",
+    "BailingMoeV3ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
@@ -156,6 +159,8 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen3_5MoeForConditionalGeneration",
     "MiniMaxM3SparseForConditionalGeneration",
 ]
+
+LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 
 
 class SGLANGModel(LLM):
@@ -286,6 +291,11 @@ class SGLANGModel(LLM):
                 **self._model_config,
             )
 
+    def _get_launch_timeout(self) -> float:
+        if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
+            return LING3_FLASH_SGLANG_LAUNCH_TIMEOUT
+        return 300.0
+
     def wait_for_load(self):
         if self._loading_thread:
             if self._shard == 0:
@@ -391,7 +401,10 @@ class SGLANGModel(LLM):
             else:
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
+        model_config.setdefault("launch_timeout", self._get_launch_timeout())
         model_config.setdefault("reasoning_content", False)
+        if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
+            model_config.setdefault("enable_thinking", True)
         self._apply_fp4_config(model_config)
 
         return model_config
@@ -950,18 +963,23 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
+        is_ling3 = llm_family.has_architecture("BailingMoeV3ForCausalLM")
+        supported_formats = ["pytorch", "gptq", "awq", "fp8", "bnb"]
+        if is_ling3:
+            supported_formats.append("fp4")
+        if llm_spec.model_format not in supported_formats:
             return (
                 False,
-                "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
+                f"SGLang chat engine supports {'/'.join(supported_formats)} formats only",
             )
-        if llm_spec.model_format == "fp4":
+        if llm_spec.model_format == "fp4" and not is_ling3:
             return (
                 False,
                 "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
             )
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            offline_ling_int4 = is_ling3 and quantization == "Int4"
+            if quantization not in (None, "none") and not offline_ling_int4:
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang chat",
