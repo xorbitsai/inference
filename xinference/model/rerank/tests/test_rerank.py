@@ -20,6 +20,48 @@ import tempfile
 import pytest
 
 from ....client import Client
+from ..sentence_transformers.core import _get_causal_lm_rerank_forward_kwargs
+
+
+def test_causal_lm_rerank_forward_kwargs_use_supported_memory_optimizations():
+    class QwenLikeModel:
+        def forward(self, input_ids, logits_to_keep=0, use_cache=True):
+            pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(QwenLikeModel()) == {
+        "logits_to_keep": 1,
+        "use_cache": False,
+    }
+
+
+def test_causal_lm_rerank_forward_kwargs_preserve_legacy_models():
+    class LegacyModel:
+        def forward(self, input_ids):
+            pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(LegacyModel()) == {}
+
+
+def test_causal_lm_rerank_forward_kwargs_handles_missing_forward():
+    class ModelWithoutForward:
+        pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(ModelWithoutForward()) == {}
+
+
+def test_causal_lm_rerank_forward_kwargs_handles_uninspectable_forward():
+    class UninspectableForward:
+        @property
+        def __signature__(self):
+            raise ValueError("signature unavailable")
+
+        def __call__(self, input_ids):
+            pass
+
+    class WrappedModel:
+        forward = UninspectableForward()
+
+    assert _get_causal_lm_rerank_forward_kwargs(WrappedModel()) == {}
 
 
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])

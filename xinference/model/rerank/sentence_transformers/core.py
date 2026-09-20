@@ -46,6 +46,24 @@ from ..utils import preprocess_sentence
 logger = logging.getLogger(__name__)
 
 
+def _get_causal_lm_rerank_forward_kwargs(model: Any) -> Dict[str, Any]:
+    """Return safe forward optimizations supported by a causal LM reranker."""
+    forward = getattr(model, "forward", None)
+    if forward is None:
+        return {}
+    try:
+        parameters = inspect.signature(forward).parameters
+    except (TypeError, ValueError):
+        return {}
+
+    kwargs: Dict[str, Any] = {}
+    if "logits_to_keep" in parameters:
+        kwargs["logits_to_keep"] = 1
+    if "use_cache" in parameters:
+        kwargs["use_cache"] = False
+    return kwargs
+
+
 class SentenceTransformerRerankModel(RerankModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
         RerankModel.__init__(self, *args, **kwargs)
@@ -268,10 +286,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
 
             token_false_id = tokenizer.convert_tokens_to_ids("no")
             token_true_id = tokenizer.convert_tokens_to_ids("yes")
+            rerank_forward_kwargs = _get_causal_lm_rerank_forward_kwargs(model)
 
             @torch.inference_mode()
             def compute_logits(inputs, **kwargs):
-                batch_scores = model(**inputs).logits[:, -1, :]
+                batch_scores = model(**inputs, **rerank_forward_kwargs).logits[:, -1, :]
                 true_vector = batch_scores[:, token_true_id]
                 false_vector = batch_scores[:, token_false_id]
                 batch_scores = torch.stack([false_vector, true_vector], dim=1)
