@@ -1,4 +1,4 @@
-"""Read-only LLM launch recommendations; no capacity or launch guarantee."""
+"""Read-only launch recommendations; no capacity or launch guarantee."""
 
 import re
 from decimal import Decimal
@@ -75,13 +75,24 @@ class RecommendationConstraints(BaseModel):
 
 class ModelRecommendationRequest(BaseModel):
     model_name: str
-    model_type: Literal["LLM"] = "LLM"
+    model_type: Literal["LLM", "embedding", "rerank", "audio"] = "LLM"
     constraints: RecommendationConstraints = Field(
         default_factory=RecommendationConstraints
     )
 
     class Config:
         extra = "forbid"
+
+    @validator("constraints")
+    def validate_model_constraints(cls, value, values):
+        if (
+            values.get("model_type", "LLM") != "LLM"
+            and value.model_size_in_billions is not None
+        ):
+            raise ValueError(
+                "model_size_in_billions is only supported for LLM recommendations"
+            )
+        return value
 
     @validator("model_name", pre=True)
     def validate_name(cls, value):
@@ -109,6 +120,8 @@ def spec_key(param: Dict[str, Any], quantization: str) -> tuple:
 def select_recommendation(
     request: ModelRecommendationRequest, workers: List[dict], warnings: List[dict]
 ) -> dict:
+    if request.model_type != "LLM":
+        return select_non_llm_recommendation(request, workers, warnings)
     constraints = request.constraints
     candidates = []
     for worker in workers:
@@ -325,5 +338,182 @@ def select_recommendation(
         "status": "recommended",
         "config": config,
         "reasons": reasons,
+        "warnings": warnings,
+    }
+
+
+def non_llm_candidates(
+    model_type: str, model_name: str, engines: dict, installed: dict
+) -> List[dict]:
+    """Resolve discovery tuples through the same read-only matchers as launch.
+
+    Cache managers are deliberately not constructed here: their initialization
+    can create directories. Cache preference remains LLM-only for now.
+    """
+    if model_type == "embedding":
+        from ..model.embedding.embed_family import match_embedding as match
+    elif model_type == "rerank":
+        from ..model.rerank.rerank_family import match_rerank as match
+    elif model_type == "audio":
+        from ..model.audio.core import match_audio
+    else:
+        raise ValueError(f"Unsupported recommendation model type: {model_type}")
+    candidates = []
+    for engine, params in engines.items():
+        if not isinstance(params, list):
+            continue
+        for param in params:
+            config = {"model_engine": engine}
+            for key in ("model_format", "quantization"):
+                if param.get(key) is not None:
+                    config[key] = param[key]
+            try:
+                if model_type == "audio":
+                    # Audio discovery may have no format or quantization. Match
+                    # the default variant, but do not invent hidden form fields.
+                    family = match_audio(
+                        model_name,
+                        model_engine=engine,
+                        quantization=param.get("quantization"),
+                    )
+                    if family.quantization is not None:
+                        config["quantization"] = family.quantization
+                else:
+                    match(
+                        model_name, param.get("model_format"), param.get("quantization")
+                    )
+            except (ValueError, IndexError):
+                continue
+            ready = installed.get(engine)
+            candidates.append(
+                {
+                    "config": config,
+                    "installed": isinstance(ready, list)
+                    and any(
+                        all(
+                            p.get(key) == param.get(key)
+                            for key in ("model_format", "quantization")
+                        )
+                        for p in ready
+                    ),
+                }
+            )
+    return candidates
+
+
+def select_non_llm_recommendation(
+    request: ModelRecommendationRequest, workers: List[dict], warnings: List[dict]
+) -> dict:
+    """Select discovered non-LLM tuples without inventing size or quantization."""
+    constraints = request.constraints
+    candidates = []
+    for worker in workers:
+        indices = constraints.gpu_idx
+        indices = [indices] if isinstance(indices, int) else indices
+        devices = worker["gpu_indices"]
+        if indices is not None and not set(indices) <= set(devices):
+            continue
+        if isinstance(constraints.n_gpu, int) and (
+            constraints.n_gpu > worker["gpu_count"]
+            or (indices is None and constraints.n_gpu > len(devices))
+        ):
+            continue
+        if (
+            indices is None
+            and constraints.n_gpu == "auto"
+            and worker["gpu_count"] > 0
+            and not devices
+        ):
+            continue
+        cpu = indices is None and (
+            constraints.n_gpu is None or (not devices and worker["device"] != "mps")
+        )
+        device = "cpu" if cpu else worker["device"]
+        order = (
+            ["mlx", "transformers", "pytorch", "diffusers", "vllm"]
+            if request.model_type == "audio" and device == "mps"
+            else (
+                ["transformers", "pytorch", "diffusers", "vllm", "mlx"]
+                if request.model_type == "audio"
+                else ["sentence_transformers", "flag", "llama.cpp", "vllm"]
+            )
+        )
+        for candidate in worker.get("candidates", []):
+            config = candidate["config"]
+            engine = config["model_engine"].lower()
+            if engine == "mlx" and device != "mps":
+                continue
+            if engine == "vllm" and (device != "cuda" or worker["platform"] != "Linux"):
+                continue
+            if not candidate["installed"] and not worker["enable_virtual_env"]:
+                continue
+            quant = config.get("quantization", "none").lower()
+            rank = (
+                not candidate["installed"],
+                order.index(engine) if engine in order else len(order),
+                quant not in ("none", "fp32", "fp16", "bf16"),
+                engine,
+                config.get("model_format", ""),
+                quant,
+                worker["worker_ip"],
+            )
+            candidates.append((rank, worker, candidate))
+    warnings = list(warnings) + [
+        message(
+            "memory_not_verified",
+            "Memory fit and current resource availability are not verified; no resources are reserved.",
+        )
+    ]
+    if not candidates:
+        return {
+            "status": "no_recommendation",
+            "config": None,
+            "reasons": [
+                message(
+                    "no_viable_candidates",
+                    "No worker has a supported configuration satisfying all constraints.",
+                )
+            ],
+            "warnings": warnings,
+        }
+    _, worker, candidate = min(candidates, key=lambda item: item[0])
+    config = {
+        **candidate["config"],
+        "worker_ip": worker["worker_ip"],
+        "enable_virtual_env": worker["enable_virtual_env"],
+        **{
+            key: value
+            for key, value in constraints.dict(exclude_unset=True).items()
+            if key in ("n_gpu", "gpu_idx")
+        },
+    }
+    if worker["enable_virtual_env"]:
+        warnings.append(
+            message(
+                "virtual_env_not_verified",
+                "The launch virtual environment has not been created or checked; launch may install dependencies.",
+            )
+        )
+    return {
+        "status": "recommended",
+        "config": config,
+        "reasons": [
+            message(
+                "selection_policy",
+                "Selected an available engine using model-type defaults, then unquantized variants and stable lexical ties. No model size or memory capacity is inferred.",
+            ),
+            message(
+                (
+                    "engine_installed"
+                    if candidate["installed"]
+                    else "virtual_env_candidate"
+                ),
+                (
+                    "Engine is available in the worker environment."
+                    if candidate["installed"]
+                    else "Dependencies may need installation at launch."
+                ),
+            ),
+        ],
         "warnings": warnings,
     }

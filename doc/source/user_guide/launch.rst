@@ -11,8 +11,45 @@ LLM launch recommendations
 
 In an LLM's deployment dialog, use the launch recommendation button to get a
 suggested configuration, then review it before deploying. The button is available
-only for LLMs. The first version recommends placement for a single replica.
+for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica.
 Custom model paths and custom engine parameters require manual configuration.
+
+How recommendations are chosen
+------------------------------
+
+Click **Recommend configuration** in the upper-right corner of the launch
+dialog to fill in the engine, format, size, and quantization together. You can
+still change these fields before clicking **Deploy**. The recommendation also
+selects a worker, so the configuration is tied to the machine checked for it.
+
+Xinference starts with your choices. If you have selected an 8B model, it looks
+for configurations of that size; it will not switch to a smaller model. Worker,
+GPU, and virtual environment settings also constrain the search. It checks each
+worker separately and removes combinations that fail the compatibility checks.
+If none remain, it leaves your form unchanged so you can adjust the settings.
+
+If you have not picked a size, it chooses the smallest eligible size first.
+Among configurations of that size, it prefers an engine already available in
+the worker's environment. When virtual environments are enabled, an engine
+that needs dependencies installed at launch can also be considered. Choosing
+the smallest size is a conservative starting point, not an estimate of the
+largest model your hardware can run.
+
+Next comes the platform's default engine order. With the earlier conditions
+equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with
+CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as
+Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights
+already cached on that worker get priority. A cached model does not override
+your selected size or the earlier preferences.
+
+These are fixed selection rules, not performance measurements. The recommendation
+does not check whether there is enough free memory for your workload or reserve
+resources. For example, a longer context or more concurrent requests can need
+more memory. Treat the result as a starting configuration to review and try;
+you still launch the model yourself.
+
+Using the API
+-------------
 
 ``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and
 ``model_type="LLM"``; the optional ``constraints`` object accepts
@@ -49,6 +86,11 @@ launch allocation policy rather than calculating the required GPU count.
 Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model
 returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use
 lower snake_case. The ``memory_not_verified`` warning is always included.
+
+Recommendations for other model types
+======================================
+
+Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported.
 
 Download without launching
 ==========================

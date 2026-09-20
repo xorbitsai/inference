@@ -210,7 +210,9 @@ async def test_supervisor_failures_missing_model_and_worker_constraint():
     result = await SupervisorActor.recommend_model(supervisor, request)
     assert result["config"]["worker_ip"] == "host:1"
     assert result["warnings"][0]["code"] == "worker_discovery_failed"
-    good.get_model_recommendation_info.assert_awaited_once_with("test", False)
+    good.get_model_recommendation_info.assert_awaited_once_with(
+        "test", False, model_type="LLM"
+    )
     request["constraints"]["worker_ip"] = "missing"
     assert (await SupervisorActor.recommend_model(supervisor, request))[
         "config"
@@ -265,3 +267,160 @@ async def test_worker_read_only_default_hub_and_exact_cache(monkeypatch, tmp_pat
     monkeypatch.setattr(llm_family, "match_llm", lambda *args: None)
     result = await WorkerActor.get_model_recommendation_info(worker, "test", False)
     assert not result["launch_specs"] and not result["cached_specs"]
+
+
+@pytest.mark.parametrize("model_type", ["embedding", "rerank", "audio"])
+def test_non_llm_recommendation_contract(model_type):
+    request = ModelRecommendationRequest(model_name="test", model_type=model_type)
+    worker = snapshot()
+    worker["candidates"] = [
+        {
+            "config": {
+                "model_engine": "sentence_transformers",
+                "model_format": "pytorch",
+                "quantization": q,
+            },
+            "installed": True,
+        }
+        for q in ["int4", "none"]
+    ]
+    result = select_recommendation(request, [worker], [])
+    assert result["status"] == "recommended"
+    assert result["config"]["quantization"] == "none"
+    assert "model_size_in_billions" not in result["config"]
+    assert result["config"]["worker_ip"] == "host:1"
+    assert result["warnings"][0]["code"] == "memory_not_verified"
+    with pytest.raises(ValidationError):
+        ModelRecommendationRequest(
+            model_name="test",
+            model_type=model_type,
+            constraints={"model_size_in_billions": 7},
+        )
+
+
+@pytest.mark.parametrize("model_type", ["embedding", "rerank", "audio"])
+def test_non_llm_constraints_and_dependency_readiness(model_type):
+    worker = snapshot()
+    worker["candidates"] = [
+        {"config": {"model_engine": "transformers"}, "installed": False}
+    ]
+    request = ModelRecommendationRequest(model_name="test", model_type=model_type)
+    assert select_recommendation(request, [worker], [])["config"] is None
+    worker["enable_virtual_env"] = True
+    assert select_recommendation(request, [worker], [])["config"] is not None
+    for constraints in [{"gpu_idx": [9]}, {"n_gpu": 3}]:
+        request = ModelRecommendationRequest(
+            model_name="test", model_type=model_type, constraints=constraints
+        )
+        assert select_recommendation(request, [worker], [])["config"] is None
+    worker["gpu_indices"] = []
+    request = ModelRecommendationRequest(model_name="test", model_type=model_type)
+    assert select_recommendation(request, [worker], [])["config"] is None
+
+
+def test_audio_mlx_only_on_mps_and_cpu_excludes_vllm():
+    worker = snapshot(device="mps", platform="Darwin")
+    worker.update(gpu_count=0, gpu_indices=[])
+    worker["candidates"] = [
+        {"config": {"model_engine": engine}, "installed": True}
+        for engine in ["transformers", "mlx", "vllm"]
+    ]
+    request = ModelRecommendationRequest(model_name="test", model_type="audio")
+    assert (
+        select_recommendation(request, [worker], [])["config"]["model_engine"] == "mlx"
+    )
+    request = ModelRecommendationRequest(
+        model_name="test", model_type="audio", constraints={"n_gpu": None}
+    )
+    assert (
+        select_recommendation(request, [worker], [])["config"]["model_engine"]
+        == "transformers"
+    )
+
+
+@pytest.mark.parametrize("n_gpu,expected_engine", [("auto", "MLX"), (None, "PyTorch")])
+def test_fish_audio_on_apple_silicon(n_gpu, expected_engine):
+    from xinference.core.model_recommendation import non_llm_candidates
+
+    # Use the real FishAudio registry and launch matcher, with both backends
+    # discovered as ready. Metal hosts report zero allocatable CUDA GPUs.
+    engines = {
+        "MLX": [{"model_format": "mlx"}],
+        "PyTorch": [{"model_format": "pytorch"}],
+    }
+    worker = snapshot(device="mps", platform="Darwin")
+    worker.update(
+        gpu_count=0,
+        gpu_indices=[],
+        candidates=non_llm_candidates("audio", "FishAudio-S2-Pro", engines, engines),
+    )
+    request = ModelRecommendationRequest(
+        model_name="FishAudio-S2-Pro", model_type="audio", constraints={"n_gpu": n_gpu}
+    )
+    result = select_recommendation(request, [worker], [])
+    assert result["config"]["model_engine"] == expected_engine
+    assert result["config"]["n_gpu"] == n_gpu
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model_type", ["embedding", "rerank", "audio"])
+async def test_non_llm_worker_discovery_is_read_only(monkeypatch, model_type):
+    import importlib
+
+    from xinference.core.worker import WorkerActor
+
+    module_name, matcher = {
+        "embedding": ("embedding.embed_family", "match_embedding"),
+        "rerank": ("rerank.rerank_family", "match_rerank"),
+        "audio": ("audio.core", "match_audio"),
+    }[model_type]
+    module = importlib.import_module("xinference.model." + module_name)
+    monkeypatch.setattr(
+        module, matcher, lambda *args, **kwargs: SimpleNamespace(quantization=None)
+    )
+    params = [{"model_format": "pytorch", "quantization": "none"}]
+    worker = SimpleNamespace(
+        _total_gpu_devices=[0],
+        get_model_registration=AsyncMock(return_value=object()),
+        query_engines_by_model_name=AsyncMock(
+            return_value={"transformers": params, "unavailable": "not installed"}
+        ),
+    )
+
+    def no_mkdir(*args, **kwargs):
+        raise AssertionError("recommendation must not write")
+
+    with monkeypatch.context() as readonly:
+        readonly.setattr("os.makedirs", no_mkdir)
+        result = await WorkerActor.get_model_recommendation_info(
+            worker, "test", False, model_type=model_type
+        )
+    worker.get_model_registration.assert_awaited_once_with(model_type, "test")
+    worker.query_engines_by_model_name.assert_awaited_once_with(
+        "test", model_type, False
+    )
+    assert len(result["candidates"]) == 1
+    assert result["candidates"][0]["installed"]
+
+
+def test_non_llm_excludes_unlaunchable_spec(monkeypatch):
+    from xinference.core.model_recommendation import non_llm_candidates
+    from xinference.model.embedding import embed_family
+
+    def reject(*args):
+        raise ValueError("not registered")
+
+    monkeypatch.setattr(embed_family, "match_embedding", reject)
+    assert (
+        non_llm_candidates(
+            "embedding",
+            "test",
+            {
+                "sentence_transformers": [
+                    {"model_format": "pytorch", "quantization": "none"}
+                ]
+            },
+            {},
+        )
+        == []
+    )

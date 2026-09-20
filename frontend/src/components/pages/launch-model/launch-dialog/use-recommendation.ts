@@ -15,7 +15,9 @@ export function useRecommendation(
   modelName: string | undefined,
   active: boolean,
   markEdited: () => void,
-  applyEngines: (engines: ModelEngine, enableVirtualEnv: boolean) => void
+  applyEngines: (engines: ModelEngine, enableVirtualEnv: boolean) => void,
+  modelType = 'LLM',
+  audioQuantizations: string[] = []
 ) {
   const generation = useRef(0);
   const [pending, setPending] = useState(false);
@@ -40,7 +42,7 @@ export function useRecommendation(
       generation.current += 1;
       unsubscribe();
     };
-  }, [form, modelName, active, invalidate]);
+  }, [form, modelName, modelType, active, invalidate]);
 
   const recommend = async () => {
     if (!active || !modelName) return;
@@ -50,20 +52,22 @@ export function useRecommendation(
     setResult(null);
     setFailed(false);
     try {
-      const payload = recommendationRequest(modelName, values);
+      const payload = recommendationRequest(modelName, values, modelType);
       const response = await request.post<RecommendationResponse>('/v1/models/recommend', payload);
       if (id !== generation.current) return;
       if (response.status === 'recommended') {
         if (!response.config || typeof response.config.enable_virtual_env !== 'boolean')
           throw new Error('missing effective environment');
         const engines = await request.get<ModelEngine>(
-          `/v1/engines/${encodeURIComponent(modelName)}`,
+          modelType === 'LLM'
+            ? `/v1/engines/${encodeURIComponent(modelName)}`
+            : `/v1/engines/${modelType}/${encodeURIComponent(modelName)}`,
           {
             params: { enable_virtual_env: response.config.enable_virtual_env },
           }
         );
         if (id !== generation.current) return;
-        const patch = recommendationPatch(response, values, engines);
+        const patch = recommendationPatch(response, values, engines, modelType, audioQuantizations);
         if (!patch) throw new Error('missing recommendation');
         markEdited();
         applyEngines(engines, response.config.enable_virtual_env);

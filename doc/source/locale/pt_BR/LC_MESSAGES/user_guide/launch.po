@@ -19,13 +19,47 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: ../../source/user_guide/launch.rst:17
+msgid "How recommendations are chosen"
+msgstr "Como as recomendações são escolhidas"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "Click **Recommend configuration** in the upper-right corner of the launch dialog to fill in the engine, format, size, and quantization together. You can still change these fields before clicking **Deploy**. The recommendation also selects a worker, so the configuration is tied to the machine checked for it."
+msgstr "Clique em **Recomendar configuração**, no canto superior direito da caixa de diálogo de inicialização, para preencher de uma só vez o mecanismo, o formato, o tamanho e a quantização. Você ainda pode alterar esses campos antes de clicar em **Implantar**. A recomendação também seleciona um worker, portanto a configuração fica vinculada à máquina em que foi verificada."
+
+#: ../../source/user_guide/launch.rst:25
+msgid "Xinference starts with your choices. If you have selected an 8B model, it looks for configurations of that size; it will not switch to a smaller model. Worker, GPU, and virtual environment settings also constrain the search. It checks each worker separately and removes combinations that fail the compatibility checks. If none remain, it leaves your form unchanged so you can adjust the settings."
+msgstr "O Xinference parte das suas escolhas. Se você selecionou um modelo 8B, ele procura configurações desse tamanho e não muda para um modelo menor. As configurações de worker, GPU e ambiente virtual também limitam a busca. Cada worker é verificado separadamente, e as combinações que não passam nas verificações de compatibilidade são descartadas. Se nenhuma restar, o formulário permanece inalterado para que você possa ajustar as configurações."
+
+#: ../../source/user_guide/launch.rst:31
+msgid "If you have not picked a size, it chooses the smallest eligible size first. Among configurations of that size, it prefers an engine already available in the worker's environment. When virtual environments are enabled, an engine that needs dependencies installed at launch can also be considered. Choosing the smallest size is a conservative starting point, not an estimate of the largest model your hardware can run."
+msgstr "Se você ainda não escolheu um tamanho, o menor tamanho elegível é selecionado primeiro. Entre as configurações desse tamanho, a preferência é por um mecanismo já disponível no ambiente do worker. Quando os ambientes virtuais estão habilitados, também pode ser considerado um mecanismo que precise instalar dependências na inicialização. Escolher o menor tamanho é um ponto de partida conservador, não uma estimativa do maior modelo que seu hardware pode executar."
+
+#: ../../source/user_guide/launch.rst:38
+msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
+msgstr "Em seguida, aplica-se a ordem padrão de mecanismos da plataforma. Em igualdade das condições anteriores, MLX tem prioridade no Apple Silicon, vLLM seguido de SGLang no Linux com CUDA, e llama.cpp na CPU. Dentro de um mesmo mecanismo, quantizações comuns de 4 bits, como Q4_K_M e Int4, são preferidas quando há suporte. Se ainda houver empate, os pesos já armazenados no cache desse worker têm prioridade. Um modelo em cache não se sobrepõe ao tamanho selecionado nem às preferências anteriores."
+
+#: ../../source/user_guide/launch.rst:45
+msgid "These are fixed selection rules, not performance measurements. The recommendation does not check whether there is enough free memory for your workload or reserve resources. For example, a longer context or more concurrent requests can need more memory. Treat the result as a starting configuration to review and try; you still launch the model yourself."
+msgstr "Essas são regras fixas de seleção, não medições de desempenho. A recomendação não verifica se há memória livre suficiente para sua carga de trabalho nem reserva recursos. Por exemplo, um contexto mais longo ou mais solicitações simultâneas podem exigir mais memória. Trate o resultado como uma configuração inicial para revisar e testar; você ainda precisa iniciar o modelo."
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Using the API"
+msgstr "Uso da API"
+
 #: ../../source/user_guide/launch.rst:10
 msgid "LLM launch recommendations"
 msgstr "Recomendações de inicialização de LLMs"
 
 #: ../../source/user_guide/launch.rst:12
-msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available only for LLMs. The first version recommends placement for a single replica. Custom model paths and custom engine parameters require manual configuration."
-msgstr "Na caixa de diálogo de implantação de um LLM, use o botão de recomendação de inicialização para obter uma configuração sugerida e revise-a antes de implantar. O botão está disponível apenas para LLMs. A primeira versão recomenda o posicionamento de uma única réplica. Caminhos de modelos e parâmetros de mecanismo personalizados exigem configuração manual."
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "Na janela de implantação de um LLM, solicite uma configuração recomendada e revise-a antes de implantar. O botão aceita LLM, embedding, rerank e áudio, atualmente para uma única réplica. Caminhos e parâmetros de mecanismo personalizados exigem configuração manual."
+
+msgid "Recommendations for other model types"
+msgstr "Recomendações para outros tipos de modelo"
+
+msgid "Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported."
+msgstr "Modelos de embedding, rerank e áudio também usam **Recommend configuration** e ``POST /v1/models/recommend``; defina ``model_type`` como ``embedding``, ``rerank`` ou ``audio``. Apenas os campos compatíveis são preenchidos, sem escolher um tamanho de modelo. Embedding e rerank priorizam sentence-transformers disponível; áudio prioriza MLX disponível no Apple Silicon e, nos demais casos, seu backend padrão Transformers ou PyTorch. Mecanismos instalados têm prioridade sobre os que precisam de um ambiente virtual, e variantes não quantizadas são preferidas dentro do mesmo mecanismo. Ao contrário dos LLMs, pesos em cache não são usados para desempate. As restrições de worker, GPU e ambiente virtual continuam valendo; ``model_size_in_billions`` é rejeitado para esses tipos. A recomendação é um ponto de partida, não uma garantia de memória suficiente. Imagem e vídeo ainda não são compatíveis."
 
 #: ../../source/user_guide/launch.rst:16
 msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."

@@ -62,7 +62,7 @@ require.cache[require.resolve('./launch-history')]!.exports = {
     refreshHistory(...args),
 };
 const LaunchDialog = require('./launch-dialog').default as typeof import('./launch-dialog').default;
-const { recommendationRequest, recommendationUnavailable } =
+const { recommendationRequest, recommendationUnavailable, recommendationPatch } =
   require('./recommendation') as typeof import('./recommendation');
 
 const engines = {
@@ -97,7 +97,11 @@ let engineQueries: unknown[];
 const originalGet = request.get;
 const originalPost = request.post;
 
-async function render(currentModel: CatalogModel | undefined = model, modelType = 'LLM') {
+async function render(
+  currentModel: CatalogModel | undefined = model,
+  modelType = 'LLM',
+  gpuAvailable = 4
+) {
   await act(async () => {
     root.render(
       <GlobalProvider initClusterAuth={{ auth: false }}>
@@ -105,7 +109,7 @@ async function render(currentModel: CatalogModel | undefined = model, modelType 
           <LaunchDialog
             model={currentModel}
             modelType={modelType as RequestModelType}
-            gpuAvailable={4}
+            gpuAvailable={gpuAvailable}
             onOpenChange={() => {}}
           />
         </I18nProvider>
@@ -397,7 +401,7 @@ it('blocks llama.cpp custom engine parameters without changing the form or reque
   }
 });
 
-it('disables unsafe placement and custom paths, and is absent for other model types', async () => {
+it('disables unsafe placement and custom paths, and is absent for unsupported model types', async () => {
   for (const values of [
     { model_path: '/custom' },
     { replica: 2 },
@@ -410,6 +414,148 @@ it('disables unsafe placement and custom paths, and is absent for other model ty
     form.setFieldValue('model_path', '/custom');
   });
   assert.equal(button().disabled, true);
+  await render(model, 'image');
+  assert.ok(!button());
+});
+
+for (const modelType of ['embedding', 'rerank', 'audio']) {
+  it(`recommends ${modelType} without an LLM size and preserves unrelated fields`, async () => {
+    const nonLLMEngines = {
+      [modelType === 'audio' ? 'MLX' : 'sentence_transformers']: [
+        { model_format: modelType === 'audio' ? 'mlx' : 'pytorch', quantization: 'none' },
+      ],
+    };
+    const engine = Object.keys(nonLLMEngines)[0];
+    const urls: string[] = [];
+    request.get = (async (url: string) => {
+      urls.push(url);
+      return url.startsWith('/v1/engines/') ? nonLLMEngines : [];
+    }) as typeof request.get;
+    await render(
+      {
+        ...model,
+        modelSpecs: [{ model_format: nonLLMEngines[engine][0].model_format, quantization: 'none' }],
+      } as CatalogModel,
+      modelType
+    );
+    await act(async () => {
+      form.setFieldsValue({ model_uid: 'keep-me', n_gpu: 'CPU', enable_virtual_env: false });
+    });
+    assert.ok(button());
+    await start();
+    assert.equal((posts.at(-1)!.data as { model_type: string }).model_type, modelType);
+    const constraints = (posts.at(-1)!.data as { constraints: Record<string, unknown> })
+      .constraints;
+    assert.equal(constraints.n_gpu, null);
+    assert.ok(!('model_size_in_billions' in constraints));
+    await finish({
+      status: 'recommended',
+      config: {
+        model_engine: engine,
+        ...nonLLMEngines[engine][0],
+        worker_ip: 'worker:9999',
+        enable_virtual_env: false,
+      },
+      reasons: [],
+      warnings: [],
+    });
+    assert.equal(form.getFieldValue('model_engine'), engine);
+    assert.equal(form.getFieldValue('quantization'), 'none');
+    assert.equal(form.getFieldValue('model_uid'), 'keep-me');
+    assert.deepEqual(form.getFieldValue('worker_ip'), ['worker:9999']);
+    assert.ok(urls.includes(`/v1/engines/${modelType}/demo`));
+  });
+}
+
+it('accepts audio without a format but rejects unknown audio quantization', () => {
+  const response: RecommendationResponse = {
+    status: 'recommended',
+    config: { model_engine: 'PyTorch', worker_ip: 'host:1', enable_virtual_env: false },
+    reasons: [],
+    warnings: [],
+  };
+  const catalog = {
+    PyTorch: [{ model_format: null }],
+  } as unknown as import('@/types/services').ModelEngine;
+  const patch = recommendationPatch(response, {}, catalog, 'audio');
+  assert.equal(patch?.model_engine, 'PyTorch');
+  assert.equal(patch?.model_format, undefined);
+  assert.ok(!('model_size_in_billions' in patch!));
+  assert.throws(() =>
+    recommendationPatch(
+      { ...response, config: { ...response.config!, quantization: 'unknown' } },
+      {},
+      catalog,
+      'audio',
+      ['none']
+    )
+  );
+});
+
+it('discards a pending recommendation when the model type changes', async () => {
+  await start();
   await render(model, 'embedding');
-  assert.equal(button(), undefined);
+  await finish();
+  assert.notEqual(form.getFieldValue('model_engine'), 'vLLM');
+  assert.notDeepEqual(form.getFieldValue('worker_ip'), ['pinned:9999']);
+});
+
+for (const modelType of ['embedding', 'rerank', 'audio']) {
+  it(`defaults ${modelType} to auto when GPU count is zero and honors explicit CPU`, async () => {
+    await act(async () => {
+      root.render(null);
+    });
+    form = formModule.createForm();
+    const engine = modelType === 'audio' ? 'MLX' : 'sentence_transformers';
+    const format = modelType === 'audio' ? 'mlx' : 'pytorch';
+    request.get = (async (url: string) =>
+      url.startsWith('/v1/engines/')
+        ? { [engine]: [{ model_format: format, quantization: 'none' }] }
+        : []) as typeof request.get;
+    await render(
+      { ...model, modelSpecs: [{ model_format: format, quantization: 'none' }] } as CatalogModel,
+      modelType,
+      0
+    );
+    assert.equal(form.getFieldValue('n_gpu'), 'auto');
+    await start();
+    assert.equal(
+      (posts.at(-1)!.data as { constraints: { n_gpu: unknown } }).constraints.n_gpu,
+      'auto'
+    );
+    await finish({
+      status: 'recommended',
+      config: {
+        model_engine: engine,
+        model_format: format,
+        quantization: 'none',
+        worker_ip: 'mac:9999',
+        enable_virtual_env: true,
+      },
+      reasons: [],
+      warnings: [],
+    });
+    assert.equal(form.getFieldValue('model_engine'), engine);
+    assert.equal(form.getFieldValue('n_gpu'), 'auto');
+    await act(async () => {
+      form.setFieldValue('n_gpu', 'CPU');
+    });
+    await start();
+    assert.equal(
+      (posts.at(-1)!.data as { constraints: { n_gpu: unknown } }).constraints.n_gpu,
+      null
+    );
+    await finish({ status: 'no_recommendation', config: null, reasons: [], warnings: [] });
+    assert.equal(form.getFieldValue('n_gpu'), 'CPU');
+  });
+}
+
+it('restores auto and legacy GPU history without converting either to CPU', () => {
+  const { transformFetchToForm } = require('../utils') as typeof import('../utils');
+  for (const model_type of ['embedding', 'rerank', 'audio']) {
+    for (const n_gpu of ['auto', 'GPU']) {
+      assert.equal(transformFetchToForm({ model_type, n_gpu }).n_gpu, 'auto');
+    }
+    assert.equal(transformFetchToForm({ model_type, n_gpu: null }).n_gpu, 'CPU');
+  }
 });

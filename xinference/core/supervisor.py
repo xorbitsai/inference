@@ -2147,7 +2147,9 @@ class SupervisorActor(xo.StatelessActor):
         results = await asyncio.gather(
             *[
                 worker.get_model_recommendation_info(
-                    body.model_name, body.constraints.enable_virtual_env
+                    body.model_name,
+                    body.constraints.enable_virtual_env,
+                    model_type=body.model_type,
                 )
                 for _, worker in workers
             ],

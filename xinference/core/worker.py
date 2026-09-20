@@ -3156,15 +3156,15 @@ class WorkerActor(xo.StatelessActor):
         )
 
     async def get_model_recommendation_info(
-        self, model_name: str, enable_virtual_env: Optional[bool] = None
+        self,
+        model_name: str,
+        enable_virtual_env: Optional[bool] = None,
+        model_type: str = "LLM",
     ) -> dict:
         """Worker-local discovery only; never prepare environments or allocate GPUs."""
         from ..device_utils import get_available_device
-        from ..model.llm.cache_manager import LLMCacheManager
-        from ..model.llm.llm_family import match_llm
-        from .model_recommendation import spec_key
 
-        family = await self.get_model_registration("LLM", model_name)
+        family = await self.get_model_registration(model_type, model_name)
         if family is None:
             return {"model_exists": False}
         effective_venv = (
@@ -3172,12 +3172,32 @@ class WorkerActor(xo.StatelessActor):
             if enable_virtual_env is None
             else enable_virtual_env
         )
-        installed = await self.query_engines_by_model_name(model_name, "LLM", False)
+        installed = await self.query_engines_by_model_name(
+            model_name, model_type, False
+        )
         engines = (
-            await self.query_engines_by_model_name(model_name, "LLM", True)
+            await self.query_engines_by_model_name(model_name, model_type, True)
             if effective_venv
             else installed
         )
+        if model_type != "LLM":
+            from .model_recommendation import non_llm_candidates
+
+            return {
+                "model_exists": True,
+                "platform": platform.system(),
+                "device": get_available_device(),
+                "gpu_indices": list(self._total_gpu_devices),
+                "gpu_count": gpu_count(),
+                "enable_virtual_env": effective_venv,
+                "candidates": non_llm_candidates(
+                    model_type, model_name, engines or {}, installed or {}
+                ),
+            }
+        from ..model.llm.cache_manager import LLMCacheManager
+        from ..model.llm.llm_family import match_llm
+        from .model_recommendation import spec_key
+
         launch_specs, cached_specs = set(), set()
         for params in (engines or {}).values():
             if not isinstance(params, list):

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
-import { Ban, Download, Rocket } from 'lucide-react';
+import { Ban, Download, Rocket, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
@@ -151,6 +151,12 @@ export default function LaunchDialog({
   const isCanceledDownloadRef = useRef(false);
   const modelEngineRequestIdRef = useRef(0);
   const isLLM = modelType === ModelType.LLM;
+  const supportsRecommendation = [
+    ModelType.LLM,
+    ModelType.Embedding,
+    ModelType.Rerank,
+    ModelType.Audio,
+  ].includes(modelType);
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
   const launchFormValues = useFormValues(form);
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
@@ -186,9 +192,11 @@ export default function LaunchDialog({
   const recommendation = useRecommendation(
     form,
     model?.model_name,
-    isOpen && isLLM && !loading,
+    isOpen && supportsRecommendation && !loading,
     markLaunchHistoryFormEdited,
-    applyRecommendationEngines
+    applyRecommendationEngines,
+    modelType,
+    (model?.modelSpecs || []).map((spec) => toOptionValue(spec.quantization)).filter(Boolean)
   );
   const cannotRecommend = recommendationUnavailable(launchFormValues);
   const recommendationWarnings = recommendation.result
@@ -235,9 +243,7 @@ export default function LaunchDialog({
 
     const res = await request.get<ModelEngine>(url, {
       params:
-        isLLM && effectiveVirtualEnv !== undefined
-          ? { enable_virtual_env: effectiveVirtualEnv }
-          : undefined,
+        effectiveVirtualEnv !== undefined ? { enable_virtual_env: effectiveVirtualEnv } : undefined,
     });
 
     if (requestId !== modelEngineRequestIdRef.current) return;
@@ -449,6 +455,9 @@ export default function LaunchDialog({
     let options = [];
     if ([ModelType.LLM, ModelType.Image].includes(modelType)) {
       options = gpuAvailable > 0 ? ['auto', 'CPU', ...range(1, gpuAvailable)] : ['auto', 'CPU'];
+    } else if (supportsRecommendation) {
+      // A zero GPU count does not rule out Metal/MLX on Apple Silicon.
+      options = ['auto', 'CPU'];
     } else {
       options = gpuAvailable === 0 ? ['CPU'] : ['GPU', 'CPU'];
     }
@@ -461,7 +470,7 @@ export default function LaunchDialog({
         });
       },
     };
-  }, [gpuAvailable, modelType, form]);
+  }, [gpuAvailable, modelType, supportsRecommendation, form]);
 
   const downloadHubOptions = useMemo(() => {
     const allSpecHubs = Array.from(
@@ -2006,11 +2015,12 @@ export default function LaunchDialog({
   const initialValues = {
     model_name: model?.model_name,
     model_type: modelType,
-    n_gpu: [ModelType.LLM, ModelType.Image].includes(modelType)
-      ? 'auto'
-      : gpuAvailable === 0
-        ? 'CPU'
-        : 'GPU',
+    n_gpu:
+      supportsRecommendation || modelType === ModelType.Image
+        ? 'auto'
+        : gpuAvailable === 0
+          ? 'CPU'
+          : 'GPU',
     n_gpu_layers: -1,
     replica: 1,
     replica_placement_mode: 'auto' as const,
@@ -2036,9 +2046,22 @@ export default function LaunchDialog({
           maskClosable={false}
         >
           <DialogHeader>
-            <div className="flex min-w-0 items-center justify-between gap-3 pr-10">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 pr-10">
               <DialogTitle className="min-w-0 truncate">{model?.model_name}</DialogTitle>
-              <div className="flex gap-2">
+              <div className="ml-auto flex max-w-full flex-wrap justify-end gap-2">
+                {supportsRecommendation && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                    disabled={loading || recommendation.pending || cannotRecommend}
+                    loading={recommendation.pending}
+                    onClick={recommendation.recommend}
+                  >
+                    {!recommendation.pending && <Sparkles aria-hidden="true" />}
+                    {t('launchModel.recommendConfiguration')}
+                  </Button>
+                )}
                 <ConfigCache
                   form={form}
                   modelName={model?.model_name}
@@ -2055,39 +2078,31 @@ export default function LaunchDialog({
               </div>
             </div>
           </DialogHeader>
-          {isLLM && (
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={loading || recommendation.pending || cannotRecommend}
-                loading={recommendation.pending}
-                onClick={recommendation.recommend}
-              >
-                {t('launchModel.recommendConfiguration')}
-              </Button>
-              {cannotRecommend && (
-                <p className="text-sm text-muted-foreground">
-                  {t('launchModel.recommendUnavailable')}
-                </p>
-              )}
-              <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
-                {recommendation.failed && t('launchModel.recommendFailed')}
-                {recommendation.result && (
-                  <p>
-                    {t(
-                      recommendation.result.status === 'recommended'
-                        ? 'launchModel.recommendApplied'
-                        : 'launchModel.noRecommendation'
-                    )}
-                    {recommendationWarnings.map((key) => (
-                      <span key={key}> {t(key)}</span>
-                    ))}
+          {supportsRecommendation &&
+            (cannotRecommend || recommendation.failed || recommendation.result) && (
+              <div className="space-y-2">
+                {cannotRecommend && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('launchModel.recommendUnavailable')}
                   </p>
                 )}
+                <div role="status" aria-live="polite" className="text-sm text-muted-foreground">
+                  {recommendation.failed && t('launchModel.recommendFailed')}
+                  {recommendation.result && (
+                    <p>
+                      {t(
+                        recommendation.result.status === 'recommended'
+                          ? 'launchModel.recommendApplied'
+                          : 'launchModel.noRecommendation'
+                      )}
+                      {recommendationWarnings.map((key) => (
+                        <span key={key}> {t(key)}</span>
+                      ))}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
           <Form
             id={formId}
             form={form}

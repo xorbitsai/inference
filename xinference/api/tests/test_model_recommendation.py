@@ -31,7 +31,7 @@ async def test_recommendation_api_validation_errors_and_contract():
     ) as client:
         for body in [
             {},
-            {"model_name": "test", "model_type": "embedding"},
+            {"model_name": "test", "model_type": "image"},
             {"model_name": "test", "constraints": {"n_gpu": 0}},
             {"model_name": "test", "constraints": {"typo": True}},
         ]:
@@ -50,6 +50,16 @@ async def test_recommendation_api_validation_errors_and_contract():
         supervisor.recommend_model.assert_awaited_once_with(
             {"model_name": "test", "constraints": {"n_gpu": None}}
         )
+        for model_type in ("embedding", "rerank", "audio"):
+            body = {"model_name": "test", "model_type": model_type}
+            response = await client.post("/v1/models/recommend", json=body)
+            assert response.status_code == 200
+            supervisor.recommend_model.assert_awaited_with(body)
+            response = await client.post(
+                "/v1/models/recommend",
+                json={**body, "constraints": {"model_size_in_billions": 7}},
+            )
+            assert response.status_code == 422
         for error, status in [
             (RecommendationModelNotFound("not found"), 404),
             (KeyError("private failure"), 500),
