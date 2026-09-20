@@ -517,6 +517,11 @@ export function transformFormToFetch(values: FormValues) {
 }
 function restoreNGPU(value: null | string | number, modelType: RequestModelType) {
   if (value === null) return 'CPU';
+  if (
+    [ModelType.Embedding, ModelType.Rerank, ModelType.Audio].includes(modelType) &&
+    (value === 'auto' || value === 'GPU')
+  )
+    return 'auto';
   if (value === 'auto') {
     return [ModelType.LLM, ModelType.Image].includes(modelType) ? 'auto' : 'GPU';
   }

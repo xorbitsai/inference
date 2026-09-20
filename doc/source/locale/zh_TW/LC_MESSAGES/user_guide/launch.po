@@ -19,6 +19,68 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
+#: ../../source/user_guide/launch.rst:17
+msgid "How recommendations are chosen"
+msgstr "推薦設定的選擇方式"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "Click **Recommend configuration** in the upper-right corner of the launch dialog to fill in the engine, format, size, and quantization together. You can still change these fields before clicking **Deploy**. The recommendation also selects a worker, so the configuration is tied to the machine checked for it."
+msgstr "點選啟動對話框右上角的 **推薦設定**，即可一次填入引擎、格式、模型大小和量化方式。在點選 **部署** 之前，您仍可修改這些欄位。推薦也會選定一個工作節點，因此設定對應的是已完成相關檢查的那台機器。"
+
+#: ../../source/user_guide/launch.rst:25
+msgid "Xinference starts with your choices. If you have selected an 8B model, it looks for configurations of that size; it will not switch to a smaller model. Worker, GPU, and virtual environment settings also constrain the search. It checks each worker separately and removes combinations that fail the compatibility checks. If none remain, it leaves your form unchanged so you can adjust the settings."
+msgstr "Xinference 會以您的選擇為起點。如果您選擇了 8B 模型，它就會尋找該大小的設定，不會改用更小的模型。工作節點、GPU 和虛擬環境設定也會限制搜尋範圍。系統會逐一檢查各工作節點，並排除未通過相容性檢查的組合。如果沒有剩餘的可選設定，表單會維持不變，方便您調整設定。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "If you have not picked a size, it chooses the smallest eligible size first. Among configurations of that size, it prefers an engine already available in the worker's environment. When virtual environments are enabled, an engine that needs dependencies installed at launch can also be considered. Choosing the smallest size is a conservative starting point, not an estimate of the largest model your hardware can run."
+msgstr "如果您尚未選擇模型大小，系統會先選擇符合條件的最小模型。在該大小的設定中，會優先選擇工作節點環境中已可用的引擎。啟用虛擬環境後，也會考慮需要在啟動時安裝相依套件的引擎。選擇最小模型是保守的起點，並不代表系統估算了您的硬體能執行的最大模型。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
+msgstr "接著會依平台預設的引擎順序選擇。在前述條件相同的情況下，Apple Silicon 上優先選擇 MLX，使用 CUDA 的 Linux 上優先選擇 vLLM，其次是 SGLang，CPU 上則優先選擇 llama.cpp。對於同一個引擎，在支援的情況下，優先選擇 Q4_K_M、Int4 等常見的 4 位元量化方式。如果仍有多個選項並列，則優先選擇該工作節點上已快取的權重。模型已快取並不會改變您選定的模型大小，也不會優先於前述偏好。"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "These are fixed selection rules, not performance measurements. The recommendation does not check whether there is enough free memory for your workload or reserve resources. For example, a longer context or more concurrent requests can need more memory. Treat the result as a starting configuration to review and try; you still launch the model yourself."
+msgstr "這些是固定的選擇規則，並非效能測量結果。推薦不會檢查可用記憶體是否足以滿足您的工作負載，也不會預留資源。例如，更長的上下文或更多的並行請求可能需要更多記憶體。請將結果作為初始設定，檢查後再嘗試；模型仍需由您自行啟動。"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Using the API"
+msgstr "使用 API"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM 啟動推薦"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "在 LLM 的部署視窗中，點選推薦配置按鈕，檢查填好的配置後再部署。LLM、Embedding、Rerank 和音訊模型皆支援推薦，目前限單副本。自訂模型路徑和自訂引擎參數仍需手動配置。"
+
+msgid "Recommendations for other model types"
+msgstr "其他模型類型的推薦"
+
+msgid "Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported."
+msgstr "Embedding、Rerank 和音訊模型也可以點選 **推薦配置**，或呼叫 ``POST /v1/models/recommend``，將 ``model_type`` 分別設為 ``embedding``、``rerank`` 或 ``audio``。推薦只填寫該類型支援的欄位，不選擇模型大小。Embedding 和 Rerank 優先使用可用的 sentence-transformers 引擎；音訊模型在 Apple Silicon 上優先使用可用的 MLX，否則優先考慮標準的 Transformers 或 PyTorch 後端。已安裝的引擎優先於需要虛擬環境安裝相依套件的引擎，同一引擎內優先選擇未量化版本。與 LLM 不同，這些類型暫不以權重是否快取來決定同等候選的順序。指定的工作節點、GPU 和虛擬環境條件仍然有效，但這些類型不接受 ``model_size_in_billions``。推薦只是起始配置，不保證記憶體足夠。圖片和影片模型暫不支援推薦。"
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 是唯讀介面。提供 ``model_name`` 和 ``model_type=\"LLM\"``；選用的 ``constraints`` 物件接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的限制皆為必要條件，不會在未告知的情況下放寬。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "回應中的 ``status`` 為 ``recommended`` 或 ``no_recommendation``。推薦成功時，``config`` 包含與啟動介面相容的欄位，例如 ``model_engine``、``model_format``、``model_size_in_billions``、``quantization`` 和 ``worker_ip``。``reasons`` 和 ``warnings`` 中的項目包含 ``code`` 和 ``message`` 欄位。若沒有設定符合限制，請查看說明並調整限制，或手動設定啟動參數。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "推薦不保證記憶體充足或啟動成功。它不會預留資源、下載模型檔案或安裝相依套件。現有啟動行為不變；部署仍須另行執行。"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "未指定模型大小時，選擇符合條件的最小規格；明確指定的大小限制會被遵守。``config`` 還包含實際生效的 ``enable_virtual_env``，以及提供的 ``n_gpu`` 和 ``gpu_idx`` 限制。``n_gpu=null`` 要求使用 CPU，而 ``n_gpu=\"auto\"`` 使用現有啟動分配策略，不會計算所需的 GPU 數量。"
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` 和 ``no_recommendation`` 均回傳 HTTP 200。未知模型回傳 HTTP 404；無效請求回傳 HTTP 422。原因與警告代碼採用小寫蛇形命名（snake_case）。回應一律包含 ``memory_not_verified`` 警告。"
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "模型載入指南"

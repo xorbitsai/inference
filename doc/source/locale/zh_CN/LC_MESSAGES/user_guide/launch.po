@@ -19,6 +19,68 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
+#: ../../source/user_guide/launch.rst:17
+msgid "How recommendations are chosen"
+msgstr "推荐配置是怎么选出来的"
+
+#: ../../source/user_guide/launch.rst:20
+msgid "Click **Recommend configuration** in the upper-right corner of the launch dialog to fill in the engine, format, size, and quantization together. You can still change these fields before clicking **Deploy**. The recommendation also selects a worker, so the configuration is tied to the machine checked for it."
+msgstr "点击启动窗口右上角的 **推荐配置**，就能一起填好引擎、格式、模型大小和量化方式。填好后仍然可以修改，确认后再点击 **部署**。推荐结果也会指定工作节点，让配置对应到刚才检查过的那台机器。"
+
+#: ../../source/user_guide/launch.rst:25
+msgid "Xinference starts with your choices. If you have selected an 8B model, it looks for configurations of that size; it will not switch to a smaller model. Worker, GPU, and virtual environment settings also constrain the search. It checks each worker separately and removes combinations that fail the compatibility checks. If none remain, it leaves your form unchanged so you can adjust the settings."
+msgstr "Xinference 会先看您已经选了什么。比如，已经选了 8B 模型，就只会推荐 8B 的配置，不会自行换成更小的模型。您指定的工作节点、GPU 和虚拟环境设置也会保留。系统会分别检查各台机器，排除不兼容的配置。如果找不到合适的配置，就保持表单不变，方便您调整后再试。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "If you have not picked a size, it chooses the smallest eligible size first. Among configurations of that size, it prefers an engine already available in the worker's environment. When virtual environments are enabled, an engine that needs dependencies installed at launch can also be considered. Choosing the smallest size is a conservative starting point, not an estimate of the largest model your hardware can run."
+msgstr "如果还没选模型大小，系统会先选符合条件的最小规格，再优先考虑该规格下、工作节点上已经可用的引擎。如果启用了虚拟环境，也会考虑需要在启动时安装依赖的引擎。默认选较小规格，是为了给您一个保守的起点；这并不意味着系统已经算出了这台机器最大能跑多大的模型。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
+msgstr "前面的条件相同时，再按平台选择引擎：Apple Silicon 上优先 MLX，使用 CUDA 的 Linux 上优先 vLLM、其次 SGLang，CPU 上优先 llama.cpp。同一个引擎支持多种量化时，会优先考虑 Q4_K_M、Int4 等常见的 4 位量化。到这里仍有多个同等选择，才优先使用该工作节点上已缓存的权重。也就是说，不会仅仅因为某个模型已经下载过，就改变您选定的规格或跳过前面的选择顺序。"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "These are fixed selection rules, not performance measurements. The recommendation does not check whether there is enough free memory for your workload or reserve resources. For example, a longer context or more concurrent requests can need more memory. Treat the result as a starting configuration to review and try; you still launch the model yourself."
+msgstr "推荐使用的是固定规则，没有实际跑过性能测试，也不会检查剩余内存是否够用或提前占用资源。比如，上下文更长、同时处理的请求更多，都可能需要更多内存。可以把推荐结果当作一份起步配置，检查后再尝试启动。"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Using the API"
+msgstr "使用 API"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "LLM launch recommendations"
+msgstr "LLM 启动推荐"
+
+#: ../../source/user_guide/launch.rst:12
+msgid "In an LLM's deployment dialog, use the launch recommendation button to get a suggested configuration, then review it before deploying. The button is available for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica. Custom model paths and custom engine parameters require manual configuration."
+msgstr "在 LLM 的部署窗口中，点击推荐配置按钮，检查填好的配置后再部署。LLM、Embedding、Rerank 和音频模型都支持推荐，目前限单副本。自定义模型路径和自定义引擎参数仍需手动配置。"
+
+msgid "Recommendations for other model types"
+msgstr "其他模型类型的推荐"
+
+msgid "Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported."
+msgstr "Embedding、Rerank 和音频模型也可以点击 **推荐配置**，或调用 ``POST /v1/models/recommend``，将 ``model_type`` 分别设为 ``embedding``、``rerank`` 或 ``audio``。推荐只填写该类型支持的字段，不选择模型大小。Embedding 和 Rerank 优先使用可用的 sentence-transformers 引擎；音频模型在 Apple Silicon 上优先使用可用的 MLX，否则优先考虑常规的 Transformers 或 PyTorch 后端。已经安装的引擎优先于需要虚拟环境安装依赖的引擎，同一引擎内优先选择未量化版本。与 LLM 不同，这些类型暂不按权重是否缓存来打破平局。您指定的工作节点、GPU 和虚拟环境条件仍然有效，但这些类型不接受 ``model_size_in_billions``。推荐只是起步配置，不保证内存够用。图片和视频模型暂不支持推荐。"
+
+#: ../../source/user_guide/launch.rst:16
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 是只读接口。提供 ``model_name`` 和 ``model_type=\"LLM\"``；可选的 ``constraints`` 对象接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的约束均为硬性要求，不会被静默放宽。"
+
+#: ../../source/user_guide/launch.rst:31
+msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
+msgstr "响应中的 ``status`` 为 ``recommended`` 或 ``no_recommendation``。推荐成功时，``config`` 包含与启动接口兼容的字段，例如 ``model_engine``、``model_format``、``model_size_in_billions``、``quantization`` 和 ``worker_ip``。``reasons`` 和 ``warnings`` 中的条目包含 ``code`` 和 ``message`` 字段。如果没有配置满足约束，请查看说明并调整约束，或手动配置启动参数。"
+
+#: ../../source/user_guide/launch.rst:38
+msgid "A recommendation does not guarantee sufficient memory or a successful launch. It reserves no resources, downloads no model files, and installs no dependencies. Existing launch behavior is unchanged; deployment remains a separate action."
+msgstr "推荐不保证内存充足或启动成功。它不会预留资源、下载模型文件或安装依赖。现有启动行为不变；部署仍需单独执行。"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "未指定模型大小时，选择符合条件的最小规格；显式指定的大小约束会被遵守。``config`` 还包含实际生效的 ``enable_virtual_env``，以及提供的 ``n_gpu`` 和 ``gpu_idx`` 约束。``n_gpu=null`` 请求使用 CPU，而 ``n_gpu=\"auto\"`` 使用现有启动分配策略，不会计算所需的 GPU 数量。"
+
+#: ../../source/user_guide/launch.rst:48
+msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."
+msgstr "``recommended`` 和 ``no_recommendation`` 均返回 HTTP 200。未知模型返回 HTTP 404；无效请求返回 HTTP 422。原因和警告代码使用小写蛇形命名（snake_case）。响应始终包含 ``memory_not_verified`` 警告。"
+
 #: ../../source/user_guide/launch.rst:5
 msgid "Model Launching Instructions"
 msgstr "模型加载指南"
@@ -202,13 +264,13 @@ msgstr "关键设置："
 msgid ""
 "``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
 "batching behavior."
-msgstr " ``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用于控制常规的批处理行为。"
+msgstr "``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用于控制常规的批处理行为。"
 
 #: ../../source/user_guide/launch.rst:99
 msgid ""
 "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when"
 " supported)."
-msgstr " ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``（文本转图像模型，当支持时）。"
+msgstr "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` 用于支持批处理的文生图模型。"
 
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
@@ -239,7 +301,7 @@ msgstr "某些混合推理模型（例如Qwen3）支持可选的 *思考模式* 
 
 #: ../../source/user_guide/launch.rst:171
 msgid "Launch Configuration History"
-msgstr ""
+msgstr "启动配置历史"
 
 #: ../../source/user_guide/launch.rst:173
 msgid ""
@@ -248,7 +310,7 @@ msgid ""
 "user-scoped browser cache for fast access and temporary network failures. When "
 "the deployment dialog is opened again, the newest server-backed configuration "
 "is restored unless the user has already started editing the form."
-msgstr ""
+msgstr "模型从 Web UI 成功启动后，Xinference 会将启动配置保存到 Supervisor 的启动历史数据库中，并按用户在浏览器中保留一份缓存，方便快速访问，也能应对短暂的网络故障。再次打开部署窗口时，会恢复服务端保存的最新配置；如果您已经开始编辑表单，则不会覆盖正在修改的内容。"
 
 #: ../../source/user_guide/launch.rst:180
 msgid ""
@@ -256,7 +318,7 @@ msgid ""
 "Records used by automatic startup are protected from deletion. In authenticated "
 "deployments, browser caches are separated by the username in the access token; "
 "configuration data owned by another user is not placed in that cache."
-msgstr ""
+msgstr "在配置历史窗口中，您可以删除自己的记录，但用于自动启动的记录不能删除。启用身份验证时，浏览器缓存会按访问令牌中的用户名隔离，不会混入其他用户的配置。"
 
 #: ../../source/user_guide/launch.rst:306
 msgid ""
@@ -265,4 +327,52 @@ msgid ""
 "user confirms **Use as Template**, Xinference keeps the current model name, "
 "removes the previous model UID and history or automatic-startup metadata, and "
 "copies the remaining launch options into the form without starting a model."
-msgstr ""
+msgstr "历史窗口也会列出您在其他模型上保存的配置，但不会自动套用。确认 **用作模板** 后，Xinference 会保留当前模型名称，去掉原来的模型 UID、历史记录和自动启动相关信息，再将其余启动选项填入表单。这个操作只填写配置，不会启动模型。"
+
+msgid "Download without launching"
+msgstr "仅下载模型，不启动"
+
+msgid "Open a model's deployment dialog and choose **Download only** beside the **Deploy** button. It downloads the same model artifacts used by deployment, but does not reserve GPUs, create model subprocesses, install a virtual environment, or load a model into memory."
+msgstr "打开模型的部署窗口，点击 **部署** 旁边的 **仅下载**，就能提前下载部署所需的模型文件。这个操作不会占用 GPU、创建模型子进程、安装虚拟环境，也不会把模型加载到内存中。"
+
+msgid "The REST endpoint is ``POST /v1/cache/models``. Supply ``cache_uid`` when the client needs to query progress or cancel the operation while the POST request is still running."
+msgstr "对应的 REST 接口是 ``POST /v1/cache/models``。如果需要在请求尚未结束时查询进度或取消下载，请传入 ``cache_uid``，用它来标识这次下载任务。"
+
+msgid "Progress and cancellation use the same ``cache_uid``:"
+msgstr "查询进度和取消下载时，使用同一个 ``cache_uid``："
+
+msgid "Cache-only downloads can also be paused and resumed:"
+msgstr "仅下载任务也可以暂停和恢复："
+
+msgid "Xinference persists unfinished cache-only download tasks. If the supervisor or worker stops unexpectedly, an active task is shown as ``interrupted`` after restart and can be resumed with the same endpoint. Resume reuses files already present in the model hub cache. Byte-range continuation of a partially written file depends on the selected hub client; otherwise that incomplete file is downloaded again."
+msgstr "Xinference 会保存尚未完成的仅下载任务。如果 Supervisor 或工作节点意外停止，重启后，正在进行的任务会显示为 ``interrupted`` （已中断），可以通过上述恢复接口继续下载。恢复时会复用模型仓库缓存中已有的文件。下载了一部分的文件能否断点续传，取决于所选模型仓库的客户端；如果不支持，这个未完成的文件会重新下载。"
+
+msgid "``GET /v1/downloads`` lists active, paused, interrupted, and failed downloads. Pause and resume apply to cache-only downloads. A model launch that happens to be downloading still uses the launch cancellation endpoint because pausing a launch would also need to preserve its runtime allocation state."
+msgstr "``GET /v1/downloads`` 会列出正在下载、已暂停、已中断和失败的任务。暂停和恢复只适用于仅下载任务。如果是在启动模型的过程中下载文件，仍需使用启动取消接口，因为暂停整个启动过程还涉及保留已分配的运行资源。"
+
+msgid "In a distributed deployment, ``worker_ip`` can select the worker whose local cache receives the files. If it is omitted, the supervisor selects one worker."
+msgstr "在分布式部署中，可以通过 ``worker_ip`` 指定把文件下载到哪个工作节点的本地缓存。不指定时，Supervisor 会选择一个工作节点。"
+
+msgid "Per-replica placement"
+msgstr "为每个副本指定运行位置"
+
+msgid "For distributed deployments, ``replica_config`` can pin every replica to a specific worker and optional GPU indexes. Worker addresses must use the full registered ``IP:port`` value. The number of entries must equal ``replica`` and each entry currently supports exactly one worker."
+msgstr "在分布式部署中，可以用 ``replica_config`` 为每个副本指定工作节点，也可以进一步指定 GPU 编号。工作节点地址必须使用注册时的完整 ``IP:port``。配置条目数必须与 ``replica`` 一致，目前每个条目只能指定一个工作节点。"
+
+msgid "The same placement can be supplied to ``xinference launch`` as a JSON array:"
+msgstr "在命令行中，也可以将相同的位置配置作为 JSON 数组传给 ``xinference launch``："
+
+msgid "``--replica_config`` remains available as a compatibility alias, but ``--replica-config`` is recommended. If ``--replica`` is omitted, the CLI derives it from the number of array entries. If it is supplied explicitly, it must equal that number."
+msgstr "为兼容旧用法，``--replica_config`` 仍然可用，但建议使用 ``--replica-config``。如果省略 ``--replica``，命令行会按数组条目数确定副本数量；如果显式指定，则必须与条目数一致。"
+
+msgid "``replica_config`` is mutually exclusive with the model-level ``worker_ip``, ``n_gpu``, and ``gpu_idx`` arguments, and with ``n_worker > 1``. The CLI therefore rejects ``--replica-config`` together with ``--worker-ip``, ``--gpu-idx``, a non-``auto`` ``--n-gpu``, or ``--n-worker`` greater than 1. Each replica currently targets exactly one worker. If ``replica_uid`` is omitted, Xinference assigns the stable default ``{model_uid}-{replica_index}`` (for example, ``my-model-0``). Omit ``gpu_idx`` and use ``n_gpu=\"auto\"`` to let the selected worker allocate GPUs automatically."
+msgstr "``replica_config`` 不能与模型级的 ``worker_ip``、``n_gpu``、``gpu_idx`` 参数同时使用，也不支持 ``n_worker > 1``。因此，命令行不允许将 ``--replica-config`` 与 ``--worker-ip``、``--gpu-idx``、非 ``auto`` 的 ``--n-gpu`` 或大于 1 的 ``--n-worker`` 一起使用。目前，每个副本只能指定一个工作节点。如果省略 ``replica_uid``，Xinference 会使用稳定的默认名称 ``{model_uid}-{replica_index}``，例如 ``my-model-0``。省略 ``gpu_idx`` 并设置 ``n_gpu=\"auto\"``，则由选定的工作节点自动分配 GPU。"
+
+msgid "Running models can be scaled by one or more replicas in a single operation. The new replicas reuse the existing launch configuration by default. You can override their model engine and device allocation without changing existing replicas. Placement is optional; if omitted, the supervisor selects a worker automatically."
+msgstr "对于正在运行的模型，可以一次增加一个或多个副本。新副本默认复用已有的启动配置，您也可以单独调整新副本的引擎和设备分配，不影响已有副本。运行位置可以不指定，此时由 Supervisor 自动选择工作节点。"
+
+msgid "For multiple replicas, ``replica_config`` may also be a list with one placement entry per new replica. If any replica in a multi-replica scale-up fails to launch, Xinference rolls back the replicas created by that operation."
+msgstr "一次增加多个副本时，``replica_config`` 也可以是一个列表，为每个新副本提供一条位置配置。如果其中任何一个副本启动失败，Xinference 会回滚本次操作创建的副本。"
+
+msgid "Scale-up is not supported for Xavier-distributed models or models launched with ``n_worker > 1``. Deleting the last replica terminates the running model."
+msgstr "使用 Xavier 分布式运行的模型，以及通过 ``n_worker > 1`` 启动的模型，暂不支持增加副本。删除最后一个副本时，运行中的模型也会终止。"

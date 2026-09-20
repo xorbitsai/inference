@@ -2134,6 +2134,62 @@ class SupervisorActor(xo.StatelessActor):
 
         raise ValueError(f"Model {model_name} not found")
 
+    async def recommend_model(self, request: Dict[str, Any]) -> dict:
+        from .model_recommendation import (
+            ModelRecommendationRequest,
+            RecommendationModelNotFound,
+            message,
+            select_recommendation,
+        )
+
+        body = ModelRecommendationRequest.parse_obj(request)
+        workers = sorted(self._worker_address_to_worker.items())
+        results = await asyncio.gather(
+            *[
+                worker.get_model_recommendation_info(
+                    body.model_name,
+                    body.constraints.enable_virtual_env,
+                    model_type=body.model_type,
+                )
+                for _, worker in workers
+            ],
+            return_exceptions=True,
+        )
+        snapshots, warnings = [], []
+        found = False
+        for (address, _), result in zip(workers, results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "Recommendation discovery failed on %s: %s", address, result
+                )
+                warnings.append(
+                    message(
+                        "worker_discovery_failed",
+                        f"Discovery failed on worker {address}; its candidates were excluded.",
+                    )
+                )
+                continue
+            if not result["model_exists"]:
+                continue
+            found = True
+            target = body.constraints.worker_ip
+            if target is not None and target not in (
+                address,
+                self._get_worker_host(address),
+            ):
+                continue
+            snapshots.append({**result, "worker_ip": address})
+        if workers and not found and not warnings:
+            raise RecommendationModelNotFound(f"Model {body.model_name} not found")
+        if not workers:
+            warnings.append(
+                message(
+                    "no_workers",
+                    "No workers are available to verify the model registration.",
+                )
+            )
+        return select_recommendation(body, snapshots, warnings)
+
     async def query_engines_by_model_name(
         self,
         model_name: str,

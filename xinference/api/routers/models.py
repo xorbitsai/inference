@@ -17,6 +17,12 @@ def register_routes(api: "RESTfulAPI") -> None:
 
     # --- must be registered before /v1/models/{model_uid} to avoid conflicts ---
     router.add_api_route(
+        "/v1/models/recommend",
+        api.recommend_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/models/prompts", api._get_builtin_prompts, methods=["GET"]
     )
     router.add_api_route(

@@ -492,6 +492,13 @@ const zhTW = {
     emptyFile: '上傳檔案不能為空。',
   },
   launchModel: {
+    recommendSetup: '可能需要準備執行環境。',
+    recommendMemory: '尚未驗證可用記憶體。',
+    recommendConfiguration: '推薦配置',
+    recommendUnavailable: '自訂引擎參數、自訂模型路徑、多 Worker 或副本部署配置暫不支援推薦。',
+    recommendFailed: '無法套用推薦配置，請檢查裝置設定後重試。',
+    recommendApplied: '已套用推薦配置，請在部署前檢查。',
+    noRecommendation: '未找到合適的配置。',
     modelType: '模型型別',
     modelAbility: '模型能力',
     generate: '文字生成',

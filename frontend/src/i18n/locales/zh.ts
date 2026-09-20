@@ -480,6 +480,13 @@ const zh = {
     emptyFile: '上传文件不能为空。',
   },
   launchModel: {
+    recommendSetup: '可能需要准备运行环境。',
+    recommendMemory: '尚未验证可用内存。',
+    recommendConfiguration: '推荐配置',
+    recommendUnavailable: '自定义引擎参数、自定义模型路径、多 Worker 或副本部署配置暂不支持推荐。',
+    recommendFailed: '无法应用推荐配置，请检查设备设置后重试。',
+    recommendApplied: '已应用推荐配置，请在部署前检查。',
+    noRecommendation: '未找到合适的配置。',
     modelType: '模型类型',
     modelAbility: '模型能力',
     generate: '文本生成',
