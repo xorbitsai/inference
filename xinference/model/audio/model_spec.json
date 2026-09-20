@@ -2770,8 +2770,9 @@
   {
     "version": 2,
     "model_name": "MiniMax-Music3",
+    "engine": "diffusers",
     "model_family": "minimax_music3",
-    "model_description": "MiniMax-Music3 generates complete songs from lyrics and a music description. The model is distributed under the MiniMax-Music3 Community License and requires NVIDIA CUDA for inference.",
+    "model_description": "MiniMax-Music3 generates stereo songs from lyrics and a music description under the MiniMax-Music3 Community License. Use diffusers on NVIDIA CUDA or fixed 8-bit MLX weights on Apple Silicon. Streaming is not supported.",
     "model_ability": [
       "text2music"
     ],
@@ -2816,6 +2817,38 @@
       }
     },
     "updated_at": 1786859407,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "MiniMax-Music3",
+    "model_family": "minimax_music3",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "MiniMax-Music3-MLX",
+    "quantization": "8-bit",
+    "model_description": "MiniMax-Music3 generates stereo songs from lyrics and a music description under the MiniMax-Music3 Community License. Use diffusers on NVIDIA CUDA or fixed 8-bit MLX weights on Apple Silicon. Streaming is not supported.",
+    "model_ability": [
+      "text2music"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio==0.5.0 ; #engine# == \"MLX\"",
+        "soundfile>=0.13.1 ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/MiniMax-Music3-8bit",
+        "model_revision": "10aa4ca578d04c6f5256c1bc22fc8405a09602b5"
+      },
+      "modelscope": {
+        "model_id": "mlx-community/MiniMax-Music3-8bit",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1789862400,
     "featured": true
   },
   {

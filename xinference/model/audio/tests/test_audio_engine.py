@@ -41,6 +41,7 @@ from ..engine import (
     MLXAudioTTSEngineModel,
     MLXF5TTSAudioModel,
     MLXKokoroAudioModel,
+    MLXMiniMaxMusic3AudioModel,
     MLXWhisperAudioModel,
     PyTorchBreezeAudioModel,
     PyTorchF5TTSAudioModel,
@@ -193,6 +194,7 @@ def apple_mlx_engines():
         "F5-TTS",
         "FishAudio-S2-Pro",
         "Breeze-TTS-2",
+        "MiniMax-Music3",
         "Irodori-TTS-v4.1-Small",
         "Kokoro-82M",
         "SenseVoiceSmall",
@@ -299,6 +301,7 @@ def test_minimax_music3_without_cuda_is_rejected_before_download():
     )
     with (
         patch.object(engine_mod, "has_cuda_device", return_value=False),
+        patch.object(engine_mod.platform, "system", return_value="Linux"),
         patch.dict(AUDIO_ENGINES, {}, clear=True),
         patch.object(CacheManager, "cache") as cache,
     ):
@@ -580,6 +583,113 @@ def test_breeze_engine_sources(apple_mlx_engines, hub):
                 'mlx-audio[tts]==0.5.1 ; #engine# == "MLX"'
                 in model.model_family.virtualenv.packages
             )
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+def test_default_engine_selects_matching_weights(apple_mlx_engines, monkeypatch, hub):
+    name = "Breeze-TTS-2"
+    # Keep the PyTorch spec first, but make MLX the only available engine.
+    monkeypatch.setitem(AUDIO_ENGINES, name, {"MLX": AUDIO_ENGINES[name]["MLX"]})
+    model = create_audio_model_instance(
+        "uid",
+        name,
+        model_path="/fake/path",
+        download_hub=hub,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, MLXAudioTTSEngineModel)
+    assert model.model_family.model_engine == "MLX"
+    assert model.model_family.model_id == "mlx-community/Breeze-TTS-2-mlx-8bit"
+    assert model.model_family.model_hub == hub
+    assert model.model_family.cache_name == "Breeze-TTS-2-MLX"
+
+
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("engine", [None, "MLX"])
+@pytest.mark.parametrize("quantization", [None, "8-bit"])
+def test_minimax_mlx_default_uses_mlx_weights(
+    apple_mlx_engines, hub, engine, quantization
+):
+    model = create_audio_model_instance(
+        "uid",
+        "MiniMax-Music3",
+        model_path="/fake",
+        download_hub=hub,
+        model_engine=engine,
+        quantization=quantization,
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, MLXMiniMaxMusic3AudioModel)
+    spec = model.model_family
+    assert spec.engine == "MLX"
+    assert spec.quantization == "8-bit"
+    assert spec.model_id == "mlx-community/MiniMax-Music3-8bit"
+    assert spec.model_hub == hub
+    assert spec.cache_config is None
+    assert spec.default_model_config is None
+    assert CacheManager(spec).get_cache_dir().endswith("/MiniMax-Music3-MLX")
+    assert 'mlx-audio==0.5.0 ; #engine# == "MLX"' in spec.virtualenv.packages
+
+
+@pytest.mark.parametrize("quantization", ["none", "4-bit"])
+def test_minimax_mlx_rejects_unavailable_quantization(apple_mlx_engines, quantization):
+    with pytest.raises(ValueError, match="does not support quantization"):
+        create_audio_model_instance(
+            "uid",
+            "MiniMax-Music3",
+            model_path="/fake",
+            model_engine="MLX",
+            quantization=quantization,
+            enable_virtual_env=False,
+        )
+
+
+def test_minimax_cuda_registration_does_not_match_mlx_spec(apple_mlx_engines):
+    from ..engine import DiffusersMiniMaxMusic3AudioModel
+
+    engine_mod = __import__(
+        register_builtin_audio_engines.__module__, fromlist=["has_cuda_device"]
+    )
+    with patch.object(engine_mod, "has_cuda_device", return_value=True):
+        for spec in apple_mlx_engines["MiniMax-Music3"]:
+            assert DiffusersMiniMaxMusic3AudioModel.match(spec) == (
+                spec.engine == "diffusers"
+            )
+
+
+@pytest.mark.parametrize(
+    "hub, repo",
+    [
+        ("huggingface", "MiniMaxAI/MiniMax-Music3"),
+        ("modelscope", "MiniMax/MiniMax-Music3"),
+    ],
+)
+def test_minimax_cuda_default_keeps_original_weights(apple_mlx_engines, hub, repo):
+    from ..engine import DiffusersMiniMaxMusic3AudioModel
+
+    engine_mod = __import__(
+        register_builtin_audio_engines.__module__, fromlist=["has_cuda_device"]
+    )
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=True),
+        patch.object(engine_mod.platform, "system", return_value="Linux"),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+    ):
+        for spec in apple_mlx_engines["MiniMax-Music3"]:
+            generate_engine_config_by_model_name(spec)
+        model = create_audio_model_instance(
+            "uid",
+            "MiniMax-Music3",
+            model_path="/fake",
+            download_hub=hub,
+            enable_virtual_env=False,
+        )
+        assert isinstance(model, DiffusersMiniMaxMusic3AudioModel)
+        assert model.model_family.model_id == repo
+        assert model.model_family.engine == "diffusers"
+        assert (
+            CacheManager(model.model_family).get_cache_dir().endswith("/MiniMax-Music3")
+        )
 
 
 def test_audio_engine_variants_keep_separate_cache_paths(apple_mlx_engines):

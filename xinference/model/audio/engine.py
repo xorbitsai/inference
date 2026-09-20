@@ -29,6 +29,7 @@ from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .melotts import MeloTTSModel
 from .minimax_music3 import MiniMaxMusic3Model
+from .minimax_music3_mlx import MLXMiniMaxMusic3Model
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
@@ -412,6 +413,23 @@ class MLXAudioTTSEngineModel(MLXAudioTTSModel, AudioEngineModel):
         return model_family.model_name in MLX_AUDIO_TTS_MODEL_NAMES
 
 
+class MLXMiniMaxMusic3AudioModel(MLXMiniMaxMusic3Model, AudioEngineModel):
+    required_libs = ("mlx", "mlx_audio")
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return (
+            platform.system() == "Darwin"
+            and platform.processor() == "arm"
+            and cls.is_model_family_supported(model_family)
+            and _is_engine(model_family, "MLX")
+        )
+
+    @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "minimax_music3"
+
+
 class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
     required_libs = ("diffusers",)
 
@@ -423,7 +441,11 @@ class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return has_cuda_device() and model_family.model_family == "minimax_music3"
+        return (
+            has_cuda_device()
+            and model_family.model_family == "minimax_music3"
+            and _is_engine_or_unspecified(model_family, "diffusers")
+        )
 
 
 def register_builtin_audio_engines() -> None:
@@ -452,5 +474,6 @@ def register_builtin_audio_engines() -> None:
         MLXKokoroAudioModel,
         MLXAudioSTTEngineModel,
         MLXAudioTTSEngineModel,
+        MLXMiniMaxMusic3AudioModel,
     ]
     SUPPORTED_ENGINES["diffusers"] = [DiffusersMiniMaxMusic3AudioModel]
