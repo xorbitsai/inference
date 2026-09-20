@@ -181,6 +181,16 @@ def test_cache_is_tiebreak_after_engine_and_quantization():
     assert recommend([worker])["config"]["quantization"] == "Q4_K_M"
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_cached_worker_wins_before_lexical_tie(reverse):
+    workers = [snapshot("aa:1"), snapshot("zz:1", cached=True)]
+    if reverse:
+        workers.reverse()
+    result = recommend(workers)
+    assert result["config"]["worker_ip"] == "zz:1"
+    assert "exact_spec_cached" in {reason["code"] for reason in result["reasons"]}
+
+
 @pytest.mark.asyncio
 async def test_supervisor_no_workers_is_not_false_404():
     from xinference.core.supervisor import SupervisorActor
