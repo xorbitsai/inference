@@ -1256,8 +1256,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "numpy<2.3 ; #engine# == \"sglang\"",
-        "pandas<3 ; #engine# == \"sglang\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]

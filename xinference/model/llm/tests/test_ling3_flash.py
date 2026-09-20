@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+import types
 from types import SimpleNamespace
 
 import pytest
@@ -125,6 +127,78 @@ def test_sglang_ling_defaults_and_exceptions(family, monkeypatch):
     )
     assert result[0] is False
     assert "pytorch format with quantization" in result[1]
+
+
+@pytest.mark.parametrize("n_worker", [1, 2])
+@pytest.mark.parametrize(
+    "model_name,model_size,configured_timeout,expected_timeout",
+    [
+        ("Ling-3.0-flash", 124, None, 900.0),
+        ("Ling-3.0-flash", 124, 1200.0, 1200.0),
+        ("HuatuoGPT-o1-Qwen2.5", 7, None, 300.0),
+        ("HuatuoGPT-o1-Qwen2.5", 7, 1200.0, 1200.0),
+    ],
+)
+def test_sglang_load_passes_one_effective_launch_timeout(
+    monkeypatch,
+    model_name,
+    model_size,
+    configured_timeout,
+    expected_timeout,
+    n_worker,
+):
+    family = match_llm(model_name, "pytorch", model_size, "none", "huggingface")
+    calls = []
+
+    def runtime(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(pid=1)
+
+    sglang = types.ModuleType("sglang")
+    sglang.__version__ = "0.5.19"
+    sglang.Runtime = runtime
+    monkeypatch.setitem(sys.modules, "sglang", sglang)
+    monkeypatch.setattr(sglang_core, "get_next_port", lambda: 30001)
+    monkeypatch.setattr(
+        sglang_core.multiprocessing, "set_start_method", lambda _method: None
+    )
+
+    model = object.__new__(sglang_core.SGLANGChatModel)
+    model.model_uid = "sglang-timeout-test"
+    model.model_family = family
+    model.model_spec = family.model_specs[0]
+    model.model_path = "/tmp/unused"
+    model._model_config = (
+        {"launch_timeout": configured_timeout} if configured_timeout else {}
+    )
+    model._address = "127.0.0.1:30000"
+    model._n_worker = n_worker
+    model._shard = 0
+    model._driver_info = None
+    model._engine = None
+    model._loading_thread = None
+    model._loading_error = None
+    model.prepare_parse_reasoning_content = lambda *args, **kwargs: None
+    model.prepare_parse_tool_calls = lambda: None
+
+    model.load()
+
+    assert model._loading_error is None
+    assert len(calls) == 1
+    assert calls[0]["launch_timeout"] == expected_timeout
+
+
+def test_huatuogpt_sglang_virtualenv_retains_engine():
+    from ....core.utils import filter_virtualenv_packages_by_markers
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+
+    family = match_llm("HuatuoGPT-o1-Qwen2.5", "pytorch", 7, "none", "huggingface")
+    packages = expand_engine_dependency_placeholders(
+        family.virtualenv.packages, "sglang"
+    )
+    packages = filter_virtualenv_packages_by_markers(packages, "sglang", None)
+
+    assert "sglang>=0.5.6" in packages
 
 
 def test_sglang_ling_format_error_lists_fp4(family, monkeypatch):

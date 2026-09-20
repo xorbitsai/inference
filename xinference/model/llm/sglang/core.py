@@ -59,6 +59,7 @@ class SGLANGModelConfig(TypedDict, total=False):
     tp_size: int
     mem_fraction_static: float
     log_level: str
+    launch_timeout: float
     attention_reduce_in_fp32: bool  # For gemma
     quantization: Optional[str]
     dtype: Optional[str]
@@ -267,7 +268,6 @@ class SGLANGModel(LLM):
                         model_path=self.model_path,
                         tokenizer_path=self.model_path,
                         port=sgl_port,
-                        launch_timeout=self._get_launch_timeout(),
                         **self._model_config,
                     )
                 except Exception:
@@ -288,7 +288,6 @@ class SGLANGModel(LLM):
                 model_path=self.model_path,
                 tokenizer_path=self.model_path,
                 port=sgl_port,
-                launch_timeout=self._get_launch_timeout(),
                 **self._model_config,
             )
 
@@ -402,6 +401,7 @@ class SGLANGModel(LLM):
             else:
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
+        model_config.setdefault("launch_timeout", self._get_launch_timeout())
         model_config.setdefault("reasoning_content", False)
         if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
             model_config.setdefault("enable_thinking", True)
