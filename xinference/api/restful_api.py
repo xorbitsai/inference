@@ -4484,7 +4484,11 @@ def run(
     host: str,
     port: int,
     logging_conf: Optional[dict] = None,
+    api_role: str = "supervisor",
 ):
+    from ..deploy.utils import update_all_formatter_addresses
+
+    update_all_formatter_addresses(api_role, supervisor_address)
     logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
         api = RESTfulAPI(
@@ -4517,10 +4521,11 @@ def run_in_subprocess(
     port: int,
     logging_conf: Optional[dict] = None,
     environment: Optional[Dict[str, str]] = None,
+    api_role: str = "supervisor",
 ) -> multiprocessing.Process:
     p = multiprocessing.Process(
         target=_run_with_environment,
-        args=(supervisor_address, host, port, logging_conf, environment),
+        args=(supervisor_address, host, port, logging_conf, environment, api_role),
     )
     p.daemon = True
     p.start()
@@ -4533,7 +4538,8 @@ def _run_with_environment(
     port: int,
     logging_conf: Optional[dict],
     environment: Optional[Dict[str, str]],
+    api_role: str = "supervisor",
 ):
     if environment:
         os.environ.update(environment)
-    run(supervisor_address, host, port, logging_conf)
+    run(supervisor_address, host, port, logging_conf, api_role=api_role)

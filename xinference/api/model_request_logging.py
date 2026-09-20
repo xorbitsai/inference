@@ -43,7 +43,7 @@ from ..constants import (
     XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES,
     XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS,
 )
-from ..deploy.utils import SafeTimedAndSizeRotatingFileHandler
+from ..deploy.utils import SafeTimedAndSizeRotatingFileHandler, get_process_log_identity
 from .streaming_outcome import (
     FailureOrigin,
     StreamingOutcomeReporter,
@@ -394,6 +394,14 @@ async def _capture_request_body(request: Request) -> Tuple[str, Any]:
     return "request_body_omitted", {"reason": "unsupported_content_type"}
 
 
+def _api_protocol_for_path(path: str) -> str:
+    if path in ("/v1/messages", "/anthropic/v1/messages"):
+        return "anthropic"
+    if path in ("/v1/chat/completions", "/v1/completions"):
+        return "openai"
+    return "xinference"
+
+
 def _model_type_for_path(path: str) -> str:
     if path.startswith("/v1/audio/"):
         return "audio"
@@ -437,11 +445,18 @@ def _base_event(
     model_uid: str,
     model_type: str,
 ) -> Dict[str, Any]:
+    identity = get_process_log_identity()
     return {
         "timestamp": _now_iso(),
         "level": level,
         "event": event,
         "request_id": request_id,
+        "role": identity["role"],
+        "address": identity["address"],
+        "node": identity["node"],
+        "module": _MODEL_REQUEST_LOGGER_NAME,
+        "pid": os.getpid(),
+        "api_protocol": _api_protocol_for_path(endpoint),
         "endpoint": endpoint,
         "model_uid": model_uid,
         "model_type": model_type,

@@ -123,6 +123,9 @@ Authentication and authorization failures do not persist request bodies.
 Multipart uploads record field values and original filenames, but not uploaded
 file bytes. Requests larger than the configured capture limit, or requests
 without a known size, record an omission reason instead of the body.
+Each request event also records its producing process identity in ``role``,
+``address``, ``node``, ``module``, and ``pid``, together with an
+``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``.
 
 The following environment variables configure the feature:
 

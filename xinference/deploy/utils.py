@@ -846,8 +846,35 @@ class TextFileFormatter(logging.Formatter):
                 inst.address = address
 
 
+_PROCESS_LOG_IDENTITY_LOCK = threading.Lock()
+_PROCESS_LOG_IDENTITY = {
+    "role": "",
+    "address": "",
+    "node": socket.gethostname(),
+}
+
+
+def set_process_log_identity(role: str, address: str) -> None:
+    """Set the identity shared by application and model-request logs."""
+
+    with _PROCESS_LOG_IDENTITY_LOCK:
+        _PROCESS_LOG_IDENTITY["role"] = role
+        _PROCESS_LOG_IDENTITY["address"] = address
+        # Refresh the hostname after process/container startup.  This also keeps
+        # tests that patch ``socket.gethostname`` deterministic.
+        _PROCESS_LOG_IDENTITY["node"] = socket.gethostname()
+
+
+def get_process_log_identity() -> dict:
+    """Return a copy of the current process log identity."""
+
+    with _PROCESS_LOG_IDENTITY_LOCK:
+        return dict(_PROCESS_LOG_IDENTITY)
+
+
 def update_all_formatter_addresses(role: str, address: str):
-    """Update address on both text and JSON formatters."""
+    """Update the shared identity and all text/JSON formatter instances."""
+    set_process_log_identity(role, address)
     AddressFormatter.update_address(role, address)
     JsonFileFormatter.update_address(role, address)
     TextFileFormatter.update_address(role, address)

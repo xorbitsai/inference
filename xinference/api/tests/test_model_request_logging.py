@@ -1004,3 +1004,46 @@ async def test_outward_stream_cancellation_is_not_classified_as_disconnect(monke
     assert events[-1]["event"] == "model_request_failed"
     assert events[-1]["stream_outcome"] == "cancelled"
     assert events[-1]["failure_origin"] == "server"
+
+
+def test_base_event_contains_process_identity_and_protocol(monkeypatch):
+    monkeypatch.setattr(
+        model_request_logging,
+        "get_process_log_identity",
+        lambda: {
+            "role": "supervisor",
+            "address": "xinference-supervisor:9999",
+            "node": "t-xinference-supervisor-001",
+        },
+    )
+    monkeypatch.setattr(model_request_logging.os, "getpid", lambda: 982923)
+
+    event = model_request_logging._base_event(
+        "model_request_started",
+        "INFO",
+        "xinf-123",
+        "/v1/chat/completions",
+        "Qwen3.8-27B",
+        "llm",
+    )
+
+    assert event["role"] == "supervisor"
+    assert event["address"] == "xinference-supervisor:9999"
+    assert event["node"] == "t-xinference-supervisor-001"
+    assert event["module"] == "xinference.model_request"
+    assert event["pid"] == 982923
+    assert event["api_protocol"] == "openai"
+
+
+@pytest.mark.parametrize(
+    ("path", "protocol"),
+    [
+        ("/v1/chat/completions", "openai"),
+        ("/v1/completions", "openai"),
+        ("/v1/messages", "anthropic"),
+        ("/anthropic/v1/messages", "anthropic"),
+        ("/v1/embeddings", "xinference"),
+    ],
+)
+def test_api_protocol_path_mapping(path, protocol):
+    assert model_request_logging._api_protocol_for_path(path) == protocol
