@@ -42,6 +42,13 @@ def test_causal_lm_rerank_forward_kwargs_preserve_legacy_models():
     assert _get_causal_lm_rerank_forward_kwargs(LegacyModel()) == {}
 
 
+def test_causal_lm_rerank_forward_kwargs_handles_missing_forward():
+    class ModelWithoutForward:
+        pass
+
+    assert _get_causal_lm_rerank_forward_kwargs(ModelWithoutForward()) == {}
+
+
 def test_causal_lm_rerank_forward_kwargs_match_qwen3():
     transformers = pytest.importorskip("transformers")
     model = transformers.Qwen3ForCausalLM.__new__(transformers.Qwen3ForCausalLM)

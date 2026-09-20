@@ -48,8 +48,11 @@ logger = logging.getLogger(__name__)
 
 def _get_causal_lm_rerank_forward_kwargs(model: Any) -> Dict[str, Any]:
     """Return safe forward optimizations supported by a causal LM reranker."""
+    forward = getattr(model, "forward", None)
+    if forward is None:
+        return {}
     try:
-        parameters = inspect.signature(model.forward).parameters
+        parameters = inspect.signature(forward).parameters
     except (TypeError, ValueError):
         return {}
 
