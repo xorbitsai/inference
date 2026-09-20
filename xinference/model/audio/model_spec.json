@@ -1763,51 +1763,33 @@
     "version": 2,
     "model_name": "MiniMax-Music3",
     "model_family": "minimax_music3",
-    "model_description": "MiniMax-Music3 generates complete songs from lyrics and a music description. The model is distributed under the MiniMax-Music3 Community License and requires NVIDIA CUDA for inference.",
+    "model_description": "MiniMax-Music3 generates stereo songs from lyrics and a music description under the MiniMax-Music3 Community License. Use diffusers on NVIDIA CUDA or fixed 8-bit MLX weights on Apple Silicon. Streaming is not supported.",
     "model_ability": [
       "text2music"
     ],
     "multilingual": true,
-    "default_model_config": {
-      "torch_dtype": "bfloat16",
-      "cpu_offload": false,
-      "group_offload": false
-    },
-    "cache_config": {
-      "allow_patterns": [
-        "modular_model_index.json",
-        "condition_encoder/*",
-        "language_model/*",
-        "rvq_depth_decoder/*",
-        "scheduler/*",
-        "tokenizer/*",
-        "transformer/*",
-        "vocoder/*"
-      ]
-    },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
-        "transformers>=5.15.0,<6.0",
-        "accelerate>=1.13.0",
-        "huggingface-hub>=1.23.0,<2.0",
-        "safetensors>=0.8.0",
-        "#system_torch#",
-        "#system_numpy#"
+        "mlx-audio==0.5.0 ; #engine# == \"MLX\"",
+        "soundfile>=0.13.1 ; #engine# == \"MLX\""
       ]
     },
     "model_src": {
       "huggingface": {
-        "model_id": "MiniMaxAI/MiniMax-Music3",
-        "model_revision": "main"
+        "model_id": "mlx-community/MiniMax-Music3-8bit",
+        "model_revision": "10aa4ca578d04c6f5256c1bc22fc8405a09602b5"
       },
       "modelscope": {
-        "model_id": "MiniMax/MiniMax-Music3",
+        "model_id": "mlx-community/MiniMax-Music3-8bit",
         "model_revision": "master"
       }
     },
-    "updated_at": 1786949205,
-    "featured": true
+    "updated_at": 1789899244,
+    "featured": true,
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "MiniMax-Music3-MLX",
+    "quantization": "8-bit"
   },
   {
     "version": 2,
