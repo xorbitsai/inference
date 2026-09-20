@@ -127,6 +127,16 @@ def test_sglang_ling_defaults_and_exceptions(family, monkeypatch):
     assert "pytorch format with quantization" in result[1]
 
 
+def test_sglang_ling_format_error_lists_fp4(family, monkeypatch):
+    monkeypatch.setattr(sglang_core, "SGLANG_INSTALLED", True)
+    unsupported_spec = SimpleNamespace(model_format="ggufv2")
+    result = sglang_core.SGLANGChatModel.match_json(family, unsupported_spec, "Q4_K_M")
+    assert result == (
+        False,
+        "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb/fp4 formats only",
+    )
+
+
 @pytest.mark.parametrize(
     "engine,requirement",
     [

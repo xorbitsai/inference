@@ -970,7 +970,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if llm_spec.model_format not in supported_formats:
             return (
                 False,
-                "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
+                f"SGLang chat engine supports {'/'.join(supported_formats)} formats only",
             )
         if llm_spec.model_format == "fp4" and not is_ling3:
             return (
