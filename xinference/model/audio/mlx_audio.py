@@ -541,7 +541,11 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
             generate_kwargs.update(
                 text=input,
                 voice=speaker
-                or (voice if voice not in self._OPENAI_VOICES else None)
+                or (
+                    voice
+                    if voice and voice.lower() not in self._OPENAI_VOICES
+                    else None
+                )
                 or "S0",
                 instruct=instruction or _DEFAULT_INSTRUCTION,
                 cfg_scale=_validate_cfg_scale(cfg_scale),

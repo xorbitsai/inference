@@ -429,6 +429,28 @@ def test_mlx_breeze_normalizes_reference_transcript(monkeypatch, transcript, exp
         assert kwargs["ref_text"] == expected
 
 
+@pytest.mark.parametrize(
+    "voice, expected",
+    [
+        ("alloy", "S0"),
+        ("Alloy", "S0"),
+        ("ALLOY", "S0"),
+        ("Echo", "S0"),
+        ("", "S0"),
+        (None, "S0"),
+        ("S1", "S1"),
+    ],
+)
+def test_mlx_breeze_voice_aliases(voice, expected):
+    model = MLXAudioTTSModel(
+        "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
+    )
+    kwargs = model._build_generation_kwargs("Hello", voice, 1.0, {}, [])
+    assert kwargs["voice"] == expected
+    kwargs = model._build_generation_kwargs("Hello", voice, 1.0, {"speaker": "S2"}, [])
+    assert kwargs["voice"] == "S2"
+
+
 def test_mlx_breeze_parameter_precedence_and_validation():
     model = MLXAudioTTSModel(
         "uid", "/fake", _model_spec("Breeze-TTS-2", "Breeze-TTS-2")
