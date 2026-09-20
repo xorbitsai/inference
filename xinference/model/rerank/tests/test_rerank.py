@@ -49,14 +49,19 @@ def test_causal_lm_rerank_forward_kwargs_handles_missing_forward():
     assert _get_causal_lm_rerank_forward_kwargs(ModelWithoutForward()) == {}
 
 
-def test_causal_lm_rerank_forward_kwargs_match_qwen3():
-    transformers = pytest.importorskip("transformers")
-    model = transformers.Qwen3ForCausalLM.__new__(transformers.Qwen3ForCausalLM)
+def test_causal_lm_rerank_forward_kwargs_handles_uninspectable_forward():
+    class UninspectableForward:
+        @property
+        def __signature__(self):
+            raise ValueError("signature unavailable")
 
-    assert _get_causal_lm_rerank_forward_kwargs(model) == {
-        "logits_to_keep": 1,
-        "use_cache": False,
-    }
+        def __call__(self, input_ids):
+            pass
+
+    class WrappedModel:
+        forward = UninspectableForward()
+
+    assert _get_causal_lm_rerank_forward_kwargs(WrappedModel()) == {}
 
 
 @pytest.mark.parametrize("model_name", ["bge-reranker-v2-m3", "bge-reranker-base"])
