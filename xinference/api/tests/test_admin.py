@@ -857,6 +857,17 @@ async def test_list_audit_filter_options_returns_502_when_group_search_fails(
     assert captured_urls[1] == "http://elasticsearch:9200/audit-direct/_search"
 
 
+def test_log_search_uses_prefix_queries_for_high_cardinality_ids():
+    clause = admin._build_log_search_clause("xinf-123")
+    should = clause["bool"]["should"]
+
+    for field in ("request_id", "correlation_id"):
+        assert {
+            "prefix": {field: {"value": "xinf-123", "case_insensitive": True}}
+        } in should
+        assert all(field not in item.get("wildcard", {}) for item in should)
+
+
 def test_model_request_routes_use_separate_metadata_and_body_permissions():
     captured = {}
 
@@ -894,7 +905,7 @@ def test_log_source_excludes_protected_request_body():
 
 
 @pytest.mark.asyncio
-async def test_search_correlated_logs_excludes_protected_body(monkeypatch):
+async def test_search_correlated_logs_excludes_protected_body(monkeypatch, mock_api):
     captured = {}
 
     class FakeResponse:
@@ -924,18 +935,19 @@ async def test_search_correlated_logs_excludes_protected_body(monkeypatch):
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             return None
 
-        def post(self, url, json=None, headers=None):
-            captured.update(url=url, body=json, headers=headers)
+        def post(self, url, json=None, headers=None, auth=None):
+            captured.update(url=url, body=json, headers=headers, auth=auth)
             return FakeResponse()
 
     monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
     monkeypatch.setenv("XINFERENCE_ES_INDEX", "xinference-log-search")
-    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+    mock_api._get_elasticsearch_client.return_value = FakeClientSession()
 
     response = await admin.search_correlated_logs(
         request_id="xinf-123",
         time_from="2026-09-19T00:00:00Z",
         time_to="2026-09-20T00:00:00Z",
+        api=mock_api,
     )
 
     assert captured["url"] == (
@@ -955,7 +967,9 @@ async def test_search_correlated_logs_excludes_protected_body(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_search_correlated_logs_rejects_oversized_time_range(monkeypatch):
+async def test_search_correlated_logs_rejects_oversized_time_range(
+    monkeypatch, mock_api
+):
     monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
 
     with pytest.raises(HTTPException) as exc_info:
@@ -963,6 +977,7 @@ async def test_search_correlated_logs_rejects_oversized_time_range(monkeypatch):
             request_id="xinf-123",
             time_from="2026-09-01T00:00:00Z",
             time_to="2026-09-20T00:00:00Z",
+            api=mock_api,
         )
 
     assert exc_info.value.status_code == 400
@@ -1008,12 +1023,12 @@ async def test_get_model_request_body_queries_only_started_event(monkeypatch, mo
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             return None
 
-        def post(self, url, json=None, headers=None):
-            captured.update(url=url, body=json, headers=headers)
+        def post(self, url, json=None, headers=None, auth=None):
+            captured.update(url=url, body=json, headers=headers, auth=auth)
             return FakeResponse()
 
     monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
-    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+    mock_api._get_elasticsearch_client.return_value = FakeClientSession()
 
     response = await admin.get_model_request_body("xinf-123", api=mock_api)
 
@@ -1057,11 +1072,11 @@ async def test_get_model_request_body_returns_404_when_started_event_is_missing(
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             return None
 
-        def post(self, url, json=None, headers=None):
+        def post(self, url, json=None, headers=None, auth=None):
             return FakeResponse()
 
     monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
-    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+    mock_api._get_elasticsearch_client.return_value = FakeClientSession()
 
     with pytest.raises(HTTPException) as exc_info:
         await admin.get_model_request_body("xinf-missing", api=mock_api)

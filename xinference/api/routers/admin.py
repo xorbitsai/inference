@@ -631,9 +631,8 @@ _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
 _TEXT_FIELDS = {"message", "error.message"}
 _LOG_SOURCE_EXCLUDES = ["@version", "request_body", "request_body_raw"]
 _LOG_SEARCH_TEXT_FIELDS = ["message", "error.message"]
+_LOG_SEARCH_PREFIX_FIELDS = ["request_id", "correlation_id"]
 _LOG_SEARCH_KEYWORD_FIELDS = [
-    "request_id",
-    "correlation_id",
     "endpoint",
     "model_uid",
     "event_type",
@@ -809,6 +808,48 @@ async def _search_es_page(
                 logger.warning("%s PIT close failed: %s", error_context, e)
 
 
+def _build_log_search_clause(query: str) -> dict[str, Any]:
+    """Build a broad log query without leading wildcards on ID fields."""
+
+    keyword_pattern = f"*{_escape_es_wildcard(query)}*"
+    return {
+        "bool": {
+            "should": [
+                {
+                    "simple_query_string": {
+                        "query": query,
+                        "fields": _LOG_SEARCH_TEXT_FIELDS,
+                        "default_operator": "AND",
+                    }
+                },
+                *[
+                    {
+                        "prefix": {
+                            field: {
+                                "value": query,
+                                "case_insensitive": True,
+                            }
+                        }
+                    }
+                    for field in _LOG_SEARCH_PREFIX_FIELDS
+                ],
+                *[
+                    {
+                        "wildcard": {
+                            field: {
+                                "value": keyword_pattern,
+                                "case_insensitive": True,
+                            }
+                        }
+                    }
+                    for field in _LOG_SEARCH_KEYWORD_FIELDS
+                ],
+            ],
+            "minimum_should_match": 1,
+        }
+    }
+
+
 async def search_logs(
     q: str = "",
     level: str = "",
@@ -843,34 +884,7 @@ async def search_logs(
     ]
 
     if q:
-        keyword_pattern = f"*{_escape_es_wildcard(q)}*"
-        must.append(
-            {
-                "bool": {
-                    "should": [
-                        {
-                            "simple_query_string": {
-                                "query": q,
-                                "fields": _LOG_SEARCH_TEXT_FIELDS,
-                                "default_operator": "AND",
-                            }
-                        },
-                        *[
-                            {
-                                "wildcard": {
-                                    field: {
-                                        "value": keyword_pattern,
-                                        "case_insensitive": True,
-                                    }
-                                }
-                            }
-                            for field in _LOG_SEARCH_KEYWORD_FIELDS
-                        ],
-                    ],
-                    "minimum_should_match": 1,
-                }
-            }
-        )
+        must.append(_build_log_search_clause(q))
 
     for field, value in [
         ("level", level),
@@ -1158,6 +1172,7 @@ async def search_correlated_logs(
     time_from: str = "now-24h",
     time_to: str = "now",
     size: int = 500,
+    api: "RESTfulAPI" = Depends(get_api),
 ) -> JSONResponse:
     """Return a cross-node, cross-log-type timeline for one request."""
 
@@ -1200,20 +1215,19 @@ async def search_correlated_logs(
     headers, auth = _es_headers_and_auth(os.environ.get("XINFERENCE_ES_AUTH", ""))
     url = f"{es_url.rstrip('/')}/{es_index}/_search"
     try:
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-            async with session.post(url, json=body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES correlated log query failed: status=%d body=%s",
-                        resp.status,
-                        text[:500],
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                data = await resp.json()
+        session = api._get_elasticsearch_client()
+        async with session.post(url, json=body, headers=headers, auth=auth) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                logger.error(
+                    "ES correlated log query failed: status=%d body=%s",
+                    resp.status,
+                    text[:500],
+                )
+                raise HTTPException(
+                    status_code=502, detail="Elasticsearch query failed"
+                )
+            data = await resp.json()
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES correlated log connection error or timeout: %s", e)
         raise HTTPException(
@@ -1281,20 +1295,19 @@ async def get_model_request_body(
     headers, auth = _es_headers_and_auth(os.environ.get("XINFERENCE_ES_AUTH", ""))
     url = f"{es_url.rstrip('/')}/{es_index}/_search"
     try:
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-            async with session.post(url, json=body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES model request body query failed: status=%d body=%s",
-                        resp.status,
-                        text[:500],
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                data = await resp.json()
+        session = api._get_elasticsearch_client()
+        async with session.post(url, json=body, headers=headers, auth=auth) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                logger.error(
+                    "ES model request body query failed: status=%d body=%s",
+                    resp.status,
+                    text[:500],
+                )
+                raise HTTPException(
+                    status_code=502, detail="Elasticsearch query failed"
+                )
+            data = await resp.json()
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES model request body connection error or timeout: %s", e)
         raise HTTPException(

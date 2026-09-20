@@ -37,6 +37,7 @@ from typing import (
     get_type_hints,
 )
 
+import aiohttp
 import anyio
 import httpx
 import xoscar as xo
@@ -576,7 +577,10 @@ class RESTfulAPI(CancelMixin):
                             exc_info=True,
                         )
             finally:
-                await self._close_token_router_client()
+                try:
+                    await self._close_elasticsearch_client()
+                finally:
+                    await self._close_token_router_client()
 
     def __init__(
         self,
@@ -645,6 +649,7 @@ class RESTfulAPI(CancelMixin):
         )
 
         self._router = APIRouter(route_class=ModelRequestLoggingRoute)
+        self._elasticsearch_client: Optional[aiohttp.ClientSession] = None
         self._token_router_client: Optional[httpx.AsyncClient] = None
         self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
@@ -914,6 +919,19 @@ class RESTfulAPI(CancelMixin):
             logger.exception(
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
+
+    def _get_elasticsearch_client(self) -> aiohttp.ClientSession:
+        client = getattr(self, "_elasticsearch_client", None)
+        if client is None or client.closed:
+            client = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
+            self._elasticsearch_client = client
+        return client
+
+    async def _close_elasticsearch_client(self) -> None:
+        client = getattr(self, "_elasticsearch_client", None)
+        if client is not None:
+            await client.close()
+            self._elasticsearch_client = None
 
     def _get_token_router_client(self) -> httpx.AsyncClient:
         client = getattr(self, "_token_router_client", None)
