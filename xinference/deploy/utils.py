@@ -710,8 +710,7 @@ class AddressFormatter(logging.Formatter):
 
     def __init__(self, fmt=None, datefmt=None, style="%", role="", address=""):
         super().__init__(fmt, datefmt, style)
-        self.role = role
-        self.address = address
+        self.role, self.address = _resolve_formatter_identity(role, address)
         AddressFormatter._instances.add(self)
 
     def format(self, record):
@@ -773,8 +772,7 @@ class JsonFileFormatter(logging.Formatter):
 
     def __init__(self, role="", address="", **kwargs):
         super().__init__()
-        self.role = role
-        self.address = address
+        self.role, self.address = _resolve_formatter_identity(role, address)
         self._hostname = socket.gethostname()
         JsonFileFormatter._instances.add(self)
 
@@ -813,8 +811,7 @@ class TextFileFormatter(logging.Formatter):
 
     def __init__(self, role="", address="", **kwargs):
         super().__init__()
-        self.role = role
-        self.address = address
+        self.role, self.address = _resolve_formatter_identity(role, address)
         self._hostname = socket.gethostname()
         TextFileFormatter._instances.add(self)
 
@@ -870,6 +867,43 @@ def get_process_log_identity() -> dict:
 
     with _PROCESS_LOG_IDENTITY_LOCK:
         return dict(_PROCESS_LOG_IDENTITY)
+
+
+def _resolve_formatter_identity(role: str, address: str) -> tuple[str, str]:
+    """Fill missing formatter identity fields from the process identity."""
+
+    if role and address:
+        return role, address
+    identity = get_process_log_identity()
+    return role or identity["role"], address or identity["address"]
+
+
+_XINFERENCE_FORMATTER_FACTORIES = (
+    AddressFormatter,
+    JsonFileFormatter,
+    TextFileFormatter,
+    "xinference.deploy.utils.AddressFormatter",
+    "xinference.deploy.utils.JsonFileFormatter",
+    "xinference.deploy.utils.TextFileFormatter",
+)
+
+
+def update_logging_config_addresses(
+    logging_conf: Optional[dict], role: str, address: str
+) -> None:
+    """Update Xinference formatter identities in a reusable logging config."""
+
+    if not logging_conf:
+        return
+    formatters = logging_conf.get("formatters")
+    if not isinstance(formatters, dict):
+        return
+    for formatter in formatters.values():
+        if not isinstance(formatter, dict):
+            continue
+        if formatter.get("()") in _XINFERENCE_FORMATTER_FACTORIES:
+            formatter["role"] = role
+            formatter["address"] = address
 
 
 def update_all_formatter_addresses(role: str, address: str):

@@ -104,8 +104,8 @@ def test_restful_api_subprocess_applies_environment_before_start(monkeypatch):
 
     calls = []
 
-    def fake_run(*args):
-        calls.append((os.environ.get("XINFERENCE_DISABLE_METRICS"), args))
+    def fake_run(*args, **kwargs):
+        calls.append((os.environ.get("XINFERENCE_DISABLE_METRICS"), args, kwargs))
 
     monkeypatch.delenv("XINFERENCE_DISABLE_METRICS", raising=False)
     monkeypatch.setattr(restful_api, "run", fake_run)
@@ -118,4 +118,10 @@ def test_restful_api_subprocess_applies_environment_before_start(monkeypatch):
         {"XINFERENCE_DISABLE_METRICS": "1"},
     )
 
-    assert calls == [("1", ("supervisor", "host", 1234, {"version": 1}))]
+    assert calls == [
+        (
+            "1",
+            ("supervisor", "host", 1234, {"version": 1}),
+            {"api_role": "supervisor"},
+        )
+    ]

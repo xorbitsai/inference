@@ -4486,9 +4486,13 @@ def run(
     logging_conf: Optional[dict] = None,
     api_role: str = "supervisor",
 ):
-    from ..deploy.utils import update_all_formatter_addresses
+    from ..deploy.utils import (
+        update_all_formatter_addresses,
+        update_logging_config_addresses,
+    )
 
     update_all_formatter_addresses(api_role, supervisor_address)
+    update_logging_config_addresses(logging_conf, api_role, supervisor_address)
     logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
         api = RESTfulAPI(
