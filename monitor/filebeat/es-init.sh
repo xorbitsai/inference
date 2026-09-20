@@ -43,7 +43,7 @@ echo "==> Adding existing application/request indices to read-only alias: xinfer
 alias_payload="$(
   curl -fsS \
     "${ES_HOST}/xinference-logs-*,xinference-model-request-*?allow_no_indices=true&ignore_unavailable=true&filter_path=*.settings.index.provided_name" | \
-    python3 -c 'import json, sys; data = json.load(sys.stdin); json.dump({"actions": [{"add": {"index": name, "alias": "xinference-log-search"}} for name in sorted(data)]}, sys.stdout)'
+    python3 -c 'import json, sys; content = sys.stdin.read().strip(); data = json.loads(content) if content else {}; json.dump({"actions": [{"add": {"index": name, "alias": "xinference-log-search"}} for name in sorted(data)]}, sys.stdout)'
 )"
 alias_action_count="$(
   printf '%s' "${alias_payload}" | \

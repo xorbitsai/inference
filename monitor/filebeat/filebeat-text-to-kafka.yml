@@ -101,8 +101,9 @@ processors:
           to: "event_type"
       ignore_missing: true
       fail_on_error: false
-      when.equals:
-        log_type: "model_request"
+      when:
+        equals:
+          log_type: "model_request"
 
   - timestamp:
       field: "timestamp"
@@ -111,8 +112,9 @@ processors:
         - '2006-01-02T15:04:05.999Z07:00'
       ignore_missing: true
       ignore_failure: true
-      when.equals:
-        log_type: "model_request"
+      when:
+        equals:
+          log_type: "model_request"
 
   # Parse text-format application logs (audit logs are already parsed via json.keys_under_root)
   - if:
