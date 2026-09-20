@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { ContextDialog } from './context-dialog';
 import { LogDetail } from './log-detail';
 import type { FieldFilter, FieldFilterOp, LogRow } from './types';
-import { formatLogTime, HighlightText } from './utils';
+import { formatLogTime, getLogSummary, HighlightText } from './utils';
 
 interface LogTableProps {
   logs: LogRow[];
@@ -74,6 +74,8 @@ export function LogTable({
               <TableHead className="w-8" />
               <TableHead className="w-40">{t('logCenter.time')}</TableHead>
               <TableHead className="w-24">{t('logCenter.level')}</TableHead>
+              <TableHead className="w-32">{t('logCenter.type')}</TableHead>
+              <TableHead className="w-28">{t('logCenter.role')}</TableHead>
               <TableHead className="w-44">{t('logCenter.node')}</TableHead>
               <TableHead>{t('logCenter.message')}</TableHead>
             </TableRow>
@@ -89,25 +91,41 @@ export function LogTable({
                     onClick={() => setExpandedRow(isExpanded ? null : index)}
                   >
                     <TableCell className="w-8">
-                      <ChevronDown className={cn('size-4 transition-transform', isExpanded && 'rotate-180')} />
+                      <ChevronDown
+                        className={cn('size-4 transition-transform', isExpanded && 'rotate-180')}
+                      />
                     </TableCell>
                     <TableCell className="w-40 whitespace-nowrap text-xs">
                       {formatLogTime(row['@timestamp'])}
                     </TableCell>
                     <TableCell className="w-24 text-xs">
-                      <span className={cn('font-semibold', LOG_LEVEL_TEXT_CLASSES[String(row.level)] || 'text-foreground')}>
+                      <span
+                        className={cn(
+                          'font-semibold',
+                          LOG_LEVEL_TEXT_CLASSES[String(row.level)] || 'text-foreground'
+                        )}
+                      >
                         <HighlightText text={row.level || ''} keywords={highlightValues.levels} />
                       </span>
+                    </TableCell>
+                    <TableCell className="w-32 text-xs">
+                      <HighlightText text={row.log_type || ''} />
+                    </TableCell>
+                    <TableCell className="w-28 text-xs">
+                      <HighlightText text={row.role || ''} />
                     </TableCell>
                     <TableCell className="w-44 text-xs">
                       <HighlightText text={row.node || ''} keywords={highlightValues.nodes} />
                     </TableCell>
                     <TableCell className="max-w-0 truncate text-xs">
-                      <HighlightText text={row.message || ''} keywords={highlightValues.messages} />
+                      <HighlightText
+                        text={getLogSummary(row)}
+                        keywords={highlightValues.messages}
+                      />
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell colSpan={5} className="p-0">
+                    <TableCell colSpan={7} className="p-0">
                       {isExpanded && (
                         <LogDetail
                           row={row}
@@ -127,7 +145,7 @@ export function LogTable({
             })}
             {loading && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={7}>
                   <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                     <Loader2 className="size-5 animate-spin" />
                     <span>{t('logCenter.loading')}</span>
@@ -137,8 +155,10 @@ export function LogTable({
             )}
             {!loading && logs.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>
-                  <div className="py-10 text-center text-muted-foreground">{t('logCenter.noLogs')}</div>
+                <TableCell colSpan={7}>
+                  <div className="py-10 text-center text-muted-foreground">
+                    {t('logCenter.noLogs')}
+                  </div>
                 </TableCell>
               </TableRow>
             )}

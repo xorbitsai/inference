@@ -27,6 +27,7 @@ export const ALL_PERMISSIONS = [
   'virtualenv:list',
   'virtualenv:delete',
   'logs:list',
+  'model_requests:read_body',
   'monitor:view',
   'settings:read',
   'settings:write',
@@ -63,7 +64,7 @@ const PERMISSION_GROUPS = [
   },
   {
     key: 'logs',
-    permissions: ['logs:list'],
+    permissions: ['logs:list', 'model_requests:read_body'],
   },
   {
     key: 'monitor',

@@ -7,7 +7,7 @@ export const DEFAULT_LOG_TIME_RANGE = {
 };
 
 export const LOG_LEVELS = ['ERROR', 'WARNING', 'INFO', 'DEBUG'] as const;
-export const LOG_TYPES = ['worker', 'supervisor'] as const;
+export const LOG_TYPES = ['worker', 'supervisor', 'model_request'] as const;
 
 export const LOG_TIME_RANGES = [
   { labelKey: 'monitorCenter.time.15m', from: 'now-15m', to: 'now' },

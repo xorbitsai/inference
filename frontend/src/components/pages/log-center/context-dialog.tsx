@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { FilterChipBar } from './filter-chip-bar';
 import { LogDetail } from './log-detail';
 import type { FieldFilter, FieldFilterOp, LogContextResponse, LogRow } from './types';
-import { filterRowsByFields, formatLogTime, HighlightText } from './utils';
+import { filterRowsByFields, formatLogTime, getLogSummary, HighlightText } from './utils';
 
 interface ContextDialogProps {
   open: boolean;
@@ -210,7 +210,7 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
           </TableCell>
           <TableCell className="w-44 text-xs">{String(row.node || '')}</TableCell>
           <TableCell className="max-w-0 truncate text-xs">
-            <HighlightText text={row.message || ''} />
+            <HighlightText text={getLogSummary(row)} />
           </TableCell>
         </TableRow>
         <TableRow key={`${rowKey}-detail`}>

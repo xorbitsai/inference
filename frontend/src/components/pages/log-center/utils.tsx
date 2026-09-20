@@ -77,6 +77,31 @@ export const buildLogQueryParams = ({
   return params;
 };
 
+export const getLogSummary = (row: LogRow) => {
+  if (row.message) return String(row.message);
+
+  const eventType = String(row.event_type || '');
+  const protocol = row.api_protocol
+    ? String(row.api_protocol).charAt(0).toUpperCase() + String(row.api_protocol).slice(1)
+    : '';
+  const endpoint = String(row.endpoint || '');
+  const model = row.model_uid ? ` model=${String(row.model_uid)}` : '';
+  const stream = typeof row.stream === 'boolean' ? ` stream=${String(row.stream)}` : '';
+
+  if (eventType === 'model_request_started') {
+    return `[Request started] ${protocol} POST ${endpoint}${model}${stream}`.trim();
+  }
+  if (eventType === 'model_request_finished') {
+    const elapsed = row.elapsed_ms === undefined ? '' : ` elapsed=${String(row.elapsed_ms)}ms`;
+    return `[Request finished] ${endpoint} status=${String(row.status_code ?? '')}${elapsed}`.trim();
+  }
+  if (eventType === 'model_request_failed') {
+    const errorType = row.error?.type ? ` error=${row.error.type}` : '';
+    return `[Request failed] ${protocol} ${endpoint} status=${String(row.status_code ?? '')}${errorType}`.trim();
+  }
+  return eventType || endpoint || '-';
+};
+
 export const filterRowsByFields = (rows: LogRow[], filters: FieldFilter[]) => {
   if (!filters.length) return rows;
 
@@ -143,7 +168,10 @@ export function HighlightText({
         lowerKeywords.has(part.toLowerCase()) ? (
           <mark
             key={`${part}-${index}`}
-            className={cn('rounded-sm bg-amber-200 px-0 text-foreground dark:bg-amber-400/60', className)}
+            className={cn(
+              'rounded-sm bg-amber-200 px-0 text-foreground dark:bg-amber-400/60',
+              className
+            )}
           >
             {part}
           </mark>
