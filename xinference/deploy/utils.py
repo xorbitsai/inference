@@ -429,6 +429,13 @@ class LoggerNameFilter(logging.Filter):
 _POLLING_ENDPOINTS = ("/progress", "/replicas", "/metrics", "/status")
 
 
+class DropAccessLogFilter(logging.Filter):
+    """Keep Uvicorn access lines out of Xinference application logs."""
+
+    def filter(self, record):
+        return False
+
+
 class PollingAccessFilter(logging.Filter):
     """Drop successful polling requests from uvicorn's access log.
 
@@ -1012,6 +1019,9 @@ def get_config_dict(
             "polling_access_filter": {
                 "()": __name__ + ".PollingAccessFilter",
             },
+            "drop_access_log_filter": {
+                "()": __name__ + ".DropAccessLogFilter",
+            },
         },
         "handlers": {
             "stream_handler": {
@@ -1049,7 +1059,7 @@ def get_config_dict(
                 "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
-                "filters": ["polling_access_filter"],
+                "filters": ["drop_access_log_filter"],
             },
             "transformers": {
                 "handlers": (
