@@ -80,12 +80,16 @@ def test_json_body_is_preserved_after_endpoint_parsing(monkeypatch):
         "model_request_started",
         "model_request_finished",
     ]
+    assert [event["event_type"] for event in events] == [
+        "model_request_started",
+        "model_request_finished",
+    ]
     assert events[0]["request_body"] == payload
     assert events[0]["model_uid"] == "audio-model"
     assert events[1]["success"] is True
 
 
-def test_generated_request_id_preserves_xinf_prefix(monkeypatch):
+def test_generated_request_id_is_standard_uuid_without_prefix(monkeypatch):
     _enable_capture(monkeypatch)
 
     async def endpoint(request: Request):
@@ -96,10 +100,8 @@ def test_generated_request_id_preserves_xinf_prefix(monkeypatch):
         "/v1/completions", json={"model": "llm"}
     )
     request_id = response.headers["x-request-id"]
-    assert request_id.startswith("xinf-")
-    assert str(uuid.UUID(request_id.removeprefix("xinf-"))) == request_id.removeprefix(
-        "xinf-"
-    )
+    assert not request_id.startswith("xinf-")
+    assert str(uuid.UUID(request_id)) == request_id
 
 
 def test_invalid_request_id_is_replaced(monkeypatch):
@@ -114,8 +116,10 @@ def test_invalid_request_id_is_replaced(monkeypatch):
         json={"model": "llm"},
         headers={"x-request-id": "x" * 257},
     )
-    assert response.headers["x-request-id"].startswith("xinf-")
-    assert events[0]["request_id"] == response.headers["x-request-id"]
+    generated_request_id = response.headers["x-request-id"]
+    assert not generated_request_id.startswith("xinf-")
+    assert str(uuid.UUID(generated_request_id)) == generated_request_id
+    assert events[0]["request_id"] == generated_request_id
 
 
 def test_negative_content_length_is_treated_as_unknown_size():
@@ -212,7 +216,10 @@ def test_authentication_failure_does_not_log_body(monkeypatch):
         _app("/v1/completions", endpoint, dependencies=[Depends(deny)])
     ).post("/v1/completions", json={"model": "llm", "secret": "do-not-log"})
     assert response.status_code == 401
-    assert response.headers["x-request-id"].startswith("xinf-")
+    assert (
+        str(uuid.UUID(response.headers["x-request-id"]))
+        == response.headers["x-request-id"]
+    )
     assert [event["event"] for event in events] == ["model_request_failed"]
     assert "request_body" not in events[0]
     assert "do-not-log" not in json.dumps(events)
@@ -266,7 +273,10 @@ def test_disabled_logging_does_not_wrap_stream(monkeypatch):
     )
 
     assert response.content == b"onetwo"
-    assert response.headers["x-request-id"].startswith("xinf-")
+    assert (
+        str(uuid.UUID(response.headers["x-request-id"]))
+        == response.headers["x-request-id"]
+    )
 
 
 @pytest.mark.asyncio
@@ -1027,6 +1037,8 @@ def test_base_event_contains_process_identity_and_protocol(monkeypatch):
         "llm",
     )
 
+    assert event["event"] == "model_request_started"
+    assert event["event_type"] == "model_request_started"
     assert event["role"] == "supervisor"
     assert event["address"] == "xinference-supervisor:9999"
     assert event["node"] == "t-xinference-supervisor-001"

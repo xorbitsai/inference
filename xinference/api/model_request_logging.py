@@ -211,7 +211,7 @@ def get_model_request_id(request: Request) -> str:
     headers = getattr(request, "headers", {})
     request_id = headers.get("request-id") or headers.get("x-request-id")
     if not _valid_request_id(request_id):
-        request_id = f"xinf-{uuid.uuid4()}"
+        request_id = str(uuid.uuid4())
     assert isinstance(request_id, str)
     if state is not None:
         state.model_request_id = request_id
@@ -450,6 +450,7 @@ def _base_event(
         "timestamp": _now_iso(),
         "level": level,
         "event": event,
+        "event_type": event,
         "request_id": request_id,
         "role": identity["role"],
         "address": identity["address"],
