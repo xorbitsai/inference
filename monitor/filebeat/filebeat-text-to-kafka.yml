@@ -75,7 +75,50 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
+  # --- Model request logs (NDJSON, sensitive body retained in _source only) ---
+  - type: filestream
+    id: xinference-model-request
+    enabled: true
+    paths:
+      - ${XINFERENCE_MODEL_REQUEST_LOG_PATH:/data/xinference_home/logs/model_request.log*}
+    exclude_files: ['\.gz$', '\.rotate\.lock$']
+    parsers:
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+    message_max_bytes: 33554432
+    fields:
+      log_type: model_request
+      cluster: xinference
+    fields_under_root: true
+
 processors:
+  # Normalize model_request.log before the global event metadata is dropped.
+  - rename:
+      fields:
+        - from: "event"
+          to: "event_type"
+      ignore_missing: true
+      fail_on_error: false
+      when:
+        and:
+          - equals:
+              log_type: "model_request"
+          - not:
+              has_fields: ["event_type"]
+
+  - timestamp:
+      field: "timestamp"
+      target_field: "@timestamp"
+      layouts:
+        - '2006-01-02T15:04:05.999Z07:00'
+      ignore_missing: true
+      ignore_failure: true
+      when:
+        equals:
+          log_type: "model_request"
+
   # Parse text-format application logs (audit logs are already parsed via json.keys_under_root)
   - if:
       not:
@@ -86,6 +129,8 @@ processors:
               log_type: "router_agent"
           - equals:
               log_type: "router_runtime"
+          - equals:
+              log_type: "model_request"
     then:
       - dissect:
           tokenizer: "%{@timestamp} %{level} %{module} pid:%{pid} role:%{role} address:%{address} node:%{node} %{msg}"
