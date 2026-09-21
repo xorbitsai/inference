@@ -987,6 +987,11 @@ const ko = {
       correlatedTruncated: '결과가 잘렸습니다. 전체 타임라인을 보려면 시간 범위를 줄이세요.',
       requestBodyTitle: '보호된 요청 본문',
       requestBodyWarning: '민감한 내용입니다. 권한이 있는 사용자만 접근할 수 있습니다.',
+      requestBodyForbidden: '이 요청 본문을 볼 권한이 없습니다.',
+      requestBodyNotFound:
+        '요청 본문을 찾을 수 없습니다. 이전 문서가 불완전하거나 만료되었을 수 있습니다.',
+      requestBodyBackendError: 'Elasticsearch가 요청 본문 조회를 완료하지 못했습니다.',
+      requestBodyNotConfigured: '요청 본문 Elasticsearch 인덱스가 구성되지 않았습니다.',
       requestBodyFetchError: '보호된 요청 본문을 불러오지 못했습니다.',
       bodyUnavailable: '요청 본문을 사용할 수 없습니다.',
       contextTitle: '로그 컨텍스트',

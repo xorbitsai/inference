@@ -21,7 +21,12 @@ export type LogRow = Record<string, unknown> & {
   message?: string;
   log_type?: string;
   request_id?: string;
+  correlation_id?: string;
+  operation_request_id?: string;
+  actor_call_id?: string;
+  parent_call_id?: string;
   event_type?: string;
+  event?: string;
   api_protocol?: string;
   endpoint?: string;
   model_uid?: string;

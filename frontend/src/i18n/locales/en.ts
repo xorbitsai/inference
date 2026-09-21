@@ -1011,6 +1011,11 @@ const en = {
       requestBodyTitle: 'Protected request body',
       requestBodyWarning:
         'Sensitive content. Access is permission-controlled and should be handled according to your data policy.',
+      requestBodyForbidden: 'You do not have permission to view this request body.',
+      requestBodyNotFound:
+        'No request body was found. The historical document may be incomplete or expired.',
+      requestBodyBackendError: 'Elasticsearch could not complete the request body query.',
+      requestBodyNotConfigured: 'The request body Elasticsearch index is not configured.',
       requestBodyFetchError: 'Failed to load the protected request body.',
       bodyUnavailable: 'The request body is unavailable.',
       contextTitle: 'Log context',

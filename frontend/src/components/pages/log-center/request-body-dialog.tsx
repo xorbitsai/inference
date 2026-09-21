@@ -1,5 +1,6 @@
 'use client';
 
+import axios from 'axios';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -21,20 +22,34 @@ export function RequestBodyDialog({
   const { t } = useI18n();
   const [data, setData] = useState<ModelRequestBodyResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !requestId) return;
     let active = true;
     setLoading(true);
-    setFailed(false);
+    setErrorKey(null);
     setData(null);
     request
       .get<ModelRequestBodyResponse>(
         `/v1/cluster/model-requests/${encodeURIComponent(requestId)}/body`
       )
       .then((body) => active && setData(body))
-      .catch(() => active && setFailed(true))
+      .catch((error: unknown) => {
+        if (!active) return;
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+        if (status === 403) {
+          setErrorKey('logCenter.detail.requestBodyForbidden');
+        } else if (status === 404) {
+          setErrorKey('logCenter.detail.requestBodyNotFound');
+        } else if (status === 502) {
+          setErrorKey('logCenter.detail.requestBodyBackendError');
+        } else if (status === 503) {
+          setErrorKey('logCenter.detail.requestBodyNotConfigured');
+        } else {
+          setErrorKey('logCenter.detail.requestBodyFetchError');
+        }
+      })
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -61,12 +76,10 @@ export function RequestBodyDialog({
           {t('logCenter.detail.requestBodyWarning')}
         </div>
         {loading && <Loader2 className="mx-auto my-16 size-7 animate-spin" />}
-        {!loading && failed && (
-          <div className="py-16 text-center text-destructive">
-            {t('logCenter.detail.requestBodyFetchError')}
-          </div>
+        {!loading && errorKey && (
+          <div className="py-16 text-center text-destructive">{t(errorKey)}</div>
         )}
-        {!loading && !failed && data && (
+        {!loading && !errorKey && data && (
           <pre className="m-0 max-h-[65vh] overflow-auto whitespace-pre-wrap break-all p-5 font-mono text-xs">
             {displayBody}
           </pre>

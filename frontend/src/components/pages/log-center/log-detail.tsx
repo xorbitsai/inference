@@ -20,6 +20,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn, copyToClipboard } from '@/lib/utils';
 
+import { getCorrelationId } from './correlation-utils';
 import { CorrelatedDialog } from './correlated-dialog';
 import { RequestBodyDialog } from './request-body-dialog';
 import type { FieldFilter, FieldFilterOp, LogRow } from './types';
@@ -106,17 +107,20 @@ export function LogDetail({
     onViewContext(row);
   };
 
-  const requestId = typeof row.request_id === 'string' ? row.request_id : '';
+  const requestId = typeof row.request_id === 'string' ? row.request_id.trim() : '';
+  const correlationId = getCorrelationId(row);
+  const eventType = String(row.event_type || row.event || '');
   const canReadRequestBody = Boolean(
     requestId &&
-    (clusterAuth?.auth === false ||
-      !clusterUIConfig?.auth_advanced ||
-      menuAuth.canReadModelRequestBody)
+    eventType === 'model_request_started' &&
+    clusterAuth?.auth !== false &&
+    clusterUIConfig?.auth_advanced &&
+    menuAuth.canReadModelRequestBody
   );
 
   const handleCopyRequestId = () => {
-    if (!requestId) return;
-    copyToClipboard(requestId);
+    if (!correlationId) return;
+    copyToClipboard(correlationId);
     setRequestIdCopied(true);
     if (copyRequestIdTimerRef.current) clearTimeout(copyRequestIdTimerRef.current);
     copyRequestIdTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
@@ -136,7 +140,7 @@ export function LogDetail({
               </TabsTrigger>
             </TabsList>
             <div className="flex flex-wrap items-center justify-end gap-1">
-              {requestId && (
+              {correlationId && (
                 <Button variant="ghost" size="sm" className="text-xs" onClick={handleCopyRequestId}>
                   {requestIdCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {t('logCenter.detail.copyRequestId')}
@@ -151,7 +155,7 @@ export function LogDetail({
                 <FileText className="size-4" />
                 {t('logCenter.detail.viewContext')}
               </Button>
-              {requestId && (
+              {correlationId && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -276,7 +280,7 @@ export function LogDetail({
         </Tabs>
       </div>
       <CorrelatedDialog
-        requestId={requestId}
+        requestId={correlationId}
         anchorTimestamp={row['@timestamp']}
         open={correlatedOpen}
         onOpenChange={setCorrelatedOpen}

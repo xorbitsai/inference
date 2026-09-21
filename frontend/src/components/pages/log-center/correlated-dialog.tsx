@@ -85,8 +85,6 @@ export function CorrelatedDialog({
               <TableHeader className="sticky top-0 z-10">
                 <TableRow>
                   <TableHead>{t('logCenter.time')}</TableHead>
-                  <TableHead>{t('logCenter.type')}</TableHead>
-                  <TableHead>{t('logCenter.role')}</TableHead>
                   <TableHead>{t('logCenter.node')}</TableHead>
                   <TableHead>{t('logCenter.message')}</TableHead>
                 </TableRow>
@@ -97,8 +95,6 @@ export function CorrelatedDialog({
                     <TableCell className="whitespace-nowrap text-xs">
                       {formatLogTime(row['@timestamp'])}
                     </TableCell>
-                    <TableCell className="text-xs">{String(row.log_type || '')}</TableCell>
-                    <TableCell className="text-xs">{String(row.role || '')}</TableCell>
                     <TableCell className="text-xs">{String(row.node || '')}</TableCell>
                     <TableCell className="text-xs">{getLogSummary(row)}</TableCell>
                   </TableRow>

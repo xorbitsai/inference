@@ -74,8 +74,6 @@ export function LogTable({
               <TableHead className="w-8" />
               <TableHead className="w-40">{t('logCenter.time')}</TableHead>
               <TableHead className="w-24">{t('logCenter.level')}</TableHead>
-              <TableHead className="w-32">{t('logCenter.type')}</TableHead>
-              <TableHead className="w-28">{t('logCenter.role')}</TableHead>
               <TableHead className="w-44">{t('logCenter.node')}</TableHead>
               <TableHead>{t('logCenter.message')}</TableHead>
             </TableRow>
@@ -108,12 +106,6 @@ export function LogTable({
                         <HighlightText text={row.level || ''} keywords={highlightValues.levels} />
                       </span>
                     </TableCell>
-                    <TableCell className="w-32 text-xs">
-                      <HighlightText text={row.log_type || ''} />
-                    </TableCell>
-                    <TableCell className="w-28 text-xs">
-                      <HighlightText text={row.role || ''} />
-                    </TableCell>
                     <TableCell className="w-44 text-xs">
                       <HighlightText text={row.node || ''} keywords={highlightValues.nodes} />
                     </TableCell>
@@ -125,7 +117,7 @@ export function LogTable({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell colSpan={7} className="p-0">
+                    <TableCell colSpan={5} className="p-0">
                       {isExpanded && (
                         <LogDetail
                           row={row}
@@ -145,7 +137,7 @@ export function LogTable({
             })}
             {loading && (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={5}>
                   <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                     <Loader2 className="size-5 animate-spin" />
                     <span>{t('logCenter.loading')}</span>
@@ -155,7 +147,7 @@ export function LogTable({
             )}
             {!loading && logs.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={5}>
                   <div className="py-10 text-center text-muted-foreground">
                     {t('logCenter.noLogs')}
                   </div>

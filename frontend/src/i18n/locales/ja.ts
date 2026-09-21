@@ -994,6 +994,12 @@ const ja = {
       correlatedTruncated: '結果は切り捨てられています。時間範囲を狭めてください。',
       requestBodyTitle: '保護されたリクエスト本文',
       requestBodyWarning: '機密情報が含まれます。アクセスは権限で制御されます。',
+      requestBodyForbidden: 'このリクエスト本文を表示する権限がありません。',
+      requestBodyNotFound:
+        'リクエスト本文が見つかりません。履歴ドキュメントが不完全か期限切れの可能性があります。',
+      requestBodyBackendError: 'Elasticsearch がリクエスト本文のクエリを完了できませんでした。',
+      requestBodyNotConfigured:
+        'リクエスト本文用の Elasticsearch インデックスが設定されていません。',
       requestBodyFetchError: '保護されたリクエスト本文の読み込みに失敗しました。',
       bodyUnavailable: 'リクエスト本文を利用できません。',
       contextTitle: 'ログコンテキスト',
