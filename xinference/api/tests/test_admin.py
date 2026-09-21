@@ -1005,16 +1005,23 @@ def test_parse_relative_time_rejects_compound_date_math():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("time_from", "time_to"),
+    [
+        ("now-1d-30d", "now"),
+        ("now-1d", "now-1h+30d"),
+    ],
+)
 async def test_search_correlated_logs_rejects_invalid_bounds_before_query(
-    monkeypatch, mock_api
+    monkeypatch, mock_api, time_from, time_to
 ):
     monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
 
     with pytest.raises(HTTPException) as exc_info:
         await admin.search_correlated_logs(
             request_id="xinf-123",
-            time_from="now-1d-30d",
-            time_to="now",
+            time_from=time_from,
+            time_to=time_to,
             api=mock_api,
         )
 
@@ -1059,6 +1066,49 @@ async def test_search_correlated_logs_normalizes_epoch_and_offset_bounds(
     assert bounds == {
         "gte": "2026-09-21T00:00:00Z",
         "lte": "2026-09-21T00:00:00Z",
+    }
+
+
+@pytest.mark.asyncio
+async def test_search_correlated_logs_accepts_exact_seven_day_boundary(
+    monkeypatch, mock_api
+):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return {"hits": {"total": {"value": 0}, "hits": []}}
+
+    class FakeClientSession:
+        def post(self, url, json=None, headers=None, auth=None):
+            captured["body"] = json
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    mock_api._get_elasticsearch_client.return_value = FakeClientSession()
+
+    await admin.search_correlated_logs(
+        request_id="xinf-123",
+        time_from="2026-09-14T00:00:00Z",
+        time_to="2026-09-21T00:00:00Z",
+        api=mock_api,
+    )
+
+    assert captured["body"]["query"]["bool"]["filter"][0] == {
+        "range": {
+            "@timestamp": {
+                "gte": "2026-09-14T00:00:00Z",
+                "lte": "2026-09-21T00:00:00Z",
+            }
+        }
     }
 
 
