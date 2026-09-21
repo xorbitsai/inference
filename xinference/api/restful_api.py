@@ -37,6 +37,7 @@ from typing import (
     get_type_hints,
 )
 
+import aiohttp
 import anyio
 import httpx
 import xoscar as xo
@@ -576,7 +577,10 @@ class RESTfulAPI(CancelMixin):
                             exc_info=True,
                         )
             finally:
-                await self._close_token_router_client()
+                try:
+                    await self._close_elasticsearch_client()
+                finally:
+                    await self._close_token_router_client()
 
     def __init__(
         self,
@@ -645,6 +649,7 @@ class RESTfulAPI(CancelMixin):
         )
 
         self._router = APIRouter(route_class=ModelRequestLoggingRoute)
+        self._elasticsearch_client: Optional[aiohttp.ClientSession] = None
         self._token_router_client: Optional[httpx.AsyncClient] = None
         self._cluster_metrics_task = None
         self._app = FastAPI(lifespan=self._lifespan)
@@ -702,7 +707,9 @@ class RESTfulAPI(CancelMixin):
         if not self._advanced_auth_service.validate_model_access(
             token, model_uid, model_type
         ):
-            self._record_audit(request, model_uid, model_type or "", "denied")
+            request.state._audit_model_uid = model_uid
+            request.state._audit_model_type = model_type or ""
+            request.state.audit_status = "denied"
             raise HTTPException(
                 status_code=403,
                 detail=f"API key does not have access to model: {model_uid}",
@@ -756,7 +763,11 @@ class RESTfulAPI(CancelMixin):
             client_ip=request.client.host if request.client else "",
             category="inference",
             auth_type="api_key",
+            method=request.method,
+            status_code=getattr(request.state, "audit_status_code", 0),
+            request_id=str(getattr(request.state, "model_request_id", "") or ""),
         )
+        request.state.audit_recorded = True
         _requests_total = getattr(_metrics, "api_key_requests_total", None)
         if _requests_total is not None:
             _requests_total.inc(
@@ -780,65 +791,110 @@ class RESTfulAPI(CancelMixin):
                 latency_s,
             )
 
-    def _record_admin_audit(self, request, status: str, latency_s: float = 0.0):
+    def _record_admin_audit(
+        self,
+        request: Request,
+        status: str,
+        latency_s: float = 0.0,
+        status_code: int = 0,
+        category: str = "",
+    ) -> None:
         if not self._advanced_auth_service:
             return
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        if not token:
-            return
-        payload = self._advanced_auth_service.verify_access_token(token)
-        username = payload.get("sub", "") if payload else ""
+        identity = getattr(request.state, "audit_identity", {}) or {}
+        username = str(identity.get("user", ""))
+        api_key_name = str(identity.get("api_key_name", ""))
+        api_key_prefix = str(identity.get("api_key_prefix", ""))
+        auth_type = str(identity.get("auth_type", ""))
+        if not username and not auth_type:
+            token = request.headers.get("Authorization", "").replace("Bearer ", "")
+            if token:
+                payload = self._advanced_auth_service.verify_access_token(token)
+                username = payload.get("sub", "") if payload else ""
+                auth_type = "jwt" if payload else ""
 
-        from .oauth2.advanced.audit import record_audit_event
+        from .oauth2.advanced.audit import classify_endpoint, record_audit_event
 
         record_audit_event(
             user=username,
-            api_key_name="",
-            api_key_prefix="",
-            model_id="",
-            model_name="",
-            model_type="",
+            api_key_name=api_key_name,
+            api_key_prefix=api_key_prefix,
+            model_id=str(getattr(request.state, "audit_model_id", "") or ""),
+            model_name=str(getattr(request.state, "audit_model_name", "") or ""),
+            model_type=str(getattr(request.state, "audit_model_type", "") or ""),
             endpoint=request.url.path,
             status=status,
             latency_ms=round(latency_s * 1000, 1),
             client_ip=request.client.host if request.client else "",
-            category="admin",
-            auth_type="jwt",
+            category=category or classify_endpoint(request.url.path),
+            auth_type=auth_type,
+            method=request.method,
+            status_code=status_code,
+            request_id=str(getattr(request.state, "model_request_id", "") or ""),
         )
+        request.state.audit_recorded = True
 
     async def _audit_middleware(self, request: Request, call_next):
+        from .oauth2.advanced.audit import classify_endpoint, should_skip_audit
+
         started = time.perf_counter()
-        response = await call_next(request)
-        model_request_id = getattr(request.state, "model_request_id", None)
-        if model_request_id:
-            response.headers.setdefault("X-Request-ID", str(model_request_id))
+        request_id = get_model_request_id(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            if (
+                self._advanced_auth_service
+                and not should_skip_audit(request.url.path)
+                and not getattr(request.state, "audit_recorded", False)
+            ):
+                request.state.audit_status_code = 500
+                self._record_admin_audit(
+                    request,
+                    "error",
+                    time.perf_counter() - started,
+                    status_code=500,
+                )
+            raise
+
+        response.headers.setdefault("X-Request-ID", request_id)
+        if (
+            not self._advanced_auth_service
+            or should_skip_audit(request.url.path)
+            or getattr(request.state, "audit_recorded", False)
+        ):
+            return response
+
+        latency_s = time.perf_counter() - started
+        status_code = response.status_code
+        request.state.audit_status_code = status_code
         model_uid = getattr(request.state, "_audit_model_uid", "")
-        if model_uid:
-            latency_s = time.perf_counter() - started
-            if response.status_code < 400:
+        audit_status = getattr(request.state, "audit_status", "")
+        if not audit_status:
+            if status_code < 400:
                 audit_status = "success"
-            elif response.status_code == 404:
+            elif model_uid and status_code == 404:
                 audit_status = "model_not_found"
+            elif request.url.path.startswith(("/token", "/v1/auth/")):
+                audit_status = "login_failed"
             else:
                 audit_status = "error"
+
+        if model_uid:
             model_type = getattr(request.state, "_audit_model_type", "")
             self._record_audit(request, model_uid, model_type, audit_status, latency_s)
-        elif self._advanced_auth_service and request.url.path.startswith(
-            ("/v1/models", "/v1/admin", "/v1/token_routers")
-        ):
-            from .oauth2.advanced.audit import classify_endpoint
-
-            category = classify_endpoint(request.url.path)
-            if category == "admin":
-                latency_s = time.perf_counter() - started
-                audit_status = "success" if response.status_code < 400 else "error"
-                self._record_admin_audit(request, audit_status, latency_s)
-        elif self._advanced_auth_service and request.url.path.startswith(
-            ("/token", "/v1/auth/", "/v1/api_keys")
-        ):
-            latency_s = time.perf_counter() - started
-            audit_status = "success" if response.status_code < 400 else "login_failed"
-            self._record_admin_audit(request, audit_status, latency_s)
+        if not getattr(request.state, "audit_recorded", False):
+            if model_uid:
+                request.state.audit_model_id = model_uid
+                request.state.audit_model_type = getattr(
+                    request.state, "_audit_model_type", ""
+                )
+            self._record_admin_audit(
+                request,
+                audit_status,
+                latency_s,
+                status_code=status_code,
+                category=classify_endpoint(request.url.path),
+            )
         return response
 
     @staticmethod
@@ -909,6 +965,19 @@ class RESTfulAPI(CancelMixin):
             logger.exception(
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
+
+    def _get_elasticsearch_client(self) -> aiohttp.ClientSession:
+        client = getattr(self, "_elasticsearch_client", None)
+        if client is None or client.closed:
+            client = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10))
+            self._elasticsearch_client = client
+        return client
+
+    async def _close_elasticsearch_client(self) -> None:
+        client = getattr(self, "_elasticsearch_client", None)
+        if client is not None:
+            await client.close()
+            self._elasticsearch_client = None
 
     def _get_token_router_client(self) -> httpx.AsyncClient:
         client = getattr(self, "_token_router_client", None)

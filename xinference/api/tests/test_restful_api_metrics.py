@@ -60,6 +60,24 @@ async def test_lifespan_skips_metrics_when_disabled_and_closes_client(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_lifespan_reuses_and_closes_elasticsearch_client(monkeypatch):
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._cluster_metrics_task = None
+    api._elasticsearch_client = None
+    api._token_router_client = None
+    monkeypatch.setattr(restful_api_module, "is_metrics_disabled", lambda: True)
+    app = FastAPI(lifespan=api._lifespan)
+
+    async with app.router.lifespan_context(app):
+        client = api._get_elasticsearch_client()
+        assert api._get_elasticsearch_client() is client
+        assert client.closed is False
+
+    assert client.closed is True
+    assert api._elasticsearch_client is None
+
+
+@pytest.mark.asyncio
 async def test_lifespan_tolerates_failed_cluster_metrics_task(monkeypatch, caplog):
     api = RESTfulAPI.__new__(RESTfulAPI)
     client = httpx.AsyncClient()
