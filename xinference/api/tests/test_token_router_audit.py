@@ -32,8 +32,10 @@ async def test_token_router_management_request_records_final_audit_status():
     api._advanced_auth_service = object()
     recorded = []
 
-    def record_admin_audit(self, request, status, latency_s=0.0):
-        recorded.append((request.url.path, status, latency_s))
+    def record_admin_audit(
+        self, request, status, latency_s=0.0, status_code=0, category=""
+    ):
+        recorded.append((request.url.path, status, latency_s, status_code, category))
 
     api._record_admin_audit = MethodType(record_admin_audit, api)
     app = FastAPI()
@@ -57,9 +59,11 @@ async def test_token_router_management_request_records_final_audit_status():
     assert management_response.status_code == 409
     assert internal_response.status_code == 200
     assert len(recorded) == 1
-    endpoint, status, latency_s = recorded[0]
+    endpoint, status, latency_s, status_code, category = recorded[0]
     assert endpoint == "/v1/token_routers/router-1/enable"
     assert status == "error"
+    assert status_code == 409
+    assert category == "admin"
     assert latency_s >= 0
 
 
@@ -133,6 +137,9 @@ async def test_anthropic_x_api_key_records_inference_audit(
         "client_ip": "127.0.0.1",
         "category": "inference",
         "auth_type": "api_key",
+        "method": "POST",
+        "status_code": expected_status_code,
+        "request_id": response.headers["x-request-id"],
     }
     assert recorded[0]["latency_ms"] >= 0
     requests_total.inc.assert_called_once_with(
@@ -156,29 +163,40 @@ async def test_anthropic_x_api_key_records_inference_audit(
 
 
 @pytest.mark.asyncio
-async def test_model_request_body_access_records_admin_audit():
-    api = RESTfulAPI.__new__(RESTfulAPI)
-    api._advanced_auth_service = object()
+async def test_admin_request_records_one_final_audit_event(monkeypatch):
     recorded = []
+    monkeypatch.setattr(
+        audit_module, "record_audit_event", lambda **kwargs: recorded.append(kwargs)
+    )
 
-    def record_admin_audit(self, request, status, latency_s=0.0):
-        recorded.append((request.url.path, status, latency_s))
-
-    api._record_admin_audit = MethodType(record_admin_audit, api)
+    auth_service = SimpleNamespace(verify_access_token=MagicMock(return_value=None))
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._advanced_auth_service = auth_service
+    api._uid_to_model_name = {}
     app = FastAPI()
     app.middleware("http")(api._audit_middleware)
 
     @app.get("/v1/cluster/model-requests/{request_id}/body")
-    async def read_body(request_id: str) -> Response:
-        return Response(status_code=200)
+    async def request_body(request: Request, request_id: str) -> Response:
+        request.state.audit_identity = {
+            "user": "admin",
+            "api_key_name": "",
+            "api_key_prefix": "",
+            "auth_type": "jwt",
+        }
+        return Response(status_code=404)
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get("/v1/cluster/model-requests/xinf-123/body")
+        response = await client.get(
+            "/v1/cluster/model-requests/xinf-old/body",
+            headers={"x-request-id": "caller-request-id"},
+        )
 
-    assert response.status_code == 200
+    assert response.status_code == 404
+    assert response.headers["x-request-id"] == "caller-request-id"
     assert len(recorded) == 1
-    endpoint, status, latency_s = recorded[0]
-    assert endpoint == "/v1/cluster/model-requests/xinf-123/body"
-    assert status == "success"
-    assert latency_s >= 0
+    assert recorded[0]["status"] == "error"
+    assert recorded[0]["status_code"] == 404
+    assert recorded[0]["method"] == "GET"
+    assert recorded[0]["request_id"] == "caller-request-id"

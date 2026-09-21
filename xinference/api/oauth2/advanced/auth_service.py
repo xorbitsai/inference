@@ -388,15 +388,8 @@ class AdvancedAuthService:
             token = token or request.headers.get("x-api-key", "").strip() or None
 
         try:
-            from .audit import (
-                classify_endpoint,
-                record_audit_event,
-                resolve_model_info,
-                should_skip_audit,
-            )
+            from .audit import resolve_model_info, should_skip_audit
         except ImportError:
-            classify_endpoint = None  # type: ignore[assignment]
-            record_audit_event = None  # type: ignore[assignment]
             resolve_model_info = None  # type: ignore[assignment]
             should_skip_audit = None  # type: ignore[assignment]
 
@@ -439,6 +432,19 @@ class AdvancedAuthService:
         else:
             _model_name, _model_type = "", ""
 
+        def _set_audit_identity(
+            user: str = "",
+            key_name: str = "",
+            key_prefix: str = "",
+            auth_type: str = "",
+        ) -> None:
+            request.state.audit_identity = {
+                "user": user,
+                "api_key_name": key_name,
+                "api_key_prefix": key_prefix,
+                "auth_type": auth_type,
+            }
+
         def _audit(
             status_val: str,
             user: str = "",
@@ -446,20 +452,13 @@ class AdvancedAuthService:
             key_prefix: str = "",
             auth_type: str = "",
         ):
-            if _skip_audit or record_audit_event is None:
+            if _skip_audit:
                 return
-            record_audit_event(
-                user=user,
-                api_key_name=key_name,
-                api_key_prefix=key_prefix,
-                model_id=_request_model,
-                model_name=_model_name,
-                model_type=_model_type,
-                endpoint=endpoint,
-                status=status_val,
-                client_ip=client_ip,
-                auth_type=auth_type,
-            )
+            _set_audit_identity(user, key_name, key_prefix, auth_type)
+            request.state.audit_status = status_val
+            request.state.audit_model_id = _request_model
+            request.state.audit_model_name = _model_name
+            request.state.audit_model_type = _model_type
 
         # Check IP ban
         if (
@@ -593,18 +592,14 @@ class AdvancedAuthService:
             # Success — reset counters
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)
-            # Record success for non-inference endpoints (inference success is recorded by audit_middleware)
-            _category = (
-                classify_endpoint(endpoint) if classify_endpoint is not None else ""
+            # Successful requests are audited after the endpoint returns so the
+            # final HTTP status and latency are recorded exactly once.
+            _set_audit_identity(
+                user=_username,
+                key_name=api_key_entry.name or "",
+                key_prefix=api_key_entry.key_prefix,
+                auth_type="api_key",
             )
-            if _category != "inference":
-                _audit(
-                    "success",
-                    user=_username,
-                    key_name=api_key_entry.name or "",
-                    key_prefix=api_key_entry.key_prefix,
-                    auth_type="api_key",
-                )
             return user_obj
 
         # Token not found in API key cache — check prefix
@@ -656,11 +651,7 @@ class AdvancedAuthService:
             )
 
         if "admin" in token_scopes:
-            _category = (
-                classify_endpoint(endpoint) if classify_endpoint is not None else ""
-            )
-            if _category != "inference":
-                _audit("success", user=username or "", auth_type="jwt")
+            _set_audit_identity(user=username or "", auth_type="jwt")
             return user
 
         # Live-read: use DB-current permissions (already loaded above) instead
@@ -677,9 +668,7 @@ class AdvancedAuthService:
                     detail="Not enough permissions",
                     headers={"WWW-Authenticate": authenticate_value},
                 )
-        _category = classify_endpoint(endpoint) if classify_endpoint is not None else ""
-        if _category != "inference":
-            _audit("success", user=username or "", auth_type="jwt")
+        _set_audit_identity(user=username or "", auth_type="jwt")
         return user
 
     def validate_model_access(
