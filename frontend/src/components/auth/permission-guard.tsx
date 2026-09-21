@@ -8,6 +8,7 @@ import { useMenuAuth } from '@/hooks/use-menu-auth';
 type PermissionScope =
   | 'monitor:view'
   | 'logs:list'
+  | 'model_requests:read_body'
   | 'settings:read'
   | 'models:read'
   | 'models:register'
@@ -65,6 +66,7 @@ export function PermissionGuard({ scope, children }: PermissionGuardProps) {
   const scopeMap: Record<string, boolean> = {
     'monitor:view': auth.hasMonitorView,
     'logs:list': auth.hasLogsList,
+    'model_requests:read_body': auth.canReadModelRequestBody,
     'settings:read': auth.hasSettingsRead,
     'models:read': auth.hasModelsRead,
     'models:register': auth.canRegisterModel,

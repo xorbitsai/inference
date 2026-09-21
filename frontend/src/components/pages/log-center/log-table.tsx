@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { ContextDialog } from './context-dialog';
 import { LogDetail } from './log-detail';
 import type { FieldFilter, FieldFilterOp, LogRow } from './types';
-import { formatLogTime, HighlightText } from './utils';
+import { formatLogTime, getLogSummary, HighlightText } from './utils';
 
 interface LogTableProps {
   logs: LogRow[];
@@ -89,13 +89,20 @@ export function LogTable({
                     onClick={() => setExpandedRow(isExpanded ? null : index)}
                   >
                     <TableCell className="w-8">
-                      <ChevronDown className={cn('size-4 transition-transform', isExpanded && 'rotate-180')} />
+                      <ChevronDown
+                        className={cn('size-4 transition-transform', isExpanded && 'rotate-180')}
+                      />
                     </TableCell>
                     <TableCell className="w-40 whitespace-nowrap text-xs">
                       {formatLogTime(row['@timestamp'])}
                     </TableCell>
                     <TableCell className="w-24 text-xs">
-                      <span className={cn('font-semibold', LOG_LEVEL_TEXT_CLASSES[String(row.level)] || 'text-foreground')}>
+                      <span
+                        className={cn(
+                          'font-semibold',
+                          LOG_LEVEL_TEXT_CLASSES[String(row.level)] || 'text-foreground'
+                        )}
+                      >
                         <HighlightText text={row.level || ''} keywords={highlightValues.levels} />
                       </span>
                     </TableCell>
@@ -103,7 +110,10 @@ export function LogTable({
                       <HighlightText text={row.node || ''} keywords={highlightValues.nodes} />
                     </TableCell>
                     <TableCell className="max-w-0 truncate text-xs">
-                      <HighlightText text={row.message || ''} keywords={highlightValues.messages} />
+                      <HighlightText
+                        text={getLogSummary(row)}
+                        keywords={highlightValues.messages}
+                      />
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -138,7 +148,9 @@ export function LogTable({
             {!loading && logs.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5}>
-                  <div className="py-10 text-center text-muted-foreground">{t('logCenter.noLogs')}</div>
+                  <div className="py-10 text-center text-muted-foreground">
+                    {t('logCenter.noLogs')}
+                  </div>
                 </TableCell>
               </TableRow>
             )}
