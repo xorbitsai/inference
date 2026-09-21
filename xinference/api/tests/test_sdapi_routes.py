@@ -1,6 +1,7 @@
 """Test SDAPI routing, validated payloads and actor dispatch without a GPU."""
 
 import json
+import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -137,7 +138,10 @@ async def test_progress_and_interrupt(api):
     progress_args, progress_kwargs = supervisor.get_progress.await_args
     assert progress_args == ("r",)
     progress_metadata = progress_kwargs[RPC_METADATA_KEY]
-    assert progress_metadata["correlation_id"].startswith("xinf-")
+    assert (
+        str(uuid.UUID(progress_metadata["correlation_id"]))
+        == progress_metadata["correlation_id"]
+    )
     assert progress_metadata["operation_request_id"] == "r"
     assert progress_metadata["actor_call_id"]
 
@@ -148,7 +152,10 @@ async def test_progress_and_interrupt(api):
     abort_args, abort_kwargs = actor.abort_request.await_args
     assert abort_args == ("r",)
     abort_metadata = abort_kwargs[RPC_METADATA_KEY]
-    assert abort_metadata["correlation_id"].startswith("xinf-")
+    assert (
+        str(uuid.UUID(abort_metadata["correlation_id"]))
+        == abort_metadata["correlation_id"]
+    )
     assert abort_metadata["operation_request_id"] == "r"
     assert abort_metadata["actor_call_id"]
 
