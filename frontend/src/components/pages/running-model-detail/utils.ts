@@ -7,15 +7,8 @@ import type { FileUploadValue } from '@/types/common';
 import { parseImageSeeds } from './image-seed-utils';
 import { parseScalarSeed } from './seed-utils';
 
-const SUB_CAPABILITIES = new Set<ModelAbility>([
-  ModelAbility.Text2audioVoiceCloning,
-  ModelAbility.Text2audioVoiceDesign,
-  ModelAbility.Text2audioZeroShot,
-  ModelAbility.Text2audioEmotionControl,
-]);
-
 export function getPrimaryModelAbilities(abilities: ModelAbility[] = []) {
-  return abilities.filter((ability) => !SUB_CAPABILITIES.has(ability));
+  return abilities.filter((ability) => !ability.includes('_'));
 }
 
 export function createId(prefix = 'item') {

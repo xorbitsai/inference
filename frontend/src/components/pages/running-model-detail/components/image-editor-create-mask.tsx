@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import type { FileUploadValue } from '@/types/common';
+import { useI18n } from '@/contexts/i18n-context';
 
 interface Point {
   x: number;
@@ -120,6 +121,7 @@ export function ImageEditorCreateMask({
   error,
   disabled,
 }: ImageEditorCreateMaskProps) {
+  const { t } = useI18n();
   const sourceValue = value[0];
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -549,7 +551,7 @@ export function ImageEditorCreateMask({
                 variant="ghost"
                 size="icon"
                 className="size-8"
-                aria-label="Undo stroke"
+                aria-label={t('runningModels.detail.undoStroke')}
                 disabled={disabled || strokes.length === 0}
                 onClick={undo}
               >
@@ -560,7 +562,7 @@ export function ImageEditorCreateMask({
                 variant="ghost"
                 size="icon"
                 className="size-8"
-                aria-label="Clear strokes"
+                aria-label={t('runningModels.detail.clearStrokes')}
                 disabled={disabled || strokes.length === 0}
                 onClick={clearStrokes}
               >
@@ -573,7 +575,7 @@ export function ImageEditorCreateMask({
                     variant="ghost"
                     size="icon"
                     className="size-8"
-                    aria-label="Brush size"
+                    aria-label={t('runningModels.detail.brushSize')}
                     disabled={disabled}
                   >
                     <Brush className="size-4" />
@@ -582,7 +584,7 @@ export function ImageEditorCreateMask({
                 <PopoverContent className="w-56">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">Brush size</span>
+                      <span className="font-medium">{t('runningModels.detail.brushSize')}</span>
                       <span className="text-muted-foreground">{lineWidth}px</span>
                     </div>
                     <Slider
@@ -596,7 +598,7 @@ export function ImageEditorCreateMask({
                 </PopoverContent>
               </Popover>
               <label className="flex size-8 items-center justify-center rounded-md hover:bg-accent">
-                <span className="sr-only">Brush color</span>
+                <span className="sr-only">{t('runningModels.detail.brushColor')}</span>
                 <span
                   className="size-4 rounded-full border border-border shadow-sm"
                   style={brushStyle}
@@ -614,7 +616,7 @@ export function ImageEditorCreateMask({
                 variant="ghost"
                 size="icon"
                 className="size-8 text-destructive hover:text-destructive"
-                aria-label="Remove source image"
+                aria-label={t('runningModels.detail.removeSourceImage')}
                 disabled={disabled}
                 onClick={resetSource}
               >
@@ -627,8 +629,8 @@ export function ImageEditorCreateMask({
             accept="image/*"
             value={[]}
             onChange={(nextValue) => onChange?.(nextValue)}
-            label="Upload image"
-            description="Edit Image and Create Mask"
+            label={t('runningModels.detail.uploadImage')}
+            description={t('runningModels.detail.editImageAndMask')}
             error={error}
             disabled={disabled}
             className="h-full [&>label]:h-full"
@@ -638,19 +640,21 @@ export function ImageEditorCreateMask({
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Or Upload Mask image</label>
+          <label className="text-sm font-medium">{t('runningModels.detail.orUploadMask')}</label>
           <FileUpload
             accept="image/*"
             value={uploadedMaskValue}
             onChange={handleMaskChange}
-            label="Mask image"
-            description="Optional mask image"
+            label={t('runningModels.detail.maskImage')}
+            description={t('runningModels.detail.optionalMaskImage')}
             disabled={disabled}
             className="[&>label]:h-[200px]"
           />
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">Current Mask Preview</label>
+          <label className="text-sm font-medium">
+            {t('runningModels.detail.currentMaskPreview')}
+          </label>
           <div
             ref={previewContainerRef}
             className="relative flex h-[200px] items-center justify-center overflow-hidden rounded-md border border-dashed bg-muted/20 p-2"

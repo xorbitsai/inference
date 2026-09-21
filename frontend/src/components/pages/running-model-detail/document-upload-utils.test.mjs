@@ -30,7 +30,7 @@ test('supported files with missing MIME types are accepted', () => {
 });
 const locales = ['zh', 'zh-TW', 'en', 'ja', 'ko'];
 const abilities = new Proxy({}, { get: (_, key) => String(key).toLowerCase() });
-const config = loadSource('./capability-config.tsx', {
+const capabilityConfigs = loadSource('./capability-config.tsx', {
   'lucide-react': {},
   '@/constants': { ModelAbility: abilities },
   '@/lib/is': { isEmpty: (value) => Object.keys(value).length === 0 },
@@ -39,8 +39,13 @@ const config = loadSource('./capability-config.tsx', {
   './emotion-vector-utils': { EMPTY_INDEX_TTS_EMOTION_VECTOR: [] },
   './seed-utils': {},
   './document-upload-utils': uploadUtils,
-  './utils': { firstUpload: (values, key) => values[key]?.[0] },
-}).CAPABILITY_CONFIGS.docanalyze;
+  './utils': {
+    firstUpload: (values, key) => values[key]?.[0],
+    stringValue: (value, fallback = '') => (typeof value === 'string' ? value : fallback),
+  },
+}).CAPABILITY_CONFIGS;
+const config = capabilityConfigs.docanalyze;
+const rerankConfig = capabilityConfigs.rerank;
 
 test('PDF and backend-supported image extensions are accepted', () => {
   for (const extension of ['pdf', 'png', 'jpeg', 'jp2', 'webp', 'gif', 'bmp', 'jpg', 'PDF']) {
@@ -87,6 +92,33 @@ test('docanalyze refuses missing or invalid uploads before sending', () => {
       values: { file: [{ file: new File(['text'], 'document.txt') }] },
     })
   );
+});
+
+test('rerank documents follow the selected text, image, video, or audio ability', () => {
+  const values = { query: 'What is Xinference?', documents: [' first ', '', 'second'] };
+  const transform = (modelAbility) =>
+    rerankConfig.transformValues({
+      modelUid: 'Qwen-Reranker',
+      values: { ...values, model_ability: modelAbility },
+    });
+
+  assert.deepEqual(transform(abilities.Rerank), {
+    model: 'Qwen-Reranker',
+    query: 'What is Xinference?',
+    documents: ['first', 'second'],
+  });
+  assert.deepEqual(transform(abilities.RerankVision).documents, [
+    { image: 'first' },
+    { image: 'second' },
+  ]);
+  assert.deepEqual(transform(abilities.RerankVideo).documents, [
+    { video: 'first' },
+    { video: 'second' },
+  ]);
+  assert.deepEqual(transform(abilities.RerankAudio).documents, [
+    { audio: 'first' },
+    { audio: 'second' },
+  ]);
 });
 
 test('all supported locales define docanalyze labels, descriptions and upload messages', () => {

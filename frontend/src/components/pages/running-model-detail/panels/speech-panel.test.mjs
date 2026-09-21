@@ -24,6 +24,11 @@ const ModelAbility = {
 function fieldsFor(abilities, promptSpeech = []) {
   const mocks = {
     '@/constants': { ModelAbility },
+    '@/contexts/i18n-context': {
+      useI18n: () => ({
+        t: (key) => (key === 'runningModels.detail.voiceInstruction' ? 'Voice Instruction' : key),
+      }),
+    },
     '@/hooks/use-form': {
       useWatch: (name) => (name === 'prompt_speech' ? promptSpeech : undefined),
     },

@@ -11,6 +11,7 @@ import type { AudioEmbeddingResponse, CompletionResponse } from '@/types/service
 import { ModelAbility } from '@/constants';
 import { cn } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
+import { useI18n, type TFunc } from '@/contexts/i18n-context';
 
 import { isAudioStreamResult, type AudioStreamResult } from '../audio-stream';
 import type { CapabilityResultProps } from '../types';
@@ -32,16 +33,18 @@ function formatProgress(progress: number) {
   return Number.isInteger(progress) ? String(progress) : progress.toFixed(1);
 }
 
-function EmptyResult({ label = 'Results will appear here.' }: { label?: string }) {
+function EmptyResult({ label }: { label?: string }) {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-80 flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-center text-sm text-muted-foreground">
       <ImageIcon className="mb-3 size-8" />
-      {label}
+      {label || t('runningModels.detail.resultsPlaceholder')}
     </div>
   );
 }
 
 function Generating({ progress }: { progress?: number }) {
+  const { t } = useI18n();
   const hasProgress = progress !== undefined;
 
   return (
@@ -60,7 +63,7 @@ function Generating({ progress }: { progress?: number }) {
         />
       </div>
       <div className="flex items-center gap-2 text-sm font-medium">
-        Generating
+        {t('runningModels.detail.generating')}
         <div className="flex gap-1">
           <span className="size-1.5 animate-bounce rounded-full bg-primary/60" />
           <span
@@ -77,7 +80,7 @@ function Generating({ progress }: { progress?: number }) {
         <div className="w-full max-w-xs space-y-1">
           <Progress value={progress} />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Progress</span>
+            <span>{t('runningModels.detail.progress')}</span>
             <span className="font-mono">{formatProgress(progress)}%</span>
           </div>
         </div>
@@ -207,6 +210,7 @@ function BlobMediaPreview({
 }
 
 function StreamingAudioPreview({ result }: { result: AudioStreamResult }) {
+  const { t } = useI18n();
   const [downloadUrl, setDownloadUrl] = useState<string>();
 
   useEffect(() => {
@@ -238,22 +242,22 @@ function StreamingAudioPreview({ result }: { result: AudioStreamResult }) {
       ) : (
         <div className="flex h-10 items-center gap-2 rounded-md border px-3 text-sm text-muted-foreground">
           <LoaderCircle className="size-4 animate-spin" />
-          Receiving audio stream
+          {t('runningModels.detail.receivingAudioStream')}
         </div>
       )}
       <div className="flex min-h-9 items-center justify-between gap-3 text-xs text-muted-foreground">
         <span aria-live="polite">
           {result.streaming
             ? waitingForCompletePlayback
-              ? 'This browser will start playback when the stream is complete.'
-              : 'Streaming and playing audio as it arrives.'
-            : 'Audio generation complete.'}
+              ? t('runningModels.detail.audioPlaybackAfterComplete')
+              : t('runningModels.detail.audioStreamingPlayback')
+            : t('runningModels.detail.audioGenerationComplete')}
         </span>
         {downloadUrl && result.file && (
           <a
             href={downloadUrl}
             download={result.file.name}
-            aria-label="Download audio"
+            aria-label={t('runningModels.detail.downloadAudio')}
             className="flex size-9 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:text-foreground"
             onClick={(event) => event.stopPropagation()}
           >
@@ -360,7 +364,7 @@ function CompletionResultPanel({ result }: { result: CompletionResponse }) {
   );
 }
 
-function formatOcrText(result: unknown, values?: FormValues) {
+function formatOcrText(result: unknown, t: TFunc, values?: FormValues) {
   const ocrType = stringValue(values?.ocr_type, 'ocr');
   let text = '';
   let renderAs: 'plain' | 'markdown' = ocrType === 'markdown' ? 'markdown' : 'plain';
@@ -368,33 +372,26 @@ function formatOcrText(result: unknown, values?: FormValues) {
   if (isRecord(result)) {
     if (result.success === false) {
       return {
-        text: `**Error**: ${stringValue(result.error, 'OCR failed')}`,
+        text: `**${t('runningModels.detail.error')}**: ${stringValue(
+          result.error,
+          t('runningModels.detail.ocrFailed')
+        )}`,
         renderAs: 'markdown' as const,
       };
     }
 
-    text = stringValue(result.text, 'No text extracted');
+    text = stringValue(result.text, t('runningModels.detail.noTextExtracted'));
 
     if (!text.trim()) {
-      text = `**OCR Recognition Complete, No Text Detected**
-
-**Possible Reasons:**
-- Text in image is unclear or insufficient resolution
-- Image format not supported
-- Model unable to recognize text in image
-
-**Suggestions:**
-- Try uploading a clearer image
-- Ensure text in image is clear and legible
-- Handwritten text may have poor results`;
+      text = t('runningModels.detail.ocrNoTextHelp');
       renderAs = 'markdown';
     }
 
     if (booleanValue(values?.test_compress) && result.compression_ratio !== undefined) {
-      text += '\n\n--- Compression Ratio Information ---\n';
-      text += `Compression Ratio: ${String(result.compression_ratio ?? 'N/A')}\n`;
-      text += `Valid Image Tokens: ${String(result.valid_image_tokens ?? 'N/A')}\n`;
-      text += `Output Text Tokens: ${String(result.output_text_tokens ?? 'N/A')}`;
+      text += `\n\n--- ${t('runningModels.detail.compressionInfo')} ---\n`;
+      text += `${t('runningModels.detail.compressionRatio')}: ${String(result.compression_ratio ?? 'N/A')}\n`;
+      text += `${t('runningModels.detail.validImageTokens')}: ${String(result.valid_image_tokens ?? 'N/A')}\n`;
+      text += `${t('runningModels.detail.outputTextTokens')}: ${String(result.output_text_tokens ?? 'N/A')}`;
     }
   } else if (typeof result === 'string') {
     text = result;
@@ -413,7 +410,8 @@ function formatOcrText(result: unknown, values?: FormValues) {
 }
 
 function OcrResultPanel({ result, values }: { result: unknown; values?: FormValues }) {
-  const { text, renderAs } = formatOcrText(result, values);
+  const { t } = useI18n();
+  const { text, renderAs } = formatOcrText(result, t, values);
 
   return renderAs === 'markdown' ? (
     <ReactMarkdown parseHtml>{text}</ReactMarkdown>
@@ -456,6 +454,7 @@ function formatEmbeddingVector(embedding: number[]) {
 }
 
 function SpeakerEmbeddingResultPanel({ result }: { result: unknown }) {
+  const { t } = useI18n();
   if (!isRecord(result) || !Array.isArray(result.embedding) || !result.embedding.every(isNumber)) {
     return <RawResultPanel result={result} />;
   }
@@ -473,20 +472,26 @@ function SpeakerEmbeddingResultPanel({ result }: { result: unknown }) {
             <Binary className="size-5" />
           </span>
           <div className="min-w-0">
-            <div className="font-semibold">Speaker embedding generated</div>
+            <div className="font-semibold">
+              {t('runningModels.detail.speakerEmbeddingGenerated')}
+            </div>
             <div className="truncate text-sm text-muted-foreground">{response.model}</div>
           </div>
         </div>
         <div className="shrink-0 sm:text-right">
           <div className="text-2xl font-semibold tabular-nums">{dimensions}</div>
-          <div className="text-sm text-muted-foreground">dimensions</div>
+          <div className="text-sm text-muted-foreground">
+            {t('runningModels.detail.dimensions')}
+          </div>
         </div>
       </div>
 
       <div className="min-w-0 overflow-hidden rounded-xl border bg-muted/20">
         <div className="flex items-center justify-between border-b bg-card px-4 py-3">
-          <span className="text-sm font-medium">Embedding vector</span>
-          <span className="text-xs text-muted-foreground">{response.embedding.length} values</span>
+          <span className="text-sm font-medium">{t('runningModels.detail.embeddingVector')}</span>
+          <span className="text-xs text-muted-foreground">
+            {t('runningModels.detail.valueCount', { count: response.embedding.length })}
+          </span>
         </div>
         <pre className="max-h-[calc(100vh-430px)] min-h-64 w-full max-w-full overflow-auto p-4 text-xs leading-6 tabular-nums">
           {formatEmbeddingVector(response.embedding)}
@@ -503,6 +508,7 @@ export function UniversalResultPanel({
   progress,
   ability,
 }: CapabilityResultProps) {
+  const { t } = useI18n();
   if (
     loading &&
     !isAudioStreamResult(result) &&
@@ -516,7 +522,7 @@ export function UniversalResultPanel({
       <EmptyResult
         label={
           ability === ModelAbility.SpeakerEmbedding
-            ? 'Upload a speech sample to extract its speaker embedding.'
+            ? t('runningModels.detail.speakerEmbeddingPlaceholder')
             : undefined
         }
       />
