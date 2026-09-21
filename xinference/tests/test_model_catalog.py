@@ -33,14 +33,15 @@ def catalog(tmp_path):
 def test_roundtrip_preserves_interleaved_engines_and_fresh_records(catalog):
     source, destination, records = catalog
     assert sorted(p.name for p in destination.iterdir()) == [
-        "index.json",
         "other.json",
         "voice.json",
     ]
-    assert load_model_catalog(source) == load_model_catalog(destination) == records
+    expected = [records[1], records[0], records[2]]
+    assert load_model_catalog(source) == records
+    assert load_model_catalog(destination) == expected
     changed = load_model_catalog(destination)
     changed[0]["engine"] = "changed"
-    assert load_model_catalog(destination) == records
+    assert load_model_catalog(destination) == expected
 
 
 @pytest.mark.parametrize("kind", KINDS)
@@ -52,48 +53,39 @@ def test_all_builtin_catalogs_roundtrip(kind, tmp_path):
     write_json(aggregate, records)
     split_model_catalog(aggregate, tmp_path / "models")
     assert load_model_catalog(tmp_path / "models") == records
-    assert (tmp_path / "models" / "index.json").read_bytes() == (
-        directory / "index.json"
-    ).read_bytes()
+    assert not (tmp_path / "models" / "index.json").exists()
 
 
-@pytest.mark.parametrize(
-    "reference",
-    [
-        ["../voice.json", 0],
-        ["/voice.json", 0],
-        ["voice.json", -1],
-        ["voice.json", True],
-        ["voice.json", 99],
-        ["missing.json", 0],
-        ["index.json", 0],
-        "voice.json",
-        ["voice.json"],
-    ],
-)
-def test_invalid_reference_is_rejected(catalog, reference):
+def test_add_and_remove_model_only_changes_its_file(catalog):
     _, directory, _ = catalog
-    write_json(directory / "index.json", [reference])
-    with pytest.raises(ValueError, match="models"):
-        load_model_catalog(directory)
+    original = load_model_catalog(directory)
+    extra = {"model_name": "Extra"}
+    write_json(directory / "Extra.json", [extra])
+    assert load_model_catalog(directory) == [extra, *original]
+    (directory / "Extra.json").unlink()
+    assert load_model_catalog(directory) == original
 
 
-def test_duplicate_reference_is_rejected(catalog):
+def test_filename_order_is_case_insensitive_not_creation_order(catalog):
     _, directory, _ = catalog
-    write_json(directory / "index.json", [["voice.json", 0], ["voice.json", 0]])
-    with pytest.raises(ValueError, match="Duplicate"):
-        load_model_catalog(directory)
+    write_json(directory / "Zulu.json", [{"model_name": "Zulu"}])
+    write_json(directory / "alpha.json", [{"model_name": "alpha"}])
+    assert [r["model_name"] for r in load_model_catalog(directory)] == [
+        "alpha",
+        "other",
+        "voice",
+        "voice",
+        "Zulu",
+    ]
 
 
-@pytest.mark.parametrize("missing_variant", [True, False])
-def test_unindexed_file_or_variant_is_rejected(catalog, missing_variant):
-    _, directory, _ = catalog
-    if missing_variant:
-        index = json.loads((directory / "index.json").read_text())
-        write_json(directory / "index.json", index[:-1])
-    else:
-        write_json(directory / "extra.json", [{"model_name": "extra"}])
-    with pytest.raises(ValueError, match="Unindexed"):
+def test_symlinked_model_file_is_rejected(catalog):
+    source, directory, _ = catalog
+    try:
+        (directory / "linked.json").symlink_to(source)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    with pytest.raises(ValueError, match="symlinks"):
         load_model_catalog(directory)
 
 
@@ -113,12 +105,13 @@ def test_invalid_json_reports_filename(catalog):
 
 def test_split_refuses_to_overwrite(catalog):
     source, directory, records = catalog
+    original = load_model_catalog(directory)
     with pytest.raises(FileExistsError):
         split_model_catalog(source, directory)
-    assert load_model_catalog(directory) == records
+    assert load_model_catalog(directory) == original
 
 
-@pytest.mark.parametrize("names", [["Index"], ["voice", "Voice"], ["../voice"]])
+@pytest.mark.parametrize("names", [["voice", "Voice"], ["../voice"]])
 def test_split_rejects_unsafe_or_colliding_names_before_writing(tmp_path, names):
     source = tmp_path / "models.json"
     write_json(source, [{"model_name": name} for name in names])
@@ -144,7 +137,7 @@ def test_export_works_without_runtime_dependencies(catalog, tmp_path):
         [sys.executable, "-S", str(helper), "export", str(directory), str(output)],
         check=True,
     )
-    assert json.loads(output.read_text()) == records
+    assert json.loads(output.read_text()) == load_model_catalog(directory)
 
 
 @pytest.fixture
@@ -160,7 +153,7 @@ def workflow():
     "path,allowed",
     [
         ("xinference/model/audio/models/voice.json", True),
-        ("xinference/model/world/models/index.json", True),
+        ("xinference/model/world/models/Astra.json", True),
         ("xinference/model/audio/models/run.py", False),
         ("xinference/model/audio/models/sub/voice.json", False),
         ("xinference/model/audio/models/../voice.json", False),
@@ -177,7 +170,7 @@ def test_workflow_copy_includes_deletions_and_validates(workflow, tmp_path):
     for relative in workflow.MODEL_SPEC_DIRS:
         directory = source / relative
         directory.mkdir(parents=True)
-        write_json(directory / "index.json", [])
+        write_json(directory / "voice.json", [{"model_name": "voice"}])
         old = target / relative
         old.mkdir(parents=True)
         write_json(old / "stale.json", [])

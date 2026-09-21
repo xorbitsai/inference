@@ -185,7 +185,7 @@ JSON
 ----
 
 In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_,
-each model has a JSON file containing all its variants. To add a model, add its metadata file and reference its records in ``index.json``, which preserves the loading order.
+each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved.
 
 ::
 

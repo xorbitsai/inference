@@ -47,8 +47,8 @@ def _model_name(record: Dict[str, Any]) -> str:
 def load_model_catalog(path: Union[str, Path]) -> List[Dict[str, Any]]:
     """Read a split directory or an unchanged Hub/custom aggregate JSON file.
 
-    index.json lists [filename, record index] pairs. This retains the exact
-    historical order, even when engines of the same model were interleaved.
+    Discover model files in stable, case-insensitive filename order. Preserve
+    record order within each file, where engine/spec preference can matter.
     Return fresh records: runtime loaders normalize/mutate their input.
     """
     path = Path(path)
@@ -56,38 +56,19 @@ def load_model_catalog(path: Union[str, Path]) -> List[Dict[str, Any]]:
         raise ValueError(f"Catalog paths must not be symlinks: {path}")
     if not path.is_dir():
         return _records(path)
-    index = _read_json(path / "index.json")
-    if not isinstance(index, list):
-        raise ValueError(f"{path / 'index.json'} must contain a list")
-    files = {}
     seen = set()
     result = []
-    for ref in index:
-        if (
-            not isinstance(ref, list)
-            or len(ref) != 2
-            or not isinstance(ref[0], str)
-            or not _FILENAME.fullmatch(ref[0])
-            or ref[0].casefold() == "index.json"
-            or type(ref[1]) is not int
-            or ref[1] < 0
-        ):
-            raise ValueError(f"Invalid catalog reference in {path}: {ref!r}")
-        filename, offset = ref
-        if filename not in files:
-            records = _records(path / filename)
-            for record in records:
-                if _model_name(record) + ".json" != filename:
-                    raise ValueError(f"Model name does not match {path / filename}")
-            files[filename] = records
-        if (filename, offset) in seen or offset >= len(files[filename]):
-            raise ValueError(f"Duplicate or missing catalog record in {path}: {ref!r}")
-        seen.add((filename, offset))
-        result.append(files[filename][offset])
-    expected = {(name, i) for name, rows in files.items() for i in range(len(rows))}
-    unlisted = {p.name for p in path.glob("*.json")} - {"index.json"} - files.keys()
-    if seen != expected or unlisted:
-        raise ValueError(f"Unindexed model records in {path}: {sorted(unlisted)}")
+    for file in sorted(path.glob("*.json"), key=lambda p: (p.name.casefold(), p.name)):
+        if not _FILENAME.fullmatch(file.name):
+            raise ValueError(f"Invalid catalog filename: {file}")
+        if file.name.casefold() in seen:
+            raise ValueError(f"Catalog filename collision: {file}")
+        seen.add(file.name.casefold())
+        records = _records(file)
+        for record in records:
+            if _model_name(record) + ".json" != file.name:
+                raise ValueError(f"Model name does not match {file}")
+        result.extend(records)
     return result
 
 
@@ -95,16 +76,11 @@ def split_model_catalog(source: Union[str, Path], destination: Union[str, Path])
     """Convert a full Hub catalog to a new directory (never overwrite a source)."""
     records = load_model_catalog(source)
     grouped: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
-    index = []
     case_names: Dict[str, str] = {}
     for record in records:
         name = _model_name(record) + ".json"
-        if (
-            name.casefold() == "index.json"
-            or case_names.setdefault(name.casefold(), name) != name
-        ):
+        if case_names.setdefault(name.casefold(), name) != name:
             raise ValueError(f"Catalog filename collision: {name}")
-        index.append([name, len(grouped[name])])
         grouped[name].append(record)
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=False)
@@ -112,9 +88,6 @@ def split_model_catalog(source: Union[str, Path], destination: Union[str, Path])
         (destination / name).write_text(
             json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-    (destination / "index.json").write_text(
-        json.dumps(index, indent=2) + "\n", encoding="utf-8"
-    )
 
 
 def main():

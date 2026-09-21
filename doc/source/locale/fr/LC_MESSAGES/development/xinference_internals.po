@@ -409,8 +409,8 @@ msgid "JSON"
 msgstr ""
 
 #: ../../source/development/xinference_internals.rst:187
-msgid "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, each model has a JSON file containing all its variants. To add a model, add its metadata file and reference its records in ``index.json``, which preserves the loading order."
-msgstr "Dans `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, chaque modèle possède un fichier JSON contenant toutes ses variantes. Pour ajouter un modèle, ajoutez son fichier de métadonnées et référencez ses entrées dans ``index.json``, qui conserve l’ordre de chargement."
+msgid "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved."
+msgstr "Dans `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, chaque modèle possède un fichier JSON contenant toutes ses variantes. Ajoutez ou supprimez un modèle en ajoutant ou supprimant son fichier. Les fichiers sont découverts automatiquement par nom, sans distinction de casse ; l’ordre des entrées dans chaque fichier est conservé."
 
 #: ../../source/development/xinference_internals.rst:214
 msgid ""

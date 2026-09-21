@@ -2276,7 +2276,11 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
     import xinference.model.llm as llm_module
 
     spec_path = os.path.join(os.path.dirname(llm_module.__file__), "models")
-    downloaded_entry = load_model_catalog(spec_path)[0]
+    downloaded_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if "generate" in entry["model_ability"]
+    )
     model_name = "downloaded-only-llm-refresh-test"
     downloaded_entry["model_name"] = model_name
 

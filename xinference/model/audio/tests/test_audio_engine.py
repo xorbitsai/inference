@@ -720,9 +720,11 @@ def test_audio_engine_discovery_filters_unrelated_engines(apple_mlx_engines):
 def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
     from ...utils import install_models_with_merge
 
-    model_spec_path = Path(__file__).parents[1] / "models"
+    model_spec_path = Path(__file__).parents[1] / "models" / "whisper-tiny.json"
     built_in_data = load_model_catalog(model_spec_path)
-    downloaded_transformers = dict(built_in_data[0])
+    downloaded_transformers = dict(
+        next(record for record in built_in_data if record["engine"] == "transformers")
+    )
     downloaded_transformers["updated_at"] += 1
 
     downloaded_dir = tmp_path / "v2" / "builtin" / "audio"
@@ -764,9 +766,11 @@ def test_downloaded_legacy_audio_registry_migrates_default_variant(
 ):
     from ...utils import install_models_with_merge
 
-    model_spec_path = Path(__file__).parents[1] / "models"
+    model_spec_path = Path(__file__).parents[1] / "models" / "whisper-tiny.json"
     built_in_data = load_model_catalog(model_spec_path)
-    built_in_transformers = built_in_data[0]
+    built_in_transformers = next(
+        record for record in built_in_data if record["engine"] == "transformers"
+    )
     downloaded_legacy = dict(built_in_transformers)
     downloaded_legacy.pop("engine")
     downloaded_legacy.pop("model_format")
