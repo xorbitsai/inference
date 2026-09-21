@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from xinference._model_catalog import load_model_catalog
+from ..._model_catalog import load_model_catalog
 
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
 
