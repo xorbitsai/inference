@@ -17,7 +17,7 @@ import logging
 import pytest
 
 from xinference.deploy import utils as deploy_utils
-from xinference.deploy.utils import PollingAccessFilter
+from xinference.deploy.utils import DropAccessLogFilter, PollingAccessFilter
 
 
 def _access_record(method: str, path: str, status: int) -> logging.LogRecord:
@@ -72,3 +72,26 @@ def test_unexpected_record_shape_is_kept():
         "uvicorn.access", logging.INFO, "", 0, "something else %s", ("x",), None
     )
     assert PollingAccessFilter().filter(record) is True
+
+
+@pytest.mark.parametrize("status", [200, 302, 400, 403, 404, 500, 503])
+def test_all_uvicorn_access_records_are_dropped_from_application_log(status):
+    assert (
+        DropAccessLogFilter().filter(
+            _access_record("GET", "/v1/cluster/logs?request_id=test", status)
+        )
+        is False
+    )
+
+
+def test_logging_config_drops_access_but_keeps_uvicorn_error(tmp_path):
+    config = deploy_utils.get_config_dict(
+        log_file_path=str(tmp_path / "xinference.log"),
+        log_level="INFO",
+        log_backup_count=3,
+        log_max_bytes=1024,
+    )
+    assert config["loggers"]["uvicorn.access"]["filters"] == ["drop_access_log_filter"]
+    assert "drop_access_log_filter" not in config["loggers"]["uvicorn.error"].get(
+        "filters", []
+    )
