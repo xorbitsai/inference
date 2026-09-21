@@ -42,6 +42,26 @@ python benchmark_serving.py --dataset-name random \
                             --stream --ignore-eos
 ```
 
+## Benchmarking embeddings
+
+Launch an embedding model first, then use its model UID:
+
+```bash
+python benchmark/benchmark_embedding.py --host localhost --port 9997 \
+    --model-uid bge-m3 --num-query 1000 --concurrency 32
+```
+
+The default dataset is `clue/tnews`. Each request contains one sentence, so
+concurrent requests can exercise server-side batching. Repeat with concurrency
+1, 8, 32, and 64 while inspecting the server's batch logs.
+
+The benchmark reuses HTTP connections and sends each selected input once.
+`--num-query` caps the number of dataset rows used; it does not repeat a smaller
+dataset to reach that count. Up to five warm-up requests are excluded from the
+results. Timing ends after all measured requests finish, and throughput counts
+only successful requests. Successful and failed request counts are reported
+separately; use `--print-error` for failure details.
+
 ## Benchmarking long context serving
 
 This tool will generate long prompts to sort random numbers, according to specified context length.
