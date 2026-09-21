@@ -274,6 +274,7 @@ def main():
 
         for model_spec in model['model_specs']:
             model_spec['model_hubs'] = []
+            quantizations = model_spec.get('quantizations', [])
 
             # Process different model sources
             if 'model_src' in model_spec:
