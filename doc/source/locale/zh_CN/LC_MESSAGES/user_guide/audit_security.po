@@ -193,3 +193,7 @@ msgstr ""
 "对应的 REST 接口位于 ``/v1/admin/security/*`` 下（例如 ``GET``/``PUT "
 "/v1/admin/security/rate-limit``、 ``GET /v1/admin/security/banned-ips``、 "
 "``POST /v1/admin/security/unban-ip``），需要 ``admin`` 权限。"
+
+#: ../../source/user_guide/audit_security.rst:45
+msgid "By default the search reads the local ``audit.log``. If the ``XINFERENCE_ES_URL`` environment variable points at an Elasticsearch cluster (e.g. with the audit log shipped by Filebeat), the search queries Elasticsearch instead, using the index pattern from ``XINFERENCE_AUDIT_ES_INDEX`` (default ``xinference-audit-*``). Elasticsearch-backed searches use a point-in-time snapshot and ``search_after`` pagination, so administrators can browse beyond Elasticsearch's default 10,000-result window without changing ``index.max_result_window``."
+msgstr "搜索默认读取本地 ``audit.log``。如果环境变量 ``XINFERENCE_ES_URL`` 指向 Elasticsearch 集群（例如通过 Filebeat 将审计日志发送到该集群），则改为查询 Elasticsearch，索引模式由 ``XINFERENCE_AUDIT_ES_INDEX`` 指定（默认 ``xinference-audit-*``）。Elasticsearch 搜索使用时间点快照和 ``search_after`` 分页，因此管理员无需修改 ``index.max_result_window``，就能浏览超过 Elasticsearch 默认 10,000 条结果窗口的日志。"

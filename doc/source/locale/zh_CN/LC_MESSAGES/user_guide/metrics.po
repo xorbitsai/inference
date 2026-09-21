@@ -1,0 +1,82 @@
+# Chinese (Simplified, China) translations for Xinference.
+# Copyright (C) 2026 XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-21 12:39+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/user_guide/metrics.rst:5
+msgid "Metrics"
+msgstr "监控指标"
+
+#: ../../source/user_guide/metrics.rst:7
+msgid "There are two types of metrics exporters in an Xinference cluster:"
+msgstr "Xinference 集群中有两类指标导出器："
+
+#: ../../source/user_guide/metrics.rst:9
+msgid "Supervisor metrics exporter at `<endpoint>/metrics`, e.g. `http://127.0.0.1:9997/metrics`."
+msgstr "Supervisor 指标导出器位于 `<endpoint>/metrics`，例如 `http://127.0.0.1:9997/metrics`。"
+
+#: ../../source/user_guide/metrics.rst:10
+msgid ""
+"Worker metrics exporter at each worker node, the exporter host and port can be set by `--metrics-"
+"exporter-host` and `--metrics-exporter-port` options in `xinference-local` or `xinference-worker`"
+" command."
+msgstr ""
+"每个 Worker 节点都有一个指标导出器，可通过 ``xinference-local`` 或 ``xinference-worker`` 命令的 `--metrics-exporter-"
+"host` 和 `--metrics-exporter-port` 选项设置其监听地址和端口。"
+
+#: ../../source/user_guide/metrics.rst:13
+msgid "Supervisor Metrics"
+msgstr "Supervisor 指标"
+
+#: ../../source/user_guide/metrics.rst:17
+msgid "**exceptions_total_counter** (counter): Total number of requested which generated an exception"
+msgstr "**exceptions_total_counter** （计数器）：发生异常的请求总数。"
+
+#: ../../source/user_guide/metrics.rst:19
+msgid "**requests_total_counter** (counter): Total number of requests received"
+msgstr "**requests_total_counter** （计数器）：收到的请求总数。"
+
+#: ../../source/user_guide/metrics.rst:21
+msgid "**responses_total_counter** (counter): Total number of responses sent"
+msgstr "**responses_total_counter** （计数器）：发送的响应总数。"
+
+#: ../../source/user_guide/metrics.rst:23
+msgid "**status_codes_counter** (counter): Total number of response status codes"
+msgstr "**status_codes_counter** （计数器）：各响应状态码的总次数。"
+
+#: ../../source/user_guide/metrics.rst:28
+msgid "Worker Metrics"
+msgstr "Worker 指标"
+
+#: ../../source/user_guide/metrics.rst:32
+msgid "**xinference:generate_tokens_per_s** (gauge): Generate throughput in tokens/s."
+msgstr "**xinference:generate_tokens_per_s** （仪表值）：生成吞吐量，单位为 token/秒。"
+
+#: ../../source/user_guide/metrics.rst:34
+msgid "**xinference:input_tokens_total_counter** (counter): Total number of input tokens."
+msgstr "**xinference:input_tokens_total_counter** （计数器）：输入 token 总数。"
+
+#: ../../source/user_guide/metrics.rst:36
+msgid "**xinference:output_tokens_total_counter** (counter): Total number of output tokens."
+msgstr "**xinference:output_tokens_total_counter** （计数器）：输出 token 总数。"
+
+#: ../../source/user_guide/metrics.rst:38
+msgid "**xinference:time_to_first_token_ms** (gauge): First token latency in ms."
+msgstr "**xinference:time_to_first_token_ms** （仪表值）：首个 token 的延迟，单位为毫秒。"
+

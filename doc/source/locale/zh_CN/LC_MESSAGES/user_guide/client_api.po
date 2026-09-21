@@ -50,7 +50,7 @@ msgstr "所有模型被分为 LLM、embedding、rerank 等类型。后续可能�
 
 #: ../../source/user_guide/client_api.rst:23
 msgid "LLM"
-msgstr "LLM"
+msgstr "大语言模型（LLM）"
 
 #: ../../source/user_guide/client_api.rst:25
 msgid "To list the available built-in LLM models:"
@@ -65,14 +65,14 @@ msgstr "初始化一个大语言模型并且与之对话："
 #: ../../source/user_guide/client_api.rst:254
 #: ../../source/user_guide/client_api.rst:323
 msgid "Xinference Client"
-msgstr "Xinference Client"
+msgstr "Xinference 客户端"
 
 #: ../../source/user_guide/client_api.rst:65
 #: ../../source/user_guide/client_api.rst:215
 #: ../../source/user_guide/client_api.rst:278
 #: ../../source/user_guide/client_api.rst:347
 msgid "OpenAI Client"
-msgstr "OpenAI Client"
+msgstr "OpenAI 客户端"
 
 #: ../../source/user_guide/client_api.rst:67
 msgid ""
@@ -99,18 +99,16 @@ msgid "Output:"
 msgstr "输出："
 
 #: ../../source/user_guide/client_api.rst:142
-#, fuzzy
 msgid "Anthropic Client"
-msgstr "Anthropic Client"
+msgstr "Anthropic 客户端"
 
 #: ../../source/user_guide/client_api.rst:144
-#, fuzzy
 msgid "Anthropic API's access address is: /anthropic/v1/messages"
-msgstr "Anthropic的API访问地址为：/anthropic/v1/messages"
+msgstr "Anthropic API 的访问地址为：/anthropic/v1/messages"
 
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
-msgstr "Embedding"
+msgstr "文本嵌入（Embedding）"
 
 #: ../../source/user_guide/client_api.rst:167
 msgid "To list the available built-in embedding models:"
@@ -153,7 +151,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:301
 msgid "Audio"
-msgstr ""
+msgstr "音频"
 
 #: ../../source/user_guide/client_api.rst:320
 msgid "To initiate an audio model and get text from an audio:"
@@ -170,7 +168,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:370
 msgid "Rerank"
-msgstr "Rerank"
+msgstr "重排序（Rerank）"
 
 #: ../../source/user_guide/client_api.rst:371
 msgid "To launch a rerank model and compute the similarity scores:"
@@ -182,3 +180,38 @@ msgstr "拉起 rerank 模型并计算文本相似度："
 #~ "model."
 #~ msgstr "使用 Anthropic 发送请求时，除了创建模型，其余的请求都保持与 Anthropic 的接口兼容。"
 
+#: ../../source/user_guide/client_api.rst:10
+msgid "Replica management"
+msgstr "副本管理"
+
+#: ../../source/user_guide/client_api.rst:12
+msgid "The synchronous and asynchronous clients accept ``replica_config`` in ``launch_model`` and expose ``add_model_replica`` and ``terminate_model_replica`` for running models. See :ref:`launch` for the request structure, placement rules, and examples."
+msgstr "同步和异步客户端的 ``launch_model`` 都接受 ``replica_config`` 参数，并提供 ``add_model_replica`` 和 ``terminate_model_replica`` 来管理运行中的模型副本。请求结构、放置规则和示例参见 :ref:`launch`。"
+
+#: ../../source/user_guide/client_api.rst:312
+msgid "To list the available built-in audio models:"
+msgstr "列出可用的内置音频模型："
+
+#: ../../source/user_guide/client_api.rst:381
+msgid "Speaker Embeddings"
+msgstr "说话人嵌入"
+
+#: ../../source/user_guide/client_api.rst:383
+msgid "Speaker-embedding audio models extract a fixed-length representation of speaker identity. Xinference provides two built-in CAMPPlus models: ``speech_campplus_sv_zh-cn_16k-common`` and ``speech_campplus_sv_zh_en_16k-common_advanced``. Both return a 192-dimensional vector through the ``speaker_embedding`` ability."
+msgstr "说话人嵌入音频模型用于提取表示说话人身份的定长向量。Xinference 提供两个内置 CAMPPlus 模型：``speech_campplus_sv_zh-cn_16k-common`` 和 ``speech_campplus_sv_zh_en_16k-common_advanced``。两者都通过 ``speaker_embedding`` 能力返回一个 192 维向量。"
+
+#: ../../source/user_guide/client_api.rst:389
+msgid "Launch a model and call it with the Xinference client:"
+msgstr "启动模型并通过 Xinference 客户端调用："
+
+#: ../../source/user_guide/client_api.rst:408
+msgid "The equivalent HTTP request uploads the model UID and audio file as multipart form fields:"
+msgstr "对应的 HTTP 请求通过 multipart 表单字段上传模型 UID 和音频文件："
+
+#: ../../source/user_guide/client_api.rst:418
+msgid "The response contains one vector rather than the list-shaped response returned by the text Embeddings API:"
+msgstr "响应包含单个向量，与文本 Embeddings API 返回的列表形式不同："
+
+#: ../../source/user_guide/client_api.rst:430
+msgid "Compare vectors with cosine similarity for speaker verification or speaker identification. See :ref:`audio` for Web UI usage, input processing details, and the complete Speaker Embedding API example."
+msgstr "可以使用余弦相似度比较向量，进行说话人验证或识别。Web UI 使用方法、输入处理细节和完整的说话人嵌入 API 示例参见 :ref:`audio`。"

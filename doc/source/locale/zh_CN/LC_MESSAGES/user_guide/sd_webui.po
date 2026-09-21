@@ -1,0 +1,200 @@
+# Chinese (Simplified, China) translations for Xinference.
+# Copyright (C) 2026 XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-21 12:39+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.14.0\n"
+
+#: ../../source/user_guide/sd_webui.rst:4
+msgid "SD WebUI API compatibility"
+msgstr "SD WebUI API 兼容"
+
+#: ../../source/user_guide/sd_webui.rst:6
+msgid ""
+"Xinference exposes Stable Diffusion WebUI-compatible routes alongside its OpenAI-compatible image"
+" API. The extended workflow supports Diffusers Stable Diffusion and SDXL models. Other image "
+"engines retain the basic generation interface; they do not implement ControlNet, ADetailer, or "
+"Hires Fix."
+msgstr ""
+"Xinference 在 OpenAI 兼容的图像 API 之外，还提供兼容 Stable Diffusion WebUI 的接口。扩展工作流支持 Diffusers 的 Stable "
+"Diffusion 和 SDXL 模型。其他图像引擎仍提供基础生成接口，但不实现 ControlNet、ADetailer 或 Hires Fix。"
+
+#: ../../source/user_guide/sd_webui.rst:12
+msgid "Installation"
+msgstr "安装"
+
+#: ../../source/user_guide/sd_webui.rst:14
+msgid "Install the optional dependencies on every worker that runs this workflow::"
+msgstr "在运行此工作流的每个 Worker 上安装可选依赖::"
+
+#: ../../source/user_guide/sd_webui.rst:18
+msgid ""
+"Preprocessor-specific dependencies, such as MediaPipe, FaceXLib, and InsightFace, are loaded only"
+" when their corresponding preprocessor is selected. RealESRGAN and ADetailer download their "
+"weights on first use. Source licenses and model-weight licenses are separate; vendored "
+"preprocessor notices and licenses are included under ``xinference/thirdparty/controlnet``."
+msgstr ""
+"MediaPipe、FaceXLib 和 InsightFace 等预处理器专用依赖，仅在选择对应预处理器时加载。RealESRGAN 和 ADetailer "
+"会在首次使用时下载权重。源码和模型权重使用各自的许可证；内置预处理器的声明和许可证位于 ``xinference/thirdparty/controlnet``。"
+
+#: ../../source/user_guide/sd_webui.rst:25
+msgid "Generation"
+msgstr "生成图像"
+
+#: ../../source/user_guide/sd_webui.rst:27
+msgid ""
+"Use the UID of an already launched image model in ``model`` or "
+"``override_settings.sd_model_checkpoint``. For example::"
+msgstr "在 ``model`` 或 ``override_settings.sd_model_checkpoint`` 中填写已启动图像模型的 UID。例如::"
+
+#: ../../source/user_guide/sd_webui.rst:36
+msgid ""
+"The response contains base64 ``images``, the effective ``parameters``, and an ``info`` object "
+"with seeds and generation metadata. ``batch_size`` is the number of images in each iteration; "
+"``n_iter`` is the number of iterations. The seed increments for each image, except when "
+"``subseed_strength`` is nonzero. In that case the primary seed stays fixed and the subseed "
+"increments."
+msgstr ""
+"响应包含 base64 编码的 ``images``、实际生效的 ``parameters``，以及带有种子和生成元数据的 ``info`` 对象。``batch_size`` "
+"是每轮迭代生成的图像数量，``n_iter`` 是迭代次数。通常每生成一张图像就递增种子；若 ``subseed_strength`` 不为零，则主种子保持不变，改为递增子种子。"
+
+#: ../../source/user_guide/sd_webui.rst:42
+msgid ""
+"Weighted prompts support parentheses, explicit weights, square brackets, escaped delimiters, and "
+"long prompts split into CLIP token chunks. SDXL uses both text encoders and supplies the pooled "
+"conditioning required by its pipeline."
+msgstr "加权提示词支持圆括号、显式权重、方括号、转义分隔符，以及按 CLIP token 分块处理的长提示词。SDXL 使用两个文本编码器，并提供其流水线所需的池化条件向量。"
+
+#: ../../source/user_guide/sd_webui.rst:46
+msgid ""
+"For Hires Fix, set ``enable_hr`` to true, ``hr_scale`` (default 2), ``hr_upscaler`` (for example "
+"``Latent``, ``Lanczos`` or ``R-ESRGAN 4x+``), and optionally ``hr_second_pass_steps``. "
+"``denoising_strength`` must be greater than zero and at most one. The image is generated, "
+"enlarged, and refined in a second image-to-image pass."
+msgstr ""
+"使用 Hires Fix 时，将 ``enable_hr`` 设为 true，并设置 ``hr_scale``（默认为 2）、``hr_upscaler``（例如 "
+"``Latent``、``Lanczos`` 或 ``R-ESRGAN 4x+``）；还可以设置 ``hr_second_pass_steps``。``denoising_strength`` "
+"必须大于零且不超过一。图像先生成并放大，再通过第二轮图生图处理细化。"
+
+#: ../../source/user_guide/sd_webui.rst:52
+msgid ""
+"``POST /sdapi/v1/img2img`` accepts ``init_images`` containing raw base64, image data URLs, or "
+"public HTTP(S) image URLs. It supports ``mask``, ``mask_blur``, ``inpainting_mask_invert``, "
+"``inpaint_full_res``, and ``inpaint_full_res_padding``. ``resize_mode`` is 0 (resize), 1 (crop to"
+" fill), or 2 (fit and fill borders). URL downloads reject private addresses and validate every "
+"redirect; image responses are limited to 64 MiB."
+msgstr ""
+"``POST /sdapi/v1/img2img`` 的 ``init_images`` 接受原始 base64、图像 data URL 或公开的 HTTP(S) 图像 URL。支持 "
+"``mask``、``mask_blur``、``inpainting_mask_invert``、``inpaint_full_res`` 和 "
+"``inpaint_full_res_padding``。``resize_mode`` 可设为 0（缩放）、1（裁剪填满）或 2（适配并填充边缘）。URL "
+"下载会拒绝私有地址，并验证每次重定向；图像响应大小限制为 64 MiB。"
+
+#: ../../source/user_guide/sd_webui.rst:60
+msgid "ControlNet and ADetailer"
+msgstr "ControlNet 与 ADetailer"
+
+#: ../../source/user_guide/sd_webui.rst:62
+msgid "Pass WebUI scripts through ``alwayson_scripts``::"
+msgstr "通过 ``alwayson_scripts`` 传入 WebUI 脚本::"
+
+#: ../../source/user_guide/sd_webui.rst:75
+msgid ""
+"Select a ControlNet model listed by the launched model's family. Multiple units are supported, "
+"with independent conditioning weights and guidance start/end. The reference-only workflow is "
+"available for SD 1.5. Preprocessors include Canny, depth, OpenPose, MLSD, and line art; "
+"individual detector dependencies and weights must be available on the worker. IP-Adapter tensor-"
+"only workflows are not part of this SDAPI port."
+msgstr ""
+"选择已启动模型所属系列列出的 ControlNet 模型。支持多个单元，各自配置条件权重和引导起止位置。SD 1.5 支持仅参考图工作流。预处理器包括 "
+"Canny、深度、OpenPose、MLSD 和线稿等；Worker 上必须具备对应检测器的依赖和权重。此 SDAPI 移植不包含仅使用张量的 IP-Adapter 工作流。"
+
+#: ../../source/user_guide/sd_webui.rst:82
+msgid ""
+"ADetailer runs after generation or Hires Fix and supports detection masks, local inpainting, "
+"``[PROMPT]``, ``[SEP]``, and ``[SKIP]`` prompt directives."
+msgstr "ADetailer 在图像生成或 Hires Fix 之后运行，支持检测掩码、局部重绘，以及 ``[PROMPT]``、``[SEP]``、``[SKIP]`` 提示词指令。"
+
+#: ../../source/user_guide/sd_webui.rst:86
+msgid "LoRA"
+msgstr "LoRA"
+
+#: ../../source/user_guide/sd_webui.rst:88
+msgid ""
+"Register a custom image model with ``model_family: \"lora\"`` and a local ``model_uri`` or a "
+"model hub repository containing one safetensors file. Reference it as ``<lora:model-name:0.8>`` "
+"in the prompt. ``metadata.ss_output_name`` can supply an alternative alias. "
+"``override_settings.strict`` rejects unresolved LoRAs. Adapters are removed after the request, "
+"including when inference fails."
+msgstr ""
+"注册一个自定义图像模型，设置 ``model_family: \"lora\"``，并提供本地 ``model_uri`` 或包含一个 safetensors "
+"文件的模型仓库。然后在提示词中通过 ``<lora:model-name:0.8>`` 引用它。``metadata.ss_output_name`` 可以指定另一个别名。启用 "
+"``override_settings.strict`` 后，无法解析的 LoRA 会被拒绝。请求结束后会移除适配器，即使推理失败也会清理。"
+
+#: ../../source/user_guide/sd_webui.rst:94
+msgid ""
+"An HTTPS CivitAI download URL can also be supplied as the registered LoRA's ``model_uri``. If "
+"authorization is needed, set ``CIVITAI_API_TOKEN`` in the worker environment. Tokens are not "
+"forwarded to redirected CDN hosts. Downloads use a temporary file followed by atomic replacement."
+msgstr ""
+"已注册 LoRA 的 ``model_uri`` 也可以使用 CivitAI 的 HTTPS 下载 URL。如需鉴权，请在 Worker 环境中设置 "
+"``CIVITAI_API_TOKEN``。令牌不会转发给重定向后的 CDN 主机。下载先写入临时文件，再通过原子替换保存。"
+
+#: ../../source/user_guide/sd_webui.rst:100
+msgid "Querying and cancelling"
+msgstr "查询与取消"
+
+#: ../../source/user_guide/sd_webui.rst:102
+msgid "The following routes use the same authentication requirements as image generation:"
+msgstr "以下接口与图像生成接口使用相同的身份验证要求："
+
+#: ../../source/user_guide/sd_webui.rst:104
+msgid "``GET /sdapi/v1/loras`` and ``GET /sdapi/v1/upscalers`` list available adapters and upscalers."
+msgstr "``GET /sdapi/v1/loras`` 和 ``GET /sdapi/v1/upscalers`` 列出可用的适配器和放大器。"
+
+#: ../../source/user_guide/sd_webui.rst:106
+msgid ""
+"``GET /controlnet/model_list``, ``GET /controlnet/module_list``, and ``GET "
+"/controlnet/control_types`` query the running models and preprocessors."
+msgstr ""
+"``GET /controlnet/model_list``、``GET /controlnet/module_list`` 和 ``GET "
+"/controlnet/control_types`` 查询运行中的模型和预处理器。"
+
+#: ../../source/user_guide/sd_webui.rst:108
+msgid ""
+"``POST /controlnet/detect`` accepts ``controlnet_module``, ``controlnet_input_images`` (or the "
+"alias ``controlnet_images``), ``controlnet_processor_res``, and threshold parameters."
+msgstr ""
+"``POST /controlnet/detect`` 接受 ``controlnet_module``、``controlnet_input_images``（或别名 "
+"``controlnet_images``）、``controlnet_processor_res`` 及阈值参数。"
+
+#: ../../source/user_guide/sd_webui.rst:111
+msgid "``GET /sdapi/v1/progress?request_id=example-job`` returns request progress."
+msgstr "``GET /sdapi/v1/progress?request_id=example-job`` 返回请求进度。"
+
+#: ../../source/user_guide/sd_webui.rst:112
+msgid ""
+"``POST /sdapi/v1/interrupt`` accepts ``{\"model\":\"sd-model\",\"request_id\":\"example-job\"}`` "
+"and cancels that request. This route requires an explicit model and request ID; it is not a "
+"global stop."
+msgstr ""
+"``POST /sdapi/v1/interrupt`` 接受 ``{\"model\":\"sd-model\",\"request_id\":\"example-job\"}`` "
+"并取消该请求。此接口要求明确指定模型和请求 ID，不会停止所有请求。"
+
+#: ../../source/user_guide/sd_webui.rst:116
+msgid "ComfyUI is outside this API compatibility layer."
+msgstr "ComfyUI 不属于此 API 兼容层。"
+

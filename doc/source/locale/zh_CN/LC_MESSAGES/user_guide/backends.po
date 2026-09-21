@@ -581,3 +581,207 @@ msgstr ""
 
 #~ msgid "``MiniMax-M2``"
 #~ msgstr ""
+
+#: ../../source/user_guide/backends.rst:145
+msgid "``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+msgstr "``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+
+#: ../../source/user_guide/backends.rst:156
+msgid "``qwen3.8-max``"
+msgstr "``qwen3.8-max``"
+
+#: ../../source/user_guide/backends.rst:178
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``"
+
+#: ../../source/user_guide/backends.rst:179
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``"
+msgstr "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``"
+
+#: ../../source/user_guide/backends.rst:180
+msgid "``Hy-MT2-1.8B``, ``Hy-MT2-7B``"
+msgstr "``Hy-MT2-1.8B``, ``Hy-MT2-7B``"
+
+#: ../../source/user_guide/backends.rst:181
+msgid "``Hy-MT2-30B-A3B``"
+msgstr "``Hy-MT2-30B-A3B``"
+
+#: ../../source/user_guide/backends.rst:190
+msgid "vLLM can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM of the same major.minor version, e.g. ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``."
+msgstr "在配备 NVIDIA GPU 的 Linux 系统上，vLLM 也可以作为部分文生图模型（例如 ``Qwen-Image``、``Z-Image-Turbo`` ）的引擎，参见 :ref:`图像引擎 <image>`。这需要安装 vLLM-Omni 扩展，并使用主版本号和次版本号相同的 vLLM，例如 ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``。"
+
+#: ../../source/user_guide/backends.rst:204
+msgid "Besides LLMs, SGLang can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires SGLang with diffusion support: ``pip install 'sglang[diffusion]'``."
+msgstr "除了大语言模型，在配备 NVIDIA GPU 的 Linux 系统上，SGLang 也可以作为部分文生图模型（例如 ``Qwen-Image``、``Z-Image-Turbo`` ）的引擎，参见 :ref:`图像引擎 <image>`。这需要安装支持扩散模型的 SGLang：``pip install 'sglang[diffusion]'``。"
+
+#: ../../source/user_guide/backends.rst:217
+msgid "MLX can also serve supported audio models on Apple silicon. Whisper models, ``F5-TTS``, and ``Kokoro-82M`` expose it through ``--model-engine MLX``; see :ref:`Audio engines <audio>`."
+msgstr "MLX 也可以在 Apple 芯片上运行受支持的音频模型。Whisper 模型、``F5-TTS`` 和 ``Kokoro-82M`` 可通过 ``--model-engine MLX`` 使用该引擎；参见 :ref:`音频引擎 <audio>`。"
+
+#: ../../source/user_guide/backends.rst:225
+msgid "Speculative decoding"
+msgstr "推测解码"
+
+#: ../../source/user_guide/backends.rst:226
+msgid "Some models ship a small paired drafter checkpoint that predicts several tokens ahead, which the target model then verifies in one pass. Output is unchanged, decoding gets faster. Gemma 4 calls this multi-token prediction (MTP) and publishes a ``*-it-assistant`` drafter for every variant."
+msgstr "有些模型配有小型草稿模型检查点，用来提前预测多个 token，再由目标模型一次验证。输出保持不变，解码速度则会提高。Gemma 4 将此称为多 token 预测（MTP），并为每种规格发布了对应的 ``*-it-assistant`` 草稿模型。"
+
+#: ../../source/user_guide/backends.rst:231
+msgid "Pass ``--enable_mtp true`` at launch to download the drafter declared by the model spec and run it alongside the target model:"
+msgstr "启动时传入 ``--enable_mtp true``，即可下载模型规格中声明的草稿模型，并与目标模型一起运行："
+
+#: ../../source/user_guide/backends.rst:240
+msgid "In the Web UI the same options live under *Advanced Configuration → Speculative Decoding*, which only appears for a format/size that actually ships a drafter."
+msgstr "在 Web UI 中，对应选项位于 *高级配置 → 推测解码* 下，仅在所选格式和规格提供草稿模型时显示。"
+
+#: ../../source/user_guide/backends.rst:243
+msgid "Optional parameters:"
+msgstr "可选参数："
+
+#: ../../source/user_guide/backends.rst:245
+msgid "``--num_speculative_tokens <n>``: how many tokens the drafter proposes per round, including the bonus token. Left unset, MLX reads it from the drafter, which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own default."
+msgstr "``--num_speculative_tokens <n>``：每轮提议的 token 数量，包含额外的奖励 token。未设置时，MLX 从草稿模型读取该值，使用其训练时的深度（Gemma 4 为 ``4`` ）。Gemma 4 在 llama.cpp、vLLM 和 SGLang 上使用相同的规格配置：E2B 为 ``2``，E4B 和 26B-A4B 为 ``4``，12B 和 31B 则取建议范围 ``4-8`` 的下限（``4`` ）。其他 llama.cpp 模型保留 xllamacpp 自身的默认值。"
+
+#: ../../source/user_guide/backends.rst:252
+msgid "``--draft_quantization <quantization>``: which drafter conversion to use, when the spec declares more than one — the MLX build of Gemma 4 12B publishes eight. Defaults to the first declared, which is the least quantized one: a drafter is small and quantizing it costs acceptance rate, so pairing a quantized target with an unquantized drafter is the recommended setup."
+msgstr "``--draft_quantization <quantization>``：当模型规格声明了多个草稿模型转换版本时，指定使用哪一个。Gemma 4 12B 的 MLX 版本提供了八种。默认使用第一个声明的版本，也就是量化程度最低的版本：草稿模型本身很小，而量化会降低接受率，因此建议将量化后的目标模型与未量化的草稿模型配合使用。"
+
+#: ../../source/user_guide/backends.rst:257
+msgid "``--draft_model_path <path>``: use a local drafter instead of the one declared by the spec. Implies ``--enable_mtp true``."
+msgstr "``--draft_model_path <path>``：使用本地草稿模型，替代模型规格中声明的版本。设置此参数会自动启用 ``--enable_mtp true``。"
+
+#: ../../source/user_guide/backends.rst:260
+msgid "The drafter must match the target model family and size — it shares the target's KV cache, so a mismatched checkpoint is rejected rather than silently degrading."
+msgstr "草稿模型的系列和规格必须与目标模型匹配，因为两者共享目标模型的 KV 缓存。不匹配的检查点会被拒绝，而不是在不提示的情况下影响结果。"
+
+#: ../../source/user_guide/backends.rst:263
+msgid "Engine support:"
+msgstr "引擎支持情况："
+
+#: ../../source/user_guide/backends.rst:269
+msgid "Engine"
+msgstr "引擎"
+
+#: ../../source/user_guide/backends.rst:270
+msgid "Requirement"
+msgstr "要求"
+
+#: ../../source/user_guide/backends.rst:271
+msgid "Notes"
+msgstr "说明"
+
+#: ../../source/user_guide/backends.rst:272
+msgid ":ref:`vLLM <vllm_backend>`"
+msgstr ":ref:`vLLM <vllm_backend>`"
+
+#: ../../source/user_guide/backends.rst:273
+msgid "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+msgstr "``vllm>=0.22.0``, ``transformers>=5.8.0``"
+
+#: ../../source/user_guide/backends.rst:274
+msgid "Translated into ``speculative_config`` with ``method: mtp``. An explicitly provided ``speculative_config`` is left untouched. Older vLLM treats the drafter as a generic draft model, while older Transformers does not recognize ``gemma4_assistant``; either case is rejected before engine initialization. Virtual-environment launches also synchronize ``flashinfer-cubin`` with ``flashinfer-python`` before starting vLLM, repairing stale environments that contain mismatched FlashInfer packages."
+msgstr "转换为包含 ``method: mtp`` 的 ``speculative_config``。如果已显式提供 ``speculative_config``，则保留原配置。旧版 vLLM 会将草稿模型视为普通草稿模型，而旧版 Transformers 无法识别 ``gemma4_assistant``；这两种情况都会在引擎初始化前被拒绝。通过虚拟环境启动时，还会在启动 vLLM 前同步 ``flashinfer-cubin`` 与 ``flashinfer-python`` 的版本，修复旧环境中 FlashInfer 包版本不匹配的问题。"
+
+#: ../../source/user_guide/backends.rst:282
+msgid ":ref:`SGLang <sglang_backend>`"
+msgstr ":ref:`SGLang <sglang_backend>`"
+
+#: ../../source/user_guide/backends.rst:283
+msgid "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+msgstr "``sglang==0.5.13.post1``, ``transformers==5.8.1``"
+
+#: ../../source/user_guide/backends.rst:284
+msgid "Translated into ``--speculative-algorithm NEXTN`` with the matching ``speculative_num_steps`` / ``speculative_num_draft_tokens``. An explicitly provided ``speculative_algorithm`` is left untouched."
+msgstr "转换为 ``--speculative-algorithm NEXTN``，并设置匹配的 ``speculative_num_steps`` / ``speculative_num_draft_tokens``。如果已显式提供 ``speculative_algorithm``，则保留原配置。"
+
+#: ../../source/user_guide/backends.rst:287
+msgid ":ref:`MLX <mlx_backend>`"
+msgstr ":ref:`MLX <mlx_backend>`"
+
+#: ../../source/user_guide/backends.rst:288
+msgid "``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)"
+msgstr "``mlx-vlm>=0.5.0``（Gemma 4 12B 要求 ``>=0.6.1`` ）"
+
+#: ../../source/user_guide/backends.rst:289
+msgid "Served by the MLX vision engine, the one that runs multimodal models such as Gemma 4. The drafter is validated against the target when the model loads."
+msgstr "由 MLX 视觉引擎提供支持，该引擎也用于运行 Gemma 4 等多模态模型。加载模型时会检查草稿模型是否与目标模型匹配。"
+
+#: ../../source/user_guide/backends.rst:292
+msgid ":ref:`llama.cpp <llama_cpp_backend>`"
+msgstr ":ref:`llama.cpp <llama_cpp_backend>`"
+
+#: ../../source/user_guide/backends.rst:293
+msgid "``xllamacpp>=2026.6.9713``"
+msgstr "``xllamacpp>=2026.6.9713``"
+
+#: ../../source/user_guide/backends.rst:294
+msgid "Translated into the ``draft-mtp`` speculative implementation. The drafter is a single gguf published inside the target's own repository, so its quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma 4) and independent of the target's. Earlier llama.cpp builds do not know the ``gemma4-assistant`` architecture and cannot load it."
+msgstr "转换为 ``draft-mtp`` 推测解码实现。草稿模型是发布在目标模型自身仓库中的单个 gguf 文件，因此有独立于目标模型的量化版本（Gemma 4 提供 ``BF16``、``F16``、``Q8_0`` ）。早期 llama.cpp 版本不识别 ``gemma4-assistant`` 架构，无法加载该模型。"
+
+#: ../../source/user_guide/backends.rst:300
+msgid "Not supported by the Transformers engine: it runs its own continuous-batching loop rather than ``generate()``, so there is nowhere to attach a drafter."
+msgstr "Transformers 引擎暂不支持：它运行自己的连续批处理循环，而不是调用 ``generate()``，因此没有可接入草稿模型的位置。"
+
+#: ../../source/user_guide/backends.rst:304
+msgid "When it pays off"
+msgstr "何时能带来加速"
+
+#: ../../source/user_guide/backends.rst:305
+msgid "Speculation is only worth it when a drafting step is cheap *relative to* a target decoding step. The drafter is a small dense model whose cost does not change with the target, so the ratio is what decides the outcome — and a mixture-of-experts target can land on the wrong side of it, because only its activated slice is read per token:"
+msgstr "只有当草稿模型单步计算的开销相对于目标模型单步解码足够低时，推测解码才值得使用。草稿模型是一个小型稠密模型，其开销不会随目标模型变化，因此两者的开销比例决定了最终效果。对于混合专家模型，推测解码反而可能更慢，因为每个 token 只需读取激活的那部分参数："
+
+#: ../../source/user_guide/backends.rst:315
+msgid "gemma-4 MLX, 4bit, M5 Pro"
+msgstr "gemma-4 MLX，4 位量化，M5 Pro"
+
+#: ../../source/user_guide/backends.rst:316
+msgid "Without a drafter"
+msgstr "不使用草稿模型"
+
+#: ../../source/user_guide/backends.rst:317
+msgid "With MTP"
+msgstr "使用 MTP"
+
+#: ../../source/user_guide/backends.rst:318
+msgid "Accepted per round"
+msgstr "每轮接受的 token 数"
+
+#: ../../source/user_guide/backends.rst:319
+msgid "31B (dense, 18.4 GB read per token)"
+msgstr "31B（稠密模型，每个 token 读取 18.4 GB）"
+
+#: ../../source/user_guide/backends.rst:320
+msgid "14.9 tok/s"
+msgstr "14.9 tok/s"
+
+#: ../../source/user_guide/backends.rst:321
+msgid "**31.0 tok/s** (2.1x)"
+msgstr "**31.0 tok/s** （2.1 倍）"
+
+#: ../../source/user_guide/backends.rst:322
+msgid "2.08 of 4"
+msgstr "4 个中接受 2.08 个"
+
+#: ../../source/user_guide/backends.rst:323
+msgid "26B-A4B (MoE, ~2.2 GB read per token)"
+msgstr "26B-A4B（MoE，每个 token 读取约 2.2 GB）"
+
+#: ../../source/user_guide/backends.rst:324
+msgid "73.2 tok/s"
+msgstr "73.2 tok/s"
+
+#: ../../source/user_guide/backends.rst:325
+msgid "65.9 tok/s (0.9x)"
+msgstr "65.9 tok/s（0.9 倍）"
+
+#: ../../source/user_guide/backends.rst:326
+msgid "1.40 of 4"
+msgstr "4 个中接受 1.40 个"
+
+#: ../../source/user_guide/backends.rst:328
+msgid "The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a 26B-A4B one, so on the MoE the three drafting steps of a round already exceed one plain decoding step — and the round has to win that back from a lower acceptance rate. The MoE is still the faster model here in absolute terms; it simply has no headroom left for speculation."
+msgstr "这个 0.83 GB 的草稿模型，其计算开销约为 31B 单步解码的 5%，却相当于 26B-A4B 单步解码的 39%。因此，在 MoE 模型上，一轮中的三步草稿计算就已超过一次普通解码的开销，而这一轮还要在接受率更低的情况下弥补这些开销。这里 MoE 模型的绝对速度仍然更快，只是没有足够空间再从推测解码中获益。"
+
+#: ../../source/user_guide/backends.rst:334
+msgid "So measure before leaving it on, and note that the verification step itself is not the problem: a four-token forward costs only ~40% more than a single-token one on either model."
+msgstr "因此，长期启用前应先实测。问题并不在验证步骤本身：对于这两个模型，四个 token 的前向计算开销都只比单个 token 高约 40%。"
