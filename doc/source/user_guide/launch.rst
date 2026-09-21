@@ -9,6 +9,8 @@ This document aims to provide a functional overview of model launching.
 LLM launch recommendations
 ==========================
 
+.. versionadded:: v3.5.0
+
 In an LLM's deployment dialog, use the launch recommendation button to get a
 suggested configuration, then review it before deploying. The button is available
 for LLMs, embedding, rerank, and audio models. Recommendations currently target a single replica.
@@ -90,10 +92,14 @@ lower snake_case. The ``memory_not_verified`` warning is always included.
 Recommendations for other model types
 ======================================
 
+.. versionadded:: v3.5.0
+
 Embedding, rerank, and audio models use the same **Recommend configuration** button and ``POST /v1/models/recommend`` endpoint; set ``model_type`` to ``embedding``, ``rerank``, or ``audio``. The recommendation fills only the fields supported by that type, without selecting a model size. Embedding and rerank prefer an available sentence-transformers engine; audio prefers an available MLX engine on Apple Silicon, otherwise its standard Transformers or PyTorch backend. Installed engines come before engines that need a virtual environment, and unquantized variants are preferred within an engine. Unlike LLM recommendations, these types do not use cached weights as a tie-breaker. Worker, GPU, and virtual environment constraints still apply; ``model_size_in_billions`` is rejected for these types. A recommendation remains a starting configuration, not a memory-fit guarantee. Image and video recommendations are not yet supported.
 
 Download without launching
 ==========================
+
+.. versionadded:: v3.4.0
 
 Open a model's deployment dialog and choose **Download only** beside the
 **Deploy** button. It downloads the same model artifacts used by deployment,

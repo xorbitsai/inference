@@ -6,16 +6,27 @@ User Guide
 
 .. toctree::
    :maxdepth: 2
+   :caption: Model usage
 
+   launch
    backends
    client_api
-   sd_webui
+   SD WebUI API compatibility <sd_webui>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Operations and security
+
+   Metrics <metrics>
    auth_system
    oidc_sso
    audit_security
-   launch
-   metrics
-   distributed_inference
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Advanced performance
+
    continuous_batching
+   distributed_inference
    vllm_enhancement
-   pd_separation
+   PD separation <pd_separation>

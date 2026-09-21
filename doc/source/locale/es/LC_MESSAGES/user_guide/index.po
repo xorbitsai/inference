@@ -22,3 +22,27 @@ msgstr ""
 #: ../../source/user_guide/index.rst:5
 msgid "User Guide"
 msgstr "GUÍA DEL USUARIO"
+
+#: ../../source/user_guide/index.rst
+msgid "Model usage"
+msgstr "Uso de modelos"
+
+#: ../../source/user_guide/index.rst
+msgid "Operations and security"
+msgstr "Operaciones y seguridad"
+
+#: ../../source/user_guide/index.rst
+msgid "Advanced performance"
+msgstr "Optimización avanzada del rendimiento"
+
+#: ../../source/user_guide/index.rst
+msgid "SD WebUI API compatibility"
+msgstr "Compatibilidad con la API de SD WebUI"
+
+#: ../../source/user_guide/index.rst
+msgid "Metrics"
+msgstr "Métricas"
+
+#: ../../source/user_guide/index.rst
+msgid "PD separation"
+msgstr "Separación de PD"

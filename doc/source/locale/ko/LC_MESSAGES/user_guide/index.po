@@ -22,3 +22,27 @@ msgstr ""
 #: ../../source/user_guide/index.rst:5
 msgid "User Guide"
 msgstr "사용자 가이드"
+
+#: ../../source/user_guide/index.rst
+msgid "Model usage"
+msgstr "모델 사용"
+
+#: ../../source/user_guide/index.rst
+msgid "Operations and security"
+msgstr "운영 및 보안"
+
+#: ../../source/user_guide/index.rst
+msgid "Advanced performance"
+msgstr "고급 성능 최적화"
+
+#: ../../source/user_guide/index.rst
+msgid "SD WebUI API compatibility"
+msgstr "SD WebUI API 호환성"
+
+#: ../../source/user_guide/index.rst
+msgid "Metrics"
+msgstr "메트릭"
+
+#: ../../source/user_guide/index.rst
+msgid "PD separation"
+msgstr "PD 분리"
