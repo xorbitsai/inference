@@ -745,3 +745,14 @@ msgstr ""
 #~ "key``、``Authorization: Bearer`` 请求头、与 OpenAI "
 #~ "SDK 的兼容性）与上文简单系统 `Usage`_ 一节中描述的方式相同。"
 
+#: ../../source/user_guide/auth_system.rst:134
+msgid "``settings:read``: Permission to view system settings."
+msgstr "``settings:read``：查看系统设置的权限。"
+
+#: ../../source/user_guide/auth_system.rst:135
+msgid "``settings:write``: Permission to update and restore system settings."
+msgstr "``settings:write``：更新和恢复系统设置的权限。"
+
+#: ../../source/user_guide/auth_system.rst:246
+msgid "**System Settings**: view model download configuration with ``settings:read``; saving changes or restoring defaults additionally requires ``settings:write``."
+msgstr "**系统设置**：查看模型下载配置需要 ``settings:read``；保存修改或恢复默认设置还需要 ``settings:write``。"

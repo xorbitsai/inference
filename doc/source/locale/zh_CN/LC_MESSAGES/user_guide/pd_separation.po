@@ -21,7 +21,7 @@ msgstr ""
 
 #: source/user_guide/pd_separation.rst:4
 msgid "PD separation"
-msgstr ""
+msgstr "PD 分离"
 
 #: source/user_guide/pd_separation.rst:6
 msgid ""
@@ -29,11 +29,11 @@ msgid ""
 "Prefill replicas compute prompt KV cache; decode replicas reuse it through "
 "Xavier and produce the response. Requests are scheduled round-robin within "
 "each role. No enterprise package or License is required."
-msgstr ""
+msgstr "社区版支持 Prefill/Decode（PD）分离。Prefill 副本计算提示词的 KV 缓存，Decode 副本通过 Xavier 复用这些缓存并生成响应。请求在各角色内部轮询调度，无需企业版安装包或许可证。"
 
 #: source/user_guide/pd_separation.rst:12
 msgid "Launch"
-msgstr ""
+msgstr "启动"
 
 #: source/user_guide/pd_separation.rst:14
 msgid ""
@@ -41,7 +41,7 @@ msgid ""
 "connector requires vLLM 0.21.0 or newer. The existing V0 Xavier adapter is "
 "retained for vLLM versions below 0.11.0; versions 0.11 through 0.20 are not "
 "supported by this V1 connector. GPU integration CI pins vLLM 0.21.0."
-msgstr ""
+msgstr "请使用 NVIDIA GPU 和可访问的主机地址（不能是 ``0.0.0.0`` ）。V1 连接器要求 vLLM 0.21.0 或更新版本。现有 V0 Xavier 适配器保留了对 vLLM 0.11.0 以下版本的支持；V1 连接器不支持 0.11 至 0.20 版本。GPU 集成 CI 固定使用 vLLM 0.21.0。"
 
 #: source/user_guide/pd_separation.rst:19
 msgid ""
@@ -49,7 +49,7 @@ msgid ""
 "GPU 1. Replace the worker address with the full ``ip:port`` reported by "
 "``client.get_workers_info()``. Both replicas must use the same model and "
 "engine configuration."
-msgstr ""
+msgstr "示例在 GPU 0 上启动一个 Prefill 副本，在 GPU 1 上启动一个 Decode 副本。请将 Worker 地址替换为 ``client.get_workers_info()`` 返回的完整 ``ip:port``。两个副本必须使用相同的模型和引擎配置。"
 
 #: source/user_guide/pd_separation.rst:51
 msgid ""
@@ -58,19 +58,19 @@ msgid ""
 "select vLLM, enable per-replica placement, and choose Prefill or Decode for "
 "each replica. The community launch path automatically enables Xavier when "
 "P/D roles appear."
-msgstr ""
+msgstr "``POST /v1/models``、异步 Python 客户端以及 CLI 的 ``--replica_config`` JSON 选项都接受相同的 ``replica_config``。在 Web UI 中，选择 vLLM，启用逐副本放置，并为每个副本选择 Prefill 或 Decode。社区版启动流程检测到 P/D 角色时会自动启用 Xavier。"
 
 #: source/user_guide/pd_separation.rst:57
 msgid "CLI launch"
-msgstr ""
+msgstr "通过 CLI 启动"
 
 #: source/user_guide/pd_separation.rst:59
 msgid "Start a local server first, or use an existing supervisor endpoint:"
-msgstr ""
+msgstr "先启动本地服务，或使用已有的 Supervisor 地址："
 
 #: source/user_guide/pd_separation.rst:65
 msgid "In another terminal, launch a 1P+1D deployment:"
-msgstr ""
+msgstr "在另一个终端中启动 1P+1D 部署："
 
 #: source/user_guide/pd_separation.rst:78
 msgid ""
@@ -82,23 +82,23 @@ msgid ""
 "is needed. Do not combine per-replica placement with global ``--n-gpu``, "
 "``--gpu-idx``, or ``--worker-ip``. Invalid PD roles or incomplete P/D "
 "topology fail before the launch request is sent."
-msgstr ""
+msgstr "将 ``WORKER_ADDRESS`` 替换为 Worker 注册的地址，其中包含 Actor 端口（可在 Worker 启动日志中查看），而不是 HTTP API 端口。如果 Worker 分布在不同机器上，请分别使用各自的地址和 GPU 索引。``--replica_config`` 是 ``--replica-config`` 的别名。副本数量根据数组长度推断，无需单独启用 Xavier。逐副本放置不能与全局 ``--n-gpu``、``--gpu-idx`` 或 ``--worker-ip`` 混用。无效的 PD 角色或不完整的 P/D 拓扑会在发送启动请求前被拒绝。"
 
 #: source/user_guide/pd_separation.rst:88
 msgid "Configuration rules"
-msgstr ""
+msgstr "配置规则"
 
 #: source/user_guide/pd_separation.rst:90
 msgid ""
 "``replica`` is the total number of P and D replicas. At least one of each "
 "role is required; more than one of either role is supported."
-msgstr ""
+msgstr "``replica`` 是 P 和 D 副本的总数。每种角色至少需要一个副本，也支持每种角色配置多个副本。"
 
 #: source/user_guide/pd_separation.rst:92
 msgid ""
 "Omitted roles default to ``hybrid`` (ordinary replicas). A PD deployment "
 "cannot mix hybrid replicas with P/D replicas."
-msgstr ""
+msgstr "未指定角色时默认为 ``hybrid`` （普通副本）。PD 部署不能混用 hybrid 副本和 P/D 副本。"
 
 #: source/user_guide/pd_separation.rst:94
 msgid ""
@@ -106,24 +106,24 @@ msgid ""
 "may run on different workers. Per-replica placement cannot be combined with "
 "global ``worker_ip``, ``gpu_idx`` or ``n_gpu``, or cross-worker sharding "
 "within a replica (``n_worker > 1``)."
-msgstr ""
+msgstr "每个条目指定一个 Worker 及其 GPU 分配。不同副本可以运行在不同 Worker 上。逐副本放置不能与全局 ``worker_ip``、``gpu_idx``、``n_gpu`` 或副本内部的跨 Worker 分片（``n_worker > 1`` ）混用。"
 
 #: source/user_guide/pd_separation.rst:98
 msgid ""
 "The transferred enterprise implementation provides the Xavier transport; "
 "``vllm_transfer_backend_type`` and ``transfer_backend_type`` normalize to "
 "``xavier``. They do not enable an additional transport backend."
-msgstr ""
+msgstr "从企业版移入的实现提供 Xavier 传输能力；``vllm_transfer_backend_type`` 和 ``transfer_backend_type`` 都会规范化为 ``xavier``，不会启用额外的传输后端。"
 
 #: source/user_guide/pd_separation.rst:101
 msgid ""
 "The topology is fixed for the deployment lifetime. To change its size or "
 "roles, terminate the model and relaunch it with the new configuration."
-msgstr ""
+msgstr "部署期间拓扑保持不变。要调整副本数量或角色，需要终止模型，再使用新配置重新启动。"
 
 #: source/user_guide/pd_separation.rst:105
 msgid "Inference and lifecycle"
-msgstr ""
+msgstr "推理与生命周期"
 
 #: source/user_guide/pd_separation.rst:107
 msgid ""
@@ -134,15 +134,15 @@ msgid ""
 "transfer components are ready. Aborting a request reaches both roles. "
 "Terminating a deployment also removes its router, rank-zero coordinator, "
 "collective manager, and block tracker."
-msgstr ""
+msgstr "向基础模型 UID 发送普通的 OpenAI 兼容聊天或补全请求即可。流式和非流式请求使用相同的 PD 路由。Prefill 子请求只生成一个输出 token，不会改变 Decode 请求的生成设置。只有所有副本和传输组件就绪后，路由才可用。中止请求会同时作用于两种角色。终止部署时，还会移除对应的路由器、rank-zero 协调器、集合通信管理器和块跟踪器。"
 
 #: source/user_guide/pd_separation.rst:115
 msgid "Verification"
-msgstr ""
+msgstr "验证"
 
 #: source/user_guide/pd_separation.rst:117
 msgid "On a machine with two free NVIDIA GPUs and the pinned vLLM environment, run:"
-msgstr ""
+msgstr "在具有两张空闲 NVIDIA GPU、且已安装上述固定版本 vLLM 环境的机器上运行："
 
 #: source/user_guide/pd_separation.rst:124
 msgid ""
@@ -155,11 +155,11 @@ msgid ""
 "the model path and its registered model name and size. The manually "
 "triggered ``PD GPU integration`` GitHub Actions workflow runs the same test "
 "on a selected runner with two GPUs."
-msgstr ""
+msgstr "此测试通过真实子进程启动社区版部署，每种角色使用一张 GPU。测试检查流式和非流式响应、重复提示词以及四个并发请求，要求日志同时证明生产端完成了缓存暂存、解码端加载了 KV 缓存，并在结束时终止部署。如需使用本地缓存权重，请将 ``XINFERENCE_TEST_PD_MODEL_PATH``、``XINFERENCE_TEST_PD_MODEL_NAME`` 和 ``XINFERENCE_TEST_PD_MODEL_SIZE`` 分别设为模型路径、已注册的模型名称和规格。手动触发的 ``PD GPU integration`` GitHub Actions 工作流会在选定的双 GPU Runner 上运行相同测试。"
 
 #: source/user_guide/pd_separation.rst:134
 msgid "Hybrid/recurrent attention limitation"
-msgstr ""
+msgstr "混合注意力与循环注意力的限制"
 
 #: source/user_guide/pd_separation.rst:136
 msgid ""
@@ -169,11 +169,11 @@ msgid ""
 "ordinary single instances for these models, or a full-attention model such "
 "as Qwen3 for PD. Successful launch alone is not evidence of correct hybrid-"
 "state transfer."
-msgstr ""
+msgstr "Xavier PD 目前拒绝使用混合注意力或循环注意力缓存的模型，包括 Qwen3.5。从企业版移入的实现尚不能在前缀缓存复用和并发请求中可靠保留其循环状态。此类模型请使用普通单实例部署；PD 部署则可选择 Qwen3 等全注意力模型。仅启动成功并不能证明混合状态已被正确传输。"
 
 #: source/user_guide/pd_separation.rst:143
 msgid "V1 supported configurations and cache safety"
-msgstr ""
+msgstr "V1 支持的配置与缓存安全"
 
 #: source/user_guide/pd_separation.rst:145
 msgid ""
@@ -181,7 +181,7 @@ msgid ""
 "only models, and no LoRA adapters. Multimodal models, prompt embeddings and "
 "salted prompts are rejected until their cache identities and partitioning "
 "are supported."
-msgstr ""
+msgstr "V1 连接器目前要求每个副本使用一张 GPU（TP=1、PP=1），且仅支持纯文本模型，不支持 LoRA 适配器。在支持对应的缓存标识和分区方式之前，多模态模型、提示词嵌入和带盐值的提示词都会被拒绝。"
 
 #: source/user_guide/pd_separation.rst:149
 msgid ""
@@ -192,7 +192,7 @@ msgid ""
 "approach the GPU KV cache size (twice that size for BF16 transported as "
 "FP32), in addition to in-flight transfer buffers. Only complete layers are "
 "published for remote reuse."
-msgstr ""
+msgstr "CPU 快照以提示词内容为键，而不是以可复用的 GPU 块 ID 为键。读取方在传输期间会预留完整快照；缓存压力过大或快照缺失时会回退到本地计算。保留的 CPU 块数量受引擎 KV 缓存容量限制。除传输中的缓冲区外，CPU 内存占用可能接近 GPU KV 缓存大小；若 BF16 数据按 FP32 传输，则可能达到其两倍。只有完整的层才会发布供远端复用。"
 
 #: source/user_guide/pd_separation.rst:156
 msgid ""
@@ -200,4 +200,4 @@ msgid ""
 "layout whose block axis cannot be identified safely is rejected. V0 prefill "
 "replicas release only the requested completed sequence; ordinary hybrid and "
 "decode replicas retain normal automatic cleanup."
-msgstr ""
+msgstr "连接器支持块维度在前和 K/V 维度在前的注意力缓存布局。如果无法安全识别块所在的维度，则拒绝该布局。V0 Prefill 副本仅释放所请求且已完成的序列；普通 hybrid 副本和 Decode 副本保留正常的自动清理行为。"

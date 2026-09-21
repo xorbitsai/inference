@@ -194,22 +194,26 @@ msgstr ""
 "/v1/admin/security/rate-limit``、 ``GET /v1/admin/security/banned-ips``、 "
 "``POST /v1/admin/security/unban-ip``），需要 ``admin`` 权限。"
 
+#: ../../source/user_guide/audit_security.rst:45
+msgid "By default the search reads the local ``audit.log``. If the ``XINFERENCE_ES_URL`` environment variable points at an Elasticsearch cluster (e.g. with the audit log shipped by Filebeat), the search queries Elasticsearch instead, using the index pattern from ``XINFERENCE_AUDIT_ES_INDEX`` (default ``xinference-audit-*``). Elasticsearch-backed searches use a point-in-time snapshot and ``search_after`` pagination, so administrators can browse beyond Elasticsearch's default 10,000-result window without changing ``index.max_result_window``."
+msgstr "搜索默认读取本地 ``audit.log``。如果环境变量 ``XINFERENCE_ES_URL`` 指向 Elasticsearch 集群（例如通过 Filebeat 将审计日志发送到该集群），则改为查询 Elasticsearch，索引模式由 ``XINFERENCE_AUDIT_ES_INDEX`` 指定（默认 ``xinference-audit-*``）。Elasticsearch 搜索使用时间点快照和 ``search_after`` 分页，因此管理员无需修改 ``index.max_result_window``，就能浏览超过 Elasticsearch 默认 10,000 条结果窗口的日志。"
+
 #: ../../source/user_guide/audit_security.rst:56
 msgid "Log Center and protected request bodies"
-msgstr ""
+msgstr "日志中心与受保护的请求体"
 
 #: ../../source/user_guide/audit_security.rst:58
 msgid "When ``XINFERENCE_ES_URL`` is configured, the **Log Center** queries the index pattern selected by ``XINFERENCE_ES_INDEX``. The default remains ``xinference-logs-*`` for compatibility with existing deployments. Operators that ship ``model_request.log`` into a separate index can set this variable to a read-only alias, such as ``xinference-log-search``, that spans both the application-log and model-request indices."
-msgstr ""
+msgstr "配置 ``XINFERENCE_ES_URL`` 后，**日志中心** 会查询 ``XINFERENCE_ES_INDEX`` 指定的索引模式。为兼容现有部署，默认值仍为 ``xinference-logs-*``。如果将 ``model_request.log`` 写入单独的索引，可以将此变量设为同时覆盖应用日志和模型请求索引的只读别名，例如 ``xinference-log-search``。"
 
 #: ../../source/user_guide/audit_security.rst:65
 msgid "``GET /v1/cluster/logs/correlated`` returns a time-ordered request timeline and requires ``logs:list``. The query accepts a ``request_id`` and an optional time range of at most seven days. Metadata queries, including normal log search and context search, always exclude ``request_body`` and ``request_body_raw`` from the Elasticsearch response."
-msgstr ""
+msgstr "``GET /v1/cluster/logs/correlated`` 返回按时间排序的请求时间线，需要 ``logs:list`` 权限。查询接受 ``request_id``，也可以指定最长七天的时间范围。普通日志搜索、上下文搜索等元数据查询始终会从 Elasticsearch 响应中排除 ``request_body`` 和 ``request_body_raw``。"
 
 #: ../../source/user_guide/audit_security.rst:71
 msgid "Request bodies are fetched separately with ``GET /v1/cluster/model-requests/{request_id}/body``. This endpoint requires both ``logs:list`` and ``model_requests:read_body`` and is denied when authentication is disabled. It queries ``XINFERENCE_MODEL_REQUEST_ES_INDEX`` (default ``xinference-model-request-*``), and successful or failed access attempts are recorded in the admin audit trail. API keys cannot use this administrative endpoint."
-msgstr ""
+msgstr "请求体通过 ``GET /v1/cluster/model-requests/{request_id}/body`` 单独获取。该接口同时要求 ``logs:list`` 和 ``model_requests:read_body`` 权限；未启用身份验证时会拒绝访问。它查询 ``XINFERENCE_MODEL_REQUEST_ES_INDEX`` 指定的索引（默认为 ``xinference-model-request-*``），无论访问成功还是失败，都会记录在管理员审计日志中。API 密钥不能调用此管理接口。"
 
 #: ../../source/user_guide/audit_security.rst:80
 msgid "The read-only alias is a routing convenience, not a field-level security boundary. Browser clients should access logs only through the Xinference API, and Elasticsearch credentials should not be exposed to users who are not allowed to read captured request bodies."
-msgstr ""
+msgstr "只读别名只是为了方便路由，并不提供字段级安全隔离。浏览器客户端应仅通过 Xinference API 访问日志；不得向无权读取已记录请求体的用户暴露 Elasticsearch 凭据。"
