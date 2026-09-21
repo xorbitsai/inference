@@ -641,6 +641,9 @@ _ES_PIT_KEEP_ALIVE = "1m"
 _ES_SEARCH_AFTER_BATCH_SIZE = 5000
 _ES_MAX_SEARCH_AFTER_REQUESTS = 10
 _CORRELATED_LOG_MAX_TIME_RANGE = timedelta(days=7)
+_CANONICAL_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 def _get_es_total(data: dict[str, Any]) -> int:
@@ -1154,6 +1157,46 @@ def _validate_request_id(request_id: str) -> str:
     return request_id
 
 
+def _correlated_request_id_candidates(request_id: str) -> list[str]:
+    """Return current and legacy forms of a canonical UUID request ID."""
+
+    candidates = [request_id]
+    has_legacy_prefix = request_id.startswith("xinf-")
+    uuid_text = request_id[5:] if has_legacy_prefix else request_id
+    if not _CANONICAL_UUID_RE.fullmatch(uuid_text):
+        return candidates
+
+    canonical_uuid = str(uuid.UUID(uuid_text))
+    compatible_values = (
+        (canonical_uuid,)
+        if has_legacy_prefix
+        else (canonical_uuid, f"xinf-{canonical_uuid}")
+    )
+    for value in compatible_values:
+        if value not in candidates:
+            candidates.append(value)
+    return candidates
+
+
+def _correlated_log_should_clauses(request_ids: list[str]) -> list[dict[str, Any]]:
+    clauses: list[dict[str, Any]] = []
+    for candidate in request_ids:
+        clauses.extend(
+            [
+                {"term": {"request_id": candidate}},
+                {"term": {"correlation_id": candidate}},
+                {
+                    "wildcard": {
+                        "message.keyword": {
+                            "value": f"*[request {_escape_es_wildcard(candidate)}]*"
+                        }
+                    }
+                },
+            ]
+        )
+    return clauses
+
+
 def _es_headers_and_auth(es_auth: str) -> tuple[dict[str, str], Any]:
     headers = {"Content-Type": "application/json"}
     auth = None
@@ -1181,15 +1224,18 @@ async def search_correlated_logs(
     if not es_url:
         raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
     es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
-    time_from, time_to = _freeze_es_time_bounds(time_from, time_to)
-    parsed_time_from = _parse_relative_time(time_from)
-    parsed_time_to = _parse_relative_time(time_to)
+
+    reference_time = datetime.now(timezone.utc)
+    parsed_time_from = _parse_relative_time(time_from, now=reference_time)
+    parsed_time_to = _parse_relative_time(time_to, now=reference_time)
     if parsed_time_from is None or parsed_time_to is None:
         raise HTTPException(status_code=400, detail="Invalid correlated log time range")
     if parsed_time_from.tzinfo is None:
         parsed_time_from = parsed_time_from.replace(tzinfo=timezone.utc)
     if parsed_time_to.tzinfo is None:
         parsed_time_to = parsed_time_to.replace(tzinfo=timezone.utc)
+    parsed_time_from = parsed_time_from.astimezone(timezone.utc)
+    parsed_time_to = parsed_time_to.astimezone(timezone.utc)
     if (
         parsed_time_to < parsed_time_from
         or parsed_time_to - parsed_time_from > _CORRELATED_LOG_MAX_TIME_RANGE
@@ -1198,14 +1244,27 @@ async def search_correlated_logs(
             status_code=400,
             detail="Correlated log time range must not exceed 7 days",
         )
+    normalized_time_from = parsed_time_from.isoformat().replace("+00:00", "Z")
+    normalized_time_to = parsed_time_to.isoformat().replace("+00:00", "Z")
+
     size = max(1, min(size, 1000))
+    request_id_candidates = _correlated_request_id_candidates(request_id)
     body = {
         "query": {
             "bool": {
                 "filter": [
-                    {"term": {"request_id": request_id}},
-                    {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}},
-                ]
+                    {
+                        "range": {
+                            "@timestamp": {
+                                "gte": normalized_time_from,
+                                "lte": normalized_time_to,
+                            }
+                        }
+                    },
+                ],
+                "should": _correlated_log_should_clauses(request_id_candidates),
+                "minimum_should_match": 1,
+                "must_not": [{"term": {"module": "uvicorn.access"}}],
             }
         },
         "sort": [{"@timestamp": "asc"}],
@@ -1235,12 +1294,33 @@ async def search_correlated_logs(
             detail="Failed to connect to Elasticsearch or query timed out",
         )
 
-    raw_hits = [hit.get("_source", {}) for hit in data.get("hits", {}).get("hits", [])]
+    raw_hit_documents = data.get("hits", {}).get("hits", [])
+    unique_hits: list[tuple[dict[str, Any], str, str]] = []
+    seen_hits: set[tuple[str, ...]] = set()
+    for document in raw_hit_documents:
+        source = document.get("_source", {})
+        index_name = str(document.get("_index", ""))
+        document_id = str(document.get("_id", ""))
+        fingerprint: tuple[str, ...]
+        if index_name or document_id:
+            fingerprint = ("document", index_name, document_id)
+        else:
+            fingerprint = (
+                "source",
+                json.dumps(source, sort_keys=True, ensure_ascii=False, default=str),
+            )
+        if fingerprint in seen_hits:
+            continue
+        seen_hits.add(fingerprint)
+        unique_hits.append((source, index_name, document_id))
+    unique_hits.sort(
+        key=lambda item: (str(item[0].get("@timestamp", "")), item[1], item[2])
+    )
     return JSONResponse(
         content={
-            "hits": raw_hits[:size],
+            "hits": [item[0] for item in unique_hits[:size]],
             "total": _get_es_total(data),
-            "truncated": len(raw_hits) > size,
+            "truncated": len(raw_hit_documents) > size,
             "request_id": request_id,
         }
     )
@@ -1272,6 +1352,9 @@ async def get_model_request_body(
                 "should": [
                     {"term": {"event_type": "model_request_started"}},
                     {"term": {"event": "model_request_started"}},
+                    {"exists": {"field": "request_body"}},
+                    {"exists": {"field": "request_body_raw"}},
+                    {"exists": {"field": "request_body_omitted"}},
                 ],
                 "minimum_should_match": 1,
             }
@@ -1319,6 +1402,11 @@ async def get_model_request_body(
     if not hits:
         raise HTTPException(status_code=404, detail="Model request body not found")
     source = hits[0].get("_source", {})
+    if not any(
+        field in source
+        for field in ("request_body", "request_body_raw", "request_body_omitted")
+    ):
+        raise HTTPException(status_code=404, detail="Model request body not found")
     return JSONResponse(content=source)
 
 
@@ -1333,7 +1421,7 @@ def _parse_relative_time(
 
     if expr == "now":
         return reference_time
-    m = re.match(r"now-(\d+)([mhdw])", expr)
+    m = re.fullmatch(r"now-(\d+)([mhdw])", expr)
     if m:
         val, unit = int(m.group(1)), m.group(2)
         delta = {
