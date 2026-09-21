@@ -25,7 +25,6 @@ from ..advanced.auth_service import (
     INITIAL_ADMIN_PERMISSIONS,
     PASSWORD_MIN_LENGTH,
     AdvancedAuthService,
-    _get_client_ip,
 )
 from ..advanced.crypto import get_password_hash
 from ..scope_aliases import _normalize_scopes
@@ -171,46 +170,21 @@ def _reject_admin_target_takeover(
 
 
 async def advanced_login(request: Request) -> JSONResponse:
-    try:
-        from .audit import record_audit_event
-    except ImportError:
-        record_audit_event = None  # type: ignore[assignment]
-
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
     username = body.get("username", "")
     password = body.get("password", "")
-    client_ip = _get_client_ip(request)
+    request.state.audit_identity = {
+        "user": username,
+        "api_key_name": "",
+        "api_key_prefix": "",
+        "auth_type": "none",
+    }
     try:
         result = auth.login(username, password)
     except Exception:
-        if record_audit_event is not None:
-            record_audit_event(
-                user=username,
-                api_key_name="",
-                api_key_prefix="",
-                model_id="",
-                model_type="",
-                endpoint="/token",
-                status="login_failed",
-                client_ip=client_ip,
-                category="auth",
-                auth_type="none",
-            )
+        request.state.audit_status = "login_failed"
         raise
-    if record_audit_event is not None:
-        record_audit_event(
-            user=username,
-            api_key_name="",
-            api_key_prefix="",
-            model_id="",
-            model_type="",
-            endpoint="/token",
-            status="success",
-            client_ip=client_ip,
-            category="auth",
-            auth_type="none",
-        )
     return JSONResponse(content=result)
 
 

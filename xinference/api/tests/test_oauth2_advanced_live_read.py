@@ -290,3 +290,57 @@ def test_validate_model_access_revoke_after_login(auth_service):
     auth_service.db.set_user_permissions(user_id, [])
 
     assert auth_service.validate_model_access(token, "any-model", "LLM") is False
+
+
+def test_initial_admin_can_read_model_request_bodies():
+    from ..oauth2.advanced.auth_service import INITIAL_ADMIN_PERMISSIONS
+
+    assert "model_requests:read_body" in INITIAL_ADMIN_PERMISSIONS
+
+
+@pytest.mark.asyncio
+async def test_model_request_body_scope_requires_explicit_permission(auth_service):
+    user_id = _create_user(auth_service, "log-reader", ["logs:list"])
+    token = auth_service.create_access_token(user_id, "log-reader", ["logs:list"])
+
+    with pytest.raises(HTTPException) as exc:
+        await auth_service(
+            _make_request("/v1/cluster/model-requests/xinf-123/body"),
+            SecurityScopes(scopes=["logs:list", "model_requests:read_body"]),
+            token,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Not enough permissions"
+
+
+@pytest.mark.asyncio
+async def test_model_request_body_scope_accepts_authorized_jwt(auth_service):
+    permissions = ["logs:list", "model_requests:read_body"]
+    user_id = _create_user(auth_service, "body-reader", permissions)
+    token = auth_service.create_access_token(user_id, "body-reader", permissions)
+
+    user = await auth_service(
+        _make_request("/v1/cluster/model-requests/xinf-123/body"),
+        SecurityScopes(scopes=permissions),
+        token,
+    )
+
+    assert user["username"] == "body-reader"
+
+
+@pytest.mark.asyncio
+async def test_model_request_body_scope_rejects_api_key(auth_service):
+    permissions = ["logs:list", "model_requests:read_body"]
+    user_id = _create_user(auth_service, "api-key-owner", permissions)
+    api_key = auth_service.create_api_key_for_user(user_id=user_id)["key"]
+
+    with pytest.raises(HTTPException) as exc:
+        await auth_service(
+            _make_request("/v1/cluster/model-requests/xinf-123/body"),
+            SecurityScopes(scopes=permissions),
+            api_key,
+        )
+
+    assert exc.value.status_code == 403
+    assert "model query and inference endpoints" in exc.value.detail
