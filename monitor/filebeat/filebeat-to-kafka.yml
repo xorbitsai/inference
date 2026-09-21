@@ -88,8 +88,11 @@ processors:
       ignore_missing: true
       fail_on_error: false
       when:
-        equals:
-          log_type: "model_request"
+        and:
+          - equals:
+              log_type: "model_request"
+          - not:
+              has_fields: ["event_type"]
 
   - timestamp:
       field: "timestamp"
