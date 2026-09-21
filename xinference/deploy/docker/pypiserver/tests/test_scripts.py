@@ -494,8 +494,8 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         {
             "spec": "flash-attn==2.8.3.post1",
             "sources": [
-                "embedding/model_spec.json:jina-embeddings-v3",
-                "embedding/model_spec.json:jina-embeddings-v3 (sentence_transformers)",
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3",
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3 (sentence_transformers)",
             ],
         }
     ]
@@ -524,7 +524,7 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         if item["spec"].split(";", 1)[0].strip().lower() == "qwen-vl-utils!=0.0.9"
     )
     for model_name in ("qwen3.5", "qwen3.6"):
-        source = "llm/llm_family.json:" + model_name + " (Transformers)"
+        source = "llm/models/" + model_name + ".json:" + model_name + " (Transformers)"
         assert source in qwen_vl_sources
 
 

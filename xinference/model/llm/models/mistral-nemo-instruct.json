@@ -1,0 +1,192 @@
+[
+  {
+    "version": 2,
+    "context_length": 1024000,
+    "model_name": "mistral-nemo-instruct",
+    "model_lang": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "it",
+      "pt",
+      "zh",
+      "ru",
+      "ja"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mistral-Nemo-Instruct-2407 Large Language Model (LLM) is an instruct fine-tuned version of the Mistral-Nemo-Base-2407",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mistralai/Mistral-Nemo-Instruct-2407",
+            "model_revision": "05b1e4f3e189ec1b5189fb3c973d4cf3369c27af"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
+            "model_revision": "1d85adc9e0fff0b8e4479a037bd75fe1346333ca"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "afrizalha/Mistral-Nemo-Instruct-2407-bnb-8bit",
+            "model_revision": "1d2dacf18a486c745219317d1507441406bc7e25"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "LLM-Research/Mistral-Nemo-Instruct-2407-gptq-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "casperhansen/mistral-nemo-instruct-2407-awq"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0",
+              "fp16"
+            ],
+            "model_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+            "model_file_name_template": "Mistral-Nemo-Instruct-2407.{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-bf16"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 12,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit"
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS][\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST]\" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST]\" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif (message.tool_calls is defined and message.tool_calls is not none) %}\n        {{- \"[TOOL_CALLS][\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- message[\"content\"] + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS]{\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ],
+    "updated_at": 1769418549,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ],
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

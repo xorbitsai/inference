@@ -294,7 +294,7 @@ def test_builtin_catalog_has_fish_audio_s1_and_s2_sources(
     with monkeypatch.context() as platform_patch:
         platform_patch.setattr(sys, "platform", system)
         platform_patch.setattr(platform, "processor", lambda: processor)
-        load_model_family_from_json("model_spec.json", models)
+        load_model_family_from_json("models", models)
 
     expected = {
         FISH_AUDIO_S1_MINI: "fishaudio/s1-mini",

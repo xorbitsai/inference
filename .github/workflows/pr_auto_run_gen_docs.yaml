@@ -4,12 +4,13 @@ on:
   pull_request_target:
     types: [opened, synchronize, ready_for_review]
     paths:
-      - 'xinference/model/llm/llm_family.json'
-      - 'xinference/model/embedding/model_spec.json'
-      - 'xinference/model/rerank/model_spec.json'
-      - 'xinference/model/image/model_spec.json'
-      - 'xinference/model/audio/model_spec.json'
-      - 'xinference/model/video/model_spec.json'
+      - 'xinference/model/llm/models/*.json'
+      - 'xinference/model/embedding/models/*.json'
+      - 'xinference/model/rerank/models/*.json'
+      - 'xinference/model/image/models/*.json'
+      - 'xinference/model/audio/models/*.json'
+      - 'xinference/model/video/models/*.json'
+      - 'xinference/model/world/models/*.json'
 
 permissions:
   contents: write
@@ -52,8 +53,8 @@ jobs:
           fetch-depth: 0
           # actions/checkout v7 refuses to check out a fork head under
           # pull_request_target unless this is set. The fork tree is treated as
-          # data only: no fork code is installed or executed, and only the six
-          # model spec JSON files are copied (symlinks refused) into a workspace
+          # data only: no fork code is installed or executed, and only the
+          # model catalog JSON files are copied (symlinks refused) into a workspace
           # built from the base checkout. Pushes are still limited to same-repo
           # PRs by the "Push to same-repo PR" step below.
           allow-unsafe-pr-checkout: true
@@ -101,22 +102,7 @@ jobs:
           rm -rf gen-docs-work
           cp -a base gen-docs-work
 
-          for file in \
-            xinference/model/llm/llm_family.json \
-            xinference/model/embedding/model_spec.json \
-            xinference/model/rerank/model_spec.json \
-            xinference/model/image/model_spec.json \
-            xinference/model/audio/model_spec.json \
-            xinference/model/video/model_spec.json
-          do
-            if [ -e "pr/$file" ]; then
-              if [ -L "pr/$file" ]; then
-                echo "Refusing symlinked PR data file: $file"
-                exit 1
-              fi
-              cp "pr/$file" "gen-docs-work/$file"
-            fi
-          done
+          python base/.github/scripts/validate_gen_docs_pr.py copy-catalogs pr gen-docs-work
 
       - name: Validate model names
         if: steps.decide.outputs.run == 'true'

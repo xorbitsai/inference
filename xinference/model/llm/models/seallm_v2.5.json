@@ -1,0 +1,66 @@
+[
+  {
+    "version": 2,
+    "context_length": 8192,
+    "model_name": "seallm_v2.5",
+    "model_lang": [
+      "en",
+      "zh",
+      "vi",
+      "id",
+      "th",
+      "ms",
+      "km",
+      "lo",
+      "my",
+      "tl"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "We introduce SeaLLM-7B-v2.5, the state-of-the-art multilingual LLM for Southeast Asian (SEA) languages",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "SeaLLMs/SeaLLM-7B-v2.5",
+            "model_revision": "c54a8eb8e2d58c5a680bfbbe3a7ae71753bb644b"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q8_0"
+            ],
+            "model_id": "SeaLLMs/SeaLLM-7B-v2.5-GGUF",
+            "model_file_name_template": "SeaLLM-7B-v2.5.{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "updated_at": 1769418480,
+    "featured": false,
+    "architectures": [
+      "GemmaForCausalLM"
+    ],
+    "model_type": "gemma",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

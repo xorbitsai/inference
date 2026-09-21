@@ -1,0 +1,281 @@
+[
+  {
+    "version": 2,
+    "context_length": 16384,
+    "model_name": "deepseek-coder-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "deepseek-coder-instruct is a model initialized from deepseek-coder-base and fine-tuned on 2B tokens of instruction data.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_3",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
+            "model_revision": "2df081ceaca101a867fef2844e44f4d6a4857039"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "6_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
+            "model_revision": "cbb77d7448ea3168d884758817e7f895e3828d1c"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-7b-instruct-v1.5",
+            "model_revision": "2a050a4c59d687a85324d32e147517992117ed30"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 33,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
+            "model_revision": "ea15d17db84d1fc94ac5cba8e6fa97764c9549d3"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "deepseek-ai/deepseek-coder-33b-instruct"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "1_3",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
+            "model_file_name_template": "deepseek-coder-1.3b-instruct.{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "6_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GGUF",
+            "model_file_name_template": "deepseek-coder-6.7b-instruct.{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "LoneStriker/deepseek-coder-7b-instruct-v1.5-GGUF",
+            "model_file_name_template": "deepseek-coder-7b-instruct-v1.5-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 33,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/deepseek-coder-33B-instruct-GGUF",
+            "model_file_name_template": "deepseek-coder-33b-instruct.{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_3",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GPTQ",
+            "model_revision": "9c002e9af6cbdf3bd9244e2d7264b6a35d1dcacf"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "6_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GPTQ",
+            "model_revision": "13ccea6e3a43dcfdcb655d92097610018b431a17"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 33,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/deepseek-coder-33B-instruct-GPTQ",
+            "model_revision": "08372729d98dfc248f9531a412fe69e14e607027"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "1_3",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/deepseek-coder-1.3b-instruct-AWQ",
+            "model_revision": "a2a484da6e4146d055316a9a63cf5b13955715a4"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "6_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/deepseek-coder-6.7B-instruct-AWQ",
+            "model_revision": "502ae3e19e57ae78dc30a791ba33c565da72dc62"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 33,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/deepseek-coder-33B-instruct-AWQ",
+            "model_revision": "c40b499bac2712cd3c445cf1b05d2c6558ab0d29"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}\n{% set add_generation_prompt = false %}\n{% endif %}\n{%- set ns = namespace(found=false) -%}\n{%- for message in messages -%}\n    {%- if message['role'] == 'system' -%}\n        {%- set ns.found = true -%}\n    {%- endif -%}\n{%- endfor -%}\n{{'<｜begin▁of▁sentence｜>'}}{%- if not ns.found -%}\n{{'You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n'}}\n{%- endif %}\n{%- for message in messages %}\n    {%- if message['role'] == 'system' %}\n{{ message['content'] }}\n    {%- else %}\n        {%- if message['role'] == 'user' %}\n{{'### Instruction:\n' + message['content'] + '\n'}}\n        {%- else %}\n{{'### Response:\n' + message['content'] + '\n<|EOT|>\n'}}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{% if add_generation_prompt %}\n{{'### Response:'}}\n{% endif %}",
+    "stop_token_ids": [
+      32021
+    ],
+    "stop": [
+      "<|EOT|>"
+    ],
+    "updated_at": 1769418511,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

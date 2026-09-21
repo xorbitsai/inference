@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import os
 import sys
 from collections import defaultdict
 
 from jinja2 import Environment, FileSystemLoader
+
+from xinference._model_catalog import load_model_catalog
 
 
 # Mock engine libraries before importing xinference modules
@@ -257,176 +258,115 @@ def main():
     template_dir = '../templates'
     env = Environment(loader=FileSystemLoader(template_dir))
 
-    with open('../../xinference/model/llm/llm_family.json', 'r') as model_file:
-        models = json.load(model_file)
+    models = load_model_catalog('../../xinference/model/llm/models')
 
-        model_by_names = {m['model_name']: m for m in models}
+    model_by_names = {m['model_name']: m for m in models}
 
-        sorted_models = []
-        output_dir = './models/builtin/llm'
-        os.makedirs(output_dir, exist_ok=True)
-        current_files = {f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))}
+    sorted_models = []
+    output_dir = './models/builtin/llm'
+    os.makedirs(output_dir, exist_ok=True)
+    current_files = {f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))}
 
-        for model_name in sorted(model_by_names, key=str.lower):
+    for model_name in sorted(model_by_names, key=str.lower):
 
-            model = model_by_names[model_name]
-            sorted_models.append(model)
+        model = model_by_names[model_name]
+        sorted_models.append(model)
 
-            for model_spec in model['model_specs']:
-                model_spec['model_hubs'] = []
+        for model_spec in model['model_specs']:
+            model_spec['model_hubs'] = []
 
-                # Process different model sources
-                if 'model_src' in model_spec:
-                    # Handle new model_src structure
-                    if 'huggingface' in model_spec['model_src']:
-                        hf_src = model_spec['model_src']['huggingface']
-                        model_spec['model_hubs'].append({
-                            'name': MODEL_HUB_HUGGING_FACE,
-                            'url': f"https://huggingface.co/{hf_src['model_id']}"
-                        })
-                        # Set model_id and quantizations for template compatibility
-                        model_spec['model_id'] = hf_src['model_id']
-                        model_spec['quantizations'] = hf_src['quantizations']
-                        quantizations = hf_src['quantizations']
-
-                    if 'modelscope' in model_spec['model_src']:
-                        ms_src = model_spec['model_src']['modelscope']
-                        model_spec['model_hubs'].append({
-                            'name': MODEL_HUB_MODELSCOPE,
-                            'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
-                        })
-
-                    # If only modelscope exists and no huggingface, use modelscope data
-                    if 'modelscope' in model_spec['model_src'] and 'huggingface' not in model_spec['model_src']:
-                        ms_src = model_spec['model_src']['modelscope']
-                        model_spec['model_id'] = ms_src['model_id']
-                        model_spec['quantizations'] = ms_src['quantizations']
-                        quantizations = ms_src['quantizations']
-                else:
-                    # Fallback for old format if still exists
+            # Process different model sources
+            if 'model_src' in model_spec:
+                # Handle new model_src structure
+                if 'huggingface' in model_spec['model_src']:
+                    hf_src = model_spec['model_src']['huggingface']
                     model_spec['model_hubs'].append({
                         'name': MODEL_HUB_HUGGING_FACE,
-                        'url': f"https://huggingface.co/{model_spec['model_id']}"
+                        'url': f"https://huggingface.co/{hf_src['model_id']}"
                     })
-                    quantizations = model_spec.get('quantizations', [])
+                    # Set model_id and quantizations for template compatibility
+                    model_spec['model_id'] = hf_src['model_id']
+                    model_spec['quantizations'] = hf_src['quantizations']
+                    quantizations = hf_src['quantizations']
 
-                # model engines
-                engines = []
-                for engine in SUPPORTED_ENGINES:
-                    for quantization in quantizations:
-                        size = model_spec['model_size_in_billions']
-                        if isinstance(size, str) and '_' not in size:
-                            size = int(size)
-                        try:
-                            check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
-                                                            size, quantization)
-                        except ValueError:
-                            if engine == "Transformers" and _can_use_transformers_legacy(
-                                model, model_spec
-                            ):
-                                engines.append(engine)
-                            continue
-                        else:
-                            engines.append(engine)
-                model_spec['engines'] = sorted(list(set(engines)), reverse=True)
-
-            rendered = env.get_template('llm.rst.jinja').render(model)
-            output_file_name = f"{model['model_name'].lower()}.rst"
-            if output_file_name in current_files:
-                current_files.remove(output_file_name)
-            output_file_path = os.path.join(output_dir, output_file_name)
-            with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered)
-                print(output_file_path)
-
-        if current_files:
-            for f in current_files:
-                print(f"remove {f}")
-                os.remove(os.path.join(output_dir, f))
-
-        index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:
-            rendered_index = env.get_template('llm_index.rst.jinja').render(models=sorted_models)
-            file.write(rendered_index)
-        llm_sorted_models = sorted_models
-
-    with open('../../xinference/model/embedding/model_spec.json', 'r') as file:
-        models = json.load(file)
-
-        model_by_names = {m['model_name']: m for m in models}
-
-        sorted_models = []
-        output_dir = './models/builtin/embedding'
-        os.makedirs(output_dir, exist_ok=True)
-
-        for model_name in sorted(model_by_names, key=str.lower):
-            model = model_by_names[model_name]
-
-            sorted_models.append(model)
-
-            model['model_hubs'] = []
-
-            # Process model specs for new model_src structure
-            if 'model_specs' in model and model['model_specs']:
-                model_spec = model['model_specs'][0]  # Use first spec for model hubs
-                if 'model_src' in model_spec:
-                    if 'huggingface' in model_spec['model_src']:
-                        hf_src = model_spec['model_src']['huggingface']
-                        model['model_hubs'].append({
-                            'name': MODEL_HUB_HUGGING_FACE,
-                            'url': f"https://huggingface.co/{hf_src['model_id']}"
-                        })
-                        # Set model_id for template compatibility (prefer huggingface)
-                        model['model_id'] = hf_src['model_id']
-
-                    if 'modelscope' in model_spec['model_src']:
-                        ms_src = model_spec['model_src']['modelscope']
-                        model['model_hubs'].append({
-                            'name': MODEL_HUB_MODELSCOPE,
-                            'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
-                        })
-                        # Only set modelscope model_id if no huggingface exists
-                        if 'huggingface' not in model_spec['model_src']:
-                            model['model_id'] = ms_src['model_id']
-                else:
-                    # Fallback for old format
-                    model_id = model_spec.get('model_id', model.get('model_id', ''))
-                    model['model_id'] = model_id
-                    model['model_hubs'].append({
-                        'name': MODEL_HUB_HUGGING_FACE,
-                        'url': f"https://huggingface.co/{model_id}"
+                if 'modelscope' in model_spec['model_src']:
+                    ms_src = model_spec['model_src']['modelscope']
+                    model_spec['model_hubs'].append({
+                        'name': MODEL_HUB_MODELSCOPE,
+                        'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
                     })
+
+                # If only modelscope exists and no huggingface, use modelscope data
+                if 'modelscope' in model_spec['model_src'] and 'huggingface' not in model_spec['model_src']:
+                    ms_src = model_spec['model_src']['modelscope']
+                    model_spec['model_id'] = ms_src['model_id']
+                    model_spec['quantizations'] = ms_src['quantizations']
+                    quantizations = ms_src['quantizations']
             else:
-                # Fallback for very old format
-                if 'model_id' in model:
-                    model['model_hubs'].append({
-                        'name': MODEL_HUB_HUGGING_FACE,
-                        'url': f"https://huggingface.co/{model['model_id']}"
-                    })
+                # Fallback for old format if still exists
+                model_spec['model_hubs'].append({
+                    'name': MODEL_HUB_HUGGING_FACE,
+                    'url': f"https://huggingface.co/{model_spec['model_id']}"
+                })
+                quantizations = model_spec.get('quantizations', [])
 
-            rendered = env.get_template('embedding.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
-            with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered)
-                print(output_file_path)
+            # model engines
+            engines = []
+            for engine in SUPPORTED_ENGINES:
+                for quantization in quantizations:
+                    size = model_spec['model_size_in_billions']
+                    if isinstance(size, str) and '_' not in size:
+                        size = int(size)
+                    try:
+                        check_engine_by_spec_parameters(engine, model_name, model_spec['model_format'],
+                                                        size, quantization)
+                    except ValueError:
+                        if engine == "Transformers" and _can_use_transformers_legacy(
+                            model, model_spec
+                        ):
+                            engines.append(engine)
+                        continue
+                    else:
+                        engines.append(engine)
+            model_spec['engines'] = sorted(list(set(engines)), reverse=True)
 
-        index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:
-            rendered_index = env.get_template('embedding_index.rst.jinja').render(models=sorted_models)
-            file.write(rendered_index)
+        rendered = env.get_template('llm.rst.jinja').render(model)
+        output_file_name = f"{model['model_name'].lower()}.rst"
+        if output_file_name in current_files:
+            current_files.remove(output_file_name)
+        output_file_path = os.path.join(output_dir, output_file_name)
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered)
+            print(output_file_path)
 
-    with open('../../xinference/model/rerank/model_spec.json', 'r') as file:
-        models = json.load(file)
+    if current_files:
+        for f in current_files:
+            print(f"remove {f}")
+            os.remove(os.path.join(output_dir, f))
 
-        sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
-        output_dir = './models/builtin/rerank'
-        os.makedirs(output_dir, exist_ok=True)
+    index_file_path = os.path.join(output_dir, "index.rst")
+    with open(index_file_path, "w") as file:
+        rendered_index = env.get_template('llm_index.rst.jinja').render(models=sorted_models)
+        file.write(rendered_index)
+    llm_sorted_models = sorted_models
 
-        for model in sorted_models:
-            # Initialize model_hubs list
-            model['model_hubs'] = []
+    models = load_model_catalog('../../xinference/model/embedding/models')
 
-            # Process model specs for new model_src structure
+    model_by_names = {m['model_name']: m for m in models}
+
+    sorted_models = []
+    output_dir = './models/builtin/embedding'
+    os.makedirs(output_dir, exist_ok=True)
+
+    for model_name in sorted(model_by_names, key=str.lower):
+        model = model_by_names[model_name]
+
+        sorted_models.append(model)
+
+        model['model_hubs'] = []
+
+        # Process model specs for new model_src structure
+        if 'model_specs' in model and model['model_specs']:
             model_spec = model['model_specs'][0]  # Use first spec for model hubs
             if 'model_src' in model_spec:
                 if 'huggingface' in model_spec['model_src']:
@@ -447,233 +387,288 @@ def main():
                     # Only set modelscope model_id if no huggingface exists
                     if 'huggingface' not in model_spec['model_src']:
                         model['model_id'] = ms_src['model_id']
-
-            rendered = env.get_template('rerank.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
-            with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered)
-
-        index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:
-            rendered_index = env.get_template('rerank_index.rst.jinja').render(models=sorted_models)
-            file.write(rendered_index)
-
-    with open('../../xinference/model/image/model_spec.json', 'r') as file:
-        models = json.load(file)
-
-        sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
-        output_dir = './models/builtin/image'
-        os.makedirs(output_dir, exist_ok=True)
-
-        for model in sorted_models:
-            # Process model_src for template compatibility
-            model_src = _extract_primary_model_src(model)
-            if model_src:
-                if 'huggingface' in model_src:
-                    hf_src = model_src['huggingface']
-                    model['model_id'] = hf_src['model_id']
-                    # Handle GGUF related fields
-                    if 'gguf_model_id' in hf_src:
-                        model['gguf_model_id'] = hf_src['gguf_model_id']
-                    if 'gguf_quantizations' in hf_src:
-                        model['gguf_quantizations'] = ", ".join(hf_src['gguf_quantizations'])
-                    # Handle Lightning related fields
-                    if 'lightning_model_id' in hf_src:
-                        model['lightning_model_id'] = hf_src['lightning_model_id']
-                    if 'lightning_versions' in hf_src:
-                        model['lightning_versions'] = ", ".join(hf_src['lightning_versions'])
-                elif 'modelscope' in model_src:
-                    model['model_id'] = model_src['modelscope']['model_id']
-
-            available_controlnet = [cn["model_name"] for cn in model.get("controlnet", [])]
-            if not available_controlnet:
-                available_controlnet = None
-            model["available_controlnet"] = available_controlnet
-            model["model_ability"] = ', '.join(model.get("model_ability"))
-
-            # Ensure gguf_quantizations is properly formatted (fallback for old format)
-            if "gguf_quantizations" not in model:
-                model["gguf_quantizations"] = ", ".join(model.get("gguf_quantizations", []))
-
-            rendered = env.get_template('image.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
-            with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered)
-
-        index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:
-            rendered_index = env.get_template('image_index.rst.jinja').render(models=sorted_models)
-            file.write(rendered_index)
-
-    with open('../../xinference/model/audio/model_spec.json', 'r') as file:
-        models = json.load(file)
-
-        models_by_name = {}
-        for model in models:
-            model_name = model['model_name']
-            rendered_model = models_by_name.setdefault(
-                model_name, {**model, 'engine_specs': []}
-            )
-
-            # Process model_src for template compatibility while retaining one
-            # specification per engine under the canonical model name.
-            model_src = _extract_primary_model_src(model)
-            model_id = None
-            if model_src:
-                if 'huggingface' in model_src:
-                    model_id = model_src['huggingface']['model_id']
-                elif 'modelscope' in model_src:
-                    model_id = model_src['modelscope']['model_id']
-            rendered_model['engine_specs'].append(
-                {
-                    'engine': model.get('engine'),
-                    'quantization': model.get('quantization'),
-                    'model_id': model_id,
-                }
-            )
-
-        sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
-        output_dir = './models/builtin/audio'
-        os.makedirs(output_dir, exist_ok=True)
-        generated_files = set()
-
-        for model in sorted_models:
-            engine_specs = model['engine_specs']
-            engines = list(dict.fromkeys(spec['engine'] for spec in engine_specs))
-            if len(engines) > 1 and any(spec['quantization'] is not None for spec in engine_specs):
-                model['specifications'] = '\n'.join(
-                    f"- **{spec['engine']} ({spec['quantization'] or 'none'}) model ID:** {spec['model_id']}"
-                    for spec in engine_specs
-                )
-                model['launch_engine'] = engines[0]
-                model['available_engines_section'] = (
-                    '\n\nAvailable engines\n'
-                    '^^^^^^^^^^^^^^^^^\n\n'
-                    + '\n'.join(f"* ``{engine}``" for engine in engines)
-                    + '\n\nAvailable quantizations by engine\n'
-                    '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n'
-                    + '\n'.join(
-                        f"* ``{engine}``: " + ', '.join(
-                            f"``{spec['quantization'] or 'none'}``"
-                            for spec in engine_specs if spec['engine'] == engine
-                        ) for engine in engines
-                    )
-                )
-            elif any(spec['quantization'] is not None for spec in engine_specs):
-                model['specifications'] = '\n'.join(
-                    f"- **{spec['quantization'] or 'none'} model ID:** {spec['model_id']}"
-                    for spec in engine_specs
-                )
-                model['launch_engine'] = None
-                model['available_engines_section'] = (
-                    '\n\nAvailable quantizations\n'
-                    '^^^^^^^^^^^^^^^^^^^^^^^\n\n'
-                    + '\n'.join(
-                        f"* ``{spec['quantization'] or 'none'}``"
-                        for spec in engine_specs
-                    )
-                )
-            elif len(engine_specs) > 1:
-                model['specifications'] = '\n'.join(
-                    f"- **{spec['engine']} model ID:** {spec['model_id']}"
-                    for spec in engine_specs
-                )
-                model['launch_engine'] = engine_specs[0]['engine']
-                model['available_engines_section'] = (
-                    '\n\nAvailable engines\n'
-                    '^^^^^^^^^^^^^^^^^\n\n'
-                    + '\n'.join(
-                        f"* ``{spec['engine']}``" for spec in engine_specs
-                    )
-                )
             else:
-                model['specifications'] = (
-                    f"- **Model ID:** {engine_specs[0]['model_id']}"
+                # Fallback for old format
+                model_id = model_spec.get('model_id', model.get('model_id', ''))
+                model['model_id'] = model_id
+                model['model_hubs'].append({
+                    'name': MODEL_HUB_HUGGING_FACE,
+                    'url': f"https://huggingface.co/{model_id}"
+                })
+        else:
+            # Fallback for very old format
+            if 'model_id' in model:
+                model['model_hubs'].append({
+                    'name': MODEL_HUB_HUGGING_FACE,
+                    'url': f"https://huggingface.co/{model['model_id']}"
+                })
+
+        rendered = env.get_template('embedding.rst.jinja').render(model)
+        output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered)
+            print(output_file_path)
+
+    index_file_path = os.path.join(output_dir, "index.rst")
+    with open(index_file_path, "w") as file:
+        rendered_index = env.get_template('embedding_index.rst.jinja').render(models=sorted_models)
+        file.write(rendered_index)
+
+    models = load_model_catalog('../../xinference/model/rerank/models')
+
+    sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
+    output_dir = './models/builtin/rerank'
+    os.makedirs(output_dir, exist_ok=True)
+
+    for model in sorted_models:
+        # Initialize model_hubs list
+        model['model_hubs'] = []
+
+        # Process model specs for new model_src structure
+        model_spec = model['model_specs'][0]  # Use first spec for model hubs
+        if 'model_src' in model_spec:
+            if 'huggingface' in model_spec['model_src']:
+                hf_src = model_spec['model_src']['huggingface']
+                model['model_hubs'].append({
+                    'name': MODEL_HUB_HUGGING_FACE,
+                    'url': f"https://huggingface.co/{hf_src['model_id']}"
+                })
+                # Set model_id for template compatibility (prefer huggingface)
+                model['model_id'] = hf_src['model_id']
+
+            if 'modelscope' in model_spec['model_src']:
+                ms_src = model_spec['model_src']['modelscope']
+                model['model_hubs'].append({
+                    'name': MODEL_HUB_MODELSCOPE,
+                    'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
+                })
+                # Only set modelscope model_id if no huggingface exists
+                if 'huggingface' not in model_spec['model_src']:
+                    model['model_id'] = ms_src['model_id']
+
+        rendered = env.get_template('rerank.rst.jinja').render(model)
+        output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered)
+
+    index_file_path = os.path.join(output_dir, "index.rst")
+    with open(index_file_path, "w") as file:
+        rendered_index = env.get_template('rerank_index.rst.jinja').render(models=sorted_models)
+        file.write(rendered_index)
+
+    models = load_model_catalog('../../xinference/model/image/models')
+
+    sorted_models = sorted(models, key=lambda x: x['model_name'].lower())
+    output_dir = './models/builtin/image'
+    os.makedirs(output_dir, exist_ok=True)
+
+    for model in sorted_models:
+        # Process model_src for template compatibility
+        model_src = _extract_primary_model_src(model)
+        if model_src:
+            if 'huggingface' in model_src:
+                hf_src = model_src['huggingface']
+                model['model_id'] = hf_src['model_id']
+                # Handle GGUF related fields
+                if 'gguf_model_id' in hf_src:
+                    model['gguf_model_id'] = hf_src['gguf_model_id']
+                if 'gguf_quantizations' in hf_src:
+                    model['gguf_quantizations'] = ", ".join(hf_src['gguf_quantizations'])
+                # Handle Lightning related fields
+                if 'lightning_model_id' in hf_src:
+                    model['lightning_model_id'] = hf_src['lightning_model_id']
+                if 'lightning_versions' in hf_src:
+                    model['lightning_versions'] = ", ".join(hf_src['lightning_versions'])
+            elif 'modelscope' in model_src:
+                model['model_id'] = model_src['modelscope']['model_id']
+
+        available_controlnet = [cn["model_name"] for cn in model.get("controlnet", [])]
+        if not available_controlnet:
+            available_controlnet = None
+        model["available_controlnet"] = available_controlnet
+        model["model_ability"] = ', '.join(model.get("model_ability"))
+
+        # Ensure gguf_quantizations is properly formatted (fallback for old format)
+        if "gguf_quantizations" not in model:
+            model["gguf_quantizations"] = ", ".join(model.get("gguf_quantizations", []))
+
+        rendered = env.get_template('image.rst.jinja').render(model)
+        output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered)
+
+    index_file_path = os.path.join(output_dir, "index.rst")
+    with open(index_file_path, "w") as file:
+        rendered_index = env.get_template('image_index.rst.jinja').render(models=sorted_models)
+        file.write(rendered_index)
+
+    models = load_model_catalog('../../xinference/model/audio/models')
+
+    models_by_name = {}
+    for model in models:
+        model_name = model['model_name']
+        rendered_model = models_by_name.setdefault(
+            model_name, {**model, 'engine_specs': []}
+        )
+
+        # Process model_src for template compatibility while retaining one
+        # specification per engine under the canonical model name.
+        model_src = _extract_primary_model_src(model)
+        model_id = None
+        if model_src:
+            if 'huggingface' in model_src:
+                model_id = model_src['huggingface']['model_id']
+            elif 'modelscope' in model_src:
+                model_id = model_src['modelscope']['model_id']
+        rendered_model['engine_specs'].append(
+            {
+                'engine': model.get('engine'),
+                'quantization': model.get('quantization'),
+                'model_id': model_id,
+            }
+        )
+
+    sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
+    output_dir = './models/builtin/audio'
+    os.makedirs(output_dir, exist_ok=True)
+    generated_files = set()
+
+    for model in sorted_models:
+        engine_specs = model['engine_specs']
+        engines = list(dict.fromkeys(spec['engine'] for spec in engine_specs))
+        if len(engines) > 1 and any(spec['quantization'] is not None for spec in engine_specs):
+            model['specifications'] = '\n'.join(
+                f"- **{spec['engine']} ({spec['quantization'] or 'none'}) model ID:** {spec['model_id']}"
+                for spec in engine_specs
+            )
+            model['launch_engine'] = engines[0]
+            model['available_engines_section'] = (
+                '\n\nAvailable engines\n'
+                '^^^^^^^^^^^^^^^^^\n\n'
+                + '\n'.join(f"* ``{engine}``" for engine in engines)
+                + '\n\nAvailable quantizations by engine\n'
+                '^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n'
+                + '\n'.join(
+                    f"* ``{engine}``: " + ', '.join(
+                        f"``{spec['quantization'] or 'none'}``"
+                        for spec in engine_specs if spec['engine'] == engine
+                    ) for engine in engines
                 )
-                model['launch_engine'] = None
-                model['available_engines_section'] = ''
-
-            rendered = env.get_template('audio.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
-            with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered.rstrip('\n'))
-            generated_files.add(os.path.basename(output_file_path))
-
-        for filename in os.listdir(output_dir):
-            if filename.endswith('.rst') and filename not in generated_files and filename != 'index.rst':
-                os.remove(os.path.join(output_dir, filename))
-
-        index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:
-            rendered_index = env.get_template('audio_index.rst.jinja').render(models=sorted_models)
-            file.write(rendered_index)
-
-    with open('../../xinference/model/video/model_spec.json', 'r') as file:
-        models = json.load(file)
-
-        models_by_name = {}
-        for model in models:
-            model_name = model['model_name']
-            rendered_model = models_by_name.setdefault(
-                model_name, {**model, 'engine_specs': []}
             )
-
-            model_src = _extract_primary_model_src(model)
-            model_id = None
-            if model_src:
-                primary_src = model_src.get('huggingface') or model_src.get('modelscope')
-                if primary_src:
-                    model_id = primary_src['model_id']
-                    if primary_src.get('lightning_model_id'):
-                        rendered_model['lightning_model_id'] = primary_src['lightning_model_id']
-            rendered_model['engine_specs'].append(
-                {'engine': model.get('engine'), 'model_id': model_id}
+        elif any(spec['quantization'] is not None for spec in engine_specs):
+            model['specifications'] = '\n'.join(
+                f"- **{spec['quantization'] or 'none'} model ID:** {spec['model_id']}"
+                for spec in engine_specs
             )
-
-        sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
-        output_dir = './models/builtin/video'
-        os.makedirs(output_dir, exist_ok=True)
-        generated_files = set()
-
-        for model in sorted_models:
-            engine_specs = model['engine_specs']
-            if len(engine_specs) > 1:
-                model['specifications'] = '\n'.join(
-                    f"- **{spec['engine']} model ID:** {spec['model_id']}"
+            model['launch_engine'] = None
+            model['available_engines_section'] = (
+                '\n\nAvailable quantizations\n'
+                '^^^^^^^^^^^^^^^^^^^^^^^\n\n'
+                + '\n'.join(
+                    f"* ``{spec['quantization'] or 'none'}``"
                     for spec in engine_specs
                 )
-                model['launch_engine'] = engine_specs[0]['engine']
-                model['available_engines_section'] = (
-                    '\n\nAvailable engines\n'
-                    '^^^^^^^^^^^^^^^^^\n\n'
-                    + '\n'.join(
-                        f"* ``{spec['engine']}``" for spec in engine_specs
-                    )
+            )
+        elif len(engine_specs) > 1:
+            model['specifications'] = '\n'.join(
+                f"- **{spec['engine']} model ID:** {spec['model_id']}"
+                for spec in engine_specs
+            )
+            model['launch_engine'] = engine_specs[0]['engine']
+            model['available_engines_section'] = (
+                '\n\nAvailable engines\n'
+                '^^^^^^^^^^^^^^^^^\n\n'
+                + '\n'.join(
+                    f"* ``{spec['engine']}``" for spec in engine_specs
                 )
-            else:
-                model['specifications'] = (
-                    f"- **Model ID:** {engine_specs[0]['model_id']}"
+            )
+        else:
+            model['specifications'] = (
+                f"- **Model ID:** {engine_specs[0]['model_id']}"
+            )
+            model['launch_engine'] = None
+            model['available_engines_section'] = ''
+
+        rendered = env.get_template('audio.rst.jinja').render(model)
+        output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered.rstrip('\n'))
+        generated_files.add(os.path.basename(output_file_path))
+
+    for filename in os.listdir(output_dir):
+        if filename.endswith('.rst') and filename not in generated_files and filename != 'index.rst':
+            os.remove(os.path.join(output_dir, filename))
+
+    index_file_path = os.path.join(output_dir, "index.rst")
+    with open(index_file_path, "w") as file:
+        rendered_index = env.get_template('audio_index.rst.jinja').render(models=sorted_models)
+        file.write(rendered_index)
+
+    models = load_model_catalog('../../xinference/model/video/models')
+
+    models_by_name = {}
+    for model in models:
+        model_name = model['model_name']
+        rendered_model = models_by_name.setdefault(
+            model_name, {**model, 'engine_specs': []}
+        )
+
+        model_src = _extract_primary_model_src(model)
+        model_id = None
+        if model_src:
+            primary_src = model_src.get('huggingface') or model_src.get('modelscope')
+            if primary_src:
+                model_id = primary_src['model_id']
+                if primary_src.get('lightning_model_id'):
+                    rendered_model['lightning_model_id'] = primary_src['lightning_model_id']
+        rendered_model['engine_specs'].append(
+            {'engine': model.get('engine'), 'model_id': model_id}
+        )
+
+    sorted_models = sorted(models_by_name.values(), key=lambda x: x['model_name'].lower())
+    output_dir = './models/builtin/video'
+    os.makedirs(output_dir, exist_ok=True)
+    generated_files = set()
+
+    for model in sorted_models:
+        engine_specs = model['engine_specs']
+        if len(engine_specs) > 1:
+            model['specifications'] = '\n'.join(
+                f"- **{spec['engine']} model ID:** {spec['model_id']}"
+                for spec in engine_specs
+            )
+            model['launch_engine'] = engine_specs[0]['engine']
+            model['available_engines_section'] = (
+                '\n\nAvailable engines\n'
+                '^^^^^^^^^^^^^^^^^\n\n'
+                + '\n'.join(
+                    f"* ``{spec['engine']}``" for spec in engine_specs
                 )
-                model['launch_engine'] = None
-                model['available_engines_section'] = ''
+            )
+        else:
+            model['specifications'] = (
+                f"- **Model ID:** {engine_specs[0]['model_id']}"
+            )
+            model['launch_engine'] = None
+            model['available_engines_section'] = ''
 
-            if model.get('lightning_versions'):
-                model['lightning_versions'] = ", ".join(model['lightning_versions'])
-            model["model_ability"] = ', '.join(model.get("model_ability"))
-            rendered = env.get_template('video.rst.jinja').render(model)
-            output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
-            with open(output_file_path, 'w') as output_file:
-                output_file.write(rendered.rstrip('\n'))
-            generated_files.add(os.path.basename(output_file_path))
+        if model.get('lightning_versions'):
+            model['lightning_versions'] = ", ".join(model['lightning_versions'])
+        model["model_ability"] = ', '.join(model.get("model_ability"))
+        rendered = env.get_template('video.rst.jinja').render(model)
+        output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(rendered.rstrip('\n'))
+        generated_files.add(os.path.basename(output_file_path))
 
-        for filename in os.listdir(output_dir):
-            if filename.endswith('.rst') and filename not in generated_files and filename != 'index.rst':
-                os.remove(os.path.join(output_dir, filename))
+    for filename in os.listdir(output_dir):
+        if filename.endswith('.rst') and filename not in generated_files and filename != 'index.rst':
+            os.remove(os.path.join(output_dir, filename))
 
-        index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:
-            rendered_index = env.get_template('video_index.rst.jinja').render(models=sorted_models)
-            file.write(rendered_index)
+    index_file_path = os.path.join(output_dir, "index.rst")
+    with open(index_file_path, "w") as file:
+        rendered_index = env.get_template('video_index.rst.jinja').render(models=sorted_models)
+        file.write(rendered_index)
 
     if VLLM_INSTALLED:
         architecture_to_models = build_architecture_to_models(llm_sorted_models)

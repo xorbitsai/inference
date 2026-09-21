@@ -1,0 +1,54 @@
+[
+  {
+    "version": 2,
+    "model_name": "IndexTTS2",
+    "model_family": "IndexTTS2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": true,
+    "default_model_config": {
+      "small_models_dir": null
+    },
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.1",
+        "accelerate",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#",
+        "librosa",
+        "soundfile",
+        "einops",
+        "omegaconf",
+        "sentencepiece",
+        "textstat",
+        "WeTextProcessing ; sys_platform == 'linux' and platform_machine == 'x86_64'",
+        "wetext ; sys_platform != 'linux' or platform_machine != 'x86_64'",
+        "json5",
+        "munch",
+        "matplotlib",
+        "flatten_dict",
+        "julius",
+        "tensorboard",
+        "randomname",
+        "argbind"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "IndexTeam/IndexTTS-2",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "IndexTeam/IndexTTS-2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1784865150,
+    "featured": false
+  }
+]

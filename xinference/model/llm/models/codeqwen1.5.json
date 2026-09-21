@@ -1,0 +1,55 @@
+[
+  {
+    "version": 2,
+    "context_length": 65536,
+    "model_name": "codeqwen1.5",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/CodeQwen1.5-7B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/CodeQwen1.5-7B"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "HangZhou_Ascend/CodeQwen1.5-7B"
+          }
+        }
+      }
+    ],
+    "updated_at": 1769418503,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ],
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

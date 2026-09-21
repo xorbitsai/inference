@@ -405,19 +405,8 @@ msgid "JSON"
 msgstr ""
 
 #: ../../source/development/xinference_internals.rst:187
-msgid ""
-"In `model/llm/llm_family.json "
-"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,"
-" we utilize JSON files to manage the metadata of emerging open-source "
-"models. Adding a new model does not necessitate writing new code, it merely "
-"requires appending new metadata to the existing JSON file."
-msgstr ""
-"In der Datei `model/llm/llm_family.json "
-"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_"
-" verwenden wir JSON-Dateien, um die Metadaten neu auftauchender Open-Source-"
-"Modelle zu verwalten. Das Hinzufügen eines neuen Modells erfordert kein "
-"Schreiben neuen Codes, sondern lediglich das Einfügen der neuen Metadaten in"
-" die vorhandene JSON-Datei."
+msgid "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, each model has a JSON file containing all its variants. To add a model, add its metadata file and reference its records in ``index.json``, which preserves the loading order."
+msgstr "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_ hat jedes Modell eine JSON-Datei mit allen Varianten. Um ein Modell hinzuzufügen, erstellen Sie seine Metadatendatei und verweisen Sie in ``index.json`` auf die Einträge. Der Index bewahrt die Ladereihenfolge."
 
 #: ../../source/development/xinference_internals.rst:214
 msgid ""

@@ -1,0 +1,269 @@
+[
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "qwen-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Qwen-chat is a fine-tuned version of the Qwen LLM trained with alignment techniques, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M"
+            ],
+            "model_id": "Xorbits/Qwen-7B-Chat-GGUF",
+            "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M"
+            ],
+            "model_id": "Xorbits/Qwen-7B-Chat-GGUF",
+            "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf",
+            "model_revision": "v0.0.1"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 14,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M"
+            ],
+            "model_id": "Xorbits/Qwen-14B-Chat-GGUF",
+            "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M"
+            ],
+            "model_id": "Xorbits/Qwen-14B-Chat-GGUF",
+            "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf",
+            "model_revision": "v0.0.1"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "1_8",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen-1_8B-Chat",
+            "model_revision": "c3db8007171847931da7efa4b2ed4309afcce021"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen-1_8B-Chat",
+            "model_revision": "v1.0.0"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "HangZhou_Ascend/Qwen-1_8B-Chat"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen-7B-Chat",
+            "model_revision": "218aa3240fd5a5d1e80bb6c47d5d774361913706"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen-7B-Chat",
+            "model_revision": "v1.1.9"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "wuhaicc/Qwen-7B-Chat"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 14,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen-14B-Chat",
+            "model_revision": "fab8385c8f7e7980ef61944729fe134ccbbca263"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen-14B-Chat",
+            "model_revision": "v1.0.7"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "wuhaicc/Qwen-14B-Chat"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen-72B-Chat",
+            "model_revision": "2cd9f76279337941ec1a4abeec6f8eb3c38d0f55"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen-72B-Chat",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen-7B-Chat-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen-7B-Chat-{quantization}",
+            "model_revision": "v1.1.7"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "1_8",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen-1_8B-Chat-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen-1_8B-Chat-{quantization}",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 14,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen-14B-Chat-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen-14B-Chat-{quantization}",
+            "model_revision": "v1.0.7"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen-72B-Chat-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen-72B-Chat-{quantization}",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for item in messages %}{% if loop.first and item['role'] == 'system' %}{{ '<|im_start|>system\n' + item['content'] + '<|im_end|>\n' }}{% elif loop.first %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{% if item['role'] == 'user' %}{{ '<|im_start|>user\n' + item['content'] + '<|im_end|>' }}{% elif item['role'] == 'assistant' %}{{ '<|im_start|>assistant\n' + item['content'] + '<|im_end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ],
+    "updated_at": 1784394364,
+    "featured": false,
+    "architectures": [
+      "QWenLMHeadModel"
+    ],
+    "model_type": "qwen",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "tiktoken>=0.6.0 ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

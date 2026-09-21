@@ -1,0 +1,72 @@
+[
+  {
+    "version": 2,
+    "model_name": "Qwen3-Embedding-4B",
+    "dimensions": 2560,
+    "max_tokens": 32768,
+    "language": [
+      "zh",
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3-Embedding-4B",
+            "model_revision": "408b81b7fab742073065d5b3661fa74c1b3ee0a1",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3-Embedding-4B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3-Embedding-4B-GGUF",
+            "model_revision": "e85059c9a23c106d40df0da29d27a6b7c528265b",
+            "quantizations": [
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Embedding-4B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3-Embedding-4B-GGUF",
+            "quantizations": [
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Embedding-4B-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543822,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

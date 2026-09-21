@@ -1,0 +1,88 @@
+[
+  {
+    "version": 2,
+    "model_name": "FireRedTTS3-Base",
+    "cache_name": "FireRedTTS3",
+    "model_description": "FireRedTTS3 Base supports multilingual zero-shot voice cloning with reference audio and text.",
+    "model_family": "FireRedTTS3",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "model_lang": [
+      "Arabic",
+      "Cantonese",
+      "Chinese",
+      "Czech",
+      "Dutch",
+      "English",
+      "Finnish",
+      "French",
+      "German",
+      "Greek",
+      "Hindi",
+      "Indonesian",
+      "Italian",
+      "Japanese",
+      "Korean",
+      "Polish",
+      "Portuguese",
+      "Romanian",
+      "Russian",
+      "Spanish",
+      "Thai",
+      "Turkish",
+      "Ukrainian",
+      "Vietnamese",
+      "ZH_Anhui",
+      "ZH_Fujian",
+      "ZH_Gansu",
+      "ZH_Guizhou",
+      "ZH_Hebei",
+      "ZH_Henan",
+      "ZH_Hubei",
+      "ZH_Hunan",
+      "ZH_Jiangxi",
+      "ZH_Liaoning",
+      "ZH_Minnan",
+      "ZH_Ningxia",
+      "ZH_Shaanxi",
+      "ZH_Shandong",
+      "ZH_Shanghai",
+      "ZH_Shanxi",
+      "ZH_Sichuan",
+      "ZH_Tianjin",
+      "ZH_Wenzhou",
+      "ZH_Wu",
+      "ZH_Yunnan"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==5.6.2",
+        "flash-attn==2.8.3",
+        "einops==0.8.2",
+        "regex",
+        "wetext",
+        "soundfile",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "FireRedTeam/FireRedTTS3",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "FireRedTeam/FireRedTTS3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786646013,
+    "featured": false
+  }
+]

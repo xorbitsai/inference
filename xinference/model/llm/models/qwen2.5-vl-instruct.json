@@ -1,0 +1,283 @@
+[
+  {
+    "version": 2,
+    "context_length": 128000,
+    "model_name": "qwen2.5-vl-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "Qwen2.5-VL: Qwen2.5-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-3B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-3B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-7B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-7B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-32B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-32B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-72B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-72B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-3B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-32B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-32B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2.5-VL-72B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 3,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-3B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-3B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-72B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ],
+            "model_id": "mlx-community/Qwen2.5-VL-72B-Instruct-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ],
+    "updated_at": 1784394365,
+    "featured": false,
+    "architectures": [
+      "Qwen2_5_VLForConditionalGeneration"
+    ],
+    "model_type": "qwen2_5_vl",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

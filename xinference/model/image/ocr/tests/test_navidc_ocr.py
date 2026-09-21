@@ -39,7 +39,7 @@ from ..vllm import VLLMNaviDCOCRModel
 
 def _load_navidc_families():
     families = {}
-    spec_path = Path(__file__).parents[2] / "model_spec.json"
+    spec_path = Path(__file__).parents[2] / "models"
     load_model_family_from_json(str(spec_path), families)
     return families["NaviDC-OCR"]
 

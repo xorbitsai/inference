@@ -20,6 +20,8 @@ from unittest.mock import patch
 
 import pytest
 
+from xinference._model_catalog import load_model_catalog
+
 from ...cache_manager import CacheManager
 from ...utils import (
     get_engine_params_by_name,
@@ -218,7 +220,7 @@ def apple_mlx_engines():
         patch.object(engine_platform, "system", return_value="Darwin"),
     ):
         models = {}
-        load_model_family_from_json("model_spec.json", models)
+        load_model_family_from_json("models", models)
         for name in model_names:
             BUILTIN_AUDIO_MODELS[name] = models[name]
         AUDIO_ENGINES.clear()
@@ -718,8 +720,8 @@ def test_audio_engine_discovery_filters_unrelated_engines(apple_mlx_engines):
 def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
     from ...utils import install_models_with_merge
 
-    model_spec_path = Path(__file__).parents[1] / "model_spec.json"
-    built_in_data = json.loads(model_spec_path.read_text())
+    model_spec_path = Path(__file__).parents[1] / "models"
+    built_in_data = load_model_catalog(model_spec_path)
     downloaded_transformers = dict(built_in_data[0])
     downloaded_transformers["updated_at"] += 1
 
@@ -737,7 +739,7 @@ def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
     ):
         install_models_with_merge(
             models,
-            "model_spec.json",
+            "models",
             "audio",
             "audio_models.json",
             lambda: True,
@@ -762,8 +764,8 @@ def test_downloaded_legacy_audio_registry_migrates_default_variant(
 ):
     from ...utils import install_models_with_merge
 
-    model_spec_path = Path(__file__).parents[1] / "model_spec.json"
-    built_in_data = json.loads(model_spec_path.read_text())
+    model_spec_path = Path(__file__).parents[1] / "models"
+    built_in_data = load_model_catalog(model_spec_path)
     built_in_transformers = built_in_data[0]
     downloaded_legacy = dict(built_in_transformers)
     downloaded_legacy.pop("engine")
@@ -783,7 +785,7 @@ def test_downloaded_legacy_audio_registry_migrates_default_variant(
     ):
         install_models_with_merge(
             models,
-            "model_spec.json",
+            "models",
             "audio",
             "audio_models.json",
             lambda: True,

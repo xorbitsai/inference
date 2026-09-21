@@ -48,7 +48,7 @@ def test_music_mlx_catalog_platform_filter(monkeypatch, system, processor, expec
     with monkeypatch.context() as patch:
         patch.setattr(sys, "platform", system)
         patch.setattr(platform, "processor", lambda: processor)
-        load_model_family_from_json("model_spec.json", models)
+        load_model_family_from_json("models", models)
     mlx_specs = [spec for spec in models["MiniMax-Music3"] if spec.engine == "MLX"]
     assert {spec.model_hub for spec in mlx_specs} == (
         {"huggingface", "modelscope"} if expected else set()

@@ -1,0 +1,63 @@
+[
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "minicpm-2b-dpo-bf16",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-2B-dpo-bf16",
+            "model_revision": "f4a3ba49f3f18695945c2a7c12400d4da99da498"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-2B-dpo-bf16",
+            "model_revision": "master"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-Research/MiniCPM-2B-dpo-bf16"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ],
+    "updated_at": 1769418540,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

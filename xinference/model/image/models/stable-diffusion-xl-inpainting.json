@@ -1,0 +1,27 @@
+[
+  {
+    "version": 2,
+    "model_name": "stable-diffusion-xl-inpainting",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "inpainting"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+        "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
+      }
+    },
+    "updated_at": 1769418369,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  }
+]

@@ -17,6 +17,8 @@ import os
 
 import pytest
 
+from xinference._model_catalog import load_model_catalog
+
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
@@ -677,19 +679,17 @@ def test_model_specs_pin_system_torch_with_torchvision():
     torchvision stays on the (older) system version, producing an ABI
     mismatch such as ``operator torchvision::nms does not exist`` (see #5208).
     """
-    import json
     import os
 
     here = os.path.dirname(__file__)
     spec_files = [
-        os.path.join(here, "..", "..", "model", "embedding", "model_spec.json"),
-        os.path.join(here, "..", "..", "model", "rerank", "model_spec.json"),
+        os.path.join(here, "..", "..", "model", "embedding", "models"),
+        os.path.join(here, "..", "..", "model", "rerank", "models"),
     ]
 
     offenders = []
     for spec_file in spec_files:
-        with open(spec_file) as f:
-            data = json.load(f)
+        data = load_model_catalog(spec_file)
         for m in data:
             pkgs = (m.get("virtualenv") or {}).get("packages") or []
             parsed_pkgs = []

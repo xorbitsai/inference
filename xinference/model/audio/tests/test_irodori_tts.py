@@ -84,7 +84,7 @@ def test_irodori_catalog_registers_quantization_variants(
     with monkeypatch.context() as platform_patch:
         platform_patch.setattr(sys, "platform", system)
         platform_patch.setattr(platform, "processor", lambda: processor)
-        load_model_family_from_json("model_spec.json", models)
+        load_model_family_from_json("models", models)
     mlx_specs = [
         spec for spec in models["Irodori-TTS-v4.1-Small"] if spec.engine == "MLX"
     ]

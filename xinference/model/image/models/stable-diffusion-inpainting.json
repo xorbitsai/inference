@@ -1,0 +1,27 @@
+[
+  {
+    "version": 2,
+    "model_name": "stable-diffusion-inpainting",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "inpainting"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "runwayml/stable-diffusion-inpainting",
+        "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
+      }
+    },
+    "updated_at": 1769418367,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  }
+]

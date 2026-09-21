@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import sys
 import types
 from pathlib import Path
@@ -20,6 +19,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from xinference._model_catalog import load_model_catalog
 from xinference.api.schemas.requests import CreateEmbeddingRequest
 from xinference.model.embedding import _install
 from xinference.model.utils import get_engine_params_by_name_with_virtual_env
@@ -28,10 +28,10 @@ from ..wemm import ensure_wemm_video_reader, iter_wemm_media, normalize_wemm_inp
 
 
 def test_wemm_builtin_specs_have_both_sources_and_revisions():
-    spec_path = Path(__file__).parents[1] / "model_spec.json"
+    spec_path = Path(__file__).parents[1] / "models"
     specs = {
         item["model_name"]: item
-        for item in json.loads(spec_path.read_text())
+        for item in load_model_catalog(spec_path)
         if item["model_name"].startswith("WeMM-Embedding-")
     }
     assert set(specs) == {

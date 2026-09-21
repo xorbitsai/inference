@@ -415,7 +415,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.xinference/modelscope
-          key: gpu-modelscope-${{ hashFiles('xinference/model/audio/model_spec.json') }}
+          key: gpu-modelscope-${{ hashFiles('xinference/model/audio/models/*.json') }}
           restore-keys: gpu-modelscope-
 
       - name: Update pip and setuptools
