@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import gc
 import inspect
 import ipaddress
 import json
@@ -554,6 +555,13 @@ class RESTfulAPI(CancelMixin):
 
     @asynccontextmanager
     async def _lifespan(self, _app: FastAPI) -> AsyncIterator[None]:
+        # Keep the large startup heap out of full collections while continuing
+        # to collect cycles created by requests. Respect an existing freeze
+        # owned by the host application.
+        owns_gc_freeze = gc.get_freeze_count() == 0
+        if owns_gc_freeze:
+            gc.collect()
+            gc.freeze()
         try:
             if not is_metrics_disabled():
                 self._cluster_metrics_task = asyncio.create_task(
@@ -562,6 +570,8 @@ class RESTfulAPI(CancelMixin):
                 )
             yield
         finally:
+            if owns_gc_freeze:
+                gc.unfreeze()
             try:
                 task = self._cluster_metrics_task
                 self._cluster_metrics_task = None
@@ -1124,7 +1134,6 @@ class RESTfulAPI(CancelMixin):
             allow_headers=["*"],
         )
 
-        @self._app.middleware("http")
         async def ip_restriction_middleware(request: Request, call_next):
             client_ip = request.client.host
             if not self._is_ip_allowed(client_ip):
@@ -1134,7 +1143,12 @@ class RESTfulAPI(CancelMixin):
             response = await call_next(request)
             return response
 
-        self._app.middleware("http")(self._audit_middleware)
+        @self._app.middleware("http")
+        async def audited_ip_middleware(request: Request, call_next):
+            async def check_ip(inner_request):
+                return await ip_restriction_middleware(inner_request, call_next)
+
+            return await self._audit_middleware(request, check_ip)
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
         if XINFERENCE_ENABLE_OTEL:
