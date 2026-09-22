@@ -181,3 +181,11 @@ msgstr "vLLM >= 0.19.0 では、テキスト埋め込みモデルはネイティ
 #: ../../source/user_guide/continuous_batching.rst
 msgid "Embedding"
 msgstr "Embedding"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Rerank"
+msgstr "Rerank"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
+msgstr "vLLM >= 0.19.0 では、テキストの cross-encoder リランキングモデルもネイティブの非同期 pooling を使用します。Xinference のバッチ設定の代わりに、同じ ``max_num_seqs`` と ``max_num_batched_tokens`` の設定が適用されます。古い vLLM、VACC、Qwen3-VL リランカーおよび他のスコアリング方式では既存の処理経路を維持します。順位、 ``top_n`` 、返される文書、トークン数の API 動作は変わりません。"

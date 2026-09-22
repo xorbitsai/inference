@@ -204,3 +204,11 @@ msgstr "Con vLLM >= 0.19.0, los modelos de embeddings de texto utilizan el plani
 #: ../../source/user_guide/continuous_batching.rst
 msgid "Embedding"
 msgstr "Embedding"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Rerank"
+msgstr "Rerank"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
+msgstr "Con vLLM >= 0.19.0, los modelos de reranking de texto cross-encoder también usan pooling asíncrono nativo. Se aplican los mismos ajustes ``max_num_seqs`` y ``max_num_batched_tokens`` en lugar de los ajustes de lotes de Xinference. Las versiones anteriores de vLLM, VACC, los rerankers Qwen3-VL y otros tipos de puntuación conservan la ruta existente. La clasificación, ``top_n``, los documentos devueltos y el recuento de tokens mantienen el mismo comportamiento de la API."
