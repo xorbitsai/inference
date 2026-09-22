@@ -7,8 +7,12 @@ import type { FileUploadValue } from '@/types/common';
 import { parseImageSeeds } from './image-seed-utils';
 import { parseScalarSeed } from './seed-utils';
 
+const UNDERSCORED_PRIMARY_ABILITIES: ModelAbility[] = [ModelAbility.SpeakerEmbedding];
+
 export function getPrimaryModelAbilities(abilities: ModelAbility[] = []) {
-  return abilities.filter((ability) => !ability.includes('_'));
+  return abilities.filter(
+    (ability) => !ability.includes('_') || UNDERSCORED_PRIMARY_ABILITIES.includes(ability)
+  );
 }
 
 export function createId(prefix = 'item') {

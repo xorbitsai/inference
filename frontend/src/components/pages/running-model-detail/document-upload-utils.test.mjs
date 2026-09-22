@@ -29,7 +29,21 @@ test('supported files with missing MIME types are accepted', () => {
   assert.throws(() => uploadUtils.validateDocumentFile({ name: 'document.txt', size: 1 }));
 });
 const locales = ['zh', 'zh-TW', 'en', 'ja', 'ko'];
-const abilities = new Proxy({}, { get: (_, key) => String(key).toLowerCase() });
+const abilities = new Proxy(
+  {},
+  {
+    get: (_, key) =>
+      String(key)
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .toLowerCase(),
+  }
+);
+const runningModelUtils = loadSource('./utils.ts', {
+  '@/constants': { ModelAbility: abilities },
+  '@/constants/running': { MODEL_TYPE_ABILITY_MAP: {} },
+  './image-seed-utils': {},
+  './seed-utils': {},
+});
 const capabilityConfigs = loadSource('./capability-config.tsx', {
   'lucide-react': {},
   '@/constants': { ModelAbility: abilities },
@@ -40,12 +54,27 @@ const capabilityConfigs = loadSource('./capability-config.tsx', {
   './seed-utils': {},
   './document-upload-utils': uploadUtils,
   './utils': {
+    fileToDataUrl: async (file) => `data:${file.name}`,
     firstUpload: (values, key) => values[key]?.[0],
     stringValue: (value, fallback = '') => (typeof value === 'string' ? value : fallback),
   },
 }).CAPABILITY_CONFIGS;
 const config = capabilityConfigs.docanalyze;
+const embedConfig = capabilityConfigs.embed;
 const rerankConfig = capabilityConfigs.rerank;
+
+test('primary abilities keep speaker embedding and exclude multimodal sub-capabilities', () => {
+  assert.deepEqual(
+    runningModelUtils.getPrimaryModelAbilities([
+      abilities.Embed,
+      abilities.EmbedVision,
+      abilities.RerankVideo,
+      abilities.SpeakerEmbedding,
+      abilities.Text2audioVoiceCloning,
+    ]),
+    [abilities.Embed, abilities.SpeakerEmbedding]
+  );
+});
 
 test('PDF and backend-supported image extensions are accepted', () => {
   for (const extension of ['pdf', 'png', 'jpeg', 'jp2', 'webp', 'gif', 'bmp', 'jpg', 'PDF']) {
@@ -119,6 +148,36 @@ test('rerank documents follow the selected text, image, video, or audio ability'
     { audio: 'first' },
     { audio: 'second' },
   ]);
+});
+
+test('embedding input follows the selected text, image, video, or audio ability', async () => {
+  const transform = (modelAbility, values) =>
+    embedConfig.transformValues({
+      modelUid: 'Qwen-Embedding',
+      values: { ...values, model_ability: modelAbility },
+    });
+
+  assert.deepEqual(await transform(abilities.Embed, { input: 'Xinference' }), {
+    model: 'Qwen-Embedding',
+    input: 'Xinference',
+  });
+  assert.deepEqual(
+    await transform(abilities.EmbedVision, {
+      image: [{ file: new File(['image'], 'image.png', { type: 'image/png' }) }],
+    }),
+    {
+      model: 'Qwen-Embedding',
+      input: { image: 'data:image.png' },
+    }
+  );
+  assert.deepEqual(await transform(abilities.EmbedVideo, { video: '/data/video.mp4' }), {
+    model: 'Qwen-Embedding',
+    input: { video: '/data/video.mp4' },
+  });
+  assert.deepEqual(await transform(abilities.EmbedAudio, { audio: '/data/audio.wav' }), {
+    model: 'Qwen-Embedding',
+    input: { audio: '/data/audio.wav' },
+  });
 });
 
 test('all supported locales define docanalyze labels, descriptions and upload messages', () => {

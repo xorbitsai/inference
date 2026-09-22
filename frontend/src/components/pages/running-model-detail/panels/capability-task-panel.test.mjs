@@ -52,7 +52,11 @@ async function mountPanel(t, { stream = true, transformValues = () => ({ stream:
         ),
     },
     '@/constants': { ModelAbility: { Generate: 'generate' }, ModelType: {}, RequestEvents: {} },
-    '@/contexts/i18n-context': { useI18n: () => ({ t: (key) => key }) },
+    '@/contexts/i18n-context': {
+      useI18n: () => ({
+        t: (key) => (key === 'runningModels.detail.latency' ? 'Latency' : key),
+      }),
+    },
     '@/hooks/use-form': { createForm: () => ({ getFieldsValue: () => ({}), resetFields() {} }) },
     '@/lib/request': { __esModule: true, default: { post: () => new Promise(() => {}) } },
     '@/lib/eventStream': {

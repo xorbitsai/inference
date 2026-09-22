@@ -365,9 +365,18 @@ export function TextPromptPanel({ actions }: Pick<CapabilityFormProps, 'actions'
 
 export function EmbedPanel({ form, model }: CapabilityFormProps) {
   const { t } = useI18n();
-  const selectedAbility = useWatch('model_ability', form) || ModelAbility.Embed;
   const abilities = model.model_ability || [];
+  const watchedAbility = useWatch('model_ability', form);
+  const selectedAbility = abilities.includes(watchedAbility as ModelAbility)
+    ? (watchedAbility as ModelAbility)
+    : abilities[0] || ModelAbility.Embed;
   const showAbilitySelector = !(abilities.length === 1 && abilities[0] === ModelAbility.Embed);
+
+  useEffect(() => {
+    if (watchedAbility !== selectedAbility) {
+      form.setFieldValue('model_ability', selectedAbility);
+    }
+  }, [form, selectedAbility, watchedAbility]);
 
   return (
     <>
