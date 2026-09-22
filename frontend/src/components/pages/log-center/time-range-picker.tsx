@@ -16,7 +16,7 @@ import { formatDateTime, toMilliseconds } from './utils';
 interface TimeRangePickerProps {
   value: TimeRangeValue;
   onChange: (value: TimeRangeValue) => void;
-  ranges?: ReadonlyArray<{ labelKey: string; from: string; to: string }>;
+  ranges?: ReadonlyArray<{ readonly labelKey: string; readonly from: string; readonly to: string }>;
 }
 
 export function TimeRangePicker({
