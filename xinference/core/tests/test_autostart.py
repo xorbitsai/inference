@@ -240,6 +240,7 @@ class _StopCheckLoop(Exception):
 
 class _DummyDeadWorkerSupervisor:
     _clear_worker_model_gpu_memory = SupervisorActor._clear_worker_model_gpu_memory
+    _discard_worker_metadata = SupervisorActor._discard_worker_metadata
     _invalidate_list_models_debounce_cache = (
         SupervisorActor._invalidate_list_models_debounce_cache
     )
@@ -273,6 +274,9 @@ class _DummyDeadWorkerSupervisor:
             )
         }
         self._worker_address_to_worker = {"dead-worker:1000": worker_ref}
+        self._worker_metadata = {}
+        self._worker_metadata_generation = {}
+        self._worker_metadata_refresh_tasks = {}
         self._worker_model_gpu_memory = {"dead-worker:1000": {}}
         self._worker_model_gpu_memory_update_time = {"dead-worker:1000": 1.0}
         self._list_models_result_cache: dict = {}
