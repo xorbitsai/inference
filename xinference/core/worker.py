@@ -52,6 +52,7 @@ import xoscar as xo
 from async_timeout import timeout
 from xoscar import MainActorPoolType
 
+from .. import __version__
 from ..client.restful.restful_client import Client as RESTfulClient
 from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
@@ -6481,6 +6482,10 @@ class WorkerActor(xo.StatelessActor):
                         and result
                     )
             return result
+
+    async def get_node_metadata(self) -> Dict[str, Any]:
+        """Return lightweight, static metadata describing this worker node."""
+        return {"software_version": __version__}
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {

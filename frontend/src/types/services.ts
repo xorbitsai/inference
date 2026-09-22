@@ -35,6 +35,7 @@ export interface ClusterInfo {
   mem_total: number;
   gpu_utilization: number | null;
   gpu_vram_available: number;
+  software_version?: string | null;
 }
 
 export type ClusterInfoResponse =

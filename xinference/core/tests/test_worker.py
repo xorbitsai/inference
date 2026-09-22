@@ -30,12 +30,20 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ...model.core import VirtualEnvSettings
+from .. import supervisor as supervisor_module
 from .. import system_settings_store as system_settings_store_module
 from .. import worker as worker_module
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
 from ..worker import ModelStatus, WorkerActor, _inject_jina_v3_allocator_env
+
+
+@pytest.mark.asyncio
+async def test_worker_node_metadata_returns_only_software_version():
+    metadata = await WorkerActor.get_node_metadata(None)  # type: ignore[arg-type]
+
+    assert metadata == {"software_version": worker_module.__version__}
 
 
 class MockWorkerActor(WorkerActor):
@@ -813,6 +821,9 @@ class DummyReplicaWorkerRef(DummyActorRef):
     async def update_system_settings(self, settings):
         self.system_settings_updates.append(settings)
 
+    async def get_node_metadata(self):
+        return {"software_version": "test"}
+
     async def list_models(self):
         return dict(self._models)
 
@@ -824,6 +835,22 @@ class DummyReplicaWorkerRef(DummyActorRef):
 
     async def get_model(self, model_uid: str):
         return {"model_uid": model_uid, "worker_address": self.address}
+
+
+class DummyMetadataReplicaWorkerRef(DummyReplicaWorkerRef):
+    def __init__(self, address: str, metadata):
+        super().__init__(address)
+        self.metadata = metadata
+        self.metadata_calls = 0
+
+    async def get_node_metadata(self):
+        self.metadata_calls += 1
+        metadata = (
+            self.metadata.pop(0) if isinstance(self.metadata, list) else self.metadata
+        )
+        if isinstance(metadata, Exception):
+            raise metadata
+        return metadata
 
 
 class DummyStatusGuardRef:
@@ -1346,6 +1373,131 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
         supervisor._system_settings,
         supervisor._system_settings,
     ]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_refreshes_optional_worker_metadata_on_registration(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", {"software_version": "3.4.0"}
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    await supervisor.add_worker("worker-1")
+    assert supervisor._worker_metadata["worker-1"] == {"software_version": "3.4.0"}
+
+    worker_ref.metadata = {"software_version": "3.4.1.dev9+gabcdef"}
+    await supervisor.add_worker("worker-1")
+    assert supervisor._worker_metadata["worker-1"] == {
+        "software_version": "3.4.1.dev9+gabcdef"
+    }
+
+    worker_ref.metadata = RuntimeError("old worker has no metadata RPC")
+    await supervisor.add_worker("worker-1")
+
+    assert "worker-1" in supervisor._worker_address_to_worker
+    assert "worker-1" not in supervisor._worker_metadata
+    assert "worker-1" in supervisor._worker_metadata_refresh_tasks
+    assert len(worker_ref.system_settings_updates) == 3
+
+    supervisor._discard_worker_metadata("worker-1")
+    await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+async def test_supervisor_retries_optional_worker_metadata_after_registration_failure(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1",
+        [
+            RuntimeError("metadata RPC temporarily unavailable"),
+            {"software_version": "3.4.1.dev9+gabcdef"},
+        ],
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    monkeypatch.setattr(supervisor_module, "_WORKER_METADATA_RETRY_DELAYS", (0, 0, 0))
+
+    await supervisor.add_worker("worker-1")
+
+    assert "worker-1" in supervisor._worker_address_to_worker
+    metadata_task = supervisor._worker_metadata_refresh_tasks["worker-1"]
+    await metadata_task
+    assert worker_ref.metadata_calls == 2
+    assert supervisor._worker_metadata["worker-1"] == {
+        "software_version": "3.4.1.dev9+gabcdef"
+    }
+    assert "worker-1" not in supervisor._worker_metadata_refresh_tasks
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_metadata_retry_cannot_overwrite_new_registration(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    old_worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", {"software_version": "3.4.0"}
+    )
+    new_worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", {"software_version": "3.4.1"}
+    )
+    supervisor._worker_address_to_worker["worker-1"] = old_worker_ref
+    old_generation = supervisor._start_worker_metadata_generation("worker-1")
+
+    supervisor._discard_worker_metadata("worker-1")
+    supervisor._worker_address_to_worker["worker-1"] = new_worker_ref
+    new_generation = supervisor._start_worker_metadata_generation("worker-1")
+
+    assert not await supervisor._refresh_worker_metadata(
+        "worker-1", old_worker_ref, old_generation
+    )
+    assert await supervisor._refresh_worker_metadata(
+        "worker-1", new_worker_ref, new_generation
+    )
+    assert supervisor._worker_metadata["worker-1"] == {"software_version": "3.4.1"}
+
+
+@pytest.mark.asyncio
+async def test_supervisor_remove_worker_clears_cached_metadata(monkeypatch):
+    supervisor = SupervisorActor()
+    worker_ref = DummyMetadataReplicaWorkerRef(
+        "worker-1", RuntimeError("metadata unavailable")
+    )
+    supervisor._worker_address_to_worker["worker-1"] = worker_ref
+    supervisor._worker_metadata["worker-1"] = {"software_version": "3.4.0"}
+    generation = supervisor._start_worker_metadata_generation("worker-1")
+    supervisor._schedule_worker_metadata_retry("worker-1", worker_ref, generation)
+    metadata_task = supervisor._worker_metadata_refresh_tasks["worker-1"]
+
+    async def fake_handle_dead_worker(worker_address):
+        assert worker_address == "worker-1"
+
+    monkeypatch.setattr(supervisor, "_handle_dead_worker", fake_handle_dead_worker)
+
+    await supervisor.remove_worker("worker-1")
+
+    assert "worker-1" not in supervisor._worker_address_to_worker
+    assert "worker-1" not in supervisor._worker_metadata
+    assert "worker-1" not in supervisor._worker_metadata_generation
+    assert "worker-1" not in supervisor._worker_metadata_refresh_tasks
+    with pytest.raises(asyncio.CancelledError):
+        await metadata_task
+    assert metadata_task.cancelled()
 
 
 @pytest.mark.asyncio
