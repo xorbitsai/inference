@@ -38,7 +38,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
+import { AUDIT_TIME_RANGES, DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { cn, copyToClipboard } from '@/lib/utils';
@@ -463,6 +463,7 @@ export default function AuditCenter() {
         <div className="flex items-center gap-2">
           <TimeRangePicker
             value={timeRange}
+            ranges={AUDIT_TIME_RANGES}
             onChange={(value) => {
               setTimeRange(value);
               setPageFrom(0);
