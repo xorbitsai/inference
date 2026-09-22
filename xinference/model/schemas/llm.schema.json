@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xinference llm built-in model catalog",
+  "description": "Raw catalog records before runtime flattening. A file may contain multiple engine variants of the same model.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "$ref": "#/$defs/record"
+  },
+  "$defs": {
+    "spec": {
+      "type": "object",
+      "properties": {
+        "model_format": {
+          "type": "string",
+          "enum": [
+            "pytorch",
+            "gptq",
+            "awq",
+            "fp4",
+            "fp8",
+            "bnb",
+            "ggufv2",
+            "mlx"
+          ]
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        },
+        "model_size_in_billions": {
+          "$ref": "common.schema.json#/$defs/size"
+        },
+        "activated_size_in_billions": {
+          "$ref": "common.schema.json#/$defs/size"
+        },
+        "quantizations": {
+          "$ref": "common.schema.json#/$defs/quantizations",
+          "description": "Legacy redundant metadata. Runtime quantizations come from each model_src entry."
+        }
+      },
+      "required": [
+        "model_format",
+        "model_src",
+        "model_size_in_billions"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/ggufSpec"
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/quantizedSource"
+        }
+      ],
+      "properties": {
+        "multimodal_projectors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "draft_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "draft_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "draft_model_file_name_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "draft_quantizations": {
+          "$ref": "common.schema.json#/$defs/quantizations"
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "huggingface",
+          "modelscope",
+          "openmind_hub",
+          "csghub"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/record"
+        }
+      ],
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "context_length": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "model_lang": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "model_ability": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "embed",
+              "generate",
+              "chat",
+              "tools",
+              "vision",
+              "audio",
+              "omni",
+              "reasoning",
+              "hybrid"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "model_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architectures": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "chat_template": {
+          "type": "string"
+        },
+        "stop_token_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "stop": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reasoning_start_tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasoning_end_tag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_parser": {
+          "type": "string",
+          "minLength": 1
+        },
+        "is_built_in": {
+          "type": "boolean",
+          "description": "Legacy catalog metadata; not the runtime is_builtin provenance flag."
+        },
+        "prompt_style": {
+          "type": "object",
+          "properties": {
+            "style_name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "system_prompt": {
+              "type": "string"
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "stop": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "model_specs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spec"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "model_name",
+        "context_length",
+        "model_lang",
+        "model_ability",
+        "model_specs"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

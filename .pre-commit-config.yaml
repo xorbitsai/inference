@@ -1,5 +1,14 @@
 files: xinference
 repos:
+  - repo: local
+    hooks:
+      - id: model-catalog-schema
+        name: Validate built-in model catalog schemas
+        entry: python xinference/_model_catalog.py validate --all
+        language: python
+        additional_dependencies: ["jsonschema>=4.18,<5"]
+        files: ^xinference/(_model_catalog\.py|model/(schemas/.*\.json|(llm|embedding|rerank|image|audio|video|world)/models/.*\.json))$
+        pass_filenames: false
   - repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:

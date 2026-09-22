@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xinference video built-in model catalog",
+  "description": "Raw catalog records before runtime flattening. A file may contain multiple engine variants of the same model.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "$ref": "#/$defs/record"
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/ggufExtras"
+        }
+      ],
+      "properties": {
+        "lightning_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lightning_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lightning_versions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lightning_model_file_name_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text_encoder_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text_encoder_model_revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "unevaluatedProperties": false,
+      "required": [
+        "model_revision"
+      ]
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "huggingface",
+          "modelscope",
+          "openmind_hub",
+          "csghub"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/record"
+        }
+      ],
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "model_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        },
+        "default_model_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "default_generate_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "model_ability": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "text2video",
+              "image2video",
+              "firstlastframe2video"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "engine": {
+          "type": "string",
+          "enum": [
+            "diffusers",
+            "MLX"
+          ]
+        },
+        "model_format": {
+          "type": "string",
+          "enum": [
+            "diffusers",
+            "mlx"
+          ]
+        },
+        "cache_name": {
+          "$ref": "common.schema.json#/$defs/name"
+        },
+        "text_encoder_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text_encoder_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lightning_versions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lightning_model_file_name_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lightning_version_configs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "description": "Engine-specific parameters; keys are intentionally open."
+          }
+        }
+      },
+      "required": [
+        "model_name",
+        "model_family",
+        "model_ability",
+        "model_src",
+        "engine",
+        "model_format"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shared definitions for Xinference built-in model catalogs",
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "quantizations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "size": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9]+(?:_[0-9]+)?$"
+        }
+      ]
+    },
+    "virtualenv": {
+      "type": "object",
+      "properties": {
+        "packages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "inherit_pip_config": {
+          "type": "boolean"
+        },
+        "index_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extra_index_url": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "find_links": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trusted_host": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index_strategy": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "first-index",
+            "unsafe-first-match",
+            "unsafe-best-match",
+            null
+          ]
+        },
+        "no_build_isolation": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "packages"
+      ],
+      "additionalProperties": false
+    },
+    "cacheConfig": {
+      "type": "object",
+      "properties": {
+        "allow_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ignore_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ignore_file_pattern": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "model_name": {
+          "$ref": "common.schema.json#/$defs/name"
+        },
+        "model_description": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "featured": {
+          "type": "boolean"
+        },
+        "virtualenv": {
+          "$ref": "common.schema.json#/$defs/virtualenv"
+        },
+        "cache_config": {
+          "$ref": "common.schema.json#/$defs/cacheConfig"
+        }
+      },
+      "required": [
+        "version"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "model_id"
+      ]
+    },
+    "quantizedSource": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        {
+          "if": {
+            "properties": {
+              "model_file_name_template": {
+                "const": ""
+              }
+            },
+            "required": [
+              "model_file_name_template"
+            ]
+          },
+          "then": {
+            "required": [
+              "model_file_name_split_template",
+              "quantization_parts"
+            ],
+            "properties": {
+              "quantization_parts": {
+                "minProperties": 1
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "quantizations": {
+          "$ref": "common.schema.json#/$defs/quantizations"
+        },
+        "model_file_name_template": {
+          "type": "string"
+        },
+        "model_file_name_split_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantization_parts": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        }
+      },
+      "required": [
+        "quantizations"
+      ]
+    },
+    "ggufExtras": {
+      "type": "object",
+      "properties": {
+        "gguf_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gguf_quantizations": {
+          "$ref": "common.schema.json#/$defs/quantizations"
+        },
+        "gguf_model_file_name_template": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "dependentRequired": {
+        "gguf_model_id": [
+          "gguf_quantizations",
+          "gguf_model_file_name_template"
+        ],
+        "gguf_quantizations": [
+          "gguf_model_id",
+          "gguf_model_file_name_template"
+        ],
+        "gguf_model_file_name_template": [
+          "gguf_model_id",
+          "gguf_quantizations"
+        ]
+      }
+    },
+    "ggufSpec": {
+      "if": {
+        "properties": {
+          "model_format": {
+            "const": "ggufv2"
+          }
+        },
+        "required": [
+          "model_format"
+        ]
+      },
+      "then": {
+        "properties": {
+          "model_src": {
+            "additionalProperties": {
+              "required": [
+                "model_file_name_template"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

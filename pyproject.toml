@@ -91,6 +91,7 @@ xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
 
 [project.optional-dependencies]
 dev = [
+    "jsonschema>=4.18,<5",  # Built-in model catalog authoring/CI validation
     "xxhash",  # CPU tests for the Xavier connector
     "cython>=0.29",
     "pytest>=3.5.0",
