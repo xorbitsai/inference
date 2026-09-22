@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "context_length": 2048,
+    "model_name": "opt",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Opt is an open-source, decoder-only, Transformer based LLM that was designed to replicate GPT-3.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "facebook/opt-125m",
+            "model_revision": "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32"
+          }
+        }
+      }
+    ],
+    "updated_at": 1769418477,
+    "featured": false,
+    "architectures": [
+      "OPTForCausalLM"
+    ],
+    "model_type": "opt",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

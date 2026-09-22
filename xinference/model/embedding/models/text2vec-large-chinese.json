@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "model_name": "text2vec-large-chinese",
+    "dimensions": 1024,
+    "max_tokens": 256,
+    "language": [
+      "zh"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "shibing624/text2vec-bge-large-chinese",
+            "model_revision": "f5027ca48ea8316d63ee26d2b9bd27a061de33a3",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Jerry0/text2vec-large-chinese",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543820,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

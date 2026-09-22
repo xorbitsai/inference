@@ -18,6 +18,7 @@ import os
 import warnings
 from typing import Any, Dict, List, Optional
 
+from ..._model_catalog import load_model_catalog
 from ...engine_hooks import MODEL_TYPE_EMBEDDING, _run_engine_registration_hooks
 from ..utils import (
     extend_classes_once,
@@ -144,7 +145,7 @@ def load_downloaded_models():
             f"Failed to load downloaded embedding models from {json_file_path}: {e}"
         )
         # Fall back to built-in models if download fails
-        load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
+        load_model_family_from_json("models", BUILTIN_EMBEDDING_MODELS)
 
 
 def load_model_family_from_json(json_filename, target_families):
@@ -154,7 +155,7 @@ def load_model_family_from_json(json_filename, target_families):
     else:
         json_path = os.path.join(os.path.dirname(__file__), json_filename)
 
-    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+    for json_obj in load_model_catalog(json_path):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
@@ -194,7 +195,7 @@ def _install():
 
     install_models_with_merge(
         BUILTIN_EMBEDDING_MODELS,
-        "model_spec.json",
+        "models",
         "embedding",
         "embedding_models.json",
         has_downloaded_models,

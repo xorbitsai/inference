@@ -364,17 +364,8 @@ msgid "JSON"
 msgstr ""
 
 #: ../../source/development/xinference_internals.rst:187
-msgid ""
-"In `model/llm/llm_family.json "
-"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,"
-" we utilize JSON files to manage the metadata of emerging open-source "
-"models. Adding a new model does not necessitate writing new code, it "
-"merely requires appending new metadata to the existing JSON file."
-msgstr ""
-"在 `model/llm/llm_family.json <https://github.com/xorbitsai/inference/"
-"blob/main/xinference/model/llm/llm_family.json>`_ 中，我们利用 JSON 文件"
-"来管理新出现的开源模型的元数据。添加一个新模型并不需要编写新代码，只需要"
-"将新的元数据添加到现有的 JSON 文件中即可。"
+msgid "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved."
+msgstr "在 `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_ 中，每个模型都有一个 JSON 文件，包含它的所有变体。新增或删除模型只需新增或删除对应文件。系统自动发现文件，按文件名排序（忽略大小写），并保留每个文件内部的记录顺序。"
 
 #: ../../source/development/xinference_internals.rst:214
 msgid ""

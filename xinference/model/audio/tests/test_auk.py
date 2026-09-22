@@ -180,7 +180,7 @@ def test_speech_rejects_streaming(model_spec):
 
 def test_builtin_catalog_has_huggingface_and_modelscope_sources():
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    load_model_family_from_json("models", models)
 
     expected = {
         "AuK": ("tencent/AuK", "Tencent-Hunyuan/AuK"),

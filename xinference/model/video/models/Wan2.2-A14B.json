@@ -1,0 +1,83 @@
+[
+  {
+    "version": 2,
+    "model_name": "Wan2.2-A14B",
+    "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {},
+    "virtualenv": {
+      "packages": [
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+        "model_revision": "5be7df9619b54f4e2667b2755bc6a756675b5cd7"
+      },
+      "modelscope": {
+        "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1766385308,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-A14B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.2-A14B-mlx",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 1280,
+      "height": 704,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "high_noise_model.safetensors",
+        "low_noise_model.safetensors",
+        "t5_encoder.safetensors",
+        "tokenizer.json",
+        "vae.safetensors"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "SceneWorks/wan2.2-t2v-a14b-mlx",
+        "model_revision": "991eb255c544bbb2e1f1e07da4355c2f0a5337b7"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/wan2.2-t2v-a14b-mlx",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  }
+]

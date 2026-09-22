@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import codecs
-import json
 import os
 import warnings
 
+from ..._model_catalog import load_model_catalog
 from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
 from .core import (
@@ -74,7 +73,7 @@ def _install():
 
     install_models_with_merge(
         new_builtin_video_models,
-        "model_spec.json",
+        "models",
         "video",
         "video_models.json",
         has_downloaded_models,
@@ -138,7 +137,7 @@ def load_downloaded_models():
             f"Failed to load downloaded video models from {json_file_path}: {e}"
         )
         # Fall back to built-in models if download fails
-        load_model_family_from_json("model_spec.json", BUILTIN_VIDEO_MODELS)
+        load_model_family_from_json("models", BUILTIN_VIDEO_MODELS)
 
 
 def load_model_family_from_json(json_filename, target_families):
@@ -149,7 +148,7 @@ def load_model_family_from_json(json_filename, target_families):
         json_path = os.path.join(os.path.dirname(__file__), json_filename)
 
     flattened_model_specs = []
-    for spec in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+    for spec in load_model_catalog(json_path):
         flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:

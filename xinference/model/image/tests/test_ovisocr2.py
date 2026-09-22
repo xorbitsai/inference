@@ -29,7 +29,7 @@ def test_ovisocr2_metadata_and_engine_registration():
     )
 
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    load_model_family_from_json("models", models)
     specs = models["OvisOCR2"]
 
     assert {spec.model_hub for spec in specs} == {"huggingface", "modelscope"}

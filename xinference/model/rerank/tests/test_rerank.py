@@ -19,6 +19,8 @@ import tempfile
 
 import pytest
 
+from xinference._model_catalog import load_model_catalog
+
 from ....client import Client
 from ..sentence_transformers.core import _get_causal_lm_rerank_forward_kwargs
 
@@ -243,9 +245,8 @@ def test_register_custom_rerank():
 def test_auto_detect_type():
     from ..core import RerankModel
 
-    rerank_model_json = os.path.join(os.path.dirname(__file__), "../model_spec.json")
-    with open(rerank_model_json, "r") as f:
-        rerank_models = json.load(f)
+    rerank_model_json = os.path.join(os.path.dirname(__file__), "../models")
+    rerank_models = load_model_catalog(rerank_model_json)
     for m in rerank_models:
         if m["model_name"] == "minicpm-reranker":
             # TODO: we need to fix the auto detect type
@@ -352,9 +353,8 @@ def test_register_builtin_model_downloaded_catalog_merge_is_idempotent(
     monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
 
-    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
-    with open(spec_path) as f:
-        raw_entry = json.load(f)[0]
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
     model_name = raw_entry["model_name"]
 
     register_builtin_model()
@@ -390,13 +390,12 @@ def test_register_builtin_model_preserves_equal_timestamp_family_engines(
     monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr(constants, "XINFERENCE_ENABLE_VIRTUAL_ENV", True)
 
-    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
-    with open(spec_path) as f:
-        downloaded_entry = next(
-            entry
-            for entry in json.load(f)
-            if entry["model_name"] == "bge-reranker-v2-m3"
-        )
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    downloaded_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if entry["model_name"] == "bge-reranker-v2-m3"
+    )
     downloaded_entry["model_specs"] = [downloaded_entry["model_specs"][1]]
 
     builtin_dir = os.path.join(str(tmp_path), "v2", "builtin", "rerank")
@@ -438,9 +437,8 @@ def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     monkeypatch.setattr(rerank_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
 
-    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
-    with open(spec_path) as f:
-        raw_entry = json.load(f)[0]
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
     downloaded_only = dict(raw_entry)
     downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
 

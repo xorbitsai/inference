@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import codecs
-import json
 import os
 import warnings
 from typing import Any, Dict, List, Optional
 
+from ..._model_catalog import load_model_catalog
 from ...engine_hooks import MODEL_TYPE_LLM, _run_engine_registration_hooks
 from ..utils import extend_classes_once, family_identity_key, flatten_quantizations
 from .core import (
@@ -179,7 +179,7 @@ def load_downloaded_models():
             f"Failed to load downloaded llm models from {json_file_path}: {e}"
         )
         # Fall back to built-in models if download fails
-        load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+        load_model_family_from_json("models", BUILTIN_LLM_FAMILIES)
 
 
 def _register_model_family_metadata(model_spec: "LLMFamilyV2") -> None:
@@ -250,7 +250,7 @@ def load_model_family_from_json(json_filename, target_families):
     # of an O(n) scan of target_families for each of the ~300 catalog entries.
     seen = {family_identity_key(family) for family in target_families}
 
-    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+    for json_obj in load_model_catalog(json_path):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
@@ -299,7 +299,7 @@ def _install():
     # here would mark a downloaded family retained from the prior refresh as
     # built-in before the new downloaded catalog is merged.
     freshly_loaded_builtins: List[LLMFamilyV2] = []
-    load_model_family_from_json("llm_family.json", freshly_loaded_builtins)
+    load_model_family_from_json("models", freshly_loaded_builtins)
 
     # Mark these as vetted built-in models. Loaders may enable trust_remote_code
     # for built-ins without an operator opt-in; user-supplied / downloaded models

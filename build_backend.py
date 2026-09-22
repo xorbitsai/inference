@@ -29,7 +29,7 @@ wheels, sdists, and editable installs:
   file is kept as-is.
 """
 
-import json
+import importlib.util
 import os
 import re
 import subprocess
@@ -46,15 +46,23 @@ _FULL_SHA = re.compile(r"[0-9a-f]{40}")
 def _validate_builtin_model_specs(root=None):
     """Reject malformed built-in model metadata before packaging it."""
     root = root or _repo_root
-    relative_path = os.path.join(
-        "xinference", "model", "llm", "llm_family.json"
-    )
+    relative_path = os.path.join("xinference", "model", "llm", "models")
     path = os.path.join(root, relative_path)
+    if not os.path.exists(path):
+        # Accept legacy source trees as well as the split catalog layout.
+        relative_path = os.path.join("xinference", "model", "llm", "llm_family.json")
+        path = os.path.join(root, relative_path)
 
     try:
-        with open(path, encoding="utf-8") as f:
-            families = json.load(f)
-    except (OSError, json.JSONDecodeError) as exc:
+        # Do not import xinference: isolated builds have no runtime dependencies.
+        spec = importlib.util.spec_from_file_location(
+            "_model_catalog",
+            os.path.join(_repo_root, "xinference", "_model_catalog.py"),
+        )
+        catalog = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(catalog)
+        families = catalog.load_model_catalog(path)
+    except (OSError, ValueError) as exc:
         raise RuntimeError(f"Cannot validate {relative_path}: {exc}") from exc
 
     if not isinstance(families, list):

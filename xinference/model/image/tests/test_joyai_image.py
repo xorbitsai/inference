@@ -28,7 +28,7 @@ from ..stable_diffusion.core import DiffusionModel
 @pytest.fixture
 def joyai_families():
     families = {}
-    spec_path = Path(__file__).parents[1] / "model_spec.json"
+    spec_path = Path(__file__).parents[1] / "models"
     load_model_family_from_json(str(spec_path), families)
     return families
 

@@ -1,0 +1,163 @@
+[
+  {
+    "version": 2,
+    "context_length": 65536,
+    "model_name": "mixtral-8x22B-instruct-v0.1",
+    "model_lang": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Mixtral-8x22B-Instruct-v0.1 Large Language Model (LLM) is an instruct fine-tuned version of the Mixtral-8x22B-v0.1, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "141",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+            "model_revision": "ebb919ac9e9f7f9a900644621bae7963bc593f4f"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": "141",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "141",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "141",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6",
+              "Q8_0",
+              "fp16"
+            ],
+            "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF",
+            "model_file_name_template": "Mixtral-8x22B-Instruct-{quantization}.gguf",
+            "model_file_name_split_template": "Mixtral-8x22B-Instruct-v0.1.{quantization}-{part}.gguf",
+            "quantization_parts": {
+              "Q2_K": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_L": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q3_K_M": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q3_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_M": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q4_K_S": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ],
+              "Q5_K_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q5_K_S": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q6": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q8_0": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "fp16": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{%- if messages[0][\"role\"] == \"system\" %}\n    {%- set system_message = messages[0][\"content\"] %}\n    {%- set loop_messages = messages[1:] %}\n{%- else %}\n    {%- set loop_messages = messages %}\n{%- endif %}\n{%- if not tools is defined %}\n    {%- set tools = none %}\n{%- endif %}\n{%- set user_messages = loop_messages | selectattr(\"role\", \"equalto\", \"user\") | list %}\n\n{#- This block checks for alternating user/assistant messages, skipping tool calling messages #}\n{%- set ns = namespace() %}\n{%- set ns.index = 0 %}\n{%- for message in loop_messages %}\n    {%- if not (message.role == \"tool\" or message.role == \"tool_results\" or (message.tool_calls is defined and message.tool_calls is not none)) %}\n        {%- if (message[\"role\"] == \"user\") != (ns.index % 2 == 0) %}\n            {{- raise_exception(\"After the optional system message, conversation roles must alternate user/assistant/user/assistant/...\") }}\n        {%- endif %}\n        {%- set ns.index = ns.index + 1 %}\n    {%- endif %}\n{%- endfor %}\n\n{{- '<s>' }}\n{%- for message in loop_messages %}\n    {%- if message[\"role\"] == \"user\" %}\n        {%- if tools is not none and (message == user_messages[-1]) %}\n            {{- \"[AVAILABLE_TOOLS] [\" }}\n            {%- for tool in tools %}\n                {%- set tool = tool.function %}\n                {{- '{\"type\": \"function\", \"function\": {' }}\n                {%- for key, val in tool.items() if key != \"return\" %}\n                    {%- if val is string %}\n                        {{- '\"' + key + '\": \"' + val + '\"' }}\n                    {%- else %}\n                        {{- '\"' + key + '\": ' + val|tojson }}\n                    {%- endif %}\n                    {%- if not loop.last %}\n                        {{- \", \" }}\n                    {%- endif %}\n                {%- endfor %}\n                {{- \"}}\" }}\n                {%- if not loop.last %}\n                    {{- \", \" }}\n                {%- else %}\n                    {{- \"]\" }}\n                {%- endif %}\n            {%- endfor %}\n            {{- \"[/AVAILABLE_TOOLS]\" }}\n            {%- endif %}\n        {%- if loop.last and system_message is defined %}\n            {{- \"[INST] \" + system_message + \"\n\n\" + message[\"content\"] + \"[/INST]\" }}\n        {%- else %}\n            {{- \"[INST] \" + message[\"content\"] + \"[/INST]\" }}\n        {%- endif %}\n    {%- elif message.tool_calls is defined and message.tool_calls is not none %}\n        {{- \"[TOOL_CALLS] [\" }}\n        {%- for tool_call in message.tool_calls %}\n            {%- set out = tool_call.function|tojson %}\n            {{- out[:-1] }}\n            {%- if not tool_call.id is defined or tool_call.id|length != 9 %}\n                {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n            {%- endif %}\n            {{- ', \"id\": \"' + tool_call.id + '\"}' }}\n            {%- if not loop.last %}\n                {{- \", \" }}\n            {%- else %}\n                {{- \"]\" + '</s>' }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif message[\"role\"] == \"assistant\" %}\n        {{- \" \" + message[\"content\"]|trim + '</s>'}}\n    {%- elif message[\"role\"] == \"tool_results\" or message[\"role\"] == \"tool\" %}\n        {%- if message.content is defined and message.content.content is defined %}\n            {%- set content = message.content.content %}\n        {%- else %}\n            {%- set content = message.content %}\n        {%- endif %}\n        {{- '[TOOL_RESULTS] {\"content\": ' + content|string + \", \" }}\n        {%- if not message.tool_call_id is defined or message.tool_call_id|length != 9 %}\n            {{- raise_exception(\"Tool call IDs should be alphanumeric strings with length 9!\") }}\n        {%- endif %}\n        {{- '\"call_id\": \"' + message.tool_call_id + '\"}[/TOOL_RESULTS]' }}\n    {%- else %}\n        {{- raise_exception(\"Only user and assistant roles are supported, with the exception of an initial optional system message!\") }}\n    {%- endif %}\n{%- endfor %}\n",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [
+      "</s>"
+    ],
+    "updated_at": 1769418475,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
+    ],
+    "model_type": "mixtral",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

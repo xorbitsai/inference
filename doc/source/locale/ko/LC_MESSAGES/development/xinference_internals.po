@@ -361,17 +361,8 @@ msgid "JSON"
 msgstr ""
 
 #: ../../source/development/xinference_internals.rst:187
-msgid ""
-"In `model/llm/llm_family.json "
-"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,"
-" we utilize JSON files to manage the metadata of emerging open-source "
-"models. Adding a new model does not necessitate writing new code, it merely "
-"requires appending new metadata to the existing JSON file."
-msgstr ""
-"`model/llm/llm_family.json "
-"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_"
-" 에서, 우리는 JSON 파일을 사용하여 새로 등장하는 오픈소스 모델의 메타데이터를 관리합니다. 새 모델을 추가하기 위해 새로운 코드를 "
-"작성할 필요 없이, 기존 JSON 파일에 새로운 메타데이터만 추가하면 됩니다."
+msgid "In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_, each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved."
+msgstr "`model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_ 에서는 각 모델의 모든 변형을 하나의 JSON 파일에 저장합니다. 모델을 추가하거나 제거하려면 해당 파일을 추가하거나 삭제하세요. 파일은 자동으로 검색되어 대소문자를 구분하지 않는 파일명 순서로 로드되며, 각 파일 내부의 레코드 순서는 유지됩니다."
 
 #: ../../source/development/xinference_internals.rst:214
 msgid ""

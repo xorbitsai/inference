@@ -1,0 +1,60 @@
+[
+  {
+    "version": 2,
+    "context_length": 128000,
+    "model_name": "phi-3-mini-128k-instruct",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Phi-3-Mini-128K-Instruct is a 3.8 billion-parameter, lightweight, state-of-the-art open model trained using the Phi-3 datasets.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 4,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "microsoft/Phi-3-mini-128k-instruct",
+            "model_revision": "ebee18c488086b396dde649f2aa6548b9b8d2404"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Phi-3-mini-128k-instruct",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'system' %}{{'<|system|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'user' %}{{'<|user|>\n' + message['content'] + '<|end|>\n'}}{% elif message['role'] == 'assistant' %}{{'<|assistant|>\n' + message['content'] + '<|end|>\n'}}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>\n' }}{% else %}{{ '<|endoftext|>' }}{% endif %}",
+    "stop_token_ids": [
+      32000,
+      32001,
+      32007
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|assistant|>",
+      "<|end|>"
+    ],
+    "updated_at": 1769418555,
+    "featured": false,
+    "architectures": [
+      "Phi3ForCausalLM"
+    ],
+    "model_type": "phi3",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

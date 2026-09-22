@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import json
 from pathlib import Path
 from threading import Event
 
@@ -21,6 +20,8 @@ import pytest
 import torch
 from packaging.requirements import Requirement
 from packaging.version import Version
+
+from xinference._model_catalog import load_model_catalog
 
 from .....core.model import XINFERENCE_BATCHING_ALLOWED_VISION_MODELS
 from .....core.utils import filter_virtualenv_packages_by_markers
@@ -141,8 +142,8 @@ def test_gemma4_registers_transformers_and_batching_support():
 
 
 def test_gemma4_virtualenv_uses_supported_transformers():
-    family_path = Path(__file__).parents[2] / "llm_family.json"
-    families = json.loads(family_path.read_text(encoding="utf-8"))
+    family_path = Path(__file__).parents[2] / "models"
+    families = load_model_catalog(family_path)
     gemma4 = next(x for x in families if x["model_name"] == "gemma-4")
 
     packages = expand_engine_dependency_placeholders(

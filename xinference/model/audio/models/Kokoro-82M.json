@@ -1,0 +1,68 @@
+[
+  {
+    "version": 2,
+    "model_name": "Kokoro-82M",
+    "model_family": "Kokoro",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "hexgrad/Kokoro-82M"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/Kokoro-82M",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786790280,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "kokoro>=0.7.15",
+        "misaki[en,zh]>=0.7.15",
+        "soundfile",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Kokoro-82M",
+    "cache_name": "Kokoro-82M-MLX",
+    "model_family": "Kokoro-MLX",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/Kokoro-82M",
+        "model_revision": "2acc06939cce874e0ddc454c5cb544f7f812e793"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/Kokoro-82M-MLX",
+        "model_revision": "master"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-audio==0.2.3 ; #engine# == \"MLX\"",
+        "mlx-lm==0.24.1 ; #engine# == \"MLX\"",
+        "en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl ; #engine# == \"MLX\"",
+        "en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "updated_at": 1786790280,
+    "featured": false
+  }
+]

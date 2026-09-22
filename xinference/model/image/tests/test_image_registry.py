@@ -15,6 +15,8 @@
 import json
 import os
 
+from xinference._model_catalog import load_model_catalog
+
 from ..core import BUILTIN_IMAGE_MODELS, IMAGE_MODEL_DESCRIPTIONS
 from ..engine_family import IMAGE_ENGINES
 from ..ocr.ocr_family import OCR_ENGINES
@@ -38,16 +40,16 @@ def test_register_builtin_model_prunes_stale_derived_entries_on_catalog_removal(
     monkeypatch.setattr(image_module, "XINFERENCE_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr(constants, "XINFERENCE_MODEL_DIR", str(tmp_path))
 
-    spec_path = os.path.join(os.path.dirname(__file__), "..", "model_spec.json")
-    with open(spec_path) as f:
-        raw_entry = json.load(f)[0]
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "models")
+    raw_entry = load_model_catalog(spec_path)[0]
     downloaded_only = dict(raw_entry)
     downloaded_only["model_name"] = "downloaded-only-catalog-removal-test"
 
-    with open(spec_path) as f:
-        raw_ocr_entry = next(
-            entry for entry in json.load(f) if entry["model_name"] == "PaddleOCR-VL"
-        )
+    raw_ocr_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if entry["model_name"] == "PaddleOCR-VL"
+    )
     downloaded_only_ocr = dict(raw_ocr_entry)
     downloaded_only_ocr["model_name"] = "PaddleOCR-VL-catalog-removal-test"
 

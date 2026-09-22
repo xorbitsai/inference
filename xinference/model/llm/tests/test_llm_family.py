@@ -21,6 +21,8 @@ import pytest
 from packaging import version
 from packaging.requirements import Requirement
 
+from xinference._model_catalog import load_model_catalog
+
 from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, is_valid_model_uri
 from ..cache_manager import LLMCacheManager as CacheManager
@@ -1840,9 +1842,11 @@ def test_qwen3_8_builtin_families_preserve_checkpoint_capabilities():
         for spec in dense_gguf_specs
         if spec.model_hub == "huggingface" and spec.quantization == "BF16"
     )
-    file_names, final_file_name, need_merge = (
-        generate_model_file_names_with_quantization_parts(dense_bf16)
-    )
+    (
+        file_names,
+        final_file_name,
+        need_merge,
+    ) = generate_model_file_names_with_quantization_parts(dense_bf16)
     assert file_names == [
         "BF16/Qwen3.8-27B-BF16-00001-of-00002.gguf",
         "BF16/Qwen3.8-27B-BF16-00002-of-00002.gguf",
@@ -1953,9 +1957,11 @@ def test_qwen3_8_builtin_families_preserve_checkpoint_capabilities():
         for spec in max_gguf_specs
         if spec.model_hub == "modelscope" and spec.quantization == "UD-Q1_0"
     )
-    file_names, final_file_name, need_merge = (
-        generate_model_file_names_with_quantization_parts(max_ud_q1_0)
-    )
+    (
+        file_names,
+        final_file_name,
+        need_merge,
+    ) = generate_model_file_names_with_quantization_parts(max_ud_q1_0)
     assert file_names[0] == ("UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00001-of-00010.gguf")
     assert file_names[-1] == ("UD-Q1_0/Qwen3.8-2.4T-A95B-UD-Q1_0-00010-of-00010.gguf")
     assert final_file_name == "Qwen3.8-2.4T-A95B-UD-Q1_0.gguf"
@@ -2269,9 +2275,12 @@ def test_register_builtin_model_preserves_and_removes_downloaded_provenance(
 
     import xinference.model.llm as llm_module
 
-    spec_path = os.path.join(os.path.dirname(llm_module.__file__), "llm_family.json")
-    with open(spec_path, encoding="utf-8") as f:
-        downloaded_entry = json.load(f)[0]
+    spec_path = os.path.join(os.path.dirname(llm_module.__file__), "models")
+    downloaded_entry = next(
+        entry
+        for entry in load_model_catalog(spec_path)
+        if "generate" in entry["model_ability"]
+    )
     model_name = "downloaded-only-llm-refresh-test"
     downloaded_entry["model_name"] = model_name
 

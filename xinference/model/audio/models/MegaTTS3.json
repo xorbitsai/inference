@@ -1,0 +1,43 @@
+[
+  {
+    "version": 2,
+    "model_name": "MegaTTS3",
+    "model_family": "MegaTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "409a7002b006d80f0730fca6f80441b08c10e738"
+      },
+      "modelscope": {
+        "model_id": "ByteDance/MegaTTS3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1783912390,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "WeTextProcessing",
+        "langdetect",
+        "pydub",
+        "pyloudnorm",
+        "librosa",
+        "einops",
+        "matplotlib",
+        "six",
+        "pyyaml",
+        "transformers",
+        "numba",
+        "more-itertools",
+        "tiktoken",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
+  }
+]

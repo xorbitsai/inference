@@ -1,23 +1,58 @@
 #!/usr/bin/env python3
 import argparse
+import importlib.util
 import json
 import os
 import re
+import shutil
 import sys
 import urllib.request
 from pathlib import Path
 
-
-MODEL_SPEC_FILES = (
-    "xinference/model/llm/llm_family.json",
-    "xinference/model/embedding/model_spec.json",
-    "xinference/model/rerank/model_spec.json",
-    "xinference/model/image/model_spec.json",
-    "xinference/model/audio/model_spec.json",
-    "xinference/model/video/model_spec.json",
+MODEL_SPEC_DIRS = tuple(
+    f"xinference/model/{kind}/models"
+    for kind in ("llm", "embedding", "rerank", "image", "audio", "video", "world")
 )
 
 SAFE_MODEL_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def is_model_spec_file(filename):
+    path = Path(filename)
+    return (
+        path.parent.as_posix() in MODEL_SPEC_DIRS
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*\.json", path.name) is not None
+    )
+
+
+def catalog_files(workspace):
+    for directory in MODEL_SPEC_DIRS:
+        root = workspace / directory
+        for parent in (root, *root.parents):
+            if parent.is_symlink():
+                raise ValueError(f"Refusing symlinked catalog path: {parent}")
+        if not root.is_dir():
+            raise ValueError(f"Missing catalog directory: {root}")
+        for path in sorted(root.iterdir()):
+            relative = path.relative_to(workspace)
+            if (
+                path.is_symlink()
+                or not path.is_file()
+                or not is_model_spec_file(str(relative))
+            ):
+                raise ValueError(f"Unexpected catalog path: {path}")
+            yield relative
+
+
+def copy_catalogs(source, destination):
+    files = list(catalog_files(source))  # Validate before touching the destination.
+    for directory in MODEL_SPEC_DIRS:
+        target = destination / directory
+        if target.exists():
+            shutil.rmtree(target)
+        target.mkdir(parents=True)
+    for relative in files:
+        shutil.copyfile(source / relative, destination / relative)
 
 
 def _next_link(link_header):
@@ -52,7 +87,9 @@ def validate_changed_files():
                     changed.append(item["previous_filename"])
             next_url = _next_link(resp.headers.get("Link", ""))
 
-    unexpected = sorted(set(changed) - set(MODEL_SPEC_FILES))
+    unexpected = sorted(
+        filename for filename in set(changed) if not is_model_spec_file(filename)
+    )
     if unexpected:
         print("Unexpected PR file changes are not allowed:")
         for filename in unexpected:
@@ -84,10 +121,18 @@ def _visit_model_names(value, source, unsafe):
 
 def validate_model_names(workspace):
     unsafe = []
-    for spec_file in MODEL_SPEC_FILES:
+    for spec_file in catalog_files(workspace):
         path = workspace / spec_file
         with path.open() as fp:
             _visit_model_names(json.load(fp), spec_file, unsafe)
+
+    # Load the validator from the trusted base checkout, never from PR code.
+    helper = Path(__file__).resolve().parents[2] / "xinference" / "_model_catalog.py"
+    spec = importlib.util.spec_from_file_location("_model_catalog", helper)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    for directory in MODEL_SPEC_DIRS:
+        module.load_model_catalog(workspace / directory)
 
     if unsafe:
         print("Unsafe model_name values are not allowed:")
@@ -105,12 +150,18 @@ def main():
     subparsers.add_parser("changed-files")
     model_names = subparsers.add_parser("model-names")
     model_names.add_argument("workspace", type=Path)
+    copy = subparsers.add_parser("copy-catalogs")
+    copy.add_argument("source", type=Path)
+    copy.add_argument("destination", type=Path)
     args = parser.parse_args()
 
     if args.command == "changed-files":
         return validate_changed_files()
     if args.command == "model-names":
         return validate_model_names(args.workspace)
+    if args.command == "copy-catalogs":
+        copy_catalogs(args.source, args.destination)
+        return 0
     raise AssertionError(args.command)
 
 

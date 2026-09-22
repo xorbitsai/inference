@@ -399,7 +399,7 @@ def test_builtin_catalog_has_huggingface_and_modelscope_sources(
     with monkeypatch.context() as patch:
         patch.setattr(sys, "platform", system)
         patch.setattr(platform, "processor", lambda: processor)
-        load_model_family_from_json("model_spec.json", models)
+        load_model_family_from_json("models", models)
     mlx_specs = [spec for spec in models["Breeze-TTS-2"] if spec.engine == "MLX"]
     assert {spec.model_hub for spec in mlx_specs} == (
         {"huggingface", "modelscope"} if supports_mlx else set()
@@ -426,7 +426,7 @@ def test_builtin_catalog_has_huggingface_and_modelscope_sources(
 
 def test_flash_attention_dependency_is_added_only_when_requested():
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    load_model_family_from_json("models", models)
 
     for spec in models["Breeze-TTS-2"]:
         if spec.engine != "PyTorch":
@@ -449,7 +449,7 @@ def test_create_audio_model_instance_dispatches_breeze(monkeypatch, model_spec):
     from .. import core
 
     models = {}
-    load_model_family_from_json("model_spec.json", models)
+    load_model_family_from_json("models", models)
     model_spec = next(
         spec for spec in models["Breeze-TTS-2"] if spec.engine == "PyTorch"
     )

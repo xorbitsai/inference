@@ -1,0 +1,74 @@
+[
+  {
+    "version": 2,
+    "model_name": "sd3.5-medium",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder_3",
+      "torch_dtype": "bfloat16"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "stabilityai/stable-diffusion-3.5-medium",
+        "model_revision": "94b13ccbe959c51e8159d91f562c58f29fac971a",
+        "gguf_model_id": "city96/stable-diffusion-3.5-medium-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
+      },
+      "modelscope": {
+        "model_id": "AI-ModelScope/stable-diffusion-3.5-medium",
+        "model_revision": "master",
+        "gguf_model_id": "Xorbits/stable-diffusion-3.5-medium-gguf",
+        "gguf_quantizations": [
+          "F16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
+      }
+    },
+    "updated_at": 1785233836,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
+        "vllm==0.24.* ; #engine# == \"vLLM\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
+  }
+]

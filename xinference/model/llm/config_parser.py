@@ -2,6 +2,8 @@ import json
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from ..._model_catalog import load_model_catalog
+
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
@@ -138,11 +140,8 @@ def _load_builtin_families() -> List[Dict[str, Any]]:
     global _BUILTIN_FAMILY_CACHE
     if _BUILTIN_FAMILY_CACHE is not None:
         return _BUILTIN_FAMILY_CACHE
-    json_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "llm_family.json"
-    )
-    with open(json_path, "r") as file:
-        _BUILTIN_FAMILY_CACHE = json.load(file)
+    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+    _BUILTIN_FAMILY_CACHE = load_model_catalog(json_path)
     return _BUILTIN_FAMILY_CACHE
 
 

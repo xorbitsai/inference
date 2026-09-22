@@ -184,9 +184,8 @@ Therefore, there is a lot of adaptation work to be done after the model generate
 JSON
 ----
 
-In `model/llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,
-we utilize JSON files to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code,
-it merely requires appending new metadata to the existing JSON file.
+In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_,
+each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved.
 
 ::
 

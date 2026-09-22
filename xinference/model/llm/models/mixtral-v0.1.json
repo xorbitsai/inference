@@ -1,0 +1,86 @@
+[
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "mixtral-v0.1",
+    "model_lang": [
+      "en",
+      "fr",
+      "it",
+      "de",
+      "es"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "The Mixtral-8x7B Large Language Model (LLM) is a pretrained generative Sparse Mixture of Experts.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": "46_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mistralai/Mixtral-8x7B-v0.1",
+            "model_revision": "58301445dc1378584211722b7ebf8743ec4e192b"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-ModelScope/Mixtral-8x7B-v0.1",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": "46_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Mixtral-8x7B-v0.1-GPTQ"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": "46_7",
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_M",
+              "Q4_0",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/Mixtral-8x7B-v0.1-GGUF",
+            "model_file_name_template": "mixtral-8x7b-v0.1.{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "updated_at": 1769418552,
+    "featured": false,
+    "architectures": [
+      "MixtralForCausalLM"
+    ],
+    "model_type": "mixtral",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

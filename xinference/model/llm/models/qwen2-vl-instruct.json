@@ -1,0 +1,333 @@
+[
+  {
+    "version": 2,
+    "context_length": 32768,
+    "model_name": "qwen2-vl-instruct",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "Qwen2-VL: To See the World More Clearly.Qwen2-VL is the latest version of the vision language models in the Qwen model familities.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2-VL-2B-Instruct",
+            "model_revision": "096da3b96240e3d66d35be0e5ccbe282eea8d6b1"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen2-VL-2B-Instruct",
+            "model_revision": "master"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LlamaFactory/Qwen2-VL-2B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+            "model_revision": "d15fb11857ccc566903e2e71341f9db7babb567b"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen2-VL-2B-Instruct-GPTQ-Int8",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+            "model_revision": "800d396518c82960ce6d231adecd07bbc474f0a9"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "qwen/Qwen2-VL-2B-Instruct-GPTQ-Int4",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2-VL-2B-Instruct-AWQ",
+            "model_revision": "ea8c5854c0044e28626719292de0d9b1a671f6fc"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "qwen/Qwen2-VL-2B-Instruct-AWQ",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen2-VL-2B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen2-VL-2B-Instruct-{quantization}",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2-VL-7B-Instruct",
+            "model_revision": "6010982c1010c3b222fa98afc81575f124aa9bd6"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen2-VL-7B-Instruct",
+            "model_revision": "master"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LlamaFactory/Qwen2-VL-7B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+            "model_revision": "3d152a77eaccfd72d59baedb0b183a1b8fd56e48"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen2-VL-7B-Instruct-GPTQ-Int8",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+            "model_revision": "5ab897112fa83b9699826be8753ef9184585c77d"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "qwen/Qwen2-VL-7B-Instruct-GPTQ-Int4",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2-VL-7B-Instruct-AWQ",
+            "model_revision": "f94216e8b513933bccd567bcd9b7350199f32538"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "qwen/Qwen2-VL-7B-Instruct-AWQ",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/Qwen2-VL-72B-Instruct"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/Qwen2-VL-72B-Instruct"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/Qwen2-VL-72B-Instruct-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "qwen/Qwen2-VL-72B-Instruct-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "Qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4",
+              "Int8"
+            ],
+            "model_id": "qwen/Qwen2-VL-72B-Instruct-GPTQ-{quantization}"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 72,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen2-VL-72B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "okwinds/Qwen2-VL-72B-Instruct-MLX-{quantization}",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/Qwen2-VL-7B-Instruct-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bit"
+            ],
+            "model_id": "okwinds/Qwen2-VL-7B-Instruct-MLX-8bit",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% set image_count = namespace(value=0) %}{% set video_count = namespace(value=0) %}{% for message in messages %}{% if loop.first and message['role'] != 'system' %}<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n{% endif %}<|im_start|>{{ message['role'] }}\n{% if message['content'] is string %}{{ message['content'] }}<|im_end|>\n{% else %}{% for content in message['content'] %}{% if content['type'] == 'image' or 'image' in content or 'image_url' in content %}{% set image_count.value = image_count.value + 1 %}{% if add_vision_id %}Picture {{ image_count.value }}: {% endif %}<|vision_start|><|image_pad|><|vision_end|>{% elif content['type'] == 'video' or 'video' in content %}{% set video_count.value = video_count.value + 1 %}{% if add_vision_id %}Video {{ video_count.value }}: {% endif %}<|vision_start|><|video_pad|><|vision_end|>{% elif 'text' in content %}{{ content['text'] }}{% endif %}{% endfor %}<|im_end|>\n{% endif %}{% endfor %}{% if add_generation_prompt %}<|im_start|>assistant\n{% endif %}",
+    "stop_token_ids": [
+      151645,
+      151643
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ],
+    "updated_at": 1784394365,
+    "featured": false,
+    "architectures": [
+      "Qwen2VLForConditionalGeneration"
+    ],
+    "model_type": "qwen2_vl",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

@@ -1,0 +1,44 @@
+[
+  {
+    "version": 2,
+    "model_name": "bge-reranker-v2-gemma",
+    "type": "LLM-based",
+    "language": [
+      "en",
+      "zh",
+      "multilingual"
+    ],
+    "max_tokens": 8192,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "BAAI/bge-reranker-v2-gemma",
+            "model_revision": "1787044f8b6fb740a9de4557c3a12377f84d9e17",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "AI-ModelScope/bge-reranker-v2-gemma",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543900,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

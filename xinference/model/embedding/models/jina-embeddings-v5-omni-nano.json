@@ -1,0 +1,51 @@
+[
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-omni-nano",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "model_ability": [
+      "embed_vision",
+      "embed_video",
+      "embed_audio"
+    ],
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-nano",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-nano",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers>=5.2.0",
+        "einops",
+        "peft==0.18.1",
+        "accelerate>=0.28.0",
+        "pillow",
+        "librosa",
+        "soundfile",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==5.7.0"
+      ]
+    },
+    "updated_at": 1785220954,
+    "featured": false
+  }
+]

@@ -1,0 +1,119 @@
+[
+  {
+    "version": 2,
+    "context_length": 65536,
+    "model_name": "codeqwen1.5-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.",
+    "model_specs": [
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "q2_k",
+              "q3_k_m",
+              "q4_0",
+              "q4_k_m",
+              "q5_0",
+              "q5_k_m",
+              "q6_k",
+              "q8_0"
+            ],
+            "model_id": "Qwen/CodeQwen1.5-7B-Chat-GGUF",
+            "model_file_name_template": "codeqwen-1_5-7b-chat-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "q2_k",
+              "q3_k_m",
+              "q4_0",
+              "q4_k_m",
+              "q5_0",
+              "q5_k_m",
+              "q6_k",
+              "q8_0"
+            ],
+            "model_id": "qwen/CodeQwen1.5-7B-Chat-GGUF",
+            "model_file_name_template": "codeqwen-1_5-7b-chat-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Qwen/CodeQwen1.5-7B-Chat"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "qwen/CodeQwen1.5-7B-Chat"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "HangZhou_Ascend/CodeQwen1.5-7B-Chat"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "Qwen/CodeQwen1.5-7B-Chat-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "qwen/CodeQwen1.5-7B-Chat-AWQ"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      151643,
+      151644,
+      151645
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>"
+    ],
+    "updated_at": 1769418504,
+    "featured": false,
+    "architectures": [
+      "Qwen2ForCausalLM"
+    ],
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

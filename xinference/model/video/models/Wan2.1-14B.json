@@ -1,0 +1,78 @@
+[
+  {
+    "version": 2,
+    "model_name": "Wan2.1-14B",
+    "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {},
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.1-T2V-14B-Diffusers",
+        "model_revision": "38ec498cb3208fb688890f8cc7e94ede2cbd7f68"
+      },
+      "modelscope": {
+        "model_id": "Wan-AI/Wan2.1-T2V-14B-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1766385304,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.1-14B",
+    "model_family": "Wan",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "Wan2.1-14B-mlx",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 1280,
+      "height": 704,
+      "num_frames": 81,
+      "scheduler": "unipc"
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "config.json",
+        "diffusion_pytorch_model*.safetensors*",
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_torch# ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.1-T2V-14B",
+        "model_revision": "a064a6c71f5be440641209c07bf2a5ce7a2ff5e4"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "version": 2,
+    "model_name": "cogview4",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "THUDM/CogView4-6B",
+        "model_revision": "63a52b7f6dace7033380cd6da14d0915eab3e6b5"
+      },
+      "modelscope": {
+        "model_id": "ZhipuAI/CogView4-6B",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1769418366,
+    "featured": false
+  }
+]

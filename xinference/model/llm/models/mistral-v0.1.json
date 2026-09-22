@@ -1,0 +1,99 @@
+[
+  {
+    "version": 2,
+    "context_length": 8192,
+    "model_name": "mistral-v0.1",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Mistral-7B is a unmoderated Transformer based LLM claiming to outperform Llama2 on all benchmarks.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "mistralai/Mistral-7B-v0.1",
+            "model_revision": "ae9d75c6b4eb39515def78c685fb4d71d49fc2cf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Xorbits/Mistral-7B-v0.1",
+            "model_revision": "v1.0.0"
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "PyTorch-NPU/mistral_7b_v0.1"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/Mistral-7B-v0.1-GGUF",
+            "model_file_name_template": "mistral-7b-v0.1.{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "Xorbits/Mistral-7B-v0.1-GGUF",
+            "model_file_name_template": "mistral-7b-v0.1.{quantization}.gguf",
+            "model_revision": "v1.0.0"
+          }
+        }
+      }
+    ],
+    "updated_at": 1769418550,
+    "featured": false,
+    "architectures": [
+      "MistralForCausalLM"
+    ],
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]
