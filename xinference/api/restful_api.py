@@ -3312,13 +3312,22 @@ class RESTfulAPI(CancelMixin):
         try:
             self._add_running_task(request_id)
 
-            # Read and convert all uploaded images to RGB PIL Images.
+            description = await (await self._get_supervisor_ref()).describe_model(
+                model_uid
+            )
+            preserve_alpha = (
+                description.get("model_name", "").lower() == "qwen-image-2.1"
+            )
+
+            # Preserve transparent references for Qwen-Image-2.1.
             pil_images: list[Image.Image] = []
             for img_file in image_files:
                 image_content = await img_file.read()
                 pil_image = Image.open(io.BytesIO(image_content))
 
-                if pil_image.mode == "RGBA":
+                if preserve_alpha:
+                    pil_image = pil_image.convert("RGBA")
+                elif pil_image.mode == "RGBA":
                     background = Image.new("RGB", pil_image.size, (255, 255, 255))
                     background.paste(pil_image, mask=pil_image.split()[3])
                     pil_image = background
