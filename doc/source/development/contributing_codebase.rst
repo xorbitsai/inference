@@ -98,3 +98,16 @@ use cases and writing corresponding tests.
 
 Adding tests is frequently requested after code is pushed to Xinference. Thus,
 it is worth getting in the habit of writing tests ahead of time so this is never an issue.
+
+Built-in model catalog schemas
+------------------------------
+
+Catalog files under ``xinference/model/<type>/models/`` are arrays of records validated by JSON Schema Draft 2020-12. The seven model types share definitions in ``xinference/model/schemas/common.schema.json`` and each has its own schema. Unknown catalog fields are rejected; ``default_*_config`` dictionaries accept engine-specific parameters. Add new fields to the corresponding schema and include validation tests.
+
+Install the validator and check all catalogs, or a single model type::
+
+    pip install "jsonschema>=4.18,<5"
+    python xinference/_model_catalog.py validate --all
+    python xinference/_model_catalog.py validate xinference/model/llm/models --model-type llm
+
+The ``model-catalog-schema`` pre-commit hook runs the same full check in CI. Errors include the filename and JSON Pointer to the invalid value. Schema validation is an authoring check: runtime loading, Hub split/export, and ``validate`` without ``--model-type`` keep their existing behavior.

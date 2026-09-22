@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xinference image built-in model catalog",
+  "description": "Raw catalog records before runtime flattening. A file may contain multiple engine variants of the same model.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "$ref": "#/$defs/record"
+  },
+  "$defs": {
+    "spec": {
+      "type": "object",
+      "properties": {
+        "model_format": {
+          "type": "string",
+          "enum": [
+            "pytorch",
+            "mlx"
+          ]
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        }
+      },
+      "required": [
+        "model_format",
+        "model_src"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/source"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/ggufExtras"
+        }
+      ],
+      "properties": {
+        "lightning_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lightning_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lightning_versions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lightning_model_file_name_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantizations": {
+          "$ref": "common.schema.json#/$defs/quantizations"
+        }
+      },
+      "unevaluatedProperties": false,
+      "required": [
+        "model_revision"
+      ]
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "huggingface",
+          "modelscope",
+          "openmind_hub",
+          "csghub"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/record"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/ggufExtras"
+        },
+        {
+          "oneOf": [
+            {
+              "required": [
+                "model_src"
+              ]
+            },
+            {
+              "required": [
+                "model_specs"
+              ]
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "model_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        },
+        "default_model_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "default_generate_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "model_ability": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "text2image",
+              "image2image",
+              "inpainting",
+              "ocr",
+              "docanalyze"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "controlnet": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "model_name": {
+                "$ref": "common.schema.json#/$defs/name"
+              },
+              "model_family": {
+                "const": "controlnet"
+              },
+              "model_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model_revision": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "model_name",
+              "model_family",
+              "model_id",
+              "model_revision"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "model_specs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spec"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "model_name",
+        "model_family",
+        "model_ability"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}
