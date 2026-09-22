@@ -116,6 +116,10 @@ logger = getLogger(__name__)
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
+_WORKER_METADATA_RPC_TIMEOUT = 3
+_WORKER_METADATA_RETRY_DELAYS = (5, 15, 30)
+
+
 def _merge_audio_model_registrations(
     registrations: List[Dict[str, Any]], detailed: bool
 ) -> List[Dict[str, Any]]:
@@ -235,6 +239,10 @@ class SupervisorActor(xo.StatelessActor):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
+        self._worker_metadata: Dict[str, Dict[str, Any]] = {}
+        self._worker_metadata_generation: Dict[str, int] = {}
+        self._worker_metadata_next_generation = 0
+        self._worker_metadata_refresh_tasks: Dict[str, asyncio.Task] = {}
         self._replica_model_uid_to_worker_shards: Dict[
             str, Dict[int, xo.ActorRefType["WorkerActor"]]
         ] = {}  # type: ignore
@@ -1496,6 +1504,9 @@ class SupervisorActor(xo.StatelessActor):
                 info["gpu_vram_available"] = sum(
                     [v.mem_free for k, v in worker_status.status.items() if k != "cpu"]
                 )
+                info["software_version"] = (
+                    self._worker_metadata.get(worker_addr) or {}
+                ).get("software_version")
             res.append(info)
         if include_routers and XINFERENCE_TOKEN_ROUTER_ENABLED:
             res.extend(self._list_token_router_cluster_info(detailed=detailed))
@@ -4409,6 +4420,7 @@ class SupervisorActor(xo.StatelessActor):
                     await self._handle_dead_worker(address)
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
+                    self._discard_worker_metadata(address)
                     self._clear_worker_model_gpu_memory(address)
                 if dead_nodes:
                     # Autostart owns relaunching a model TERMINATED above, same
@@ -4487,6 +4499,7 @@ class SupervisorActor(xo.StatelessActor):
                             await self._handle_dead_worker(address)
                             self._worker_status.pop(address, None)
                             self._worker_address_to_worker.pop(address, None)
+                            self._discard_worker_metadata(address)
                             self._clear_worker_model_gpu_memory(address)
                             self._schedule_autostart()
                             dead_nodes.append(address)
@@ -5702,6 +5715,155 @@ class SupervisorActor(xo.StatelessActor):
                 logger.debug(f"No-op for model {rep_mid}")
         return res
 
+    async def __pre_destroy__(self) -> None:
+        tasks = list(self._worker_metadata_refresh_tasks.values())
+        self._worker_metadata_refresh_tasks.clear()
+        self._worker_metadata_generation.clear()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    def _discard_worker_metadata(self, worker_address: str) -> None:
+        self._worker_metadata.pop(worker_address, None)
+        self._worker_metadata_generation.pop(worker_address, None)
+        task = self._worker_metadata_refresh_tasks.pop(worker_address, None)
+        if task is not None and not task.done():
+            # Dead-node detection runs on the supervisor isolation loop, while
+            # metadata retries run on the actor loop. Schedule cancellation on
+            # the task's own loop so cleanup is safe from either thread.
+            try:
+                task.get_loop().call_soon_threadsafe(task.cancel)
+            except RuntimeError:
+                # The loop may already be closed during process shutdown.
+                pass
+
+    def _start_worker_metadata_generation(self, worker_address: str) -> int:
+        self._worker_metadata_next_generation += 1
+        generation = self._worker_metadata_next_generation
+        self._worker_metadata_generation[worker_address] = generation
+        return generation
+
+    def _is_current_worker_metadata_generation(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> bool:
+        return (
+            self._worker_metadata_generation.get(worker_address) == generation
+            and self._worker_address_to_worker.get(worker_address) is worker_ref
+        )
+
+    async def _refresh_worker_metadata(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> bool:
+        if not self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, generation
+        ):
+            return False
+
+        try:
+            metadata = await xo.wait_for(
+                worker_ref.get_node_metadata(), _WORKER_METADATA_RPC_TIMEOUT
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug(
+                "Failed to read optional metadata from worker %s",
+                worker_address,
+                exc_info=True,
+            )
+            return False
+
+        if not self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, generation
+        ):
+            return False
+        if not isinstance(metadata, dict):
+            logger.debug(
+                "Worker %s returned invalid node metadata of type %s",
+                worker_address,
+                type(metadata).__name__,
+            )
+            return False
+
+        software_version = metadata.get("software_version")
+        if not isinstance(software_version, str) or not software_version.strip():
+            logger.debug(
+                "Worker %s returned an invalid software_version in node metadata",
+                worker_address,
+            )
+            return False
+
+        self._worker_metadata[worker_address] = {
+            "software_version": software_version.strip()
+        }
+        return True
+
+    async def _retry_worker_metadata(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> None:
+        current_task = asyncio.current_task()
+        try:
+            for retry_number, delay in enumerate(
+                _WORKER_METADATA_RETRY_DELAYS, start=1
+            ):
+                await asyncio.sleep(delay)
+                if not self._is_current_worker_metadata_generation(
+                    worker_address, worker_ref, generation
+                ):
+                    return
+                if await self._refresh_worker_metadata(
+                    worker_address, worker_ref, generation
+                ):
+                    logger.info(
+                        "Successfully refreshed worker metadata for %s, version=%s",
+                        worker_address,
+                        self._worker_metadata[worker_address]["software_version"],
+                    )
+                    return
+                if retry_number < len(_WORKER_METADATA_RETRY_DELAYS):
+                    logger.debug(
+                        "Worker metadata refresh attempt %s failed for %s",
+                        retry_number,
+                        worker_address,
+                    )
+
+            if self._is_current_worker_metadata_generation(
+                worker_address, worker_ref, generation
+            ):
+                logger.warning(
+                    "Worker %s did not report software version after retries",
+                    worker_address,
+                )
+        finally:
+            if self._worker_metadata_refresh_tasks.get(worker_address) is current_task:
+                self._worker_metadata_refresh_tasks.pop(worker_address, None)
+
+    def _schedule_worker_metadata_retry(
+        self,
+        worker_address: str,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        generation: int,
+    ) -> None:
+        if not self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, generation
+        ):
+            return
+        task = asyncio.create_task(
+            self._retry_worker_metadata(worker_address, worker_ref, generation)
+        )
+        self._worker_metadata_refresh_tasks[worker_address] = task
+
     @log_async(logger=logger)
     async def add_worker(
         self,
@@ -5715,6 +5877,30 @@ class SupervisorActor(xo.StatelessActor):
             address=worker_address, uid=WorkerActor.default_uid()
         )
         self._worker_address_to_worker[worker_address] = worker_ref
+
+        # Refresh static node metadata on every registration. Clear and cancel
+        # tracking from an earlier process at the same address so a downgrade or
+        # delayed retry can never leave a stale version behind.
+        self._discard_worker_metadata(worker_address)
+        metadata_generation = self._start_worker_metadata_generation(worker_address)
+        metadata_loaded = await self._refresh_worker_metadata(
+            worker_address, worker_ref, metadata_generation
+        )
+        metadata_retry_required = (
+            not metadata_loaded
+            and self._is_current_worker_metadata_generation(
+                worker_address, worker_ref, metadata_generation
+            )
+        )
+        if metadata_retry_required:
+            # Version metadata is display-only. Registration must remain
+            # compatible with older workers that do not expose this optional RPC.
+            logger.warning(
+                "Failed to read software version from worker %s; "
+                "worker registration will continue",
+                worker_address,
+            )
+
         try:
             await worker_ref.update_system_settings(dict(self._system_settings))
         except Exception:
@@ -5756,6 +5942,12 @@ class SupervisorActor(xo.StatelessActor):
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         await self._reconcile_affected_model_statuses(base_uids_affected)
         logger.debug("Worker %s has been added successfully", worker_address)
+        if metadata_retry_required and self._is_current_worker_metadata_generation(
+            worker_address, worker_ref, metadata_generation
+        ):
+            self._schedule_worker_metadata_retry(
+                worker_address, worker_ref, metadata_generation
+            )
         self._schedule_autostart()
 
     async def update_system_settings(self, settings: Dict[str, Any]) -> None:
@@ -5798,6 +5990,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         self._worker_status.pop(worker_address, None)
+        self._discard_worker_metadata(worker_address)
         self._clear_worker_model_gpu_memory(worker_address)
         self._invalidate_list_models_debounce_cache()
         try:
