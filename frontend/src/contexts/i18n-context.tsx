@@ -83,13 +83,19 @@ export function I18nProvider({
 
   const t: TFunc = useMemo(() => {
     return (key, vars) => {
-      const dict: any = translations[locale as keyof typeof translations] || {};
-      const value = key
-        .split('.')
-        .reduce(
-          (acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined),
-          dict
-        );
+      const dict = translations[locale as keyof typeof translations] || {};
+      const parts = key.split('.');
+      const resolve = (source: unknown) => {
+        let current = source;
+        for (const part of parts) {
+          if (typeof current !== 'object' || current === null || !(part in current)) {
+            return undefined;
+          }
+          current = (current as Record<string, unknown>)[part];
+        }
+        return current;
+      };
+      const value = resolve(dict) ?? resolve(translations.en);
       const str = typeof value === 'string' ? value : key;
       return interpolate(str, vars);
     };

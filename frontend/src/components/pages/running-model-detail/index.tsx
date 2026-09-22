@@ -36,57 +36,92 @@ function DetailItem({ label, value }: { label: string; value?: ReactNode }) {
 }
 
 function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; modelUid: string }) {
+  const { t } = useI18n();
   const tokenRouterModel = isTokenRouterModel(model);
   const deployment = model.deployment;
 
   return (
     <CollapsiblePanel
       defaultOpen={false}
-      title={tokenRouterModel ? 'Token Router Details' : 'Model Details'}
+      title={
+        tokenRouterModel
+          ? t('runningModels.detail.tokenRouterDetails')
+          : t('runningModels.detail.modelDetails')
+      }
       description={
         tokenRouterModel
-          ? 'This virtual model routes chat requests to eligible physical model backends.'
-          : 'Runtime metadata is collapsed by default so the capability workspace stays in focus.'
+          ? t('runningModels.detail.tokenRouterDescription')
+          : t('runningModels.detail.modelDetailsDescription')
       }
       icon={<Info className="size-5 text-primary" />}
       className="rounded-xl"
       contentClassName="p-5"
     >
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <DetailItem label="Model UID" value={modelUid} />
-        <DetailItem label="Model Name" value={model.model_name} />
-        <DetailItem label="Model Type" value={model.model_type} />
-        <DetailItem label="Model Engine" value={model.model_engine || model.model_hub} />
+        <DetailItem label={t('runningModels.detail.modelUid')} value={modelUid} />
+        <DetailItem label={t('runningModels.detail.modelName')} value={model.model_name} />
+        <DetailItem label={t('runningModels.modelType')} value={model.model_type} />
+        <DetailItem
+          label={t('runningModels.modelEngine')}
+          value={model.model_engine || model.model_hub}
+        />
         {tokenRouterModel ? (
           <>
-            <DetailItem label="Model Kind" value="Virtual" />
-            <DetailItem label="Virtual Model Type" value={model.virtual_model_type} />
-            <DetailItem label="Model Ability" value={model.model_ability.join(', ')} />
-            <DetailItem label="Router UID" value={model.router_uid} />
             <DetailItem
-              label="Router Status"
+              label={t('runningModels.modelKind')}
+              value={t('runningModels.detail.virtual')}
+            />
+            <DetailItem
+              label={t('runningModels.virtualModelType')}
+              value={model.virtual_model_type}
+            />
+            <DetailItem
+              label={t('runningModels.modelAbility')}
+              value={model.model_ability.join(', ')}
+            />
+            <DetailItem label={t('runningModels.routerUid')} value={model.router_uid} />
+            <DetailItem
+              label={t('runningModels.routerStatus')}
               value={
                 model.router_status ? <RouterStatusBadge status={model.router_status} /> : undefined
               }
             />
-            <DetailItem label="Route Profile" value={model.route_profile} />
-            <DetailItem label="Management Mode" value={deployment?.management_mode} />
-            <DetailItem label="Backend Count" value={model.backend_count} />
-            <DetailItem label="Runtime Instances" value={model.runtime_instances} />
-            <DetailItem label="Online Instances" value={model.online_instances} />
-            <DetailItem label="Ready Instances" value={model.ready_instances} />
-            <DetailItem label="Desired Replicas" value={deployment?.desired_replicas} />
-            <DetailItem label="Ready Replicas" value={deployment?.ready_replicas} />
-            <DetailItem label="Pending Replicas" value={deployment?.pending_replicas} />
+            <DetailItem label={t('runningModels.routeProfile')} value={model.route_profile} />
+            <DetailItem
+              label={t('runningModels.managementMode')}
+              value={deployment?.management_mode}
+            />
+            <DetailItem label={t('runningModels.backendCount')} value={model.backend_count} />
+            <DetailItem
+              label={t('runningModels.runtimeInstances')}
+              value={model.runtime_instances}
+            />
+            <DetailItem label={t('runningModels.onlineInstances')} value={model.online_instances} />
+            <DetailItem label={t('runningModels.readyInstances')} value={model.ready_instances} />
+            <DetailItem
+              label={t('runningModels.desiredReplicas')}
+              value={deployment?.desired_replicas}
+            />
+            <DetailItem
+              label={t('runningModels.readyReplicas')}
+              value={deployment?.ready_replicas}
+            />
+            <DetailItem
+              label={t('runningModels.pendingReplicas')}
+              value={deployment?.pending_replicas}
+            />
           </>
         ) : (
           <>
-            <DetailItem label="Model Format" value={model.model_format} />
-            <DetailItem label="Model Size" value={model.model_size_in_billions} />
-            <DetailItem label="Quantization" value={model.quantization} />
-            <DetailItem label="Context" value={model.context_length} />
-            <DetailItem label="Replica" value={model.replica} />
-            <DetailItem label="Address" value={model.address} />
+            <DetailItem label={t('runningModels.modelFormat')} value={model.model_format} />
+            <DetailItem label={t('runningModels.modelSize')} value={model.model_size_in_billions} />
+            <DetailItem label={t('runningModels.quantization')} value={model.quantization} />
+            <DetailItem
+              label={t('runningModels.detail.contextLength')}
+              value={model.context_length}
+            />
+            <DetailItem label={t('runningModels.detail.replica')} value={model.replica} />
+            <DetailItem label={t('runningModels.detail.address')} value={model.address} />
           </>
         )}
       </div>
@@ -98,15 +133,18 @@ function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; mode
     </CollapsiblePanel>
   );
 }
-const EmptyForAbility = () => (
-  <div className="flex min-h-[calc(100vh-216px)] flex-col items-center justify-center rounded-3xl border bg-card text-center">
-    <WandSparkles className="mb-4 size-10 text-muted-foreground" />
-    <h2 className="text-lg font-semibold">No supported interactive capability</h2>
-    <p className="mt-2 text-sm text-muted-foreground">
-      This model is running, but the current UI does not have a panel for its abilities yet.
-    </p>
-  </div>
-);
+const EmptyForAbility = () => {
+  const { t } = useI18n();
+  return (
+    <div className="flex min-h-[calc(100vh-216px)] flex-col items-center justify-center rounded-3xl border bg-card text-center">
+      <WandSparkles className="mb-4 size-10 text-muted-foreground" />
+      <h2 className="text-lg font-semibold">{t('runningModels.detail.noInteractiveCapability')}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {t('runningModels.detail.noInteractiveCapabilityDescription')}
+      </p>
+    </div>
+  );
+};
 const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const router = useRouter();
   const { t } = useI18n();
@@ -189,7 +227,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
             variant="ghost"
             size="icon"
             className="size-8 shrink-0 rounded-full"
-            aria-label="Back to running models"
+            aria-label={t('runningModels.detail.backToRunningModels')}
             onClick={() => router.back()}
           >
             <ArrowLeft className="size-5" />
@@ -213,7 +251,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
           )}
           <Button type="button" className="shrink-0" onClick={() => setTryApiOpen(true)}>
             <Code />
-            Try To API
+            {t('runningModels.tryApi')}
           </Button>
         </div>
       }
