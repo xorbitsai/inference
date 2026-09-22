@@ -22,13 +22,37 @@
             "model_id": "MiniMaxAI/MiniMax-M2",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/MiniMaxAI/MiniMax-M2/resolve/757303d492a50514c312788b5247a4f696a4c6a3/config.json",
+              "config_sha256": "03d0b726553f72ee799f30f52f77b9292b873714abda76ee7e2683953373db87",
+              "unsupported_reason": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "model_id": "MiniMax/MiniMax-M2",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/MiniMax/MiniMax-M2/resolve/master/config.json",
+              "config_sha256": "03d0b726553f72ee799f30f52f77b9292b873714abda76ee7e2683953373db87",
+              "unsupported_reason": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -41,13 +65,37 @@
             "model_id": "QuantTrio/MiniMax-M2-AWQ",
             "quantizations": [
               "Int4"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/MiniMax-M2-AWQ/resolve/3f6771a80ff4dd0b0114f6bc9b18a227348bcbaa/config.json",
+              "config_sha256": "08f4c0913799dbe6ef8999dd694633c5b6a11b66a3714dc3aa9f8ae1a3d8f5eb",
+              "unsupported_reason": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "model_id": "tclf90/MiniMax-M2-AWQ",
             "quantizations": [
               "Int4"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/MiniMax-M2-AWQ/resolve/master/config.json",
+              "config_sha256": "08f4c0913799dbe6ef8999dd694633c5b6a11b66a3714dc3aa9f8ae1a3d8f5eb",
+              "unsupported_reason": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -64,7 +112,69 @@
               "5bit",
               "6bit",
               "8bit"
-            ]
+            ],
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-3bit/resolve/16b359ad77b674bd593e159c07af4aa54e8fa2eb/config.json",
+                "config_sha256": "cf754e640778e63f43ef7c3c16dc0506ffe22a98876f2648ea5999b924ea5327",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "4bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-4bit/resolve/fb2e5d39528a1345b6927b66cbd2a8ebabcd9db4/config.json",
+                "config_sha256": "5ba49b50b6335b1488d2aba4673dc91f750a93d895fc2ce8cce5cd74ca620749",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "5bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-5bit/resolve/d5bcd1405ef722de4ef1beac42ae623e032da90e/config.json",
+                "config_sha256": "8c0fe0c07fb751a3f30d05ae0863d2e299464ab1b11bafc60de0de9328578966",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "6bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-6bit/resolve/02298eb755e33e9a4f37b0fae4960a9e81081f04/config.json",
+                "config_sha256": "627dc8d9caf66d4bdd6d36f85ba635b8e0b633d9afa4f2115b0108995c287483",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "8bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-8bit/resolve/273271278bbf96cea99682723c2cb010bf8cd78c/config.json",
+                "config_sha256": "5f3dfbb1b023519307ce8e971fb6a217e3b8bd23acd0dfe63cf6c7463f9215a0",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              }
+            }
           },
           "modelscope": {
             "model_id": "mlx-community/MiniMax-M2-{quantization}",
@@ -74,7 +184,69 @@
               "5bit",
               "6bit",
               "8bit"
-            ]
+            ],
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-3bit/resolve/master/config.json",
+                "config_sha256": "cf754e640778e63f43ef7c3c16dc0506ffe22a98876f2648ea5999b924ea5327",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "4bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-4bit/resolve/master/config.json",
+                "config_sha256": "5ba49b50b6335b1488d2aba4673dc91f750a93d895fc2ce8cce5cd74ca620749",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "5bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-5bit/resolve/master/config.json",
+                "config_sha256": "8c0fe0c07fb751a3f30d05ae0863d2e299464ab1b11bafc60de0de9328578966",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "6bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-6bit/resolve/master/config.json",
+                "config_sha256": "627dc8d9caf66d4bdd6d36f85ba635b8e0b633d9afa4f2115b0108995c287483",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "8bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-8bit/resolve/master/config.json",
+                "config_sha256": "5f3dfbb1b023519307ce8e971fb6a217e3b8bd23acd0dfe63cf6c7463f9215a0",
+                "unsupported_reason": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              }
+            }
           }
         }
       }

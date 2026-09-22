@@ -22,13 +22,37 @@
             "model_id": "Qwen/Qwen3.8-2.4T-A95B",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 248320,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B/resolve/207bd685a7e3696cfaff12ded7c6a7ea0f88c996/config.json",
+              "config_sha256": "4e3819548967e319ab435d044a3a331dbe3b078590ce822e9d74b79430533987",
+              "unsupported_reason": "hybrid_attention",
+              "hidden_size": 8192,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 92
+            }
           },
           "modelscope": {
             "model_id": "Qwen/Qwen3.8-2.4T-A95B",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 248320,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3.8-2.4T-A95B/resolve/master/config.json",
+              "config_sha256": "4e3819548967e319ab435d044a3a331dbe3b078590ce822e9d74b79430533987",
+              "unsupported_reason": "hybrid_attention",
+              "hidden_size": 8192,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 92
+            }
           }
         }
       },
@@ -41,13 +65,37 @@
             "model_id": "Qwen/Qwen3.8-2.4T-A95B-FP8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 248320,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B-FP8/resolve/d2dc35658bcf77e66643428cb52e774cc3b5bd29/config.json",
+              "config_sha256": "b7396b749964c6afb5387c58e6425db8628e85f8ae66739d284eb1c8f42c4d4e",
+              "unsupported_reason": "hybrid_attention",
+              "hidden_size": 8192,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 92
+            }
           },
           "modelscope": {
             "model_id": "Qwen/Qwen3.8-2.4T-A95B-FP8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 248320,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3.8-2.4T-A95B-FP8/resolve/master/config.json",
+              "config_sha256": "b7396b749964c6afb5387c58e6425db8628e85f8ae66739d284eb1c8f42c4d4e",
+              "unsupported_reason": "hybrid_attention",
+              "hidden_size": 8192,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 92
+            }
           }
         }
       },

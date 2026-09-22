@@ -174,7 +174,19 @@
               "mmproj-google_gemma-3-4b-it-bf16.gguf"
             ],
             "model_id": "bartowski/google_gemma-3-4b-it-GGUF",
-            "model_file_name_template": "google_gemma-3-4b-it-{quantization}.gguf"
+            "model_file_name_template": "google_gemma-3-4b-it-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 262144,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/google_gemma-3-4b-it-IQ2_M.gguf",
+              "config_sha256": "fbb3eece0f498a01d9f232c7d9e978aa4d186539ed0731b254f1befc9a4482b6",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 2560,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 34
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -199,7 +211,19 @@
               "mmproj-google_gemma-3-4b-it-bf16.gguf"
             ],
             "model_id": "bartowski/google_gemma-3-4b-it-GGUF",
-            "model_file_name_template": "google_gemma-3-4b-it-{quantization}.gguf"
+            "model_file_name_template": "google_gemma-3-4b-it-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 262144,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/bartowski/google_gemma-3-4b-it-GGUF/resolve/master/google_gemma-3-4b-it-Q2_K.gguf",
+              "config_sha256": "951233722125299cbffb6ab65665e10df25399581884e3f5520dd56285a6476d",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 2560,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 34
+            }
           }
         }
       },
@@ -239,7 +263,19 @@
               "mmproj-google_gemma-3-12b-it-bf16.gguf"
             ],
             "model_id": "bartowski/google_gemma-3-12b-it-GGUF",
-            "model_file_name_template": "google_gemma-3-12b-it-{quantization}.gguf"
+            "model_file_name_template": "google_gemma-3-12b-it-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 262144,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/bartowski/google_gemma-3-12b-it-GGUF/resolve/main/google_gemma-3-12b-it-IQ2_M.gguf",
+              "config_sha256": "9c03fc862125b36525b36290ed3e9e4f2372685a69d58047c9149bc011f8c330",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 3840,
+              "intermediate_size": 15360,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -264,7 +300,19 @@
               "mmproj-google_gemma-3-12b-it-bf16.gguf"
             ],
             "model_id": "bartowski/google_gemma-3-12b-it-GGUF",
-            "model_file_name_template": "google_gemma-3-12b-it-{quantization}.gguf"
+            "model_file_name_template": "google_gemma-3-12b-it-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 262144,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/bartowski/google_gemma-3-12b-it-GGUF/resolve/master/google_gemma-3-12b-it-Q2_K.gguf",
+              "config_sha256": "e616cd3481da43ef069fb6a70a8c8cfff9aee0a8cb8b230b7d25a5af1a764ed3",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 3840,
+              "intermediate_size": 15360,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -304,7 +352,19 @@
               "mmproj-google_gemma-3-27b-it-bf16.gguf"
             ],
             "model_id": "bartowski/google_gemma-3-27b-it-GGUF",
-            "model_file_name_template": "google_gemma-3-27b-it-{quantization}.gguf"
+            "model_file_name_template": "google_gemma-3-27b-it-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 262144,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/bartowski/google_gemma-3-27b-it-GGUF/resolve/main/google_gemma-3-27b-it-IQ2_M.gguf",
+              "config_sha256": "2b64c537daf87106b72f7149f183a7185dfc369ef80610a93635110712e130f6",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 5376,
+              "intermediate_size": 21504,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -329,7 +389,19 @@
               "mmproj-google_gemma-3-27b-it-bf16.gguf"
             ],
             "model_id": "bartowski/google_gemma-3-27b-it-GGUF",
-            "model_file_name_template": "google_gemma-3-27b-it-{quantization}.gguf"
+            "model_file_name_template": "google_gemma-3-27b-it-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 262144,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/bartowski/google_gemma-3-27b-it-GGUF/resolve/master/google_gemma-3-27b-it-Q2_K.gguf",
+              "config_sha256": "6f81553650b3be59877900220d6514a26231e37c4de042753d349f9e4166fe55",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 5376,
+              "intermediate_size": 21504,
+              "num_hidden_layers": 62
+            }
           }
         }
       }

@@ -3006,7 +3006,7 @@ def flatten_quantizations(input_json: dict):
             record["quantization"] = quant
 
             for key, value in hub_info.items():
-                if key != "quantizations":
+                if key not in ("quantizations", "memory_estimation_by_quantization"):
                     if isinstance(value, str) and "{quantization}" in value:
                         try:
                             value = value.format(quantization=quant)
@@ -3014,6 +3014,10 @@ def flatten_quantizations(input_json: dict):
                             pass
                     record[key] = value
 
+            if "memory_estimation_by_quantization" in hub_info:
+                record["memory_estimation"] = hub_info[
+                    "memory_estimation_by_quantization"
+                ].get(quant)
             flattened.append(record)
     return flattened
 

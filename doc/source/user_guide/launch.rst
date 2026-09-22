@@ -30,12 +30,9 @@ GPU, and virtual environment settings also constrain the search. It checks each
 worker separately and removes combinations that fail the compatibility checks.
 If none remain, it leaves your form unchanged so you can adjust the settings.
 
-If you have not picked a size, it chooses the smallest eligible size first.
-Among configurations of that size, it prefers an engine already available in
-the worker's environment. When virtual environments are enabled, an engine
-that needs dependencies installed at launch can also be considered. Choosing
-the smallest size is a conservative starting point, not an estimate of the
-largest model your hardware can run.
+If memory data is available, Xinference prefers the largest size estimated to
+fit. Otherwise it falls back to the smallest unverified size. Within that size,
+installed engines are preferred; virtual-environment candidates remain eligible.
 
 Next comes the platform's default engine order. With the earlier conditions
 equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with
@@ -44,11 +41,13 @@ Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights
 already cached on that worker get priority. A cached model does not override
 your selected size or the earlier preferences.
 
-These are fixed selection rules, not performance measurements. The recommendation
-does not check whether there is enough free memory for your workload or reserve
-resources. For example, a longer context or more concurrent requests can need
-more memory. Treat the result as a starting configuration to review and try;
-you still launch the model yourself.
+Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and
+80% of currently free memory. Automatic GPU placement uses the lowest free memory
+among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple
+GPUs are not added together: multi-GPU requests keep compatibility-only selection.
+Known oversized candidates are excluded. Missing data remains unverified. Longer
+contexts, concurrency and engine preallocation can need more memory. No resources
+are reserved, and you still review and launch the model yourself.
 
 Using the API
 -------------
@@ -79,8 +78,7 @@ A recommendation does not guarantee sufficient memory or a successful launch.
 It reserves no resources, downloads no model files, and installs no dependencies.
 Existing launch behavior is unchanged; deployment remains a separate action.
 
-When size is omitted, the smallest eligible model size is selected; an explicit
-size constraint is respected. ``config`` also includes the effective
+``config`` also includes the effective
 ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints.
 ``n_gpu=null`` requests CPU placement, while ``n_gpu="auto"`` uses the existing
 launch allocation policy rather than calculating the required GPU count.

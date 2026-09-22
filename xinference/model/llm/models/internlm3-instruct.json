@@ -21,13 +21,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "internlm/internlm3-8b-instruct"
+            "model_id": "internlm/internlm3-8b-instruct",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/internlm/internlm3-8b-instruct/resolve/28c99415adaf61767bd1c619f4f99f308fdfd223/config.json",
+              "config_sha256": "e1d88b33517b569d39ccb6730548f6eea9adb5dac892d5db74b78f670c0a7471",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct"
+            "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct/resolve/master/config.json",
+              "config_sha256": "e1d88b33517b569d39ccb6730548f6eea9adb5dac892d5db74b78f670c0a7471",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -39,13 +61,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "internlm/internlm3-8b-instruct-gptq-int4"
+            "model_id": "internlm/internlm3-8b-instruct-gptq-int4",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/internlm/internlm3-8b-instruct-gptq-int4/resolve/865a57bff8ad11e2ff2f69de23c819e3e59c9efb/config.json",
+              "config_sha256": "87e340e80ae3414c309d44991fa758e05d952f9ea22aced58dbdbc63c2220de8",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct-gptq-int4"
+            "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct-gptq-int4",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct-gptq-int4/resolve/master/config.json",
+              "config_sha256": "87e340e80ae3414c309d44991fa758e05d952f9ea22aced58dbdbc63c2220de8",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -57,13 +101,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "internlm/internlm3-8b-instruct-awq"
+            "model_id": "internlm/internlm3-8b-instruct-awq",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/internlm/internlm3-8b-instruct-awq/resolve/d83d6399346bd79d7db18a3f7a317c2ddb6cc6c1/config.json",
+              "config_sha256": "2a43bc64d0f936959290a5b94bff3d7040594ac445f608f674031940c7bb996d",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct-awq"
+            "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct-awq",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct-awq/resolve/master/config.json",
+              "config_sha256": "2a43bc64d0f936959290a5b94bff3d7040594ac445f608f674031940c7bb996d",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -83,7 +149,18 @@
               "q8_0"
             ],
             "model_id": "internlm/internlm3-8b-instruct-gguf",
-            "model_file_name_template": "internlm3-8b-instruct-{quantization}.gguf"
+            "model_file_name_template": "internlm3-8b-instruct-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/internlm/internlm3-8b-instruct-gguf/resolve/main/internlm3-8b-instruct-q2_k.gguf",
+              "config_sha256": "4fb06b6bb8e6024bf296fe79e8b902a4a194feb8abcb691a0339508bc25a32bd",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -97,7 +174,18 @@
               "q8_0"
             ],
             "model_id": "Shanghai_AI_Laboratory/internlm3-8b-instruct-gguf",
-            "model_file_name_template": "internlm3-8b-instruct-{quantization}.gguf"
+            "model_file_name_template": "internlm3-8b-instruct-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Shanghai_AI_Laboratory/internlm3-8b-instruct-gguf/resolve/master/internlm3-8b-instruct-q2_k.gguf",
+              "config_sha256": "4fb06b6bb8e6024bf296fe79e8b902a4a194feb8abcb691a0339508bc25a32bd",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -109,13 +197,35 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/internlm3-8b-instruct-{quantization}"
+            "model_id": "mlx-community/internlm3-8b-instruct-{quantization}",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/internlm3-8b-instruct-4bit/resolve/66da2a5dfae1ede3e02d1de071b9238c15dbaa0f/config.json",
+              "config_sha256": "af18efe78c5ea0227460d51836c3a87489909f2606489e43acf6188d4356d867",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/internlm3-8b-instruct-{quantization}"
+            "model_id": "mlx-community/internlm3-8b-instruct-{quantization}",
+            "memory_estimation": {
+              "vocab_size": 128512,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/mlx-community/internlm3-8b-instruct-4bit/resolve/master/config.json",
+              "config_sha256": "af18efe78c5ea0227460d51836c3a87489909f2606489e43acf6188d4356d867",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       }

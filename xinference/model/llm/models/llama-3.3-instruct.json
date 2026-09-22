@@ -33,7 +33,18 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Llama-3.3-70B-Instruct"
+            "model_id": "LLM-Research/Llama-3.3-70B-Instruct",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Llama-3.3-70B-Instruct/resolve/master/config.json",
+              "config_sha256": "95ef9768e4741543dbfaf0c274f101855883ff338b235c99eca2b6a4f4abee12",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -45,7 +56,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "shuyuej/Llama-3.3-70B-Instruct-GPTQ"
+            "model_id": "shuyuej/Llama-3.3-70B-Instruct-GPTQ",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/shuyuej/Llama-3.3-70B-Instruct-GPTQ/resolve/3a7f7f7d46e362291821aaefb0a38b632f1190a8/config.json",
+              "config_sha256": "38e0d92b9730c9dd4a82bb938961c26ef23f9f2e12449f0eb50646bde0153a15",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -57,7 +79,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "casperhansen/llama-3.3-70b-instruct-awq"
+            "model_id": "casperhansen/llama-3.3-70b-instruct-awq",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/casperhansen/llama-3.3-70b-instruct-awq/resolve/64d255621f40b42adaf6d1f32a47e1d4534c0f14/config.json",
+              "config_sha256": "1da1d369c9996294fe4312600eaa1f632aa33cdc8068c079a5b6930aba29d6f4",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -73,7 +106,64 @@
               "8bit",
               "fp16"
             ],
-            "model_id": "mlx-community/Llama-3.3-70B-Instruct-{quantization}"
+            "model_id": "mlx-community/Llama-3.3-70B-Instruct-{quantization}",
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-3bit/resolve/abc291acd216b0dab5ba759a438f4714588806f4/config.json",
+                "config_sha256": "18eb1fa65530967587999594b4b6fe9455baac33008cea939f5be6e5e68a4f9f",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "4bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-4bit/resolve/de2dfaf56839b7d0e834157d2401dee02726874d/config.json",
+                "config_sha256": "3027455f6ce315c983f1955f20d39617c839d417972252a29cdc89c57f6f1106",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "6bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-6bit/resolve/ec3b38b5b49fe9fd4d649d6826be82840864b120/config.json",
+                "config_sha256": "1531cf9e626dfc06f56a44727604eab33b8ad206ff76e74666d70cae53fac275",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "8bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-8bit/resolve/c5bfd839cd4cda0e5a39a97e00218d9c56e468af/config.json",
+                "config_sha256": "7c067e416990dfd135240a57d3717e662bf5392fa0bf012db29f423944d319e3",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "fp16": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Llama-3.3-70B-Instruct-fp16/resolve/8103891b028a8933068e47751bc2acc10bb59aa2/config.json",
+                "config_sha256": "ce739ed76cffce0e736af36dd455bcb7fdd21546cdbec41fef0b0a3e4b2228e2",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              }
+            }
           }
         }
       },
@@ -100,7 +190,18 @@
             },
             "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
             "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/lmstudio-community/Llama-3.3-70B-Instruct-GGUF/resolve/main/Llama-3.3-70B-Instruct-Q3_K_L.gguf",
+              "config_sha256": "9020266a1f4b89f290b42ad8262ab6795af0ac393a4306a2608be453878e1d7d",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -121,7 +222,18 @@
             },
             "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
             "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/lmstudio-community/Llama-3.3-70B-Instruct-GGUF/resolve/master/Llama-3.3-70B-Instruct-Q3_K_L.gguf",
+              "config_sha256": "9020266a1f4b89f290b42ad8262ab6795af0ac393a4306a2608be453878e1d7d",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       }

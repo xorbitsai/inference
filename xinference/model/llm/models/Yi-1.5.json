@@ -21,20 +21,50 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-6B",
-            "model_revision": "741a657c42d2081f777ce4c6c5572090f8b8c886"
+            "model_revision": "741a657c42d2081f777ce4c6c5572090f8b8c886",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-6B/resolve/741a657c42d2081f777ce4c6c5572090f8b8c886/config.json",
+              "config_sha256": "5ae838f29924daea6ea80b1d32c5bac32d8162570d37caef3e241c01054db668",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-1.5-6B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-6B/resolve/master/config.json",
+              "config_sha256": "5ae838f29924daea6ea80b1d32c5bac32d8162570d37caef3e241c01054db668",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "HangZhou_Ascend/Yi-1.5-6B"
+            "model_id": "HangZhou_Ascend/Yi-1.5-6B",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelers.cn/api/v1/file/HangZhou_Ascend/Yi-1.5-6B/main/media/config.json",
+              "config_sha256": "5ae838f29924daea6ea80b1d32c5bac32d8162570d37caef3e241c01054db668",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -47,20 +77,50 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-9B",
-            "model_revision": "9a6839c5b9db3dbb245fb98a072bfabc242621f2"
+            "model_revision": "9a6839c5b9db3dbb245fb98a072bfabc242621f2",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-9B/resolve/9a6839c5b9db3dbb245fb98a072bfabc242621f2/config.json",
+              "config_sha256": "d8b2e3bf56d638dc6932c1ba810c9ecf465d30611e0ca7a607e8a527bda720af",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-1.5-9B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-9B/resolve/master/config.json",
+              "config_sha256": "d8b2e3bf56d638dc6932c1ba810c9ecf465d30611e0ca7a607e8a527bda720af",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "HangZhou_Ascend/Yi-1.5-9B"
+            "model_id": "HangZhou_Ascend/Yi-1.5-9B",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelers.cn/api/v1/file/HangZhou_Ascend/Yi-1.5-9B/main/media/config.json",
+              "config_sha256": "d8b2e3bf56d638dc6932c1ba810c9ecf465d30611e0ca7a607e8a527bda720af",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -80,7 +140,17 @@
               "none"
             ],
             "model_id": "01ai/Yi-1.5-34B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-34B/resolve/master/config.json",
+              "config_sha256": "6bd316c688db290bb53251b1967d9b68f30b0364ecd738947facfe207b4bde42",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

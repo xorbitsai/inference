@@ -27,7 +27,17 @@
               "none"
             ],
             "model_id": "LLM-Research/Phi-3-mini-128k-instruct",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 32064,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Phi-3-mini-128k-instruct/resolve/master/config.json",
+              "config_sha256": "af70441b867458d18788c564ea69894adddaa4de47ab6534391604fc4893f03b",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

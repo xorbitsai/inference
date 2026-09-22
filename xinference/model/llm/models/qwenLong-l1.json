@@ -20,13 +20,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Tongyi-Zhiwen/QwenLong-L1-32B"
+            "model_id": "Tongyi-Zhiwen/QwenLong-L1-32B",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/Tongyi-Zhiwen/QwenLong-L1-32B/resolve/a232c10eec63ed2d1c24bff6fa1eeef5ce61a1b2/config.json",
+              "config_sha256": "37a972649588b5e9aae35b7bdc727d9088e5e219747dd17d59d304adabd6fe29",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "iic/QwenLong-L1-32B"
+            "model_id": "iic/QwenLong-L1-32B",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/iic/QwenLong-L1-32B/resolve/master/config.json",
+              "config_sha256": "37a972649588b5e9aae35b7bdc727d9088e5e219747dd17d59d304adabd6fe29",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -38,13 +58,33 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Tongyi-Zhiwen/QwenLong-L1-32B-AWQ"
+            "model_id": "Tongyi-Zhiwen/QwenLong-L1-32B-AWQ",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/Tongyi-Zhiwen/QwenLong-L1-32B-AWQ/resolve/06aaffded19c1517847670a7fe16c04af7451b4b/config.json",
+              "config_sha256": "9d82878a2193af12ab1a16381f58b8dcd97d1ce14d5711f82823fa81341e888e",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "iic/QwenLong-L1-32B-AWQ"
+            "model_id": "iic/QwenLong-L1-32B-AWQ",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/iic/QwenLong-L1-32B-AWQ/resolve/master/config.json",
+              "config_sha256": "9d82878a2193af12ab1a16381f58b8dcd97d1ce14d5711f82823fa81341e888e",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       }

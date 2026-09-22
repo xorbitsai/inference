@@ -20,14 +20,34 @@
               "none"
             ],
             "model_id": "openbmb/MiniCPM-2B-dpo-fp16",
-            "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac"
+            "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac",
+            "memory_estimation": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-2B-dpo-fp16/resolve/e7a50289e4f839674cf8d4a5a2ce032ccacf64ac/config.json",
+              "config_sha256": "c268a2020d08cb41ec0b1469170231fa53fbeea255d1447d630943d88255972e",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenBMB/MiniCPM-2B-dpo-fp16",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-2B-dpo-fp16/resolve/master/config.json",
+              "config_sha256": "91d06cde9d85575f32b03e80aeb8e3c1806bfee36b8df5179b5a39adefebface",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

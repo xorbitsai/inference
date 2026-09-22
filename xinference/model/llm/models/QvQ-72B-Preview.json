@@ -21,13 +21,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/QVQ-72B-Preview"
+            "model_id": "Qwen/QVQ-72B-Preview",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/Qwen/QVQ-72B-Preview/resolve/24425f65e80be6804b75ae0a3dc1e5570e660a25/config.json",
+              "config_sha256": "5cac6c262a44dd8340be589f16309284133a40e7fdec84cca9ba443f908591c0",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 29568,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/QVQ-72B-Preview"
+            "model_id": "Qwen/QVQ-72B-Preview",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/Qwen/QVQ-72B-Preview/resolve/master/config.json",
+              "config_sha256": "5cac6c262a44dd8340be589f16309284133a40e7fdec84cca9ba443f908591c0",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 29568,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -43,7 +65,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/QVQ-72B-Preview-{quantization}"
+            "model_id": "mlx-community/QVQ-72B-Preview-{quantization}",
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/QVQ-72B-Preview-3bit/resolve/ab1670671e23c64b187941585a9b90dd04102544/config.json",
+                "config_sha256": "c5056cd5984273a9d15ff905354b68650d3648b797217c77fd1dfbb3ec00cdc1",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/QVQ-72B-Preview-4bit/resolve/d5df213dbad3c397f9475a7dc8640b1115bd3160/config.json",
+                "config_sha256": "fd2d57e8489869da33d5da0b171d1df2743031e2a3dff75b39edb3eef06e1e73",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/QVQ-72B-Preview-6bit/resolve/5f6db1c011760d689c099d82dfbc8dd59b8d9389/config.json",
+                "config_sha256": "903f2d928b71ba8ae15753f339b4e95c971245d753c0bf01256d08c82fc70654",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/QVQ-72B-Preview-8bit/resolve/aee0aeb5bdc4bfe613570909d3ae143894e5cee6/config.json",
+                "config_sha256": "26a3f509170e77e3f8084558654352983cc1c58227f0f6d03df84c66f1263a51",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "bf16": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/QVQ-72B-Preview-bf16/resolve/34280da92fa29c711bffbcee6128a3f7669e2fef/config.json",
+                "config_sha256": "d6a48018c057f51473835ec8269a568927d04abc6cad1325bd955de9852fcf1d",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -53,7 +132,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/QVQ-72B-Preview-{quantization}"
+            "model_id": "mlx-community/QVQ-72B-Preview-{quantization}",
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/mlx-community/QVQ-72B-Preview-3bit/resolve/master/config.json",
+                "config_sha256": "c5056cd5984273a9d15ff905354b68650d3648b797217c77fd1dfbb3ec00cdc1",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/mlx-community/QVQ-72B-Preview-4bit/resolve/master/config.json",
+                "config_sha256": "fd2d57e8489869da33d5da0b171d1df2743031e2a3dff75b39edb3eef06e1e73",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/mlx-community/QVQ-72B-Preview-6bit/resolve/master/config.json",
+                "config_sha256": "903f2d928b71ba8ae15753f339b4e95c971245d753c0bf01256d08c82fc70654",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/mlx-community/QVQ-72B-Preview-8bit/resolve/master/config.json",
+                "config_sha256": "26a3f509170e77e3f8084558654352983cc1c58227f0f6d03df84c66f1263a51",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              },
+              "bf16": {
+                "vocab_size": 152064,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/mlx-community/QVQ-72B-Preview-bf16/resolve/master/config.json",
+                "config_sha256": "d6a48018c057f51473835ec8269a568927d04abc6cad1325bd955de9852fcf1d",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 8192,
+                "intermediate_size": 29568,
+                "num_hidden_layers": 80
+              }
+            }
           }
         }
       }

@@ -20,13 +20,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen2.5-7B-Instruct-1M"
+            "model_id": "Qwen/Qwen2.5-7B-Instruct-1M",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-1M/resolve/e28526f7bb80e2a9c8af03b831a9af3812f18fba/config.json",
+              "config_sha256": "3836d4f7ef434824ffbe23d3a7eefbdd1a40f4db9809f9a69a3f9d26d3f2152e",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen2.5-7B-Instruct-1M"
+            "model_id": "Qwen/Qwen2.5-7B-Instruct-1M",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-7B-Instruct-1M/resolve/master/config.json",
+              "config_sha256": "3836d4f7ef434824ffbe23d3a7eefbdd1a40f4db9809f9a69a3f9d26d3f2152e",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -38,13 +58,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen2.5-14B-Instruct-1M"
+            "model_id": "Qwen/Qwen2.5-14B-Instruct-1M",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-1M/resolve/620fad32de7bdd2293b3d99b39eba2fe63e97438/config.json",
+              "config_sha256": "4d5b7a229eb3144cfe1e42f830d3a46d93f52a36171ed5d541dcf2f77704ff00",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen2.5-14B-Instruct-1M"
+            "model_id": "Qwen/Qwen2.5-14B-Instruct-1M",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-14B-Instruct-1M/resolve/master/config.json",
+              "config_sha256": "4d5b7a229eb3144cfe1e42f830d3a46d93f52a36171ed5d541dcf2f77704ff00",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           }
         }
       }

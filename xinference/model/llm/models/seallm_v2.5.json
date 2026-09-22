@@ -29,7 +29,18 @@
               "none"
             ],
             "model_id": "SeaLLMs/SeaLLM-7B-v2.5",
-            "model_revision": "c54a8eb8e2d58c5a680bfbbe3a7ae71753bb644b"
+            "model_revision": "c54a8eb8e2d58c5a680bfbbe3a7ae71753bb644b",
+            "memory_estimation": {
+              "vocab_size": 256000,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/SeaLLMs/SeaLLM-7B-v2.5/resolve/c54a8eb8e2d58c5a680bfbbe3a7ae71753bb644b/config.json",
+              "config_sha256": "bcd7fee86308ebfe3defc518e89e87a9b674ecdbdb8046dbd40bcce23da48ff9",
+              "hidden_size": 3072,
+              "intermediate_size": 24576,
+              "num_hidden_layers": 28
+            }
           }
         }
       },

@@ -32,7 +32,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/Yi-34B-GGUF",
-            "model_file_name_template": "yi-34b.{quantization}.gguf"
+            "model_file_name_template": "yi-34b.{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Yi-34B-GGUF/resolve/main/yi-34b.Q2_K.gguf",
+              "config_sha256": "e9fd326bc2ac0bb5878d5e8e66340342eb50af80606552b299c7f3dc1f0234df",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -45,20 +55,50 @@
               "none"
             ],
             "model_id": "01-ai/Yi-6B",
-            "model_revision": "25beebcb1166b9f49458459eb7b68130b9f9cf4d"
+            "model_revision": "25beebcb1166b9f49458459eb7b68130b9f9cf4d",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-6B/resolve/25beebcb1166b9f49458459eb7b68130b9f9cf4d/config.json",
+              "config_sha256": "21a797a5fa2959e83f479eefca1dbc96f31545a947f4f248e8fae99c9cb08ad4",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-6B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-6B/resolve/master/config.json",
+              "config_sha256": "d83b4384262d880318a406a4ab80416eeaa2265c19e96e23bec2762d055351d9",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "wuhaicc/Yi-6B"
+            "model_id": "wuhaicc/Yi-6B",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelers.cn/api/v1/file/wuhaicc/Yi-6B/main/media/config.json",
+              "config_sha256": "d83b4384262d880318a406a4ab80416eeaa2265c19e96e23bec2762d055351d9",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -71,20 +111,50 @@
               "none"
             ],
             "model_id": "01-ai/Yi-9B",
-            "model_revision": "f70a5ff8b2e51c5d5b20e649d7b5f4238ffe6d5b"
+            "model_revision": "f70a5ff8b2e51c5d5b20e649d7b5f4238ffe6d5b",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-9B/resolve/f70a5ff8b2e51c5d5b20e649d7b5f4238ffe6d5b/config.json",
+              "config_sha256": "3c9e44a68c882237a168dbccdf6be3cdf9eb755233c5630ac82fa19e71e68b44",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-9B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-9B/resolve/master/config.json",
+              "config_sha256": "3c9e44a68c882237a168dbccdf6be3cdf9eb755233c5630ac82fa19e71e68b44",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "wuhaicc/Yi-9B"
+            "model_id": "wuhaicc/Yi-9B",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelers.cn/api/v1/file/wuhaicc/Yi-9B/main/media/config.json",
+              "config_sha256": "3c9e44a68c882237a168dbccdf6be3cdf9eb755233c5630ac82fa19e71e68b44",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -97,14 +167,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-34B",
-            "model_revision": "168c48e05e1429779a896c7ef0d2e01b85e6bd8d"
+            "model_revision": "168c48e05e1429779a896c7ef0d2e01b85e6bd8d",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/01-ai/Yi-34B/resolve/168c48e05e1429779a896c7ef0d2e01b85e6bd8d/config.json",
+              "config_sha256": "1aace96f84d044002a29553f223089b670caf888e09d89f912b67d778c0e515b",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-34B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-34B/resolve/master/config.json",
+              "config_sha256": "30cffdbbce0077bb474b491695c81fb5085470015a05808d352591501008f489",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

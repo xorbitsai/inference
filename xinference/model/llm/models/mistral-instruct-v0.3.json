@@ -20,7 +20,17 @@
               "none"
             ],
             "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
-            "model_revision": "83e9aa141f2e28c82232fea5325f54edf17c43de"
+            "model_revision": "83e9aa141f2e28c82232fea5325f54edf17c43de",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/83e9aa141f2e28c82232fea5325f54edf17c43de/config.json",
+              "config_sha256": "affafc6478ec0fd07a32f0ca57aa2fc57743f4d17d6730f86a96ac24d1507f99",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -32,7 +42,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit"
+            "model_id": "neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/neuralmagic/Mistral-7B-Instruct-v0.3-GPTQ-4bit/resolve/ed07c8f1d2c87648508d9e153199d9b761cad5a8/config.json",
+              "config_sha256": "14f3f1d3dc5e05f947fc4b79257423c8cc7639e51c9192d34cdecaa5c60ca017",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -44,7 +64,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "solidrust/Mistral-7B-Instruct-v0.3-AWQ"
+            "model_id": "solidrust/Mistral-7B-Instruct-v0.3-AWQ",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/solidrust/Mistral-7B-Instruct-v0.3-AWQ/resolve/95b1295ddd1a8673117cdc7bd2a4da2a457bb3f7/config.json",
+              "config_sha256": "1712da38f773c8653dc60d853d29273164697b53a2986ebc8f3f9c67c59099a3",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -67,7 +97,17 @@
               "fp16"
             ],
             "model_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
-            "model_file_name_template": "Mistral-7B-Instruct-v0.3.{quantization}.gguf"
+            "model_file_name_template": "Mistral-7B-Instruct-v0.3.{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3.Q2_K.gguf",
+              "config_sha256": "f478ac0c65ecfd900b701452a735ab9676ba3801168f992b36fabf6155972841",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

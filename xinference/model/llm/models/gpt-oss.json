@@ -21,13 +21,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "openai/gpt-oss-20b"
+            "model_id": "openai/gpt-oss-20b",
+            "memory_estimation": {
+              "vocab_size": 201088,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/openai/gpt-oss-20b/resolve/6cee5e81ee83917806bbde320786a8fb61efebee/config.json",
+              "config_sha256": "3a2a26ded679375b7928ddeca59764df7cea83220c1961035f6d6e232659e9ce",
+              "unsupported_reason": "moe",
+              "hidden_size": 2880,
+              "intermediate_size": 2880,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "openai-mirror/gpt-oss-20b"
+            "model_id": "openai-mirror/gpt-oss-20b",
+            "memory_estimation": {
+              "vocab_size": 201088,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/openai-mirror/gpt-oss-20b/resolve/master/config.json",
+              "config_sha256": "3a2a26ded679375b7928ddeca59764df7cea83220c1961035f6d6e232659e9ce",
+              "unsupported_reason": "moe",
+              "hidden_size": 2880,
+              "intermediate_size": 2880,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -40,13 +64,37 @@
             "quantizations": [
               "4-bit"
             ],
-            "model_id": "unsloth/gpt-oss-20b-bnb-4bit"
+            "model_id": "unsloth/gpt-oss-20b-bnb-4bit",
+            "memory_estimation": {
+              "vocab_size": 201088,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/unsloth/gpt-oss-20b-bnb-4bit/resolve/4b7553a5ec02363c3b64433f48cf385fe86b8acd/config.json",
+              "config_sha256": "7a98d87cdc868a490e863dd60a03d9f860fff88c17c97788a835062944953499",
+              "unsupported_reason": "moe",
+              "hidden_size": 2880,
+              "intermediate_size": 2880,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "4-bit"
             ],
-            "model_id": "unsloth/gpt-oss-20b-bnb-4bit"
+            "model_id": "unsloth/gpt-oss-20b-bnb-4bit",
+            "memory_estimation": {
+              "vocab_size": 201088,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/unsloth/gpt-oss-20b-bnb-4bit/resolve/master/config.json",
+              "config_sha256": "7a98d87cdc868a490e863dd60a03d9f860fff88c17c97788a835062944953499",
+              "unsupported_reason": "moe",
+              "hidden_size": 2880,
+              "intermediate_size": 2880,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -59,13 +107,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "openai/gpt-oss-120b"
+            "model_id": "openai/gpt-oss-120b",
+            "memory_estimation": {
+              "vocab_size": 201088,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/openai/gpt-oss-120b/resolve/b5c939de8f754692c1647ca79fbf85e8c1e70f8a/config.json",
+              "config_sha256": "933aeb666a3fd851133ddd7686414f369bc564c4185fb5704416550879f10566",
+              "unsupported_reason": "moe",
+              "hidden_size": 2880,
+              "intermediate_size": 2880,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "openai-mirror/gpt-oss-120b"
+            "model_id": "openai-mirror/gpt-oss-120b",
+            "memory_estimation": {
+              "vocab_size": 201088,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/openai-mirror/gpt-oss-120b/resolve/master/config.json",
+              "config_sha256": "933aeb666a3fd851133ddd7686414f369bc564c4185fb5704416550879f10566",
+              "unsupported_reason": "moe",
+              "hidden_size": 2880,
+              "intermediate_size": 2880,
+              "num_hidden_layers": 36
+            }
           }
         }
       }

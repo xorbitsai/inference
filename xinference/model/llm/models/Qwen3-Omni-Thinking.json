@@ -26,13 +26,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking"
+            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Thinking/resolve/2f443cfc4c54b14a815c0e2bb9a9d6cbcd9a748b/config.json",
+              "config_sha256": "e6f8c637528461398ef4e11d48b6112ce73db2458a563dfea548127c2cce253f",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 2048,
+              "intermediate_size": 768,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking"
+            "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Omni-30B-A3B-Thinking/resolve/master/config.json",
+              "config_sha256": "e6f8c637528461398ef4e11d48b6112ce73db2458a563dfea548127c2cce253f",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 2048,
+              "intermediate_size": 768,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -46,14 +70,66 @@
               "4bit",
               "8bit"
             ],
-            "model_id": "cpatonn/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}"
+            "model_id": "cpatonn/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}",
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/cpatonn/Qwen3-Omni-30B-A3B-Thinking-AWQ-4bit/resolve/e1faaad069a71b873ac61a01dff92094213ad387/config.json",
+                "config_sha256": "939cb84de66b896e8e3ba471588324e7382853b6b27f953e67f6af0cd90876d7",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/cpatonn/Qwen3-Omni-30B-A3B-Thinking-AWQ-8bit/resolve/77e5bf59b30404105eca5ee299b9dbd41d5d22fc/config.json",
+                "config_sha256": "fb0a3f4f77af54e1f73a5bc8315bbca2280f9c953b18676450c14e2ada9b9868",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit",
               "8bit"
             ],
-            "model_id": "cpatonn-mirror/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}"
+            "model_id": "cpatonn-mirror/Qwen3-Omni-30B-A3B-Thinking-AWQ-{quantization}",
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-Omni-30B-A3B-Thinking-AWQ-4bit/resolve/master/config.json",
+                "config_sha256": "939cb84de66b896e8e3ba471588324e7382853b6b27f953e67f6af0cd90876d7",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-Omni-30B-A3B-Thinking-AWQ-8bit/resolve/master/config.json",
+                "config_sha256": "fb0a3f4f77af54e1f73a5bc8315bbca2280f9c953b18676450c14e2ada9b9868",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 2048,
+                "intermediate_size": 768,
+                "num_hidden_layers": 48
+              }
+            }
           }
         }
       }

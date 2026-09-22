@@ -21,14 +21,36 @@
             "model_revision": "main",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 131072,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base/resolve/091f56973c1bcc8c970e9e6650c58b81576414c3/config.json",
+              "config_sha256": "16aa5d3619d0d893e7157f2499675430844eb7b383c80ecc1b3e8e8928a75d52",
+              "hidden_size": 2048,
+              "intermediate_size": 6656,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "model_id": "XHToken/Spark-X2.5-1.7B-Base",
             "model_revision": "master",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 131072,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/XHToken/Spark-X2.5-1.7B-Base/resolve/master/config.json",
+              "config_sha256": "16aa5d3619d0d893e7157f2499675430844eb7b383c80ecc1b3e8e8928a75d52",
+              "hidden_size": 2048,
+              "intermediate_size": 6656,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -41,14 +63,36 @@
             "model_revision": "main",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 131072,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/XHToken/Spark-X2.5-4B-Base/resolve/df0e5accafb1eb049430476439b61f4793a7d2f7/config.json",
+              "config_sha256": "767161ece8ed2891e44345afdf98d29c1cacb964116cb6db7d20dc1c757490ad",
+              "hidden_size": 2560,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "model_id": "XHToken/Spark-X2.5-4B-Base",
             "model_revision": "master",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 131072,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/XHToken/Spark-X2.5-4B-Base/resolve/master/config.json",
+              "config_sha256": "767161ece8ed2891e44345afdf98d29c1cacb964116cb6db7d20dc1c757490ad",
+              "hidden_size": 2560,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 36
+            }
           }
         }
       }

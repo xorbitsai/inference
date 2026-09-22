@@ -23,13 +23,35 @@
             "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V3.2-Exp/resolve/194c67e12b1b0d6df0ef373ddcf215bc84027409/config.json",
+              "config_sha256": "c7fa8b191e9936d8e6a57d864baab82b792fae16a116416cdd3a75ba76bc5af1",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.2-Exp/resolve/master/config.json",
+              "config_sha256": "c7fa8b191e9936d8e6a57d864baab82b792fae16a116416cdd3a75ba76bc5af1",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -43,14 +65,62 @@
             "quantizations": [
               "AWQ",
               "AWQ-Lite"
-            ]
+            ],
+            "memory_estimation_by_quantization": {
+              "AWQ": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/QuantTrio/DeepSeek-V3.2-Exp-AWQ/resolve/c8d32b0626d7f8420a14f89df4a3a2a16fd4f8d8/config.json",
+                "config_sha256": "25b78aa04d428d84469025ec1907d83faf31c07f738413c9ddcd4720b46b6ca3",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "AWQ-Lite": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/QuantTrio/DeepSeek-V3.2-Exp-AWQ-Lite/resolve/b436ec80d1b22d49bc777ee61cf8c9760d85a034/config.json",
+                "config_sha256": "8304214b4a083d3081cdc2e107f620132b288433379f11b7f789052c2d48c51f",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           },
           "modelscope": {
             "model_id": "tclf90/DeepSeek-V3.2-Exp-{quantization}",
             "quantizations": [
               "AWQ",
               "AWQ-Lite"
-            ]
+            ],
+            "memory_estimation_by_quantization": {
+              "AWQ": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-V3.2-Exp-AWQ/resolve/master/config.json",
+                "config_sha256": "25b78aa04d428d84469025ec1907d83faf31c07f738413c9ddcd4720b46b6ca3",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "AWQ-Lite": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-V3.2-Exp-AWQ-Lite/resolve/master/config.json",
+                "config_sha256": "8304214b4a083d3081cdc2e107f620132b288433379f11b7f789052c2d48c51f",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           }
         }
       }

@@ -1,5 +1,6 @@
 """Read-only launch recommendations; no capacity or launch guarantee."""
 
+import math
 import re
 from decimal import Decimal
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -117,6 +118,53 @@ def spec_key(param: Dict[str, Any], quantization: str) -> tuple:
     )
 
 
+def recommendation_memory_snapshot() -> dict:
+    """Read memory counters without loading models or reserving resources."""
+    import psutil
+
+    from ..device_utils import get_gpu_info
+
+    snapshot: Dict[str, Any] = {}
+    try:
+        snapshot["host_available_mib"] = psutil.virtual_memory().available / 1024**2
+    except Exception:
+        pass
+    try:
+        snapshot["gpu_available_mib"] = {
+            key: value["free"] / 1024**2 for key, value in get_gpu_info().items()
+        }
+    except Exception:
+        pass
+    return snapshot
+
+
+def recommendation_memory_budget(
+    worker: dict, constraints: RecommendationConstraints, device: str
+) -> Optional[float]:
+    """Conservative single-device budget; never sum independent GPU memory."""
+    memory = worker.get("memory", {})
+    indices = constraints.gpu_idx
+    indices = [indices] if isinstance(indices, int) else indices
+    count = len(indices) if indices is not None else constraints.n_gpu
+    if isinstance(count, int) and count > 1:
+        return None
+    if device in ("cpu", "mps"):
+        values = [memory.get("host_available_mib")]
+    else:
+        # Auto allocation does not pick the GPU with most free memory. Require
+        # a fit on every eligible GPU instead of silently changing placement.
+        values = [
+            memory.get("gpu_available_mib", {}).get(f"gpu-{index}")
+            for index in (indices if indices is not None else worker["gpu_indices"])
+        ]
+    if not values or any(
+        not isinstance(value, (float, int)) or not math.isfinite(value) or value < 0
+        for value in values
+    ):
+        return None
+    return min(values) * 0.8
+
+
 def select_recommendation(
     request: ModelRecommendationRequest, workers: List[dict], warnings: List[dict]
 ) -> dict:
@@ -144,6 +192,7 @@ def select_recommendation(
             constraints.n_gpu is None or (not devices and worker["device"] != "mps")
         )
         device = "cpu" if cpu else worker["device"]
+        budget = recommendation_memory_budget(worker, constraints, device)
         order = (
             ["mlx", "llama.cpp", "transformers"]
             if device == "mps"
@@ -201,6 +250,10 @@ def select_recommendation(
                     installed = (engine, key) in ready
                     if not worker["enable_virtual_env"] and not installed:
                         continue
+                    estimate = worker.get("memory_estimates", {}).get(key)
+                    verified = budget is not None and estimate is not None
+                    if verified and estimate > budget:
+                        continue
                     quant_order = [
                         "q4_k_m",
                         "4bit",
@@ -224,7 +277,8 @@ def select_recommendation(
                         else len(order)
                     )
                     rank = (
-                        size,
+                        not verified,
+                        -size if verified else size,
                         not installed,
                         erank,
                         qrank,
@@ -235,13 +289,23 @@ def select_recommendation(
                         worker["worker_ip"],
                     )
                     candidates.append(
-                        (rank, worker, param, engine, quant, installed, cached)
+                        (
+                            rank,
+                            worker,
+                            param,
+                            engine,
+                            quant,
+                            installed,
+                            cached,
+                            estimate if verified else None,
+                            budget,
+                        )
                     )
     warnings = list(warnings)
     warnings.append(
         message(
             "memory_not_verified",
-            "Memory fit and current resource availability are not verified; no resources are reserved.",
+            "Estimates do not verify actual launch memory fit; resource availability may change and no resources are reserved.",
         )
     )
     if not candidates:
@@ -256,7 +320,7 @@ def select_recommendation(
             ],
             "warnings": warnings,
         }
-    _, worker, param, engine, quant, installed, cached = min(
+    _, worker, param, engine, quant, installed, cached, estimate, budget = min(
         candidates, key=lambda c: c[0]
     )
     config = {
@@ -277,7 +341,7 @@ def select_recommendation(
     reasons = [
         message(
             "selection_policy",
-            "Selected the smallest viable size, then installed readiness, platform engine order, quantization preference, exact worker-local cache, and stable lexical ties.",
+            "Prefer the largest estimated memory fit; otherwise use the smallest unverified size. Then prefer installed engines, platform engine order, quantization, exact worker-local cache, and stable lexical ties.",
         ),
         message(
             "worker_platform",
@@ -297,15 +361,30 @@ def select_recommendation(
             (
                 "size_constraint"
                 if constraints.model_size_in_billions is not None
-                else "smallest_size_default"
+                else (
+                    "memory_fit_size"
+                    if estimate is not None
+                    else "smallest_size_default"
+                )
             ),
             (
                 "Preserved the requested model size."
                 if constraints.model_size_in_billions is not None
-                else "Used the smallest viable registered size as a conservative default, not a hardware-fit estimate."
+                else (
+                    "Selected the largest size estimated to fit the memory budget."
+                    if estimate is not None
+                    else "Used the smallest unverified size because no candidate had a usable memory-fit estimate."
+                )
             ),
         )
     )
+    if estimate is not None:
+        reasons.append(
+            message(
+                "memory_estimate",
+                f"Estimated {estimate} MiB against an 80%-of-free-memory budget of {budget:.0f} MiB. Assumes one sequence, 2048 tokens and FP16 KV cache; not a launch guarantee. Multi-GPU sharding and engine preallocation are not modeled.",
+            )
+        )
     if cached:
         reasons.append(
             message(

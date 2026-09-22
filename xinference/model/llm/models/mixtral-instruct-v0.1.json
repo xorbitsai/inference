@@ -24,14 +24,36 @@
               "none"
             ],
             "model_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-            "model_revision": "125c431e2ff41a156b9f9076f744d2f35dd6e67a"
+            "model_revision": "125c431e2ff41a156b9f9076f744d2f35dd6e67a",
+            "memory_estimation": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1/resolve/125c431e2ff41a156b9f9076f744d2f35dd6e67a/config.json",
+              "config_sha256": "9d56d04b36d0fd12ff54ae4c5bac769cc176e254e64ff71144614b6318b40793",
+              "unsupported_reason": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "AI-ModelScope/Mixtral-8x7B-Instruct-v0.1",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Mixtral-8x7B-Instruct-v0.1/resolve/master/config.json",
+              "config_sha256": "ae39d3053d1b04e6fd60376bd10a9dde23aa29e00b118bbd7bae3038d4187499",
+              "unsupported_reason": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -43,7 +65,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ"
+            "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ",
+            "memory_estimation": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-AWQ/resolve/9afb6f0a7d7fe9ecebdda1baa4ff4e13e73e97d7/config.json",
+              "config_sha256": "d92bf0220cefa99b77b206d34831909f5e6e2ac2525cc633096cb3116aa1a82b",
+              "unsupported_reason": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -55,7 +88,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ"
+            "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ",
+            "memory_estimation": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-GPTQ/resolve/0f81ba4680ccd2bce163334b93305d40b9e27b09/config.json",
+              "config_sha256": "e29de1166d737653262991127c98fe0dc4a1a6073010af2a22abe8f7ad4f37ab",
+              "unsupported_reason": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -75,7 +119,18 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
-            "model_file_name_template": "mixtral-8x7b-instruct-v0.1.{quantization}.gguf"
+            "model_file_name_template": "mixtral-8x7b-instruct-v0.1.{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF/resolve/main/mixtral-8x7b-instruct-v0.1.Q2_K.gguf",
+              "config_sha256": "b19a76a819253676d5a2c19cce2307a0e78249dbbf626c23e064cda8df681192",
+              "unsupported_reason": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

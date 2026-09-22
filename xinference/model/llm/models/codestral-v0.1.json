@@ -20,7 +20,17 @@
               "none"
             ],
             "model_id": "mistralai/Codestral-22B-v0.1",
-            "model_revision": "8f5fe23af91885222a1563283c87416745a5e212"
+            "model_revision": "8f5fe23af91885222a1563283c87416745a5e212",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mistralai/Codestral-22B-v0.1/resolve/8f5fe23af91885222a1563283c87416745a5e212/config.json",
+              "config_sha256": "71c3c7714ddd534860ff7f697801da0058409ee4a5bdd85a6b72526888832123",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       },
@@ -42,7 +52,17 @@
               "Q8_0"
             ],
             "model_id": "bartowski/Codestral-22B-v0.1-GGUF",
-            "model_file_name_template": "Codestral-22B-v0.1-{quantization}.gguf"
+            "model_file_name_template": "Codestral-22B-v0.1-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/bartowski/Codestral-22B-v0.1-GGUF/resolve/main/Codestral-22B-v0.1-Q2_K.gguf",
+              "config_sha256": "349c25cf6fc2197e21e844cfcd6bbae8c05076815b3dffa1cc4fc00691a96be4",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       },
@@ -55,7 +75,17 @@
               "4bit"
             ],
             "model_id": "mlx-community/Codestral-22B-v0.1-4bit",
-            "model_revision": "544626b38eb1c9524f0fa570ec7b29550c26b78d"
+            "model_revision": "544626b38eb1c9524f0fa570ec7b29550c26b78d",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Codestral-22B-v0.1-4bit/resolve/544626b38eb1c9524f0fa570ec7b29550c26b78d/config.json",
+              "config_sha256": "a897f0d5dec149f79c769a82446da103f5a7c42546fcb6d4394b0214739b47fa",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       },
@@ -68,7 +98,17 @@
               "8bit"
             ],
             "model_id": "mlx-community/Codestral-22B-v0.1-8bit",
-            "model_revision": "0399a53970663950d57010e61a2796af524a1588"
+            "model_revision": "0399a53970663950d57010e61a2796af524a1588",
+            "memory_estimation": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Codestral-22B-v0.1-8bit/resolve/0399a53970663950d57010e61a2796af524a1588/config.json",
+              "config_sha256": "602146ee542e263c9f8fabe1c0a84848e7a92f17f3a20f47f5e4a47459c74262",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       }

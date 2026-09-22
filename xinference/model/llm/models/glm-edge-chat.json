@@ -20,13 +20,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "zai-org/glm-edge-1.5b-chat"
+            "model_id": "zai-org/glm-edge-1.5b-chat",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/zai-org/glm-edge-1.5b-chat/resolve/7b201d3c160c25beda4cf0d107617ad975cd1ca8/config.json",
+              "config_sha256": "cac06b36fc4fdcee4e40687a4a4550184f7c6367191f1e0988b6d993352d8b14",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "ZhipuAI/glm-edge-1.5b-chat"
+            "model_id": "ZhipuAI/glm-edge-1.5b-chat",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat/resolve/master/config.json",
+              "config_sha256": "cac06b36fc4fdcee4e40687a4a4550184f7c6367191f1e0988b6d993352d8b14",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -38,13 +60,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "zai-org/glm-edge-4b-chat"
+            "model_id": "zai-org/glm-edge-4b-chat",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 6,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/zai-org/glm-edge-4b-chat/resolve/a1817f2ab339ecdd8497c4d752ea71a65299f29a/config.json",
+              "config_sha256": "03b7e94daa7278951da9e80df8e45a80bc9f9aaa768ac19f21dc69575813bbd9",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "ZhipuAI/glm-edge-4b-chat"
+            "model_id": "ZhipuAI/glm-edge-4b-chat",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 6,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat/resolve/master/config.json",
+              "config_sha256": "03b7e94daa7278951da9e80df8e45a80bc9f9aaa768ac19f21dc69575813bbd9",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -68,7 +112,17 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "zai-org/glm-edge-1.5b-chat-gguf"
+            "model_id": "zai-org/glm-edge-1.5b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/zai-org/glm-edge-1.5b-chat-gguf/resolve/main/ggml-model-Q4_0.gguf",
+              "config_sha256": "8effcf7a9c6d08b1412603123ef4227dc2a358d3326d6f442a0f284d3911f734",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -86,7 +140,17 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "ZhipuAI/glm-edge-1.5b-chat-gguf"
+            "model_id": "ZhipuAI/glm-edge-1.5b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf/resolve/master/ggml-model-Q4_0.gguf",
+              "config_sha256": "8effcf7a9c6d08b1412603123ef4227dc2a358d3326d6f442a0f284d3911f734",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -99,14 +163,34 @@
               "F16"
             ],
             "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
-            "model_id": "zai-org/glm-edge-1.5b-chat-gguf"
+            "model_id": "zai-org/glm-edge-1.5b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/zai-org/glm-edge-1.5b-chat-gguf/resolve/main/ggml-model-Q4_0.gguf",
+              "config_sha256": "8effcf7a9c6d08b1412603123ef4227dc2a358d3326d6f442a0f284d3911f734",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "F16"
             ],
             "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
-            "model_id": "ZhipuAI/glm-edge-1.5b-chat-gguf"
+            "model_id": "ZhipuAI/glm-edge-1.5b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-edge-1.5b-chat-gguf/resolve/master/ggml-model-Q4_0.gguf",
+              "config_sha256": "8effcf7a9c6d08b1412603123ef4227dc2a358d3326d6f442a0f284d3911f734",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -130,7 +214,17 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "zai-org/glm-edge-4b-chat-gguf"
+            "model_id": "zai-org/glm-edge-4b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 6,
+              "config_source": "https://huggingface.co/zai-org/glm-edge-4b-chat-gguf/resolve/main/ggml-model-Q4_0.gguf",
+              "config_sha256": "d8a1f031c8ca65a867f9619c7e8fc465dba3cae1879998b26d05f177c67cf5ed",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -148,7 +242,17 @@
               "Q8_0"
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "model_id": "ZhipuAI/glm-edge-4b-chat-gguf"
+            "model_id": "ZhipuAI/glm-edge-4b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 6,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf/resolve/master/ggml-model-Q4_0.gguf",
+              "config_sha256": "d8a1f031c8ca65a867f9619c7e8fc465dba3cae1879998b26d05f177c67cf5ed",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -161,14 +265,34 @@
               "F16"
             ],
             "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
-            "model_id": "zai-org/glm-edge-4b-chat-gguf"
+            "model_id": "zai-org/glm-edge-4b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 6,
+              "config_source": "https://huggingface.co/zai-org/glm-edge-4b-chat-gguf/resolve/main/ggml-model-Q4_0.gguf",
+              "config_sha256": "d8a1f031c8ca65a867f9619c7e8fc465dba3cae1879998b26d05f177c67cf5ed",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "F16"
             ],
             "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
-            "model_id": "ZhipuAI/glm-edge-4b-chat-gguf"
+            "model_id": "ZhipuAI/glm-edge-4b-chat-gguf",
+            "memory_estimation": {
+              "vocab_size": 59264,
+              "num_attention_heads": 24,
+              "num_key_value_heads": 6,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-edge-4b-chat-gguf/resolve/master/ggml-model-Q4_0.gguf",
+              "config_sha256": "d8a1f031c8ca65a867f9619c7e8fc465dba3cae1879998b26d05f177c67cf5ed",
+              "hidden_size": 3072,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

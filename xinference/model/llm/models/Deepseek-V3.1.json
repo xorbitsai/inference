@@ -24,13 +24,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-V3.1"
+            "model_id": "deepseek-ai/DeepSeek-V3.1",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V3.1/resolve/c0781d039fb7a1ba2abc4add0bdc293e92d2b8db/config.json",
+              "config_sha256": "3e5d192d745758862b0a3e6338ee181991db49933dbbd3185e1bde34944e7bad",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-V3.1"
+            "model_id": "deepseek-ai/DeepSeek-V3.1",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.1/resolve/master/config.json",
+              "config_sha256": "3e5d192d745758862b0a3e6338ee181991db49933dbbd3185e1bde34944e7bad",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -62,13 +84,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ"
+            "model_id": "QuantTrio/DeepSeek-V3.1-AWQ",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/QuantTrio/DeepSeek-V3.1-AWQ/resolve/0fdeb8b8b37bfee1dd7feda37cdc57effb1ab480/config.json",
+              "config_sha256": "34510388e7edfac3f650084139ee3749c00e7a66d2d3b654f06f0e931017f6da",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/DeepSeek-V3.1-AWQ"
+            "model_id": "tclf90/DeepSeek-V3.1-AWQ",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-V3.1-AWQ/resolve/master/config.json",
+              "config_sha256": "34510388e7edfac3f650084139ee3749c00e7a66d2d3b654f06f0e931017f6da",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -82,14 +126,62 @@
               "8bit",
               "4bit"
             ],
-            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}",
+            "memory_estimation_by_quantization": {
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3.1-8bit/resolve/cd6c63546a6d33a8cc75158dc60d1746787306ac/config.json",
+                "config_sha256": "b840fd63f039141b6d7fb5ad1ef44ffd549ba56509c1e7ef60c700ab6b5c9d4d",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3.1-4bit/resolve/1634da2179770a14024405afa6d1e0ce70a71ff4/config.json",
+                "config_sha256": "24e101be55af313a6fa708697e715bf98fdfb633658798d6973c60a3daec1686",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "8bit",
               "4bit"
             ],
-            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}"
+            "model_id": "mlx-community/DeepSeek-V3.1-{quantization}",
+            "memory_estimation_by_quantization": {
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V3.1-8bit/resolve/master/config.json",
+                "config_sha256": "b840fd63f039141b6d7fb5ad1ef44ffd549ba56509c1e7ef60c700ab6b5c9d4d",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V3.1-4bit/resolve/master/config.json",
+                "config_sha256": "24e101be55af313a6fa708697e715bf98fdfb633658798d6973c60a3daec1686",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           }
         }
       }

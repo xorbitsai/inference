@@ -20,13 +20,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Kwaipilot/KAT-V1-40B"
+            "model_id": "Kwaipilot/KAT-V1-40B",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/Kwaipilot/KAT-V1-40B/resolve/3f2ab44ced1c7769e76211a835847a4d368fe464/config.json",
+              "config_sha256": "93b8097b51227036ca12a166c907aebd63407aa820122c7104244f9bd638d6ca",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Kwaipilot/KAT-V1-40B"
+            "model_id": "Kwaipilot/KAT-V1-40B",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/Kwaipilot/KAT-V1-40B/resolve/master/config.json",
+              "config_sha256": "93b8097b51227036ca12a166c907aebd63407aa820122c7104244f9bd638d6ca",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -38,13 +58,33 @@
             "quantizations": [
               "Int4-Int8Mix"
             ],
-            "model_id": "QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix"
+            "model_id": "QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix/resolve/7965360e217fa054ee4126977c6d54729b4f452f/config.json",
+              "config_sha256": "0091b4ea753ee974af94cb28969daa4c9e9935b66298c7fddacdb8d6e4f405e7",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4-Int8Mix"
             ],
-            "model_id": "tclf90/KAT-V1-40B-GPTQ-Int4-Int8Mix"
+            "model_id": "tclf90/KAT-V1-40B-GPTQ-Int4-Int8Mix",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/tclf90/KAT-V1-40B-GPTQ-Int4-Int8Mix/resolve/master/config.json",
+              "config_sha256": "0091b4ea753ee974af94cb28969daa4c9e9935b66298c7fddacdb8d6e4f405e7",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -56,13 +96,33 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "QuantTrio/KAT-V1-40B-AWQ"
+            "model_id": "QuantTrio/KAT-V1-40B-AWQ",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/QuantTrio/KAT-V1-40B-AWQ/resolve/e38aafceaefc783473d6c749b473565af8475f88/config.json",
+              "config_sha256": "05049f7835394c62073e0e505a5d8ec1df019e0332bbf595e60d47b02e1fbe5c",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/KAT-V1-40B-AWQ"
+            "model_id": "tclf90/KAT-V1-40B-AWQ",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/tclf90/KAT-V1-40B-AWQ/resolve/master/config.json",
+              "config_sha256": "05049f7835394c62073e0e505a5d8ec1df019e0332bbf595e60d47b02e1fbe5c",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 80
+            }
           }
         }
       }

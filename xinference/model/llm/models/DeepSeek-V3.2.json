@@ -23,13 +23,35 @@
             "model_id": "deepseek-ai/DeepSeek-V3.2",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V3.2/resolve/a7e62ac04ecb2c0a54d736dc46601c5606cf10a6/config.json",
+              "config_sha256": "c7fa8b191e9936d8e6a57d864baab82b792fae16a116416cdd3a75ba76bc5af1",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "model_id": "deepseek-ai/DeepSeek-V3.2",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.2/resolve/master/config.json",
+              "config_sha256": "c7fa8b191e9936d8e6a57d864baab82b792fae16a116416cdd3a75ba76bc5af1",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -42,13 +64,35 @@
             "model_id": "QuantTrio/DeepSeek-V3.2-AWQ",
             "quantizations": [
               "Int4"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/QuantTrio/DeepSeek-V3.2-AWQ/resolve/340023cb6036c97c5c664ac944300e9d2b1a3f2e/config.json",
+              "config_sha256": "684d28e445faa951be58180eeaec46547cb392537985d41e892a65123aba0f95",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "model_id": "tclf90/DeepSeek-V3.2-AWQ",
             "quantizations": [
               "Int4"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-V3.2-AWQ/resolve/master/config.json",
+              "config_sha256": "684d28e445faa951be58180eeaec46547cb392537985d41e892a65123aba0f95",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       }

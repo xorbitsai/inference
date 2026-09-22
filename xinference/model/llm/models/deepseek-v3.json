@@ -22,14 +22,36 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-V3",
-            "model_revision": "1d044fd82b15f1cedb197a288e50cc96a2c27205"
+            "model_revision": "1d044fd82b15f1cedb197a288e50cc96a2c27205",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V3/resolve/1d044fd82b15f1cedb197a288e50cc96a2c27205/config.json",
+              "config_sha256": "614b5e69a4a59fb8d1853de050016832ba4540a0d632f152eb60f305094e2b4e",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-V3",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V3/resolve/master/config.json",
+              "config_sha256": "614b5e69a4a59fb8d1853de050016832ba4540a0d632f152eb60f305094e2b4e",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -42,14 +64,36 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "cognitivecomputations/DeepSeek-V3-AWQ"
+            "model_id": "cognitivecomputations/DeepSeek-V3-AWQ",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/cognitivecomputations/DeepSeek-V3-AWQ/resolve/8a9a35bdb572e52e37acececc58d241ddb363c5b/config.json",
+              "config_sha256": "392a116c90291499e1932e6c86b56770afe7362787e4be4430cf94e58e3edd41",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "cognitivecomputations/DeepSeek-V3-awq",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/cognitivecomputations/DeepSeek-V3-awq/resolve/master/config.json",
+              "config_sha256": "392a116c90291499e1932e6c86b56770afe7362787e4be4430cf94e58e3edd41",
+              "unsupported_reason": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -150,6 +194,18 @@
                 "00015-of-00016",
                 "00016-of-00016"
               ]
+            },
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "head_dim": 192,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-V3-GGUF/resolve/main/DeepSeek-V3-Q2_K_L/DeepSeek-V3-Q2_K_L-00001-of-00005.gguf",
+              "config_sha256": "4773982fc9937b29b688f7154dcdf46ecefdba69bde176bbaa5d7c5667233db8",
+              "unsupported_reason": "hybrid_attention",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
             }
           },
           "modelscope": {
@@ -244,6 +300,18 @@
                 "00015-of-00016",
                 "00016-of-00016"
               ]
+            },
+            "memory_estimation": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "head_dim": 192,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-V3-GGUF/resolve/master/DeepSeek-V3-Q2_K_L/DeepSeek-V3-Q2_K_L-00001-of-00005.gguf",
+              "config_sha256": "4773982fc9937b29b688f7154dcdf46ecefdba69bde176bbaa5d7c5667233db8",
+              "unsupported_reason": "hybrid_attention",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
             }
           }
         }
@@ -258,14 +326,62 @@
               "3bit",
               "4bit"
             ],
-            "model_id": "mlx-community/DeepSeek-V3-{quantization}"
+            "model_id": "mlx-community/DeepSeek-V3-{quantization}",
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3-3bit/resolve/6ac3c80113d498a1f8bffe5f54b6c48a76b229a0/config.json",
+                "config_sha256": "96be2742a7a743616e6f3c749c2eddc9f8937b575d6beaa1241e5796ba89b8d9",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3-4bit/resolve/ece24ebacb978c44706ed25ceaf47d94e199f193/config.json",
+                "config_sha256": "72a0e19510ca64472e3fd3ae5bf11169d6a1c5ffb50914383421817abe4e5070",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "3bit",
               "4bit"
             ],
-            "model_id": "mlx-community/DeepSeek-V3-{quantization}"
+            "model_id": "mlx-community/DeepSeek-V3-{quantization}",
+            "memory_estimation_by_quantization": {
+              "3bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V3-3bit/resolve/master/config.json",
+                "config_sha256": "96be2742a7a743616e6f3c749c2eddc9f8937b575d6beaa1241e5796ba89b8d9",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V3-4bit/resolve/master/config.json",
+                "config_sha256": "72a0e19510ca64472e3fd3ae5bf11169d6a1c5ffb50914383421817abe4e5070",
+                "unsupported_reason": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           }
         }
       }

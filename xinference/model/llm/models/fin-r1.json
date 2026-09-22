@@ -20,13 +20,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "SUFE-AIFLM-Lab/Fin-R1"
+            "model_id": "SUFE-AIFLM-Lab/Fin-R1",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/SUFE-AIFLM-Lab/Fin-R1/resolve/026768c4a015b591b54b240743edeac1de0970fa/config.json",
+              "config_sha256": "a9533f6d8bf8deef4a38bc746b2d339983f509adeabf93cbb93dec6b6779f4d2",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-ModelScope/Fin-R1"
+            "model_id": "AI-ModelScope/Fin-R1",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Fin-R1/resolve/master/config.json",
+              "config_sha256": "a9533f6d8bf8deef4a38bc746b2d339983f509adeabf93cbb93dec6b6779f4d2",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -39,14 +59,58 @@
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}"
+            "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}",
+            "memory_estimation_by_quantization": {
+              "Int4": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/JunHowie/Fin-R1-GPTQ-Int4/resolve/44d4d6c28ebcde7d04cc18b059264184ba90d217/config.json",
+                "config_sha256": "31deb208bd933f8ecac24cd84387c393c46b141f1f3b296818fae46564dd353f",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "Int8": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/JunHowie/Fin-R1-GPTQ-Int8/resolve/a9bd01b87efe9af76ec48a128ff29bc48954b8c2/config.json",
+                "config_sha256": "4ab074cd6c34a7536ea618c63dd62a832f04140cd13d233a2d68ba5f46c3cc62",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}"
+            "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}",
+            "memory_estimation_by_quantization": {
+              "Int4": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/JunHowie/Fin-R1-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "8f920c99745eee060261df7159f9f3d32d2c801a266a24efcdeb46b1626a7d16",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "Int8": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/JunHowie/Fin-R1-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "7ac441ab2d172a33ed4e4140cc130f6843a0be19e3d96886c8e4530f10ea5521",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              }
+            }
           }
         }
       },
@@ -58,13 +122,33 @@
             "quantizations": [
               "FP8"
             ],
-            "model_id": "JunHowie/Fin-R1-FP8-Dynamic"
+            "model_id": "JunHowie/Fin-R1-FP8-Dynamic",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/JunHowie/Fin-R1-FP8-Dynamic/resolve/cf211e71bcd1f26f6513384009a0903009465283/config.json",
+              "config_sha256": "756f7f9956f2a6bd2fab406e69726871659c974218a5a356996a56a74a0702bc",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "FP8"
             ],
-            "model_id": "JunHowie/Fin-R1-FP8-Dynamic"
+            "model_id": "JunHowie/Fin-R1-FP8-Dynamic",
+            "memory_estimation": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/JunHowie/Fin-R1-FP8-Dynamic/resolve/master/config.json",
+              "config_sha256": "dcc6c688374dc79c9a83a0366d5611c07a34e37d0912c6b5862301a789df2399",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       }

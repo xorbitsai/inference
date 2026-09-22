@@ -21,20 +21,47 @@
               "none"
             ],
             "model_id": "baichuan-inc/Baichuan2-7B-Base",
-            "model_revision": "f2cc3a689c5eba7dc7fd3757d0175d312d167604"
+            "model_revision": "f2cc3a689c5eba7dc7fd3757d0175d312d167604",
+            "memory_estimation": {
+              "vocab_size": 125696,
+              "num_attention_heads": 32,
+              "config_source": "https://huggingface.co/baichuan-inc/Baichuan2-7B-Base/resolve/f2cc3a689c5eba7dc7fd3757d0175d312d167604/config.json",
+              "config_sha256": "987cae52d8aa4f57fbb28de546f5ec0889ee5afd591184cb5a29f4b255827de2",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "baichuan-inc/Baichuan2-7B-Base",
-            "model_revision": "v1.0.2"
+            "model_revision": "v1.0.2",
+            "memory_estimation": {
+              "vocab_size": 125696,
+              "num_attention_heads": 32,
+              "config_source": "https://modelscope.cn/models/baichuan-inc/Baichuan2-7B-Base/resolve/v1.0.2/config.json",
+              "config_sha256": "987cae52d8aa4f57fbb28de546f5ec0889ee5afd591184cb5a29f4b255827de2",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "PyTorch-NPU/baichuan2_7b_base"
+            "model_id": "PyTorch-NPU/baichuan2_7b_base",
+            "memory_estimation": {
+              "vocab_size": 125696,
+              "num_attention_heads": 32,
+              "config_source": "https://modelers.cn/api/v1/file/PyTorch-NPU/baichuan2_7b_base/main/media/config.json",
+              "config_sha256": "2e264cbf7a05092292cb30a554566979edb923d71c31b2d89a22e29d29f7244b",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -47,20 +74,47 @@
               "none"
             ],
             "model_id": "baichuan-inc/Baichuan2-13B-Base",
-            "model_revision": "fa88072fee36e36282287410e00897df2f59e09b"
+            "model_revision": "fa88072fee36e36282287410e00897df2f59e09b",
+            "memory_estimation": {
+              "vocab_size": 125696,
+              "num_attention_heads": 40,
+              "config_source": "https://huggingface.co/baichuan-inc/Baichuan2-13B-Base/resolve/fa88072fee36e36282287410e00897df2f59e09b/config.json",
+              "config_sha256": "19ee5a80e05e2303263e90fe49205077046c4fafa3f833f4817864876228d521",
+              "hidden_size": 5120,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "baichuan-inc/Baichuan2-13B-Base",
-            "model_revision": "v1.0.3"
+            "model_revision": "v1.0.3",
+            "memory_estimation": {
+              "vocab_size": 125696,
+              "num_attention_heads": 40,
+              "config_source": "https://modelscope.cn/models/baichuan-inc/Baichuan2-13B-Base/resolve/v1.0.3/config.json",
+              "config_sha256": "19ee5a80e05e2303263e90fe49205077046c4fafa3f833f4817864876228d521",
+              "hidden_size": 5120,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Baichuan/Baichuan2_13b_base_pt"
+            "model_id": "Baichuan/Baichuan2_13b_base_pt",
+            "memory_estimation": {
+              "vocab_size": 125696,
+              "num_attention_heads": 40,
+              "config_source": "https://modelers.cn/api/v1/file/Baichuan/Baichuan2_13b_base_pt/main/media/config.json",
+              "config_sha256": "af0c0f0fd811ecc0365367c25b9227ff16abdc92883e0379a3632a9ea43b6e0e",
+              "hidden_size": 5120,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

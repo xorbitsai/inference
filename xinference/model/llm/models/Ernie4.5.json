@@ -20,13 +20,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "baidu/ERNIE-4.5-0.3B-PT"
+            "model_id": "baidu/ERNIE-4.5-0.3B-PT",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/baidu/ERNIE-4.5-0.3B-PT/resolve/b565cf6caebdb7a1eadf00100857b1ed5e044f12/config.json",
+              "config_sha256": "5918624eab9c56ba3552672a97481bd2743abf2567611caca758df1939935a56",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 18
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "PaddlePaddle/ERNIE-4.5-0.3B-PT"
+            "model_id": "PaddlePaddle/ERNIE-4.5-0.3B-PT",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/PaddlePaddle/ERNIE-4.5-0.3B-PT/resolve/master/config.json",
+              "config_sha256": "afc8fff4ba0190d8a6fe7c7a05669167c6381d4ba608a01d761e5532b4812538",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 18
+            }
           }
         }
       },
@@ -51,7 +73,18 @@
               "F16"
             ],
             "model_id": "unsloth/ERNIE-4.5-0.3B-PT-GGUF",
-            "model_file_name_template": "ERNIE-4.5-0.3B-PT-{quantization}.gguf"
+            "model_file_name_template": "ERNIE-4.5-0.3B-PT-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/ERNIE-4.5-0.3B-PT-GGUF/resolve/main/ERNIE-4.5-0.3B-PT-Q2_K.gguf",
+              "config_sha256": "ede0ef39c43122eee40d4277b0d88a4fd5ff255ea2c140b781db98889952b4e2",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 18
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -70,7 +103,18 @@
               "F16"
             ],
             "model_id": "unsloth/ERNIE-4.5-0.3B-PT-GGUF",
-            "model_file_name_template": "ERNIE-4.5-0.3B-PT-{quantization}.gguf"
+            "model_file_name_template": "ERNIE-4.5-0.3B-PT-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/ERNIE-4.5-0.3B-PT-GGUF/resolve/master/ERNIE-4.5-0.3B-PT-Q2_K.gguf",
+              "config_sha256": "ede0ef39c43122eee40d4277b0d88a4fd5ff255ea2c140b781db98889952b4e2",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 18
+            }
           }
         }
       },
@@ -83,14 +127,62 @@
               "4bit",
               "bf16"
             ],
-            "model_id": "mlx-community/ERNIE-4.5-0.3B-PT-{quantization}"
+            "model_id": "mlx-community/ERNIE-4.5-0.3B-PT-{quantization}",
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 2,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-0.3B-PT-4bit/resolve/8af9e5fc3fe9f3c44ec933978869f309454d2238/config.json",
+                "config_sha256": "22fc24529c737b52d021295c544311628e3eaaa763e80021b91a5eb61b6734f8",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 18
+              },
+              "bf16": {
+                "vocab_size": 103424,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 2,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-0.3B-PT-bf16/resolve/cb44b2466c60035d2f5645f0cd45b57c9f22c49c/config.json",
+                "config_sha256": "c0f3adfd3a731e996dc5309b9b473dd0208f7ce4b4b65933474d8dbf11eeafa5",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 18
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit",
               "bf16"
             ],
-            "model_id": "mlx-community/ERNIE-4.5-0.3B-PT-{quantization}"
+            "model_id": "mlx-community/ERNIE-4.5-0.3B-PT-{quantization}",
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 2,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-0.3B-PT-4bit/resolve/master/config.json",
+                "config_sha256": "22fc24529c737b52d021295c544311628e3eaaa763e80021b91a5eb61b6734f8",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 18
+              },
+              "bf16": {
+                "vocab_size": 103424,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 2,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-0.3B-PT-bf16/resolve/master/config.json",
+                "config_sha256": "c0f3adfd3a731e996dc5309b9b473dd0208f7ce4b4b65933474d8dbf11eeafa5",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 18
+              }
+            }
           }
         }
       },
@@ -103,13 +195,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "baidu/ERNIE-4.5-21B-A3B-Base-PT"
+            "model_id": "baidu/ERNIE-4.5-21B-A3B-Base-PT",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 20,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/baidu/ERNIE-4.5-21B-A3B-Base-PT/resolve/c6804383159ca6ad60896b3a8a98c5c01e9b42d5/config.json",
+              "config_sha256": "1c1b2463ffe92a7a4718abcf127d6ce91b7fed40ead6aeba78d2db54802a7cac",
+              "unsupported_reason": "moe",
+              "hidden_size": 2560,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "PaddlePaddle/ERNIE-4.5-21B-A3B-Base-PT"
+            "model_id": "PaddlePaddle/ERNIE-4.5-21B-A3B-Base-PT",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 20,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/PaddlePaddle/ERNIE-4.5-21B-A3B-Base-PT/resolve/master/config.json",
+              "config_sha256": "fa628aaf1b5c3e9f263b9f7eb2c527ac5c27429519530e7b022c90dac7b6ffff",
+              "unsupported_reason": "moe",
+              "hidden_size": 2560,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -135,7 +249,18 @@
               "BF16"
             ],
             "model_id": "unsloth/ERNIE-4.5-21B-A3B-PT-GGUF",
-            "model_file_name_template": "ERNIE-4.5-21B-A3B-PT-{quantization}.gguf"
+            "model_file_name_template": "ERNIE-4.5-21B-A3B-PT-{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 20,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/unsloth/ERNIE-4.5-21B-A3B-PT-GGUF/resolve/main/ERNIE-4.5-21B-A3B-PT-Q2_K.gguf",
+              "config_sha256": "fbe3d8fa6391f0b649b00c6bb7bdc3120da6684a0b703caac4af98a315e7a832",
+              "unsupported_reason": "moe",
+              "hidden_size": 2560,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -171,7 +296,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/ERNIE-4.5-21B-A3B-PT-{quantization}"
+            "model_id": "mlx-community/ERNIE-4.5-21B-A3B-PT-{quantization}",
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-21B-A3B-PT-4bit/resolve/6a55392c9930d43543bfa0a8ac6b67985bf4bd1d/config.json",
+                "config_sha256": "d6e2eb1d9aeabad51232a336cfa366a8429d6ce1205b3736ba084845803870d7",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "5bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-21B-A3B-PT-5bit/resolve/49ca1be25aa5519d867c4c6494166667f7d3f51b/config.json",
+                "config_sha256": "29265c3b2ead64079e545dc846f0e205af0b7acf449f14ec59bcd95bc85303c3",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-21B-A3B-PT-6bit/resolve/88448e2bccdd6f440f64f419354bbdf0a239c70f/config.json",
+                "config_sha256": "20847005adf2bb91d6a4812e305840538b98e1e2723fed4d61fa2664b2cb9ec0",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-21B-A3B-PT-8bit/resolve/8c9a668c9f6cb0d702ff361b7718a5b98b6ff53f/config.json",
+                "config_sha256": "3ab55e1d1924d494391b7d70db0a8c8a7c07e7c6130a8f2396f30f1d95fe87dc",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/ERNIE-4.5-21B-A3B-PT-bf16/resolve/6de3db650133247146f2feec80a94ae8d22de8d7/config.json",
+                "config_sha256": "9ad265922e4a77889ac4074b3b76ddc2c460a10a34510905cebc3aa29a64e74a",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -181,7 +363,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/ERNIE-4.5-21B-A3B-PT-{quantization}"
+            "model_id": "mlx-community/ERNIE-4.5-21B-A3B-PT-{quantization}",
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-21B-A3B-PT-4bit/resolve/master/config.json",
+                "config_sha256": "d6e2eb1d9aeabad51232a336cfa366a8429d6ce1205b3736ba084845803870d7",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "5bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-21B-A3B-PT-5bit/resolve/master/config.json",
+                "config_sha256": "29265c3b2ead64079e545dc846f0e205af0b7acf449f14ec59bcd95bc85303c3",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-21B-A3B-PT-6bit/resolve/master/config.json",
+                "config_sha256": "20847005adf2bb91d6a4812e305840538b98e1e2723fed4d61fa2664b2cb9ec0",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-21B-A3B-PT-8bit/resolve/master/config.json",
+                "config_sha256": "3ab55e1d1924d494391b7d70db0a8c8a7c07e7c6130a8f2396f30f1d95fe87dc",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 103424,
+                "num_attention_heads": 20,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/mlx-community/ERNIE-4.5-21B-A3B-PT-bf16/resolve/master/config.json",
+                "config_sha256": "9ad265922e4a77889ac4074b3b76ddc2c460a10a34510905cebc3aa29a64e74a",
+                "unsupported_reason": "moe",
+                "hidden_size": 2560,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 28
+              }
+            }
           }
         }
       },
@@ -194,13 +433,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "baidu/ERNIE-4.5-300B-A47B-PT"
+            "model_id": "baidu/ERNIE-4.5-300B-A47B-PT",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/baidu/ERNIE-4.5-300B-A47B-PT/resolve/47bbaf1c9e356313c3cb2ded9078a494fb152f0e/config.json",
+              "config_sha256": "607db524c1233d2687e10df8cb049bcc781a5ba232ee3476553450cf9f5bba75",
+              "unsupported_reason": "moe",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 54
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "PaddlePaddle/ERNIE-4.5-300B-A47B-PT"
+            "model_id": "PaddlePaddle/ERNIE-4.5-300B-A47B-PT",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/PaddlePaddle/ERNIE-4.5-300B-A47B-PT/resolve/master/config.json",
+              "config_sha256": "86cd4af3c28fde6f88d442e968573da58824766654739a4a89beb4cca0c12f28",
+              "unsupported_reason": "moe",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 54
+            }
           }
         }
       },
@@ -247,7 +508,18 @@
             },
             "model_id": "unsloth/ERNIE-4.5-300B-A47B-PT-GGUF",
             "model_file_name_template": "ERNIE-4.5-0.3B-PT-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/ERNIE-4.5-300B-A47B-PT-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/ERNIE-4.5-300B-A47B-PT-{quantization}-{part}.gguf",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/unsloth/ERNIE-4.5-300B-A47B-PT-GGUF/resolve/main/Q2_K/ERNIE-4.5-300B-A47B-PT-Q2_K-00001-of-00003.gguf",
+              "config_sha256": "6db4ca35c1b133d38cd9b7c1e0d1dc8129925a6a7f8c7f1116ee43f6c1926054",
+              "unsupported_reason": "moe",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 54
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -287,7 +559,18 @@
             },
             "model_id": "unsloth/ERNIE-4.5-300B-A47B-PT-GGUF",
             "model_file_name_template": "ERNIE-4.5-0.3B-PT-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/ERNIE-4.5-300B-A47B-PT-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/ERNIE-4.5-300B-A47B-PT-{quantization}-{part}.gguf",
+            "memory_estimation": {
+              "vocab_size": 103424,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/unsloth/ERNIE-4.5-300B-A47B-PT-GGUF/resolve/master/Q2_K/ERNIE-4.5-300B-A47B-PT-Q2_K-00001-of-00003.gguf",
+              "config_sha256": "6db4ca35c1b133d38cd9b7c1e0d1dc8129925a6a7f8c7f1116ee43f6c1926054",
+              "unsupported_reason": "moe",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 54
+            }
           }
         }
       },

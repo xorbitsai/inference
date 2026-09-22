@@ -22,13 +22,37 @@
             "model_id": "zai-org/GLM-5",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/zai-org/GLM-5/resolve/c183ef8c61faee82855eca1ed9bb3a9a7ce3b0b2/config.json",
+              "config_sha256": "308d3ceebe7bd9c2246d20550d5b793098dd03838d1e504f8236063ae152bcae",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           },
           "modelscope": {
             "model_id": "ZhipuAI/GLM-5",
             "quantizations": [
               "none"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/GLM-5/resolve/master/config.json",
+              "config_sha256": "308d3ceebe7bd9c2246d20550d5b793098dd03838d1e504f8236063ae152bcae",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           }
         }
       },
@@ -40,13 +64,37 @@
             "model_id": "zai-org/GLM-5-FP8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/zai-org/GLM-5-FP8/resolve/4f96cc5eec29dcee5d6ded54f7ffe889438f9516/config.json",
+              "config_sha256": "5ea2d79d3a77fe90836c18893de00996d096cd01516b52b88c6fc18993cb4df8",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           },
           "modelscope": {
             "model_id": "ZhipuAI/GLM-5-FP8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "memory_estimation": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/GLM-5-FP8/resolve/master/config.json",
+              "config_sha256": "5ea2d79d3a77fe90836c18893de00996d096cd01516b52b88c6fc18993cb4df8",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           }
         }
       },
@@ -412,6 +460,18 @@
                 "00018-of-00019",
                 "00019-of-00019"
               ]
+            },
+            "memory_estimation": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 576,
+              "config_source": "https://huggingface.co/unsloth/GLM-5-GGUF/resolve/main/GLM-5-UD-TQ1_0.gguf",
+              "config_sha256": "792f460af4fd9a5049a837d7fbf8380b9742e760f404cc9a4cc0efa123c469dc",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 79
             }
           },
           "modelscope": {
@@ -772,6 +832,18 @@
                 "00018-of-00019",
                 "00019-of-00019"
               ]
+            },
+            "memory_estimation": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 576,
+              "config_source": "https://modelscope.cn/models/unsloth/GLM-5-GGUF/resolve/master/GLM-5-UD-TQ1_0.gguf",
+              "config_sha256": "792f460af4fd9a5049a837d7fbf8380b9742e760f404cc9a4cc0efa123c469dc",
+              "unsupported_reason": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 79
             }
           }
         }
@@ -785,14 +857,66 @@
             "quantizations": [
               "4bit",
               "8bit-MXFP8"
-            ]
+            ],
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 154880,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 64,
+                "head_dim": 64,
+                "config_source": "https://huggingface.co/mlx-community/GLM-5-4bit/resolve/97b2af2010d640c7c0fa441f0e665e5092c16c07/config.json",
+                "config_sha256": "eec3b85dc1cd63829e3a2a5da30ef4dfb8e3a04a430b70a54d8b72b2da924fde",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 6144,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 78
+              },
+              "8bit-MXFP8": {
+                "vocab_size": 154880,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 64,
+                "head_dim": 64,
+                "config_source": "https://huggingface.co/mlx-community/GLM-5-8bit-MXFP8/resolve/aa833c40d178262d4ac8b92965807ef988e9340e/config.json",
+                "config_sha256": "f25f9f865687ff97c6523d9cc100514cd8dff4988faecaac77f887e4d2f2c92b",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 6144,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 78
+              }
+            }
           },
           "modelscope": {
             "model_id": "mlx-community/GLM-5-{quantization}",
             "quantizations": [
               "4bit",
               "8bit-MXFP8"
-            ]
+            ],
+            "memory_estimation_by_quantization": {
+              "4bit": {
+                "vocab_size": 154880,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 64,
+                "head_dim": 64,
+                "config_source": "https://modelscope.cn/models/mlx-community/GLM-5-4bit/resolve/master/config.json",
+                "config_sha256": "eec3b85dc1cd63829e3a2a5da30ef4dfb8e3a04a430b70a54d8b72b2da924fde",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 6144,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 78
+              },
+              "8bit-MXFP8": {
+                "vocab_size": 154880,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 64,
+                "head_dim": 64,
+                "config_source": "https://modelscope.cn/models/mlx-community/GLM-5-8bit-MXFP8/resolve/master/config.json",
+                "config_sha256": "f25f9f865687ff97c6523d9cc100514cd8dff4988faecaac77f887e4d2f2c92b",
+                "unsupported_reason": "multimodal",
+                "hidden_size": 6144,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 78
+              }
+            }
           }
         }
       }

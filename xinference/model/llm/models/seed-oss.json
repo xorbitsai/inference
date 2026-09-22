@@ -22,7 +22,18 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct"
+            "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/ByteDance-Seed/Seed-OSS-36B-Instruct/resolve/497f1dca95ebdec98e41d517b9f060ee753c902f/config.json",
+              "config_sha256": "09f91799169531b687cbd15e6338aee6105fcbb058193c04faa7ae0344506132",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -42,7 +53,42 @@
               "Int4",
               "Int3"
             ],
-            "model_id": "QuantTrio/Seed-OSS-36B-Instruct-GPTQ-{quantization}"
+            "model_id": "QuantTrio/Seed-OSS-36B-Instruct-GPTQ-{quantization}",
+            "memory_estimation_by_quantization": {
+              "Int8": {
+                "vocab_size": 155136,
+                "num_attention_heads": 80,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/QuantTrio/Seed-OSS-36B-Instruct-GPTQ-Int8/resolve/4dd7111a443aec4afb18028733e0fe8b97f1f04e/config.json",
+                "config_sha256": "17da3cd4063db3c71b7b46dac00e4df99e428e33c58bb1eb129e8c9092a966f3",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "Int4": {
+                "vocab_size": 155136,
+                "num_attention_heads": 80,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/QuantTrio/Seed-OSS-36B-Instruct-GPTQ-Int4/resolve/9628d5e6dacd58c4f90850fce58a525e8395e737/config.json",
+                "config_sha256": "118f02f85efce44d3c5ee2d138eb1bcc2302bdb94cff031d711a7915cdac6f2d",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "Int3": {
+                "vocab_size": 155136,
+                "num_attention_heads": 80,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/QuantTrio/Seed-OSS-36B-Instruct-GPTQ-Int3/resolve/3ad0378fb66406a6c55b64c7d29fbfcde3e6895c/config.json",
+                "config_sha256": "eee26626f1d498eac7dd86553e6189d3052329aaf832d0ca02379a7304a421f9",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -50,7 +96,42 @@
               "Int4",
               "Int3"
             ],
-            "model_id": "tclf90/Seed-OSS-36B-Instruct-GPTQ-{quantization}"
+            "model_id": "tclf90/Seed-OSS-36B-Instruct-GPTQ-{quantization}",
+            "memory_estimation_by_quantization": {
+              "Int8": {
+                "vocab_size": 155136,
+                "num_attention_heads": 80,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/tclf90/Seed-OSS-36B-Instruct-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "17da3cd4063db3c71b7b46dac00e4df99e428e33c58bb1eb129e8c9092a966f3",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "Int4": {
+                "vocab_size": 155136,
+                "num_attention_heads": 80,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/tclf90/Seed-OSS-36B-Instruct-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "118f02f85efce44d3c5ee2d138eb1bcc2302bdb94cff031d711a7915cdac6f2d",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "Int3": {
+                "vocab_size": 155136,
+                "num_attention_heads": 80,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/tclf90/Seed-OSS-36B-Instruct-GPTQ-Int3/resolve/master/config.json",
+                "config_sha256": "eee26626f1d498eac7dd86553e6189d3052329aaf832d0ca02379a7304a421f9",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              }
+            }
           }
         }
       },
@@ -62,13 +143,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "QuantTrio/Seed-OSS-36B-Instruct-AWQ"
+            "model_id": "QuantTrio/Seed-OSS-36B-Instruct-AWQ",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/Seed-OSS-36B-Instruct-AWQ/resolve/e7a05d50620ee8bc1670fd76dffc7a724c2cb268/config.json",
+              "config_sha256": "f7a35eee90753d2fda31af32d2652ce04b617a64f2e4b24955c6bddd849bb200",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/Seed-OSS-36B-Instruct-AWQ"
+            "model_id": "tclf90/Seed-OSS-36B-Instruct-AWQ",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/Seed-OSS-36B-Instruct-AWQ/resolve/master/config.json",
+              "config_sha256": "f7a35eee90753d2fda31af32d2652ce04b617a64f2e4b24955c6bddd849bb200",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -80,13 +183,35 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit"
+            "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/Seed-OSS-36B-Instruct-4bit/resolve/ae959dfb7aaa98154fdfe18dd46a003c46112bc2/config.json",
+              "config_sha256": "bdf52f6b510bdb4d551cfa7fe95423b26ac793dcc4c0b40ae7e5554d5c702335",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit"
+            "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/mlx-community/Seed-OSS-36B-Instruct-4bit/resolve/master/config.json",
+              "config_sha256": "bdf52f6b510bdb4d551cfa7fe95423b26ac793dcc4c0b40ae7e5554d5c702335",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -131,7 +256,18 @@
             },
             "model_id": "unsloth/Seed-OSS-36B-Instruct-GGUF",
             "model_file_name_template": "Seed-OSS-36B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Seed-OSS-36B-Instruct-GGUF/resolve/main/BF16/Seed-OSS-36B-Instruct-BF16-00001-of-00002.gguf",
+              "config_sha256": "7f7df0cc3b64e3def54186530c6b0f17008fa5ee6d7b58f629838d6d03768d15",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -170,7 +306,18 @@
             },
             "model_id": "unsloth/Seed-OSS-36B-Instruct-GGUF",
             "model_file_name_template": "Seed-OSS-36B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf",
+            "memory_estimation": {
+              "vocab_size": 155136,
+              "num_attention_heads": 80,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Seed-OSS-36B-Instruct-GGUF/resolve/master/BF16/Seed-OSS-36B-Instruct-BF16-00001-of-00002.gguf",
+              "config_sha256": "7f7df0cc3b64e3def54186530c6b0f17008fa5ee6d7b58f629838d6d03768d15",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       }

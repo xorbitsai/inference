@@ -69,6 +69,28 @@ def test_all_builtin_catalogs_match_schema(kind):
     catalog.validate_model_catalog(MODEL_ROOT / kind / "models", kind)
 
 
+@pytest.mark.parametrize("source_level", [False, True])
+@pytest.mark.parametrize(
+    "invalid", [{"head_dim": 0}, {"num_key_value_heads": "8"}, {"unknown": 1}]
+)
+def test_memory_estimation_schema(tmp_path, source_level, invalid):
+    record = model_record("llm")
+    spec = record["model_specs"][0]
+    owner = spec["model_src"]["huggingface"] if source_level else spec
+    metadata = dict(
+        vocab_size=32000,
+        num_attention_heads=32,
+        hidden_size=4096,
+        intermediate_size=14336,
+        num_hidden_layers=32,
+    )
+    owner["memory_estimation"] = metadata
+    validate(tmp_path, "llm", [record])
+    metadata.update(invalid)
+    with pytest.raises(ValueError, match="memory_estimation"):
+        validate(tmp_path, "llm", [record])
+
+
 @pytest.mark.parametrize("path", sorted((MODEL_ROOT / "schemas").glob("*.json")))
 def test_schema_definitions_are_valid(path):
     Draft202012Validator.check_schema(json.loads(path.read_text(encoding="utf-8")))

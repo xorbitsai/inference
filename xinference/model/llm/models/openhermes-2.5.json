@@ -20,7 +20,17 @@
               "none"
             ],
             "model_id": "teknium/OpenHermes-2.5-Mistral-7B",
-            "model_revision": "91ed666be78da7556f3d79abbb26fff0ee26cb54"
+            "model_revision": "91ed666be78da7556f3d79abbb26fff0ee26cb54",
+            "memory_estimation": {
+              "vocab_size": 32002,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/teknium/OpenHermes-2.5-Mistral-7B/resolve/91ed666be78da7556f3d79abbb26fff0ee26cb54/config.json",
+              "config_sha256": "5fa042e353e385d8896985884d8436431b5a2bb17954855d55d173d9d31fc108",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -44,7 +54,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/OpenHermes-2.5-Mistral-7B-GGUF",
-            "model_file_name_template": "openhermes-2.5-mistral-7b.{quantization}.gguf"
+            "model_file_name_template": "openhermes-2.5-mistral-7b.{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 32002,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF/resolve/main/openhermes-2.5-mistral-7b.Q2_K.gguf",
+              "config_sha256": "d0da0d773d34670cb3581be3d9d5b8be2451477dc4cf9fe063c197e81e849800",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

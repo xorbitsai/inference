@@ -32,13 +32,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Meta-Llama-3.1-8B"
+            "model_id": "LLM-Research/Meta-Llama-3.1-8B",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-8B/resolve/master/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-Research/Meta-Llama-3.1-8B"
+            "model_id": "AI-Research/Meta-Llama-3.1-8B",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelers.cn/api/v1/file/AI-Research/Meta-Llama-3.1-8B/main/media/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -64,7 +84,17 @@
               "Q8_0"
             ],
             "model_id": "QuantFactory/Meta-Llama-3.1-8B-GGUF",
-            "model_file_name_template": "Meta-Llama-3.1-8B.{quantization}.gguf"
+            "model_file_name_template": "Meta-Llama-3.1-8B.{quantization}.gguf",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/QuantFactory/Meta-Llama-3.1-8B-GGUF/resolve/main/Meta-Llama-3.1-8B.Q2_K.gguf",
+              "config_sha256": "1b7786e194a4df4a532b878e6b87e802b16d7cff0593ef8057199ff3345fedcb",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -82,7 +112,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Meta-Llama-3.1-70B"
+            "model_id": "LLM-Research/Meta-Llama-3.1-70B",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-70B/resolve/master/config.json",
+              "config_sha256": "37653c55ea907be0dc75070afd416fc77e20981c60b7c7e9521ba343678c5349",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -100,7 +140,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Meta-Llama-3.1-405B"
+            "model_id": "LLM-Research/Meta-Llama-3.1-405B",
+            "memory_estimation": {
+              "vocab_size": 128256,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-405B/resolve/master/config.json",
+              "config_sha256": "6ebd8c4a85132e74f49ed32e1ec845fa1f2f84ef8931ac24d96b5d0b8c04028a",
+              "hidden_size": 16384,
+              "intermediate_size": 53248,
+              "num_hidden_layers": 126
+            }
           }
         }
       }

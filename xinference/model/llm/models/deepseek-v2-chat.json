@@ -21,14 +21,36 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-V2-Lite-Chat",
-            "model_revision": "85864749cd611b4353ce1decdb286193298f64c7"
+            "model_revision": "85864749cd611b4353ce1decdb286193298f64c7",
+            "memory_estimation": {
+              "vocab_size": 102400,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V2-Lite-Chat/resolve/85864749cd611b4353ce1decdb286193298f64c7/config.json",
+              "config_sha256": "f346286b0f1c8b044252fd54cb4fa78b9fab6472a6e8bebb9edfe03d414ea03d",
+              "unsupported_reason": "mla",
+              "hidden_size": 2048,
+              "intermediate_size": 10944,
+              "num_hidden_layers": 27
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-V2-Lite-Chat",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 102400,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V2-Lite-Chat/resolve/master/config.json",
+              "config_sha256": "f346286b0f1c8b044252fd54cb4fa78b9fab6472a6e8bebb9edfe03d414ea03d",
+              "unsupported_reason": "mla",
+              "hidden_size": 2048,
+              "intermediate_size": 10944,
+              "num_hidden_layers": 27
+            }
           }
         }
       },
@@ -41,14 +63,36 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-V2-Chat",
-            "model_revision": "8e3f5f6c2226787e41ba3e9283a06389d178c926"
+            "model_revision": "8e3f5f6c2226787e41ba3e9283a06389d178c926",
+            "memory_estimation": {
+              "vocab_size": 102400,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V2-Chat/resolve/8e3f5f6c2226787e41ba3e9283a06389d178c926/config.json",
+              "config_sha256": "36f572d2909bd108d73a814c585fd61afd56266960a13eb67c713e229d3435d1",
+              "unsupported_reason": "mla",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-V2-Chat",
-            "model_revision": "master"
+            "model_revision": "master",
+            "memory_estimation": {
+              "vocab_size": 102400,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V2-Chat/resolve/master/config.json",
+              "config_sha256": "36f572d2909bd108d73a814c585fd61afd56266960a13eb67c713e229d3435d1",
+              "unsupported_reason": "mla",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

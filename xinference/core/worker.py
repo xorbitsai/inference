@@ -3196,10 +3196,12 @@ class WorkerActor(xo.StatelessActor):
                 ),
             }
         from ..model.llm.cache_manager import LLMCacheManager
-        from ..model.llm.llm_family import match_llm
-        from .model_recommendation import spec_key
+        from ..model.llm.llm_family import convert_model_size_to_float, match_llm
+        from ..model.llm.memory import ModelLayersInfo, estimate_llm_gpu_memory_details
+        from .model_recommendation import recommendation_memory_snapshot, spec_key
 
         launch_specs, cached_specs = set(), set()
+        memory_estimates = {}
         for params in (engines or {}).values():
             if not isinstance(params, list):
                 continue
@@ -3216,6 +3218,24 @@ class WorkerActor(xo.StatelessActor):
                         continue
                     key = spec_key(param, quant)
                     launch_specs.add(key)
+                    metadata = getattr(
+                        matched.model_specs[0], "memory_estimation", None
+                    )
+                    if metadata is not None and key not in memory_estimates:
+                        try:
+                            memory_estimates[key] = estimate_llm_gpu_memory_details(
+                                ModelLayersInfo.from_metadata(metadata),
+                                convert_model_size_to_float(
+                                    param["model_size_in_billions"]
+                                ),
+                                quant,
+                                2048,
+                                param["model_format"],
+                            ).total
+                        except (KeyError, ValueError, AssertionError):
+                            # Unsupported quantizations remain compatible candidates,
+                            # but must not be represented as a verified memory fit.
+                            pass
                     path = LLMCacheManager.get_cache_dir_for_spec(
                         model_name, matched.model_specs[0]
                     )
@@ -3234,6 +3254,8 @@ class WorkerActor(xo.StatelessActor):
             "engines": engines or {},
             "launch_specs": launch_specs,
             "cached_specs": cached_specs,
+            "memory_estimates": memory_estimates,
+            "memory": recommendation_memory_snapshot(),
         }
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
