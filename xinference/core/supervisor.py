@@ -1504,8 +1504,8 @@ class SupervisorActor(xo.StatelessActor):
                 info["gpu_vram_available"] = sum(
                     [v.mem_free for k, v in worker_status.status.items() if k != "cpu"]
                 )
-                info["software_version"] = self._worker_metadata.get(
-                    worker_addr, {}
+                info["software_version"] = (
+                    self._worker_metadata.get(worker_addr) or {}
                 ).get("software_version")
             res.append(info)
         if include_routers and XINFERENCE_TOKEN_ROUTER_ENABLED:
