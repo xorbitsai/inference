@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Tuple, Union, cast
+import uuid
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
@@ -42,6 +44,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
         self._context_length = None
         self._chat_template = None
+        self._native_pooling = False
 
     def load(self):
         try:
@@ -59,6 +62,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+        self._kwargs.pop("batch_size", None)
+        self._kwargs.pop("batch_interval", None)
+
         if self.model_family.model_name in {
             "Qwen3-Embedding-0.6B",
             "Qwen3-Embedding-4B",
@@ -96,6 +102,17 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             if Version(vllm_version) < Version("0.14.0"):
                 raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
+        elif Version(vllm_version) >= Version("0.19.0") and not is_vacc_available():
+            from vllm.engine.arg_utils import AsyncEngineArgs
+            from vllm.v1.engine.async_llm import AsyncLLM
+
+            self._kwargs.setdefault("runner", "pooling")
+            self._model = AsyncLLM.from_engine_args(
+                AsyncEngineArgs(model=self._model_path, **self._kwargs)
+            )
+            self._native_pooling = True
+            # Submit requests immediately; vLLM owns the cross-request queue.
+            self.create_embedding = self._async_create_embedding
         else:
             if Version(vllm_version) >= Version("0.13.0"):
                 self._model = LLM(
@@ -109,7 +126,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     def _get_detailed_instruct(task_description: str, query: str) -> str:
         return f"Instruct: {task_description}\nQuery:{query}"  # noqa: E231
 
-    def _create_embedding(
+    def _prepare_embedding(
         self,
         sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
@@ -169,6 +186,10 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     f"Please upgrade to v0.10.1 or later."
                 )
             pool_params = PoolingParams(dimensions=dimensions)
+        return sentences, pool_params, model_uid
+
+    def _create_embedding(self, sentences: Any, **kwargs) -> Embedding:
+        sentences, pool_params, model_uid = self._prepare_embedding(sentences, **kwargs)
         if is_wemm_model(self.model_family.model_name):
             outputs = self._embed_wemm(sentences, pool_params)
         elif self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
@@ -177,6 +198,48 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             outputs = self._model.embed(
                 sentences, use_tqdm=False, pooling_params=pool_params
             )
+        result = self._format_embedding_outputs(outputs, model_uid)
+        self._clean_cache_if_needed(result["usage"]["total_tokens"])
+        return result
+
+    async def _async_create_embedding(self, sentences: Any, **kwargs) -> Embedding:
+        from vllm.outputs import EmbeddingRequestOutput
+
+        truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
+        if truncate_prompt_tokens is not None:
+            sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
+        sentences, pool_params, model_uid = self._prepare_embedding(sentences, **kwargs)
+        pool_params.task = "embed"
+        prompts = [sentences] if isinstance(sentences, str) else sentences
+        request_id = uuid.uuid4().hex
+
+        async def encode(index: int, prompt: str):
+            output = None
+            async for output in self._model.encode(
+                prompt, pool_params, f"{request_id}-{index}"
+            ):
+                pass
+            if output is None:
+                raise RuntimeError("vLLM returned no embedding output")
+            return EmbeddingRequestOutput.from_base(output)
+
+        tasks = [asyncio.create_task(encode(i, p)) for i, p in enumerate(prompts)]
+        try:
+            outputs = await asyncio.gather(*tasks)
+        finally:
+            # Cancelling encode also aborts its request in vLLM. A failed input
+            # must not leave sibling inputs running after the caller has exited.
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        # vLLM owns the worker's GPU allocations. Avoid collecting the actor's
+        # Python heap every few requests while native inference is in flight.
+        return self._format_embedding_outputs(outputs, model_uid)
+
+    def _format_embedding_outputs(
+        self, outputs: List[Any], model_uid: Optional[str]
+    ) -> Embedding:
         embedding_list = []
         all_token_nums = 0
         for index, output in enumerate(outputs):
@@ -197,8 +260,6 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             data=embedding_list,
             usage=usage,
         )
-        self._clean_cache_if_needed(all_token_nums)
-
         return result
 
     def _embed_wemm(self, inputs: WeMMInput, pool_params):
@@ -381,7 +442,6 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
-
         required_vllm_version = None
         if is_wemm_model(model_family.model_name):
             required_vllm_version = "0.27.0"
@@ -421,7 +481,13 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             )
         return True
 
+    def stop(self):
+        if self._native_pooling and self._model is not None:
+            self._model.shutdown()
+
     def wait_for_load(self):
+        if self._native_pooling:
+            return
         # set context length after engine inited
         self._set_context_length()
 

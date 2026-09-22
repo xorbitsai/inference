@@ -200,3 +200,11 @@ msgstr ""
 "concorrentes para o mesmo modelo. A interface ``launch_model`` oferece o "
 "parâmetro opcional ``max_num_seqs`` para ajustar o nível de concorrência, "
 "com valor padrão ``16``."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path."
+msgstr "Com vLLM >= 0.19.0, os modelos de embedding de texto usam o escalonador assíncrono nativo de pooling. Configure ``max_num_seqs`` e ``max_num_batched_tokens`` ao iniciar o modelo; ``batch_size`` e ``batch_interval`` do Xinference não controlam esse caminho. Versões anteriores do vLLM, VACC e embeddings WeMM e Qwen3-VL mantêm o caminho existente de processamento em lotes do Xinference."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Embedding"
+msgstr "Embedding"

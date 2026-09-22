@@ -174,3 +174,11 @@ msgstr ""
 "GPU 추론을 사용하는 경우, 이 기능은 비디오 메모리 요구 사항이 높습니다. 따라서 동일한 모델에 대한 동시 요청 수를 신중하게 "
 "늘리십시오. ``launch_model`` 인터페이스는 선택적 매개변수 ``max_num_seqs``를 제공하여 동시성을 조정할 수 "
 "있으며, 기본값은 ``16``입니다."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path."
+msgstr "vLLM >= 0.19.0에서는 텍스트 임베딩 모델이 네이티브 비동기 pooling 스케줄러를 사용합니다. 모델 시작 시 ``max_num_seqs`` 및 ``max_num_batched_tokens`` 를 설정하세요. Xinference의 ``batch_size`` 및 ``batch_interval`` 은 이 경로를 제어하지 않습니다. 이전 vLLM 버전, VACC, WeMM 및 Qwen3-VL 임베딩은 기존 Xinference 배치 처리 경로를 유지합니다."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Embedding"
+msgstr "Embedding"

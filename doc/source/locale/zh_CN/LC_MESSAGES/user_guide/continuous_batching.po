@@ -173,3 +173,11 @@ msgstr ""
 "请求量。``launch_model`` 接口提供可选参数 ``max_num_seqs`` 用于调整并发度"
 "，默认值为 ``16`` 。"
 
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path."
+msgstr "使用 vLLM >= 0.19.0 时，文本嵌入模型使用原生异步 pooling 调度器。请在启动模型时配置 ``max_num_seqs`` 和 ``max_num_batched_tokens``；Xinference 的 ``batch_size`` 和 ``batch_interval`` 不控制此路径。较旧的 vLLM 版本、VACC、WeMM 和 Qwen3-VL 嵌入模型保留现有的 Xinference 批处理路径。"
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Embedding"
+msgstr "Embedding"

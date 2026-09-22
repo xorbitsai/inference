@@ -67,6 +67,11 @@ Once this feature is enabled, all requests for LLMs will be managed by continuou
 and the average throughput of requests made to a single model will increase.
 The usage of the LLM interface remains exactly the same as before, with no differences.
 
+Embedding
+---------
+
+With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path.
+
 Image Model
 -----------
 Currently, for image models, only the ``text_to_image`` interface is supported for ``FLUX.1`` series models.

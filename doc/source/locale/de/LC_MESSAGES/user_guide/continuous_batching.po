@@ -198,3 +198,11 @@ msgstr ""
 "dasselbe Modell vorsichtig erhöht werden. Die Schnittstelle ``launch_model``"
 " bietet den optionalen Parameter ``max_num_seqs`` zur Anpassung des "
 "Parallelitätsgrads, mit einem Standardwert von ``16``."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "With vLLM >= 0.19.0, text embedding models use the native asynchronous pooling scheduler. Configure ``max_num_seqs`` and ``max_num_batched_tokens`` at model launch; Xinference ``batch_size`` and ``batch_interval`` do not control this path. Older vLLM versions, VACC, WeMM and Qwen3-VL embeddings retain the existing Xinference batching path."
+msgstr "Mit vLLM >= 0.19.0 verwenden Text-Embedding-Modelle den nativen asynchronen Pooling-Scheduler. Konfigurieren Sie ``max_num_seqs`` und ``max_num_batched_tokens`` beim Modellstart; ``batch_size`` und ``batch_interval`` von Xinference steuern diesen Pfad nicht. Ältere vLLM-Versionen, VACC sowie WeMM- und Qwen3-VL-Embeddings behalten den bisherigen Xinference-Batching-Pfad bei."
+
+#: ../../source/user_guide/continuous_batching.rst
+msgid "Embedding"
+msgstr "Embedding"
