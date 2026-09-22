@@ -30,6 +30,9 @@ SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
+    # The backend can be either a synchronous LLM or an asynchronous engine.
+    _model: Any
+
     def __init__(self, *args, **kwargs) -> None:
         RerankModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.rerank, **kwargs)  # type: ignore

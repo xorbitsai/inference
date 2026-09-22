@@ -39,6 +39,10 @@ SUPPORTED_MODELS_PREFIXES = [
 
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
+    # The backend can be either a synchronous LLM or an asynchronous engine.
+    _model: Any
+    _tokenizer: Any
+
     def __init__(self, *args, **kwargs):
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
