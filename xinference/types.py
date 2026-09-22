@@ -86,7 +86,7 @@ class EmbeddingData(TypedDict):
 
 class Embedding(TypedDict):
     object: Literal["list"]
-    model: str
+    model: Optional[str]
     model_replica: str
     data: List[EmbeddingData]
     usage: EmbeddingUsage
@@ -132,7 +132,7 @@ class RerankTokens(TypedDict):
 class Meta(TypedDict):
     api_version: Optional[ApiVersion]
     billed_units: Optional[BilledUnit]
-    tokens: RerankTokens
+    tokens: Optional[RerankTokens]
     warnings: Optional[List[str]]
 
 
