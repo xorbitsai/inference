@@ -8,7 +8,7 @@
     "$ref": "#/$defs/record"
   },
   "$defs": {
-    "memoryEstimation": {
+    "modelMetadata": {
       "type": "object",
       "properties": {
         "vocab_size": { "type": "integer", "minimum": 1 },
@@ -20,7 +20,7 @@
         "num_hidden_layers": { "type": "integer", "minimum": 1 },
         "config_source": { "type": ["string", "null"] },
         "config_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "unsupported_reason": { "type": ["string", "null"] }
+        "architecture_type": { "type": ["string", "null"] }
       },
       "required": [
         "vocab_size",
@@ -34,8 +34,8 @@
     "spec": {
       "type": "object",
       "properties": {
-        "memory_estimation": {
-          "$ref": "#/$defs/memoryEstimation"
+        "model_metadata": {
+          "$ref": "#/$defs/modelMetadata"
         },
         "model_format": {
           "type": "string",
@@ -106,12 +106,12 @@
         "draft_quantizations": {
           "$ref": "common.schema.json#/$defs/quantizations"
         },
-        "memory_estimation_by_quantization": {
+        "model_metadata_by_quantization": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/memoryEstimation" }
+          "additionalProperties": { "$ref": "#/$defs/modelMetadata" }
         },
-        "memory_estimation": {
-          "$ref": "#/$defs/memoryEstimation"
+        "model_metadata": {
+          "$ref": "#/$defs/modelMetadata"
         }
       },
       "unevaluatedProperties": false

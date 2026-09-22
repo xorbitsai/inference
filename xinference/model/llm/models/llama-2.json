@@ -32,7 +32,7 @@
             ],
             "model_id": "TheBloke/Llama-2-7B-GGUF",
             "model_file_name_template": "llama-2-7b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -54,7 +54,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-7B-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-GPTQ/resolve/60b5c75d47a7d925782e74d16b6686cf0abbd052/config.json",
@@ -75,7 +75,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-7B-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -109,7 +109,7 @@
             ],
             "model_id": "TheBloke/Llama-2-13B-GGUF",
             "model_file_name_template": "llama-2-13b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -152,7 +152,7 @@
             "model_id": "TheBloke/Llama-2-70B-GGUF",
             "model_file_name_template": "llama-2-70b.{quantization}.gguf",
             "model_file_name_split_template": "llama-2-70b.{quantization}.gguf-{part}",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -200,7 +200,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-13B-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -222,7 +222,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-13B-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -257,7 +257,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-70B-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -279,7 +279,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-70B-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,

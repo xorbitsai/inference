@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from .. import collect_memory_catalog as collector
-from ..gguf_memory_metadata import read_gguf_config
+from ..gguf_model_metadata import read_gguf_config
 
 
 def gguf_header():
@@ -111,7 +111,7 @@ def test_catalog_collects_each_quantization_and_reports_missing(tmp_path, monkey
     source = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
         "model_src"
     ]["huggingface"]
-    assert set(source["memory_estimation_by_quantization"]) == {"4bit"}
+    assert set(source["model_metadata_by_quantization"]) == {"4bit"}
     assert len(calls) == 2
     report = json.loads((output / "coverage.json").read_text())
     assert [r["status"] for r in report] == ["collected", "unavailable"]

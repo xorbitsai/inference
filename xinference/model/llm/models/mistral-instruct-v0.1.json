@@ -21,7 +21,7 @@
             ],
             "model_id": "mistralai/Mistral-7B-Instruct-v0.1",
             "model_revision": "54766df6d50e4d3d7ccd66758e5341ba105a6d36",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -38,7 +38,7 @@
             ],
             "model_id": "Xorbits/Mistral-7B-Instruct-v0.1",
             "model_revision": "v1.0.0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -60,7 +60,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Mistral-7B-Instruct-v0.1-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -82,7 +82,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Mistral-7B-Instruct-v0.1-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -116,7 +116,7 @@
             ],
             "model_id": "TheBloke/Mistral-7B-Instruct-v0.1-GGUF",
             "model_file_name_template": "mistral-7b-instruct-v0.1.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,

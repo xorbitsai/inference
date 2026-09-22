@@ -22,7 +22,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-0.5B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-0.5B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -66,7 +66,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-1.8B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -82,7 +82,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-1.8B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -104,7 +104,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-4B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -120,7 +120,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-4B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -136,7 +136,7 @@
               "none"
             ],
             "model_id": "HangZhou_Ascend/Qwen1.5-4B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -158,7 +158,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-7B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -174,7 +174,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-7B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -190,7 +190,7 @@
               "none"
             ],
             "model_id": "PyTorch-NPU/qwen1.5_7b_chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -212,7 +212,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-14B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -228,7 +228,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-14B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -244,7 +244,7 @@
               "none"
             ],
             "model_id": "State_Cloud/Qwen1.5-14B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -266,7 +266,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-32B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -282,7 +282,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-32B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -298,7 +298,7 @@
               "none"
             ],
             "model_id": "State_Cloud/Qwen1.5-32b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -320,7 +320,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-72B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
@@ -336,7 +336,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-72B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
@@ -352,7 +352,7 @@
               "none"
             ],
             "model_id": "State_Cloud/Qwen1.5-72b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
@@ -374,7 +374,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen1.5-110B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -390,7 +390,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen1.5-110B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -413,7 +413,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen1.5-0.5B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -442,7 +442,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen1.5-0.5B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -477,7 +477,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen1.5-1.8B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -506,7 +506,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen1.5-1.8B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -541,7 +541,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen1.5-4B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 20,
@@ -570,7 +570,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen1.5-4B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 20,
@@ -605,7 +605,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen1.5-7B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -634,7 +634,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen1.5-7B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -669,7 +669,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen1.5-14B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
@@ -698,7 +698,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen1.5-14B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
@@ -732,7 +732,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-32B-Chat-GPTQ-{quantization}",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -748,7 +748,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-32B-Chat-GPTQ-{quantization}",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -771,7 +771,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen1.5-72B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
@@ -800,7 +800,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen1.5-72B-Chat-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
@@ -834,7 +834,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-110B-Chat-GPTQ-Int4",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -850,7 +850,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-110B-Chat-GPTQ-Int4",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -872,7 +872,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-0.5B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -888,7 +888,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-0.5B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -910,7 +910,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-1.8B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -926,7 +926,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-1.8B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -948,7 +948,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-4B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -964,7 +964,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-4B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -986,7 +986,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-7B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -1002,7 +1002,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-7B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -1024,7 +1024,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-14B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -1040,7 +1040,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-14B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -1062,7 +1062,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-32B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -1078,7 +1078,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-32B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -1100,7 +1100,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-72B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
@@ -1116,7 +1116,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-72B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
@@ -1138,7 +1138,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen1.5-110B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -1154,7 +1154,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen1.5-110B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -1184,7 +1184,7 @@
             ],
             "model_id": "Qwen/Qwen1.5-0.5B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-0_5b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -1208,7 +1208,7 @@
             ],
             "model_id": "qwen/Qwen1.5-0.5B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-0_5b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -1238,7 +1238,7 @@
             ],
             "model_id": "Qwen/Qwen1.5-1.8B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-1_8b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -1262,7 +1262,7 @@
             ],
             "model_id": "qwen/Qwen1.5-1.8B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-1_8b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -1292,7 +1292,7 @@
             ],
             "model_id": "Qwen/Qwen1.5-4B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-4b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -1316,7 +1316,7 @@
             ],
             "model_id": "qwen/Qwen1.5-4B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-4b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 20,
               "num_key_value_heads": 20,
@@ -1346,7 +1346,7 @@
             ],
             "model_id": "Qwen/Qwen1.5-7B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-7b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -1370,7 +1370,7 @@
             ],
             "model_id": "qwen/Qwen1.5-7B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-7b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -1400,7 +1400,7 @@
             ],
             "model_id": "Qwen/Qwen1.5-14B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-14b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -1424,7 +1424,7 @@
             ],
             "model_id": "qwen/Qwen1.5-14B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-14b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -1454,7 +1454,7 @@
             ],
             "model_id": "Qwen/Qwen1.5-32B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-32b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -1478,7 +1478,7 @@
             ],
             "model_id": "qwen/Qwen1.5-32B-Chat-GGUF",
             "model_file_name_template": "qwen1_5-32b-chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -1510,7 +1510,7 @@
                 "b"
               ]
             },
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
@@ -1536,7 +1536,7 @@
                 "b"
               ]
             },
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,

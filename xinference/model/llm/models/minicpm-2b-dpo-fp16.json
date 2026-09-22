@@ -21,7 +21,7 @@
             ],
             "model_id": "openbmb/MiniCPM-2B-dpo-fp16",
             "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 122753,
               "num_attention_heads": 36,
               "num_key_value_heads": 36,
@@ -38,7 +38,7 @@
             ],
             "model_id": "OpenBMB/MiniCPM-2B-dpo-fp16",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 122753,
               "num_attention_heads": 36,
               "num_key_value_heads": 36,

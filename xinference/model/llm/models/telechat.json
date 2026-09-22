@@ -21,7 +21,7 @@
               "none"
             ],
             "model_id": "Tele-AI/telechat-7B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 160256,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/Tele-AI/telechat-7B/resolve/0c33078695dff4d41bed535c1d9d9c89db947a4c/config.json",
@@ -37,7 +37,7 @@
             ],
             "model_id": "TeleAI/telechat-7B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 160256,
               "num_attention_heads": 32,
               "config_source": "https://modelscope.cn/models/TeleAI/telechat-7B/resolve/master/config.json",
@@ -52,7 +52,7 @@
               "none"
             ],
             "model_id": "TeleAI/TeleChat-7B-pt",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 160256,
               "num_attention_heads": 32,
               "config_source": "https://modelers.cn/api/v1/file/TeleAI/TeleChat-7B-pt/main/media/config.json",
@@ -74,7 +74,7 @@
               "int8"
             ],
             "model_id": "Tele-AI/telechat-7B-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "int4": {
                 "vocab_size": 160256,
                 "num_attention_heads": 32,
@@ -102,7 +102,7 @@
             ],
             "model_id": "TeleAI/telechat-7B-{quantization}",
             "model_revision": "master",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "int4": {
                 "vocab_size": 160256,
                 "num_attention_heads": 32,
@@ -134,7 +134,7 @@
               "none"
             ],
             "model_id": "Tele-AI/TeleChat-12B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120000,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/Tele-AI/TeleChat-12B/resolve/85a78d4716b16bef8d4363adba8e2f8bac0dfedf/config.json",
@@ -150,7 +150,7 @@
             ],
             "model_id": "TeleAI/TeleChat-12B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120000,
               "num_attention_heads": 32,
               "config_source": "https://modelscope.cn/models/TeleAI/TeleChat-12B/resolve/master/config.json",
@@ -165,7 +165,7 @@
               "none"
             ],
             "model_id": "TeleAI/TeleChat-12B-pt",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120000,
               "num_attention_heads": 32,
               "config_source": "https://modelers.cn/api/v1/file/TeleAI/TeleChat-12B-pt/main/media/config.json",
@@ -187,7 +187,7 @@
               "int8"
             ],
             "model_id": "Tele-AI/TeleChat-12B-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "int4": {
                 "vocab_size": 120000,
                 "num_attention_heads": 32,
@@ -215,7 +215,7 @@
             ],
             "model_id": "TeleAI/TeleChat-12B-{quantization}",
             "model_revision": "master",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "int4": {
                 "vocab_size": 120000,
                 "num_attention_heads": 32,
@@ -247,7 +247,7 @@
               "none"
             ],
             "model_id": "Tele-AI/TeleChat-52B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 80896,
               "num_attention_heads": 64,
               "config_source": "https://huggingface.co/Tele-AI/TeleChat-52B/resolve/fde5b7a379e55ccea942c1310ca508fdb97ed9b7/config.json",
@@ -263,7 +263,7 @@
             ],
             "model_id": "TeleAI/TeleChat-52B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 80896,
               "num_attention_heads": 64,
               "config_source": "https://modelscope.cn/models/TeleAI/TeleChat-52B/resolve/master/config.json",
@@ -278,7 +278,7 @@
               "none"
             ],
             "model_id": "TeleAI/TeleChat-52B-pt",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 80896,
               "num_attention_heads": 64,
               "config_source": "https://modelers.cn/api/v1/file/TeleAI/TeleChat-52B-pt/main/media/config.json",

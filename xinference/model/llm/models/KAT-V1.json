@@ -21,7 +21,7 @@
               "none"
             ],
             "model_id": "Kwaipilot/KAT-V1-40B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -37,7 +37,7 @@
               "none"
             ],
             "model_id": "Kwaipilot/KAT-V1-40B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -59,7 +59,7 @@
               "Int4-Int8Mix"
             ],
             "model_id": "QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -75,7 +75,7 @@
               "Int4-Int8Mix"
             ],
             "model_id": "tclf90/KAT-V1-40B-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -97,7 +97,7 @@
               "Int4"
             ],
             "model_id": "QuantTrio/KAT-V1-40B-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -113,7 +113,7 @@
               "Int4"
             ],
             "model_id": "tclf90/KAT-V1-40B-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,

@@ -73,7 +73,7 @@ def test_all_builtin_catalogs_match_schema(kind):
 @pytest.mark.parametrize(
     "invalid", [{"head_dim": 0}, {"num_key_value_heads": "8"}, {"unknown": 1}]
 )
-def test_memory_estimation_schema(tmp_path, source_level, invalid):
+def test_model_metadata_schema(tmp_path, source_level, invalid):
     record = model_record("llm")
     spec = record["model_specs"][0]
     owner = spec["model_src"]["huggingface"] if source_level else spec
@@ -84,10 +84,10 @@ def test_memory_estimation_schema(tmp_path, source_level, invalid):
         intermediate_size=14336,
         num_hidden_layers=32,
     )
-    owner["memory_estimation"] = metadata
+    owner["model_metadata"] = metadata
     validate(tmp_path, "llm", [record])
     metadata.update(invalid)
-    with pytest.raises(ValueError, match="memory_estimation"):
+    with pytest.raises(ValueError, match="model_metadata"):
         validate(tmp_path, "llm", [record])
 
 

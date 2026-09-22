@@ -22,13 +22,13 @@
             ],
             "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
             "model_revision": "5d09e272c2b223830f4e84359cd9dd047a5d7c78",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V2-Chat-0628/resolve/5d09e272c2b223830f4e84359cd9dd047a5d7c78/config.json",
               "config_sha256": "4cb37d1e07da958c0367cc9697cec37ae0a80ee9a7c922c37232d798fb311e3e",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 60
@@ -40,13 +40,13 @@
             ],
             "model_id": "deepseek-ai/DeepSeek-V2-Chat-0628",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V2-Chat-0628/resolve/master/config.json",
               "config_sha256": "4cb37d1e07da958c0367cc9697cec37ae0a80ee9a7c922c37232d798fb311e3e",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 60

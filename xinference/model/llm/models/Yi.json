@@ -33,7 +33,7 @@
             ],
             "model_id": "TheBloke/Yi-34B-GGUF",
             "model_file_name_template": "yi-34b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -56,7 +56,7 @@
             ],
             "model_id": "01-ai/Yi-6B",
             "model_revision": "25beebcb1166b9f49458459eb7b68130b9f9cf4d",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -73,7 +73,7 @@
             ],
             "model_id": "01ai/Yi-6B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -89,7 +89,7 @@
               "none"
             ],
             "model_id": "wuhaicc/Yi-6B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -112,7 +112,7 @@
             ],
             "model_id": "01-ai/Yi-9B",
             "model_revision": "f70a5ff8b2e51c5d5b20e649d7b5f4238ffe6d5b",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -129,7 +129,7 @@
             ],
             "model_id": "01ai/Yi-9B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -145,7 +145,7 @@
               "none"
             ],
             "model_id": "wuhaicc/Yi-9B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -168,7 +168,7 @@
             ],
             "model_id": "01-ai/Yi-34B",
             "model_revision": "168c48e05e1429779a896c7ef0d2e01b85e6bd8d",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -185,7 +185,7 @@
             ],
             "model_id": "01ai/Yi-34B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,

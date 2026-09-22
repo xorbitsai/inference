@@ -21,7 +21,7 @@
             ],
             "model_id": "mistralai/Codestral-22B-v0.1",
             "model_revision": "8f5fe23af91885222a1563283c87416745a5e212",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32768,
               "num_attention_heads": 48,
               "num_key_value_heads": 8,
@@ -53,7 +53,7 @@
             ],
             "model_id": "bartowski/Codestral-22B-v0.1-GGUF",
             "model_file_name_template": "Codestral-22B-v0.1-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32768,
               "num_attention_heads": 48,
               "num_key_value_heads": 8,
@@ -76,7 +76,7 @@
             ],
             "model_id": "mlx-community/Codestral-22B-v0.1-4bit",
             "model_revision": "544626b38eb1c9524f0fa570ec7b29550c26b78d",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32768,
               "num_attention_heads": 48,
               "num_key_value_heads": 8,
@@ -99,7 +99,7 @@
             ],
             "model_id": "mlx-community/Codestral-22B-v0.1-8bit",
             "model_revision": "0399a53970663950d57010e61a2796af524a1588",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32768,
               "num_attention_heads": 48,
               "num_key_value_heads": 8,

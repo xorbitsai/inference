@@ -24,13 +24,13 @@
             ],
             "model_id": "deepseek-ai/DeepSeek-R1",
             "model_revision": "8a58a132790c9935686eb97f042afa8013451c9f",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1/resolve/8a58a132790c9935686eb97f042afa8013451c9f/config.json",
               "config_sha256": "4422016f41c506339e0510a32812a63da554dc9febd5f1368e7240ded14e4a27",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -42,13 +42,13 @@
             ],
             "model_id": "deepseek-ai/DeepSeek-R1",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1/resolve/master/config.json",
               "config_sha256": "4422016f41c506339e0510a32812a63da554dc9febd5f1368e7240ded14e4a27",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -66,13 +66,13 @@
               "Int4"
             ],
             "model_id": "cognitivecomputations/DeepSeek-R1-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://huggingface.co/cognitivecomputations/DeepSeek-R1-AWQ/resolve/21fb456e5072f59b591c79cea80e2216ec3be348/config.json",
               "config_sha256": "05ec0d89caaeb8ee05e276b14f7d62d33d3276533a182947cac2d0d81761ed74",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -84,13 +84,13 @@
             ],
             "model_id": "cognitivecomputations/DeepSeek-R1-awq",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://modelscope.cn/models/cognitivecomputations/DeepSeek-R1-awq/resolve/master/config.json",
               "config_sha256": "05ec0d89caaeb8ee05e276b14f7d62d33d3276533a182947cac2d0d81761ed74",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -264,13 +264,13 @@
                 "00030-of-00030"
               ]
             },
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-GGUF/resolve/4dab99fdb3fea560e5a402b49c6ef11e025321a8/config.json",
               "config_sha256": "22dedcf644dbbfab29bc945c553bda607f8aefb2add51310c49aeb396a2b98ef",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -437,13 +437,13 @@
                 "00030-of-00030"
               ]
             },
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-GGUF/resolve/master/config.json",
               "config_sha256": "22dedcf644dbbfab29bc945c553bda607f8aefb2add51310c49aeb396a2b98ef",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -463,14 +463,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/DeepSeek-R1-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "2bit": {
                 "vocab_size": 129280,
                 "num_attention_heads": 128,
                 "num_key_value_heads": 128,
                 "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-2bit/resolve/c121c74a5eed8386dfedb04c6290d1f097be6309/config.json",
                 "config_sha256": "68445cf449ca6c97fc6c077221e92be58d1d3c936956e5087084947a355d3520",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -481,7 +481,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-3bit/resolve/4c0731bd49ff0a1ee87425982ebcdc5be2ecc0b6/config.json",
                 "config_sha256": "21140a398449270d07f3de86e5d03bbb263cb68bf300efe127e460d063ee54fd",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -492,7 +492,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-4bit/resolve/5aa58959991bd42ce9c0eb634b1aff00a3410426/config.json",
                 "config_sha256": "733fd3f2150ef95c0551da57b5e2cec487cab941ed2d9d93ebd0dc95a74ef8b1",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -506,14 +506,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/DeepSeek-R1-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "2bit": {
                 "vocab_size": 129280,
                 "num_attention_heads": 128,
                 "num_key_value_heads": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-2bit/resolve/master/config.json",
                 "config_sha256": "68445cf449ca6c97fc6c077221e92be58d1d3c936956e5087084947a355d3520",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -524,7 +524,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-3bit/resolve/master/config.json",
                 "config_sha256": "21140a398449270d07f3de86e5d03bbb263cb68bf300efe127e460d063ee54fd",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -535,7 +535,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-4bit/resolve/master/config.json",
                 "config_sha256": "733fd3f2150ef95c0551da57b5e2cec487cab941ed2d9d93ebd0dc95a74ef8b1",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61

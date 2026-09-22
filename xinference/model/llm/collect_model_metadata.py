@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Extract memory estimation metadata from a local model config.json."""
+"""Extract model architecture metadata from a local model config.json."""
 
 import argparse
 import json
 
-from .memory_metadata import ModelMemoryMetadata
+from .model_metadata import ModelMetadata
 
 
 def main() -> None:
@@ -27,7 +27,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     with open(args.config, encoding="utf-8") as f:
-        metadata = ModelMemoryMetadata.from_config(json.load(f))
+        metadata = ModelMetadata.from_config(json.load(f))
     print(metadata.json(indent=2, exclude_none=True))
 
 

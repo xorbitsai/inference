@@ -32,7 +32,7 @@
             ],
             "model_id": "TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF",
             "model_file_name_template": "tinyllama-1.1b-chat-v0.3.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32003,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -50,7 +50,7 @@
             "model_id": "Xorbits/TinyLlama-1.1B-step-50K-105b-GGUF",
             "model_revision": "v0.0.1",
             "model_file_name_template": "ggml-model-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,

@@ -22,7 +22,7 @@
             ],
             "model_id": "tencent/Hy-MT2-1.8B",
             "model_revision": "main",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120818,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -40,7 +40,7 @@
             ],
             "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120818,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -67,7 +67,7 @@
             ],
             "model_id": "tencent/Hy-MT2-1.8B-FP8",
             "model_revision": "main",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120818,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -85,7 +85,7 @@
             ],
             "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-FP8",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120818,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -111,7 +111,7 @@
             ],
             "model_id": "tencent/Hy-MT2-1.8B-GGUF",
             "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120818,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -131,7 +131,7 @@
             ],
             "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-GGUF",
             "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 120818,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,

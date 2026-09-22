@@ -23,7 +23,7 @@
             ],
             "model_id": "zai-org/glm-4-9b-chat-hf",
             "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -41,7 +41,7 @@
             ],
             "model_id": "ZhipuAI/glm-4-9b-chat-hf",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -58,7 +58,7 @@
               "none"
             ],
             "model_id": "AI-Research/glm-4-9b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -98,7 +98,7 @@
             "model_file_name_template": "glm-4-9b-chat.{quantization}.gguf",
             "model_id": "legraphista/glm-4-9b-chat-GGUF",
             "model_revision": "0155a14edf0176863e9a003cdd78ce599e4d62c0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -132,7 +132,7 @@
             "model_file_name_template": "glm-4-9b-chat.{quantization}.gguf",
             "model_id": "LLM-Research/glm-4-9b-chat-GGUF",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,

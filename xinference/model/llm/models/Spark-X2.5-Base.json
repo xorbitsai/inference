@@ -22,7 +22,7 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 131072,
               "num_attention_heads": 8,
               "num_key_value_heads": 2,
@@ -40,7 +40,7 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 131072,
               "num_attention_heads": 8,
               "num_key_value_heads": 2,
@@ -64,7 +64,7 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 131072,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -82,7 +82,7 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 131072,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,

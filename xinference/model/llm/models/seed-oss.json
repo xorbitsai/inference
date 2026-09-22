@@ -23,7 +23,7 @@
               "none"
             ],
             "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,
@@ -54,7 +54,7 @@
               "Int3"
             ],
             "model_id": "QuantTrio/Seed-OSS-36B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int8": {
                 "vocab_size": 155136,
                 "num_attention_heads": 80,
@@ -97,7 +97,7 @@
               "Int3"
             ],
             "model_id": "tclf90/Seed-OSS-36B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int8": {
                 "vocab_size": 155136,
                 "num_attention_heads": 80,
@@ -144,7 +144,7 @@
               "Int4"
             ],
             "model_id": "QuantTrio/Seed-OSS-36B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,
@@ -161,7 +161,7 @@
               "Int4"
             ],
             "model_id": "tclf90/Seed-OSS-36B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,
@@ -184,7 +184,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,
@@ -201,7 +201,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/Seed-OSS-36B-Instruct-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,
@@ -257,7 +257,7 @@
             "model_id": "unsloth/Seed-OSS-36B-Instruct-GGUF",
             "model_file_name_template": "Seed-OSS-36B-Instruct-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,
@@ -307,7 +307,7 @@
             "model_id": "unsloth/Seed-OSS-36B-Instruct-GGUF",
             "model_file_name_template": "Seed-OSS-36B-Instruct-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Seed-OSS-36B-Instruct-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 155136,
               "num_attention_heads": 80,
               "num_key_value_heads": 8,

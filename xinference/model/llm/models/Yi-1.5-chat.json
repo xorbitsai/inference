@@ -22,7 +22,7 @@
             ],
             "model_id": "01-ai/Yi-1.5-6B-Chat",
             "model_revision": "d68dab90947a3c869e28c9cb2806996af99a6080",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -39,7 +39,7 @@
             ],
             "model_id": "01ai/Yi-1.5-6B-Chat",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -62,7 +62,7 @@
             ],
             "model_id": "01-ai/Yi-1.5-9B-Chat",
             "model_revision": "1dc6e2b8dcfc12b95bede8dec67e6b6332ac64c6",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -79,7 +79,7 @@
             ],
             "model_id": "01ai/Yi-1.5-9B-Chat",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -109,7 +109,7 @@
             ],
             "model_id": "01ai/Yi-1.5-34B-Chat",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -137,7 +137,7 @@
             ],
             "model_id": "lmstudio-community/Yi-1.5-6B-Chat-GGUF",
             "model_file_name_template": "Yi-1.5-6B-Chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -165,7 +165,7 @@
             ],
             "model_id": "lmstudio-community/Yi-1.5-9B-Chat-GGUF",
             "model_file_name_template": "Yi-1.5-9B-Chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -193,7 +193,7 @@
             ],
             "model_id": "lmstudio-community/Yi-1.5-34B-Chat-GGUF",
             "model_file_name_template": "Yi-1.5-34B-Chat-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -216,7 +216,7 @@
             ],
             "model_id": "modelscope/Yi-1.5-6B-Chat-GPTQ",
             "model_revision": "2ad3a602e64d1c79e28e6e92beced2935047367c",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -233,7 +233,7 @@
             ],
             "model_id": "AI-ModelScope/Yi-1.5-6B-Chat-GPTQ",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -256,7 +256,7 @@
             ],
             "model_id": "modelscope/Yi-1.5-9B-Chat-GPTQ",
             "model_revision": "76f47d16982923f7b6674c4e23ddac7c3b1d2e03",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -273,7 +273,7 @@
             ],
             "model_id": "AI-ModelScope/Yi-1.5-9B-Chat-GPTQ",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -296,7 +296,7 @@
             ],
             "model_id": "modelscope/Yi-1.5-34B-Chat-GPTQ",
             "model_revision": "173fb4036265b2dac1d6296a8e2fd2f652c19968",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -313,7 +313,7 @@
             ],
             "model_id": "AI-ModelScope/Yi-1.5-34B-Chat-GPTQ",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -336,7 +336,7 @@
             ],
             "model_id": "modelscope/Yi-1.5-6B-Chat-AWQ",
             "model_revision": "23bf37f1666874e15e239422de0d3948d8735fa9",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -353,7 +353,7 @@
             ],
             "model_id": "AI-ModelScope/Yi-1.5-6B-Chat-AWQ",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -376,7 +376,7 @@
             ],
             "model_id": "modelscope/Yi-1.5-9B-Chat-AWQ",
             "model_revision": "2605f388332672789eae1f422644add2901b433f",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -393,7 +393,7 @@
             ],
             "model_id": "AI-ModelScope/Yi-1.5-9B-Chat-AWQ",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -416,7 +416,7 @@
             ],
             "model_id": "modelscope/Yi-1.5-34B-Chat-AWQ",
             "model_revision": "26234fea6ac49d456f32f8017289021fb1087a04",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -433,7 +433,7 @@
             ],
             "model_id": "AI-ModelScope/Yi-1.5-34B-Chat-AWQ",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -456,7 +456,7 @@
             ],
             "model_id": "mlx-community/Yi-1.5-6B-Chat-4bit",
             "model_revision": "0177c9a12b869d6bc73f772b5a1981a7c966adb6",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -479,7 +479,7 @@
             ],
             "model_id": "mlx-community/Yi-1.5-6B-Chat-8bit",
             "model_revision": "7756e65d1bf1e2e6e97aef6bc9484307225f536b",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -502,7 +502,7 @@
             ],
             "model_id": "mlx-community/Yi-1.5-9B-Chat-4bit",
             "model_revision": "e15f886479c44e7d90f0ac13ace69b2319b71c2f",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -525,7 +525,7 @@
             ],
             "model_id": "mlx-community/Yi-1.5-9B-Chat-8bit",
             "model_revision": "c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -548,7 +548,7 @@
             ],
             "model_id": "mlx-community/Yi-1.5-34B-Chat-4bit",
             "model_revision": "945e3b306ef37c46ab444fdc857d1f3ea7247374",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -571,7 +571,7 @@
             ],
             "model_id": "mlx-community/Yi-1.5-34B-Chat-8bit",
             "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,

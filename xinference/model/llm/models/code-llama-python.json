@@ -21,7 +21,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-7B-Python-fp16",
             "model_revision": "d51c51e625bc24b9a7a0616e82681b4859e2cfe4",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -38,7 +38,7 @@
             ],
             "model_id": "Xorbits/CodeLlama-7B-Python-fp16",
             "model_revision": "v1.0.0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -61,7 +61,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-13B-Python-fp16",
             "model_revision": "442282f4207442b828953a72c51a919c332cba5c",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -78,7 +78,7 @@
             ],
             "model_id": "Xorbits/CodeLlama-13B-Python-fp16",
             "model_revision": "v1.0.0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -101,7 +101,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-34B-Python-fp16",
             "model_revision": "875f9d97fb6c9619d8867887dd1d80918ff0f593",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -135,7 +135,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-7B-Python-GGUF",
             "model_file_name_template": "codellama-7b-python.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -164,7 +164,7 @@
             "model_id": "Xorbits/CodeLlama-7B-Python-GGUF",
             "model_revision": "v1.0.0",
             "model_file_name_template": "codellama-7b-python.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -198,7 +198,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-13B-Python-GGUF",
             "model_file_name_template": "codellama-13b-python.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -226,7 +226,7 @@
             ],
             "model_id": "Xorbits/CodeLlama-13B-Python-GGUF",
             "model_file_name_template": "codellama-13b-python.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -260,7 +260,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-34B-Python-GGUF",
             "model_file_name_template": "codellama-34b-python.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,

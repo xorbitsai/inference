@@ -22,7 +22,7 @@
             ],
             "model_id": "01-ai/Yi-6B-200K",
             "model_revision": "70649e36d43f91dff1357b576e6713cac03c1d4c",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -39,7 +39,7 @@
             ],
             "model_id": "01ai/Yi-6B-200K",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -68,7 +68,7 @@
             ],
             "model_id": "01-ai/Yi-34B-200K",
             "model_revision": "591ae83b8f9c269700ef27f9dbd548934d800302",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -85,7 +85,7 @@
             ],
             "model_id": "01ai/Yi-34B-200K",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,

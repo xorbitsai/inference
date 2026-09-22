@@ -35,9 +35,16 @@ from math import ceil
 from typing import Optional, Union
 
 from .llm_family import convert_model_size_to_float
-from .memory_metadata import ModelMemoryMetadata
+from .model_metadata import ModelMetadata
 
 logger = getLogger(__name__)
+
+
+def unsupported_memory_reason(metadata: ModelMetadata) -> Optional[str]:
+    """Keep this estimator's support policy separate from model facts."""
+    if metadata.architecture_type not in (None, "dense"):
+        return metadata.architecture_type
+    return None
 
 
 @dataclass
@@ -51,11 +58,10 @@ class ModelLayersInfo:
     head_dim: Optional[int] = None  # explicit config value takes precedence
 
     @classmethod
-    def from_metadata(cls, metadata: ModelMemoryMetadata) -> "ModelLayersInfo":
-        if metadata.unsupported_reason:
-            raise ValueError(
-                f"Unsupported memory architecture: {metadata.unsupported_reason}"
-            )
+    def from_metadata(cls, metadata: ModelMetadata) -> "ModelLayersInfo":
+        reason = unsupported_memory_reason(metadata)
+        if reason:
+            raise ValueError(f"Unsupported memory architecture: {reason}")
         return cls(
             vocab_size=metadata.vocab_size,
             heads=metadata.num_attention_heads,
@@ -243,9 +249,7 @@ def estimate_llm_gpu_memory_details(
 def load_model_config_json(config_path: str) -> ModelLayersInfo:
     with open(config_path, "r") as f:
         config_data = json.load(f)
-        return ModelLayersInfo.from_metadata(
-            ModelMemoryMetadata.from_config(config_data)
-        )
+        return ModelLayersInfo.from_metadata(ModelMetadata.from_config(config_data))
 
 
 def get_model_layers_info(
@@ -273,9 +277,9 @@ def get_model_layers_info(
     )
     if not llm_family:
         return None
-    metadata = llm_family.model_specs[0].memory_estimation
+    metadata = llm_family.model_specs[0].model_metadata
     if metadata is not None:
-        if metadata.unsupported_reason:
+        if unsupported_memory_reason(metadata):
             return None
         return ModelLayersInfo.from_metadata(metadata)
     if not allow_download:

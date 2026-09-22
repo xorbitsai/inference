@@ -21,7 +21,7 @@
               "none"
             ],
             "model_id": "Skywork/Skywork-OR1-32B-Preview",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -37,7 +37,7 @@
               "none"
             ],
             "model_id": "Skywork/Skywork-OR1-32B-Preview",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -60,7 +60,7 @@
               "int8"
             ],
             "model_id": "JunHowie/Skywork-OR1-32B-Preview-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
@@ -89,7 +89,7 @@
               "int8"
             ],
             "model_id": "JunHowie/Skywork-OR1-32B-Preview-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
@@ -123,7 +123,7 @@
               "none"
             ],
             "model_id": "Skywork/Skywork-OR1-7B-Preview",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -139,7 +139,7 @@
               "none"
             ],
             "model_id": "Skywork/Skywork-OR1-7B-Preview",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -186,7 +186,7 @@
             ],
             "model_id": "bartowski/Skywork_Skywork-OR1-32B-Preview-GGUF",
             "model_file_name_template": "Skywork_Skywork-OR1-32B-Preview-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -227,7 +227,7 @@
             ],
             "model_id": "bartowski/Skywork_Skywork-OR1-32B-Preview-GGUF",
             "model_file_name_template": "Skywork_Skywork-OR1-32B-Preview-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
@@ -274,7 +274,7 @@
             ],
             "model_id": "bartowski/Skywork_Skywork-OR1-7B-Preview-GGUF",
             "model_file_name_template": "Skywork_Skywork-OR1-7B-Preview-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -315,7 +315,7 @@
             ],
             "model_id": "bartowski/Skywork_Skywork-OR1-7B-Preview-GGUF",
             "model_file_name_template": "Skywork_Skywork-OR1-7B-Preview-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,

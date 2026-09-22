@@ -23,14 +23,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 200064,
               "num_attention_heads": 48,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/MiniMaxAI/MiniMax-M2.7/resolve/d494266a4affc0d2995ba1fa35c8481cbd84294b/config.json",
               "config_sha256": "697c30492781d55ac516011f937b5cdec045710b5b0c9ca39a6ea277785df9aa",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 3072,
               "intermediate_size": 1536,
               "num_hidden_layers": 62
@@ -41,14 +41,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 200064,
               "num_attention_heads": 48,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/MiniMax/MiniMax-M2.7/resolve/master/config.json",
               "config_sha256": "697c30492781d55ac516011f937b5cdec045710b5b0c9ca39a6ea277785df9aa",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 3072,
               "intermediate_size": 1536,
               "num_hidden_layers": 62
@@ -389,7 +389,7 @@
               "6bit",
               "8bit"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 200064,
                 "num_attention_heads": 48,
@@ -397,7 +397,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/MiniMax-M2.7-3bit/resolve/93d504c2bb57253c3d209b997ee05acf0db90077/config.json",
                 "config_sha256": "d7c676c0d83673ab776bcbe187d03beaf9ec2c78437db2653a217c172b380d75",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -409,7 +409,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/MiniMax-M2.7-4bit/resolve/66d2e5cb7c5cda05251b4625c504af4b034df7ff/config.json",
                 "config_sha256": "3e127652063f0b06b1dc944b6b373672bf2553ad064ce81a1acafe89981e4594",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -421,7 +421,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/MiniMax-M2.7-5bit/resolve/38db278a23020fc1c430b97d0daa7ee1011749ac/config.json",
                 "config_sha256": "186135443507f780244911c0fda54ae49327eef384ecf923c87994354c37c857",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -433,7 +433,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/MiniMax-M2.7-6bit/resolve/14f32d86ea920dd9dc0a8dbb8e83690b78725b02/config.json",
                 "config_sha256": "a870c5f759720e16427778916740eecc4c10738134b49cf331db11c75c412c88",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -445,7 +445,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/MiniMax-M2.7-8bit/resolve/a4236145d7deca7e49f098b1ff9de0ee066d58ed/config.json",
                 "config_sha256": "967bfdceea5d67d8cdc3e4c570261f260a3dda8e4ae09436c21ce16c46e0b5e9",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -461,7 +461,7 @@
               "6bit",
               "8bit"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 200064,
                 "num_attention_heads": 48,
@@ -469,7 +469,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2.7-3bit/resolve/master/config.json",
                 "config_sha256": "d7c676c0d83673ab776bcbe187d03beaf9ec2c78437db2653a217c172b380d75",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -481,7 +481,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2.7-4bit/resolve/master/config.json",
                 "config_sha256": "3e127652063f0b06b1dc944b6b373672bf2553ad064ce81a1acafe89981e4594",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -493,7 +493,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2.7-5bit/resolve/master/config.json",
                 "config_sha256": "186135443507f780244911c0fda54ae49327eef384ecf923c87994354c37c857",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -505,7 +505,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2.7-6bit/resolve/master/config.json",
                 "config_sha256": "a870c5f759720e16427778916740eecc4c10738134b49cf331db11c75c412c88",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62
@@ -517,7 +517,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2.7-8bit/resolve/master/config.json",
                 "config_sha256": "967bfdceea5d67d8cdc3e4c570261f260a3dda8e4ae09436c21ce16c46e0b5e9",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 3072,
                 "intermediate_size": 1536,
                 "num_hidden_layers": 62

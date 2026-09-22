@@ -25,14 +25,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Thinking/resolve/6664affde68449468deb7527186455c7450c13c0/config.json",
               "config_sha256": "a9b0434bf1bb5de21786cb3dc3abf95e7254a1e131557c911d7271d2fb63e476",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -43,14 +43,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-VL-235B-A22B-Thinking/resolve/master/config.json",
               "config_sha256": "a9b0434bf1bb5de21786cb3dc3abf95e7254a1e131557c911d7271d2fb63e476",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -68,14 +68,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Thinking-FP8/resolve/4208801232c8ef5e6faea2ea1e4066193958776d/config.json",
               "config_sha256": "83eab8c1d1fee534343d26662f92a27674321d1222ed4c5373e8453d3093493f",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -86,14 +86,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-VL-235B-A22B-Thinking-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-VL-235B-A22B-Thinking-FP8/resolve/master/config.json",
               "config_sha256": "83eab8c1d1fee534343d26662f92a27674321d1222ed4c5373e8453d3093493f",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -111,14 +111,14 @@
               "Int4"
             ],
             "model_id": "QuantTrio/Qwen3-VL-235B-A22B-Thinking-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/QuantTrio/Qwen3-VL-235B-A22B-Thinking-AWQ/resolve/a06f5e2538efd639db935157a9809e5e12fa122a/config.json",
               "config_sha256": "354a61368736595f63b0b549eba3d245986723116f9b16cb72b7b39b1469d382",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -129,14 +129,14 @@
               "Int4"
             ],
             "model_id": "tclf90/Qwen3-VL-235B-A22B-Thinking-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/tclf90/Qwen3-VL-235B-A22B-Thinking-AWQ/resolve/master/config.json",
               "config_sha256": "354a61368736595f63b0b549eba3d245986723116f9b16cb72b7b39b1469d382",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -154,14 +154,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Thinking/resolve/d0ed0380729be07a546fdefafbb4fe411f341e92/config.json",
               "config_sha256": "6129b3f54d517a18553cf7525ff4886be6831c5806fc094d632b8ef38d859912",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -172,14 +172,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-VL-30B-A3B-Thinking/resolve/master/config.json",
               "config_sha256": "6129b3f54d517a18553cf7525ff4886be6831c5806fc094d632b8ef38d859912",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -197,14 +197,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Thinking-FP8/resolve/cf3058e421b60f13f81b16c0e3665f8554c03d6a/config.json",
               "config_sha256": "e52cea0eb24df634274d028d969b513edeced033988eb4528d1e8d2a08dd025d",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -215,14 +215,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-VL-30B-A3B-Thinking-FP8/resolve/master/config.json",
               "config_sha256": "e52cea0eb24df634274d028d969b513edeced033988eb4528d1e8d2a08dd025d",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -241,7 +241,7 @@
               "8bit"
             ],
             "model_id": "cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -249,7 +249,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-4bit/resolve/c8e51406c416a1dc3ede5428a3a10bf30dc0f79d/config.json",
                 "config_sha256": "07b9e8f5bc299098dc1acb990585a69b061a3acd0b3cbbea62070dc6ee75036b",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -261,7 +261,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/cpatonn/Qwen3-VL-30B-A3B-Thinking-AWQ-8bit/resolve/e4686b5e2a196cfbb901acfbbe0b1485bf9219e2/config.json",
                 "config_sha256": "266e7ecf05a835bcd99d247a88aef5751bd111602395832fe1cdb8eca39ac2ff",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -274,7 +274,7 @@
               "8bit"
             ],
             "model_id": "cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -282,7 +282,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-4bit/resolve/master/config.json",
                 "config_sha256": "07b9e8f5bc299098dc1acb990585a69b061a3acd0b3cbbea62070dc6ee75036b",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -294,7 +294,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-VL-30B-A3B-Thinking-AWQ-8bit/resolve/master/config.json",
                 "config_sha256": "266e7ecf05a835bcd99d247a88aef5751bd111602395832fe1cdb8eca39ac2ff",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -335,7 +335,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -343,7 +343,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-30B-A3B-Thinking-4bit/resolve/1916e37d04e1d4bf997ed91702740b7b2a1165af/config.json",
                 "config_sha256": "a359e1f7b90a5ea1db52063e03c652a0ab1df76bd87c40bd0e0ed4d0cc91a43c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -355,7 +355,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-30B-A3B-Thinking-8bit/resolve/463f6d102d8561650b2010791a69fca13e93ab73/config.json",
                 "config_sha256": "a3ff95557a24cde350076d0f7bced957c768288e34d58fa5caa6fcfe5318cfa9",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -368,7 +368,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -376,7 +376,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-30B-A3B-Thinking-4bit/resolve/master/config.json",
                 "config_sha256": "a359e1f7b90a5ea1db52063e03c652a0ab1df76bd87c40bd0e0ed4d0cc91a43c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -388,7 +388,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-30B-A3B-Thinking-8bit/resolve/master/config.json",
                 "config_sha256": "a3ff95557a24cde350076d0f7bced957c768288e34d58fa5caa6fcfe5318cfa9",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -407,14 +407,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-2B-Thinking-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-2B-Thinking-4bit/resolve/6c666f518757f9378f581ea0252822fe8b1c5131/config.json",
               "config_sha256": "6e992843f82cbaf02e8eae2f1c803f8a56f70951fa8a1f30fc1bf8d9ec2d7ec3",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 28
@@ -425,14 +425,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-2B-Thinking-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-2B-Thinking-4bit/resolve/master/config.json",
               "config_sha256": "6e992843f82cbaf02e8eae2f1c803f8a56f70951fa8a1f30fc1bf8d9ec2d7ec3",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 28
@@ -450,14 +450,14 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-2B-Thinking-8bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-2B-Thinking-8bit/resolve/5c8477dc7d21f5438ac062f4a8b39131534617ec/config.json",
               "config_sha256": "556a5c592bfc69fc63f3c6dab6d2070193b27c5444682a1b8cac5aaf728a5b8a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 28
@@ -468,14 +468,14 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-2B-Thinking-8bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-2B-Thinking-8bit/resolve/master/config.json",
               "config_sha256": "556a5c592bfc69fc63f3c6dab6d2070193b27c5444682a1b8cac5aaf728a5b8a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 28
@@ -493,14 +493,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-2B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-2B-Thinking-bf16/resolve/c325e5ea14c215bb08fa0d668c81fa2581f9050b/config.json",
               "config_sha256": "2553e75d2acf1e6fa3e98045b9ca71409e80362a32584e5f62f0bd9d5f67ca35",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 28
@@ -511,14 +511,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-2B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-2B-Thinking-bf16/resolve/master/config.json",
               "config_sha256": "2553e75d2acf1e6fa3e98045b9ca71409e80362a32584e5f62f0bd9d5f67ca35",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 28
@@ -536,14 +536,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-4B-Thinking-3bit/resolve/2d3562f92332e80d6ac4b1f3f5de5e86519a81c8/config.json",
               "config_sha256": "9858e7c463a5d5e05013d7addeb1f4996228a66c70a5b58640af85c938e13364",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -554,14 +554,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-4B-Thinking-3bit/resolve/master/config.json",
               "config_sha256": "9858e7c463a5d5e05013d7addeb1f4996228a66c70a5b58640af85c938e13364",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -579,14 +579,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-4B-Thinking-4bit/resolve/080566f81f37e39190fc486f628c270b5633863f/config.json",
               "config_sha256": "c268f853e69afbd13bd84957ac6e1c23855806b89bf87f0b91216edcb7adb50d",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -597,14 +597,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-4B-Thinking-4bit/resolve/master/config.json",
               "config_sha256": "c268f853e69afbd13bd84957ac6e1c23855806b89bf87f0b91216edcb7adb50d",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -622,14 +622,14 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-8bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-4B-Thinking-8bit/resolve/7993e47cde28fbd83262689f0d54992a4ed9126c/config.json",
               "config_sha256": "abe3e847cdd84379a4754e5821ceda19226fda74fcf0b4436a966d3c2fbb68e7",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -640,14 +640,14 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-8bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-4B-Thinking-8bit/resolve/master/config.json",
               "config_sha256": "abe3e847cdd84379a4754e5821ceda19226fda74fcf0b4436a966d3c2fbb68e7",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -665,14 +665,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-4B-Thinking-bf16/resolve/eeb4a04d8ec7661e77aaf281529bc4c86613db98/config.json",
               "config_sha256": "090d43edf0938910aa78269907ea7fed0d034f4a11d23a9745c78bc146303be5",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -683,14 +683,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-4B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-4B-Thinking-bf16/resolve/master/config.json",
               "config_sha256": "090d43edf0938910aa78269907ea7fed0d034f4a11d23a9745c78bc146303be5",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 9728,
               "num_hidden_layers": 36
@@ -708,14 +708,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-8B-Thinking-3bit/resolve/a9c5832a26b9534e0f96e0e5f1f8442d0d1ed323/config.json",
               "config_sha256": "d7888b128ba81a5b024ce74797865fae434ff16271b7de20e69b42d0f6d161a3",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -726,14 +726,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-8B-Thinking-3bit/resolve/master/config.json",
               "config_sha256": "d7888b128ba81a5b024ce74797865fae434ff16271b7de20e69b42d0f6d161a3",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -751,14 +751,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-8B-Thinking-4bit/resolve/e68aa09bc7df2d41ba8f96e4f12118097b61d19a/config.json",
               "config_sha256": "cb750ae5688f3df07b110381d3dd54a7f2bfa9ec5175ae11e41305b516f3059a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -769,14 +769,14 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-8B-Thinking-4bit/resolve/master/config.json",
               "config_sha256": "cb750ae5688f3df07b110381d3dd54a7f2bfa9ec5175ae11e41305b516f3059a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -794,14 +794,14 @@
               "5bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-5bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-8B-Thinking-5bit/resolve/41dffae526f32a9498ee47088312dd4552cec88e/config.json",
               "config_sha256": "4d01dc248ac951a25cd9a37dcd7c3a90643632e8ba92cc938153147107ecb114",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -812,14 +812,14 @@
               "5bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-5bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-8B-Thinking-5bit/resolve/master/config.json",
               "config_sha256": "4d01dc248ac951a25cd9a37dcd7c3a90643632e8ba92cc938153147107ecb114",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -837,14 +837,14 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-8bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-8B-Thinking-8bit/resolve/525651ac0fef23e92692cfb6666f2be726dd1188/config.json",
               "config_sha256": "b07af181840bf83da639d4024c61497e30a1ba66e639580be3a2801984a56732",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -855,14 +855,14 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-8bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-8B-Thinking-8bit/resolve/master/config.json",
               "config_sha256": "b07af181840bf83da639d4024c61497e30a1ba66e639580be3a2801984a56732",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -880,14 +880,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-8B-Thinking-bf16/resolve/5676abe7e34d5969b59cd1b0e7b3b07a53f448ec/config.json",
               "config_sha256": "ea9921e7c6b94a616920de009dd42d94c3a3e559298e75c550462deb8eb4bf87",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -898,14 +898,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-8B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-8B-Thinking-bf16/resolve/master/config.json",
               "config_sha256": "ea9921e7c6b94a616920de009dd42d94c3a3e559298e75c550462deb8eb4bf87",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 36
@@ -923,14 +923,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-30B-A3B-Thinking-3bit/resolve/e1cb8fffc3a1fbe5cbe0bc196aa2df459ec6c4db/config.json",
               "config_sha256": "4610f9a58ab6d54c1a4a5eee6e96eadd643c0a0b1ded0e5d4f435c713b630d62",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -941,14 +941,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-30B-A3B-Thinking-3bit/resolve/master/config.json",
               "config_sha256": "4610f9a58ab6d54c1a4a5eee6e96eadd643c0a0b1ded0e5d4f435c713b630d62",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -966,14 +966,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-30B-A3B-Thinking-bf16/resolve/cbf5c6482923be5f2eb9c116b185c39e93f5812d/config.json",
               "config_sha256": "682715dfe86a6af534a7c1e4cba632ab5839a5672fc87c421f34aef349dfd06d",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -984,14 +984,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen3-VL-30B-A3B-Thinking-bf16",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-30B-A3B-Thinking-bf16/resolve/master/config.json",
               "config_sha256": "682715dfe86a6af534a7c1e4cba632ab5839a5672fc87c421f34aef349dfd06d",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -1009,14 +1009,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/mlx-community/Qwen3-VL-235B-A22B-Thinking-3bit/resolve/ef8a1eef86e928dc5e2de6323ad24ee369050ee5/config.json",
               "config_sha256": "4eb354071e9862491519390139ff0d470d7a930454b0ce044477a0b2e5db8f7f",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -1027,14 +1027,14 @@
               "3bit"
             ],
             "model_id": "mlx-community/Qwen3-VL-235B-A22B-Thinking-3bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-VL-235B-A22B-Thinking-3bit/resolve/master/config.json",
               "config_sha256": "4eb354071e9862491519390139ff0d470d7a930454b0ce044477a0b2e5db8f7f",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94

@@ -30,7 +30,7 @@
             ],
             "model_id": "SeaLLMs/SeaLLM-7B-v2",
             "model_revision": "f1bd48e0d75365c24a3c5ad006b2d0a0c9dca30f",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 48384,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,

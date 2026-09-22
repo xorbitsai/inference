@@ -21,7 +21,7 @@
               "none"
             ],
             "model_id": "zai-org/glm-edge-1.5b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "ZhipuAI/glm-edge-1.5b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -61,7 +61,7 @@
               "none"
             ],
             "model_id": "zai-org/glm-edge-4b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 24,
               "num_key_value_heads": 6,
@@ -78,7 +78,7 @@
               "none"
             ],
             "model_id": "ZhipuAI/glm-edge-4b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 24,
               "num_key_value_heads": 6,
@@ -113,7 +113,7 @@
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
             "model_id": "zai-org/glm-edge-1.5b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -141,7 +141,7 @@
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
             "model_id": "ZhipuAI/glm-edge-1.5b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -164,7 +164,7 @@
             ],
             "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
             "model_id": "zai-org/glm-edge-1.5b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -181,7 +181,7 @@
             ],
             "model_file_name_template": "glm-edge-1.5B-chat-{quantization}.gguf",
             "model_id": "ZhipuAI/glm-edge-1.5b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 16,
               "num_key_value_heads": 4,
@@ -215,7 +215,7 @@
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
             "model_id": "zai-org/glm-edge-4b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 24,
               "num_key_value_heads": 6,
@@ -243,7 +243,7 @@
             ],
             "model_file_name_template": "ggml-model-{quantization}.gguf",
             "model_id": "ZhipuAI/glm-edge-4b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 24,
               "num_key_value_heads": 6,
@@ -266,7 +266,7 @@
             ],
             "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
             "model_id": "zai-org/glm-edge-4b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 24,
               "num_key_value_heads": 6,
@@ -283,7 +283,7 @@
             ],
             "model_file_name_template": "glm-edge-4B-chat-{quantization}.gguf",
             "model_id": "ZhipuAI/glm-edge-4b-chat-gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 59264,
               "num_attention_heads": 24,
               "num_key_value_heads": 6,

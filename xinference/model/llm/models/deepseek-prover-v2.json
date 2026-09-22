@@ -23,13 +23,13 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-Prover-V2-671B/resolve/a51f899d0599838aa934b21b45b4c1ae7fbce2d3/config.json",
               "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -40,13 +40,13 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-Prover-V2-671B/resolve/master/config.json",
               "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -63,7 +63,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-Prover-V2-7B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -80,7 +80,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-Prover-V2-7B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -103,7 +103,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/DeepSeek-Prover-V2-7B-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -120,7 +120,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/DeepSeek-Prover-V2-7B-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,

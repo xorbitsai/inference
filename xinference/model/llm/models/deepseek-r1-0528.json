@@ -24,13 +24,13 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-0528",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-0528/resolve/4236a6af538feda4548eca9ab308586007567f52/config.json",
               "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -41,13 +41,13 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-0528",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 128,
               "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-0528/resolve/master/config.json",
               "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
-              "unsupported_reason": "mla",
+              "architecture_type": "mla",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -67,14 +67,14 @@
               "Int4-Int8Mix-Medium"
             ],
             "model_id": "QuantTrio/DeepSeek-R1-0528-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4-Int8Mix-Lite": {
                 "vocab_size": 129280,
                 "num_attention_heads": 128,
                 "num_key_value_heads": 128,
                 "config_source": "https://huggingface.co/QuantTrio/DeepSeek-R1-0528-GPTQ-Int4-Int8Mix-Lite/resolve/f9241106db43680bf7c646074fd3e27b169a5787/config.json",
                 "config_sha256": "9d743036f3762e1823953cf7af9e2e71920927cfb904ed2577d2aec1063d6af3",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -85,7 +85,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://huggingface.co/QuantTrio/DeepSeek-R1-0528-GPTQ-Int4-Int8Mix-Compact/resolve/6c80d7c419c641384faee6e7e6eb0b414d5ad8df/config.json",
                 "config_sha256": "c7949ca4a02c7dd7d190254834b77c4fb303758e41941f4444a95a7b9a3f8122",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -96,7 +96,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://huggingface.co/QuantTrio/DeepSeek-R1-0528-GPTQ-Int4-Int8Mix-Medium/resolve/7a037a7f819a70637f4d25645a497a019515b3b3/config.json",
                 "config_sha256": "4e74454e7c1153f158361352e8b90a8d57d793f67715737bdd694421b66c446d",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -110,14 +110,14 @@
               "Int4-Int8Mix-Medium"
             ],
             "model_id": "tclf90/DeepSeek-R1-0528-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4-Int8Mix-Lite": {
                 "vocab_size": 129280,
                 "num_attention_heads": 128,
                 "num_key_value_heads": 128,
                 "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-R1-0528-GPTQ-Int4-Int8Mix-Lite/resolve/master/config.json",
                 "config_sha256": "9d743036f3762e1823953cf7af9e2e71920927cfb904ed2577d2aec1063d6af3",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -128,7 +128,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-R1-0528-GPTQ-Int4-Int8Mix-Compact/resolve/master/config.json",
                 "config_sha256": "c7949ca4a02c7dd7d190254834b77c4fb303758e41941f4444a95a7b9a3f8122",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61
@@ -139,7 +139,7 @@
                 "num_key_value_heads": 128,
                 "config_source": "https://modelscope.cn/models/tclf90/DeepSeek-R1-0528-GPTQ-Int4-Int8Mix-Medium/resolve/master/config.json",
                 "config_sha256": "4e74454e7c1153f158361352e8b90a8d57d793f67715737bdd694421b66c446d",
-                "unsupported_reason": "mla",
+                "architecture_type": "mla",
                 "hidden_size": 7168,
                 "intermediate_size": 18432,
                 "num_hidden_layers": 61

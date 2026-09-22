@@ -53,9 +53,9 @@ After changing a catalog, run `python gen_docs.py` from `doc/source`. Packaging
 includes the model files recursively. Aggregate exports use the same stable
 filename order, rather than preserving the old cross-model array order.
 
-## Offline LLM memory metadata
+## LLM model metadata
 
-An LLM `model_specs` entry can optionally include `memory_estimation`. It stores
+An LLM `model_specs` entry can optionally include `model_metadata`. It stores
 architecture dimensions, not a fixed memory requirement: context length and
 quantization still affect the estimate. Store it per specification, since sizes
 within the same family can have different architectures.
@@ -64,21 +64,22 @@ Maintainers and Models Hub jobs can extract this object from an already obtained
 `config.json` using:
 
 ```sh
-python -m xinference.model.llm.collect_memory_metadata /path/to/config.json
+python -m xinference.model.llm.collect_model_metadata /path/to/config.json
 ```
 
 The command only reads that local file and prints JSON; it does not fetch weights,
 download configuration, or execute model-provided code. Copy the output into the
-spec's `memory_estimation` field. Required dimensions are `vocab_size`,
+spec's `model_metadata` field. Required dimensions are `vocab_size`,
 `num_attention_heads`, `hidden_size`, `intermediate_size`, and `num_hidden_layers`;
 `num_key_value_heads` and `head_dim` are optional. Preserve an explicit `head_dim`
 when present: it need not equal hidden size divided by attention heads.
 `config_source` records the configuration URL, pinned to a commit when the hub
 provides one. `config_sha256` records the collected bytes (the metadata header
 for GGUF). Missing dimensions fail extraction rather than being guessed. Nested
-text configurations are retained for maintenance, with `unsupported_reason`
-preventing the dense estimator from treating multimodal, MoE, MLA or hybrid
-architectures as supported.
+text configurations are retained with an `architecture_type` category such as
+`multimodal`, `moe`, `mla` or `hybrid_attention`. This describes the model, not
+whether a particular consumer supports it. The memory estimator owns its support
+checks; the catalog does not store an estimator-specific rejection reason.
 
 Use the configuration belonging to that exact checkpoint/revision. Re-extract
 metadata when updating a checkpoint; do not copy it to another size or assume all
@@ -105,7 +106,7 @@ directory to refresh moving revisions. The external Models Hub publisher must
 invoke this step explicitly and preserve its fields when syncing the catalog.
 
 Template repositories with separate quantization checkpoints store
-`memory_estimation_by_quantization` in each source. Runtime flattening selects
+`model_metadata_by_quantization` in each source. Runtime flattening selects
 only the matching quantization's metadata; an absent entry stays unknown and
 never borrows another quantization's dimensions. Common MLX 2/3/4/5/6/8-bit and
 FP16/BF16 names are accepted. Unsupported mixed quantizations remain unverified.

@@ -21,7 +21,7 @@
             ],
             "model_id": "teknium/OpenHermes-2.5-Mistral-7B",
             "model_revision": "91ed666be78da7556f3d79abbb26fff0ee26cb54",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32002,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -55,7 +55,7 @@
             ],
             "model_id": "TheBloke/OpenHermes-2.5-Mistral-7B-GGUF",
             "model_file_name_template": "openhermes-2.5-mistral-7b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32002,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,

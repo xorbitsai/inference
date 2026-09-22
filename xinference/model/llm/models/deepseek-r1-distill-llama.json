@@ -22,7 +22,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -64,7 +64,7 @@
               "bf16"
             ],
             "model_id": "mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 128256,
                 "num_attention_heads": 32,
@@ -126,7 +126,7 @@
               "bf16"
             ],
             "model_id": "okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 128256,
                 "num_attention_heads": 32,
@@ -180,7 +180,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -197,7 +197,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -244,7 +244,7 @@
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF",
             "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf",
             "model_file_name_split_template": "DeepSeek-R1-Distill-Llama-70B-{quantization}/DeepSeek-R1-Distill-Llama-70B-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -285,7 +285,7 @@
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF",
             "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf",
             "model_file_name_split_template": "DeepSeek-R1-Distill-Llama-70B-{quantization}/DeepSeek-R1-Distill-Llama-70B-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -311,7 +311,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/DeepSeek-R1-Distill-Llama-70B-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 128256,
                 "num_attention_heads": 64,
@@ -366,7 +366,7 @@
               "8bit"
             ],
             "model_id": "okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 128256,
                 "num_attention_heads": 64,
@@ -424,7 +424,7 @@
               "Int4"
             ],
             "model_id": "jakiAJK/DeepSeek-R1-Distill-Llama-8B_AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -447,7 +447,7 @@
               "Int4"
             ],
             "model_id": "jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -478,7 +478,7 @@
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
             "model_file_name_template": "DeepSeek-R1-Distill-Llama-8B-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -500,7 +500,7 @@
               "Int4"
             ],
             "model_id": "casperhansen/deepseek-r1-distill-llama-70b-awq",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -523,7 +523,7 @@
               "Int4"
             ],
             "model_id": "empirischtech/DeepSeek-R1-Distill-Llama-70B-gptq-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -554,7 +554,7 @@
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
             "model_file_name_template": "DeepSeek-R1-Distill-Llama-8B-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,

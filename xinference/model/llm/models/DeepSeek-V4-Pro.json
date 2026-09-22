@@ -24,14 +24,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 1,
               "head_dim": 512,
               "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/resolve/b5968e9190ef611bbf34a7229255be88a0e937c1/config.json",
               "config_sha256": "5fe4568daee51c208cb8a79538eaeda090ae011ade1dee2c386aa95f569c810e",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 7168,
               "intermediate_size": 3072,
               "num_hidden_layers": 61
@@ -42,14 +42,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 129280,
               "num_attention_heads": 128,
               "num_key_value_heads": 1,
               "head_dim": 512,
               "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4-Pro/resolve/master/config.json",
               "config_sha256": "5fe4568daee51c208cb8a79538eaeda090ae011ade1dee2c386aa95f569c810e",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 7168,
               "intermediate_size": 3072,
               "num_hidden_layers": 61
@@ -69,7 +69,7 @@
               "8bit",
               "bf16"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 129280,
                 "num_attention_heads": 128,
@@ -77,7 +77,7 @@
                 "head_dim": 512,
                 "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Pro-4bit/resolve/07f874ecbd22c8119d13c066ca70e5702826eb84/config.json",
                 "config_sha256": "7c44b835cf9af0c34b94259c01b65264d19e15cc9c043186410d37660fa4b746",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 7168,
                 "intermediate_size": 3072,
                 "num_hidden_layers": 61
@@ -89,7 +89,7 @@
                 "head_dim": 512,
                 "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Pro-8bit/resolve/798dce46fbb52f3248e73cc9ff20eb4a9a4f9f37/config.json",
                 "config_sha256": "add8a834513ea9ba38ebd41d9b3481f99e3140c2019f9e6efbca89558d14daff",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 7168,
                 "intermediate_size": 3072,
                 "num_hidden_layers": 61
@@ -101,7 +101,7 @@
                 "head_dim": 512,
                 "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Pro-bf16/resolve/ec9e6beaa937e7b0a03e2cd6331c6ed8701b1b40/config.json",
                 "config_sha256": "6e776e41413ecf26e508cc0b8f9dce975827a7e70e3c9c6ed18e93781910e9a1",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 7168,
                 "intermediate_size": 3072,
                 "num_hidden_layers": 61
@@ -115,7 +115,7 @@
               "8bit",
               "bf16"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 129280,
                 "num_attention_heads": 128,
@@ -123,7 +123,7 @@
                 "head_dim": 512,
                 "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Pro-4bit/resolve/master/config.json",
                 "config_sha256": "7c44b835cf9af0c34b94259c01b65264d19e15cc9c043186410d37660fa4b746",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 7168,
                 "intermediate_size": 3072,
                 "num_hidden_layers": 61
@@ -135,7 +135,7 @@
                 "head_dim": 512,
                 "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Pro-8bit/resolve/master/config.json",
                 "config_sha256": "add8a834513ea9ba38ebd41d9b3481f99e3140c2019f9e6efbca89558d14daff",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 7168,
                 "intermediate_size": 3072,
                 "num_hidden_layers": 61
@@ -147,7 +147,7 @@
                 "head_dim": 512,
                 "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Pro-bf16/resolve/master/config.json",
                 "config_sha256": "6e776e41413ecf26e508cc0b8f9dce975827a7e70e3c9c6ed18e93781910e9a1",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 7168,
                 "intermediate_size": 3072,
                 "num_hidden_layers": 61

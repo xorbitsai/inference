@@ -22,7 +22,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -39,7 +39,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -63,7 +63,7 @@
               "Int8-W8A16"
             ],
             "model_id": "QuantTrio/DeepSeek-R1-0528-Qwen3-8B-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4-W4A16": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -94,7 +94,7 @@
               "Int8-W8A16"
             ],
             "model_id": "okwinds/DeepSeek-R1-0528-Qwen3-8B-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4-W4A16": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -130,7 +130,7 @@
               "Int4-Int8Mix"
             ],
             "model_id": "QuantTrio/DeepSeek-R1-0528-Qwen3-8B-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -147,7 +147,7 @@
               "Int4-Int8Mix"
             ],
             "model_id": "tclf90/DeepSeek-R1-0528-Qwen3-8B-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,

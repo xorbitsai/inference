@@ -21,7 +21,7 @@
             ],
             "model_id": "mistralai/Mistral-7B-v0.1",
             "model_revision": "ae9d75c6b4eb39515def78c685fb4d71d49fc2cf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -38,7 +38,7 @@
             ],
             "model_id": "Xorbits/Mistral-7B-v0.1",
             "model_revision": "v1.0.0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -54,7 +54,7 @@
               "none"
             ],
             "model_id": "PyTorch-NPU/mistral_7b_v0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -88,7 +88,7 @@
             ],
             "model_id": "TheBloke/Mistral-7B-v0.1-GGUF",
             "model_file_name_template": "mistral-7b-v0.1.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -117,7 +117,7 @@
             "model_id": "Xorbits/Mistral-7B-v0.1-GGUF",
             "model_file_name_template": "mistral-7b-v0.1.{quantization}.gguf",
             "model_revision": "v1.0.0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,

@@ -23,14 +23,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct/resolve/9c7f2fbe84465e40164a94cc16cd30b6999b0cc7/config.json",
               "config_sha256": "2d483c7cabad7c8704478ed4038fa7e7b2eff840bc00a118eccbe38e2b488303",
-              "unsupported_reason": "hybrid_attention",
+              "architecture_type": "hybrid_attention",
               "hidden_size": 2048,
               "intermediate_size": 5120,
               "num_hidden_layers": 48
@@ -41,14 +41,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Next-80B-A3B-Instruct/resolve/master/config.json",
               "config_sha256": "2d483c7cabad7c8704478ed4038fa7e7b2eff840bc00a118eccbe38e2b488303",
-              "unsupported_reason": "hybrid_attention",
+              "architecture_type": "hybrid_attention",
               "hidden_size": 2048,
               "intermediate_size": 5120,
               "num_hidden_layers": 48
@@ -66,14 +66,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct-FP8/resolve/c5f5f263bdd5cc134092897864e8905d8fe7b928/config.json",
               "config_sha256": "313a0974cd4098472dec6ddf13a04cbf69d69cce218a7975b64fb7239359cad6",
-              "unsupported_reason": "hybrid_attention",
+              "architecture_type": "hybrid_attention",
               "hidden_size": 2048,
               "intermediate_size": 5120,
               "num_hidden_layers": 48
@@ -84,14 +84,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Next-80B-A3B-Instruct-FP8/resolve/master/config.json",
               "config_sha256": "313a0974cd4098472dec6ddf13a04cbf69d69cce218a7975b64fb7239359cad6",
-              "unsupported_reason": "hybrid_attention",
+              "architecture_type": "hybrid_attention",
               "hidden_size": 2048,
               "intermediate_size": 5120,
               "num_hidden_layers": 48
@@ -110,7 +110,7 @@
               "8bit"
             ],
             "model_id": "cpatonn/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "8bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -118,7 +118,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/cpatonn/Qwen3-Next-80B-A3B-Instruct-AWQ-8bit/resolve/be8d9714749c5acda4d88f549acd4bab999817c6/config.json",
                 "config_sha256": "9e4f1d5e1e73fa023b36cfa5ddd0596aecfc740fca6a6fb4860e17a73311b860",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -131,7 +131,7 @@
               "8bit"
             ],
             "model_id": "cpatonn-mirror/Qwen3-Next-80B-A3B-Instruct-AWQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -139,7 +139,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-Next-80B-A3B-Instruct-AWQ-4bit/resolve/master/config.json",
                 "config_sha256": "6156d4ce152064f40ecc9767f43996a0b0b1d6b37431ad2f35c979f7e014632f",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -151,7 +151,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-Next-80B-A3B-Instruct-AWQ-8bit/resolve/master/config.json",
                 "config_sha256": "9e4f1d5e1e73fa023b36cfa5ddd0596aecfc740fca6a6fb4860e17a73311b860",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -173,7 +173,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-Next-80B-A3B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -181,7 +181,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit/resolve/d8a069bfa8ae87d3d468412e1034acae19b5892b/config.json",
                 "config_sha256": "f5a5422b8e3d47733f0073ff22dec1dc4a7832fec5fc1cf36eba31ace03cf0c4",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -193,7 +193,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Instruct-5bit/resolve/877fa0a97b128a607f774bad0b1d4286d8b025cb/config.json",
                 "config_sha256": "07550765299201994466441f0ce5b80671e9a777bb94a31d934b3a7f385aa3ed",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -205,7 +205,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Instruct-6bit/resolve/1e99e59337410b1bd4620d1a056a05871f953b45/config.json",
                 "config_sha256": "84cf39ee6176c47e204ef33d621bf9b950027d4b6d45dc479c37df87dd7e1754",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -217,7 +217,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-Next-80B-A3B-Instruct-8bit/resolve/fd52af0cc2a4a37b60904c4b0251255aa7d3dda2/config.json",
                 "config_sha256": "fbad6dba0a785292119b904e03b52a0968929de51d115a27e99c8722f0ca279d",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -232,7 +232,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-Next-80B-A3B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -240,7 +240,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Next-80B-A3B-Instruct-4bit/resolve/master/config.json",
                 "config_sha256": "f5a5422b8e3d47733f0073ff22dec1dc4a7832fec5fc1cf36eba31ace03cf0c4",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -252,7 +252,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Next-80B-A3B-Instruct-5bit/resolve/master/config.json",
                 "config_sha256": "07550765299201994466441f0ce5b80671e9a777bb94a31d934b3a7f385aa3ed",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -264,7 +264,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Next-80B-A3B-Instruct-6bit/resolve/master/config.json",
                 "config_sha256": "84cf39ee6176c47e204ef33d621bf9b950027d4b6d45dc479c37df87dd7e1754",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48
@@ -276,7 +276,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Next-80B-A3B-Instruct-8bit/resolve/master/config.json",
                 "config_sha256": "fbad6dba0a785292119b904e03b52a0968929de51d115a27e99c8722f0ca279d",
-                "unsupported_reason": "hybrid_attention",
+                "architecture_type": "hybrid_attention",
                 "hidden_size": 2048,
                 "intermediate_size": 5120,
                 "num_hidden_layers": 48

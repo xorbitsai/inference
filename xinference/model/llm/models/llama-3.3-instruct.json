@@ -34,7 +34,7 @@
               "none"
             ],
             "model_id": "LLM-Research/Llama-3.3-70B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -57,7 +57,7 @@
               "Int4"
             ],
             "model_id": "shuyuej/Llama-3.3-70B-Instruct-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -80,7 +80,7 @@
               "Int4"
             ],
             "model_id": "casperhansen/llama-3.3-70b-instruct-awq",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -107,7 +107,7 @@
               "fp16"
             ],
             "model_id": "mlx-community/Llama-3.3-70B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 128256,
                 "num_attention_heads": 64,
@@ -191,7 +191,7 @@
             "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
             "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
             "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -223,7 +223,7 @@
             "model_id": "lmstudio-community/Llama-3.3-70B-Instruct-GGUF",
             "model_file_name_template": "Llama-3.3-70B-Instruct-{quantization}.gguf",
             "model_file_name_split_template": "Llama-3.3-70B-Instruct-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 128256,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,

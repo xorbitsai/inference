@@ -22,7 +22,7 @@
             ],
             "model_id": "baichuan-inc/Baichuan2-7B-Base",
             "model_revision": "f2cc3a689c5eba7dc7fd3757d0175d312d167604",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 125696,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/baichuan-inc/Baichuan2-7B-Base/resolve/f2cc3a689c5eba7dc7fd3757d0175d312d167604/config.json",
@@ -38,7 +38,7 @@
             ],
             "model_id": "baichuan-inc/Baichuan2-7B-Base",
             "model_revision": "v1.0.2",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 125696,
               "num_attention_heads": 32,
               "config_source": "https://modelscope.cn/models/baichuan-inc/Baichuan2-7B-Base/resolve/v1.0.2/config.json",
@@ -53,7 +53,7 @@
               "none"
             ],
             "model_id": "PyTorch-NPU/baichuan2_7b_base",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 125696,
               "num_attention_heads": 32,
               "config_source": "https://modelers.cn/api/v1/file/PyTorch-NPU/baichuan2_7b_base/main/media/config.json",
@@ -75,7 +75,7 @@
             ],
             "model_id": "baichuan-inc/Baichuan2-13B-Base",
             "model_revision": "fa88072fee36e36282287410e00897df2f59e09b",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 125696,
               "num_attention_heads": 40,
               "config_source": "https://huggingface.co/baichuan-inc/Baichuan2-13B-Base/resolve/fa88072fee36e36282287410e00897df2f59e09b/config.json",
@@ -91,7 +91,7 @@
             ],
             "model_id": "baichuan-inc/Baichuan2-13B-Base",
             "model_revision": "v1.0.3",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 125696,
               "num_attention_heads": 40,
               "config_source": "https://modelscope.cn/models/baichuan-inc/Baichuan2-13B-Base/resolve/v1.0.3/config.json",
@@ -106,7 +106,7 @@
               "none"
             ],
             "model_id": "Baichuan/Baichuan2_13b_base_pt",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 125696,
               "num_attention_heads": 40,
               "config_source": "https://modelers.cn/api/v1/file/Baichuan/Baichuan2_13b_base_pt/main/media/config.json",

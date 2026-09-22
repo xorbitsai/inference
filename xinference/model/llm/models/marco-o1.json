@@ -22,7 +22,7 @@
               "none"
             ],
             "model_id": "AIDC-AI/Marco-o1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -64,7 +64,7 @@
             ],
             "model_id": "QuantFactory/Marco-o1-GGUF",
             "model_file_name_template": "Marco-o1.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -94,7 +94,7 @@
             ],
             "model_file_name_template": "Marco-o1.{quantization}.gguf",
             "model_id": "QuantFactory/Marco-o1-GGUF",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,

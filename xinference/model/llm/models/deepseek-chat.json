@@ -22,7 +22,7 @@
             ],
             "model_id": "deepseek-ai/deepseek-llm-7b-chat",
             "model_revision": "afbda8b347ec881666061fa67447046fc5164ec8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-llm-7b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -61,7 +61,7 @@
             ],
             "model_id": "deepseek-ai/deepseek-llm-67b-chat",
             "model_revision": "79648bef7658bb824e4630740f6e1484c1b0620b",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -77,7 +77,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-llm-67b-chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -111,7 +111,7 @@
             ],
             "model_id": "TheBloke/deepseek-llm-7B-chat-GGUF",
             "model_file_name_template": "deepseek-llm-7b-chat.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -145,7 +145,7 @@
             ],
             "model_id": "TheBloke/deepseek-llm-67b-chat-GGUF",
             "model_file_name_template": "deepseek-llm-67b-chat.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,

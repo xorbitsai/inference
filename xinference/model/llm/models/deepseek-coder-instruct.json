@@ -22,7 +22,7 @@
             ],
             "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
             "model_revision": "2df081ceaca101a867fef2844e44f4d6a4857039",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -61,7 +61,7 @@
             ],
             "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
             "model_revision": "cbb77d7448ea3168d884758817e7f895e3828d1c",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -77,7 +77,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -100,7 +100,7 @@
             ],
             "model_id": "deepseek-ai/deepseek-coder-7b-instruct-v1.5",
             "model_revision": "2a050a4c59d687a85324d32e147517992117ed30",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -123,7 +123,7 @@
             ],
             "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
             "model_revision": "ea15d17db84d1fc94ac5cba8e6fa97764c9549d3",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -139,7 +139,7 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -173,7 +173,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
             "model_file_name_template": "deepseek-coder-1.3b-instruct.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -207,7 +207,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GGUF",
             "model_file_name_template": "deepseek-coder-6.7b-instruct.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -240,7 +240,7 @@
             ],
             "model_id": "LoneStriker/deepseek-coder-7b-instruct-v1.5-GGUF",
             "model_file_name_template": "deepseek-coder-7b-instruct-v1.5-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 102400,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -274,7 +274,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-33B-instruct-GGUF",
             "model_file_name_template": "deepseek-coder-33b-instruct.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -297,7 +297,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GPTQ",
             "model_revision": "9c002e9af6cbdf3bd9244e2d7264b6a35d1dcacf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -320,7 +320,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GPTQ",
             "model_revision": "13ccea6e3a43dcfdcb655d92097610018b431a17",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -343,7 +343,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-33B-instruct-GPTQ",
             "model_revision": "08372729d98dfc248f9531a412fe69e14e607027",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -366,7 +366,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-1.3b-instruct-AWQ",
             "model_revision": "a2a484da6e4146d055316a9a63cf5b13955715a4",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 16,
               "num_key_value_heads": 16,
@@ -389,7 +389,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-6.7B-instruct-AWQ",
             "model_revision": "502ae3e19e57ae78dc30a791ba33c565da72dc62",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -412,7 +412,7 @@
             ],
             "model_id": "TheBloke/deepseek-coder-33B-instruct-AWQ",
             "model_revision": "c40b499bac2712cd3c445cf1b05d2c6558ab0d29",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32256,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,

@@ -25,14 +25,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 248320,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B/resolve/5df2ed3f675c7beaa490328cc70bb573b65fb660/config.json",
               "config_sha256": "239494d64746abc0d5fc5881f784843733e1d432df106cda0a8b7543e882ed55",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 512,
               "num_hidden_layers": 40
@@ -43,14 +43,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 248320,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/deepreinforce-ai/Ornith-1.0-35B/resolve/master/config.json",
               "config_sha256": "239494d64746abc0d5fc5881f784843733e1d432df106cda0a8b7543e882ed55",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 512,
               "num_hidden_layers": 40

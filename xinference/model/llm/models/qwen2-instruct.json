@@ -22,7 +22,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2-0.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen2-0.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -54,7 +54,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2-0.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -70,7 +70,7 @@
               "none"
             ],
             "model_id": "wuhaicc/Qwen2-0.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -92,7 +92,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2-1.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -108,7 +108,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen2-1.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -124,7 +124,7 @@
               "none"
             ],
             "model_id": "HangZhou_Ascend/Qwen2-1.5B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -146,7 +146,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2-7B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -162,7 +162,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen2-7B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -178,7 +178,7 @@
               "none"
             ],
             "model_id": "wuhaicc/Qwen2-7B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -200,7 +200,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2-72B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -216,7 +216,7 @@
               "none"
             ],
             "model_id": "qwen/Qwen2-72B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -232,7 +232,7 @@
               "none"
             ],
             "model_id": "State_Cloud/Qwen2-72B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -255,7 +255,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen2-0.5B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 14,
@@ -284,7 +284,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen2-0.5B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 14,
@@ -319,7 +319,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen2-1.5B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 12,
@@ -348,7 +348,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen2-1.5B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 12,
@@ -383,7 +383,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen2-7B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 28,
@@ -412,7 +412,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen2-7B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 28,
@@ -447,7 +447,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen2-72B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
@@ -476,7 +476,7 @@
               "Int8"
             ],
             "model_id": "qwen/Qwen2-72B-Instruct-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
@@ -510,7 +510,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2-0.5B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -526,7 +526,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen2-0.5B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -548,7 +548,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2-1.5B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -564,7 +564,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen2-1.5B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -586,7 +586,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2-7B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -602,7 +602,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen2-7B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -624,7 +624,7 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2-72B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -640,7 +640,7 @@
               "Int4"
             ],
             "model_id": "qwen/Qwen2-72B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -662,7 +662,7 @@
               "fp8"
             ],
             "model_id": "neuralmagic/Qwen2-0.5B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -684,7 +684,7 @@
               "fp8"
             ],
             "model_id": "neuralmagic/Qwen2-0.5B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -706,7 +706,7 @@
               "fp8"
             ],
             "model_id": "neuralmagic/Qwen2-1.5B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -728,7 +728,7 @@
               "fp8"
             ],
             "model_id": "neuralmagic/Qwen2-7B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -744,7 +744,7 @@
               "fp8"
             ],
             "model_id": "liuzhenghua/Qwen2-7B-FP8-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -766,7 +766,7 @@
               "fp8"
             ],
             "model_id": "neuralmagic/Qwen2-72B-Instruct-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -782,7 +782,7 @@
               "fp8"
             ],
             "model_id": "liuzhenghua/Qwen2-72B-FP8-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -804,7 +804,7 @@
               "4bit"
             ],
             "model_id": "Qwen/Qwen2-0.5B-Instruct-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -820,7 +820,7 @@
               "4bit"
             ],
             "model_id": "qwen/Qwen2-0.5B-Instruct-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -842,7 +842,7 @@
               "4bit"
             ],
             "model_id": "Qwen/Qwen2-1.5B-Instruct-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -858,7 +858,7 @@
               "4bit"
             ],
             "model_id": "qwen/Qwen2-1.5B-Instruct-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -880,7 +880,7 @@
               "4bit"
             ],
             "model_id": "Qwen/Qwen2-7B-Instruct-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -896,7 +896,7 @@
               "4bit"
             ],
             "model_id": "qwen/Qwen2-7B-Instruct-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -918,7 +918,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/Qwen2-72B-Instruct-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -949,7 +949,7 @@
             ],
             "model_id": "Qwen/Qwen2-0.5B-Instruct-GGUF",
             "model_file_name_template": "qwen2-0_5b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -974,7 +974,7 @@
             ],
             "model_id": "qwen/Qwen2-0.5B-Instruct-GGUF",
             "model_file_name_template": "qwen2-0_5b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -999,7 +999,7 @@
             ],
             "model_id": "qwen/Qwen2-0.5B-Instruct-GGUF",
             "model_file_name_template": "qwen2-0_5b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 14,
               "num_key_value_heads": 2,
@@ -1030,7 +1030,7 @@
             ],
             "model_id": "Qwen/Qwen2-1.5B-Instruct-GGUF",
             "model_file_name_template": "qwen2-1_5b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -1055,7 +1055,7 @@
             ],
             "model_id": "qwen/Qwen2-1.5B-Instruct-GGUF",
             "model_file_name_template": "qwen2-1_5b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 12,
               "num_key_value_heads": 2,
@@ -1086,7 +1086,7 @@
             ],
             "model_id": "Qwen/Qwen2-7B-Instruct-GGUF",
             "model_file_name_template": "qwen2-7b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -1111,7 +1111,7 @@
             ],
             "model_id": "qwen/Qwen2-7B-Instruct-GGUF",
             "model_file_name_template": "qwen2-7b-instruct-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -1167,7 +1167,7 @@
                 "00004-of-00004"
               ]
             },
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -1217,7 +1217,7 @@
                 "00004-of-00004"
               ]
             },
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,

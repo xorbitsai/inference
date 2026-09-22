@@ -23,13 +23,13 @@
             ],
             "model_id": "zai-org/glm-4v-9b",
             "model_revision": "01328faefe122fe605c1c127b62e6031d3ffebf7",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
               "config_source": "https://huggingface.co/zai-org/glm-4v-9b/resolve/01328faefe122fe605c1c127b62e6031d3ffebf7/config.json",
               "config_sha256": "7c80de82168f1fac04cd97c7c200fb618ce16a90ccd87cc8c662f429a3b2550e",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 13696,
               "num_hidden_layers": 40
@@ -41,13 +41,13 @@
             ],
             "model_id": "ZhipuAI/glm-4v-9b",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
               "config_source": "https://modelscope.cn/models/ZhipuAI/glm-4v-9b/resolve/master/config.json",
               "config_sha256": "7c80de82168f1fac04cd97c7c200fb618ce16a90ccd87cc8c662f429a3b2550e",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 13696,
               "num_hidden_layers": 40
@@ -58,13 +58,13 @@
               "none"
             ],
             "model_id": "AI-Research/glm-4v-9b",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
               "config_source": "https://modelers.cn/api/v1/file/AI-Research/glm-4v-9b/main/media/config.json",
               "config_sha256": "4a08aae8c4793b5279cf632d6d9ccb727d2b4a6d1293ec09c25d17a257c9b4f8",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 13696,
               "num_hidden_layers": 40

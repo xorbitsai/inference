@@ -22,7 +22,7 @@
             ],
             "model_id": "Xorbits/Qwen-7B-Chat-GGUF",
             "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/Xorbits/Qwen-7B-Chat-GGUF/resolve/main/Qwen-7B-Chat.Q4_K_M.gguf",
@@ -39,7 +39,7 @@
             "model_id": "Xorbits/Qwen-7B-Chat-GGUF",
             "model_file_name_template": "Qwen-7B-Chat.{quantization}.gguf",
             "model_revision": "v0.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "config_source": "https://modelscope.cn/models/Xorbits/Qwen-7B-Chat-GGUF/resolve/v0.0.1/Qwen-7B-Chat.Q4_K_M.gguf",
@@ -61,7 +61,7 @@
             ],
             "model_id": "Xorbits/Qwen-14B-Chat-GGUF",
             "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "config_source": "https://huggingface.co/Xorbits/Qwen-14B-Chat-GGUF/resolve/main/Qwen-14B-Chat.Q4_K_M.gguf",
@@ -78,7 +78,7 @@
             "model_id": "Xorbits/Qwen-14B-Chat-GGUF",
             "model_file_name_template": "Qwen-14B-Chat.{quantization}.gguf",
             "model_revision": "v0.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "config_source": "https://modelscope.cn/models/Xorbits/Qwen-14B-Chat-GGUF/resolve/v0.0.1/Qwen-14B-Chat.Q4_K_M.gguf",
@@ -107,7 +107,7 @@
             ],
             "model_id": "qwen/Qwen-1_8B-Chat",
             "model_revision": "v1.0.0",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "config_source": "https://modelscope.cn/models/qwen/Qwen-1_8B-Chat/resolve/v1.0.0/config.json",
@@ -135,7 +135,7 @@
             ],
             "model_id": "Qwen/Qwen-7B-Chat",
             "model_revision": "218aa3240fd5a5d1e80bb6c47d5d774361913706",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/Qwen/Qwen-7B-Chat/resolve/218aa3240fd5a5d1e80bb6c47d5d774361913706/config.json",
@@ -151,7 +151,7 @@
             ],
             "model_id": "qwen/Qwen-7B-Chat",
             "model_revision": "v1.1.9",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "config_source": "https://modelscope.cn/models/qwen/Qwen-7B-Chat/resolve/v1.1.9/config.json",
@@ -179,7 +179,7 @@
             ],
             "model_id": "Qwen/Qwen-14B-Chat",
             "model_revision": "fab8385c8f7e7980ef61944729fe134ccbbca263",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "config_source": "https://huggingface.co/Qwen/Qwen-14B-Chat/resolve/fab8385c8f7e7980ef61944729fe134ccbbca263/config.json",
@@ -195,7 +195,7 @@
             ],
             "model_id": "qwen/Qwen-14B-Chat",
             "model_revision": "v1.0.7",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "config_source": "https://modelscope.cn/models/qwen/Qwen-14B-Chat/resolve/v1.0.7/config.json",
@@ -223,7 +223,7 @@
             ],
             "model_id": "Qwen/Qwen-72B-Chat",
             "model_revision": "2cd9f76279337941ec1a4abeec6f8eb3c38d0f55",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "config_source": "https://huggingface.co/Qwen/Qwen-72B-Chat/resolve/2cd9f76279337941ec1a4abeec6f8eb3c38d0f55/config.json",
@@ -239,7 +239,7 @@
             ],
             "model_id": "qwen/Qwen-72B-Chat",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "config_source": "https://modelscope.cn/models/qwen/Qwen-72B-Chat/resolve/master/config.json",
@@ -261,7 +261,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen-7B-Chat-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -289,7 +289,7 @@
             ],
             "model_id": "qwen/Qwen-7B-Chat-{quantization}",
             "model_revision": "v1.1.7",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -322,7 +322,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen-1_8B-Chat-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -350,7 +350,7 @@
             ],
             "model_id": "qwen/Qwen-1_8B-Chat-{quantization}",
             "model_revision": "master",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
@@ -383,7 +383,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen-14B-Chat-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
@@ -411,7 +411,7 @@
             ],
             "model_id": "qwen/Qwen-14B-Chat-{quantization}",
             "model_revision": "v1.0.7",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
@@ -444,7 +444,7 @@
               "Int8"
             ],
             "model_id": "Qwen/Qwen-72B-Chat-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
@@ -472,7 +472,7 @@
             ],
             "model_id": "qwen/Qwen-72B-Chat-{quantization}",
             "model_revision": "master",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,

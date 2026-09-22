@@ -22,7 +22,7 @@
             ],
             "model_id": "OrionStarAI/Orion-14B-Chat",
             "model_revision": "ea6fb9b7e1917f3693935accbeb0bfecfd6552a7",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 84608,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -38,7 +38,7 @@
               "none"
             ],
             "model_id": "OrionStarAI/Orion-14B-Chat",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 84608,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -60,7 +60,7 @@
               "Int4"
             ],
             "model_id": "OrionStarAI/Orion-14B-Chat-{quantization}",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 84608,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -76,7 +76,7 @@
               "Int4"
             ],
             "model_id": "OrionStarAI/Orion-14B-Chat-{quantization}",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 84608,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,

@@ -21,13 +21,13 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 163840,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
               "config_source": "https://huggingface.co/moonshotai/Kimi-K2.5/resolve/4d01dfe0332d63057c186e0b262165819efb6611/config.json",
               "config_sha256": "acd5bb01a16f64b309599cd6ed196be056f613c99d6bc9300692b82cd10882f6",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -38,13 +38,13 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 163840,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
               "config_source": "https://modelscope.cn/models/moonshotai/Kimi-K2.5/resolve/master/config.json",
               "config_sha256": "acd5bb01a16f64b309599cd6ed196be056f613c99d6bc9300692b82cd10882f6",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -555,13 +555,13 @@
             "quantizations": [
               "3bit"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 163840,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
               "config_source": "https://huggingface.co/mlx-community/Kimi-K2.5-3bit/resolve/01467ac8d0fd13bd54832c3de0e3dacefeb6d1cd/config.json",
               "config_sha256": "22dc6b200b87d8b3277020c4f33cdd823f3be6ada7ac5aeb18d5fbf9784bd2bc",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61
@@ -572,13 +572,13 @@
             "quantizations": [
               "3bit"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 163840,
               "num_attention_heads": 64,
               "num_key_value_heads": 64,
               "config_source": "https://modelscope.cn/models/mlx-community/Kimi-K2.5-3bit/resolve/master/config.json",
               "config_sha256": "22dc6b200b87d8b3277020c4f33cdd823f3be6ada7ac5aeb18d5fbf9784bd2bc",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 7168,
               "intermediate_size": 18432,
               "num_hidden_layers": 61

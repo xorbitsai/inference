@@ -28,7 +28,7 @@
             ],
             "model_id": "modelscope/Llama-2-7b-chat-ms",
             "model_revision": "v1.0.5",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -58,7 +58,7 @@
             ],
             "model_id": "modelscope/Llama-2-13b-chat-ms",
             "model_revision": "v1.0.2",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -88,7 +88,7 @@
             ],
             "model_id": "modelscope/Llama-2-70b-chat-ms",
             "model_revision": "v1.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -122,7 +122,7 @@
             ],
             "model_id": "TheBloke/Llama-2-7B-Chat-GGUF",
             "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -140,7 +140,7 @@
             "model_id": "Xorbits/Llama-2-7b-Chat-GGUF",
             "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
             "model_revision": "v0.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -174,7 +174,7 @@
             ],
             "model_id": "TheBloke/Llama-2-13B-chat-GGUF",
             "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -192,7 +192,7 @@
             "model_id": "Xorbits/Llama-2-13b-Chat-GGUF",
             "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf",
             "model_revision": "v0.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -235,7 +235,7 @@
             "model_id": "TheBloke/Llama-2-70B-Chat-GGUF",
             "model_file_name_template": "llama-2-70b-chat.{quantization}.gguf",
             "model_file_name_split_template": "llama-2-70b-chat.{quantization}.gguf-{part}",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -257,7 +257,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-7B-Chat-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-GPTQ/resolve/d5ad9310836dd91b6ac6133e2e47f47394386cea/config.json",
@@ -278,7 +278,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-70B-Chat-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -300,7 +300,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-70B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -322,7 +322,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-7B-Chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -344,7 +344,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-13B-chat-GPTQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -366,7 +366,7 @@
               "Int4"
             ],
             "model_id": "TheBloke/Llama-2-13B-chat-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,

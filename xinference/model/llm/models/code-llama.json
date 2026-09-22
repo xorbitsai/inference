@@ -21,7 +21,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-7B-fp16",
             "model_revision": "ce09049eb9140a19cf78051cb5d849607b6fa8ec",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32016,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -38,7 +38,7 @@
             ],
             "model_id": "AI-ModelScope/CodeLlama-7b-hf",
             "model_revision": "v1.0.2",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32016,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -61,7 +61,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-13B-fp16",
             "model_revision": "d67ca1183da991d0d97927bdaaf35599556dfd76",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32016,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -78,7 +78,7 @@
             ],
             "model_id": "AI-ModelScope/CodeLlama-13b-hf",
             "model_revision": "v1.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32016,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -101,7 +101,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-34B-fp16",
             "model_revision": "f91d0cf7fc338cdc726f9c72d5ea15fe51bb16e9",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -118,7 +118,7 @@
             ],
             "model_id": "AI-ModelScope/CodeLlama-34b-hf",
             "model_revision": "v1.0.1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
@@ -152,7 +152,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-7B-GGUF",
             "model_file_name_template": "codellama-7b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32016,
               "num_attention_heads": 32,
               "num_key_value_heads": 32,
@@ -186,7 +186,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-13B-GGUF",
             "model_file_name_template": "codellama-13b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32016,
               "num_attention_heads": 40,
               "num_key_value_heads": 40,
@@ -220,7 +220,7 @@
             ],
             "model_id": "TheBloke/CodeLlama-34B-GGUF",
             "model_file_name_template": "codellama-34b.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 32000,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,

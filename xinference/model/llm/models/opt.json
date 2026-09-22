@@ -21,7 +21,7 @@
             ],
             "model_id": "facebook/opt-125m",
             "model_revision": "3d2b5f275bdf882b8775f902e1bfdb790e2cfc32",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 50272,
               "num_attention_heads": 12,
               "config_source": "https://huggingface.co/facebook/opt-125m/resolve/3d2b5f275bdf882b8775f902e1bfdb790e2cfc32/config.json",

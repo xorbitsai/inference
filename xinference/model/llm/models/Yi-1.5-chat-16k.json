@@ -22,7 +22,7 @@
             ],
             "model_id": "01-ai/Yi-1.5-9B-Chat-16K",
             "model_revision": "551220fb24d69b6bfec5defceeb160395ce5da8d",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -39,7 +39,7 @@
             ],
             "model_id": "01ai/Yi-1.5-9B-Chat-16K",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -62,7 +62,7 @@
             ],
             "model_id": "01-ai/Yi-1.5-34B-Chat-16K",
             "model_revision": "dfdbc67be750972bfcc1ac7ffd7fe48689c856fd",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -79,7 +79,7 @@
             ],
             "model_id": "01ai/Yi-1.5-34B-Chat-16K",
             "model_revision": "master",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,
@@ -115,7 +115,7 @@
             ],
             "model_id": "QuantFactory/Yi-1.5-9B-Chat-16K-GGUF",
             "model_file_name_template": "Yi-1.5-9B-Chat-16K.{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
@@ -147,7 +147,7 @@
             ],
             "model_id": "bartowski/Yi-1.5-34B-Chat-16K-GGUF",
             "model_file_name_template": "Yi-1.5-34B-Chat-16K-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 64000,
               "num_attention_heads": 56,
               "num_key_value_heads": 8,

@@ -25,14 +25,14 @@
               "none"
             ],
             "model_id": "zai-org/GLM-4.6",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/zai-org/GLM-4.6/resolve/be72194883d968d7923a07e2f61681ea9a2826d1/config.json",
               "config_sha256": "f713924a536ac1965d8af2a3144d3a0ce0acae94f0fbfd7407240cbafcb08c53",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -43,14 +43,14 @@
               "none"
             ],
             "model_id": "ZhipuAI/GLM-4.6",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/ZhipuAI/GLM-4.6/resolve/master/config.json",
               "config_sha256": "f713924a536ac1965d8af2a3144d3a0ce0acae94f0fbfd7407240cbafcb08c53",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -68,14 +68,14 @@
               "FP8"
             ],
             "model_id": "zai-org/GLM-4.6-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/zai-org/GLM-4.6-FP8/resolve/c064d336a8d0b0f59071f77eafdcdfca40f4b54c/config.json",
               "config_sha256": "1d09819ce0d0f25ea6b9246cd7adcb311cb83df34bd7a8681ced4b16492c8e5f",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -86,14 +86,14 @@
               "FP8"
             ],
             "model_id": "ZhipuAI/GLM-4.6-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/ZhipuAI/GLM-4.6-FP8/resolve/master/config.json",
               "config_sha256": "1d09819ce0d0f25ea6b9246cd7adcb311cb83df34bd7a8681ced4b16492c8e5f",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -111,14 +111,14 @@
               "Int4-Int8Mix"
             ],
             "model_id": "QuantTrio/GLM-4.6-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/QuantTrio/GLM-4.6-GPTQ-Int4-Int8Mix/resolve/b4f3c5754f582385d1f0682cd6e2439a6560a8f6/config.json",
               "config_sha256": "77b8ae04e00c35b5322cc0d8cd9facf70b91ecfa524edc7292a50fbd2135c9ad",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -129,14 +129,14 @@
               "Int4-Int8Mix"
             ],
             "model_id": "tclf90/GLM-4.6-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/tclf90/GLM-4.6-GPTQ-Int4-Int8Mix/resolve/master/config.json",
               "config_sha256": "77b8ae04e00c35b5322cc0d8cd9facf70b91ecfa524edc7292a50fbd2135c9ad",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -154,14 +154,14 @@
               "Int4"
             ],
             "model_id": "QuantTrio/GLM-4.6-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://huggingface.co/QuantTrio/GLM-4.6-AWQ/resolve/3a3cbf64f69a00da6bf20294e76e5de2dcc3bcb5/config.json",
               "config_sha256": "6b1caa071a76905f485b1c61ac94fb0e5d21a4d347e974c9adf8ce8da98defe2",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -172,14 +172,14 @@
               "Int4"
             ],
             "model_id": "tclf90/GLM-4.6-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 96,
               "num_key_value_heads": 8,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/tclf90/GLM-4.6-AWQ/resolve/master/config.json",
               "config_sha256": "6b1caa071a76905f485b1c61ac94fb0e5d21a4d347e974c9adf8ce8da98defe2",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 5120,
               "intermediate_size": 12288,
               "num_hidden_layers": 92
@@ -198,7 +198,7 @@
               "5bit"
             ],
             "model_id": "mlx-community/GLM-4.6-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151552,
                 "num_attention_heads": 96,
@@ -206,7 +206,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/GLM-4.6-4bit/resolve/dfcf4c549df3cd03bd61a7766899cffc79ffe0af/config.json",
                 "config_sha256": "7f79bf5b0a4f789d9f5434df521b2d3a572b87d5191cf69eba16f4b227f402f0",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 5120,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 92
@@ -218,7 +218,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/GLM-4.6-5bit/resolve/e52edd39343d80e1c39393bb7e82ecbb98e7668f/config.json",
                 "config_sha256": "5d26c81a66b137133518acb2d954346a855976ea26a0d7888f00bc4bd0b78b37",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 5120,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 92
@@ -231,7 +231,7 @@
               "5bit"
             ],
             "model_id": "mlx-community/GLM-4.6-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151552,
                 "num_attention_heads": 96,
@@ -239,7 +239,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/GLM-4.6-4bit/resolve/master/config.json",
                 "config_sha256": "7f79bf5b0a4f789d9f5434df521b2d3a572b87d5191cf69eba16f4b227f402f0",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 5120,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 92
@@ -251,7 +251,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/GLM-4.6-5bit/resolve/master/config.json",
                 "config_sha256": "5d26c81a66b137133518acb2d954346a855976ea26a0d7888f00bc4bd0b78b37",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 5120,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 92

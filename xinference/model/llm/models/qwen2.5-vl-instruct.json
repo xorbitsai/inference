@@ -22,13 +22,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-3B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/66285546d2b821cf421d4f5eb2576359d3770cd3/config.json",
               "config_sha256": "7ed3eed5be6924cc800e8a5e53fc405c1aab1aaf36bad65c33403b36c56827f5",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 11008,
               "num_hidden_layers": 36
@@ -39,13 +39,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-3B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-3B-Instruct/resolve/master/config.json",
               "config_sha256": "7ed3eed5be6924cc800e8a5e53fc405c1aab1aaf36bad65c33403b36c56827f5",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 11008,
               "num_hidden_layers": 36
@@ -62,13 +62,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct/resolve/cc594898137f460bfe9f0759e9844b3ce807cfb5/config.json",
               "config_sha256": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 3584,
               "intermediate_size": 18944,
               "num_hidden_layers": 28
@@ -79,13 +79,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-7B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-7B-Instruct/resolve/master/config.json",
               "config_sha256": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 3584,
               "intermediate_size": 18944,
               "num_hidden_layers": 28
@@ -102,13 +102,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-32B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct/resolve/7cfb30d71a1f4f49a57592323337a4a4727301da/config.json",
               "config_sha256": "6a6152f97a7c91db7574ba13a6586fd2846438088befcce811511ad430d82280",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5120,
               "intermediate_size": 27648,
               "num_hidden_layers": 64
@@ -119,13 +119,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-32B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-32B-Instruct/resolve/master/config.json",
               "config_sha256": "6a6152f97a7c91db7574ba13a6586fd2846438088befcce811511ad430d82280",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5120,
               "intermediate_size": 27648,
               "num_hidden_layers": 64
@@ -142,13 +142,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-72B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct/resolve/89c86200743eec961a297729e7990e8f2ddbc4c5/config.json",
               "config_sha256": "3e912dd38a24ccec2c2b148ed391b13efbb9204c242feb69c32da8b50b0b7a45",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 8192,
               "intermediate_size": 29568,
               "num_hidden_layers": 80
@@ -159,13 +159,13 @@
               "none"
             ],
             "model_id": "Qwen/Qwen2.5-VL-72B-Instruct",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-72B-Instruct/resolve/master/config.json",
               "config_sha256": "3e912dd38a24ccec2c2b148ed391b13efbb9204c242feb69c32da8b50b0b7a45",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 8192,
               "intermediate_size": 29568,
               "num_hidden_layers": 80
@@ -182,13 +182,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-3B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct-AWQ/resolve/e7b623934290c5a4da0ee3c6e1e57bfb6b5abbf2/config.json",
               "config_sha256": "23ac10eb229d6dc9448a200f965797c568d2b6c9a29ee482db0cf602c039875a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 11008,
               "num_hidden_layers": 36
@@ -199,13 +199,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-3B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-3B-Instruct-AWQ/resolve/master/config.json",
               "config_sha256": "23ac10eb229d6dc9448a200f965797c568d2b6c9a29ee482db0cf602c039875a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2048,
               "intermediate_size": 11008,
               "num_hidden_layers": 36
@@ -222,13 +222,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/536a35794df8831aa814970ee8f89eff577e7718/config.json",
               "config_sha256": "0ccd6378c18544511f59a2ffedb2a616974cd17b24f33ce9caaa40fdb53e187c",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 3584,
               "intermediate_size": 18944,
               "num_hidden_layers": 28
@@ -239,13 +239,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-7B-Instruct-AWQ/resolve/master/config.json",
               "config_sha256": "0ccd6378c18544511f59a2ffedb2a616974cd17b24f33ce9caaa40fdb53e187c",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 3584,
               "intermediate_size": 18944,
               "num_hidden_layers": 28
@@ -262,13 +262,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-32B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct-AWQ/resolve/66c370b74a18e7b1e871c97918f032ed3578dfef/config.json",
               "config_sha256": "b255183e09d66b11241741e26fea8fc9bf2ef3dc4db92882921a8d966758b305",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5120,
               "intermediate_size": 27648,
               "num_hidden_layers": 64
@@ -279,13 +279,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-32B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 40,
               "num_key_value_heads": 8,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen2.5-VL-32B-Instruct-AWQ/resolve/master/config.json",
               "config_sha256": "b255183e09d66b11241741e26fea8fc9bf2ef3dc4db92882921a8d966758b305",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5120,
               "intermediate_size": 27648,
               "num_hidden_layers": 64
@@ -302,13 +302,13 @@
               "Int4"
             ],
             "model_id": "Qwen/Qwen2.5-VL-72B-Instruct-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 64,
               "num_key_value_heads": 8,
               "config_source": "https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct-AWQ/resolve/c8b87d4b81f34b6a147577a310d7e75f0698f6c2/config.json",
               "config_sha256": "3fd07ed71c6a18eb0868ce6d8da2b5a6daed5e94eccfe8aa74596fc32ea17cfc",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 8192,
               "intermediate_size": 29696,
               "num_hidden_layers": 80
@@ -329,14 +329,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-3B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
                 "num_key_value_heads": 2,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-3B-Instruct-3bit/resolve/fa6ae423214408113329f6b520d3f2c955592b6f/config.json",
                 "config_sha256": "faff2c1a1c662929cb4ae855656bad2c99870aa734c56ae6e30431d051bbbb74",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -347,7 +347,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-3B-Instruct-4bit/resolve/46d4cf06a06ffc1a766c214174f9cbed2f45bcab/config.json",
                 "config_sha256": "7ed631bd2786d251cb38bd2a6a8a78c31bc1316f728bffa84b2d8954d3cfcd63",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -358,7 +358,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-3B-Instruct-6bit/resolve/d10dd99f29e53a503dbafa1fc8bf3009aced7d47/config.json",
                 "config_sha256": "94df8abb930a9d34e105fcb07611e5e5094997c4405f73424b953ffa6c3567c3",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -369,7 +369,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-3B-Instruct-8bit/resolve/e84150044012b0306fd260706aa336b8d9aff945/config.json",
                 "config_sha256": "7c484464ce5a7047b0f6646df9fb2b9447548d80e06d547c8dc47bc151a56648",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -380,7 +380,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-3B-Instruct-bf16/resolve/33765717028a7f0514ea1d213035cddf4b32c500/config.json",
                 "config_sha256": "e03e9242deea1b298353bf9e4572612ef80ae0c3ffe2dec20284583302b99ca7",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -396,14 +396,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-3B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 16,
                 "num_key_value_heads": 2,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-3B-Instruct-3bit/resolve/master/config.json",
                 "config_sha256": "faff2c1a1c662929cb4ae855656bad2c99870aa734c56ae6e30431d051bbbb74",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -414,7 +414,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-3B-Instruct-4bit/resolve/master/config.json",
                 "config_sha256": "7ed631bd2786d251cb38bd2a6a8a78c31bc1316f728bffa84b2d8954d3cfcd63",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -425,7 +425,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-3B-Instruct-6bit/resolve/master/config.json",
                 "config_sha256": "94df8abb930a9d34e105fcb07611e5e5094997c4405f73424b953ffa6c3567c3",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -436,7 +436,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-3B-Instruct-8bit/resolve/master/config.json",
                 "config_sha256": "7c484464ce5a7047b0f6646df9fb2b9447548d80e06d547c8dc47bc151a56648",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -447,7 +447,7 @@
                 "num_key_value_heads": 2,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-3B-Instruct-bf16/resolve/master/config.json",
                 "config_sha256": "e03e9242deea1b298353bf9e4572612ef80ae0c3ffe2dec20284583302b99ca7",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2048,
                 "intermediate_size": 11008,
                 "num_hidden_layers": 36
@@ -469,14 +469,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 152064,
                 "num_attention_heads": 28,
                 "num_key_value_heads": 4,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-7B-Instruct-3bit/resolve/5b82c29716a728eb8fd295896f02543fbd1b2eba/config.json",
                 "config_sha256": "5871821e2601c9fecae5b96800d272abd19d83069726757fc7ea7fc2f9bbd749",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -487,7 +487,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-7B-Instruct-4bit/resolve/fdcc572e8b05ba9daeaf71be8c9e4267c826ff9b/config.json",
                 "config_sha256": "f14d63e180dbe3692f4be18f7a66ab9a75dce0e4814c1e36cec2ce705b758015",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -498,7 +498,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-7B-Instruct-6bit/resolve/f45f66852ab789c70105d2bf93b8ec70de85968c/config.json",
                 "config_sha256": "7cc48b665949635f80a9d7b24a89959032473fa838fbfe7f703f9ec276f98b08",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -509,7 +509,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-7B-Instruct-8bit/resolve/cb8e0fbe4aa086c19a3d8aaa43e79919594611f9/config.json",
                 "config_sha256": "ed802fcba4a03db8ae8e5856c76d36a3b6847da78b3a7310d11d652a6be42933",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -520,7 +520,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-7B-Instruct-bf16/resolve/186c8dd5a396dcf6a5144ff08126c79bef955865/config.json",
                 "config_sha256": "0e706cfc686a46f97895ef72c1cfe203cd44c103f96c44b7bc06b2e6c2aa9a17",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -536,14 +536,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-7B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 152064,
                 "num_attention_heads": 28,
                 "num_key_value_heads": 4,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-7B-Instruct-3bit/resolve/master/config.json",
                 "config_sha256": "5871821e2601c9fecae5b96800d272abd19d83069726757fc7ea7fc2f9bbd749",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -554,7 +554,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-7B-Instruct-4bit/resolve/master/config.json",
                 "config_sha256": "f14d63e180dbe3692f4be18f7a66ab9a75dce0e4814c1e36cec2ce705b758015",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -565,7 +565,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-7B-Instruct-6bit/resolve/master/config.json",
                 "config_sha256": "7cc48b665949635f80a9d7b24a89959032473fa838fbfe7f703f9ec276f98b08",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -576,7 +576,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-7B-Instruct-8bit/resolve/master/config.json",
                 "config_sha256": "ed802fcba4a03db8ae8e5856c76d36a3b6847da78b3a7310d11d652a6be42933",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -587,7 +587,7 @@
                 "num_key_value_heads": 4,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-7B-Instruct-bf16/resolve/master/config.json",
                 "config_sha256": "0e706cfc686a46f97895ef72c1cfe203cd44c103f96c44b7bc06b2e6c2aa9a17",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3584,
                 "intermediate_size": 18944,
                 "num_hidden_layers": 28
@@ -608,14 +608,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-32B-Instruct-4bit/resolve/926bd4bb494a7d0e187f9b81b3924a31227bd1c7/config.json",
                 "config_sha256": "0c652116dcea62c808fdd618ee9f30bc2dcaceae55d06fe74a12ca887c51513a",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -626,7 +626,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-32B-Instruct-6bit/resolve/01f57d041d37704d43d07d5acf33ddc7bedad458/config.json",
                 "config_sha256": "27c095dd327726f4e2b2dedbc60d9f4469a605cb4a1258c84aa432c53d662106",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -637,7 +637,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-32B-Instruct-8bit/resolve/4497f48c89bb79ddb4a3967b34a8093d1f04ffd7/config.json",
                 "config_sha256": "387341cd63816ab257a3be7a6ea8f4ad51afe2061be84d7f54a98f47373efcd3",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -648,7 +648,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-32B-Instruct-bf16/resolve/263196bf2016253dc818996618d619484aa6f6b9/config.json",
                 "config_sha256": "97d6cdb2d7fa168e8bc16a93a19550696998b2a20bcd7e4c9b0d1543fa2451ca",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -663,14 +663,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-32B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 152064,
                 "num_attention_heads": 40,
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-32B-Instruct-4bit/resolve/master/config.json",
                 "config_sha256": "0c652116dcea62c808fdd618ee9f30bc2dcaceae55d06fe74a12ca887c51513a",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -681,7 +681,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-32B-Instruct-6bit/resolve/master/config.json",
                 "config_sha256": "27c095dd327726f4e2b2dedbc60d9f4469a605cb4a1258c84aa432c53d662106",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -692,7 +692,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-32B-Instruct-8bit/resolve/master/config.json",
                 "config_sha256": "387341cd63816ab257a3be7a6ea8f4ad51afe2061be84d7f54a98f47373efcd3",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -703,7 +703,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-32B-Instruct-bf16/resolve/master/config.json",
                 "config_sha256": "97d6cdb2d7fa168e8bc16a93a19550696998b2a20bcd7e4c9b0d1543fa2451ca",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5120,
                 "intermediate_size": 27648,
                 "num_hidden_layers": 64
@@ -725,14 +725,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-72B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-72B-Instruct-3bit/resolve/27c87a4a1fed5cd9a5601674a55efec8dcfd6f0b/config.json",
                 "config_sha256": "7e72d3e8828cdffbd98de468c8bb1df1a19ef6e140eafc0ff85183e567850628",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -743,7 +743,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-72B-Instruct-4bit/resolve/e054d8e056aa77e85538e02e317b2c9cd37071ca/config.json",
                 "config_sha256": "137ed5bdd9bce2fafdb37ae5c0ffe6977092cd1759559f6c3ac1f1a565b93bb9",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -754,7 +754,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-72B-Instruct-6bit/resolve/3031c5fe28b1aaa9ddaa8af5c951d0c5836d4d00/config.json",
                 "config_sha256": "80d11540cd8445726308d608d6b9c6e45924b86bcd4d0d6eca7473ded6ccaced",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -765,7 +765,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-72B-Instruct-8bit/resolve/b273e376493f59e58cf05d30ae7aa0ae71f78984/config.json",
                 "config_sha256": "d8eb10ca8c179ccb6ec3378837afcfb42a869bd44f94af0566d31f70b1dfb72c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -776,7 +776,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://huggingface.co/mlx-community/Qwen2.5-VL-72B-Instruct-bf16/resolve/fd63d04f2fe95d3c4c3d6fb2a957fbd7551eb216/config.json",
                 "config_sha256": "805cb3ab91cfc3ea5b6b41cbb7c2f29c5ddc760caabd2c18edfcab02ded870d3",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -792,14 +792,14 @@
               "bf16"
             ],
             "model_id": "mlx-community/Qwen2.5-VL-72B-Instruct-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 152064,
                 "num_attention_heads": 64,
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-72B-Instruct-3bit/resolve/master/config.json",
                 "config_sha256": "7e72d3e8828cdffbd98de468c8bb1df1a19ef6e140eafc0ff85183e567850628",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -810,7 +810,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-72B-Instruct-4bit/resolve/master/config.json",
                 "config_sha256": "137ed5bdd9bce2fafdb37ae5c0ffe6977092cd1759559f6c3ac1f1a565b93bb9",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -821,7 +821,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-72B-Instruct-6bit/resolve/master/config.json",
                 "config_sha256": "80d11540cd8445726308d608d6b9c6e45924b86bcd4d0d6eca7473ded6ccaced",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -832,7 +832,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-72B-Instruct-8bit/resolve/master/config.json",
                 "config_sha256": "d8eb10ca8c179ccb6ec3378837afcfb42a869bd44f94af0566d31f70b1dfb72c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80
@@ -843,7 +843,7 @@
                 "num_key_value_heads": 8,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen2.5-VL-72B-Instruct-bf16/resolve/master/config.json",
                 "config_sha256": "805cb3ab91cfc3ea5b6b41cbb7c2f29c5ddc760caabd2c18edfcab02ded870d3",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 8192,
                 "intermediate_size": 29568,
                 "num_hidden_layers": 80

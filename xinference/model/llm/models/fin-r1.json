@@ -21,7 +21,7 @@
               "none"
             ],
             "model_id": "SUFE-AIFLM-Lab/Fin-R1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -37,7 +37,7 @@
               "none"
             ],
             "model_id": "AI-ModelScope/Fin-R1",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -60,7 +60,7 @@
               "Int8"
             ],
             "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 28,
@@ -89,7 +89,7 @@
               "Int8"
             ],
             "model_id": "JunHowie/Fin-R1-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 152064,
                 "num_attention_heads": 28,
@@ -123,7 +123,7 @@
               "FP8"
             ],
             "model_id": "JunHowie/Fin-R1-FP8-Dynamic",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,
@@ -139,7 +139,7 @@
               "FP8"
             ],
             "model_id": "JunHowie/Fin-R1-FP8-Dynamic",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 152064,
               "num_attention_heads": 28,
               "num_key_value_heads": 4,

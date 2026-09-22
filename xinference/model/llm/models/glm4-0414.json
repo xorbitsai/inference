@@ -22,7 +22,7 @@
               "none"
             ],
             "model_id": "zai-org/GLM-4-9B-0414",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -39,7 +39,7 @@
               "none"
             ],
             "model_id": "ZhipuAI/GLM-4-9B-0414",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -62,7 +62,7 @@
               "none"
             ],
             "model_id": "zai-org/GLM-4-32B-0414",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 48,
               "num_key_value_heads": 2,
@@ -79,7 +79,7 @@
               "none"
             ],
             "model_id": "ZhipuAI/GLM-4-32B-0414",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 48,
               "num_key_value_heads": 2,
@@ -105,7 +105,7 @@
               "bf16"
             ],
             "model_id": "mlx-community/GLM-4-9B-0414-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151552,
                 "num_attention_heads": 32,
@@ -160,7 +160,7 @@
               "bf16"
             ],
             "model_id": "mlx-community/GLM-4-9B-0414-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151552,
                 "num_attention_heads": 32,
@@ -219,7 +219,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/GLM-4-32B-0414-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151552,
                 "num_attention_heads": 48,
@@ -250,7 +250,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/GLM-4-32B-0414-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151552,
                 "num_attention_heads": 48,
@@ -310,7 +310,7 @@
             ],
             "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
             "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -351,7 +351,7 @@
             ],
             "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
             "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -399,7 +399,7 @@
             ],
             "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
             "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -441,7 +441,7 @@
             ],
             "model_id": "bartowski/THUDM_GLM-4-9B-0414-GGUF",
             "model_file_name_template": "THUDM_GLM-4-9B-0414-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,

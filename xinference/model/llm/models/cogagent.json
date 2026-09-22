@@ -22,13 +22,13 @@
               "none"
             ],
             "model_id": "zai-org/cogagent-9b-20241220",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
               "config_source": "https://huggingface.co/zai-org/cogagent-9b-20241220/resolve/0de2cad8d51f2621a15f9d6ba3eb2944a41f0292/config.json",
               "config_sha256": "86a03fa762a29eed6c064bc7734828a5aaab45105eb744b8cb8f37b3b2683a73",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 13696,
               "num_hidden_layers": 40
@@ -39,13 +39,13 @@
               "none"
             ],
             "model_id": "ZhipuAI/cogagent-9b-20241220",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151552,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
               "config_source": "https://modelscope.cn/models/ZhipuAI/cogagent-9b-20241220/resolve/master/config.json",
               "config_sha256": "86a03fa762a29eed6c064bc7734828a5aaab45105eb744b8cb8f37b3b2683a73",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 4096,
               "intermediate_size": 13696,
               "num_hidden_layers": 40

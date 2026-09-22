@@ -27,14 +27,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 1,
               "head_dim": 256,
               "config_source": "https://huggingface.co/google/gemma-4-E2B-it/resolve/3e22461f65e89153144f8adb70e3b8c2cc9845a7/config.json",
               "config_sha256": "1b28f3d2c3100f6c594754b81107428bd7b822a7f48272ca681dae9d2ec38330",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 1536,
               "intermediate_size": 6144,
               "num_hidden_layers": 35
@@ -46,14 +46,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 1,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/google/gemma-4-E2B-it/resolve/master/config.json",
               "config_sha256": "1b28f3d2c3100f6c594754b81107428bd7b822a7f48272ca681dae9d2ec38330",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 1536,
               "intermediate_size": 6144,
               "num_hidden_layers": 35
@@ -71,14 +71,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://huggingface.co/google/gemma-4-E4B-it/resolve/ee0ef6023621cff504d758262d4e04895a5af4a2/config.json",
               "config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 10240,
               "num_hidden_layers": 42
@@ -90,14 +90,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/google/gemma-4-E4B-it/resolve/master/config.json",
               "config_sha256": "33b10c02df3c2e8536cf323d29d53262aaa2f4d11dbe19bc729373fbe90295d4",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 10240,
               "num_hidden_layers": 42
@@ -115,14 +115,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 256,
               "config_source": "https://huggingface.co/google/gemma-4-12B-it/resolve/707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7/config.json",
               "config_sha256": "478c46e8d2c52d5c2d85bf67e3b3e8c90e7c9d91086cee27e3c267907e936bd9",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 3840,
               "intermediate_size": 15360,
               "num_hidden_layers": 48
@@ -134,14 +134,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/google/gemma-4-12B-it/resolve/master/config.json",
               "config_sha256": "478c46e8d2c52d5c2d85bf67e3b3e8c90e7c9d91086cee27e3c267907e936bd9",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 3840,
               "intermediate_size": 15360,
               "num_hidden_layers": 48
@@ -159,14 +159,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 32,
               "num_key_value_heads": 16,
               "head_dim": 256,
               "config_source": "https://huggingface.co/google/gemma-4-31B-it/resolve/842da3794eaa0b77d5f08bae87a17459d91ff475/config.json",
               "config_sha256": "e967dd38bc5cfd38bd09a995a7bf4a754075df2b46aba68f7fbb5a791e6d8dd1",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 60
@@ -178,14 +178,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 32,
               "num_key_value_heads": 16,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/google/gemma-4-31B-it/resolve/master/config.json",
               "config_sha256": "e967dd38bc5cfd38bd09a995a7bf4a754075df2b46aba68f7fbb5a791e6d8dd1",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 60
@@ -202,14 +202,14 @@
             "quantizations": [
               "FP4"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 32,
               "num_key_value_heads": 16,
               "head_dim": 256,
               "config_source": "https://huggingface.co/nvidia/Gemma-4-31B-IT-NVFP4/resolve/4135a98a9b728a548947683219633b25682223ac/config.json",
               "config_sha256": "aa03a6a490fb743b8186f09c60ec39a30fdbaf7c3a18dfef8e52a62c2beb9ae4",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 60
@@ -220,14 +220,14 @@
             "quantizations": [
               "FP4"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 32,
               "num_key_value_heads": 16,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/nv-community/Gemma-4-31B-IT-NVFP4/resolve/master/config.json",
               "config_sha256": "aa03a6a490fb743b8186f09c60ec39a30fdbaf7c3a18dfef8e52a62c2beb9ae4",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 60
@@ -245,14 +245,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 256,
               "config_source": "https://huggingface.co/google/gemma-4-26B-A4B-it/resolve/4d7ae4984b7db7de8f8457170b3f1a419ee76d52/config.json",
               "config_sha256": "ed0c1eb3633de771906e9ba004a44cc5635bcc06ee2062077c3d2e88a50707d3",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2816,
               "intermediate_size": 2112,
               "num_hidden_layers": 30
@@ -264,14 +264,14 @@
             "quantizations": [
               "none"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/google/gemma-4-26B-A4B-it/resolve/master/config.json",
               "config_sha256": "ed0c1eb3633de771906e9ba004a44cc5635bcc06ee2062077c3d2e88a50707d3",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2816,
               "intermediate_size": 2112,
               "num_hidden_layers": 30
@@ -317,14 +317,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 1,
               "head_dim": 256,
               "config_source": "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/config.json",
               "config_sha256": "29be9cc15736f1b60a6e36425802454f76eee8f257b21596bae4ec01e4348818",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 1536,
               "intermediate_size": 6144,
               "num_hidden_layers": 35
@@ -363,14 +363,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 1,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/unsloth/gemma-4-E2B-it-GGUF/resolve/master/config.json",
               "config_sha256": "29be9cc15736f1b60a6e36425802454f76eee8f257b21596bae4ec01e4348818",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 1536,
               "intermediate_size": 6144,
               "num_hidden_layers": 35
@@ -415,14 +415,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF/resolve/bfc15c382204943c3a8fff0c750b94ae2364d7a3/config.json",
               "config_sha256": "09d9b0ea0fa2e809f78ed15c0a0e3f03a9fc8d642ed60fcd18f474e2f7b08b0a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 10240,
               "num_hidden_layers": 42
@@ -461,14 +461,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 8,
               "num_key_value_heads": 2,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/unsloth/gemma-4-E4B-it-GGUF/resolve/master/config.json",
               "config_sha256": "09d9b0ea0fa2e809f78ed15c0a0e3f03a9fc8d642ed60fcd18f474e2f7b08b0a",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2560,
               "intermediate_size": 10240,
               "num_hidden_layers": 42
@@ -586,14 +586,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 32,
               "num_key_value_heads": 16,
               "head_dim": 256,
               "config_source": "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/c1ac76e99d5513b141e8adde7288b85c3f9c32ec/config.json",
               "config_sha256": "5f4edd7da9b30a03cf3c524b66ed20d134a0dc74ed699b060bfe72d50370e417",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 5376,
               "intermediate_size": 21504,
               "num_hidden_layers": 60
@@ -637,14 +637,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 256,
               "config_source": "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/c099eb48e663fd284577b04978a94ffccb261841/config.json",
               "config_sha256": "313f00101241b27e19eb0698ff36198c6018cc0ddbd2b67b80eb7c5b15c2a480",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2816,
               "intermediate_size": 2112,
               "num_hidden_layers": 30
@@ -682,14 +682,14 @@
               "UD-Q6_K_XL",
               "UD-Q8_K_XL"
             ],
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 262144,
               "num_attention_heads": 16,
               "num_key_value_heads": 8,
               "head_dim": 256,
               "config_source": "https://modelscope.cn/models/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/master/config.json",
               "config_sha256": "313f00101241b27e19eb0698ff36198c6018cc0ddbd2b67b80eb7c5b15c2a480",
-              "unsupported_reason": "multimodal",
+              "architecture_type": "multimodal",
               "hidden_size": 2816,
               "intermediate_size": 2112,
               "num_hidden_layers": 30
@@ -717,7 +717,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 8,
@@ -725,7 +725,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-bf16/resolve/fb0b166bbb9a0eb4b37915bfc515a197c9122f39/config.json",
                 "config_sha256": "39d5076a28921d10ba9d35f15b4a6a45d77811fb88b453b1eab4e90dc92fbbb8",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -737,7 +737,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-8bit/resolve/03dcf209f3f549b4075e7191e77cf69b3d48e1b2/config.json",
                 "config_sha256": "774dd6a497b968e2b9879859a0e01603eaa3db0d977b6fce95abce770c9ba2a4",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -749,7 +749,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-6bit/resolve/ebd7756d4e55627e11ae043af9cad8ed6465a2e2/config.json",
                 "config_sha256": "6d851a7c72b207022b16f7d280880787a39d49ed0268eac8a74744b3ac60b213",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -761,7 +761,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-5bit/resolve/dc565aea8c49afb542497310a2d86bf1fd91391f/config.json",
                 "config_sha256": "f51398583b32685b25943fdcd803a0d9c0cc91669a0a62d312f77518ab843fe4",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -773,7 +773,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit/resolve/238767527555cb75a05732a84dff5d6ba0dd6809/config.json",
                 "config_sha256": "6397cb6eca41b911d1dcab74e17941351057bd759284052a2331918ff6f9246c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -785,7 +785,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-mxfp8/resolve/fadc3bb607b0a8985a9c6b024ec81664a2efd728/config.json",
                 "config_sha256": "cb13e3190c26f189f0e7a7cc50e75be1c0ddc5feac5fd1ca45690fb716f7d2ed",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -797,7 +797,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-mxfp4/resolve/d2f95f0bef7de5318908a6f1bdf984df5849efdb/config.json",
                 "config_sha256": "27d6f1aa4f5799c8e7043f8fbe5a0de7fa1890b8758908e323bf6864c08e9549",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -809,7 +809,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e2b-it-nvfp4/resolve/efb12d64392777ce6f2a430327932208e13fb001/config.json",
                 "config_sha256": "e0ea83170b5db34ac26fe6324800b86089dba6a47d9995209f169b17ad134779",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -832,7 +832,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 8,
@@ -840,7 +840,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-bf16/resolve/master/config.json",
                 "config_sha256": "39d5076a28921d10ba9d35f15b4a6a45d77811fb88b453b1eab4e90dc92fbbb8",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -852,7 +852,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-8bit/resolve/master/config.json",
                 "config_sha256": "774dd6a497b968e2b9879859a0e01603eaa3db0d977b6fce95abce770c9ba2a4",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -864,7 +864,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-6bit/resolve/master/config.json",
                 "config_sha256": "6d851a7c72b207022b16f7d280880787a39d49ed0268eac8a74744b3ac60b213",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -876,7 +876,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-5bit/resolve/master/config.json",
                 "config_sha256": "f51398583b32685b25943fdcd803a0d9c0cc91669a0a62d312f77518ab843fe4",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -888,7 +888,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-4bit/resolve/master/config.json",
                 "config_sha256": "6397cb6eca41b911d1dcab74e17941351057bd759284052a2331918ff6f9246c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -900,7 +900,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-mxfp8/resolve/master/config.json",
                 "config_sha256": "cb13e3190c26f189f0e7a7cc50e75be1c0ddc5feac5fd1ca45690fb716f7d2ed",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -912,7 +912,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-mxfp4/resolve/master/config.json",
                 "config_sha256": "27d6f1aa4f5799c8e7043f8fbe5a0de7fa1890b8758908e323bf6864c08e9549",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -924,7 +924,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e2b-it-nvfp4/resolve/master/config.json",
                 "config_sha256": "e0ea83170b5db34ac26fe6324800b86089dba6a47d9995209f169b17ad134779",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 1536,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 35
@@ -953,7 +953,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 8,
@@ -961,7 +961,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-bf16/resolve/eec12d0899edea9b738ab1009af9159cdfd70d71/config.json",
                 "config_sha256": "7c324932d7f920ae82b071f6f02d57acc56c2e0903a562671e71b2de4d763b18",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -973,7 +973,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-8bit/resolve/4255b21bd9a9d3fc807ef7abd80373f5e3a52a73/config.json",
                 "config_sha256": "18d2918f6eab7adb3863014dbc86fd5d8bef632dde83c5d6f517033f50deb614",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -985,7 +985,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-6bit/resolve/7b781e6489f260b3a24ff38aebb6313b2db516d7/config.json",
                 "config_sha256": "16741375caa9be356eb2d5c78235c33a83c6fae08caf6f50172a737e529f6260",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -997,7 +997,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-5bit/resolve/e648f3767cea9a0b1b5b54b16cb1735b13e8f51c/config.json",
                 "config_sha256": "3d70703016aaf06d58760450b6bcaafc79fc5364fb3ea8d2a03c40a291a4385e",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1009,7 +1009,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-4bit/resolve/475b9088d29754a3379866cf5aeb6b41acd313c2/config.json",
                 "config_sha256": "780ccb3a514a5f1ced161d383f948fc22eca9b84b752ca19494f625bd9bad7a6",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1021,7 +1021,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-mxfp8/resolve/dbcc2206c514f5af9ec4a6e2b7f92345d1e299e9/config.json",
                 "config_sha256": "4a9c45e1516e365656ddbf6e46964490e66d214a256870e875c16e539327fafd",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1033,7 +1033,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-mxfp4/resolve/509e9e4be41533a283aa07fedfe27fd4fa08f9c2/config.json",
                 "config_sha256": "88fed05784ef4beb79682a96656edde86890fac8fe83992c3d15a0bf90ce9eda",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1045,7 +1045,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-e4b-it-nvfp4/resolve/769ca8889f89f8ec8c1ca59bf427332895eb1cb2/config.json",
                 "config_sha256": "721217c347047592173435448082cd6fc6deea1d41f391e9f75a1cabc7c51331",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1068,7 +1068,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 8,
@@ -1076,7 +1076,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-bf16/resolve/master/config.json",
                 "config_sha256": "7c324932d7f920ae82b071f6f02d57acc56c2e0903a562671e71b2de4d763b18",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1088,7 +1088,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-8bit/resolve/master/config.json",
                 "config_sha256": "18d2918f6eab7adb3863014dbc86fd5d8bef632dde83c5d6f517033f50deb614",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1100,7 +1100,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-6bit/resolve/master/config.json",
                 "config_sha256": "16741375caa9be356eb2d5c78235c33a83c6fae08caf6f50172a737e529f6260",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1112,7 +1112,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-5bit/resolve/master/config.json",
                 "config_sha256": "3d70703016aaf06d58760450b6bcaafc79fc5364fb3ea8d2a03c40a291a4385e",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1124,7 +1124,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-4bit/resolve/master/config.json",
                 "config_sha256": "780ccb3a514a5f1ced161d383f948fc22eca9b84b752ca19494f625bd9bad7a6",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1136,7 +1136,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-mxfp8/resolve/master/config.json",
                 "config_sha256": "4a9c45e1516e365656ddbf6e46964490e66d214a256870e875c16e539327fafd",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1148,7 +1148,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-mxfp4/resolve/master/config.json",
                 "config_sha256": "88fed05784ef4beb79682a96656edde86890fac8fe83992c3d15a0bf90ce9eda",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1160,7 +1160,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-nvfp4/resolve/master/config.json",
                 "config_sha256": "721217c347047592173435448082cd6fc6deea1d41f391e9f75a1cabc7c51331",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2560,
                 "intermediate_size": 10240,
                 "num_hidden_layers": 42
@@ -1196,7 +1196,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 16,
@@ -1204,7 +1204,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-bf16/resolve/afb7b215e9fe3b3eaef462b27d5c9d9b1ba0565b/config.json",
                 "config_sha256": "42fd17d276f268f9869951b981de6a9d052676ffd13beb1ade663144a27771a6",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1216,7 +1216,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-8bit/resolve/200bb6db075e137a4deb08838865ac4ddb86292e/config.json",
                 "config_sha256": "c1933cabefab56dbaa24f5d2a8daba6fd6aa896b5e288393f6fb772c76c29567",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1228,7 +1228,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-6bit/resolve/2fe53aeb9b8686eefa543a60d6aa364c5b219aac/config.json",
                 "config_sha256": "59c57ae8fb59a9ddc0af0183bb8c0b9cd5a1dd9360ad71d02d8a236223ce063c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1240,7 +1240,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-5bit/resolve/a2fa92fa5bdba1fc4be9d927a5d5188c17d87d09/config.json",
                 "config_sha256": "73fa40c54e0bc2ec00cddba6d600f99565854120e28fa675ac5ac589e97f5240",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1252,7 +1252,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-4bit/resolve/73bcf09092aa277861d5a191b989b666f7f32e8f/config.json",
                 "config_sha256": "fbc1c1cb48ed86ec98482b2d41f5a03d3991aba74b7c29a93d430761e6518a38",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1264,7 +1264,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-mxfp8/resolve/0616007488705b62892b53685ccebb3ce84020dd/config.json",
                 "config_sha256": "c0177f82ff6bd738e7b14705dc5aea9f286fce16a03e381c1007e6d8bba0bd43",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1276,7 +1276,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-mxfp4/resolve/a3c49f92810bb45a75ed39f973d0273fcd97da5f/config.json",
                 "config_sha256": "5fe26cd9b7fe99b6cdfa3713d9a24794ef2dd5a7c0e8e98b09282719c493a76b",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1288,7 +1288,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-12B-it-nvfp4/resolve/47a81caa2b5307af1408a7452ba9d85b1fd5ca2e/config.json",
                 "config_sha256": "9fcc28c5a0a09a5ee286745342cc37ac6a16c2a116c1574c89e77f8ba22784c1",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1318,7 +1318,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 16,
@@ -1326,7 +1326,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-bf16/resolve/master/config.json",
                 "config_sha256": "42fd17d276f268f9869951b981de6a9d052676ffd13beb1ade663144a27771a6",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1338,7 +1338,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-8bit/resolve/master/config.json",
                 "config_sha256": "c1933cabefab56dbaa24f5d2a8daba6fd6aa896b5e288393f6fb772c76c29567",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1350,7 +1350,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-6bit/resolve/master/config.json",
                 "config_sha256": "59c57ae8fb59a9ddc0af0183bb8c0b9cd5a1dd9360ad71d02d8a236223ce063c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1362,7 +1362,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-5bit/resolve/master/config.json",
                 "config_sha256": "73fa40c54e0bc2ec00cddba6d600f99565854120e28fa675ac5ac589e97f5240",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1374,7 +1374,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-4bit/resolve/master/config.json",
                 "config_sha256": "fbc1c1cb48ed86ec98482b2d41f5a03d3991aba74b7c29a93d430761e6518a38",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1386,7 +1386,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-mxfp8/resolve/master/config.json",
                 "config_sha256": "c0177f82ff6bd738e7b14705dc5aea9f286fce16a03e381c1007e6d8bba0bd43",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1398,7 +1398,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-mxfp4/resolve/master/config.json",
                 "config_sha256": "5fe26cd9b7fe99b6cdfa3713d9a24794ef2dd5a7c0e8e98b09282719c493a76b",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1410,7 +1410,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-12B-it-nvfp4/resolve/master/config.json",
                 "config_sha256": "9fcc28c5a0a09a5ee286745342cc37ac6a16c2a116c1574c89e77f8ba22784c1",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 3840,
                 "intermediate_size": 15360,
                 "num_hidden_layers": 48
@@ -1439,7 +1439,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 32,
@@ -1447,7 +1447,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-bf16/resolve/3cbbeca52de3125c5eed024d2e9f75b2434bfbbc/config.json",
                 "config_sha256": "c58b3d20b54d0ed7e5650c2d6c7d13f0f7bdbc190a0fe428b18bfb2a8d182eb4",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1459,7 +1459,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-8bit/resolve/f5f3dc92ab4af76724c36c21eb6bedadb3a851be/config.json",
                 "config_sha256": "febbc7b54e70d69323a07d043434d43247d49ae37cf3b35f6649acc75d9f4c04",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1471,7 +1471,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-6bit/resolve/7d13b589b7260ba361377b41693a6fdb82b1e06f/config.json",
                 "config_sha256": "62121a95e4185b9121a621540c03e690771125686e1435ab3234f1ff5ed79bec",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1483,7 +1483,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-5bit/resolve/022a76dc750d5200a83177aeb2b0b68bbb52da11/config.json",
                 "config_sha256": "a36a6f0c0ef4e3b5e09340ee6675c0ceb579a7668f8fa41f8ef9cf01a0fd5e29",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1495,7 +1495,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-4bit/resolve/696d436c404745a59f30e4939a658162b0a9e57f/config.json",
                 "config_sha256": "a01be3d45e0eb70ae89cef6d3e823dd44de6ec4dfc41b91dc357f97e457915c0",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1507,7 +1507,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-mxfp8/resolve/50e42816b0668b50e9c60a8c09f0d88a56aaed8d/config.json",
                 "config_sha256": "3f4314c720532c30739e73673cb2b226ebe8e101c11a6beb1540f4328a8f3054",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1519,7 +1519,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-mxfp4/resolve/727417543e2bf99528c00d70d35a76cc0df5b0ab/config.json",
                 "config_sha256": "49cc868e8e32d48ef51ca500da7ef8aebed7e58029f9c6710c3a8cb57bb96735",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1531,7 +1531,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-31b-it-nvfp4/resolve/a0a935b105621b98907915fa12f05348bb9c3c24/config.json",
                 "config_sha256": "e45df68a21934478ba4c57ef4a0051a8cbccfe21ee4cca19613e2eaf2092cafd",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1554,7 +1554,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 32,
@@ -1562,7 +1562,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-bf16/resolve/master/config.json",
                 "config_sha256": "c58b3d20b54d0ed7e5650c2d6c7d13f0f7bdbc190a0fe428b18bfb2a8d182eb4",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1574,7 +1574,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-8bit/resolve/master/config.json",
                 "config_sha256": "febbc7b54e70d69323a07d043434d43247d49ae37cf3b35f6649acc75d9f4c04",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1586,7 +1586,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-6bit/resolve/master/config.json",
                 "config_sha256": "62121a95e4185b9121a621540c03e690771125686e1435ab3234f1ff5ed79bec",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1598,7 +1598,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-5bit/resolve/master/config.json",
                 "config_sha256": "a36a6f0c0ef4e3b5e09340ee6675c0ceb579a7668f8fa41f8ef9cf01a0fd5e29",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1610,7 +1610,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-4bit/resolve/master/config.json",
                 "config_sha256": "a01be3d45e0eb70ae89cef6d3e823dd44de6ec4dfc41b91dc357f97e457915c0",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1622,7 +1622,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-mxfp8/resolve/master/config.json",
                 "config_sha256": "3f4314c720532c30739e73673cb2b226ebe8e101c11a6beb1540f4328a8f3054",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1634,7 +1634,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-mxfp4/resolve/master/config.json",
                 "config_sha256": "49cc868e8e32d48ef51ca500da7ef8aebed7e58029f9c6710c3a8cb57bb96735",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1646,7 +1646,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-31b-it-nvfp4/resolve/master/config.json",
                 "config_sha256": "e45df68a21934478ba4c57ef4a0051a8cbccfe21ee4cca19613e2eaf2092cafd",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 5376,
                 "intermediate_size": 21504,
                 "num_hidden_layers": 60
@@ -1675,7 +1675,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 16,
@@ -1683,7 +1683,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-bf16/resolve/e13fae2a81ec07e3092a3ebb70c80970b640dc3c/config.json",
                 "config_sha256": "dfb6ef4697b916791e9219b6ac0aefa5bdee18c64a7412856aca217599a2a49c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1695,7 +1695,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-8bit/resolve/33c6d23798a0af159529890f79329206dbfbd73c/config.json",
                 "config_sha256": "ea476b39447dca4e9361f8f449c2941c2cacd7c80f072b940695407cc54306ad",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1707,7 +1707,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-6bit/resolve/968a9faa4b69230f3fc316b5755cb937a29c7ddc/config.json",
                 "config_sha256": "c3a7ac4f5a9e1e3525b81242ee42db005862d6ea70089ff846d562e750d65605",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1719,7 +1719,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-5bit/resolve/bc8c1a7fcc71ae85198570564917ad67cd2d1745/config.json",
                 "config_sha256": "27207c8337d6861f9671569df50f1f36596081c72dbe4d52467d5380ddb21009",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1731,7 +1731,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-4bit/resolve/0d77464eeb233a2da68ebf9d7dc4edaac7db956d/config.json",
                 "config_sha256": "419e13a27ec359654c1ce7dd06d1a87149fd07d0c8af9f770494185e62e1b2ba",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1743,7 +1743,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-mxfp8/resolve/98db761c8a17e41aacba0c0317409597fb216aa4/config.json",
                 "config_sha256": "586463ea0322704f811e7056ffbfeb81ecfe6c3f1a03f0d880604a71fd5c2c16",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1755,7 +1755,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-mxfp4/resolve/e0ddf04bf41080f16c8e26fa8d8468e9b08b1faa/config.json",
                 "config_sha256": "dea59a42fb3cdca6ee432a450cf1af84765c9f47d99d15c672e106c836cc057d",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1767,7 +1767,7 @@
                 "head_dim": 256,
                 "config_source": "https://huggingface.co/mlx-community/gemma-4-26b-a4b-it-nvfp4/resolve/31e75786f7646400d9e5d0b29d055326d981db5e/config.json",
                 "config_sha256": "73184935897a03f383d43500f1c0ae01ed2088822bf1aa46d9ac51bc5a67c54a",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1790,7 +1790,7 @@
               "mxfp4",
               "nvfp4"
             ],
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "bf16": {
                 "vocab_size": 262144,
                 "num_attention_heads": 16,
@@ -1798,7 +1798,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-bf16/resolve/master/config.json",
                 "config_sha256": "dfb6ef4697b916791e9219b6ac0aefa5bdee18c64a7412856aca217599a2a49c",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1810,7 +1810,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-8bit/resolve/master/config.json",
                 "config_sha256": "ea476b39447dca4e9361f8f449c2941c2cacd7c80f072b940695407cc54306ad",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1822,7 +1822,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-6bit/resolve/master/config.json",
                 "config_sha256": "c3a7ac4f5a9e1e3525b81242ee42db005862d6ea70089ff846d562e750d65605",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1834,7 +1834,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-5bit/resolve/master/config.json",
                 "config_sha256": "27207c8337d6861f9671569df50f1f36596081c72dbe4d52467d5380ddb21009",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1846,7 +1846,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-4bit/resolve/master/config.json",
                 "config_sha256": "419e13a27ec359654c1ce7dd06d1a87149fd07d0c8af9f770494185e62e1b2ba",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1858,7 +1858,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-mxfp8/resolve/master/config.json",
                 "config_sha256": "586463ea0322704f811e7056ffbfeb81ecfe6c3f1a03f0d880604a71fd5c2c16",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1870,7 +1870,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-mxfp4/resolve/master/config.json",
                 "config_sha256": "dea59a42fb3cdca6ee432a450cf1af84765c9f47d99d15c672e106c836cc057d",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30
@@ -1882,7 +1882,7 @@
                 "head_dim": 256,
                 "config_source": "https://modelscope.cn/models/mlx-community/gemma-4-26b-a4b-it-nvfp4/resolve/master/config.json",
                 "config_sha256": "73184935897a03f383d43500f1c0ae01ed2088822bf1aa46d9ac51bc5a67c54a",
-                "unsupported_reason": "multimodal",
+                "architecture_type": "multimodal",
                 "hidden_size": 2816,
                 "intermediate_size": 2112,
                 "num_hidden_layers": 30

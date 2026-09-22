@@ -23,14 +23,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507/resolve/ac9c66cc9b46af7306746a9250f23d47083d689e/config.json",
               "config_sha256": "ad59a339665ee1c68cbff06ac72c9e59f5183ebfaf3698c98737e003a870e9e2",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -41,14 +41,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-235B-A22B-Instruct-2507/resolve/master/config.json",
               "config_sha256": "ad59a339665ee1c68cbff06ac72c9e59f5183ebfaf3698c98737e003a870e9e2",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -66,14 +66,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/resolve/0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe/config.json",
               "config_sha256": "a1ee086a68d0cbfc87316da00ba4b8507bd1292978108e2496201a30a450f438",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -84,14 +84,14 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-30B-A3B-Instruct-2507/resolve/master/config.json",
               "config_sha256": "a1ee086a68d0cbfc87316da00ba4b8507bd1292978108e2496201a30a450f438",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -108,7 +108,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-4B-Instruct-2507",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -125,7 +125,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-4B-Instruct-2507",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -149,14 +149,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507-FP8/resolve/e156cb4efae43fbee1a1ab073f946a1377e6b969/config.json",
               "config_sha256": "f056921e486d3e22aed125b5218b87146ea2ac838ccf1521dea5b08f809e8d59",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -167,14 +167,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-235B-A22B-Instruct-2507-FP8/resolve/master/config.json",
               "config_sha256": "f056921e486d3e22aed125b5218b87146ea2ac838ccf1521dea5b08f809e8d59",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -192,14 +192,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507-FP8/resolve/5a5a776300a41aaa681dd7ff0106608ef2bc90db/config.json",
               "config_sha256": "002ebe91531ec67011b3d0c923234ef708c7da7d3b246045c4475d90b3d94628",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -210,14 +210,14 @@
               "fp8"
             ],
             "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/Qwen/Qwen3-30B-A3B-Instruct-2507-FP8/resolve/master/config.json",
               "config_sha256": "002ebe91531ec67011b3d0c923234ef708c7da7d3b246045c4475d90b3d94628",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -234,7 +234,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-4B-Instruct-2507-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -251,7 +251,7 @@
               "none"
             ],
             "model_id": "Qwen/Qwen3-4B-Instruct-2507-FP8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -275,14 +275,14 @@
               "Int4-Int8Mix"
             ],
             "model_id": "QuantTrio/Qwen3-235B-A22B-Instruct-2507-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/QuantTrio/Qwen3-235B-A22B-Instruct-2507-GPTQ-Int4-Int8Mix/resolve/b52b063de1b30d9c711118c825fa9aa370409f88/config.json",
               "config_sha256": "23493c13b37637347debbbc5a7cd82a5ed585f1ca6f815d6cdcba356d909e9eb",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -293,14 +293,14 @@
               "Int4-Int8Mix"
             ],
             "model_id": "tclf90/Qwen3-235B-A22B-Instruct-2507-GPTQ-Int4-Int8Mix",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/tclf90/Qwen3-235B-A22B-Instruct-2507-GPTQ-Int4-Int8Mix/resolve/master/config.json",
               "config_sha256": "23493c13b37637347debbbc5a7cd82a5ed585f1ca6f815d6cdcba356d909e9eb",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -318,14 +318,14 @@
               "Int8"
             ],
             "model_id": "QuantTrio/Qwen3-30B-A3B-Instruct-2507-GPTQ-Int8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/QuantTrio/Qwen3-30B-A3B-Instruct-2507-GPTQ-Int8/resolve/2441d7e36d13691bb8d00db390d7bddf9a8ebbe5/config.json",
               "config_sha256": "7e17b01bd39c8edc0cc13a947a8d8e42c7df32a56fdc8c3041d2595b069db3f5",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -336,14 +336,14 @@
               "Int8"
             ],
             "model_id": "tclf90/Qwen3-30B-A3B-Instruct-2507-GPTQ-Int8",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/tclf90/Qwen3-30B-A3B-Instruct-2507-GPTQ-Int8/resolve/master/config.json",
               "config_sha256": "7e17b01bd39c8edc0cc13a947a8d8e42c7df32a56fdc8c3041d2595b069db3f5",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -361,7 +361,7 @@
               "Int8"
             ],
             "model_id": "JunHowie/Qwen3-4B-Instruct-2507-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -392,7 +392,7 @@
               "Int8"
             ],
             "model_id": "JunHowie/Qwen3-4B-Instruct-2507-GPTQ-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "Int4": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -429,14 +429,14 @@
               "Int4"
             ],
             "model_id": "QuantTrio/Qwen3-235B-A22B-Instruct-2507-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/QuantTrio/Qwen3-235B-A22B-Instruct-2507-AWQ/resolve/96548f657d772187f16e9f04bc50aec78a9f9cdd/config.json",
               "config_sha256": "5db3ad2968c48e4e43f1d6494a609d4bc0f4f155278b7b2e59f179276e3c1787",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -447,14 +447,14 @@
               "Int4"
             ],
             "model_id": "tclf90/Qwen3-235B-A22B-Instruct-2507-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/tclf90/Qwen3-235B-A22B-Instruct-2507-AWQ/resolve/master/config.json",
               "config_sha256": "5db3ad2968c48e4e43f1d6494a609d4bc0f4f155278b7b2e59f179276e3c1787",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -472,14 +472,14 @@
               "Int4"
             ],
             "model_id": "cpatonn/Qwen3-30B-A3B-Instruct-2507-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/cpatonn/Qwen3-30B-A3B-Instruct-2507-AWQ/resolve/84455dc68ee6574b9f43659e32588d0bf0ca3a21/config.json",
               "config_sha256": "fb51d5c94e2713b1d7879019439ad225a4cbf4f49b83ab90c1f1ecbaa961e4da",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -490,14 +490,14 @@
               "Int4"
             ],
             "model_id": "cpatonn-mirror/Qwen3-30B-A3B-Instruct-2507-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/cpatonn-mirror/Qwen3-30B-A3B-Instruct-2507-AWQ/resolve/master/config.json",
               "config_sha256": "fb51d5c94e2713b1d7879019439ad225a4cbf4f49b83ab90c1f1ecbaa961e4da",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -514,7 +514,7 @@
               "Int4"
             ],
             "model_id": "Eslzzyl/Qwen3-4B-Instruct-2507-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -531,7 +531,7 @@
               "Int4"
             ],
             "model_id": "Eslzzyl/Qwen3-4B-Instruct-2507-AWQ",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 8,
@@ -559,7 +559,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-235B-A22B-Instruct-2507-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 64,
@@ -567,7 +567,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-235B-A22B-Instruct-2507-3bit/resolve/8df14918a67220a6b613837597ed790e1c03f058/config.json",
                 "config_sha256": "403fe8b616b76050c3ce1cc37ff5be3a358f9b439630f78af188e64c4eb061c1",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -579,7 +579,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-235B-A22B-Instruct-2507-4bit/resolve/4dbf8a62338880825560dff3f58f2e9f0c56210f/config.json",
                 "config_sha256": "03c6a09125e6b0a558d739a3bfae90cebdce684bb8641aa94d26ca0e0c3d83d6",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -591,7 +591,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-235B-A22B-Instruct-2507-5bit/resolve/e6811ef2bcc8a69a161518fa85a6c1a23572517c/config.json",
                 "config_sha256": "3cbd1d6dc73ebbec00a14a04eddf4d41b4bdaecdc82705e05d3e4b13c9eb5550",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -603,7 +603,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-235B-A22B-Instruct-2507-6bit/resolve/6dd2ef235d39fb976237fd9243184741d8407a55/config.json",
                 "config_sha256": "56f2f09304f8dc5ec82f316760ffcc6e0d9ebc766ddcb6e1a522dce15126026e",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -615,7 +615,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-235B-A22B-Instruct-2507-8bit/resolve/97042893088decff8468f7729c1076dcad2f251b/config.json",
                 "config_sha256": "e3abec5a8d1270c50fa1d300b9db4aa068571f2af95911f531baae67cd990fcd",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -631,7 +631,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-235B-A22B-Instruct-2507-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "3bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 64,
@@ -639,7 +639,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-Instruct-2507-3bit/resolve/master/config.json",
                 "config_sha256": "403fe8b616b76050c3ce1cc37ff5be3a358f9b439630f78af188e64c4eb061c1",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -651,7 +651,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-Instruct-2507-4bit/resolve/master/config.json",
                 "config_sha256": "03c6a09125e6b0a558d739a3bfae90cebdce684bb8641aa94d26ca0e0c3d83d6",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -663,7 +663,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-Instruct-2507-5bit/resolve/master/config.json",
                 "config_sha256": "3cbd1d6dc73ebbec00a14a04eddf4d41b4bdaecdc82705e05d3e4b13c9eb5550",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -675,7 +675,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-Instruct-2507-6bit/resolve/master/config.json",
                 "config_sha256": "56f2f09304f8dc5ec82f316760ffcc6e0d9ebc766ddcb6e1a522dce15126026e",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -687,7 +687,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-Instruct-2507-8bit/resolve/master/config.json",
                 "config_sha256": "e3abec5a8d1270c50fa1d300b9db4aa068571f2af95911f531baae67cd990fcd",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 4096,
                 "intermediate_size": 12288,
                 "num_hidden_layers": 94
@@ -709,7 +709,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-30B-A3B-Instruct-2507-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -717,7 +717,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit/resolve/e9675aa3ca5f900ccef55267914466d55ab325fa/config.json",
                 "config_sha256": "e1caf81b25b71686af871f1147290a81cbcb81283b638f98957293990e031417",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -729,7 +729,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-5bit/resolve/d7c455e3c9657dfc1ccecb9fbc45818cf4578246/config.json",
                 "config_sha256": "e6fbb257ce87572d9cb2991507e042827d55a07d019b1dbc7c0e2cda459c82dc",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -741,7 +741,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-6bit/resolve/f5ace4e14ed07217d0f3628ece83ca368f19ee70/config.json",
                 "config_sha256": "48e28ef9e03c41031edb855b1184dff22f15affcf8a3b29068f8b38ef2d989a7",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -753,7 +753,7 @@
                 "head_dim": 128,
                 "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-Instruct-2507-8bit/resolve/cc56d334b04419b9178729f2ced9e4003f18073b/config.json",
                 "config_sha256": "f4c33969e88a34a35781fddf92c331348f16dbb5b82c60b718cf17eeec57a6a2",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -768,7 +768,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-30B-A3B-Instruct-2507-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -776,7 +776,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit/resolve/master/config.json",
                 "config_sha256": "e1caf81b25b71686af871f1147290a81cbcb81283b638f98957293990e031417",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -788,7 +788,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-Instruct-2507-5bit/resolve/master/config.json",
                 "config_sha256": "e6fbb257ce87572d9cb2991507e042827d55a07d019b1dbc7c0e2cda459c82dc",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -800,7 +800,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-Instruct-2507-6bit/resolve/master/config.json",
                 "config_sha256": "48e28ef9e03c41031edb855b1184dff22f15affcf8a3b29068f8b38ef2d989a7",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -812,7 +812,7 @@
                 "head_dim": 128,
                 "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-Instruct-2507-8bit/resolve/master/config.json",
                 "config_sha256": "f4c33969e88a34a35781fddf92c331348f16dbb5b82c60b718cf17eeec57a6a2",
-                "unsupported_reason": "moe",
+                "architecture_type": "moe",
                 "hidden_size": 2048,
                 "intermediate_size": 6144,
                 "num_hidden_layers": 48
@@ -833,7 +833,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-4B-Instruct-2507-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -888,7 +888,7 @@
               "8bit"
             ],
             "model_id": "mlx-community/Qwen3-4B-Instruct-2507-{quantization}",
-            "memory_estimation_by_quantization": {
+            "model_metadata_by_quantization": {
               "4bit": {
                 "vocab_size": 151936,
                 "num_attention_heads": 32,
@@ -1086,14 +1086,14 @@
             "model_id": "unsloth/Qwen3-235B-A22B-Instruct-2507-GGUF",
             "model_file_name_template": "Qwen3-235B-A22B-Instruct-2507-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-Instruct-2507-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/unsloth/Qwen3-235B-A22B-Instruct-2507-GGUF/resolve/main/BF16/Qwen3-235B-A22B-Instruct-2507-BF16-00001-of-00010.gguf",
               "config_sha256": "32fba9ee0d3886ed3252ca9efc8a758ee89aea283ae540c7c87e515aba595e53",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -1243,14 +1243,14 @@
             "model_id": "unsloth/Qwen3-235B-A22B-Instruct-2507-GGUF",
             "model_file_name_template": "Qwen3-235B-A22B-Instruct-2507-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-Instruct-2507-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 64,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/unsloth/Qwen3-235B-A22B-Instruct-2507-GGUF/resolve/master/BF16/Qwen3-235B-A22B-Instruct-2507-BF16-00001-of-00010.gguf",
               "config_sha256": "32fba9ee0d3886ed3252ca9efc8a758ee89aea283ae540c7c87e515aba595e53",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 4096,
               "intermediate_size": 12288,
               "num_hidden_layers": 94
@@ -1302,14 +1302,14 @@
             "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
             "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://huggingface.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF/resolve/main/BF16/Qwen3-30B-A3B-Instruct-2507-BF16-00001-of-00002.gguf",
               "config_sha256": "2f9ae9f476a07d5280c3dd9dd242d3fb01a8fafc9e05fd6441208e69d4b52d01",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48
@@ -1354,14 +1354,14 @@
             "model_id": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
             "model_file_name_template": "Qwen3-30B-A3B-Instruct-2507-{quantization}.gguf",
             "model_file_name_split_template": "{quantization}/Qwen3-30B-A3B-Instruct-2507-{quantization}-{part}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 151936,
               "num_attention_heads": 32,
               "num_key_value_heads": 4,
               "head_dim": 128,
               "config_source": "https://modelscope.cn/models/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF/resolve/master/BF16/Qwen3-30B-A3B-Instruct-2507-BF16-00001-of-00002.gguf",
               "config_sha256": "2f9ae9f476a07d5280c3dd9dd242d3fb01a8fafc9e05fd6441208e69d4b52d01",
-              "unsupported_reason": "moe",
+              "architecture_type": "moe",
               "hidden_size": 2048,
               "intermediate_size": 6144,
               "num_hidden_layers": 48

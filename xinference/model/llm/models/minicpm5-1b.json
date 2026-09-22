@@ -24,7 +24,7 @@
               "none"
             ],
             "model_id": "openbmb/MiniCPM5-1B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 130560,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -41,7 +41,7 @@
               "none"
             ],
             "model_id": "OpenBMB/MiniCPM5-1B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 130560,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -67,7 +67,7 @@
             ],
             "model_id": "openbmb/MiniCPM5-1B-GGUF",
             "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 130560,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -87,7 +87,7 @@
             ],
             "model_id": "OpenBMB/MiniCPM5-1B-GGUF",
             "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 130560,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -110,7 +110,7 @@
               "4bit"
             ],
             "model_id": "openbmb/MiniCPM5-1B-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 130560,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -127,7 +127,7 @@
               "4bit"
             ],
             "model_id": "OpenBMB/MiniCPM5-1B-MLX",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 130560,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,

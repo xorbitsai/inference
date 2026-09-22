@@ -335,9 +335,9 @@ async def test_worker_read_only_default_hub_and_exact_cache(monkeypatch, tmp_pat
     from pathlib import Path
 
     Path(path).mkdir(parents=True)
-    from xinference.model.llm.memory_metadata import ModelMemoryMetadata
+    from xinference.model.llm.model_metadata import ModelMetadata
 
-    spec.memory_estimation = ModelMemoryMetadata(
+    spec.model_metadata = ModelMetadata(
         vocab_size=32000,
         num_attention_heads=32,
         num_key_value_heads=8,

@@ -20,7 +20,7 @@
               "none"
             ],
             "model_id": "JunHowie/MiniCPM4-0.5B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 73448,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -36,7 +36,7 @@
               "none"
             ],
             "model_id": "JunHowie/MiniCPM4-0.5B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 73448,
               "num_attention_heads": 16,
               "num_key_value_heads": 2,
@@ -58,7 +58,7 @@
               "none"
             ],
             "model_id": "JunHowie/MiniCPM4-8B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 73448,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -74,7 +74,7 @@
               "none"
             ],
             "model_id": "JunHowie/MiniCPM4-8B",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 73448,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -96,7 +96,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/MiniCPM4-8B-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 73448,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,
@@ -112,7 +112,7 @@
               "4bit"
             ],
             "model_id": "mlx-community/MiniCPM4-8B-4bit",
-            "memory_estimation": {
+            "model_metadata": {
               "vocab_size": 73448,
               "num_attention_heads": 32,
               "num_key_value_heads": 2,

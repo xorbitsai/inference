@@ -3218,9 +3218,7 @@ class WorkerActor(xo.StatelessActor):
                         continue
                     key = spec_key(param, quant)
                     launch_specs.add(key)
-                    metadata = getattr(
-                        matched.model_specs[0], "memory_estimation", None
-                    )
+                    metadata = getattr(matched.model_specs[0], "model_metadata", None)
                     if metadata is not None and key not in memory_estimates:
                         try:
                             memory_estimates[key] = estimate_llm_gpu_memory_details(

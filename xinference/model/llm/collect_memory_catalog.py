@@ -26,7 +26,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import quote
 
-from .memory_metadata import ModelMemoryMetadata
+from .memory import unsupported_memory_reason
+from .model_metadata import ModelMetadata
 
 
 def config_url(hub: str, repo: str, revision: str) -> str:
@@ -82,7 +83,7 @@ def collect_gguf_config(
     import requests
     from urllib3.exceptions import HTTPError
 
-    from .gguf_memory_metadata import read_gguf_config
+    from .gguf_model_metadata import read_gguf_config
 
     cache = cache_dir / (
         hashlib.sha256(json.dumps((job, filename)).encode()).hexdigest() + ".json"
@@ -174,7 +175,7 @@ def collect_catalog(
             continue
         for quant, job in quant_jobs.items():
             try:
-                ModelMemoryMetadata.from_config(results[job].get("config", {}))
+                ModelMetadata.from_config(results[job].get("config", {}))
                 continue
             except ValueError:
                 pass
@@ -223,23 +224,22 @@ def collect_catalog(
             try:
                 if "error" in result:
                     raise ValueError(result["error"])
-                metadata = ModelMemoryMetadata.from_config(result["config"])
+                metadata = ModelMetadata.from_config(result["config"])
                 metadata.config_source = result["config_source"]
                 metadata.config_sha256 = result["config_sha256"]
                 if (
                     spec.get("activated_size_in_billions")
-                    and not metadata.unsupported_reason
+                    and not metadata.architecture_type
                 ):
-                    metadata.unsupported_reason = "moe"
+                    metadata.architecture_type = "moe"
                 # Catalog abilities cover older multimodal configs without nested text_config.
                 if set(family["model_ability"]) & {"vision", "audio", "omni"}:
-                    metadata.unsupported_reason = "multimodal"
+                    metadata.architecture_type = "multimodal"
                 by_quant[quant] = metadata.dict(exclude_none=True)
-                row["status"] = (
-                    "metadata_only" if metadata.unsupported_reason else "collected"
-                )
-                if metadata.unsupported_reason:
-                    row["reason"] = metadata.unsupported_reason
+                reason = unsupported_memory_reason(metadata)
+                row["status"] = "metadata_only" if reason else "collected"
+                if reason:
+                    row["reason"] = reason
             except ValueError as exc:
                 row.update(status="unavailable", reason=str(exc))
             report.append(row)
@@ -248,9 +248,9 @@ def collect_catalog(
         # Template repos can have different dimensions at each quantization.
         # Store exact matches rather than copying one quantization's config to all.
         if len(set(quant_jobs.values())) == 1:
-            source["memory_estimation"] = next(iter(by_quant.values()))
+            source["model_metadata"] = next(iter(by_quant.values()))
         else:
-            source["memory_estimation_by_quantization"] = by_quant
+            source["model_metadata_by_quantization"] = by_quant
     staging = output / "models"
     staging.mkdir()
     for filename, families in documents.items():
