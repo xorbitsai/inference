@@ -21,14 +21,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-9B-Chat-16K",
-            "model_revision": "551220fb24d69b6bfec5defceeb160395ce5da8d"
+            "model_revision": "551220fb24d69b6bfec5defceeb160395ce5da8d",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-9B-Chat-16K/resolve/551220fb24d69b6bfec5defceeb160395ce5da8d/config.json",
+              "config_sha256": "84818d0aa650bb8f668a8bae5e569c4f1d79b913d329f59c1536ab2544e88250",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-1.5-9B-Chat-16K",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-9B-Chat-16K/resolve/master/config.json",
+              "config_sha256": "84818d0aa650bb8f668a8bae5e569c4f1d79b913d329f59c1536ab2544e88250",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -41,14 +61,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-34B-Chat-16K",
-            "model_revision": "dfdbc67be750972bfcc1ac7ffd7fe48689c856fd"
+            "model_revision": "dfdbc67be750972bfcc1ac7ffd7fe48689c856fd",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-34B-Chat-16K/resolve/dfdbc67be750972bfcc1ac7ffd7fe48689c856fd/config.json",
+              "config_sha256": "c84abd7746bbbf0816f9e91ba4d1bc748dff956963fad36e3fe0157648eb7b4e",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-1.5-34B-Chat-16K",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-34B-Chat-16K/resolve/master/config.json",
+              "config_sha256": "c84abd7746bbbf0816f9e91ba4d1bc748dff956963fad36e3fe0157648eb7b4e",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -74,7 +114,17 @@
               "Q8_0"
             ],
             "model_id": "QuantFactory/Yi-1.5-9B-Chat-16K-GGUF",
-            "model_file_name_template": "Yi-1.5-9B-Chat-16K.{quantization}.gguf"
+            "model_file_name_template": "Yi-1.5-9B-Chat-16K.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/QuantFactory/Yi-1.5-9B-Chat-16K-GGUF/resolve/main/Yi-1.5-9B-Chat-16K.Q2_K.gguf",
+              "config_sha256": "0145bdd7623229a4fc6b1036516c83f2afbc56f598ffd3de771b9adcb7156424",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -96,7 +146,17 @@
               "Q8_0"
             ],
             "model_id": "bartowski/Yi-1.5-34B-Chat-16K-GGUF",
-            "model_file_name_template": "Yi-1.5-34B-Chat-16K-{quantization}.gguf"
+            "model_file_name_template": "Yi-1.5-34B-Chat-16K-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/bartowski/Yi-1.5-34B-Chat-16K-GGUF/resolve/main/Yi-1.5-34B-Chat-16K-Q2_K.gguf",
+              "config_sha256": "2c4abc18050dd2df5cc082268a4e23b4ed2295b0f7c59c5078c33eed5bf03f21",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

@@ -32,16 +32,16 @@ msgid "Xinference starts with your choices. If you have selected an 8B model, it
 msgstr "Xinference는 사용자의 선택을 우선 반영합니다. 8B 모델을 선택했다면 해당 크기의 구성을 찾으며 더 작은 모델로 바꾸지 않습니다. 워커, GPU, 가상 환경 설정도 검색 범위를 제한합니다. 각 워커를 개별적으로 검사하고 호환성 검사를 통과하지 못한 조합은 제외합니다. 남은 후보가 없으면 설정을 조정할 수 있도록 양식을 그대로 유지합니다."
 
 #: ../../source/user_guide/launch.rst:31
-msgid "If you have not picked a size, it chooses the smallest eligible size first. Among configurations of that size, it prefers an engine already available in the worker's environment. When virtual environments are enabled, an engine that needs dependencies installed at launch can also be considered. Choosing the smallest size is a conservative starting point, not an estimate of the largest model your hardware can run."
-msgstr "크기를 아직 선택하지 않았다면 조건을 충족하는 가장 작은 크기를 먼저 선택합니다. 해당 크기의 구성 중에서는 워커 환경에서 이미 사용 가능한 엔진을 우선합니다. 가상 환경이 활성화되어 있으면 실행 시 종속 항목을 설치해야 하는 엔진도 후보에 포함될 수 있습니다. 가장 작은 크기를 선택하는 것은 보수적인 출발점이며, 하드웨어에서 실행할 수 있는 최대 모델 크기를 추정한 결과가 아닙니다."
+msgid "If memory data is available, Xinference prefers the largest size estimated to fit. Otherwise it falls back to the smallest unverified size. Within that size, installed engines are preferred; virtual-environment candidates remain eligible."
+msgstr "메모리 정보가 있으면 Xinference는 적재 가능하다고 추정되는 가장 큰 크기를 우선합니다. 정보가 없으면 메모리가 검증되지 않은 가장 작은 크기로 돌아갑니다. 같은 크기에서는 설치된 엔진을 우선하며 가상 환경 후보도 고려합니다."
 
 #: ../../source/user_guide/launch.rst:38
 msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
 msgstr "그다음에는 플랫폼의 기본 엔진 우선순위를 적용합니다. 앞선 조건이 같다면 Apple Silicon에서는 MLX를, CUDA를 사용하는 Linux에서는 vLLM 다음으로 SGLang을, CPU에서는 llama.cpp를 우선합니다. 같은 엔진 내에서는 지원되는 경우 Q4_K_M, Int4와 같은 일반적인 4비트 양자화를 우선합니다. 그래도 후보들의 우선순위가 같으면 해당 워커에 이미 캐시된 가중치를 우선합니다. 캐시된 모델이 있다고 해서 선택한 크기나 앞선 우선순위가 바뀌지는 않습니다."
 
 #: ../../source/user_guide/launch.rst:45
-msgid "These are fixed selection rules, not performance measurements. The recommendation does not check whether there is enough free memory for your workload or reserve resources. For example, a longer context or more concurrent requests can need more memory. Treat the result as a starting configuration to review and try; you still launch the model yourself."
-msgstr "이는 고정된 선택 규칙이며 성능 측정 결과가 아닙니다. 추천 기능은 워크로드에 필요한 여유 메모리가 충분한지 확인하지 않으며 리소스도 예약하지 않습니다. 예를 들어 컨텍스트가 길어지거나 동시 요청이 늘어나면 메모리가 더 필요할 수 있습니다. 결과를 검토하고 시험해 볼 초기 구성으로 활용하세요. 모델은 여전히 사용자가 직접 실행해야 합니다."
+msgid "Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and 80% of currently free memory. Automatic GPU placement uses the lowest free memory among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple GPUs are not added together: multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Missing data remains unverified. Longer contexts, concurrency and engine preallocation can need more memory. No resources are reserved, and you still review and launch the model yourself."
+msgstr "추정에는 오프라인 메타데이터를 사용하며 시퀀스 1개, 2048 토큰, FP16 KV 캐시, 현재 사용 가능한 메모리의 80%를 가정합니다. GPU 자동 배치에서는 후보 GPU 중 가장 적은 여유 메모리를 사용하고, CPU와 Apple Silicon에서는 사용 가능한 시스템 메모리를 사용합니다. 여러 GPU의 메모리는 합산하지 않으며 다중 GPU 요청은 호환성만으로 선택합니다. 추정치가 예산을 초과하는 후보는 제외하고 데이터가 없는 후보는 미검증 상태로 둡니다. 긴 컨텍스트, 동시 요청, 엔진 사전 할당에는 더 많은 메모리가 필요할 수 있습니다. 리소스를 예약하지 않으므로 확인 후 직접 실행해야 합니다."
 
 #: ../../source/user_guide/launch.rst:51
 msgid "Using the API"
@@ -74,8 +74,8 @@ msgid "A recommendation does not guarantee sufficient memory or a successful lau
 msgstr "권장 설정은 충분한 메모리나 실행 성공을 보장하지 않습니다. 리소스를 예약하거나 모델 파일을 다운로드하거나 의존성을 설치하지 않습니다. 기존 실행 동작은 그대로 유지되며 배포는 별도로 수행해야 합니다."
 
 #: ../../source/user_guide/launch.rst:42
-msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
-msgstr "크기를 생략하면 조건을 만족하는 가장 작은 모델 크기가 선택되며, 명시적인 크기 제약 조건은 준수됩니다. ``config`` 에는 실제로 적용되는 ``enable_virtual_env`` 와 지정된 ``n_gpu`` 및 ``gpu_idx`` 제약 조건도 포함됩니다. ``n_gpu=null`` 은 CPU 배치를 요청하고, ``n_gpu=\"auto\"`` 는 필요한 GPU 수를 계산하지 않고 기존 실행 할당 정책을 사용합니다."
+msgid "``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "``config`` 에는 실제로 적용되는 ``enable_virtual_env`` 와 지정된 ``n_gpu`` 및 ``gpu_idx`` 제약 조건도 포함됩니다. ``n_gpu=null`` 은 CPU 배치를 요청하고, ``n_gpu=\"auto\"`` 는 필요한 GPU 수를 계산하지 않고 기존 실행 할당 정책을 사용합니다."
 
 #: ../../source/user_guide/launch.rst:48
 msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."

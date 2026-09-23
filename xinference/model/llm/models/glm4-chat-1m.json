@@ -22,20 +22,52 @@
               "none"
             ],
             "model_id": "zai-org/glm-4-9b-chat-1m-hf",
-            "model_revision": "0588cb62942f0f0a5545c695e5c1b019d64eabdc"
+            "model_revision": "0588cb62942f0f0a5545c695e5c1b019d64eabdc",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/zai-org/glm-4-9b-chat-1m-hf/resolve/0588cb62942f0f0a5545c695e5c1b019d64eabdc/config.json",
+              "config_sha256": "8a6d5debdb49df0a06c21055d5eaf1b361ef4f3da3bb6b0e06bffd201146d3c9",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "ZhipuAI/glm-4-9b-chat-1m-hf",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-4-9b-chat-1m-hf/resolve/master/config.json",
+              "config_sha256": "8a6d5debdb49df0a06c21055d5eaf1b361ef4f3da3bb6b0e06bffd201146d3c9",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-Research/glm-4-9b-chat-1m"
+            "model_id": "AI-Research/glm-4-9b-chat-1m",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelers.cn/api/v1/file/AI-Research/glm-4-9b-chat-1m/main/media/config.json",
+              "config_sha256": "d35c31949fd6b2c896dce6ca966dbd6ec4dde6b3cac788d778d12b1f8f6e0861",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -65,7 +97,17 @@
             ],
             "model_file_name_template": "glm-4-9b-chat-1m.{quantization}.gguf",
             "model_id": "legraphista/glm-4-9b-chat-1m-GGUF",
-            "model_revision": "782e28bd5eee3c514c07108da15e0b5e06dcf776"
+            "model_revision": "782e28bd5eee3c514c07108da15e0b5e06dcf776",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/legraphista/glm-4-9b-chat-1m-GGUF/resolve/782e28bd5eee3c514c07108da15e0b5e06dcf776/glm-4-9b-chat-1m.Q2_K.gguf",
+              "config_sha256": "e4d4bf4e9ff6cf931dfac7fd38c7a2f69bbddc8b209b7fca78bcbe7b9938c53a",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -89,7 +131,17 @@
             ],
             "model_file_name_template": "glm-4-9b-chat-1m.{quantization}.gguf",
             "model_id": "LLM-Research/glm-4-9b-chat-1m-GGUF",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/LLM-Research/glm-4-9b-chat-1m-GGUF/resolve/master/glm-4-9b-chat-1m.Q2_K.gguf",
+              "config_sha256": "e4d4bf4e9ff6cf931dfac7fd38c7a2f69bbddc8b209b7fca78bcbe7b9938c53a",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

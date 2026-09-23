@@ -21,14 +21,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-1B"
+            "model_id": "OpenGVLab/InternVL3-1B",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 14,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-1B/resolve/4415a3b810e636d11dfa86b0e9ba40bb00535aa8/config.json",
+              "config_sha256": "8a252be385dbef3abf1c58d028ea5116849a33dc7a1601c350c3ee28f202524c",
+              "architecture_type": "multimodal",
+              "hidden_size": 896,
+              "intermediate_size": 4864,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-1B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 14,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-1B/resolve/master/config.json",
+              "config_sha256": "8a252be385dbef3abf1c58d028ea5116849a33dc7a1601c350c3ee28f202524c",
+              "architecture_type": "multimodal",
+              "hidden_size": 896,
+              "intermediate_size": 4864,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -40,13 +62,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-1B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-1B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 14,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-1B-AWQ/resolve/d323c423ab714aac211522751b6cd96dc9dbeab3/config.json",
+              "config_sha256": "844d5d53546c278897d516cd9fbce7156d556269a3ff99ec1e2313d79442766f",
+              "architecture_type": "multimodal",
+              "hidden_size": 896,
+              "intermediate_size": 4864,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-1B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-1B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 14,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-1B-AWQ/resolve/master/config.json",
+              "config_sha256": "844d5d53546c278897d516cd9fbce7156d556269a3ff99ec1e2313d79442766f",
+              "architecture_type": "multimodal",
+              "hidden_size": 896,
+              "intermediate_size": 4864,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -58,14 +102,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-2B"
+            "model_id": "OpenGVLab/InternVL3-2B",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-2B/resolve/899155015275a9b7338c7f4677e19c784e0e5a21/config.json",
+              "config_sha256": "ae35ff835e7cff1c77ff04d94e9d77d4e3ee81f4d608ee3b7c91d231a5e3d67d",
+              "architecture_type": "multimodal",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-2B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-2B/resolve/master/config.json",
+              "config_sha256": "ae35ff835e7cff1c77ff04d94e9d77d4e3ee81f4d608ee3b7c91d231a5e3d67d",
+              "architecture_type": "multimodal",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -77,13 +143,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-2B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-2B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-2B-AWQ/resolve/419416e5f0428a7760a9d3ff225c24b76d450645/config.json",
+              "config_sha256": "92c8138aae5232c6821375efdfc5c4fabd83bfa4dd44b8c077157084de3002b3",
+              "architecture_type": "multimodal",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-2B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-2B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-2B-AWQ/resolve/master/config.json",
+              "config_sha256": "92c8138aae5232c6821375efdfc5c4fabd83bfa4dd44b8c077157084de3002b3",
+              "architecture_type": "multimodal",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -95,14 +183,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-8B"
+            "model_id": "OpenGVLab/InternVL3-8B",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-8B/resolve/853e3a797a661694b1b8ece0cb72dc2b23e3dac9/config.json",
+              "config_sha256": "cd0c54d0aa85fcd979cd2af524c0c08e26cdca278f05e96b635f298e34afae39",
+              "architecture_type": "multimodal",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-8B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-8B/resolve/master/config.json",
+              "config_sha256": "cd0c54d0aa85fcd979cd2af524c0c08e26cdca278f05e96b635f298e34afae39",
+              "architecture_type": "multimodal",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -114,13 +224,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-8B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-8B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-8B-AWQ/resolve/020820e08d63c09e25ade36b191f195ac6da8a77/config.json",
+              "config_sha256": "c5bd0fe1f09aea72753ba34ca59eb4a3c17b46fee3c740f870b245e2c018d354",
+              "architecture_type": "multimodal",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-8B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-8B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-8B-AWQ/resolve/master/config.json",
+              "config_sha256": "c5bd0fe1f09aea72753ba34ca59eb4a3c17b46fee3c740f870b245e2c018d354",
+              "architecture_type": "multimodal",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -132,14 +264,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-9B"
+            "model_id": "OpenGVLab/InternVL3-9B",
+            "model_metadata": {
+              "vocab_size": 128142,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-9B/resolve/5f618513e35a9b85922341b8057feddfc8880e50/config.json",
+              "config_sha256": "be2b8b74a06c946c91ebf86ee5688376be6395d1780db6f594d10d607d8b9c3c",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-9B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 128142,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-9B/resolve/master/config.json",
+              "config_sha256": "be2b8b74a06c946c91ebf86ee5688376be6395d1780db6f594d10d607d8b9c3c",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -151,13 +305,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-9B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-9B-AWQ",
+            "model_metadata": {
+              "vocab_size": 128142,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-9B-AWQ/resolve/73578c0e169a5a0c1eff174f0f403c0d55605f67/config.json",
+              "config_sha256": "5fba20b9aff46e0389ddaf23a7ff40a5902f91168dfdd97fe84df09e0d1a027e",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-9B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-9B-AWQ",
+            "model_metadata": {
+              "vocab_size": 128142,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-9B-AWQ/resolve/master/config.json",
+              "config_sha256": "5fba20b9aff46e0389ddaf23a7ff40a5902f91168dfdd97fe84df09e0d1a027e",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 10240,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -169,14 +345,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-14B"
+            "model_id": "OpenGVLab/InternVL3-14B",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-14B/resolve/419aa10d2db7da6c64382ad3124f79a60cec42aa/config.json",
+              "config_sha256": "e3a7ca7387321e4a13c2ab60e108916b80bb1fc4c68818943ceb136099e9eb6f",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-14B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-14B/resolve/master/config.json",
+              "config_sha256": "e3a7ca7387321e4a13c2ab60e108916b80bb1fc4c68818943ceb136099e9eb6f",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -188,13 +386,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-14B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-14B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-14B-AWQ/resolve/fde46cf3df2c0ab8b0ad38e3340f965bbe927243/config.json",
+              "config_sha256": "2ecbfa7251adb4e6d971537cd1c34035e16c10e2dd3c674d8dd1c5f84511b747",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-14B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-14B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-14B-AWQ/resolve/master/config.json",
+              "config_sha256": "2ecbfa7251adb4e6d971537cd1c34035e16c10e2dd3c674d8dd1c5f84511b747",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -206,14 +426,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-38B"
+            "model_id": "OpenGVLab/InternVL3-38B",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-38B/resolve/b99bcba4fe0c51d9e475af25ec000dbfea6284af/config.json",
+              "config_sha256": "d8793e59e46e4e7fe3fb12ae1b53f2cb35d06e2725c2a675896672b3ce94ac47",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-38B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-38B/resolve/master/config.json",
+              "config_sha256": "d8793e59e46e4e7fe3fb12ae1b53f2cb35d06e2725c2a675896672b3ce94ac47",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -225,13 +467,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-38B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-38B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-38B-AWQ/resolve/beec2dad850e9d9eaf7b15c1aae3847afc29afcc/config.json",
+              "config_sha256": "b4411a97432606470ed781498d598dcd48f6dd5438ec4c3818be4c49ee8ce1bd",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-38B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-38B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-38B-AWQ/resolve/master/config.json",
+              "config_sha256": "b4411a97432606470ed781498d598dcd48f6dd5438ec4c3818be4c49ee8ce1bd",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -243,14 +507,36 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenGVLab/InternVL3-78B"
+            "model_id": "OpenGVLab/InternVL3-78B",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-78B/resolve/4a42b163cc0e222e97b10b562eee98da6bf26077/config.json",
+              "config_sha256": "d8e007a27ba113c590e8a06aee67dec788a89eb0bac694a3f86a099cb0267e27",
+              "architecture_type": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 29568,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenGVLab/InternVL3-78B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-78B/resolve/master/config.json",
+              "config_sha256": "d8e007a27ba113c590e8a06aee67dec788a89eb0bac694a3f86a099cb0267e27",
+              "architecture_type": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 29568,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -262,13 +548,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-78B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-78B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/OpenGVLab/InternVL3-78B-AWQ/resolve/c796d12a22e6b3df59bfe337b48a83e9c555691d/config.json",
+              "config_sha256": "0f27955046dfb6dde452ef7e1f0c9a844104663dff6de80d338c24ca713642cc",
+              "architecture_type": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 29568,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenGVLab/InternVL3-78B-AWQ"
+            "model_id": "OpenGVLab/InternVL3-78B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151674,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/OpenGVLab/InternVL3-78B-AWQ/resolve/master/config.json",
+              "config_sha256": "0f27955046dfb6dde452ef7e1f0c9a844104663dff6de80d338c24ca713642cc",
+              "architecture_type": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 29568,
+              "num_hidden_layers": 80
+            }
           }
         }
       }

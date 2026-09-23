@@ -21,14 +21,34 @@
               "none"
             ],
             "model_id": "zai-org/codegeex4-all-9b",
-            "model_revision": "8c4ec1d2f2888412640825a7aa23355939a8f4c6"
+            "model_revision": "8c4ec1d2f2888412640825a7aa23355939a8f4c6",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/zai-org/codegeex4-all-9b/resolve/8c4ec1d2f2888412640825a7aa23355939a8f4c6/config.json",
+              "config_sha256": "e5e22cd2577c145201c4a7ef3c253ed80b93749c31af63ec878139bcab27d394",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "ZhipuAI/codegeex4-all-9b",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b/resolve/master/config.json",
+              "config_sha256": "e5e22cd2577c145201c4a7ef3c253ed80b93749c31af63ec878139bcab27d394",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -47,7 +67,17 @@
             ],
             "model_file_name_template": "codegeex4-all-9b-{quantization}.gguf",
             "model_id": "zai-org/codegeex4-all-9b-GGUF",
-            "model_revision": "6a04071c54c943949826d4815ee00717ed8cf153"
+            "model_revision": "6a04071c54c943949826d4815ee00717ed8cf153",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/zai-org/codegeex4-all-9b-GGUF/resolve/6a04071c54c943949826d4815ee00717ed8cf153/codegeex4-all-9b-IQ2_M.gguf",
+              "config_sha256": "ff40424ebdef5e223657049a2e2205ce21ebefee4dfe522942ab1c16b0734258",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -59,7 +89,17 @@
               "Q8_0"
             ],
             "model_file_name_template": "codegeex4-all-9b-{quantization}.gguf",
-            "model_id": "ZhipuAI/codegeex4-all-9b-GGUF"
+            "model_id": "ZhipuAI/codegeex4-all-9b-GGUF",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/codegeex4-all-9b-GGUF/resolve/master/codegeex4-all-9b-IQ2_M.gguf",
+              "config_sha256": "ff40424ebdef5e223657049a2e2205ce21ebefee4dfe522942ab1c16b0734258",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

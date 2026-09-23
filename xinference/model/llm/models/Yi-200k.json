@@ -21,14 +21,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-6B-200K",
-            "model_revision": "70649e36d43f91dff1357b576e6713cac03c1d4c"
+            "model_revision": "70649e36d43f91dff1357b576e6713cac03c1d4c",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-6B-200K/resolve/70649e36d43f91dff1357b576e6713cac03c1d4c/config.json",
+              "config_sha256": "ffb06ec54b91fdc340e636fbb2979da3c8d90c1ad84e92e48c86e24951317ad8",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-6B-200K",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-6B-200K/resolve/master/config.json",
+              "config_sha256": "8347b15321ddffc6284ef2949ab18385a4da967a4a2dedc378ce70e2f2bedd4c",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
@@ -47,14 +67,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-34B-200K",
-            "model_revision": "591ae83b8f9c269700ef27f9dbd548934d800302"
+            "model_revision": "591ae83b8f9c269700ef27f9dbd548934d800302",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/01-ai/Yi-34B-200K/resolve/591ae83b8f9c269700ef27f9dbd548934d800302/config.json",
+              "config_sha256": "e5904081019c5075cf5455231e62257ad6f1d16f993264d190be781aacc5a140",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-34B-200K",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-34B-200K/resolve/master/config.json",
+              "config_sha256": "0653987de5f889d25bf53dffc53116d6b6af07b5b201c88440d597d3ae091b2e",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

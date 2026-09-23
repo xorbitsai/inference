@@ -23,13 +23,37 @@
             "model_id": "zai-org/GLM-5.1",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/zai-org/GLM-5.1/resolve/26e1bd6e011feb778d25ae34b09b07074139d92d/config.json",
+              "config_sha256": "726e45e28d1be1636a5834048a4101a2cfe384819ad2ebe08d41f6fe04656526",
+              "architecture_type": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           },
           "modelscope": {
             "model_id": "ZhipuAI/GLM-5.1",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/GLM-5.1/resolve/master/config.json",
+              "config_sha256": "726e45e28d1be1636a5834048a4101a2cfe384819ad2ebe08d41f6fe04656526",
+              "architecture_type": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           }
         }
       },
@@ -41,13 +65,37 @@
             "model_id": "zai-org/GLM-5.1-FP8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/zai-org/GLM-5.1-FP8/resolve/f396cf805182f4ca10fa675e1a99815b3ca384db/config.json",
+              "config_sha256": "69b4e81fafca7389fa1e102046ea13aa1c6ec9ed64a9a00f2056fe402034c8ec",
+              "architecture_type": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           },
           "modelscope": {
             "model_id": "ZhipuAI/GLM-5.1-FP8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/GLM-5.1-FP8/resolve/master/config.json",
+              "config_sha256": "69b4e81fafca7389fa1e102046ea13aa1c6ec9ed64a9a00f2056fe402034c8ec",
+              "architecture_type": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           }
         }
       },
@@ -697,7 +745,19 @@
             "model_id": "mlx-community/GLM-5.1-{quantization}",
             "quantizations": [
               "8bit-MXFP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 154880,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 64,
+              "head_dim": 64,
+              "config_source": "https://huggingface.co/mlx-community/GLM-5.1-8bit-MXFP8/resolve/ba5ef1b8e12f7809ca373908d3fe7fdea462691d/config.json",
+              "config_sha256": "372890c6d7675002203d87137e389d8c01f7cd58a171fb1cfd51eb7410f04cf2",
+              "architecture_type": "multimodal",
+              "hidden_size": 6144,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 78
+            }
           },
           "modelscope": {
             "model_id": "mlx-community/GLM-5.1-{quantization}",
@@ -708,7 +768,21 @@
               "8bit",
               "8bit-MXFP8",
               "bf16"
-            ]
+            ],
+            "model_metadata_by_quantization": {
+              "8bit-MXFP8": {
+                "vocab_size": 154880,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 64,
+                "head_dim": 64,
+                "config_source": "https://modelscope.cn/models/mlx-community/GLM-5.1-8bit-MXFP8/resolve/master/config.json",
+                "config_sha256": "372890c6d7675002203d87137e389d8c01f7cd58a171fb1cfd51eb7410f04cf2",
+                "architecture_type": "multimodal",
+                "hidden_size": 6144,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 78
+              }
+            }
           }
         }
       }

@@ -211,6 +211,7 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
         "total": mem_info.total,
         "used": mem_info.used,
         "free": mem_info.free,
+        "free_memory_mib": mem_info.free / 1024**2,
         "util": util,
     }
 
@@ -225,7 +226,7 @@ def _get_info_by_torch(index: int) -> Dict[str, Any]:
     }
 
 
-def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int]]:
+def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int, float]]:
     from pymxsml import mxSmlGetDeviceInfo, mxSmlGetMemoryInfo
 
     info = mxSmlGetDeviceInfo(gpu_id)
@@ -237,6 +238,7 @@ def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int]]:
         "total": total,
         "used": used,
         "free": total - used,
+        "free_memory_mib": (total - used) / 1024**2,
         "util": 0,
     }
 
@@ -423,6 +425,8 @@ def get_npu_info() -> Dict:
                         "total": total,
                         "used": used,
                         "free": total - used,
+                        "free_memory_mib": total - used,
+                        "device_index": len(all_devices),
                         "util": 0,
                         "npu_id": len(all_devices),
                     }
@@ -626,6 +630,13 @@ def gpu_count():
 
 
 def get_gpu_info() -> Dict:
+    """Return backend device information.
+
+    Optional ``free_memory_mib`` is a measured, normalized memory value. Its
+    absence means unknown; legacy ``free`` may have backend-specific units or
+    sentinel values. ``device_index`` maps composite device keys to scheduling
+    indices when provided by the backend.
+    """
     spec = _find_device()
     if spec is None:
         return {}

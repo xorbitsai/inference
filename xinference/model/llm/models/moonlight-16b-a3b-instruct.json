@@ -20,13 +20,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "moonshotai/Moonlight-16B-A3B-Instruct"
+            "model_id": "moonshotai/Moonlight-16B-A3B-Instruct",
+            "model_metadata": {
+              "vocab_size": 163840,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://huggingface.co/moonshotai/Moonlight-16B-A3B-Instruct/resolve/4e735b07a89f73647dfab71ab91b840f362ede5b/config.json",
+              "config_sha256": "6827d4b5327a446d6a80716a6e5cec695f279b282110ef7dae09241656430302",
+              "architecture_type": "mla",
+              "hidden_size": 2048,
+              "intermediate_size": 11264,
+              "num_hidden_layers": 27
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "moonshotai/Moonlight-16B-A3B-Instruct"
+            "model_id": "moonshotai/Moonlight-16B-A3B-Instruct",
+            "model_metadata": {
+              "vocab_size": 163840,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://modelscope.cn/models/moonshotai/Moonlight-16B-A3B-Instruct/resolve/master/config.json",
+              "config_sha256": "6827d4b5327a446d6a80716a6e5cec695f279b282110ef7dae09241656430302",
+              "architecture_type": "mla",
+              "hidden_size": 2048,
+              "intermediate_size": 11264,
+              "num_hidden_layers": 27
+            }
           }
         }
       }

@@ -20,14 +20,34 @@
               "none"
             ],
             "model_id": "TheBloke/CodeLlama-7B-fp16",
-            "model_revision": "ce09049eb9140a19cf78051cb5d849607b6fa8ec"
+            "model_revision": "ce09049eb9140a19cf78051cb5d849607b6fa8ec",
+            "model_metadata": {
+              "vocab_size": 32016,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/CodeLlama-7B-fp16/resolve/ce09049eb9140a19cf78051cb5d849607b6fa8ec/config.json",
+              "config_sha256": "c2e680ca8d131d1bc2bc3ab731599a8653c9e42b2e0b47e1288c9c938e132a56",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "AI-ModelScope/CodeLlama-7b-hf",
-            "model_revision": "v1.0.2"
+            "model_revision": "v1.0.2",
+            "model_metadata": {
+              "vocab_size": 32016,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/CodeLlama-7b-hf/resolve/v1.0.2/config.json",
+              "config_sha256": "0655ccf087217a785aac4aba6b58c9f4822c8e98e0557a0220e9619d49fadba7",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -40,14 +60,34 @@
               "none"
             ],
             "model_id": "TheBloke/CodeLlama-13B-fp16",
-            "model_revision": "d67ca1183da991d0d97927bdaaf35599556dfd76"
+            "model_revision": "d67ca1183da991d0d97927bdaaf35599556dfd76",
+            "model_metadata": {
+              "vocab_size": 32016,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/CodeLlama-13B-fp16/resolve/d67ca1183da991d0d97927bdaaf35599556dfd76/config.json",
+              "config_sha256": "70dee0fd793c713b96f5219b25167a5fdb4d2084c31adff787915c47a7db69c6",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "AI-ModelScope/CodeLlama-13b-hf",
-            "model_revision": "v1.0.1"
+            "model_revision": "v1.0.1",
+            "model_metadata": {
+              "vocab_size": 32016,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/CodeLlama-13b-hf/resolve/v1.0.1/config.json",
+              "config_sha256": "b605ef82167712c63fbe53064b8c587cefbfb35a1382ded63f5e469ea5c97b5c",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -60,14 +100,34 @@
               "none"
             ],
             "model_id": "TheBloke/CodeLlama-34B-fp16",
-            "model_revision": "f91d0cf7fc338cdc726f9c72d5ea15fe51bb16e9"
+            "model_revision": "f91d0cf7fc338cdc726f9c72d5ea15fe51bb16e9",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/CodeLlama-34B-fp16/resolve/f91d0cf7fc338cdc726f9c72d5ea15fe51bb16e9/config.json",
+              "config_sha256": "9182e81b5ee4ff05cfcb5e48d04223b165bc7160c6dda56a23a3f58af69e571a",
+              "hidden_size": 8192,
+              "intermediate_size": 22016,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "AI-ModelScope/CodeLlama-34b-hf",
-            "model_revision": "v1.0.1"
+            "model_revision": "v1.0.1",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/CodeLlama-34b-hf/resolve/v1.0.1/config.json",
+              "config_sha256": "e1724f8eda28bdcbe4fe1df98f4439e6b90c181de9d04e9d672438f92fe84213",
+              "hidden_size": 8192,
+              "intermediate_size": 22016,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -91,7 +151,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/CodeLlama-7B-GGUF",
-            "model_file_name_template": "codellama-7b.{quantization}.gguf"
+            "model_file_name_template": "codellama-7b.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32016,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/CodeLlama-7B-GGUF/resolve/main/codellama-7b.Q2_K.gguf",
+              "config_sha256": "7450863fb032a831300ebb73df51faf0b1b1b16f445da14f0c73dd518e9f59a8",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -115,7 +185,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/CodeLlama-13B-GGUF",
-            "model_file_name_template": "codellama-13b.{quantization}.gguf"
+            "model_file_name_template": "codellama-13b.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32016,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/CodeLlama-13B-GGUF/resolve/main/codellama-13b.Q2_K.gguf",
+              "config_sha256": "8818cbad4dcb3544feebf78c90832c710b83d15022ec0292e54b3c912acdc085",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -139,7 +219,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/CodeLlama-34B-GGUF",
-            "model_file_name_template": "codellama-34b.{quantization}.gguf"
+            "model_file_name_template": "codellama-34b.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/CodeLlama-34B-GGUF/resolve/main/codellama-34b.Q2_K.gguf",
+              "config_sha256": "b55fc1b35e3b25b507d13f9015fe1db46d25c693b64ade14b4a23773d4553198",
+              "hidden_size": 8192,
+              "intermediate_size": 22016,
+              "num_hidden_layers": 48
+            }
           }
         }
       }

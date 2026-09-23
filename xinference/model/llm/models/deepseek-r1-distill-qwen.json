@@ -21,13 +21,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/resolve/ad9f0ae0864d7fbcd1cd905e3c6c5b069cc8b562/config.json",
+              "config_sha256": "37bd455e9679d2959536270fed49d25cc7c290a64f6e52abb97c71345a9cee41",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/resolve/master/config.json",
+              "config_sha256": "37bd455e9679d2959536270fed49d25cc7c290a64f6e52abb97c71345a9cee41",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -46,7 +66,17 @@
               "Q8_0"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-1.5B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-1.5B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/3cb4d15544a2a5e07439592b9a0965b6445fbd34/config.json",
+              "config_sha256": "37bd455e9679d2959536270fed49d25cc7c290a64f6e52abb97c71345a9cee41",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -59,7 +89,17 @@
               "Q8_0"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-1.5B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-1.5B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF/resolve/master/config.json",
+              "config_sha256": "37bd455e9679d2959536270fed49d25cc7c290a64f6e52abb97c71345a9cee41",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -75,7 +115,59 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-3bit/resolve/901f665f35cbec6a9b13d5146ca80b0d937c8e88/config.json",
+                "config_sha256": "719c508a7ff26c9b20d5bd12698ca6962bbba7805fe90648f0485f18ea9aaa00",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit/resolve/933185be1b8f81d9a21dcfa15ff73470d3545240/config.json",
+                "config_sha256": "6acfef5ca4034c20cbdecc3ae28458235b6612574b0dee8ce75b37c11a68f6b3",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-6bit/resolve/8babf03b88d0bfe38f41bb2e7673a5cf3a32f09f/config.json",
+                "config_sha256": "cc6a2554c38e5fb04e57356edba46ff61b53ae8ab751f17078abc40f834e7410",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit/resolve/5605fbb7f1f514acf386453211831d5151db8210/config.json",
+                "config_sha256": "e694e59b888ca13d0570d1dd1fe0d457185b5ef7b50fb758bb7a347885d0e011",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-bf16/resolve/aba5899b489f367483683a548a97cce62e636923/config.json",
+                "config_sha256": "9b36fe005daf17c1674b3e57f22ec3d1fd3ee9e41ba748ef1a5472eb77c1bcb7",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -85,7 +177,59 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-3bit/resolve/master/config.json",
+                "config_sha256": "719c508a7ff26c9b20d5bd12698ca6962bbba7805fe90648f0485f18ea9aaa00",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-4bit/resolve/master/config.json",
+                "config_sha256": "6acfef5ca4034c20cbdecc3ae28458235b6612574b0dee8ce75b37c11a68f6b3",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-6bit/resolve/master/config.json",
+                "config_sha256": "cc6a2554c38e5fb04e57356edba46ff61b53ae8ab751f17078abc40f834e7410",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-8bit/resolve/master/config.json",
+                "config_sha256": "e694e59b888ca13d0570d1dd1fe0d457185b5ef7b50fb758bb7a347885d0e011",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 12,
+                "num_key_value_heads": 2,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-R1-Distill-Qwen-1.5B-bf16/resolve/master/config.json",
+                "config_sha256": "9b36fe005daf17c1674b3e57f22ec3d1fd3ee9e41ba748ef1a5472eb77c1bcb7",
+                "hidden_size": 1536,
+                "intermediate_size": 8960,
+                "num_hidden_layers": 28
+              }
+            }
           }
         }
       },
@@ -97,13 +241,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/resolve/916b56a44061fd5cd7d6a8fb632557ed4f724f60/config.json",
+              "config_sha256": "8290d3c1e385e2616572eb6926f7e2745f901d1c13da95970326a8a73f6c379c",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/resolve/master/config.json",
+              "config_sha256": "8290d3c1e385e2616572eb6926f7e2745f901d1c13da95970326a8a73f6c379c",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -115,13 +279,33 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "jakiAJK/DeepSeek-R1-Distill-Qwen-7B_GPTQ-int4"
+            "model_id": "jakiAJK/DeepSeek-R1-Distill-Qwen-7B_GPTQ-int4",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Qwen-7B_GPTQ-int4/resolve/fea1336f377966bc0183fe6cc57916a908b3358e/config.json",
+              "config_sha256": "c57751cfed3345336a26c9fa9fe72ab2864267918b16c66afe32ac8338006a71",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/deepseek-r1-distill-qwen-7b-gptq-int4"
+            "model_id": "tclf90/deepseek-r1-distill-qwen-7b-gptq-int4",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/tclf90/deepseek-r1-distill-qwen-7b-gptq-int4/resolve/master/config.json",
+              "config_sha256": "9999f0af8e2d648d3a2e5c168029162f32f04c2e78717791815ae4c253846ca5",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -141,7 +325,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q2_K.gguf",
+              "config_sha256": "ba0cf927b4331373e3041c77eb1d389f701826b07aaac5ddcb2760bf1f590eb6",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -155,7 +349,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/master/DeepSeek-R1-Distill-Qwen-7B-Q2_K.gguf",
+              "config_sha256": "ba0cf927b4331373e3041c77eb1d389f701826b07aaac5ddcb2760bf1f590eb6",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -167,13 +371,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B/resolve/1df8507178afcc1bef68cd8c393f61a886323761/config.json",
+              "config_sha256": "fdb89460be9a6383451437cdf632a3e087522efa682265461f33507e7069f026",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B/resolve/master/config.json",
+              "config_sha256": "fdb89460be9a6383451437cdf632a3e087522efa682265461f33507e7069f026",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -193,7 +417,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-14B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-14B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-14B-Q2_K.gguf",
+              "config_sha256": "27a2d92aa7714f498b86a58fe3209687ed9e39e79bee9e5c9cee39a5dee158c0",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -207,7 +441,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-14B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-14B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF/resolve/master/DeepSeek-R1-Distill-Qwen-14B-Q2_K.gguf",
+              "config_sha256": "27a2d92aa7714f498b86a58fe3209687ed9e39e79bee9e5c9cee39a5dee158c0",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -219,13 +463,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/resolve/711ad2ea6aa40cfca18895e8aca02ab92df1a746/config.json",
+              "config_sha256": "2c003fe40b13d2d1f372254d77177ed753176150f3d424d1b5ad22ff1d78a987",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B/resolve/master/config.json",
+              "config_sha256": "2c003fe40b13d2d1f372254d77177ed753176150f3d424d1b5ad22ff1d78a987",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -245,7 +509,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-32B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-32B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q2_K.gguf",
+              "config_sha256": "91d6b8dbcd36f96cf30c9f1d329088b8b3f853e54bfcd7582ce5d6a80af7687f",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -259,7 +533,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-32B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Qwen-32B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/master/DeepSeek-R1-Distill-Qwen-32B-Q2_K.gguf",
+              "config_sha256": "91d6b8dbcd36f96cf30c9f1d329088b8b3f853e54bfcd7582ce5d6a80af7687f",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -271,7 +555,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "casperhansen/deepseek-r1-distill-qwen-1.5b-awq"
+            "model_id": "casperhansen/deepseek-r1-distill-qwen-1.5b-awq",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/casperhansen/deepseek-r1-distill-qwen-1.5b-awq/resolve/d06131d3abfff341bc58fbdc05240f74dd2ad263/config.json",
+              "config_sha256": "74b1e2d3a03ad5f0d4613a9a1565cd276f7377870a91128d2aefaf2c15ccede9",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -283,7 +577,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "jakiAJK/DeepSeek-R1-Distill-Qwen-1.5B_GPTQ-int4"
+            "model_id": "jakiAJK/DeepSeek-R1-Distill-Qwen-1.5B_GPTQ-int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 12,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Qwen-1.5B_GPTQ-int4/resolve/9c1b741cf6b71eddacdded52de88cd8167dc902f/config.json",
+              "config_sha256": "ad42339c2d0d331e987b072345eba4739cd6176860d29bc76097cf55dcd1db83",
+              "hidden_size": 1536,
+              "intermediate_size": 8960,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -295,7 +599,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "jakiAJK/DeepSeek-R1-Distill-Qwen-7B_AWQ"
+            "model_id": "jakiAJK/DeepSeek-R1-Distill-Qwen-7B_AWQ",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Qwen-7B_AWQ/resolve/1d082b3ded4e7cefbb6b32cd5e07c7d409832816/config.json",
+              "config_sha256": "6f39908aa095343ebc9e65ad7736dc088ac716686085723da2b30d98849a111e",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -311,7 +625,59 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-7B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-7B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-7B-3bit/resolve/db47fe99ffffaa84c505be75ca3be0516058c5a5/config.json",
+                "config_sha256": "11d289c26bf6551df3707f6713a37a3f8cec55c61e896ff6bd931e8909dc3ff2",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit/resolve/21848dbf533d2518a1ef895104820d5ee51317ea/config.json",
+                "config_sha256": "e627c19cde8e6a9eed18a562f3b7697bf11c3cc822122b489cca5e480508b97c",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-7B-6bit/resolve/422acfbb43dd59577a132b88dd11ed3326ec7ec8/config.json",
+                "config_sha256": "38a77776562590d4a8a5755fc583e90ed551608f54eb724e5dc24005b9e57450",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-7B-8bit/resolve/e16f33910798366569bd763abb4edf246fba4922/config.json",
+                "config_sha256": "92d8c2f6edcf4bd72eb17e62bf274acc29f11a3c08d3430fc2da9c367bd24833",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-7B-bf16/resolve/2932e7221d59ba83695886e96ed69a7d4e1e9f19/config.json",
+                "config_sha256": "e4c72ce86e446edb6fcad7de9f89b293b89703a5f22f42ee9d1cb04faecebf05",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -320,7 +686,49 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "okwinds/DeepSeek-R1-Distill-Qwen-7B-MLX-{quantization}"
+            "model_id": "okwinds/DeepSeek-R1-Distill-Qwen-7B-MLX-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-7B-MLX-3bit/resolve/master/config.json",
+                "config_sha256": "11d289c26bf6551df3707f6713a37a3f8cec55c61e896ff6bd931e8909dc3ff2",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-7B-MLX-4bit/resolve/master/config.json",
+                "config_sha256": "e627c19cde8e6a9eed18a562f3b7697bf11c3cc822122b489cca5e480508b97c",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-7B-MLX-6bit/resolve/master/config.json",
+                "config_sha256": "38a77776562590d4a8a5755fc583e90ed551608f54eb724e5dc24005b9e57450",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 28,
+                "num_key_value_heads": 4,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-7B-MLX-8bit/resolve/master/config.json",
+                "config_sha256": "92d8c2f6edcf4bd72eb17e62bf274acc29f11a3c08d3430fc2da9c367bd24833",
+                "hidden_size": 3584,
+                "intermediate_size": 18944,
+                "num_hidden_layers": 28
+              }
+            }
           }
         }
       },
@@ -332,7 +740,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "casperhansen/deepseek-r1-distill-qwen-14b-awq"
+            "model_id": "casperhansen/deepseek-r1-distill-qwen-14b-awq",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/casperhansen/deepseek-r1-distill-qwen-14b-awq/resolve/bc43ec1bbf08de53452630806d5989208b4186db/config.json",
+              "config_sha256": "71eba497a07c74bbf126ad968a8d62283384e756cb89964bb6a3b7fda9b4ca48",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -348,7 +766,59 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-14B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-14B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-14B-3bit/resolve/bb2a818340f6cef7668dfcaac0a46d907acd2de1/config.json",
+                "config_sha256": "2a6276ae4016be0d6f30c631edd1c7f3ad315d3359bca349b4247f84f242e093",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-14B-4bit/resolve/b39611728ed604538a2a18212ce33b02f99d8de2/config.json",
+                "config_sha256": "b2f2e5510d2d0454190be40ea61c3eff9ac209ad65247f625b036cc797479602",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-14B-6bit/resolve/79d5e6299e28214c82ea74ce0da2d0733dc31cca/config.json",
+                "config_sha256": "6d9d0baf6542d49389c710ec336cd87b3bf5bd0fcc9bb96ee5d30b71efd51d9c",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-14B-8bit/resolve/2fbbaeaa759a51ea55b6baba8574e340a0a71200/config.json",
+                "config_sha256": "1c46a84211467a1a9df174d9f21e4b9f7b9ef7af25a66ebc80ada3550a6b55af",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "bf16": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-14B-bf16/resolve/cb0041c7911a9b0dd4f4e9e164acabf0f8f7193d/config.json",
+                "config_sha256": "bc78c0f5660a72bcf4600d1afa8e3f566722c682b030493a39db76104d3818fc",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -357,7 +827,49 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "okwinds/DeepSeek-R1-Distill-Qwen-14B-MLX-{quantization}"
+            "model_id": "okwinds/DeepSeek-R1-Distill-Qwen-14B-MLX-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-14B-MLX-3bit/resolve/master/config.json",
+                "config_sha256": "2a6276ae4016be0d6f30c631edd1c7f3ad315d3359bca349b4247f84f242e093",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-14B-MLX-4bit/resolve/master/config.json",
+                "config_sha256": "b2f2e5510d2d0454190be40ea61c3eff9ac209ad65247f625b036cc797479602",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-14B-MLX-6bit/resolve/master/config.json",
+                "config_sha256": "6d9d0baf6542d49389c710ec336cd87b3bf5bd0fcc9bb96ee5d30b71efd51d9c",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-14B-MLX-8bit/resolve/master/config.json",
+                "config_sha256": "1c46a84211467a1a9df174d9f21e4b9f7b9ef7af25a66ebc80ada3550a6b55af",
+                "hidden_size": 5120,
+                "intermediate_size": 13824,
+                "num_hidden_layers": 48
+              }
+            }
           }
         }
       },
@@ -369,7 +881,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "casperhansen/deepseek-r1-distill-qwen-32b-awq"
+            "model_id": "casperhansen/deepseek-r1-distill-qwen-32b-awq",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/casperhansen/deepseek-r1-distill-qwen-32b-awq/resolve/e20a4933e66aa5eccc8270489f5aeab17f90b888/config.json",
+              "config_sha256": "f863565852981e77545a3f66f3fc3fd7e7b3c478d0c695128ff9b04497083178",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -385,7 +907,49 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Qwen-32B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-32B-3bit/resolve/767d66e6c6a47526ab51a4d98b27efba5b22f691/config.json",
+                "config_sha256": "78114777650d8305222524a7cc04f877f1fcdbc4166bbd70d77c9028e3640281",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit/resolve/4e0d3848a0ad8f9fb54638891e4928f04fcca978/config.json",
+                "config_sha256": "7d68c4249ba48a515ea8b766867dd1929f9cbe1b17ba410beb1bb5aa2b14288c",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-32B-6bit/resolve/3e2e2c9ae0c3fbdb9aca0487249035a19f55fd74/config.json",
+                "config_sha256": "779ed9ca5e7287fba839a70ae1e316c2bd7a356391130145040b8abf025b6508",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "bf16": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Qwen-32B-bf16/resolve/9708f729672bf67fa3a4c025635e2c8572c88c1d/config.json",
+                "config_sha256": "e5c3d37b33eb0e9094e54a00911ec4dd45968aa8d9496909e365291b350a1611",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -395,7 +959,59 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-{quantization}"
+            "model_id": "okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-{quantization}",
+            "model_metadata_by_quantization": {
+              "2bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-2bit/resolve/master/config.json",
+                "config_sha256": "717f86e75348d0cae103a7f2a8e29321bb67e2d3a8f08c651fdd22074c61be16",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "3bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-3bit/resolve/master/config.json",
+                "config_sha256": "78114777650d8305222524a7cc04f877f1fcdbc4166bbd70d77c9028e3640281",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "4bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-4bit/resolve/master/config.json",
+                "config_sha256": "7d68c4249ba48a515ea8b766867dd1929f9cbe1b17ba410beb1bb5aa2b14288c",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "6bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-6bit/resolve/master/config.json",
+                "config_sha256": "779ed9ca5e7287fba839a70ae1e316c2bd7a356391130145040b8abf025b6508",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              },
+              "8bit": {
+                "vocab_size": 152064,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Qwen-32B-MLX-8bit/resolve/master/config.json",
+                "config_sha256": "37478dd651b980df6819cb13e187a44b933a151769898afb27ab80ba57067687",
+                "hidden_size": 5120,
+                "intermediate_size": 27648,
+                "num_hidden_layers": 64
+              }
+            }
           }
         }
       },
@@ -407,7 +1023,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/deepseek-r1-distill-qwen-32b-gptq-int4"
+            "model_id": "tclf90/deepseek-r1-distill-qwen-32b-gptq-int4",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/tclf90/deepseek-r1-distill-qwen-32b-gptq-int4/resolve/master/config.json",
+              "config_sha256": "38acf7fb5a40efee2dc149f14d463675d75b8a6382aaa9a9fded5389796f4620",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       }

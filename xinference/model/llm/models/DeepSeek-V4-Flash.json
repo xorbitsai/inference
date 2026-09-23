@@ -23,13 +23,37 @@
             "model_id": "deepseek-ai/DeepSeek-V4-Flash",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash/resolve/60d8d70770c6776ff598c94bb586a859a38244f1/config.json",
+              "config_sha256": "b628e63398a645abc711d92207f8737dd8140f7a4ef1e0a5b3616019e0ddd818",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 43
+            }
           },
           "modelscope": {
             "model_id": "deepseek-ai/DeepSeek-V4-Flash",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4-Flash/resolve/master/config.json",
+              "config_sha256": "b628e63398a645abc711d92207f8737dd8140f7a4ef1e0a5b3616019e0ddd818",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 43
+            }
           }
         }
       },
@@ -49,7 +73,105 @@
               "mxfp4",
               "mxfp8",
               "nvfp4"
-            ]
+            ],
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-4bit/resolve/38c0bd20a6fba70f22c5ee2940ec0092b36ab936/config.json",
+                "config_sha256": "a0c211f96b48cc5ad47f5bda1155a4d9426633327289956aedd44a6988dc10a2",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "5bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-5bit/resolve/245a85c09a472a0641e7d225839604bb739991ea/config.json",
+                "config_sha256": "ccd9406965fbdd8a0a6edf868b35b49379cdbc433a1691c73cbc8abfb2f6660e",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "6bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-6bit/resolve/335e06df8b954f56107e8a76e301ce2b62bfb2a1/config.json",
+                "config_sha256": "3854ca9d76baba33d5e48a36cfd9a16a339da60ce1502dc857fe92ac6a69178d",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-8bit/resolve/faa13cb32ce28aa82c88041705f08b324fe79f45/config.json",
+                "config_sha256": "31e32daa77fef82806b8dfc90086089a31b8fbdb44866591658c3a6f429a70c1",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "bf16": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-bf16/resolve/4e7dc8338cdb5c657da68534026431cc347197aa/config.json",
+                "config_sha256": "25c4925a0fdc8c1fec331c265176be42de5f26340613c07cce681fdb23800a1c",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "mxfp4": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-mxfp4/resolve/7ba3ac18a9d24058cb31f207505f32d6618eaad5/config.json",
+                "config_sha256": "e96e45db03f2783cf3592842cbabcf19476f2f0771c5c1a76827b52978dd7164",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "mxfp8": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-mxfp8/resolve/63b767e2b4c754fbc77f669bb7926d45df996362/config.json",
+                "config_sha256": "5498f1eead3c77b563f759d32d558c5ecd0208f6358058d83aa92fb71df6e2c9",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "nvfp4": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V4-Flash-nvfp4/resolve/55ba3c674ae921984c6842dab393f7f435fb3215/config.json",
+                "config_sha256": "df8723d906547303eb7bbc774b6ae2ec0c292daa88fec3e2378ad3c22507a684",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              }
+            }
           },
           "modelscope": {
             "model_id": "mlx-community/DeepSeek-V4-Flash-{quantization}",
@@ -62,7 +184,105 @@
               "mxfp4",
               "mxfp8",
               "nvfp4"
-            ]
+            ],
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-4bit/resolve/master/config.json",
+                "config_sha256": "a0c211f96b48cc5ad47f5bda1155a4d9426633327289956aedd44a6988dc10a2",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "5bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-5bit/resolve/master/config.json",
+                "config_sha256": "ccd9406965fbdd8a0a6edf868b35b49379cdbc433a1691c73cbc8abfb2f6660e",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "6bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-6bit/resolve/master/config.json",
+                "config_sha256": "3854ca9d76baba33d5e48a36cfd9a16a339da60ce1502dc857fe92ac6a69178d",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-8bit/resolve/master/config.json",
+                "config_sha256": "31e32daa77fef82806b8dfc90086089a31b8fbdb44866591658c3a6f429a70c1",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "bf16": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-bf16/resolve/master/config.json",
+                "config_sha256": "25c4925a0fdc8c1fec331c265176be42de5f26340613c07cce681fdb23800a1c",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "mxfp4": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-mxfp4/resolve/master/config.json",
+                "config_sha256": "e96e45db03f2783cf3592842cbabcf19476f2f0771c5c1a76827b52978dd7164",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "mxfp8": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-mxfp8/resolve/master/config.json",
+                "config_sha256": "5498f1eead3c77b563f759d32d558c5ecd0208f6358058d83aa92fb71df6e2c9",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              },
+              "nvfp4": {
+                "vocab_size": 129280,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 1,
+                "head_dim": 512,
+                "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-V4-Flash-nvfp4/resolve/master/config.json",
+                "config_sha256": "df8723d906547303eb7bbc774b6ae2ec0c292daa88fec3e2378ad3c22507a684",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 2048,
+                "num_hidden_layers": 43
+              }
+            }
           }
         }
       }

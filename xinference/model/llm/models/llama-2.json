@@ -31,7 +31,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/Llama-2-7B-GGUF",
-            "model_file_name_template": "llama-2-7b.{quantization}.gguf"
+            "model_file_name_template": "llama-2-7b.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-GGUF/resolve/main/llama-2-7b.Q2_K.gguf",
+              "config_sha256": "f2f1de7b9d26e02232bd123b769e7beb4931f8eba4e482bd88183cb6ffa05de8",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -43,7 +53,16 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Llama-2-7B-GPTQ"
+            "model_id": "TheBloke/Llama-2-7B-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-GPTQ/resolve/60b5c75d47a7d925782e74d16b6686cf0abbd052/config.json",
+              "config_sha256": "a2b3a884cbce2ddc23db383b78d41089d1619c608ae57f4db6a1c2cd572019c9",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -55,7 +74,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Llama-2-7B-AWQ"
+            "model_id": "TheBloke/Llama-2-7B-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-AWQ/resolve/476ced46c72442322db9e6fe1ec55dc6b0b36277/config.json",
+              "config_sha256": "88a1b3139e51a56d4a05f77522bda79f613ac156df422bda80ef1128fe81fc28",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -79,7 +108,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/Llama-2-13B-GGUF",
-            "model_file_name_template": "llama-2-13b.{quantization}.gguf"
+            "model_file_name_template": "llama-2-13b.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-13B-GGUF/resolve/main/llama-2-13b.Q2_K.gguf",
+              "config_sha256": "96b0104ac335b8f2d266e3a45f0a00f9869b386374d01dae7cc93efd7d120ff4",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -112,7 +151,17 @@
             },
             "model_id": "TheBloke/Llama-2-70B-GGUF",
             "model_file_name_template": "llama-2-70b.{quantization}.gguf",
-            "model_file_name_split_template": "llama-2-70b.{quantization}.gguf-{part}"
+            "model_file_name_split_template": "llama-2-70b.{quantization}.gguf-{part}",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-70B-GGUF/resolve/main/llama-2-70b.Q2_K.gguf",
+              "config_sha256": "ac6f1467434ee227851fc297c3be6f9c452a7a0aee82637d3e4625fbd43782dd",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -150,7 +199,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Llama-2-13B-GPTQ"
+            "model_id": "TheBloke/Llama-2-13B-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-13B-GPTQ/resolve/dc078861968fc39b3303df619d1606c7528c6f87/config.json",
+              "config_sha256": "1371642dca7d937ce741b6cbb01d641d4b0d159fc083c10cb930005f8adb3161",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -162,7 +221,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Llama-2-13B-AWQ"
+            "model_id": "TheBloke/Llama-2-13B-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-13B-AWQ/resolve/e35a3a4b72e6db1602e1a5f0fb8748ba28c1af34/config.json",
+              "config_sha256": "b64830e3d949995ea9df25ab20934a4799e9370833361c1ef61363ed24edb317",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -187,7 +256,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Llama-2-70B-GPTQ"
+            "model_id": "TheBloke/Llama-2-70B-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-70B-GPTQ/resolve/6794523b669a06e16de83a94b08d6593a842d0b7/config.json",
+              "config_sha256": "5e0dfab260921185df38916d84cfb616268ecf710a6f826b927872732fb83111",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -199,7 +278,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Llama-2-70B-AWQ"
+            "model_id": "TheBloke/Llama-2-70B-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-70B-AWQ/resolve/7a10ef7c84ea4e15658c8f65dfa94963ea06befc/config.json",
+              "config_sha256": "9c194ef84a4d4f5476b95c0f503a82943153483ab31faa9264e56ca9d99440cd",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       }

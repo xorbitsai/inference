@@ -23,13 +23,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-0.6B"
+            "model_id": "Qwen/Qwen3-0.6B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-0.6B/resolve/c1899de289a04d12100db370d81485cdf75e47ca/config.json",
+              "config_sha256": "660db3b73d788119c04535e48cf9be5f55bc3100841a718637ae695b442f27dd",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-0.6B"
+            "model_id": "Qwen/Qwen3-0.6B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-0.6B/resolve/master/config.json",
+              "config_sha256": "660db3b73d788119c04535e48cf9be5f55bc3100841a718637ae695b442f27dd",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -41,13 +63,35 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-0.6B-FP8"
+            "model_id": "Qwen/Qwen3-0.6B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-0.6B-FP8/resolve/e5be08033360965ceca7b0ffd72d521a51331ce0/config.json",
+              "config_sha256": "06cfd761f687dc74c366a546949c2896b18854a647dac9ea6e43b849d57dbd47",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-0.6B-FP8"
+            "model_id": "Qwen/Qwen3-0.6B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-0.6B-FP8/resolve/master/config.json",
+              "config_sha256": "06cfd761f687dc74c366a546949c2896b18854a647dac9ea6e43b849d57dbd47",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -59,13 +103,35 @@
             "quantizations": [
               "Int8"
             ],
-            "model_id": "Qwen/Qwen3-0.6B-GPTQ-Int8"
+            "model_id": "Qwen/Qwen3-0.6B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-0.6B-GPTQ-Int8/resolve/d3f20e7e71825fe57ad32705b396e9e156279107/config.json",
+              "config_sha256": "37ac3b589e76c7330b28c83dfa98a72f3c9fa731ba9e4f0b1294f292d350197e",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int8"
             ],
-            "model_id": "Qwen/Qwen3-0.6B-GPTQ-Int8"
+            "model_id": "Qwen/Qwen3-0.6B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-0.6B-GPTQ-Int8/resolve/master/config.json",
+              "config_sha256": "37ac3b589e76c7330b28c83dfa98a72f3c9fa731ba9e4f0b1294f292d350197e",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -77,13 +143,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "JunHowie/Qwen3-0.6B-GPTQ-Int4"
+            "model_id": "JunHowie/Qwen3-0.6B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/JunHowie/Qwen3-0.6B-GPTQ-Int4/resolve/b9d87006067b0c0c2dea836370d6288e14f112ab/config.json",
+              "config_sha256": "0ecc9a3623b7b5c059279edf6359eec38a3d78804a3d7ba0071bf75273549486",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "JunHowie/Qwen3-0.6B-GPTQ-Int4"
+            "model_id": "JunHowie/Qwen3-0.6B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-0.6B-GPTQ-Int4/resolve/master/config.json",
+              "config_sha256": "0ecc9a3623b7b5c059279edf6359eec38a3d78804a3d7ba0071bf75273549486",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -99,7 +187,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-0.6B-{quantization}"
+            "model_id": "mlx-community/Qwen3-0.6B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-0.6B-3bit/resolve/05aff87f9d2642185b057d0d1ca1068a1482081e/config.json",
+                "config_sha256": "7319e769e58a8d819f67a83b3d413624a4a143dccde0d0d326b223ca74f71157",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-0.6B-4bit/resolve/73e3e38d981303bc594367cd910ea6eb48349da8/config.json",
+                "config_sha256": "15d3ac26c043ae477273ed5802ee0f0b33bb14f18c9d3dd70910c02d906e3f1f",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-0.6B-6bit/resolve/45d962b21b1e813c3e9a7f3505391e72e8daba1e/config.json",
+                "config_sha256": "8368f624e5ded0a125a780d616f05dba2813831f0c25c15daee802a370aac4eb",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-0.6B-8bit/resolve/11de96878523501bcaa86104e3c186de07ff9068/config.json",
+                "config_sha256": "9f387dcb1bf045cadb34a36e67569abd73c00e5322603df2b19d0c0f8cc9d240",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-0.6B-bf16/resolve/42096995f6402fde107068cf530136fe64b604f8/config.json",
+                "config_sha256": "332d56de2e5cde28245ac8b1776639bf9f7ed55fc911dfd2399ae8872acee2a9",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -109,7 +254,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-0.6B-{quantization}"
+            "model_id": "mlx-community/Qwen3-0.6B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-0.6B-3bit/resolve/master/config.json",
+                "config_sha256": "7319e769e58a8d819f67a83b3d413624a4a143dccde0d0d326b223ca74f71157",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-0.6B-4bit/resolve/master/config.json",
+                "config_sha256": "15d3ac26c043ae477273ed5802ee0f0b33bb14f18c9d3dd70910c02d906e3f1f",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-0.6B-6bit/resolve/master/config.json",
+                "config_sha256": "8368f624e5ded0a125a780d616f05dba2813831f0c25c15daee802a370aac4eb",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-0.6B-8bit/resolve/master/config.json",
+                "config_sha256": "9f387dcb1bf045cadb34a36e67569abd73c00e5322603df2b19d0c0f8cc9d240",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-0.6B-bf16/resolve/master/config.json",
+                "config_sha256": "332d56de2e5cde28245ac8b1776639bf9f7ed55fc911dfd2399ae8872acee2a9",
+                "hidden_size": 1024,
+                "intermediate_size": 3072,
+                "num_hidden_layers": 28
+              }
+            }
           }
         }
       },
@@ -145,7 +347,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-0.6B-GGUF",
-            "model_file_name_template": "Qwen3-0.6B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-0.6B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/50968a4468ef4233ed78cd7c3de230dd1d61a56b/config.json",
+              "config_sha256": "a5f8e23bdf1f9aa5944ed7fdb573985f9c3c87f67b728f8a317d5d005b6bb690",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -175,7 +388,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-0.6B-GGUF",
-            "model_file_name_template": "Qwen3-0.6B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-0.6B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-0.6B-GGUF/resolve/master/config.json",
+              "config_sha256": "a5f8e23bdf1f9aa5944ed7fdb573985f9c3c87f67b728f8a317d5d005b6bb690",
+              "hidden_size": 1024,
+              "intermediate_size": 3072,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -187,13 +411,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-1.7B"
+            "model_id": "Qwen/Qwen3-1.7B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-1.7B/resolve/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/config.json",
+              "config_sha256": "1ddb5b89ebc90dcb417a45c213d818577e65976454d29385c8f6140771d95197",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-1.7B"
+            "model_id": "Qwen/Qwen3-1.7B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-1.7B/resolve/master/config.json",
+              "config_sha256": "1ddb5b89ebc90dcb417a45c213d818577e65976454d29385c8f6140771d95197",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -205,13 +451,35 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-1.7B-FP8"
+            "model_id": "Qwen/Qwen3-1.7B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-1.7B-FP8/resolve/1641e6c1b620b7ed7e8711b443990429a23b1b99/config.json",
+              "config_sha256": "f86b30c4464097ae0c58ad1ec45f92a92a16cce8364d6e48725ba9cfb6c924e7",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-1.7B-FP8"
+            "model_id": "Qwen/Qwen3-1.7B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-1.7B-FP8/resolve/master/config.json",
+              "config_sha256": "f86b30c4464097ae0c58ad1ec45f92a92a16cce8364d6e48725ba9cfb6c924e7",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -223,13 +491,35 @@
             "quantizations": [
               "Int8"
             ],
-            "model_id": "Qwen/Qwen3-1.7B-GPTQ-Int8"
+            "model_id": "Qwen/Qwen3-1.7B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-1.7B-GPTQ-Int8/resolve/382fed3fa21d1a7e837b42a500564a0c4be4f060/config.json",
+              "config_sha256": "a5833eb66a20754df32efeaea4a3c0a2fd70593591bec1f86c1215e7d6ed3dc4",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int8"
             ],
-            "model_id": "Qwen/Qwen3-1.7B-GPTQ-Int8"
+            "model_id": "Qwen/Qwen3-1.7B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-1.7B-GPTQ-Int8/resolve/master/config.json",
+              "config_sha256": "a5833eb66a20754df32efeaea4a3c0a2fd70593591bec1f86c1215e7d6ed3dc4",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -241,13 +531,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "JunHowie/Qwen3-1.7B-GPTQ-Int4"
+            "model_id": "JunHowie/Qwen3-1.7B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/JunHowie/Qwen3-1.7B-GPTQ-Int4/resolve/6eee6af10283e8f36bc41ad157ba16bb508081a0/config.json",
+              "config_sha256": "97e45f280f244abdc32df9263b44ce67514d0387dcfaa07342f7cc7e4ab1ccd0",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "JunHowie/Qwen3-1.7B-GPTQ-Int4"
+            "model_id": "JunHowie/Qwen3-1.7B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-1.7B-GPTQ-Int4/resolve/master/config.json",
+              "config_sha256": "97e45f280f244abdc32df9263b44ce67514d0387dcfaa07342f7cc7e4ab1ccd0",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -263,7 +575,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-1.7B-{quantization}"
+            "model_id": "mlx-community/Qwen3-1.7B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-1.7B-3bit/resolve/cd216a04ec4a4034d0152c24b3803486455c0766/config.json",
+                "config_sha256": "12ae532e5d31c98c53d33e4ff44066f516bee8e9920306d953c1ce2a4c26e93a",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-1.7B-4bit/resolve/3b1b1768f8f8cf8351c712464f906e86c2b8269e/config.json",
+                "config_sha256": "507a6701220524eb8b283425bf0856a9ae4f21f4052e563896ddd668994b1dc7",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-1.7B-6bit/resolve/acef12900c404661684787c9dfdfb2d47745c75a/config.json",
+                "config_sha256": "3399232e5a6201fd13d74aca9bcf37570d49b02292920ac6eab3f95519d99e7c",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-1.7B-8bit/resolve/8c24f6782a91421513803ce527a27dcc560ab904/config.json",
+                "config_sha256": "a1b1e21c63d5a1b9b6c6829138aeb3146256b6c4803a7064a6268f00f8b2526d",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-1.7B-bf16/resolve/9cd6692855d3e06772228e9a962b2606359b2d24/config.json",
+                "config_sha256": "fa2aca3f3437d838672845487b8dd013b6a1f022daafb457bc9cb08564663ee4",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -273,7 +642,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-1.7B-{quantization}"
+            "model_id": "mlx-community/Qwen3-1.7B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-1.7B-3bit/resolve/master/config.json",
+                "config_sha256": "12ae532e5d31c98c53d33e4ff44066f516bee8e9920306d953c1ce2a4c26e93a",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-1.7B-4bit/resolve/master/config.json",
+                "config_sha256": "507a6701220524eb8b283425bf0856a9ae4f21f4052e563896ddd668994b1dc7",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-1.7B-6bit/resolve/master/config.json",
+                "config_sha256": "3399232e5a6201fd13d74aca9bcf37570d49b02292920ac6eab3f95519d99e7c",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-1.7B-8bit/resolve/master/config.json",
+                "config_sha256": "a1b1e21c63d5a1b9b6c6829138aeb3146256b6c4803a7064a6268f00f8b2526d",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-1.7B-bf16/resolve/master/config.json",
+                "config_sha256": "fa2aca3f3437d838672845487b8dd013b6a1f022daafb457bc9cb08564663ee4",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 28
+              }
+            }
           }
         }
       },
@@ -309,7 +735,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-1.7B-GGUF",
-            "model_file_name_template": "Qwen3-1.7B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-1.7B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/d7f544eead698dbd1f15126ef60b45a1e1933222/config.json",
+              "config_sha256": "e93b85675e213fdc3dd2c2b094552bff563164f1880359a3ec7301c39ec6e307",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -339,7 +776,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-1.7B-GGUF",
-            "model_file_name_template": "Qwen3-1.7B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-1.7B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-1.7B-GGUF/resolve/master/config.json",
+              "config_sha256": "e93b85675e213fdc3dd2c2b094552bff563164f1880359a3ec7301c39ec6e307",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -351,13 +799,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-4B"
+            "model_id": "Qwen/Qwen3-4B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-4B/resolve/1cfa9a7208912126459214e8b04321603b3df60c/config.json",
+              "config_sha256": "8ba006f74fecfaaeb392872a60f4a480e7ec9860153d2e1b769ec81f9a147f8a",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-4B"
+            "model_id": "Qwen/Qwen3-4B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-4B/resolve/master/config.json",
+              "config_sha256": "8ba006f74fecfaaeb392872a60f4a480e7ec9860153d2e1b769ec81f9a147f8a",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -369,13 +839,35 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-4B-FP8"
+            "model_id": "Qwen/Qwen3-4B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-4B-FP8/resolve/96b30dc13593a244a5e59e84687309f53c375cfa/config.json",
+              "config_sha256": "68fff9378aacf280608bbe1fbf594432a7e1eaeee12d738d53ed55024da1fc29",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-4B-FP8"
+            "model_id": "Qwen/Qwen3-4B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-4B-FP8/resolve/master/config.json",
+              "config_sha256": "68fff9378aacf280608bbe1fbf594432a7e1eaeee12d738d53ed55024da1fc29",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -387,13 +879,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-4B-AWQ"
+            "model_id": "Qwen/Qwen3-4B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-4B-AWQ/resolve/74d4bd2bd4bff9cafc9345221320bffb08b406a3/config.json",
+              "config_sha256": "cf74d40352c502483cca3a94fd8037dce0d7b31c21831f1721ff6ee360b50075",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-4B-AWQ"
+            "model_id": "Qwen/Qwen3-4B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-4B-AWQ/resolve/master/config.json",
+              "config_sha256": "cf74d40352c502483cca3a94fd8037dce0d7b31c21831f1721ff6ee360b50075",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -406,14 +920,62 @@
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-4B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-4B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-4B-GPTQ-Int4/resolve/8153b8023d82a50b87b3b5c72e5ac1b63b756ad4/config.json",
+                "config_sha256": "529bbc11731d8fb87ea09f26b75ab29aba0d76d32f9eb1c5f31d02344bf9773a",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-4B-GPTQ-Int8/resolve/228005c8889462d581ff1858c5098e53986c1b60/config.json",
+                "config_sha256": "b903b92ddb5361ebba535782bd575eb838f8b5513251b8b6f622991eb899f6e1",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-4B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-4B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-4B-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "529bbc11731d8fb87ea09f26b75ab29aba0d76d32f9eb1c5f31d02344bf9773a",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-4B-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "b903b92ddb5361ebba535782bd575eb838f8b5513251b8b6f622991eb899f6e1",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              }
+            }
           }
         }
       },
@@ -429,7 +991,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-4B-{quantization}"
+            "model_id": "mlx-community/Qwen3-4B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-4B-3bit/resolve/c4e8054c71facfa84f781cdb7c1ffab3f09f89bf/config.json",
+                "config_sha256": "836dd150102631286db9c09162d821b0b6135b02370a32522a460ebf7d5c8339",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-4B-4bit/resolve/4dcb3d101c2a062e5c1d4bb173588c54ea6c4d25/config.json",
+                "config_sha256": "b5efdcf3b0035a3638e7228dad4d85f5c4a23f156eb7cdb0b44c8366a5d34d9b",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-4B-6bit/resolve/87d5955a6395fea56e5943c3afb92f1aefcf681d/config.json",
+                "config_sha256": "e8cb2edf023ccad2d40c6050e3a814aa18d58ca2258e61c941c7ba2ac362affe",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-4B-8bit/resolve/0348ad770d2ae658ca47b0579b2d2c37b20bbcac/config.json",
+                "config_sha256": "15b6d29e97126abf723e3a2fad21060057ceaa677c93aaa69baf29555ac92521",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-4B-bf16/resolve/3639b5214e458512debf270c4fc8840ff6adfac6/config.json",
+                "config_sha256": "5c8e11e99aa9faa2c3a7deaff404ad26b001f3e4ebe24ac269a8412a7a74c67a",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -439,7 +1058,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-4B-{quantization}"
+            "model_id": "mlx-community/Qwen3-4B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-4B-3bit/resolve/master/config.json",
+                "config_sha256": "836dd150102631286db9c09162d821b0b6135b02370a32522a460ebf7d5c8339",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-4B-4bit/resolve/master/config.json",
+                "config_sha256": "b5efdcf3b0035a3638e7228dad4d85f5c4a23f156eb7cdb0b44c8366a5d34d9b",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-4B-6bit/resolve/master/config.json",
+                "config_sha256": "e8cb2edf023ccad2d40c6050e3a814aa18d58ca2258e61c941c7ba2ac362affe",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-4B-8bit/resolve/master/config.json",
+                "config_sha256": "15b6d29e97126abf723e3a2fad21060057ceaa677c93aaa69baf29555ac92521",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-4B-bf16/resolve/master/config.json",
+                "config_sha256": "5c8e11e99aa9faa2c3a7deaff404ad26b001f3e4ebe24ac269a8412a7a74c67a",
+                "hidden_size": 2560,
+                "intermediate_size": 9728,
+                "num_hidden_layers": 36
+              }
+            }
           }
         }
       },
@@ -475,7 +1151,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-4B-GGUF",
-            "model_file_name_template": "Qwen3-4B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-4B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/22c9fc8a8c7700b76a1789366280a6a5a1ad1120/config.json",
+              "config_sha256": "3ffa23ee8822643979a64ae83c98505a4ddd9c4164b8302799a69b57cbe9fd1a",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -505,7 +1192,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-4B-GGUF",
-            "model_file_name_template": "Qwen3-4B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-4B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-4B-GGUF/resolve/master/config.json",
+              "config_sha256": "3ffa23ee8822643979a64ae83c98505a4ddd9c4164b8302799a69b57cbe9fd1a",
+              "hidden_size": 2560,
+              "intermediate_size": 9728,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -517,13 +1215,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-8B"
+            "model_id": "Qwen/Qwen3-8B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-8B/resolve/b968826d9c46dd6066d109eabc6255188de91218/config.json",
+              "config_sha256": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-8B"
+            "model_id": "Qwen/Qwen3-8B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-8B/resolve/master/config.json",
+              "config_sha256": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -535,13 +1255,35 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-8B-FP8"
+            "model_id": "Qwen/Qwen3-8B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-8B-FP8/resolve/220b46e3b2180893580a4454f21f22d3ebb187d3/config.json",
+              "config_sha256": "79e454d6cc36c41ab0e9418c8f78a033afa9ac88e5a58d67c1471de315c8d29a",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-8B-FP8"
+            "model_id": "Qwen/Qwen3-8B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-8B-FP8/resolve/master/config.json",
+              "config_sha256": "79e454d6cc36c41ab0e9418c8f78a033afa9ac88e5a58d67c1471de315c8d29a",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -553,13 +1295,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-8B-AWQ"
+            "model_id": "Qwen/Qwen3-8B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-8B-AWQ/resolve/4da05a8edb55c6046cce958586c33b61da07bb79/config.json",
+              "config_sha256": "7457674d8044143cd4159e47deecf28fd6698a9826569094b60d7bead8f351ee",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-8B-AWQ"
+            "model_id": "Qwen/Qwen3-8B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-8B-AWQ/resolve/master/config.json",
+              "config_sha256": "7457674d8044143cd4159e47deecf28fd6698a9826569094b60d7bead8f351ee",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -572,14 +1336,62 @@
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-8B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-8B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-8B-GPTQ-Int4/resolve/f08c8ea5f60e1fe34ff4a45edb58e8ca958560c3/config.json",
+                "config_sha256": "eec9f4b13fbac3f6f4036b64d7dffe6708953c3dc8d87def60505e6408c4cfeb",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-8B-GPTQ-Int8/resolve/e131f54dea2ba1f99bbee218f75548ed00646cb9/config.json",
+                "config_sha256": "bc5d6c409ab618c6d654d12209642a47a4cb719386af9b43a8900484a7ddacbf",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-8B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-8B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-8B-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "eec9f4b13fbac3f6f4036b64d7dffe6708953c3dc8d87def60505e6408c4cfeb",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-8B-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "bc5d6c409ab618c6d654d12209642a47a4cb719386af9b43a8900484a7ddacbf",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              }
+            }
           }
         }
       },
@@ -595,7 +1407,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-8B-{quantization}"
+            "model_id": "mlx-community/Qwen3-8B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-8B-3bit/resolve/619ded35b7d1d083ccafc367ea5ccdab1840b74d/config.json",
+                "config_sha256": "352526cb3361e770415ae4d29fb9e44060d5dcd0f0ad7b66bd1764722c15372a",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-8B-4bit/resolve/545dc4251c05440727734bcd94334791f6ab0192/config.json",
+                "config_sha256": "e5485285fd7e289e76e9cffa112f6dc2e3426519082f7db9b69041589f81a218",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-8B-6bit/resolve/35a99712f90d6c2c9a2407a3857e104a46edd9e6/config.json",
+                "config_sha256": "77f5608ed98f9839d729d37afc95095252640be9bcdc16fbc793070e2a822fc5",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-8B-8bit/resolve/48a0b75b1ae72503e21e1558d040bc227510ff06/config.json",
+                "config_sha256": "832ead741bde5416c55562ed5e11fc05ac3522d74eadb6b50a03bbf00172c624",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-8B-bf16/resolve/85dd0f16bfe491befbc9cf0b4e966664236e5050/config.json",
+                "config_sha256": "5d758e724677ed4cefc9fe625717e29ee051df5511f89c803fe418c4d34f84f8",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -605,7 +1474,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-8B-{quantization}"
+            "model_id": "mlx-community/Qwen3-8B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-8B-3bit/resolve/master/config.json",
+                "config_sha256": "352526cb3361e770415ae4d29fb9e44060d5dcd0f0ad7b66bd1764722c15372a",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-8B-4bit/resolve/master/config.json",
+                "config_sha256": "e5485285fd7e289e76e9cffa112f6dc2e3426519082f7db9b69041589f81a218",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-8B-6bit/resolve/master/config.json",
+                "config_sha256": "77f5608ed98f9839d729d37afc95095252640be9bcdc16fbc793070e2a822fc5",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-8B-8bit/resolve/master/config.json",
+                "config_sha256": "832ead741bde5416c55562ed5e11fc05ac3522d74eadb6b50a03bbf00172c624",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-8B-bf16/resolve/master/config.json",
+                "config_sha256": "5d758e724677ed4cefc9fe625717e29ee051df5511f89c803fe418c4d34f84f8",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 36
+              }
+            }
           }
         }
       },
@@ -641,7 +1567,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-8B-GGUF",
-            "model_file_name_template": "Qwen3-8B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-8B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/config.json",
+              "config_sha256": "044d62050d8fad299daf9f88cc37ed1b4e44c4b0ee7410c14699b71ab5538241",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -671,7 +1608,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-8B-GGUF",
-            "model_file_name_template": "Qwen3-8B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-8B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-8B-GGUF/resolve/master/config.json",
+              "config_sha256": "044d62050d8fad299daf9f88cc37ed1b4e44c4b0ee7410c14699b71ab5538241",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 36
+            }
           }
         }
       },
@@ -683,13 +1631,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-14B"
+            "model_id": "Qwen/Qwen3-14B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-14B/resolve/40c069824f4251a91eefaf281ebe4c544efd3e18/config.json",
+              "config_sha256": "e73c3664ca09b10a673fef0c22e8a6b456201d49bd4713c9691f775720e8857a",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-14B"
+            "model_id": "Qwen/Qwen3-14B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-14B/resolve/master/config.json",
+              "config_sha256": "e73c3664ca09b10a673fef0c22e8a6b456201d49bd4713c9691f775720e8857a",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -701,13 +1671,35 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-14B-FP8"
+            "model_id": "Qwen/Qwen3-14B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-14B-FP8/resolve/9a283b4a5efbc09ce247e0ae5b02b744739e525a/config.json",
+              "config_sha256": "c5d7d0e8ee42088bd535101d13c71d38c20b5c2afd46ee8fdfba351956233793",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-14B-FP8"
+            "model_id": "Qwen/Qwen3-14B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-14B-FP8/resolve/master/config.json",
+              "config_sha256": "c5d7d0e8ee42088bd535101d13c71d38c20b5c2afd46ee8fdfba351956233793",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -719,13 +1711,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-14B-AWQ"
+            "model_id": "Qwen/Qwen3-14B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-14B-AWQ/resolve/31c69efc29464b6bb0aee1398b5a7b50a99340c3/config.json",
+              "config_sha256": "5244a80c9acdc63504acff475a9c84044cca0f62cb4f184fe0cf7d1792fafb5a",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-14B-AWQ"
+            "model_id": "Qwen/Qwen3-14B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-14B-AWQ/resolve/master/config.json",
+              "config_sha256": "5244a80c9acdc63504acff475a9c84044cca0f62cb4f184fe0cf7d1792fafb5a",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -738,14 +1752,62 @@
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-14B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-14B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-14B-GPTQ-Int4/resolve/5073a3e15216fb4facc39c953934910dbf0df51b/config.json",
+                "config_sha256": "2aa490871c941f418426e0c3a47f1750805c5a4cfc6376b24ac4d129d3ae8829",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-14B-GPTQ-Int8/resolve/9b876cd2f6f2c870afd18bb5b458fb38ab3e3e00/config.json",
+                "config_sha256": "30af3c7e829f667aa49302a136eac47f146fccf52ccf4dd9fa749da7747b0a69",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-14B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-14B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-14B-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "2aa490871c941f418426e0c3a47f1750805c5a4cfc6376b24ac4d129d3ae8829",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-14B-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "30af3c7e829f667aa49302a136eac47f146fccf52ccf4dd9fa749da7747b0a69",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              }
+            }
           }
         }
       },
@@ -761,7 +1823,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-14B-{quantization}"
+            "model_id": "mlx-community/Qwen3-14B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-14B-3bit/resolve/c242965ae87f41f13ebb6449ef60ef1fdca2cd06/config.json",
+                "config_sha256": "03a36a4a77b4db7429415dcc2502e80e5d465914bf5eb683cd6ba5390cb86e1b",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-14B-4bit/resolve/a4d9b2df59d2c150bef02fcbe0d91046b7ca33a4/config.json",
+                "config_sha256": "a54ec18ffe24f3c909e9556471dc156ed9b3b61b872008831c7cba9d4768b4a5",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-14B-6bit/resolve/4dfa4204be611f9779647ca0f218bd1568cde77e/config.json",
+                "config_sha256": "6c89db533be9c3b2d73340cac3fd9746d9ef24f3b244b2bbb24aca30ce1999ad",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-14B-8bit/resolve/da33cf28f06636847fd9e93e0a03d819b84cb55e/config.json",
+                "config_sha256": "eaad699815671b2f83703ea65ea5206061b46b74f39a1c5319e834e676c2146c",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-14B-bf16/resolve/1ccfce3b06c613631958550e110f01664068257e/config.json",
+                "config_sha256": "30e731d20d4f8a4f0208bf93fc2d126f5723e551c2228d3c625fc0bbe5b80a2a",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -771,7 +1890,64 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-14B-{quantization}"
+            "model_id": "mlx-community/Qwen3-14B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-14B-3bit/resolve/master/config.json",
+                "config_sha256": "03a36a4a77b4db7429415dcc2502e80e5d465914bf5eb683cd6ba5390cb86e1b",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-14B-4bit/resolve/master/config.json",
+                "config_sha256": "a54ec18ffe24f3c909e9556471dc156ed9b3b61b872008831c7cba9d4768b4a5",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-14B-6bit/resolve/master/config.json",
+                "config_sha256": "6c89db533be9c3b2d73340cac3fd9746d9ef24f3b244b2bbb24aca30ce1999ad",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-14B-8bit/resolve/master/config.json",
+                "config_sha256": "eaad699815671b2f83703ea65ea5206061b46b74f39a1c5319e834e676c2146c",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 40,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-14B-bf16/resolve/master/config.json",
+                "config_sha256": "30e731d20d4f8a4f0208bf93fc2d126f5723e551c2228d3c625fc0bbe5b80a2a",
+                "hidden_size": 5120,
+                "intermediate_size": 17408,
+                "num_hidden_layers": 40
+              }
+            }
           }
         }
       },
@@ -807,7 +1983,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-14B-GGUF",
-            "model_file_name_template": "Qwen3-14B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-14B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/a04a82c4739b3ef5fa6da7d10261db2c67dd1985/config.json",
+              "config_sha256": "2dcca456310cfaf18535e9584f79f23fe8ac3e3c729a10335f19fba331258b8f",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -837,7 +2024,18 @@
               "IQ4_XS"
             ],
             "model_id": "unsloth/Qwen3-14B-GGUF",
-            "model_file_name_template": "Qwen3-14B-{quantization}.gguf"
+            "model_file_name_template": "Qwen3-14B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-14B-GGUF/resolve/master/config.json",
+              "config_sha256": "2dcca456310cfaf18535e9584f79f23fe8ac3e3c729a10335f19fba331258b8f",
+              "hidden_size": 5120,
+              "intermediate_size": 17408,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -850,13 +2048,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-30B-A3B"
+            "model_id": "Qwen/Qwen3-30B-A3B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-30B-A3B/resolve/ad44e777bcd18fa416d9da3bd8f70d33ebb85d39/config.json",
+              "config_sha256": "2850ddb3bf7aecad20b611e2d44f3077fc8193f4827c93beddd4c02ad63c2297",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-30B-A3B"
+            "model_id": "Qwen/Qwen3-30B-A3B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-30B-A3B/resolve/master/config.json",
+              "config_sha256": "2850ddb3bf7aecad20b611e2d44f3077fc8193f4827c93beddd4c02ad63c2297",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -869,13 +2091,37 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-30B-A3B-FP8"
+            "model_id": "Qwen/Qwen3-30B-A3B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-30B-A3B-FP8/resolve/d206ba732169f29bb77fbf80fc2c4b81d4d30782/config.json",
+              "config_sha256": "d33c579e6a0f520344712e22dfb9d6fa49ed23e43ce3f32f12daea43597eddae",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-30B-A3B-FP8"
+            "model_id": "Qwen/Qwen3-30B-A3B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-30B-A3B-FP8/resolve/master/config.json",
+              "config_sha256": "d33c579e6a0f520344712e22dfb9d6fa49ed23e43ce3f32f12daea43597eddae",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -888,13 +2134,37 @@
             "quantizations": [
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-30B-A3B-GPTQ-Int8"
+            "model_id": "JunHowie/Qwen3-30B-A3B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/JunHowie/Qwen3-30B-A3B-GPTQ-Int8/resolve/059b0db28cc7f6c52ff91d457fdf8ee87ee7878a/config.json",
+              "config_sha256": "d08a2f3614ea400a43aed716d6172dd8d1ace033366378005c37e68ad8ff971a",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-30B-A3B-GPTQ-Int8"
+            "model_id": "JunHowie/Qwen3-30B-A3B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-30B-A3B-GPTQ-Int8/resolve/master/config.json",
+              "config_sha256": "e4dde747addb4e3ada281fa1f8f3397c7303aa5529ed2c54c400cc6e58eea09a",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -907,13 +2177,37 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-30B-A3B-GPTQ-Int4"
+            "model_id": "Qwen/Qwen3-30B-A3B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-30B-A3B-GPTQ-Int4/resolve/9b534e4318b7ebc3c961a839f13eb18b1833f441/config.json",
+              "config_sha256": "ed18d5379b0ee75113173cb684a0cad85559768b82c9dd1d5e5f6acb82ba741c",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-30B-A3B-GPTQ-Int4"
+            "model_id": "Qwen/Qwen3-30B-A3B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-30B-A3B-GPTQ-Int4/resolve/master/config.json",
+              "config_sha256": "ed18d5379b0ee75113173cb684a0cad85559768b82c9dd1d5e5f6acb82ba741c",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -929,7 +2223,57 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}"
+            "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}",
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-4bit/resolve/d388dead1515f5e085ef7a0431dd8fadf0886c57/config.json",
+                "config_sha256": "5a5fdac36fffb64ead4a539e0cd4ca865105a01298d62f3346e407c25e6ff3e6",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-6bit/resolve/b3563813b400e28f4c9d4317f012d9211ebd0f66/config.json",
+                "config_sha256": "b4ec106e6eba518e15ab67800823874abbf3fd0be07ac7cc0924216d66712dd0",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-8bit/resolve/7d5b2e500d961076e3c16d6bf957b9c36783b0f5/config.json",
+                "config_sha256": "5662f3b5b50ab7d07410a7018c03d42e8e126cfdaf61b48abb81f32362691922",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-30B-A3B-bf16/resolve/3a61c5fbf60a53d132006b5c0d7862a531557735/config.json",
+                "config_sha256": "893a4eb91dcb3caec105179f1f009fdd5996ae57a7a9030375312445bb04350f",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -938,7 +2282,57 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}"
+            "model_id": "mlx-community/Qwen3-30B-A3B-{quantization}",
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-4bit/resolve/master/config.json",
+                "config_sha256": "5a5fdac36fffb64ead4a539e0cd4ca865105a01298d62f3346e407c25e6ff3e6",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-6bit/resolve/master/config.json",
+                "config_sha256": "b4ec106e6eba518e15ab67800823874abbf3fd0be07ac7cc0924216d66712dd0",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-8bit/resolve/master/config.json",
+                "config_sha256": "5662f3b5b50ab7d07410a7018c03d42e8e126cfdaf61b48abb81f32362691922",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-30B-A3B-bf16/resolve/master/config.json",
+                "config_sha256": "893a4eb91dcb3caec105179f1f009fdd5996ae57a7a9030375312445bb04350f",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 6144,
+                "num_hidden_layers": 48
+              }
+            }
           }
         }
       },
@@ -982,7 +2376,19 @@
             },
             "model_id": "unsloth/Qwen3-30B-A3B-GGUF",
             "model_file_name_template": "Qwen3-30B-A3B-{quantization}.gguf",
-            "model_file_name_split_template": "BF16/Qwen3-30B-A3B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "BF16/Qwen3-30B-A3B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-30B-A3B-GGUF/resolve/d5b1d57bd0b504ac62ae6c725904e96ef228dc74/config.json",
+              "config_sha256": "8e6b84ad128434e8484399e1032cc0055690a7e60be4de913e0546f78c6883cb",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -1019,7 +2425,19 @@
             },
             "model_id": "unsloth/Qwen3-30B-A3B-GGUF",
             "model_file_name_template": "Qwen3-30B-A3B-{quantization}.gguf",
-            "model_file_name_split_template": "BF16/Qwen3-30B-A3B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "BF16/Qwen3-30B-A3B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-30B-A3B-GGUF/resolve/master/config.json",
+              "config_sha256": "8e6b84ad128434e8484399e1032cc0055690a7e60be4de913e0546f78c6883cb",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -1031,13 +2449,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-32B"
+            "model_id": "Qwen/Qwen3-32B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-32B/resolve/9216db5781bf21249d130ec9da846c4624c16137/config.json",
+              "config_sha256": "97e295b63283935788fac5e4f8860862a56d4089538cafc93f0431f2ebe483bb",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-32B"
+            "model_id": "Qwen/Qwen3-32B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-32B/resolve/master/config.json",
+              "config_sha256": "97e295b63283935788fac5e4f8860862a56d4089538cafc93f0431f2ebe483bb",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -1049,13 +2489,35 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-32B-FP8"
+            "model_id": "Qwen/Qwen3-32B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-32B-FP8/resolve/aa55da1ecc13d006e8b8e4f54579b1ea8c3db2df/config.json",
+              "config_sha256": "e546dacd2c772660270233f5579e9ab923cc2a7ec5ed3c58c27c2bc62cbf5169",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-32B-FP8"
+            "model_id": "Qwen/Qwen3-32B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-32B-FP8/resolve/master/config.json",
+              "config_sha256": "e546dacd2c772660270233f5579e9ab923cc2a7ec5ed3c58c27c2bc62cbf5169",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -1067,13 +2529,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-32B-AWQ"
+            "model_id": "Qwen/Qwen3-32B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-32B-AWQ/resolve/0499c3ac83fdef8810b907a23894ba91e95eddd8/config.json",
+              "config_sha256": "0e0c09d430b12e84773ef83ca83dba7c9174caf5a94bb940cd895b82df6c6528",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-32B-AWQ"
+            "model_id": "Qwen/Qwen3-32B-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-32B-AWQ/resolve/master/config.json",
+              "config_sha256": "0e0c09d430b12e84773ef83ca83dba7c9174caf5a94bb940cd895b82df6c6528",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -1086,14 +2570,62 @@
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-32B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-32B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-32B-GPTQ-Int4/resolve/275d13ed8617787bde259624a8ab2f5527266465/config.json",
+                "config_sha256": "f8b0da13176180a8cc74d6fef47789a439c1d832ae5f701d195bf7b509bc25d8",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/JunHowie/Qwen3-32B-GPTQ-Int8/resolve/74e7e07c621c17241654d9a22290d3f9cb08d25b/config.json",
+                "config_sha256": "83d9db8cb114d5459ccd92e78fa331a25d5f3175fe4eb92f04f43c9bbeebe9d7",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "JunHowie/Qwen3-32B-GPTQ-{quantization}"
+            "model_id": "JunHowie/Qwen3-32B-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-32B-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "f8b0da13176180a8cc74d6fef47789a439c1d832ae5f701d195bf7b509bc25d8",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "Int8": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/JunHowie/Qwen3-32B-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "83d9db8cb114d5459ccd92e78fa331a25d5f3175fe4eb92f04f43c9bbeebe9d7",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              }
+            }
           }
         }
       },
@@ -1108,7 +2640,53 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-32B-{quantization}"
+            "model_id": "mlx-community/Qwen3-32B-{quantization}",
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-32B-4bit/resolve/bcaaf7f538adf166c1080a2befdb4f6019f66639/config.json",
+                "config_sha256": "61164e05c52435ed08ee11d4ead8833577f7d329d05797fde522f457b80c25dd",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-32B-6bit/resolve/0e530bd2b04be00c5c9dd265a76a94f2a3f0f36f/config.json",
+                "config_sha256": "58e28cbf60f80c0e0c6ef36614f4ee89977072263227ffa016b9d37f070a41ec",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-32B-8bit/resolve/916c25b033bc96694567ad50c60ab4759a21bad2/config.json",
+                "config_sha256": "fef38fb57fab21370a6711ae5275dbb84f603f9dd6eff18b625f8eca830cfbca",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-32B-bf16/resolve/3d03fe9fa04c440a17c6774896fba73692e58f17/config.json",
+                "config_sha256": "507036f86df314616d4110f1e65bd10463db6fcacdd341a5e47303dbe7d9a430",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -1117,7 +2695,53 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/Qwen3-32B-{quantization}"
+            "model_id": "mlx-community/Qwen3-32B-{quantization}",
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-32B-4bit/resolve/master/config.json",
+                "config_sha256": "61164e05c52435ed08ee11d4ead8833577f7d329d05797fde522f457b80c25dd",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-32B-6bit/resolve/master/config.json",
+                "config_sha256": "58e28cbf60f80c0e0c6ef36614f4ee89977072263227ffa016b9d37f070a41ec",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-32B-8bit/resolve/master/config.json",
+                "config_sha256": "fef38fb57fab21370a6711ae5275dbb84f603f9dd6eff18b625f8eca830cfbca",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              },
+              "bf16": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-32B-bf16/resolve/master/config.json",
+                "config_sha256": "507036f86df314616d4110f1e65bd10463db6fcacdd341a5e47303dbe7d9a430",
+                "hidden_size": 5120,
+                "intermediate_size": 25600,
+                "num_hidden_layers": 64
+              }
+            }
           }
         }
       },
@@ -1160,7 +2784,18 @@
             },
             "model_id": "unsloth/Qwen3-32B-GGUF",
             "model_file_name_template": "Qwen3-32B-{quantization}.gguf",
-            "model_file_name_split_template": "BF16/Qwen3-32B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "BF16/Qwen3-32B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-32B-GGUF/resolve/931c84066f88693a02ab8de820cfcd066d913241/config.json",
+              "config_sha256": "1dca65b0e49cb3e21697d6f926719e44ef21860173c354a7b42ad6a84592ee79",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -1197,7 +2832,18 @@
             },
             "model_id": "unsloth/Qwen3-32B-GGUF",
             "model_file_name_template": "Qwen3-32B-{quantization}.gguf",
-            "model_file_name_split_template": "BF16/Qwen3-32B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "BF16/Qwen3-32B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-32B-GGUF/resolve/master/config.json",
+              "config_sha256": "1dca65b0e49cb3e21697d6f926719e44ef21860173c354a7b42ad6a84592ee79",
+              "hidden_size": 5120,
+              "intermediate_size": 25600,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -1210,13 +2856,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-235B-A22B"
+            "model_id": "Qwen/Qwen3-235B-A22B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-235B-A22B/resolve/8efa61729e24bd65b1d152b5ab5409052aa80e65/config.json",
+              "config_sha256": "0ecd5d6fe6f2db6739e4e36ab06b88ebe7bd013ef31b9583f43796059a2b23a4",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-235B-A22B"
+            "model_id": "Qwen/Qwen3-235B-A22B",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-235B-A22B/resolve/master/config.json",
+              "config_sha256": "0ecd5d6fe6f2db6739e4e36ab06b88ebe7bd013ef31b9583f43796059a2b23a4",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           }
         }
       },
@@ -1229,13 +2899,37 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-235B-A22B-FP8"
+            "model_id": "Qwen/Qwen3-235B-A22B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-235B-A22B-FP8/resolve/39eb2b067ea6b8e3e1dd97d3cd0c7ffeaf3e1a35/config.json",
+              "config_sha256": "702c46d431bb984db9035a1225186bbfdb52c0d19c82104df4a37cd005e0369e",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-235B-A22B-FP8"
+            "model_id": "Qwen/Qwen3-235B-A22B-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-235B-A22B-FP8/resolve/master/config.json",
+              "config_sha256": "702c46d431bb984db9035a1225186bbfdb52c0d19c82104df4a37cd005e0369e",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           }
         }
       },
@@ -1248,13 +2942,37 @@
             "quantizations": [
               "Int8"
             ],
-            "model_id": "QuantTrio/Qwen3-235B-A22B-GPTQ-Int8"
+            "model_id": "QuantTrio/Qwen3-235B-A22B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/Qwen3-235B-A22B-GPTQ-Int8/resolve/31dd5b62996fc74e99b273e850a32d4b535cdc8c/config.json",
+              "config_sha256": "c93dc6b1d3ff9a5c54cf621c4c3189d182dac6ae234a41cc5b0394eb7080da3d",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int8"
             ],
-            "model_id": "tclf90/Qwen3-235B-A22B-GPTQ-Int8"
+            "model_id": "tclf90/Qwen3-235B-A22B-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/Qwen3-235B-A22B-GPTQ-Int8/resolve/master/config.json",
+              "config_sha256": "c93dc6b1d3ff9a5c54cf621c4c3189d182dac6ae234a41cc5b0394eb7080da3d",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           }
         }
       },
@@ -1267,13 +2985,37 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-235B-A22B-GPTQ-Int4"
+            "model_id": "Qwen/Qwen3-235B-A22B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-235B-A22B-GPTQ-Int4/resolve/dff138951f3898772fc0d795a4b5b30f417577f4/config.json",
+              "config_sha256": "098bc424862c48d3b8bd7c1c853f87fe9efcb95b6a2060dddf164659b83e93d7",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "Qwen/Qwen3-235B-A22B-GPTQ-Int4"
+            "model_id": "Qwen/Qwen3-235B-A22B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-235B-A22B-GPTQ-Int4/resolve/master/config.json",
+              "config_sha256": "098bc424862c48d3b8bd7c1c853f87fe9efcb95b6a2060dddf164659b83e93d7",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           }
         }
       },
@@ -1296,7 +3038,45 @@
               "4bit",
               "8bit"
             ],
-            "model_id": "mlx-community/Qwen3-235B-A22B-{quantization}"
+            "model_id": "mlx-community/Qwen3-235B-A22B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-3bit/resolve/master/config.json",
+                "config_sha256": "7808e85b47e3b5a3ca6107c8895635a33c6debfd6716e319b52e44119ae6305d",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 94
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-4bit/resolve/master/config.json",
+                "config_sha256": "b7257128bbd62e7478328d7f36a6065eaf9ce144d6127350c460e8e12b94fc28",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 94
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-235B-A22B-8bit/resolve/master/config.json",
+                "config_sha256": "a9bc632a31fc6b92be456099a4696e75a4f3ef1732456998802670da443734b7",
+                "architecture_type": "moe",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 94
+              }
+            }
           }
         }
       },
@@ -1395,7 +3175,19 @@
             },
             "model_id": "unsloth/Qwen3-235B-A22B-GGUF",
             "model_file_name_template": "Qwen3-235B-A22B-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-235B-A22B-GGUF/resolve/09e11417ffdc30c1c63d0296a40fd8fde0abb180/config.json",
+              "config_sha256": "842e2da45d8cdc7476c42e500007101b14b326e36d196979b15517cfa06cb531",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -1487,7 +3279,19 @@
             },
             "model_id": "unsloth/Qwen3-235B-A22B-GGUF",
             "model_file_name_template": "Qwen3-235B-A22B-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Qwen3-235B-A22B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-235B-A22B-GGUF/resolve/master/config.json",
+              "config_sha256": "842e2da45d8cdc7476c42e500007101b14b326e36d196979b15517cfa06cb531",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 94
+            }
           }
         }
       }

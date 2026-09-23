@@ -20,19 +20,49 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/CodeQwen1.5-7B"
+            "model_id": "Qwen/CodeQwen1.5-7B",
+            "model_metadata": {
+              "vocab_size": 92416,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/Qwen/CodeQwen1.5-7B/resolve/5ce5a1554e50a9e3bb236de7c0b8a2a1746186e4/config.json",
+              "config_sha256": "25aa0e62a3b715523c160be28b0b8a754d811f1335bdd7a26f08791c2e7f6fc5",
+              "hidden_size": 4096,
+              "intermediate_size": 13440,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "qwen/CodeQwen1.5-7B"
+            "model_id": "qwen/CodeQwen1.5-7B",
+            "model_metadata": {
+              "vocab_size": 92416,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/qwen/CodeQwen1.5-7B/resolve/master/config.json",
+              "config_sha256": "25aa0e62a3b715523c160be28b0b8a754d811f1335bdd7a26f08791c2e7f6fc5",
+              "hidden_size": 4096,
+              "intermediate_size": 13440,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "HangZhou_Ascend/CodeQwen1.5-7B"
+            "model_id": "HangZhou_Ascend/CodeQwen1.5-7B",
+            "model_metadata": {
+              "vocab_size": 92416,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelers.cn/api/v1/file/HangZhou_Ascend/CodeQwen1.5-7B/main/media/config.json",
+              "config_sha256": "25aa0e62a3b715523c160be28b0b8a754d811f1335bdd7a26f08791c2e7f6fc5",
+              "hidden_size": 4096,
+              "intermediate_size": 13440,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

@@ -21,13 +21,33 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
-            "model_revision": "2df081ceaca101a867fef2844e44f4d6a4857039"
+            "model_revision": "2df081ceaca101a867fef2844e44f4d6a4857039",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://huggingface.co/deepseek-ai/deepseek-coder-1.3b-instruct/resolve/2df081ceaca101a867fef2844e44f4d6a4857039/config.json",
+              "config_sha256": "5e81a9fd94e640b412725ff4c6eef90b8862e526c93ca4f4c5179244bcf20550",
+              "hidden_size": 2048,
+              "intermediate_size": 5504,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct"
+            "model_id": "deepseek-ai/deepseek-coder-1.3b-instruct",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/deepseek-coder-1.3b-instruct/resolve/master/config.json",
+              "config_sha256": "5e81a9fd94e640b412725ff4c6eef90b8862e526c93ca4f4c5179244bcf20550",
+              "hidden_size": 2048,
+              "intermediate_size": 5504,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -40,13 +60,33 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
-            "model_revision": "cbb77d7448ea3168d884758817e7f895e3828d1c"
+            "model_revision": "cbb77d7448ea3168d884758817e7f895e3828d1c",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct/resolve/cbb77d7448ea3168d884758817e7f895e3828d1c/config.json",
+              "config_sha256": "a3a2ce1a623b367d3799fb0c1e1ba12d5b8fa51a8e7abba14d10dd3739cd73e4",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct"
+            "model_id": "deepseek-ai/deepseek-coder-6.7b-instruct",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/deepseek-coder-6.7b-instruct/resolve/master/config.json",
+              "config_sha256": "a3a2ce1a623b367d3799fb0c1e1ba12d5b8fa51a8e7abba14d10dd3739cd73e4",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -59,7 +99,17 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-7b-instruct-v1.5",
-            "model_revision": "2a050a4c59d687a85324d32e147517992117ed30"
+            "model_revision": "2a050a4c59d687a85324d32e147517992117ed30",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/deepseek-ai/deepseek-coder-7b-instruct-v1.5/resolve/2a050a4c59d687a85324d32e147517992117ed30/config.json",
+              "config_sha256": "b175cc978379b310371c8f4e16096595becfa0fda2ce3b45bf8931a1bcf03fd1",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 30
+            }
           }
         }
       },
@@ -72,13 +122,33 @@
               "none"
             ],
             "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
-            "model_revision": "ea15d17db84d1fc94ac5cba8e6fa97764c9549d3"
+            "model_revision": "ea15d17db84d1fc94ac5cba8e6fa97764c9549d3",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/deepseek-ai/deepseek-coder-33b-instruct/resolve/ea15d17db84d1fc94ac5cba8e6fa97764c9549d3/config.json",
+              "config_sha256": "bbe1543f9193bc8ef696046d2f374a003fe94f04a70219c862b9f2fe675b0ca1",
+              "hidden_size": 7168,
+              "intermediate_size": 19200,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/deepseek-coder-33b-instruct"
+            "model_id": "deepseek-ai/deepseek-coder-33b-instruct",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/deepseek-coder-33b-instruct/resolve/master/config.json",
+              "config_sha256": "bbe1543f9193bc8ef696046d2f374a003fe94f04a70219c862b9f2fe675b0ca1",
+              "hidden_size": 7168,
+              "intermediate_size": 19200,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -102,7 +172,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GGUF",
-            "model_file_name_template": "deepseek-coder-1.3b-instruct.{quantization}.gguf"
+            "model_file_name_template": "deepseek-coder-1.3b-instruct.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-1.3b-instruct-GGUF/resolve/main/deepseek-coder-1.3b-instruct.Q2_K.gguf",
+              "config_sha256": "d9b4c02b209b57cb7dbaeeade8fe4fd261f0e6c5a0632ee362eb942c1c14a489",
+              "hidden_size": 2048,
+              "intermediate_size": 5504,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -126,7 +206,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GGUF",
-            "model_file_name_template": "deepseek-coder-6.7b-instruct.{quantization}.gguf"
+            "model_file_name_template": "deepseek-coder-6.7b-instruct.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-6.7B-instruct-GGUF/resolve/main/deepseek-coder-6.7b-instruct.Q2_K.gguf",
+              "config_sha256": "b9658486c0788c5e5aa77b71ca187aca7f53a71cc9f803a7c948384b6112eb3f",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -149,7 +239,17 @@
               "Q8_0"
             ],
             "model_id": "LoneStriker/deepseek-coder-7b-instruct-v1.5-GGUF",
-            "model_file_name_template": "deepseek-coder-7b-instruct-v1.5-{quantization}.gguf"
+            "model_file_name_template": "deepseek-coder-7b-instruct-v1.5-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/LoneStriker/deepseek-coder-7b-instruct-v1.5-GGUF/resolve/main/deepseek-coder-7b-instruct-v1.5-Q3_K_L.gguf",
+              "config_sha256": "d66219f4fc661d19f1e31a5e4233daa7748fd9234eb00f2ed6d09379eed2e73e",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 30
+            }
           }
         }
       },
@@ -173,7 +273,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/deepseek-coder-33B-instruct-GGUF",
-            "model_file_name_template": "deepseek-coder-33b-instruct.{quantization}.gguf"
+            "model_file_name_template": "deepseek-coder-33b-instruct.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-33B-instruct-GGUF/resolve/main/deepseek-coder-33b-instruct.Q2_K.gguf",
+              "config_sha256": "5615dc4e094206e547c6970f061ca9bfdc88c21551da0a10e9048ecbb8c5d1a0",
+              "hidden_size": 7168,
+              "intermediate_size": 19200,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -186,7 +296,17 @@
               "Int4"
             ],
             "model_id": "TheBloke/deepseek-coder-1.3b-instruct-GPTQ",
-            "model_revision": "9c002e9af6cbdf3bd9244e2d7264b6a35d1dcacf"
+            "model_revision": "9c002e9af6cbdf3bd9244e2d7264b6a35d1dcacf",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-1.3b-instruct-GPTQ/resolve/9c002e9af6cbdf3bd9244e2d7264b6a35d1dcacf/config.json",
+              "config_sha256": "4d52f46a97e6040c592d6ecdf3b01941107884dabd2ba2819bd68e1281c17d31",
+              "hidden_size": 2048,
+              "intermediate_size": 5504,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -199,7 +319,17 @@
               "Int4"
             ],
             "model_id": "TheBloke/deepseek-coder-6.7B-instruct-GPTQ",
-            "model_revision": "13ccea6e3a43dcfdcb655d92097610018b431a17"
+            "model_revision": "13ccea6e3a43dcfdcb655d92097610018b431a17",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-6.7B-instruct-GPTQ/resolve/13ccea6e3a43dcfdcb655d92097610018b431a17/config.json",
+              "config_sha256": "a21b816178170d8494a1847105222f4737a636c1ea72839be8534c4d41e14106",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -212,7 +342,17 @@
               "Int4"
             ],
             "model_id": "TheBloke/deepseek-coder-33B-instruct-GPTQ",
-            "model_revision": "08372729d98dfc248f9531a412fe69e14e607027"
+            "model_revision": "08372729d98dfc248f9531a412fe69e14e607027",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-33B-instruct-GPTQ/resolve/08372729d98dfc248f9531a412fe69e14e607027/config.json",
+              "config_sha256": "9e1a60c2b22b0c22d7e5777eac3a6b7c21dd4ea4fbbcb6f589179db2eff4bde4",
+              "hidden_size": 7168,
+              "intermediate_size": 19200,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -225,7 +365,17 @@
               "Int4"
             ],
             "model_id": "TheBloke/deepseek-coder-1.3b-instruct-AWQ",
-            "model_revision": "a2a484da6e4146d055316a9a63cf5b13955715a4"
+            "model_revision": "a2a484da6e4146d055316a9a63cf5b13955715a4",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-1.3b-instruct-AWQ/resolve/a2a484da6e4146d055316a9a63cf5b13955715a4/config.json",
+              "config_sha256": "180e3cec24618b47ab0545cd02cdabd6833b52a365e294b7a479c575bf00041d",
+              "hidden_size": 2048,
+              "intermediate_size": 5504,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -238,7 +388,17 @@
               "Int4"
             ],
             "model_id": "TheBloke/deepseek-coder-6.7B-instruct-AWQ",
-            "model_revision": "502ae3e19e57ae78dc30a791ba33c565da72dc62"
+            "model_revision": "502ae3e19e57ae78dc30a791ba33c565da72dc62",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-6.7B-instruct-AWQ/resolve/502ae3e19e57ae78dc30a791ba33c565da72dc62/config.json",
+              "config_sha256": "eea664e41e5fc0ed20b06defb13061723511abd5056e02106c7379599ea28d63",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -251,7 +411,17 @@
               "Int4"
             ],
             "model_id": "TheBloke/deepseek-coder-33B-instruct-AWQ",
-            "model_revision": "c40b499bac2712cd3c445cf1b05d2c6558ab0d29"
+            "model_revision": "c40b499bac2712cd3c445cf1b05d2c6558ab0d29",
+            "model_metadata": {
+              "vocab_size": 32256,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/deepseek-coder-33B-instruct-AWQ/resolve/c40b499bac2712cd3c445cf1b05d2c6558ab0d29/config.json",
+              "config_sha256": "5a37e2c02fa19af386f19305d6166c01266c98052183fbbcde6ef4fc5bc256cc",
+              "hidden_size": 7168,
+              "intermediate_size": 19200,
+              "num_hidden_layers": 62
+            }
           }
         }
       }

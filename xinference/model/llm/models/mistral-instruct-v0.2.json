@@ -20,13 +20,33 @@
               "none"
             ],
             "model_id": "mistralai/Mistral-7B-Instruct-v0.2",
-            "model_revision": "b70aa86578567ba3301b21c8a27bea4e8f6d6d61"
+            "model_revision": "b70aa86578567ba3301b21c8a27bea4e8f6d6d61",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2/resolve/b70aa86578567ba3301b21c8a27bea4e8f6d6d61/config.json",
+              "config_sha256": "2e97da1b1d2b7e7669f0991c186904538c27d4ea56c4fc74e89215e2b2013922",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-ModelScope/Mistral-7B-Instruct-v0.2"
+            "model_id": "AI-ModelScope/Mistral-7B-Instruct-v0.2",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Mistral-7B-Instruct-v0.2/resolve/master/config.json",
+              "config_sha256": "2e97da1b1d2b7e7669f0991c186904538c27d4ea56c4fc74e89215e2b2013922",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -38,7 +58,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ"
+            "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GPTQ/resolve/7532d6bc89ef9300fb39d2d94ed4414ec534b72a/config.json",
+              "config_sha256": "444cd0fec54863bb8543fcc8657eb71afddc676f7e95b8f3581f8d853abf3408",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -50,7 +80,17 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-AWQ"
+            "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-AWQ/resolve/f970a2bb89d5c2f9d217dc337f39e24625d6462a/config.json",
+              "config_sha256": "82be0ae786d4e1840bbaa2ed688d0d6c40585dd3b273828654d3763ffa9ca15e",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -74,14 +114,34 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
-            "model_file_name_template": "mistral-7b-instruct-v0.2.{quantization}.gguf"
+            "model_file_name_template": "mistral-7b-instruct-v0.2.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q2_K.gguf",
+              "config_sha256": "af204bdabbee9083f5d7562c127d1ff436a94a7dfb0c004040887b903bead81d",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "Q4_K_M"
             ],
             "model_id": "Xorbits/Mistral-7B-Instruct-v0.2-GGUF",
-            "model_file_name_template": "mistral-7b-instruct-v0.2.{quantization}.gguf"
+            "model_file_name_template": "mistral-7b-instruct-v0.2.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/Xorbits/Mistral-7B-Instruct-v0.2-GGUF/resolve/master/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+              "config_sha256": "cfa239616b7661ff3207cf67542d96768bfd7b9481494b8e7567b944d2ec2f33",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

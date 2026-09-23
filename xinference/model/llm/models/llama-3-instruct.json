@@ -25,13 +25,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Meta-Llama-3-8B-Instruct"
+            "model_id": "LLM-Research/Meta-Llama-3-8B-Instruct",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3-8B-Instruct/resolve/master/config.json",
+              "config_sha256": "61f3de03a16ca8046b05dc777bce72717022bc8522152eee61a69072272ef54b",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "wuhaicc/Meta-Llama-3-8B-Instruct"
+            "model_id": "wuhaicc/Meta-Llama-3-8B-Instruct",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelers.cn/api/v1/file/wuhaicc/Meta-Llama-3-8B-Instruct/main/media/config.json",
+              "config_sha256": "2430cee764b6530ff8673cf9ba8561e1d5a33152d503cd0de909ff5718261441",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -49,7 +69,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Meta-Llama-3-70B-Instruct"
+            "model_id": "LLM-Research/Meta-Llama-3-70B-Instruct",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3-70B-Instruct/resolve/master/config.json",
+              "config_sha256": "c3e3c787cf77a9c68ef1d9c926fb366450fcbc99d723c7af96b534a02bd56652",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           },
           "openmind_hub": {
             "quantizations": [
@@ -72,7 +102,17 @@
               "Q8_0"
             ],
             "model_id": "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF",
-            "model_file_name_template": "Meta-Llama-3-8B-Instruct-{quantization}.gguf"
+            "model_file_name_template": "Meta-Llama-3-8B-Instruct-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct-IQ3_M.gguf",
+              "config_sha256": "94335d9467c0f6d1481368ac334a1f930de2d3144ba1351fc746ba3dcb9e5bdf",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -87,7 +127,17 @@
               "Q4_K_M"
             ],
             "model_id": "lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF",
-            "model_file_name_template": "Meta-Llama-3-70B-Instruct-{quantization}.gguf"
+            "model_file_name_template": "Meta-Llama-3-70B-Instruct-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/lmstudio-community/Meta-Llama-3-70B-Instruct-GGUF/resolve/main/Meta-Llama-3-70B-Instruct-IQ1_M.gguf",
+              "config_sha256": "ce14b9365d95f98f1d3a43d34707f9a926aff75be65086bcb2dadeee43b32287",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -99,7 +149,17 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-4bit"
+            "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct-4bit/resolve/c38b3b1f03cce0ce0ccd235e5c97b0d3d255e651/config.json",
+              "config_sha256": "f05cfe212445c6f4eaaf28df99ec32d1c9cfc583feb159baf2141dbdf738d83b",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -111,7 +171,17 @@
             "quantizations": [
               "8bit"
             ],
-            "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-8bit"
+            "model_id": "mlx-community/Meta-Llama-3-8B-Instruct-8bit",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct-8bit/resolve/c3c7ba0499aef7abbc642f3904ebda0f3b067f5b/config.json",
+              "config_sha256": "70a3a208d53e863a599b502cf43102ab040159e04923a57fc98dc755a6de7c54",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -123,7 +193,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "mlx-community/Meta-Llama-3-8B-Instruct"
+            "model_id": "mlx-community/Meta-Llama-3-8B-Instruct",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Meta-Llama-3-8B-Instruct/resolve/d9e88ded22c2c7fb6bdd246436b88f6ffbfe445a/config.json",
+              "config_sha256": "6283fc5fb4f40e5d17fb52b17aa9878a1b58b7d6fec72ab019a437bd87ec8607",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -135,7 +215,17 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx"
+            "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-4bit-mlx/resolve/b52264d49fb9d12fef62761935a3c37d0905ebc4/config.json",
+              "config_sha256": "bb72e2d54e9e41b3a7c46309e029ca0b7f15915d65d591723171123f31ef8abd",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -147,7 +237,17 @@
             "quantizations": [
               "8bit"
             ],
-            "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-8bit"
+            "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-8bit",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-8bit/resolve/92cbb6d4ce76058190b723e8db60e56748e366db/config.json",
+              "config_sha256": "01ca52426cda5f1278015da03b7ae8abfe717ae08beabb5a42649200333d94fd",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -159,7 +259,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized"
+            "model_id": "mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Meta-Llama-3-70B-Instruct-mlx-unquantized/resolve/47f1df14ab5a354a023c0ef833406df00e15ac75/config.json",
+              "config_sha256": "f47b0e76b5c60418099301575b0ab2bca82fb65d10fe945520f19d2304edfa33",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -171,14 +281,46 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ"
+            "model_id": "TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ/resolve/94acc5ca62a6475e5390429418dde052da2a8e68/config.json",
+              "config_sha256": "4f20b9673d19d012e33a7a3d479cf0d858cddd2690f6f8d8e814b3075efb98e1",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "swift/Meta-Llama-3-8B-Instruct-GPTQ-{quantization}"
+            "model_id": "swift/Meta-Llama-3-8B-Instruct-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/swift/Meta-Llama-3-8B-Instruct-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "4d248b226396ab87d067d1373620c6edab52e07a7d22ebb28fb77b526189eb42",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "Int8": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/swift/Meta-Llama-3-8B-Instruct-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "9369d61cc3730e103c702a977f0eaaa2b9b85e362692df1908202ca442f615a9",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              }
+            }
           }
         }
       },
@@ -190,14 +332,46 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ"
+            "model_id": "TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TechxGenus/Meta-Llama-3-70B-Instruct-GPTQ/resolve/e147aa8799dd05d5077f60c79be0d972b002b3ac/config.json",
+              "config_sha256": "34a3b4ef852aa72b3ea3e8460e7839dc3f40053bf75f8192bf927ccbdd5ba68e",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4",
               "Int8"
             ],
-            "model_id": "swift/Meta-Llama-3-70B-Instruct-GPTQ-{quantization}"
+            "model_id": "swift/Meta-Llama-3-70B-Instruct-GPTQ-{quantization}",
+            "model_metadata_by_quantization": {
+              "Int4": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/swift/Meta-Llama-3-70B-Instruct-GPTQ-Int4/resolve/master/config.json",
+                "config_sha256": "97eff57b6f3279278ed972bf2b45707d58eb065ed0f5abb9ee79cca5e5115ea2",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "Int8": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/swift/Meta-Llama-3-70B-Instruct-GPTQ-Int8/resolve/master/config.json",
+                "config_sha256": "a0502806299f8bf54c6f1274c93b12f584355cf6128b6aaef47a5a6301b6b4b3",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              }
+            }
           }
         }
       }

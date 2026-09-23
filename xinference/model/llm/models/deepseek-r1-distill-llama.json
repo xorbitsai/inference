@@ -21,13 +21,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B/resolve/6a6f4aa4197940add57724a7707d069478df56b1/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Llama-8B/resolve/master/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -43,7 +63,59 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Llama-8B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-3bit/resolve/087252a5aade7ef8abb7c383f199dc07b811a7e7/config.json",
+                "config_sha256": "feddea547344d0c215b72a1e133adc17f99d48568b4296f2ac064ce785745712",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "4bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-4bit/resolve/e23907a0aad41aa45845a938ef0fe7dfeaab3c05/config.json",
+                "config_sha256": "d2d699587f3602565ae589d85490e927598a36e9181656626ffdfe60bf4b5eb2",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "6bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-6bit/resolve/81de64fdf7ca1ee6877435337bec7b4e822d8986/config.json",
+                "config_sha256": "3266ad4e79b70054e502275080148c49e6b1435292b0dc9ddb206ee4cf10cab6",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "8bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-8bit/resolve/6aa45f2b54c4506b380db17e2baaf7bd13499135/config.json",
+                "config_sha256": "32304c70b95ae74f5504bc8202bec14822bc4a3249535cfbdd0ee8e5c44509a2",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "bf16": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-8B-bf16/resolve/815abbbec7661a56ed73bad3bf9afe4abf483042/config.json",
+                "config_sha256": "91c339d591da6556d8c0119d71bcc9bc021555e44ed23565d92c12ee8216c4bb",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -53,7 +125,49 @@
               "8bit",
               "bf16"
             ],
-            "model_id": "okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-{quantization}"
+            "model_id": "okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-3bit/resolve/master/config.json",
+                "config_sha256": "feddea547344d0c215b72a1e133adc17f99d48568b4296f2ac064ce785745712",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "4bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-4bit/resolve/master/config.json",
+                "config_sha256": "d2d699587f3602565ae589d85490e927598a36e9181656626ffdfe60bf4b5eb2",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "6bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-6bit/resolve/master/config.json",
+                "config_sha256": "3266ad4e79b70054e502275080148c49e6b1435292b0dc9ddb206ee4cf10cab6",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              },
+              "8bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 8,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-8B-MLX-8bit/resolve/master/config.json",
+                "config_sha256": "32304c70b95ae74f5504bc8202bec14822bc4a3249535cfbdd0ee8e5c44509a2",
+                "hidden_size": 4096,
+                "intermediate_size": 14336,
+                "num_hidden_layers": 32
+              }
+            }
           }
         }
       },
@@ -65,13 +179,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B/resolve/b1c0b44b4369b597ad119a196caf79a9c40e141e/config.json",
+              "config_sha256": "95ef9768e4741543dbfaf0c274f101855883ff338b235c99eca2b6a4f4abee12",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B"
+            "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-R1-Distill-Llama-70B/resolve/master/config.json",
+              "config_sha256": "95ef9768e4741543dbfaf0c274f101855883ff338b235c99eca2b6a4f4abee12",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -107,7 +243,18 @@
             },
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF",
             "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf",
-            "model_file_name_split_template": "DeepSeek-R1-Distill-Llama-70B-{quantization}/DeepSeek-R1-Distill-Llama-70B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "DeepSeek-R1-Distill-Llama-70B-{quantization}/DeepSeek-R1-Distill-Llama-70B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF/resolve/732dd974083ea5877d7b6d788b36fe7c2e5eab36/config.json",
+              "config_sha256": "95ef9768e4741543dbfaf0c274f101855883ff338b235c99eca2b6a4f4abee12",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -137,7 +284,18 @@
             },
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF",
             "model_file_name_template": "DeepSeek-R1-Distill-Qwen-7B-{quantization}.gguf",
-            "model_file_name_split_template": "DeepSeek-R1-Distill-Llama-70B-{quantization}/DeepSeek-R1-Distill-Llama-70B-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "DeepSeek-R1-Distill-Llama-70B-{quantization}/DeepSeek-R1-Distill-Llama-70B-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-Distill-Llama-70B-GGUF/resolve/master/config.json",
+              "config_sha256": "95ef9768e4741543dbfaf0c274f101855883ff338b235c99eca2b6a4f4abee12",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -152,7 +310,53 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "mlx-community/DeepSeek-R1-Distill-Llama-70B-{quantization}"
+            "model_id": "mlx-community/DeepSeek-R1-Distill-Llama-70B-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-70B-3bit/resolve/7c64cc6d48e0a3c5bac9039d6adc83b3d8a09f82/config.json",
+                "config_sha256": "18eb1fa65530967587999594b4b6fe9455baac33008cea939f5be6e5e68a4f9f",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "4bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-70B-4bit/resolve/6b0c127e00720c480ae36462bb15e71eeb521e80/config.json",
+                "config_sha256": "3027455f6ce315c983f1955f20d39617c839d417972252a29cdc89c57f6f1106",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "6bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-70B-6bit/resolve/d656768774595286e83866e99bd86cad67f2c7ef/config.json",
+                "config_sha256": "1531cf9e626dfc06f56a44727604eab33b8ad206ff76e74666d70cae53fac275",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "8bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-R1-Distill-Llama-70B-8bit/resolve/de2b398d70a39b0a378900e9855162191ae4515a/config.json",
+                "config_sha256": "7c067e416990dfd135240a57d3717e662bf5392fa0bf012db29f423944d319e3",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -161,7 +365,53 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-{quantization}"
+            "model_id": "okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-3bit/resolve/master/config.json",
+                "config_sha256": "18eb1fa65530967587999594b4b6fe9455baac33008cea939f5be6e5e68a4f9f",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "4bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-4bit/resolve/master/config.json",
+                "config_sha256": "3027455f6ce315c983f1955f20d39617c839d417972252a29cdc89c57f6f1106",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "6bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-6bit/resolve/master/config.json",
+                "config_sha256": "1531cf9e626dfc06f56a44727604eab33b8ad206ff76e74666d70cae53fac275",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              },
+              "8bit": {
+                "vocab_size": 128256,
+                "num_attention_heads": 64,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/okwinds/DeepSeek-R1-Distill-Llama-70B-MLX-8bit/resolve/master/config.json",
+                "config_sha256": "7c067e416990dfd135240a57d3717e662bf5392fa0bf012db29f423944d319e3",
+                "hidden_size": 8192,
+                "intermediate_size": 28672,
+                "num_hidden_layers": 80
+              }
+            }
           }
         }
       },
@@ -173,7 +423,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "jakiAJK/DeepSeek-R1-Distill-Llama-8B_AWQ"
+            "model_id": "jakiAJK/DeepSeek-R1-Distill-Llama-8B_AWQ",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Llama-8B_AWQ/resolve/57360e84a0e7278c6b3abb453f2dc812b213badb/config.json",
+              "config_sha256": "f20197b6676e7eff26f2da9212cacd79e248596a98bf93af7693f18c8c8b3273",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -185,7 +446,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4"
+            "model_id": "jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/jakiAJK/DeepSeek-R1-Distill-Llama-8B_GPTQ-int4/resolve/7fbaabb617abba4e9d7982293ff7d3e0536a38c8/config.json",
+              "config_sha256": "13591e85a98926c8b1201e14147a81dcc5bb6dc769520d44389a6b60c4141dc4",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -205,7 +477,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Llama-8B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Llama-8B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/resolve/615f8936e16dfde29dcc00be71145d4d5ce8ed53/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -217,7 +499,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "casperhansen/deepseek-r1-distill-llama-70b-awq"
+            "model_id": "casperhansen/deepseek-r1-distill-llama-70b-awq",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/casperhansen/deepseek-r1-distill-llama-70b-awq/resolve/a1ab7653aae77fbabc536cbcbac5bb2e2fb5354f/config.json",
+              "config_sha256": "e702885158d1f675496fa01ae124cc6d8dd1fddf0937c03c0dc6935b76cbfe05",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -229,7 +522,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "empirischtech/DeepSeek-R1-Distill-Llama-70B-gptq-4bit"
+            "model_id": "empirischtech/DeepSeek-R1-Distill-Llama-70B-gptq-4bit",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/empirischtech/DeepSeek-R1-Distill-Llama-70B-gptq-4bit/resolve/9ac734a4c3f9a927b3a25c1f704dde27ae38b722/config.json",
+              "config_sha256": "47f0369d0e706da4966e7d24c341423d36204a4b94b97fc011f26cadc70e7e90",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
           }
         }
       },
@@ -249,7 +553,17 @@
               "F16"
             ],
             "model_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
-            "model_file_name_template": "DeepSeek-R1-Distill-Llama-8B-{quantization}.gguf"
+            "model_file_name_template": "DeepSeek-R1-Distill-Llama-8B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/resolve/master/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

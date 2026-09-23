@@ -31,16 +31,16 @@ msgid "Xinference starts with your choices. If you have selected an 8B model, it
 msgstr "Xinference は、まずユーザーの選択を尊重します。8B モデルを選択していれば、そのサイズの構成を探し、より小さなモデルに切り替えることはありません。ワーカー、GPU、仮想環境の設定も検索範囲を制限します。各ワーカーを個別にチェックし、互換性チェックに通らない組み合わせを除外します。候補が残らなければ、設定を調整できるようフォームは変更しません。"
 
 #: ../../source/user_guide/launch.rst:31
-msgid "If you have not picked a size, it chooses the smallest eligible size first. Among configurations of that size, it prefers an engine already available in the worker's environment. When virtual environments are enabled, an engine that needs dependencies installed at launch can also be considered. Choosing the smallest size is a conservative starting point, not an estimate of the largest model your hardware can run."
-msgstr "サイズをまだ選択していない場合は、条件を満たす最小のサイズを最初に選びます。そのサイズの構成の中では、ワーカーの環境ですでに利用できるエンジンを優先します。仮想環境が有効な場合は、起動時に依存関係のインストールが必要なエンジンも候補になります。最小サイズの選択は控えめな出発点であり、ハードウェアで実行できる最大のモデルを推定したものではありません。"
+msgid "If memory data is available, Xinference prefers the largest size estimated to fit. Otherwise it falls back to the smallest unverified size. Within that size, installed engines are preferred; virtual-environment candidates remain eligible."
+msgstr "メモリ情報がある場合、Xinference は収まると推定される最大サイズを優先します。情報が不足する場合は、メモリ未検証の最小サイズに戻ります。同じサイズではインストール済みエンジンを優先し、仮想環境で利用できる候補も対象にします。"
 
 #: ../../source/user_guide/launch.rst:38
 msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
 msgstr "次に、プラットフォームのデフォルトのエンジン優先順位を適用します。それまでの条件が同じであれば、Apple Silicon では MLX、CUDA を使用する Linux では vLLM、次いで SGLang、CPU では llama.cpp を優先します。同じエンジン内では、対応している場合、Q4_K_M や Int4 などの一般的な 4 ビット量子化を優先します。それでも候補が同順位であれば、そのワーカーにすでにキャッシュされている重みを優先します。キャッシュ済みのモデルであっても、選択したサイズやそれまでの優先順位を覆すことはありません。"
 
 #: ../../source/user_guide/launch.rst:45
-msgid "These are fixed selection rules, not performance measurements. The recommendation does not check whether there is enough free memory for your workload or reserve resources. For example, a longer context or more concurrent requests can need more memory. Treat the result as a starting configuration to review and try; you still launch the model yourself."
-msgstr "これらは固定の選択ルールであり、性能測定の結果ではありません。推奨機能は、ワークロードに十分な空きメモリがあるかを確認せず、リソースも予約しません。たとえば、コンテキストが長くなったり、同時リクエスト数が増えたりすると、より多くのメモリが必要になる場合があります。結果は、確認して試すための初期構成として扱ってください。モデルの起動は引き続きユーザー自身が行います。"
+msgid "Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and 80% of currently free memory. Automatic GPU placement uses the lowest free memory among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple GPUs are not added together: multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Missing data remains unverified. Longer contexts, concurrency and engine preallocation can need more memory. No resources are reserved, and you still review and launch the model yourself."
+msgstr "推定にはオフラインのメタデータを使い、1 シーケンス、2048 トークン、FP16 KV キャッシュ、現在の空きメモリの 80% を前提とします。GPU の自動配置では候補 GPU の最小空きメモリを、CPU と Apple Silicon では利用可能なシステムメモリを使います。複数 GPU のメモリは合算せず、複数 GPU の要求では互換性のみで選びます。予算を超えると推定された候補は除外し、情報不足の候補は未検証のままです。長いコンテキスト、同時実行、エンジンの事前確保には追加メモリが必要な場合があります。リソースは予約されないため、確認してから起動してください。"
 
 #: ../../source/user_guide/launch.rst:51
 msgid "Using the API"
@@ -73,8 +73,8 @@ msgid "A recommendation does not guarantee sufficient memory or a successful lau
 msgstr "推奨はメモリ容量の充足や起動の成功を保証しません。リソースの予約、モデルファイルのダウンロード、依存関係のインストールは行いません。既存の起動動作は変わらず、デプロイは別途実行する必要があります。"
 
 #: ../../source/user_guide/launch.rst:42
-msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
-msgstr "サイズを省略すると、条件を満たす最小のモデルサイズが選択されます。サイズを明示的に指定した場合は、その制約が守られます。 ``config`` には、有効な ``enable_virtual_env`` と、指定された ``n_gpu`` および ``gpu_idx`` の制約も含まれます。 ``n_gpu=null`` は CPU への配置を要求し、 ``n_gpu=\"auto\"`` は必要な GPU 数を計算せず、既存の起動時の割り当てポリシーを使用します。"
+msgid "``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "``config`` には、有効な ``enable_virtual_env`` と、指定された ``n_gpu`` および ``gpu_idx`` の制約も含まれます。 ``n_gpu=null`` は CPU への配置を要求し、 ``n_gpu=\"auto\"`` は必要な GPU 数を計算せず、既存の起動時の割り当てポリシーを使用します。"
 
 #: ../../source/user_guide/launch.rst:48
 msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."

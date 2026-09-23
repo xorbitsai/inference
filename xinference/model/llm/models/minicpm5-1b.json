@@ -23,13 +23,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "openbmb/MiniCPM5-1B"
+            "model_id": "openbmb/MiniCPM5-1B",
+            "model_metadata": {
+              "vocab_size": 130560,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM5-1B/resolve/87179e5c1f455ef22e6223592d2d61351b525bfc/config.json",
+              "config_sha256": "6a6509b646cb3169616c5ffc3196e7ccaf9d4d6bc17b266581d241a31c217714",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "OpenBMB/MiniCPM5-1B"
+            "model_id": "OpenBMB/MiniCPM5-1B",
+            "model_metadata": {
+              "vocab_size": 130560,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM5-1B/resolve/master/config.json",
+              "config_sha256": "6a6509b646cb3169616c5ffc3196e7ccaf9d4d6bc17b266581d241a31c217714",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -44,7 +66,18 @@
               "Q8_0"
             ],
             "model_id": "openbmb/MiniCPM5-1B-GGUF",
-            "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf"
+            "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 130560,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM5-1B-GGUF/resolve/main/MiniCPM5-1B-F16.gguf",
+              "config_sha256": "855c96801fe61e0838b72814f5cd0bafed6f6d340b430f514f352053c2982dfa",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -53,7 +86,18 @@
               "Q8_0"
             ],
             "model_id": "OpenBMB/MiniCPM5-1B-GGUF",
-            "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf"
+            "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 130560,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM5-1B-GGUF/resolve/master/MiniCPM5-1B-F16.gguf",
+              "config_sha256": "855c96801fe61e0838b72814f5cd0bafed6f6d340b430f514f352053c2982dfa",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -65,13 +109,35 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "openbmb/MiniCPM5-1B-MLX"
+            "model_id": "openbmb/MiniCPM5-1B-MLX",
+            "model_metadata": {
+              "vocab_size": 130560,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM5-1B-MLX/resolve/9879b18bf2928355fcdf4287635388a3665a40cb/config.json",
+              "config_sha256": "b579f8c12b692af13bb90402c704c3a235d183c0410b37537447c17975a8ddcc",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit"
             ],
-            "model_id": "OpenBMB/MiniCPM5-1B-MLX"
+            "model_id": "OpenBMB/MiniCPM5-1B-MLX",
+            "model_metadata": {
+              "vocab_size": 130560,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM5-1B-MLX/resolve/master/config.json",
+              "config_sha256": "b579f8c12b692af13bb90402c704c3a235d183c0410b37537447c17975a8ddcc",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           }
         }
       }

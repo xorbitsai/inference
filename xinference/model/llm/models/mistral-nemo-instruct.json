@@ -28,13 +28,35 @@
               "none"
             ],
             "model_id": "mistralai/Mistral-Nemo-Instruct-2407",
-            "model_revision": "05b1e4f3e189ec1b5189fb3c973d4cf3369c27af"
+            "model_revision": "05b1e4f3e189ec1b5189fb3c973d4cf3369c27af",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407/resolve/05b1e4f3e189ec1b5189fb3c973d4cf3369c27af/config.json",
+              "config_sha256": "11d36c89896b44021fe2d6654f9f877b94702561eb9d710471caa777fb5581ad",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407"
+            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407/resolve/master/config.json",
+              "config_sha256": "8a42669219f4caadedb891be88c34712572573d42b3d02d665d527f92d94ddfe",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -47,13 +69,35 @@
               "none"
             ],
             "model_id": "unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit",
-            "model_revision": "1d85adc9e0fff0b8e4479a037bd75fe1346333ca"
+            "model_revision": "1d85adc9e0fff0b8e4479a037bd75fe1346333ca",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Mistral-Nemo-Instruct-2407-bnb-4bit/resolve/1d85adc9e0fff0b8e4479a037bd75fe1346333ca/config.json",
+              "config_sha256": "9f95b222687b037c3e45ecc057e677f53e8bd049b47ad5f8aaa6c2b627b96894",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407"
+            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407/resolve/master/config.json",
+              "config_sha256": "8a42669219f4caadedb891be88c34712572573d42b3d02d665d527f92d94ddfe",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -72,7 +116,18 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407"
+            "model_id": "AI-ModelScope/Mistral-Nemo-Instruct-2407",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Mistral-Nemo-Instruct-2407/resolve/master/config.json",
+              "config_sha256": "8a42669219f4caadedb891be88c34712572573d42b3d02d665d527f92d94ddfe",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -84,13 +139,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit"
+            "model_id": "ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/ModelCloud/Mistral-Nemo-Instruct-2407-gptq-4bit/resolve/3feee008f16014f4c21d50b0e95b41cd17d6c8d5/config.json",
+              "config_sha256": "32923ccdd0fe01fab04f19f3e48389b98b76299e5d471e29d07eb39572294ff3",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "LLM-Research/Mistral-Nemo-Instruct-2407-gptq-4bit"
+            "model_id": "LLM-Research/Mistral-Nemo-Instruct-2407-gptq-4bit",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Mistral-Nemo-Instruct-2407-gptq-4bit/resolve/master/config.json",
+              "config_sha256": "32923ccdd0fe01fab04f19f3e48389b98b76299e5d471e29d07eb39572294ff3",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -102,7 +179,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "casperhansen/mistral-nemo-instruct-2407-awq"
+            "model_id": "casperhansen/mistral-nemo-instruct-2407-awq",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/casperhansen/mistral-nemo-instruct-2407-awq/resolve/c83b6438e13051ad1c0f5683635705ee83bb8772/config.json",
+              "config_sha256": "c99d4139d4ea39b8bf7a8e04e7693460fcc6e1f643ee27f1a130142c15dcd629",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -125,7 +213,18 @@
               "fp16"
             ],
             "model_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
-            "model_file_name_template": "Mistral-Nemo-Instruct-2407.{quantization}.gguf"
+            "model_file_name_template": "Mistral-Nemo-Instruct-2407.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF/resolve/main/Mistral-Nemo-Instruct-2407.Q2_K.gguf",
+              "config_sha256": "a84f4ba0cbea169a8bdffe434f7e13e180719a9833c759a8ea74a33af7755d81",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -137,7 +236,18 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-bf16"
+            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-bf16",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/Mistral-Nemo-Instruct-2407-bf16/resolve/ff5dcad4b405b0320ec89c70c2442c7949fc8f41/config.json",
+              "config_sha256": "e2fea1d90446c67c21a2e185fa777117b268ce4bf948e5f08584f640a9b845ad",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -149,7 +259,18 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-4bit"
+            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-4bit",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/Mistral-Nemo-Instruct-2407-4bit/resolve/647ca0751669b21a364c86ccc5df54c4d7e4e91c/config.json",
+              "config_sha256": "ed1c2dc3af67a4d1387e8c4ec885f1bcd327bbce0f588b891396e08b42db140b",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -161,7 +282,18 @@
             "quantizations": [
               "8bit"
             ],
-            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit"
+            "model_id": "mlx-community/Mistral-Nemo-Instruct-2407-8bit",
+            "model_metadata": {
+              "vocab_size": 131072,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/Mistral-Nemo-Instruct-2407-8bit/resolve/cee137b138200237c0b18130cea7d9e279fcd225/config.json",
+              "config_sha256": "fe1dfc667df6fc2e0ad39075994416c03bc7ddfc5451a5d0442905e17e4bd7fc",
+              "hidden_size": 5120,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

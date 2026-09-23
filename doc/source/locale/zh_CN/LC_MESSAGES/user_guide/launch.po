@@ -32,16 +32,16 @@ msgid "Xinference starts with your choices. If you have selected an 8B model, it
 msgstr "Xinference 会先看您已经选了什么。比如，已经选了 8B 模型，就只会推荐 8B 的配置，不会自行换成更小的模型。您指定的工作节点、GPU 和虚拟环境设置也会保留。系统会分别检查各台机器，排除不兼容的配置。如果找不到合适的配置，就保持表单不变，方便您调整后再试。"
 
 #: ../../source/user_guide/launch.rst:31
-msgid "If you have not picked a size, it chooses the smallest eligible size first. Among configurations of that size, it prefers an engine already available in the worker's environment. When virtual environments are enabled, an engine that needs dependencies installed at launch can also be considered. Choosing the smallest size is a conservative starting point, not an estimate of the largest model your hardware can run."
-msgstr "如果还没选模型大小，系统会先选符合条件的最小规格，再优先考虑该规格下、工作节点上已经可用的引擎。如果启用了虚拟环境，也会考虑需要在启动时安装依赖的引擎。默认选较小规格，是为了给您一个保守的起点；这并不意味着系统已经算出了这台机器最大能跑多大的模型。"
+msgid "If memory data is available, Xinference prefers the largest size estimated to fit. Otherwise it falls back to the smallest unverified size. Within that size, installed engines are preferred; virtual-environment candidates remain eligible."
+msgstr "有内存数据时，Xinference 优先选择估算能放下的最大规格；否则退回到尚未验证内存的最小规格。同一规格下优先使用已安装的引擎，也会考虑可通过虚拟环境安装的引擎。"
 
 #: ../../source/user_guide/launch.rst:38
 msgid "Next comes the platform's default engine order. With the earlier conditions equal, MLX comes first on Apple Silicon, vLLM followed by SGLang on Linux with CUDA, and llama.cpp on CPU. Within an engine, common 4-bit quantizations such as Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights already cached on that worker get priority. A cached model does not override your selected size or the earlier preferences."
 msgstr "前面的条件相同时，再按平台选择引擎：Apple Silicon 上优先 MLX，使用 CUDA 的 Linux 上优先 vLLM、其次 SGLang，CPU 上优先 llama.cpp。同一个引擎支持多种量化时，会优先考虑 Q4_K_M、Int4 等常见的 4 位量化。到这里仍有多个同等选择，才优先使用该工作节点上已缓存的权重。也就是说，不会仅仅因为某个模型已经下载过，就改变您选定的规格或跳过前面的选择顺序。"
 
 #: ../../source/user_guide/launch.rst:45
-msgid "These are fixed selection rules, not performance measurements. The recommendation does not check whether there is enough free memory for your workload or reserve resources. For example, a longer context or more concurrent requests can need more memory. Treat the result as a starting configuration to review and try; you still launch the model yourself."
-msgstr "推荐使用的是固定规则，没有实际跑过性能测试，也不会检查剩余内存是否够用或提前占用资源。比如，上下文更长、同时处理的请求更多，都可能需要更多内存。可以把推荐结果当作一份起步配置，检查后再尝试启动。"
+msgid "Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and 80% of currently free memory. Automatic GPU placement uses the lowest free memory among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple GPUs are not added together: multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Missing data remains unverified. Longer contexts, concurrency and engine preallocation can need more memory. No resources are reserved, and you still review and launch the model yourself."
+msgstr "估算使用离线元数据，按单请求、2048 tokens、FP16 KV cache 和当前可用内存的 80% 计算。自动分配 GPU 时，以候选 GPU 中最少的空闲显存为准；CPU 和 Apple Silicon 使用可用系统内存。不会将多张卡的显存相加：多卡请求仍只检查兼容性。已知估算超出预算的配置会被排除，缺少数据的配置仍标记为未验证。更长的上下文、并发请求和引擎预分配可能需要更多内存。推荐不会预留资源，仍需您确认后启动。"
 
 #: ../../source/user_guide/launch.rst:51
 msgid "Using the API"
@@ -74,8 +74,8 @@ msgid "A recommendation does not guarantee sufficient memory or a successful lau
 msgstr "推荐不保证内存充足或启动成功。它不会预留资源、下载模型文件或安装依赖。现有启动行为不变；部署仍需单独执行。"
 
 #: ../../source/user_guide/launch.rst:42
-msgid "When size is omitted, the smallest eligible model size is selected; an explicit size constraint is respected. ``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
-msgstr "未指定模型大小时，选择符合条件的最小规格；显式指定的大小约束会被遵守。``config`` 还包含实际生效的 ``enable_virtual_env``，以及提供的 ``n_gpu`` 和 ``gpu_idx`` 约束。``n_gpu=null`` 请求使用 CPU，而 ``n_gpu=\"auto\"`` 使用现有启动分配策略，不会计算所需的 GPU 数量。"
+msgid "``config`` also includes the effective ``enable_virtual_env`` and any supplied ``n_gpu`` and ``gpu_idx`` constraints. ``n_gpu=null`` requests CPU placement, while ``n_gpu=\"auto\"`` uses the existing launch allocation policy rather than calculating the required GPU count."
+msgstr "``config`` 还包含实际生效的 ``enable_virtual_env``，以及提供的 ``n_gpu`` 和 ``gpu_idx`` 约束。``n_gpu=null`` 请求使用 CPU，而 ``n_gpu=\"auto\"`` 使用现有启动分配策略，不会计算所需的 GPU 数量。"
 
 #: ../../source/user_guide/launch.rst:48
 msgid "Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use lower snake_case. The ``memory_not_verified`` warning is always included."

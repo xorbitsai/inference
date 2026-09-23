@@ -24,7 +24,18 @@
               "none"
             ],
             "model_id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
-            "model_revision": "ebb919ac9e9f7f9a900644621bae7963bc593f4f"
+            "model_revision": "ebb919ac9e9f7f9a900644621bae7963bc593f4f",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1/resolve/ebb919ac9e9f7f9a900644621bae7963bc593f4f/config.json",
+              "config_sha256": "9c4a6138d84029ab666943613e3d5844d2ea8fd6149f44f77188c62e2915e0f5",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       },
@@ -36,7 +47,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ"
+            "model_id": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ/resolve/c4a094107031eeff0d30146519a5f0bd36185c6f/config.json",
+              "config_sha256": "c45df8f9f867832857f79896ac2bfa22af6bf532c2678a0c9a9c73829c068022",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       },
@@ -48,7 +70,18 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit"
+            "model_id": "jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit",
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit/resolve/7d11f3999f47e6fdb644446574b6c0361d057d76/config.json",
+              "config_sha256": "4ef040d15a11ae08a70c90a60edf7fab1628a54c3b14f665498cad78d21145bb",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
+            }
           }
         }
       },
@@ -133,6 +166,17 @@
                 "00006-of-00007",
                 "00007-of-00007"
               ]
+            },
+            "model_metadata": {
+              "vocab_size": 32768,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF/resolve/main/Mixtral-8x22B-Instruct-v0.1.Q2_K-00001-of-00003.gguf",
+              "config_sha256": "3ab9497111793f7ed459c64217314562a1f3a7e49c86da5e5b98966cb87d82cf",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 16384,
+              "num_hidden_layers": 56
             }
           }
         }

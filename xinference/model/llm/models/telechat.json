@@ -20,20 +20,47 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Tele-AI/telechat-7B"
+            "model_id": "Tele-AI/telechat-7B",
+            "model_metadata": {
+              "vocab_size": 160256,
+              "num_attention_heads": 32,
+              "config_source": "https://huggingface.co/Tele-AI/telechat-7B/resolve/0c33078695dff4d41bed535c1d9d9c89db947a4c/config.json",
+              "config_sha256": "1472e7732161ff5e6f3f2aa7bfca471c6ee010cb798412c2c686d829c5792081",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 30
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "TeleAI/telechat-7B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 160256,
+              "num_attention_heads": 32,
+              "config_source": "https://modelscope.cn/models/TeleAI/telechat-7B/resolve/master/config.json",
+              "config_sha256": "1472e7732161ff5e6f3f2aa7bfca471c6ee010cb798412c2c686d829c5792081",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 30
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "TeleAI/TeleChat-7B-pt"
+            "model_id": "TeleAI/TeleChat-7B-pt",
+            "model_metadata": {
+              "vocab_size": 160256,
+              "num_attention_heads": 32,
+              "config_source": "https://modelers.cn/api/v1/file/TeleAI/TeleChat-7B-pt/main/media/config.json",
+              "config_sha256": "5af87768490b660655369b0c78b6cd9dd8cb50bf460569d2d54b226402f95870",
+              "hidden_size": 4096,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 30
+            }
           }
         }
       },
@@ -46,7 +73,27 @@
               "int4",
               "int8"
             ],
-            "model_id": "Tele-AI/telechat-7B-{quantization}"
+            "model_id": "Tele-AI/telechat-7B-{quantization}",
+            "model_metadata_by_quantization": {
+              "int4": {
+                "vocab_size": 160256,
+                "num_attention_heads": 32,
+                "config_source": "https://huggingface.co/Tele-AI/telechat-7B-int4/resolve/aa6047f1031d85b4c501fd1663cdb7eafaf8db31/config.json",
+                "config_sha256": "6a50de35a6aa280fdf9789f2f1fe25c451a5e25d8f3b2ecd8c965d4b058a4821",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 30
+              },
+              "int8": {
+                "vocab_size": 160256,
+                "num_attention_heads": 32,
+                "config_source": "https://huggingface.co/Tele-AI/telechat-7B-int8/resolve/02175d616692af1dfb93a015fbc1c8ab555c07be/config.json",
+                "config_sha256": "dfc4c200fc3b15296877020bf1d728b6730c678f5d1834a387f1bae1a751c29c",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 30
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -54,7 +101,27 @@
               "int8"
             ],
             "model_id": "TeleAI/telechat-7B-{quantization}",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata_by_quantization": {
+              "int4": {
+                "vocab_size": 160256,
+                "num_attention_heads": 32,
+                "config_source": "https://modelscope.cn/models/TeleAI/telechat-7B-int4/resolve/master/config.json",
+                "config_sha256": "6a50de35a6aa280fdf9789f2f1fe25c451a5e25d8f3b2ecd8c965d4b058a4821",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 30
+              },
+              "int8": {
+                "vocab_size": 160256,
+                "num_attention_heads": 32,
+                "config_source": "https://modelscope.cn/models/TeleAI/telechat-7B-int8/resolve/master/config.json",
+                "config_sha256": "dfc4c200fc3b15296877020bf1d728b6730c678f5d1834a387f1bae1a751c29c",
+                "hidden_size": 4096,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 30
+              }
+            }
           }
         }
       },
@@ -66,20 +133,47 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Tele-AI/TeleChat-12B"
+            "model_id": "Tele-AI/TeleChat-12B",
+            "model_metadata": {
+              "vocab_size": 120000,
+              "num_attention_heads": 32,
+              "config_source": "https://huggingface.co/Tele-AI/TeleChat-12B/resolve/85a78d4716b16bef8d4363adba8e2f8bac0dfedf/config.json",
+              "config_sha256": "dca4358108a5db19db6e5d380e3866f102b0fd217fa3f2ed6b00fa2ec3a1442a",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 38
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "TeleAI/TeleChat-12B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120000,
+              "num_attention_heads": 32,
+              "config_source": "https://modelscope.cn/models/TeleAI/TeleChat-12B/resolve/master/config.json",
+              "config_sha256": "dca4358108a5db19db6e5d380e3866f102b0fd217fa3f2ed6b00fa2ec3a1442a",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 38
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "TeleAI/TeleChat-12B-pt"
+            "model_id": "TeleAI/TeleChat-12B-pt",
+            "model_metadata": {
+              "vocab_size": 120000,
+              "num_attention_heads": 32,
+              "config_source": "https://modelers.cn/api/v1/file/TeleAI/TeleChat-12B-pt/main/media/config.json",
+              "config_sha256": "03732c4b7db254a53de29bb88df75a5b59ed9d150a161cac9f53ca83de856f56",
+              "hidden_size": 5120,
+              "intermediate_size": 12288,
+              "num_hidden_layers": 38
+            }
           }
         }
       },
@@ -92,7 +186,27 @@
               "int4",
               "int8"
             ],
-            "model_id": "Tele-AI/TeleChat-12B-{quantization}"
+            "model_id": "Tele-AI/TeleChat-12B-{quantization}",
+            "model_metadata_by_quantization": {
+              "int4": {
+                "vocab_size": 120000,
+                "num_attention_heads": 32,
+                "config_source": "https://huggingface.co/Tele-AI/TeleChat-12B-int4/resolve/1c7115de04134f47a649912d44bebbd52820b824/config.json",
+                "config_sha256": "dca4358108a5db19db6e5d380e3866f102b0fd217fa3f2ed6b00fa2ec3a1442a",
+                "hidden_size": 5120,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 38
+              },
+              "int8": {
+                "vocab_size": 120000,
+                "num_attention_heads": 32,
+                "config_source": "https://huggingface.co/Tele-AI/TeleChat-12B-int8/resolve/cafedaa091401662e7c8ac3ccbccedc49d7f59c6/config.json",
+                "config_sha256": "dca4358108a5db19db6e5d380e3866f102b0fd217fa3f2ed6b00fa2ec3a1442a",
+                "hidden_size": 5120,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 38
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -100,7 +214,27 @@
               "int8"
             ],
             "model_id": "TeleAI/TeleChat-12B-{quantization}",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata_by_quantization": {
+              "int4": {
+                "vocab_size": 120000,
+                "num_attention_heads": 32,
+                "config_source": "https://modelscope.cn/models/TeleAI/TeleChat-12B-int4/resolve/master/config.json",
+                "config_sha256": "dca4358108a5db19db6e5d380e3866f102b0fd217fa3f2ed6b00fa2ec3a1442a",
+                "hidden_size": 5120,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 38
+              },
+              "int8": {
+                "vocab_size": 120000,
+                "num_attention_heads": 32,
+                "config_source": "https://modelscope.cn/models/TeleAI/TeleChat-12B-int8/resolve/master/config.json",
+                "config_sha256": "dca4358108a5db19db6e5d380e3866f102b0fd217fa3f2ed6b00fa2ec3a1442a",
+                "hidden_size": 5120,
+                "intermediate_size": 12288,
+                "num_hidden_layers": 38
+              }
+            }
           }
         }
       },
@@ -112,20 +246,47 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Tele-AI/TeleChat-52B"
+            "model_id": "Tele-AI/TeleChat-52B",
+            "model_metadata": {
+              "vocab_size": 80896,
+              "num_attention_heads": 64,
+              "config_source": "https://huggingface.co/Tele-AI/TeleChat-52B/resolve/fde5b7a379e55ccea942c1310ca508fdb97ed9b7/config.json",
+              "config_sha256": "9f186781eee6aa56ad6ec39b105f020c7a7d89205603b2d1c027027ca00c66bb",
+              "hidden_size": 8192,
+              "intermediate_size": 21824,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "TeleAI/TeleChat-52B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 80896,
+              "num_attention_heads": 64,
+              "config_source": "https://modelscope.cn/models/TeleAI/TeleChat-52B/resolve/master/config.json",
+              "config_sha256": "9f186781eee6aa56ad6ec39b105f020c7a7d89205603b2d1c027027ca00c66bb",
+              "hidden_size": 8192,
+              "intermediate_size": 21824,
+              "num_hidden_layers": 64
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "TeleAI/TeleChat-52B-pt"
+            "model_id": "TeleAI/TeleChat-52B-pt",
+            "model_metadata": {
+              "vocab_size": 80896,
+              "num_attention_heads": 64,
+              "config_source": "https://modelers.cn/api/v1/file/TeleAI/TeleChat-52B-pt/main/media/config.json",
+              "config_sha256": "25bf9a1830bdc27ab138bc977020c9e9fb23984a344e8a758d3b21f67dfc1212",
+              "hidden_size": 8192,
+              "intermediate_size": 21824,
+              "num_hidden_layers": 64
+            }
           }
         }
       }

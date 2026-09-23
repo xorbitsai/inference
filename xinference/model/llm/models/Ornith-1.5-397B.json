@@ -23,7 +23,19 @@
             "model_id": "ornith-ai/Ornith-1.5-397B",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/ornith-ai/Ornith-1.5-397B/resolve/master/config.json",
+              "config_sha256": "55a98cf2826210cd7891c92b3100e147048c3e978496425fa69ec0e1ff681ced",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 1024,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

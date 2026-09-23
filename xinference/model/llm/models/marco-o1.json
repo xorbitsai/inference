@@ -21,7 +21,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "AIDC-AI/Marco-o1"
+            "model_id": "AIDC-AI/Marco-o1",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/AIDC-AI/Marco-o1/resolve/5e4deeeb286b7a2e35a6d16989e64df860f7f4e5/config.json",
+              "config_sha256": "16a59873c826b60b112ca356bc6e6103ab6a9c44ea607c3e81c785d1a5012e9d",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -53,7 +63,17 @@
               "Q8_0"
             ],
             "model_id": "QuantFactory/Marco-o1-GGUF",
-            "model_file_name_template": "Marco-o1.{quantization}.gguf"
+            "model_file_name_template": "Marco-o1.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/QuantFactory/Marco-o1-GGUF/resolve/main/Marco-o1.Q2_K.gguf",
+              "config_sha256": "7384ec40d53451dcb6a7184f4c8e3eef3be4a4c67b509e5721d837b6340bdd39",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -73,7 +93,17 @@
               "Q8_0"
             ],
             "model_file_name_template": "Marco-o1.{quantization}.gguf",
-            "model_id": "QuantFactory/Marco-o1-GGUF"
+            "model_id": "QuantFactory/Marco-o1-GGUF",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/QuantFactory/Marco-o1-GGUF/resolve/master/Marco-o1.Q2_K.gguf",
+              "config_sha256": "7384ec40d53451dcb6a7184f4c8e3eef3be4a4c67b509e5721d837b6340bdd39",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       }

@@ -20,20 +20,50 @@
               "none"
             ],
             "model_id": "openbmb/MiniCPM-2B-sft-bf16",
-            "model_revision": "fe1d74027ebdd81cef5f815fa3a2d432a6b5de2a"
+            "model_revision": "fe1d74027ebdd81cef5f815fa3a2d432a6b5de2a",
+            "model_metadata": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-2B-sft-bf16/resolve/fe1d74027ebdd81cef5f815fa3a2d432a6b5de2a/config.json",
+              "config_sha256": "ddfa0e8853e6e4422f5e62fe7faee0f02fd2851b26fb8de19846b964991e9ac2",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenBMB/miniCPM-bf16",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://modelscope.cn/models/OpenBMB/miniCPM-bf16/resolve/master/config.json",
+              "config_sha256": "ddfa0e8853e6e4422f5e62fe7faee0f02fd2851b26fb8de19846b964991e9ac2",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-Research/MiniCPM-2B-sft-bf16"
+            "model_id": "AI-Research/MiniCPM-2B-sft-bf16",
+            "model_metadata": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://modelers.cn/api/v1/file/AI-Research/MiniCPM-2B-sft-bf16/main/media/config.json",
+              "config_sha256": "ddfa0e8853e6e4422f5e62fe7faee0f02fd2851b26fb8de19846b964991e9ac2",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

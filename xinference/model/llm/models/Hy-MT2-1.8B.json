@@ -21,14 +21,36 @@
               "none"
             ],
             "model_id": "tencent/Hy-MT2-1.8B",
-            "model_revision": "main"
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT2-1.8B/resolve/9a341cd1b679d3efd23b46e847b01745a71ed792/config.json",
+              "config_sha256": "da40c514cc74a5748a2e591b1b95fca4b7e94de05349abe4ea4164a82641de1a",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B/resolve/master/config.json",
+              "config_sha256": "da40c514cc74a5748a2e591b1b95fca4b7e94de05349abe4ea4164a82641de1a",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -44,14 +66,36 @@
               "fp8"
             ],
             "model_id": "tencent/Hy-MT2-1.8B-FP8",
-            "model_revision": "main"
+            "model_revision": "main",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT2-1.8B-FP8/resolve/b3f6f590920726d69a5504293bd4f36d50e5f681/config.json",
+              "config_sha256": "918388dc27a1360c72e7fc07de6daf4f2e8136bd8d06a04ce006bbedcbe08a2e",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
             "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-FP8",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-FP8/resolve/master/config.json",
+              "config_sha256": "918388dc27a1360c72e7fc07de6daf4f2e8136bd8d06a04ce006bbedcbe08a2e",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -66,7 +110,18 @@
               "Q8_0"
             ],
             "model_id": "tencent/Hy-MT2-1.8B-GGUF",
-            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf"
+            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/main/Hy-MT2-1.8B-Q4_K_M.gguf",
+              "config_sha256": "a826d4922891ea2df111c27b64b232eedb727424615398be4a5a9c2aa5df01de",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -75,7 +130,18 @@
               "Q8_0"
             ],
             "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-GGUF",
-            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf"
+            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 120818,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-1.8B-GGUF/resolve/master/Hy-MT2-1.8B-Q4_K_M.gguf",
+              "config_sha256": "a826d4922891ea2df111c27b64b232eedb727424615398be4a5a9c2aa5df01de",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 32
+            }
           }
         }
       }

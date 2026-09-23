@@ -24,13 +24,37 @@
             "model_id": "nex-agi/Nex-N2-mini",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/nex-agi/Nex-N2-mini/resolve/ca218dcb1fbe05f84d1807d180cb5d9bcb1c5c93/config.json",
+              "config_sha256": "aed18afaa5edbc5cd9177aa3f8b2a095e0f539caedca9a3d68fe87ac838ee8d5",
+              "architecture_type": "multimodal",
+              "hidden_size": 2048,
+              "intermediate_size": 512,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "model_id": "nex-agi/Nex-N2-mini",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/nex-agi/Nex-N2-mini/resolve/master/config.json",
+              "config_sha256": "aed18afaa5edbc5cd9177aa3f8b2a095e0f539caedca9a3d68fe87ac838ee8d5",
+              "architecture_type": "multimodal",
+              "hidden_size": 2048,
+              "intermediate_size": 512,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -43,13 +67,37 @@
             "model_id": "nex-agi/Nex-N2-Pro",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/nex-agi/Nex-N2-Pro/resolve/e7e4a4a29eb46a41a730d0b283ec5af0f16185d9/config.json",
+              "config_sha256": "117cf53ddda3bd6778477e4cfa3371c4f8d6a7adae10a322a4545358e61f56d0",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 1024,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "model_id": "nex-agi/Nex-N2-Pro",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/nex-agi/Nex-N2-Pro/resolve/master/config.json",
+              "config_sha256": "117cf53ddda3bd6778477e4cfa3371c4f8d6a7adae10a322a4545358e61f56d0",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 1024,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -62,13 +110,37 @@
             "model_id": "nex-agi/Nex-N2-Pro-fp8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/nex-agi/Nex-N2-Pro-fp8/resolve/d70f5865d7fb8d8379971078a08f4cad43432d73/config.json",
+              "config_sha256": "55ef8005c835c5c9af931198261a9f4a07e57d528d4aeb5fca2e4eae3e675e97",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 1024,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "model_id": "nex-agi/Nex-N2-Pro-fp8",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 248320,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/nex-agi/Nex-N2-Pro-fp8/resolve/master/config.json",
+              "config_sha256": "55ef8005c835c5c9af931198261a9f4a07e57d528d4aeb5fca2e4eae3e675e97",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 1024,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

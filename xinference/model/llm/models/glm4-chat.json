@@ -22,20 +22,52 @@
               "none"
             ],
             "model_id": "zai-org/glm-4-9b-chat-hf",
-            "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd"
+            "model_revision": "c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/zai-org/glm-4-9b-chat-hf/resolve/c7f73fd9e0f378c87f3c8f2c25aec6ad705043cd/config.json",
+              "config_sha256": "8ec64bc0dff4835a800b9eceb059e2b8263f783c898812175aa1ccdda074f596",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "ZhipuAI/glm-4-9b-chat-hf",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/ZhipuAI/glm-4-9b-chat-hf/resolve/master/config.json",
+              "config_sha256": "8ec64bc0dff4835a800b9eceb059e2b8263f783c898812175aa1ccdda074f596",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "openmind_hub": {
             "quantizations": [
               "none"
             ],
-            "model_id": "AI-Research/glm-4-9b-chat"
+            "model_id": "AI-Research/glm-4-9b-chat",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelers.cn/api/v1/file/AI-Research/glm-4-9b-chat/main/media/config.json",
+              "config_sha256": "6687374e00a0ed4a73cc919e404f2cc31543025367d002a5bd43f173a206ddfc",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -65,7 +97,17 @@
             ],
             "model_file_name_template": "glm-4-9b-chat.{quantization}.gguf",
             "model_id": "legraphista/glm-4-9b-chat-GGUF",
-            "model_revision": "0155a14edf0176863e9a003cdd78ce599e4d62c0"
+            "model_revision": "0155a14edf0176863e9a003cdd78ce599e4d62c0",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://huggingface.co/legraphista/glm-4-9b-chat-GGUF/resolve/0155a14edf0176863e9a003cdd78ce599e4d62c0/glm-4-9b-chat.Q2_K.gguf",
+              "config_sha256": "80632f9937eba343640b93580fd9c416fb641401978f8404e4aa06b0a6cf2361",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -89,7 +131,17 @@
             ],
             "model_file_name_template": "glm-4-9b-chat.{quantization}.gguf",
             "model_id": "LLM-Research/glm-4-9b-chat-GGUF",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 151552,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 2,
+              "config_source": "https://modelscope.cn/models/LLM-Research/glm-4-9b-chat-GGUF/resolve/master/glm-4-9b-chat.Q2_K.gguf",
+              "config_sha256": "80632f9937eba343640b93580fd9c416fb641401978f8404e4aa06b0a6cf2361",
+              "hidden_size": 4096,
+              "intermediate_size": 13696,
+              "num_hidden_layers": 40
+            }
           }
         }
       }

@@ -31,7 +31,17 @@
               "Q8_0"
             ],
             "model_id": "TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF",
-            "model_file_name_template": "tinyllama-1.1b-chat-v0.3.{quantization}.gguf"
+            "model_file_name_template": "tinyllama-1.1b-chat-v0.3.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32003,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/resolve/main/tinyllama-1.1b-chat-v0.3.Q2_K.gguf",
+              "config_sha256": "b0e779437a51d3cf29e36835c99c40cf9bce196957c9f59b70c6a03ac415f2e0",
+              "hidden_size": 2048,
+              "intermediate_size": 5632,
+              "num_hidden_layers": 22
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -39,7 +49,17 @@
             ],
             "model_id": "Xorbits/TinyLlama-1.1B-step-50K-105b-GGUF",
             "model_revision": "v0.0.1",
-            "model_file_name_template": "ggml-model-{quantization}.gguf"
+            "model_file_name_template": "ggml-model-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/Xorbits/TinyLlama-1.1B-step-50K-105b-GGUF/resolve/v0.0.1/ggml-model-Q2_K.gguf",
+              "config_sha256": "28427f8d6a9443724f34c0f8c38cdb085bf75f4f474ecd4bf8ced9bdb58e1404",
+              "hidden_size": 2048,
+              "intermediate_size": 5632,
+              "num_hidden_layers": 22
+            }
           }
         }
       }

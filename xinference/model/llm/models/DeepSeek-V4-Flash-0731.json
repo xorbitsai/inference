@@ -22,13 +22,37 @@
             "model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
             "quantizations": [
               "fp8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731/resolve/7872f01b1d1fe23eabc4c98b48bffcef5a386062/config.json",
+              "config_sha256": "6c8f3d2d3b48707541b88f32f22ef3f0f8a6b57d8523281e2b8d3cdb0ae9a023",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 43
+            }
           },
           "modelscope": {
             "model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
             "quantizations": [
               "fp8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4-Flash-0731/resolve/master/config.json",
+              "config_sha256": "6c8f3d2d3b48707541b88f32f22ef3f0f8a6b57d8523281e2b8d3cdb0ae9a023",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 43
+            }
           }
         }
       }

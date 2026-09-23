@@ -39,6 +39,7 @@ from ..utils import (
     retry_snapshot_download,
 )
 from . import LLM
+from .model_metadata import ModelMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ def is_strict_system_first_template(chat_template: Optional[str]) -> bool:
 
 
 class LlamaCppLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -106,6 +108,7 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
@@ -134,6 +137,7 @@ class PytorchLLMSpecV2(BaseModel):
 
 
 class MLXLLMSpecV2(BaseModel):
+    model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["mlx"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]

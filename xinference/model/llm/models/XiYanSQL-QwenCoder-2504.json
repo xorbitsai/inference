@@ -21,13 +21,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
+            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-7B-2504",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/XGenerationLab/XiYanSQL-QwenCoder-7B-2504/resolve/681ba8b35480da7fd297b40fd3bb1e709148df2b/config.json",
+              "config_sha256": "dfba94b7b87c26836ad68577c219683f62c66d2209f4aa4957b7c11570ad3106",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-7B-2504"
+            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-7B-2504",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/XGenerationLab/XiYanSQL-QwenCoder-7B-2504/resolve/master/config.json",
+              "config_sha256": "dfba94b7b87c26836ad68577c219683f62c66d2209f4aa4957b7c11570ad3106",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -39,13 +59,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504"
+            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/XGenerationLab/XiYanSQL-QwenCoder-32B-2504/resolve/50c30a65a388e9cdc39965b76c30cdbe427a2365/config.json",
+              "config_sha256": "3f501730c36948789ba9cea25c26652e91de448a6aa5686703c1d5e248487346",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504"
+            "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/XGenerationLab/XiYanSQL-QwenCoder-32B-2504/resolve/master/config.json",
+              "config_sha256": "3f501730c36948789ba9cea25c26652e91de448a6aa5686703c1d5e248487346",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       }

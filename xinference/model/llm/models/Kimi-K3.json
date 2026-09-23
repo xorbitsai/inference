@@ -23,13 +23,35 @@
             "model_id": "moonshotai/Kimi-K3",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 163840,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 96,
+              "config_source": "https://huggingface.co/moonshotai/Kimi-K3/resolve/f831ab66814297da540d832a5235f8e904f29d06/config.json",
+              "config_sha256": "9710e121a58d03ac92c8d6da287a19541994319afbbe6d6202af001ffd379213",
+              "architecture_type": "multimodal",
+              "hidden_size": 7168,
+              "intermediate_size": 33792,
+              "num_hidden_layers": 93
+            }
           },
           "modelscope": {
             "model_id": "moonshotai/Kimi-K3",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 163840,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 96,
+              "config_source": "https://modelscope.cn/models/moonshotai/Kimi-K3/resolve/master/config.json",
+              "config_sha256": "9710e121a58d03ac92c8d6da287a19541994319afbbe6d6202af001ffd379213",
+              "architecture_type": "multimodal",
+              "hidden_size": 7168,
+              "intermediate_size": 33792,
+              "num_hidden_layers": 93
+            }
           }
         }
       },

@@ -33,7 +33,18 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Llama-3.2-11B-Vision"
+            "model_id": "LLM-Research/Llama-3.2-11B-Vision",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Llama-3.2-11B-Vision/resolve/master/config.json",
+              "config_sha256": "a66aeb380bc2cd5424e7f2ad567940e51e725bd2c8ae1707228e75017e6f11a5",
+              "architecture_type": "multimodal",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 40
+            }
           }
         }
       },
@@ -51,7 +62,18 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "LLM-Research/Llama-3.2-90B-Vision"
+            "model_id": "LLM-Research/Llama-3.2-90B-Vision",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Llama-3.2-90B-Vision/resolve/master/config.json",
+              "config_sha256": "765acd7579c65c5bfe673566eaad8b6c4bb2f7b795c73dc97462ce9ff20189ff",
+              "architecture_type": "multimodal",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 100
+            }
           }
         }
       }

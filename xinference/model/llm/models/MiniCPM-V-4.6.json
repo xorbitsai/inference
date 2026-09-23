@@ -22,14 +22,38 @@
               "none"
             ],
             "model_id": "openbmb/MiniCPM-V-4.6",
-            "model_revision": "d7f5ed8d15462c508d4f9d9ce5a0cf1fe8d87bcc"
+            "model_revision": "d7f5ed8d15462c508d4f9d9ce5a0cf1fe8d87bcc",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4.6/resolve/d7f5ed8d15462c508d4f9d9ce5a0cf1fe8d87bcc/config.json",
+              "config_sha256": "72d83ac9089bebddf28131b9953908acaf0a5740b868263c8aaac7c40b97991c",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "OpenBMB/MiniCPM-V-4.6",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6/resolve/master/config.json",
+              "config_sha256": "72d83ac9089bebddf28131b9953908acaf0a5740b868263c8aaac7c40b97991c",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -41,13 +65,37 @@
             "quantizations": [
               "4-bit"
             ],
-            "model_id": "openbmb/MiniCPM-V-4.6-BNB"
+            "model_id": "openbmb/MiniCPM-V-4.6-BNB",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4.6-BNB/resolve/45686b6d347a3976e63911b1f168f4e420b9c992/config.json",
+              "config_sha256": "5bafa5bbaac69ab26259e8677bfc5d7d5aa8fb3916dff2b5f3e72516afc9d662",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "4-bit"
             ],
-            "model_id": "OpenBMB/MiniCPM-V-4.6-BNB"
+            "model_id": "OpenBMB/MiniCPM-V-4.6-BNB",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-BNB/resolve/master/config.json",
+              "config_sha256": "5bafa5bbaac69ab26259e8677bfc5d7d5aa8fb3916dff2b5f3e72516afc9d662",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -59,13 +107,37 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "openbmb/MiniCPM-V-4.6-AWQ"
+            "model_id": "openbmb/MiniCPM-V-4.6-AWQ",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4.6-AWQ/resolve/dc74581a19b97137efe87eb2100554cb65bf98c6/config.json",
+              "config_sha256": "318bff17cf5894aab555f4a54b7ca972ac8520d7371432ef5a957020784351e7",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenBMB/MiniCPM-V-4.6-AWQ"
+            "model_id": "OpenBMB/MiniCPM-V-4.6-AWQ",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-AWQ/resolve/master/config.json",
+              "config_sha256": "318bff17cf5894aab555f4a54b7ca972ac8520d7371432ef5a957020784351e7",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -77,13 +149,37 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "openbmb/MiniCPM-V-4.6-GPTQ"
+            "model_id": "openbmb/MiniCPM-V-4.6-GPTQ",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4.6-GPTQ/resolve/6c2a8a85939f622b2e9e9fe63b109cdfcda3174b/config.json",
+              "config_sha256": "d625bed0cfb8d0ef13a69476b8a7cb5e9a0d652804a072dd6235f8525a76e575",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "OpenBMB/MiniCPM-V-4.6-GPTQ"
+            "model_id": "OpenBMB/MiniCPM-V-4.6-GPTQ",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-GPTQ/resolve/master/config.json",
+              "config_sha256": "d625bed0cfb8d0ef13a69476b8a7cb5e9a0d652804a072dd6235f8525a76e575",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -105,7 +201,19 @@
               "mmproj-model-f16.gguf"
             ],
             "model_id": "openbmb/MiniCPM-V-4.6-gguf",
-            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf"
+            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-V-4.6-gguf/resolve/main/MiniCPM-V-4_6-Q4_K_M.gguf",
+              "config_sha256": "e241d3c4c1f04b18a87736d42cfb124b9a10608f3e2fe5679369de394e5a3689",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -121,7 +229,19 @@
               "mmproj-model-f16.gguf"
             ],
             "model_id": "OpenBMB/MiniCPM-V-4.6-gguf",
-            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf"
+            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 248094,
+              "num_attention_heads": 8,
+              "num_key_value_heads": 2,
+              "head_dim": 256,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-gguf/resolve/master/MiniCPM-V-4_6-Q4_K_M.gguf",
+              "config_sha256": "e241d3c4c1f04b18a87736d42cfb124b9a10608f3e2fe5679369de394e5a3689",
+              "architecture_type": "multimodal",
+              "hidden_size": 1024,
+              "intermediate_size": 3584,
+              "num_hidden_layers": 24
+            }
           }
         }
       }

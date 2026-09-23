@@ -21,13 +21,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-V3-0324"
+            "model_id": "deepseek-ai/DeepSeek-V3-0324",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V3-0324/resolve/e9b33add76883f293d6bf61f6bd89b497e80e335/config.json",
+              "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-V3-0324"
+            "model_id": "deepseek-ai/DeepSeek-V3-0324",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V3-0324/resolve/master/config.json",
+              "config_sha256": "4422016f41c506339e0510a32812a63da554dc9febd5f1368e7240ded14e4a27",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -40,13 +62,35 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "cognitivecomputations/DeepSeek-V3-0324-AWQ"
+            "model_id": "cognitivecomputations/DeepSeek-V3-0324-AWQ",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/cognitivecomputations/DeepSeek-V3-0324-AWQ/resolve/c922ba7896dc7dab2a27d705fa62fa967c04eeb0/config.json",
+              "config_sha256": "e9af7a72846708485237321775ded05ee4a3bf955976086f6a90e238f555908e",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "cognitivecomputations/DeepSeek-V3-0324-AWQ"
+            "model_id": "cognitivecomputations/DeepSeek-V3-0324-AWQ",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/cognitivecomputations/DeepSeek-V3-0324-AWQ/resolve/master/config.json",
+              "config_sha256": "e9af7a72846708485237321775ded05ee4a3bf955976086f6a90e238f555908e",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -61,7 +105,42 @@
               "5bit",
               "8bit"
             ],
-            "model_id": "mlx-community/DeepSeek-V3-0324-{quantization}"
+            "model_id": "mlx-community/DeepSeek-V3-0324-{quantization}",
+            "model_metadata_by_quantization": {
+              "4bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3-0324-4bit/resolve/181c5d53f8051c03485a7df825e6f3cc01b2a06a/config.json",
+                "config_sha256": "964a3dc9d988422eddc151295a44036f83248efee8fa6a9a6e80032783f05132",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "5bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3-0324-5bit/resolve/35e9c4c166642a8ec12857286e67ec6a5f503be6/config.json",
+                "config_sha256": "c2f97a4bac957f29da747d8ea3bba32f63ec72f14095bc14dd3c4fbf345cb3f5",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              },
+              "8bit": {
+                "vocab_size": 129280,
+                "num_attention_heads": 128,
+                "num_key_value_heads": 128,
+                "config_source": "https://huggingface.co/mlx-community/DeepSeek-V3-0324-8bit/resolve/1f6c239c015883391f8db8eb93237e41e94cdeaa/config.json",
+                "config_sha256": "1fd0d03726175be5fa5c9d42251fd9bf287ad86d73b6a01fb82254efdaf35a1d",
+                "architecture_type": "mla",
+                "hidden_size": 7168,
+                "intermediate_size": 18432,
+                "num_hidden_layers": 61
+              }
+            }
           }
         }
       }

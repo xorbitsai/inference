@@ -25,14 +25,38 @@
             "model_revision": "main",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 157184,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/inclusionAI/Ling-3.0-tiny/resolve/e3a47d5b986e7141b6efd62597d598ebb392060d/config.json",
+              "config_sha256": "9750d847957913f665a13c0b5a6537199e33c6f3ec970d9fcb55a0e5076d4012",
+              "architecture_type": "mla",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "model_id": "inclusionAI/Ling-3.0-tiny",
             "model_revision": "master",
             "quantizations": [
               "none"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 157184,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/inclusionAI/Ling-3.0-tiny/resolve/master/config.json",
+              "config_sha256": "9750d847957913f665a13c0b5a6537199e33c6f3ec970d9fcb55a0e5076d4012",
+              "architecture_type": "mla",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -46,14 +70,38 @@
             "model_revision": "main",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 157184,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/inclusionAI/Ling-3.0-tiny-fp8/resolve/2eaebc694fb57008b7a865d144dd3d5c8f943ed9/config.json",
+              "config_sha256": "954f290dbe9901eef325a13b118c0715eee4414144eea529fe69b1ea707fe55b",
+              "architecture_type": "mla",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "model_id": "inclusionAI/Ling-3.0-tiny-fp8",
             "model_revision": "master",
             "quantizations": [
               "FP8"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 157184,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/inclusionAI/Ling-3.0-tiny-fp8/resolve/master/config.json",
+              "config_sha256": "954f290dbe9901eef325a13b118c0715eee4414144eea529fe69b1ea707fe55b",
+              "architecture_type": "mla",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           }
         }
       },
@@ -67,14 +115,38 @@
             "model_revision": "main",
             "quantizations": [
               "Int4"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 157184,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/inclusionAI/Ling-3.0-tiny-int4/resolve/65a6d1d71e01f73ba01e572992bbd69ea92c865f/config.json",
+              "config_sha256": "78296932c0a82af7490095d1962c15fb5e206ac162874516039c7f49280fc3d6",
+              "architecture_type": "mla",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           },
           "modelscope": {
             "model_id": "inclusionAI/Ling-3.0-tiny-int4",
             "model_revision": "master",
             "quantizations": [
               "Int4"
-            ]
+            ],
+            "model_metadata": {
+              "vocab_size": 157184,
+              "num_attention_heads": 16,
+              "num_key_value_heads": 16,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/inclusionAI/Ling-3.0-tiny-int4/resolve/master/config.json",
+              "config_sha256": "78296932c0a82af7490095d1962c15fb5e206ac162874516039c7f49280fc3d6",
+              "architecture_type": "mla",
+              "hidden_size": 1536,
+              "intermediate_size": 4608,
+              "num_hidden_layers": 24
+            }
           }
         }
       }

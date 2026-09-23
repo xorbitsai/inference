@@ -22,13 +22,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct"
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct/resolve/9d90cf8fca1bf7b7acca42d3fc9ae694a2194069/config.json",
+              "config_sha256": "653230e2dd1c41bd1125d046f00259ed98d6294c75c63969f8890c6e139af7de",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct"
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Coder-480B-A35B-Instruct/resolve/master/config.json",
+              "config_sha256": "653230e2dd1c41bd1125d046f00259ed98d6294c75c63969f8890c6e139af7de",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -41,13 +65,37 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/b2cff646eb4bb1d68355c01b18ae02e7cf42d120/config.json",
+              "config_sha256": "e2c8d8eea39471785cd93379d8b48241ad7dcda299013155dd02526e34a0de62",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Coder-30B-A3B-Instruct/resolve/master/config.json",
+              "config_sha256": "e2c8d8eea39471785cd93379d8b48241ad7dcda299013155dd02526e34a0de62",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -60,13 +108,37 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8/resolve/003f183a92fbe5b9a8325aaa8b2ae797c91dd90f/config.json",
+              "config_sha256": "7d3720a766100b946b4895112eda83df64979fe9417561deaaf4ee3396bc821b",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8"
+            "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8/resolve/master/config.json",
+              "config_sha256": "7d3720a766100b946b4895112eda83df64979fe9417561deaaf4ee3396bc821b",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -79,13 +151,37 @@
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8/resolve/dcaee4d4dfc5ee71ad501f01f530e5652438fde0/config.json",
+              "config_sha256": "2705ed03bb322c864470bc282738b4713daca31b54ee4a639fe198bd7b9523f4",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "fp8"
             ],
-            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+            "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8/resolve/master/config.json",
+              "config_sha256": "2705ed03bb322c864470bc282738b4713daca31b54ee4a639fe198bd7b9523f4",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 6144,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -98,13 +194,37 @@
             "quantizations": [
               "Int4-Int8Mix"
             ],
-            "model_id": "QuantTrio/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix"
+            "model_id": "QuantTrio/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix/resolve/6b03e64f44954a1a9f0d2fbe75dd9943869b9486/config.json",
+              "config_sha256": "4f28686d4e68c452c9442a0689860d8fb7aaa061a3ff016f08425214a25f907c",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4-Int8Mix"
             ],
-            "model_id": "tclf90/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix"
+            "model_id": "tclf90/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/Qwen3-Coder-480B-A35B-Instruct-GPTQ-Int4-Int8Mix/resolve/master/config.json",
+              "config_sha256": "e6d91d742f0096001534bf6a19e242fde9a837399027139a3a908d50ea3a2af5",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -117,13 +237,37 @@
             "quantizations": [
               "Int8"
             ],
-            "model_id": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8"
+            "model_id": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8/resolve/23d78740883ac12bd1d2c464c4926d7d394e664c/config.json",
+              "config_sha256": "a71b5ab6a12e2d7c6d6e3170a7124014a2b329840ac83a4e0605b30d0093a6b2",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 5472,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int8"
             ],
-            "model_id": "tclf90/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8"
+            "model_id": "tclf90/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/Qwen3-Coder-30B-A3B-Instruct-GPTQ-Int8/resolve/master/config.json",
+              "config_sha256": "a71b5ab6a12e2d7c6d6e3170a7124014a2b329840ac83a4e0605b30d0093a6b2",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 5472,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -136,13 +280,37 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "QuantTrio/Qwen3-Coder-480B-A35B-Instruct-AWQ"
+            "model_id": "QuantTrio/Qwen3-Coder-480B-A35B-Instruct-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/Qwen3-Coder-480B-A35B-Instruct-AWQ/resolve/9ce3eaa67fe88609afec235117e97eb03d9b3cda/config.json",
+              "config_sha256": "d6bfa3bb286517e306ec5e6d4dd77bb12191c3019c19e0b11b5dc7dbf7587ea7",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/Qwen3-Coder-480B-A35B-Instruct-AWQ"
+            "model_id": "tclf90/Qwen3-Coder-480B-A35B-Instruct-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/Qwen3-Coder-480B-A35B-Instruct-AWQ/resolve/master/config.json",
+              "config_sha256": "d6bfa3bb286517e306ec5e6d4dd77bb12191c3019c19e0b11b5dc7dbf7587ea7",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -155,13 +323,37 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+            "model_id": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ/resolve/c58857a7f41c0920f73d1b56678640f9c02017d7/config.json",
+              "config_sha256": "d7884724adb315656e2202b300d6ac9cd10e5774fc65d758722de2ee9486fee4",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 5472,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "tclf90/Qwen3-Coder-30B-A3B-Instruct-AWQ"
+            "model_id": "tclf90/Qwen3-Coder-30B-A3B-Instruct-AWQ",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/Qwen3-Coder-30B-A3B-Instruct-AWQ/resolve/master/config.json",
+              "config_sha256": "d7884724adb315656e2202b300d6ac9cd10e5774fc65d758722de2ee9486fee4",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 5472,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -174,13 +366,37 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Qwen3-Coder-480B-A35B-Instruct-{quantization}"
+            "model_id": "mlx-community/Qwen3-Coder-480B-A35B-Instruct-{quantization}",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/Qwen3-Coder-480B-A35B-Instruct-4bit/resolve/ca8dbf41071f579fbe3260f20bbe1ab896f79031/config.json",
+              "config_sha256": "5a1e9c698e43e49283a008d7ef89e61daafe080f7a920681d2af1deb4e9472a3",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/Qwen3-Coder-480B-A35B-Instruct-{quantization}"
+            "model_id": "mlx-community/Qwen3-Coder-480B-A35B-Instruct-{quantization}",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Coder-480B-A35B-Instruct-4bit/resolve/master/config.json",
+              "config_sha256": "5a1e9c698e43e49283a008d7ef89e61daafe080f7a920681d2af1deb4e9472a3",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -197,7 +413,69 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-{quantization}"
+            "model_id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-3bit/resolve/322d14f29ead656431a23b827d2070baa850651f/config.json",
+                "config_sha256": "86cc59592e97aaa7c165f4315b57c3ed11927ec8597682bca976dbe89beb6d04",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit/resolve/6e302ea604ad9ab206367e2c501d1571023e7b6d/config.json",
+                "config_sha256": "8200545374776769bfd5ae4a30533990c96ca1cad625a9500194f46a8549fa13",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "5bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-5bit/resolve/958cef54f1042f4a63fbeaab1bbe65386b3a375f/config.json",
+                "config_sha256": "60583021a27e175f54d83264c3d9b1a0404ce3f793fd0fd9d240f439b219b303",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-6bit/resolve/8730fb50f41e7f3ad7af9d10cb928274e479f071/config.json",
+                "config_sha256": "dcf93851f3287d6bb901dcdede3e361009aa15809d2496f1d53f785f5c1976a5",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit/resolve/7c6ee1bbb5ee3051c4b3bc6553f24bdc2d01393a/config.json",
+                "config_sha256": "b672d86efa611145c1c669ef5eabed1eb10f7d5e6c210b048435a79c292d63be",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              }
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -207,7 +485,69 @@
               "6bit",
               "8bit"
             ],
-            "model_id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-{quantization}"
+            "model_id": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-{quantization}",
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-3bit/resolve/master/config.json",
+                "config_sha256": "86cc59592e97aaa7c165f4315b57c3ed11927ec8597682bca976dbe89beb6d04",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "4bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit/resolve/master/config.json",
+                "config_sha256": "8200545374776769bfd5ae4a30533990c96ca1cad625a9500194f46a8549fa13",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "5bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-5bit/resolve/master/config.json",
+                "config_sha256": "60583021a27e175f54d83264c3d9b1a0404ce3f793fd0fd9d240f439b219b303",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "6bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-6bit/resolve/master/config.json",
+                "config_sha256": "dcf93851f3287d6bb901dcdede3e361009aa15809d2496f1d53f785f5c1976a5",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              },
+              "8bit": {
+                "vocab_size": 151936,
+                "num_attention_heads": 32,
+                "num_key_value_heads": 4,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/Qwen3-Coder-30B-A3B-Instruct-8bit/resolve/master/config.json",
+                "config_sha256": "b672d86efa611145c1c669ef5eabed1eb10f7d5e6c210b048435a79c292d63be",
+                "architecture_type": "moe",
+                "hidden_size": 2048,
+                "intermediate_size": 5472,
+                "num_hidden_layers": 48
+              }
+            }
           }
         }
       },
@@ -447,7 +787,19 @@
             },
             "model_id": "unsloth/Qwen3-Coder-480B-A35B-Instruct-GGUF",
             "model_file_name_template": "Qwen3-Coder-480B-A35B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-Coder-480B-A35B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-480B-A35B-Instruct-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-Coder-480B-A35B-Instruct-GGUF/resolve/main/BF16/Qwen3-Coder-480B-A35B-Instruct-BF16-00001-of-00021.gguf",
+              "config_sha256": "ed3f711c26fd668f54cc502714f03f019cce0d4532a032e835fde7b690ac2ec7",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -680,7 +1032,19 @@
             },
             "model_id": "unsloth/Qwen3-Coder-480B-A35B-Instruct-GGUF",
             "model_file_name_template": "Qwen3-Coder-480B-A35B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-Coder-480B-A35B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-480B-A35B-Instruct-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 96,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-Coder-480B-A35B-Instruct-GGUF/resolve/master/BF16/Qwen3-Coder-480B-A35B-Instruct-BF16-00001-of-00021.gguf",
+              "config_sha256": "ed3f711c26fd668f54cc502714f03f019cce0d4532a032e835fde7b690ac2ec7",
+              "architecture_type": "moe",
+              "hidden_size": 6144,
+              "intermediate_size": 8192,
+              "num_hidden_layers": 62
+            }
           }
         }
       },
@@ -727,7 +1091,19 @@
             },
             "model_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
             "model_file_name_template": "Qwen3-Coder-30B-A3B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/BF16/Qwen3-Coder-30B-A3B-Instruct-BF16-00001-of-00002.gguf",
+              "config_sha256": "6b59071a130d3b0869e9f262ef06808c4da04d230c9c9c8a179ef8ff5ca629e2",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 5472,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -767,7 +1143,19 @@
             },
             "model_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
             "model_file_name_template": "Qwen3-Coder-30B-A3B-Instruct-{quantization}.gguf",
-            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf"
+            "model_file_name_split_template": "{quantization}/Qwen3-Coder-30B-A3B-Instruct-{quantization}-{part}.gguf",
+            "model_metadata": {
+              "vocab_size": 151936,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/master/BF16/Qwen3-Coder-30B-A3B-Instruct-BF16-00001-of-00002.gguf",
+              "config_sha256": "6b59071a130d3b0869e9f262ef06808c4da04d230c9c9c8a179ef8ff5ca629e2",
+              "architecture_type": "moe",
+              "hidden_size": 2048,
+              "intermediate_size": 5472,
+              "num_hidden_layers": 48
+            }
           }
         }
       }

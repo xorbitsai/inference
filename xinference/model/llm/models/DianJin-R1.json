@@ -23,7 +23,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "DianJin/DianJin-R1-7B"
+            "model_id": "DianJin/DianJin-R1-7B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/DianJin/DianJin-R1-7B/resolve/2c22344cec9f39e3cb134e3e419ab63b56720bfa/config.json",
+              "config_sha256": "dd22d2dcb2c803112ff329ea438e431275a8c10bfad9ab0bf30711536ca37755",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -41,7 +51,17 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "DianJin/DianJin-R1-32B"
+            "model_id": "DianJin/DianJin-R1-32B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/DianJin/DianJin-R1-32B/resolve/f2976414ec5a86b76418ff1716a816b70618792a/config.json",
+              "config_sha256": "fda9f2c8f48f5b76b0535a0f02d706b2b34489f7515ab37e4fdc01218caacd15",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
@@ -71,7 +91,17 @@
               "f16"
             ],
             "model_id": "mradermacher/DianJin-R1-7B-GGUF",
-            "model_file_name_template": "DianJin-R1-7B.{quantization}.gguf"
+            "model_file_name_template": "DianJin-R1-7B.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/mradermacher/DianJin-R1-7B-GGUF/resolve/main/DianJin-R1-7B.Q2_K.gguf",
+              "config_sha256": "0d6a2810c877229e8c37ee6776a1fd1c7ea54373a83395468bf01910acd42e61",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -107,7 +137,17 @@
               "i1-Q6_K"
             ],
             "model_id": "mradermacher/DianJin-R1-7B-i1-GGUF",
-            "model_file_name_template": "DianJin-R1-7B.{quantization}.gguf"
+            "model_file_name_template": "DianJin-R1-7B.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 28,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/mradermacher/DianJin-R1-7B-i1-GGUF/resolve/main/DianJin-R1-7B.i1-IQ1_S.gguf",
+              "config_sha256": "24b8117821c0ada2a20009147c4c6a7c0f8d82cccb0b483b8626280d8562e4ec",
+              "hidden_size": 3584,
+              "intermediate_size": 18944,
+              "num_hidden_layers": 28
+            }
           }
         }
       },
@@ -130,7 +170,17 @@
               "Q8_0"
             ],
             "model_id": "mradermacher/DianJin-R1-32B-GGUF",
-            "model_file_name_template": "DianJin-R1-32B.{quantization}.gguf"
+            "model_file_name_template": "DianJin-R1-32B.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mradermacher/DianJin-R1-32B-GGUF/resolve/main/DianJin-R1-32B.Q2_K.gguf",
+              "config_sha256": "a55a5c2593e03bbcc99495831fe1e2a09652e7a03921fe8d6a222e56d4bcc736",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -165,7 +215,17 @@
               "i1-Q6_K"
             ],
             "model_id": "mradermacher/DianJin-R1-32B-i1-GGUF",
-            "model_file_name_template": "DianJin-R1-32B.{quantization}.gguf"
+            "model_file_name_template": "DianJin-R1-32B.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mradermacher/DianJin-R1-32B-i1-GGUF/resolve/main/DianJin-R1-32B.i1-IQ1_S.gguf",
+              "config_sha256": "478f9a567da30785f4d42fa577c9057263d013e98feddba92432123008667022",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       }

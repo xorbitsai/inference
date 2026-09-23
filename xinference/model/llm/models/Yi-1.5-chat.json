@@ -21,14 +21,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-6B-Chat",
-            "model_revision": "d68dab90947a3c869e28c9cb2806996af99a6080"
+            "model_revision": "d68dab90947a3c869e28c9cb2806996af99a6080",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-6B-Chat/resolve/d68dab90947a3c869e28c9cb2806996af99a6080/config.json",
+              "config_sha256": "74e1d68c56a03b43b752997f600feff7d67a156f6affd2ae491aaac014cd8c17",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-1.5-6B-Chat",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-6B-Chat/resolve/master/config.json",
+              "config_sha256": "74e1d68c56a03b43b752997f600feff7d67a156f6affd2ae491aaac014cd8c17",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -41,14 +61,34 @@
               "none"
             ],
             "model_id": "01-ai/Yi-1.5-9B-Chat",
-            "model_revision": "1dc6e2b8dcfc12b95bede8dec67e6b6332ac64c6"
+            "model_revision": "1dc6e2b8dcfc12b95bede8dec67e6b6332ac64c6",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-9B-Chat/resolve/1dc6e2b8dcfc12b95bede8dec67e6b6332ac64c6/config.json",
+              "config_sha256": "a96597f583645c70ebda338eb3e3681c582eccc85b2a3e4b98eb031bce6e100d",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
             "model_id": "01ai/Yi-1.5-9B-Chat",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-9B-Chat/resolve/master/config.json",
+              "config_sha256": "a96597f583645c70ebda338eb3e3681c582eccc85b2a3e4b98eb031bce6e100d",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -68,7 +108,17 @@
               "none"
             ],
             "model_id": "01ai/Yi-1.5-34B-Chat",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-34B-Chat/resolve/master/config.json",
+              "config_sha256": "5aee47078b2c1ca2e784306df05d8ccf5cdf253694f05e0abdc5b023d34c5a38",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -86,7 +136,17 @@
               "f32"
             ],
             "model_id": "lmstudio-community/Yi-1.5-6B-Chat-GGUF",
-            "model_file_name_template": "Yi-1.5-6B-Chat-{quantization}.gguf"
+            "model_file_name_template": "Yi-1.5-6B-Chat-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/lmstudio-community/Yi-1.5-6B-Chat-GGUF/resolve/main/Yi-1.5-6B-Chat-Q3_K_L.gguf",
+              "config_sha256": "2021dec17ab2ea17f695c2421a5577d3681d7298d17dbbf7c1b4061922609846",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -104,7 +164,17 @@
               "f32"
             ],
             "model_id": "lmstudio-community/Yi-1.5-9B-Chat-GGUF",
-            "model_file_name_template": "Yi-1.5-9B-Chat-{quantization}.gguf"
+            "model_file_name_template": "Yi-1.5-9B-Chat-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/lmstudio-community/Yi-1.5-9B-Chat-GGUF/resolve/main/Yi-1.5-9B-Chat-Q3_K_L.gguf",
+              "config_sha256": "db1a91aa8b64a3ae301ca6afec0fb55c83213f060be65e1a686802cd3af7a618",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -122,7 +192,17 @@
               "Q8_0"
             ],
             "model_id": "lmstudio-community/Yi-1.5-34B-Chat-GGUF",
-            "model_file_name_template": "Yi-1.5-34B-Chat-{quantization}.gguf"
+            "model_file_name_template": "Yi-1.5-34B-Chat-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/lmstudio-community/Yi-1.5-34B-Chat-GGUF/resolve/main/Yi-1.5-34B-Chat-Q2_K.gguf",
+              "config_sha256": "1b18ac0b4570ebf5c4d92ff4a7507dc483c8068fb84cf88cb876d7275c7cd631",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -135,14 +215,34 @@
               "Int4"
             ],
             "model_id": "modelscope/Yi-1.5-6B-Chat-GPTQ",
-            "model_revision": "2ad3a602e64d1c79e28e6e92beced2935047367c"
+            "model_revision": "2ad3a602e64d1c79e28e6e92beced2935047367c",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/modelscope/Yi-1.5-6B-Chat-GPTQ/resolve/2ad3a602e64d1c79e28e6e92beced2935047367c/config.json",
+              "config_sha256": "9f518567afadcbb90e11b0c52495acf3e295884e82a8c005a6cb582c46babaf4",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "AI-ModelScope/Yi-1.5-6B-Chat-GPTQ",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Yi-1.5-6B-Chat-GPTQ/resolve/master/config.json",
+              "config_sha256": "9f518567afadcbb90e11b0c52495acf3e295884e82a8c005a6cb582c46babaf4",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -155,14 +255,34 @@
               "Int4"
             ],
             "model_id": "modelscope/Yi-1.5-9B-Chat-GPTQ",
-            "model_revision": "76f47d16982923f7b6674c4e23ddac7c3b1d2e03"
+            "model_revision": "76f47d16982923f7b6674c4e23ddac7c3b1d2e03",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/modelscope/Yi-1.5-9B-Chat-GPTQ/resolve/76f47d16982923f7b6674c4e23ddac7c3b1d2e03/config.json",
+              "config_sha256": "d354692fc5932cb98fbd6d004c83a79f0901e5c09f60c558abf9dbedb71c250f",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "AI-ModelScope/Yi-1.5-9B-Chat-GPTQ",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Yi-1.5-9B-Chat-GPTQ/resolve/master/config.json",
+              "config_sha256": "d354692fc5932cb98fbd6d004c83a79f0901e5c09f60c558abf9dbedb71c250f",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -175,14 +295,34 @@
               "Int4"
             ],
             "model_id": "modelscope/Yi-1.5-34B-Chat-GPTQ",
-            "model_revision": "173fb4036265b2dac1d6296a8e2fd2f652c19968"
+            "model_revision": "173fb4036265b2dac1d6296a8e2fd2f652c19968",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/modelscope/Yi-1.5-34B-Chat-GPTQ/resolve/173fb4036265b2dac1d6296a8e2fd2f652c19968/config.json",
+              "config_sha256": "9af016531b5edd84a9a7f791a5df1d83203c404a0c20ed0b150e4b38bf9b7ae7",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "AI-ModelScope/Yi-1.5-34B-Chat-GPTQ",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Yi-1.5-34B-Chat-GPTQ/resolve/master/config.json",
+              "config_sha256": "9af016531b5edd84a9a7f791a5df1d83203c404a0c20ed0b150e4b38bf9b7ae7",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -195,14 +335,34 @@
               "Int4"
             ],
             "model_id": "modelscope/Yi-1.5-6B-Chat-AWQ",
-            "model_revision": "23bf37f1666874e15e239422de0d3948d8735fa9"
+            "model_revision": "23bf37f1666874e15e239422de0d3948d8735fa9",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/modelscope/Yi-1.5-6B-Chat-AWQ/resolve/23bf37f1666874e15e239422de0d3948d8735fa9/config.json",
+              "config_sha256": "773945aef1dd001ac55e15c7da489089f2859d4adce45796094ffc5c1047f4bf",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "AI-ModelScope/Yi-1.5-6B-Chat-AWQ",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Yi-1.5-6B-Chat-AWQ/resolve/master/config.json",
+              "config_sha256": "773945aef1dd001ac55e15c7da489089f2859d4adce45796094ffc5c1047f4bf",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -215,14 +375,34 @@
               "Int4"
             ],
             "model_id": "modelscope/Yi-1.5-9B-Chat-AWQ",
-            "model_revision": "2605f388332672789eae1f422644add2901b433f"
+            "model_revision": "2605f388332672789eae1f422644add2901b433f",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/modelscope/Yi-1.5-9B-Chat-AWQ/resolve/2605f388332672789eae1f422644add2901b433f/config.json",
+              "config_sha256": "fd7156e1332db37f1171c58331b5e75c691e84dd3a25842d3e8a8571bcea4d0a",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "AI-ModelScope/Yi-1.5-9B-Chat-AWQ",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Yi-1.5-9B-Chat-AWQ/resolve/master/config.json",
+              "config_sha256": "fd7156e1332db37f1171c58331b5e75c691e84dd3a25842d3e8a8571bcea4d0a",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -235,14 +415,34 @@
               "Int4"
             ],
             "model_id": "modelscope/Yi-1.5-34B-Chat-AWQ",
-            "model_revision": "26234fea6ac49d456f32f8017289021fb1087a04"
+            "model_revision": "26234fea6ac49d456f32f8017289021fb1087a04",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/modelscope/Yi-1.5-34B-Chat-AWQ/resolve/26234fea6ac49d456f32f8017289021fb1087a04/config.json",
+              "config_sha256": "57a0120b9e61132e49dcf4b8a6b6878d861c94d4873271fae8679db8b621f80f",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
             "model_id": "AI-ModelScope/Yi-1.5-34B-Chat-AWQ",
-            "model_revision": "master"
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/AI-ModelScope/Yi-1.5-34B-Chat-AWQ/resolve/master/config.json",
+              "config_sha256": "57a0120b9e61132e49dcf4b8a6b6878d861c94d4873271fae8679db8b621f80f",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -255,7 +455,17 @@
               "4bit"
             ],
             "model_id": "mlx-community/Yi-1.5-6B-Chat-4bit",
-            "model_revision": "0177c9a12b869d6bc73f772b5a1981a7c966adb6"
+            "model_revision": "0177c9a12b869d6bc73f772b5a1981a7c966adb6",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/mlx-community/Yi-1.5-6B-Chat-4bit/resolve/0177c9a12b869d6bc73f772b5a1981a7c966adb6/config.json",
+              "config_sha256": "d08a11a0496cc80a213a6fb124404b28fd417dc2593758c37da7a17ad2d315e4",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -268,7 +478,17 @@
               "8bit"
             ],
             "model_id": "mlx-community/Yi-1.5-6B-Chat-8bit",
-            "model_revision": "7756e65d1bf1e2e6e97aef6bc9484307225f536b"
+            "model_revision": "7756e65d1bf1e2e6e97aef6bc9484307225f536b",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/mlx-community/Yi-1.5-6B-Chat-8bit/resolve/7756e65d1bf1e2e6e97aef6bc9484307225f536b/config.json",
+              "config_sha256": "800a57526fbefac2f74ea098441ba77d2ced1eb8ebaf0d73345e6e172e3e8577",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
           }
         }
       },
@@ -281,7 +501,17 @@
               "4bit"
             ],
             "model_id": "mlx-community/Yi-1.5-9B-Chat-4bit",
-            "model_revision": "e15f886479c44e7d90f0ac13ace69b2319b71c2f"
+            "model_revision": "e15f886479c44e7d90f0ac13ace69b2319b71c2f",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/mlx-community/Yi-1.5-9B-Chat-4bit/resolve/e15f886479c44e7d90f0ac13ace69b2319b71c2f/config.json",
+              "config_sha256": "29be476d521c2955395d4704ab2e6c041bea1351323cd7260ac05a8092192849",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -294,7 +524,17 @@
               "8bit"
             ],
             "model_id": "mlx-community/Yi-1.5-9B-Chat-8bit",
-            "model_revision": "c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36"
+            "model_revision": "c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/mlx-community/Yi-1.5-9B-Chat-8bit/resolve/c1f742fcf3683edbe2d2c2fd1ad7ac2bb6c5ca36/config.json",
+              "config_sha256": "a198be6f6d520557abd3761d922c05b2012f00a3b0d24a05a5ccab6acadbbfe8",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
           }
         }
       },
@@ -307,7 +547,17 @@
               "4bit"
             ],
             "model_id": "mlx-community/Yi-1.5-34B-Chat-4bit",
-            "model_revision": "945e3b306ef37c46ab444fdc857d1f3ea7247374"
+            "model_revision": "945e3b306ef37c46ab444fdc857d1f3ea7247374",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Yi-1.5-34B-Chat-4bit/resolve/945e3b306ef37c46ab444fdc857d1f3ea7247374/config.json",
+              "config_sha256": "5a848fe204d2b21249eb66869cd9e0cd28a9314cc9d549e3412427223c9ba22d",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       },
@@ -320,7 +570,17 @@
               "8bit"
             ],
             "model_id": "mlx-community/Yi-1.5-34B-Chat-8bit",
-            "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac"
+            "model_revision": "3c12761a2c6663f216caab6dff84b0dd29b472ac",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/mlx-community/Yi-1.5-34B-Chat-8bit/resolve/3c12761a2c6663f216caab6dff84b0dd29b472ac/config.json",
+              "config_sha256": "84657812179dbbd50156ced2807d5b435273f5f83380db8ad4d9bdef0de1cb2c",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
           }
         }
       }

@@ -22,13 +22,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B"
+            "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-Prover-V2-671B/resolve/a51f899d0599838aa934b21b45b4c1ae7fbce2d3/config.json",
+              "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B"
+            "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-Prover-V2-671B/resolve/master/config.json",
+              "config_sha256": "79ddea672a62e95d3f0be27be434375538e1988975971cffcf87c96c1de84a65",
+              "architecture_type": "mla",
+              "hidden_size": 7168,
+              "intermediate_size": 18432,
+              "num_hidden_layers": 61
+            }
           }
         }
       },
@@ -40,13 +62,35 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-Prover-V2-7B"
+            "model_id": "deepseek-ai/DeepSeek-Prover-V2-7B",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-Prover-V2-7B/resolve/a8d9e14432b2e8dd9df2a4d4e70f1ba9bc8d9b7b/config.json",
+              "config_sha256": "b65e97cd6b17aed8f52a8add5b06bc3802d6ae7fc070065974f4ad5247712e6e",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 30
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "deepseek-ai/DeepSeek-Prover-V2-7B"
+            "model_id": "deepseek-ai/DeepSeek-Prover-V2-7B",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-Prover-V2-7B/resolve/master/config.json",
+              "config_sha256": "b65e97cd6b17aed8f52a8add5b06bc3802d6ae7fc070065974f4ad5247712e6e",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 30
+            }
           }
         }
       },
@@ -58,13 +102,35 @@
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/DeepSeek-Prover-V2-7B-4bit"
+            "model_id": "mlx-community/DeepSeek-Prover-V2-7B-4bit",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/mlx-community/DeepSeek-Prover-V2-7B-4bit/resolve/851514b69bf4bfbc326c55120d805e1e5146745e/config.json",
+              "config_sha256": "ff91b803e412163d8196c4d858ff5dc9f6e077ebb4865026fb3a572b532e7971",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 30
+            }
           },
           "modelscope": {
             "quantizations": [
               "4bit"
             ],
-            "model_id": "mlx-community/DeepSeek-Prover-V2-7B-4bit"
+            "model_id": "mlx-community/DeepSeek-Prover-V2-7B-4bit",
+            "model_metadata": {
+              "vocab_size": 102400,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/mlx-community/DeepSeek-Prover-V2-7B-4bit/resolve/master/config.json",
+              "config_sha256": "ff91b803e412163d8196c4d858ff5dc9f6e077ebb4865026fb3a572b532e7971",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 30
+            }
           }
         }
       }

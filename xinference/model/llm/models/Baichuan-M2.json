@@ -23,13 +23,33 @@
             "quantizations": [
               "none"
             ],
-            "model_id": "baichuan-inc/Baichuan-M2-32B"
+            "model_id": "baichuan-inc/Baichuan-M2-32B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/baichuan-inc/Baichuan-M2-32B/resolve/360f684d3cd527a4ef986c54071015eb0e6def58/config.json",
+              "config_sha256": "06c148ab69ce73792c318b2b635566b641d49d4c4f550dec6e78cd24e2ee6670",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "none"
             ],
-            "model_id": "baichuan-inc/Baichuan-M2-32B"
+            "model_id": "baichuan-inc/Baichuan-M2-32B",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/baichuan-inc/Baichuan-M2-32B/resolve/master/config.json",
+              "config_sha256": "06c148ab69ce73792c318b2b635566b641d49d4c4f550dec6e78cd24e2ee6670",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       },
@@ -41,13 +61,33 @@
             "quantizations": [
               "Int4"
             ],
-            "model_id": "baichuan-inc/Baichuan-M2-32B-GPTQ-Int4"
+            "model_id": "baichuan-inc/Baichuan-M2-32B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/baichuan-inc/Baichuan-M2-32B-GPTQ-Int4/resolve/babed7159ff26cb3682ce9ef7c3d82a008015ed8/config.json",
+              "config_sha256": "d92fcb751f6bb726c275b27dea051c204c56b654cbcdffaa9508b163f65ec841",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           },
           "modelscope": {
             "quantizations": [
               "Int4"
             ],
-            "model_id": "baichuan-inc/Baichuan-M2-32B-GPTQ-Int4"
+            "model_id": "baichuan-inc/Baichuan-M2-32B-GPTQ-Int4",
+            "model_metadata": {
+              "vocab_size": 152064,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/baichuan-inc/Baichuan-M2-32B-GPTQ-Int4/resolve/master/config.json",
+              "config_sha256": "d92fcb751f6bb726c275b27dea051c204c56b654cbcdffaa9508b163f65ec841",
+              "hidden_size": 5120,
+              "intermediate_size": 27648,
+              "num_hidden_layers": 64
+            }
           }
         }
       }
