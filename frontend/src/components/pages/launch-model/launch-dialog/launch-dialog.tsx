@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -1719,10 +1718,10 @@ export default function LaunchDialog({
     }
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
         <div className="text-sm font-medium">{t('launchModel.launchProgress')}</div>
         <div
-          className="grid max-h-[min(60vh,32rem)] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid max-h-[min(40vh,24rem)] grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3 overflow-y-auto pr-1"
           aria-live="polite"
         >
           {replicaStatuses.map((replica) => {
@@ -1743,7 +1742,7 @@ export default function LaunchDialog({
                     {t('launchModel.replica')}&nbsp;{replica.replica_id}
                   </span>
                   <span
-                    className="truncate font-mono text-muted-foreground"
+                    className="break-all font-mono text-muted-foreground"
                     title={replica.worker_address || '-'}
                   >
                     {replica.worker_address || '-'}
@@ -2128,6 +2127,7 @@ export default function LaunchDialog({
                   Boolean(progressDetails?.download_files?.length)) && (
                   <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
                 )}
+                {!isDownloading && renderReplicaStatuses()}
               </div>
             )}
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2136,67 +2136,40 @@ export default function LaunchDialog({
                 {t('launchModel.saveAutostart')}
               </label>
               <div className="ml-auto flex items-center justify-end gap-2">
-                <TooltipProvider>
-                  <Button variant="outline" disabled={loading} onClick={handleClose}>
-                    {t('common.cancel')}
+                <Button variant="outline" disabled={loading} onClick={handleClose}>
+                  {t('common.cancel')}
+                </Button>
+                {loading ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={canceling}
+                    loading={canceling}
+                    onClick={isDownloading ? handleCancelDownload : handleCancelLaunch}
+                    className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Ban />
+                    {t('common.stop')}
                   </Button>
-                  {loading ? (
-                    isDownloading ? (
+                ) : (
+                  <>
+                    {allowDownloadOnly && (
                       <Button
                         type="button"
                         variant="outline"
-                        disabled={canceling}
-                        loading={canceling}
-                        onClick={handleCancelDownload}
-                        className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        disabled={!isDownloadReady}
+                        onClick={handleDownload}
                       >
-                        <Ban />
-                        {t('common.stop')}
+                        <Download />
+                        {t('launchModel.downloadOnly')}
                       </Button>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={canceling}
-                            loading={canceling}
-                            onClick={handleCancelLaunch}
-                            className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Ban />
-                            {t('common.stop')}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent
-                          side="top"
-                          align="end"
-                          className="w-[min(42rem,calc(100vw-2rem))] max-w-none p-3"
-                        >
-                          {renderReplicaStatuses()}
-                        </TooltipContent>
-                      </Tooltip>
-                    )
-                  ) : (
-                    <>
-                      {allowDownloadOnly && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={!isDownloadReady}
-                          onClick={handleDownload}
-                        >
-                          <Download />
-                          {t('launchModel.downloadOnly')}
-                        </Button>
-                      )}
-                      <Button type="submit" form={formId}>
-                        <Rocket />
-                        {t('common.deploy')}
-                      </Button>
-                    </>
-                  )}
-                </TooltipProvider>
+                    )}
+                    <Button type="submit" form={formId}>
+                      <Rocket />
+                      {t('common.deploy')}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </DialogFooter>
