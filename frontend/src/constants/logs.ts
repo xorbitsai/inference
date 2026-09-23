@@ -18,6 +18,17 @@ export const LOG_TIME_RANGES = [
   { labelKey: 'monitorCenter.time.7d', from: 'now-7d', to: 'now' },
 ] as const;
 
+export const AUDIT_TIME_RANGES = [
+  { labelKey: 'monitorCenter.time.15m', from: 'now-15m', to: 'now' },
+  { labelKey: 'monitorCenter.time.30m', from: 'now-30m', to: 'now' },
+  { labelKey: 'monitorCenter.time.1h', from: 'now-1h', to: 'now' },
+  { labelKey: 'monitorCenter.time.6h', from: 'now-6h', to: 'now' },
+  { labelKey: 'monitorCenter.time.12h', from: 'now-12h', to: 'now' },
+  { labelKey: 'monitorCenter.time.24h', from: 'now-24h', to: 'now' },
+  { labelKey: 'monitorCenter.time.2d', from: 'now-2d', to: 'now' },
+  { labelKey: 'monitorCenter.time.7d', from: 'now-7d', to: 'now' },
+] as const;
+
 export const LOG_REFRESH_OPTIONS = [
   { labelKey: 'monitorCenter.refresh.off', value: 0 },
   { labelKey: 'monitorCenter.refresh.10s', value: 10000 },

@@ -16,15 +16,20 @@ import { formatDateTime, toMilliseconds } from './utils';
 interface TimeRangePickerProps {
   value: TimeRangeValue;
   onChange: (value: TimeRangeValue) => void;
+  ranges?: ReadonlyArray<{ readonly labelKey: string; readonly from: string; readonly to: string }>;
 }
 
-export function TimeRangePicker({ value, onChange }: TimeRangePickerProps) {
+export function TimeRangePicker({
+  value,
+  onChange,
+  ranges = LOG_TIME_RANGES,
+}: TimeRangePickerProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [absoluteFrom, setAbsoluteFrom] = useState('');
   const [absoluteTo, setAbsoluteTo] = useState('');
 
-  const selectedRelativeRange = LOG_TIME_RANGES.find(
+  const selectedRelativeRange = ranges.find(
     (item) => item.from === value.from && item.to === value.to
   );
   const isAbsoluteRange = value.to !== 'now';
@@ -102,7 +107,7 @@ export function TimeRangePicker({ value, onChange }: TimeRangePickerProps) {
             </div>
           </div>
           <div className="overflow-y-auto py-2">
-            {LOG_TIME_RANGES.map((item) => {
+            {ranges.map((item) => {
               const selected = value.from === item.from && value.to === item.to;
 
               return (
