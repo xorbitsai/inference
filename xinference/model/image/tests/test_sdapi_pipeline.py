@@ -38,7 +38,6 @@ def pipeline_model():
     model._model = StableDiffusionPipeline.from_pretrained(path, safety_checker=None)
     model._torch_dtype = torch.float16 if model._device == "cuda" else torch.float32
     model._model.to(device=model._device, dtype=model._torch_dtype)
-    model._image_batch_scheduler = None
     return model
 
 
@@ -180,7 +179,6 @@ async def test_real_sdxl_long_weighted_prompt():
     model._model = StableDiffusionXLPipeline.from_pretrained(path)
     model._torch_dtype = torch.float16 if model._device == "cuda" else torch.float32
     model._model.to(device=model._device, dtype=model._torch_dtype)
-    model._image_batch_scheduler = None
     result = await model.txt2img(
         prompt="(cat:1.2) " * 40,
         negative_prompt="blur",

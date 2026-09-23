@@ -90,37 +90,6 @@ msgstr ""
 msgid "Image Model"
 msgstr "Modello di immagine"
 
-#: ../../source/user_guide/continuous_batching.rst:72
-msgid ""
-"Currently, for image models, only the ``text_to_image`` interface is "
-"supported for ``FLUX.1`` series models."
-msgstr ""
-"Attualmente, solo l'interfaccia ``text_to_image`` (da testo a immagine) "
-"della serie di modelli ``FLUX.1`` supporta questa funzionalità."
-
-#: ../../source/user_guide/continuous_batching.rst:74
-msgid ""
-"Enabling this feature requires setting the environment variable "
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of "
-"the generated images."
-msgstr ""
-"Per attivare questa funzionalità nel modello di immagini, è necessario "
-"specificare la variabile d'ambiente "
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` all'avvio di xinference, che "
-"indica la dimensione delle immagini generate."
-
-#: ../../source/user_guide/continuous_batching.rst:76
-msgid "For example, starting xinference like this:"
-msgstr "Ad esempio, avvia xinference in questo modo:"
-
-#: ../../source/user_guide/continuous_batching.rst:83
-msgid ""
-"Then just use the ``text_to_image`` interface as before, and nothing else "
-"needs to be changed."
-msgstr ""
-"Ora puoi semplicemente utilizzare l'interfaccia ``text_to_image`` "
-"normalmente, senza dover modificare nient'altro."
-
 #: ../../source/user_guide/continuous_batching.rst:86
 msgid "Abort your request"
 msgstr "Richiesta di annullamento"
@@ -145,14 +114,6 @@ msgstr ""
 "Successivamente, utilizza il ``request_id`` specificato per terminare la "
 "richiesta. Ad esempio:"
 
-#: ../../source/user_guide/continuous_batching.rst:106
-msgid ""
-"Note that if your request has already finished, aborting the request will be"
-" a no-op. Image models also support this feature."
-msgstr ""
-"Nota: se la tua richiesta è già terminata, questa operazione non avrà alcun "
-"effetto."
-
 #: ../../source/user_guide/continuous_batching.rst:110
 msgid "Note"
 msgstr "Avvertenze"
@@ -165,14 +126,6 @@ msgstr ""
 "Attualmente, questa funzione supporta solo le capacità ``generate``, "
 "``chat``, ``tool call`` (chiamata strumento) e ``vision`` (multimodale) del "
 "modello LLM."
-
-#: ../../source/user_guide/continuous_batching.rst:114
-msgid ""
-"Currently, for ``image`` models, this feature only supports the "
-"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
-msgstr ""
-"Attualmente, per i modelli di immagine, è supportata solo la funzione "
-"`text_to_image` (da testo a immagine) della serie di modelli `FLUX.1`."
 
 #: ../../source/user_guide/continuous_batching.rst:116
 msgid ""
@@ -214,3 +167,21 @@ msgstr "Rerank"
 #: ../../source/user_guide/continuous_batching.rst
 msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
 msgstr "Con vLLM >= 0.19.0, anche i modelli di reranking testuale cross-encoder utilizzano il pooling asincrono nativo. Si applicano le stesse impostazioni ``max_num_seqs`` e ``max_num_batched_tokens`` al posto delle impostazioni batch di Xinference. Le versioni precedenti di vLLM, VACC, i reranker Qwen3-VL e gli altri tipi di scoring mantengono il percorso esistente. Ordinamento, ``top_n``, documenti restituiti e conteggi dei token mantengono lo stesso comportamento API."
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Xinference no longer provides its own step-level scheduler for Diffusers "
+"image models. Diffusers still supports ordinary image generation and "
+"multiple images per request. For native engine batching and model-specific "
+"support, see :ref:`image` and :ref:`video`."
+msgstr ""
+"Xinference non fornisce più un proprio scheduler per passo per i modelli di "
+"immagini Diffusers. Diffusers continua a supportare la normale generazione "
+"di immagini e più immagini per richiesta. Per il batching dei motori nativi "
+"e il supporto dei singoli modelli, vedere :ref:`image` e :ref:`video`."
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op."
+msgstr "Se la richiesta è già terminata, annullarla non avrà alcun effetto."

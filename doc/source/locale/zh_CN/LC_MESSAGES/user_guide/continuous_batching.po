@@ -81,33 +81,6 @@ msgstr ""
 msgid "Image Model"
 msgstr "图像模型"
 
-#: ../../source/user_guide/continuous_batching.rst:72
-msgid ""
-"Currently, for image models, only the ``text_to_image`` interface is "
-"supported for ``FLUX.1`` series models."
-msgstr ""
-"当前只有 ``FLUX.1`` 系列模型的 ``text_to_image`` （文生图）接口支持此功能"
-"。"
-
-#: ../../source/user_guide/continuous_batching.rst:74
-msgid ""
-"Enabling this feature requires setting the environment variable "
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` "
-"of the generated images."
-msgstr ""
-"图像模型开启此功能需要在启动 xinference 时指定 ``XINFERENCE_TEXT_TO_IMAGE"
-"_BATCHING_SIZE`` 环境变量，表示生成图片的大小。"
-
-#: ../../source/user_guide/continuous_batching.rst:76
-msgid "For example, starting xinference like this:"
-msgstr "例如，像这样启动 xinference："
-
-#: ../../source/user_guide/continuous_batching.rst:83
-msgid ""
-"Then just use the ``text_to_image`` interface as before, and nothing else"
-" needs to be changed."
-msgstr "接下来正常使用 ``text_to_image`` 接口即可，其他什么都不需要改变。"
-
 #: ../../source/user_guide/continuous_batching.rst:86
 msgid "Abort your request"
 msgstr "中止请求"
@@ -126,12 +99,6 @@ msgid ""
 "example:"
 msgstr "接着，带着你指定的 ``request_id`` 去中止该请求。例如："
 
-#: ../../source/user_guide/continuous_batching.rst:106
-msgid ""
-"Note that if your request has already finished, aborting the request will"
-" be a no-op. Image models also support this feature."
-msgstr "注意，如果你的请求已经结束，那么此操作将什么都不做。"
-
 #: ../../source/user_guide/continuous_batching.rst:110
 msgid "Note"
 msgstr "注意事项"
@@ -143,14 +110,6 @@ msgid ""
 msgstr ""
 "当前，此功能仅支持 LLM 模型的 ``generate``, ``chat``, ``tool call`` （"
 "工具调用）和 ``vision`` （多模态） 功能。"
-
-#: ../../source/user_guide/continuous_batching.rst:114
-msgid ""
-"Currently, for ``image`` models, this feature only supports the "
-"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
-msgstr ""
-"当前，对于图像模型，仅支持 `FLUX.1`` 系列模型的 ``text_to_image`` （文生"
-"图）功能。"
 
 #: ../../source/user_guide/continuous_batching.rst:116
 msgid ""
@@ -189,3 +148,19 @@ msgstr "Rerank"
 #: ../../source/user_guide/continuous_batching.rst
 msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
 msgstr "使用 vLLM >= 0.19.0 时，文本 cross-encoder 重排序模型也使用原生异步 pooling。同样通过 ``max_num_seqs`` 和 ``max_num_batched_tokens`` 配置，而不是 Xinference 的 batch 参数。较旧的 vLLM 版本、VACC、Qwen3-VL 重排序模型和其他打分类型保留现有路径。排序、``top_n``、返回文档和 token 统计的 API 行为保持不变。"
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Xinference no longer provides its own step-level scheduler for Diffusers "
+"image models. Diffusers still supports ordinary image generation and "
+"multiple images per request. For native engine batching and model-specific "
+"support, see :ref:`image` and :ref:`video`."
+msgstr ""
+"Xinference 不再为 Diffusers 图像模型提供自研的逐步调度器。Diffusers "
+"仍支持普通图像生成和单请求生成多张图像。有关原生引擎批处理及各模型的支持情况，请参阅 :ref:`image` 和 :ref:`video`。"
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op."
+msgstr "请注意，如果请求已经完成，取消请求不会产生任何影响。"

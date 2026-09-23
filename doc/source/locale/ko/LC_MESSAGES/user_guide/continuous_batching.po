@@ -83,33 +83,6 @@ msgstr ""
 msgid "Image Model"
 msgstr "Image model"
 
-#: ../../source/user_guide/continuous_batching.rst:72
-msgid ""
-"Currently, for image models, only the ``text_to_image`` interface is "
-"supported for ``FLUX.1`` series models."
-msgstr "현재 ``FLUX.1`` 시리즈 모델의 ``text_to_image`` (텍스트-이미지) 인터페이스만 이 기능을 지원합니다."
-
-#: ../../source/user_guide/continuous_batching.rst:74
-msgid ""
-"Enabling this feature requires setting the environment variable "
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of "
-"the generated images."
-msgstr ""
-"이미지 모델에서 이 기능을 활성화하려면 xinference를 시작할 때 "
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` 환경 변수를 지정해야 하며, 이는 생성되는 이미지의 크기를 "
-"나타냅니다."
-
-#: ../../source/user_guide/continuous_batching.rst:76
-msgid "For example, starting xinference like this:"
-msgstr "예를 들어, 다음과 같이 xinference를 시작합니다:"
-
-#: ../../source/user_guide/continuous_batching.rst:83
-msgid ""
-"Then just use the ``text_to_image`` interface as before, and nothing else "
-"needs to be changed."
-msgstr ""
-"이후에는 ``text_to_image`` 인터페이스를 정상적으로 사용하기만 하면 되며, 다른 것은 전혀 변경할 필요가 없습니다."
-
 #: ../../source/user_guide/continuous_batching.rst:86
 msgid "Abort your request"
 msgstr "요청 중단"
@@ -128,12 +101,6 @@ msgid ""
 "Then, abort the request using the ``request_id`` you have set. For example:"
 msgstr "그런 다음, 당신이 지정한 ``request_id``를 가지고 해당 요청을 중단하십시오. 예를 들어:"
 
-#: ../../source/user_guide/continuous_batching.rst:106
-msgid ""
-"Note that if your request has already finished, aborting the request will be"
-" a no-op. Image models also support this feature."
-msgstr "주의, 만약 당신의 요청이 이미 종료되었다면, 이 작업은 아무것도 수행하지 않습니다."
-
 #: ../../source/user_guide/continuous_batching.rst:110
 msgid "Note"
 msgstr "주의 사항"
@@ -145,13 +112,6 @@ msgid ""
 msgstr ""
 "현재 이 기능은 LLM 모델의 ``generate``, ``chat``, ``tool call`` 및 ``vision`` (다중 모드) "
 "기능만 지원합니다."
-
-#: ../../source/user_guide/continuous_batching.rst:114
-msgid ""
-"Currently, for ``image`` models, this feature only supports the "
-"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
-msgstr ""
-"현재 이미지 모델의 경우 `FLUX.1` 시리즈 모델의 `text_to_image` (텍스트-이미지 생성) 기능만 지원됩니다."
 
 #: ../../source/user_guide/continuous_batching.rst:116
 msgid ""
@@ -190,3 +150,20 @@ msgstr "Rerank"
 #: ../../source/user_guide/continuous_batching.rst
 msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
 msgstr "vLLM >= 0.19.0에서는 텍스트 cross-encoder 리랭크 모델도 네이티브 비동기 pooling을 사용합니다. Xinference 배치 설정 대신 동일한 ``max_num_seqs`` 및 ``max_num_batched_tokens`` 설정을 적용합니다. 이전 vLLM 버전, VACC, Qwen3-VL 리랭커 및 다른 점수 계산 유형은 기존 경로를 유지합니다. 순위, ``top_n`` , 반환 문서 및 토큰 수의 API 동작은 동일하게 유지됩니다."
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Xinference no longer provides its own step-level scheduler for Diffusers "
+"image models. Diffusers still supports ordinary image generation and "
+"multiple images per request. For native engine batching and model-specific "
+"support, see :ref:`image` and :ref:`video`."
+msgstr ""
+"Xinference는 Diffusers 이미지 모델에 자체 단계별 스케줄러를 더 이상 제공하지 않습니다. Diffusers는 일반 이미지"
+" 생성과 요청당 여러 이미지 생성을 계속 지원합니다. 네이티브 엔진 배치 처리 및 모델별 지원은 :ref:`image` 및 "
+":ref:`video` 를 참조하세요."
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op."
+msgstr "요청이 이미 완료된 경우 요청을 취소해도 아무 효과가 없습니다."

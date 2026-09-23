@@ -79,18 +79,7 @@ With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchrono
 
 Image Model
 -----------
-Currently, for image models, only the ``text_to_image`` interface is supported for ``FLUX.1`` series models.
-
-Enabling this feature requires setting the environment variable ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of the generated images.
-
-For example, starting xinference like this:
-
-.. code-block::
-
-    XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE=1024*1024 xinference-local --log-level debug
-
-
-Then just use the ``text_to_image`` interface as before, and nothing else needs to be changed.
+Xinference no longer provides its own step-level scheduler for Diffusers image models. Diffusers still supports ordinary image generation and multiple images per request. For native engine batching and model-specific support, see :ref:`image` and :ref:`video`.
 
 Abort your request
 ==================
@@ -114,14 +103,11 @@ In this mode, you can abort requests that are in the process of inference.
     client.abort_request("<model_uid>", "<your_unique_request_id>")
 
 Note that if your request has already finished, aborting the request will be a no-op.
-Image models also support this feature.
 
 Note
 ====
 
 * Currently, for ``LLM`` models, this feature only supports the ``generate``, ``chat``, ``tool call`` and ``vision`` tasks.
-
-* Currently, for ``image`` models, this feature only supports the ``text_to_image`` tasks. Only ``FLUX.1`` series models are supported.
 
 * For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for image tasks) models are supported. More models will be supported in the future. Please let us know your requirements.
 
