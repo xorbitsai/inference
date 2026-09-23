@@ -607,12 +607,12 @@ msgid "``Hy-MT2-30B-A3B``"
 msgstr "``Hy-MT2-30B-A3B``"
 
 #: ../../source/user_guide/backends.rst:190
-msgid "vLLM can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM of the same major.minor version, e.g. ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``."
-msgstr "在配备 NVIDIA GPU 的 Linux 系统上，vLLM 也可以作为部分文生图模型（例如 ``Qwen-Image``、``Z-Image-Turbo`` ）的引擎，参见 :ref:`图像引擎 <image>`。这需要安装 vLLM-Omni 扩展，并使用主版本号和次版本号相同的 vLLM，例如 ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``。"
+msgid "vLLM can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM of the same major.minor version, e.g. ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``."
+msgstr "在配备 NVIDIA GPU 的 Linux 系统上，vLLM 也可以作为部分文生图模型（例如 ``Qwen-Image``、``Z-Image-Turbo`` ）的引擎，参见 :ref:`图像引擎 <image>`。这需要安装 vLLM-Omni 扩展，并使用主版本号和次版本号相同的 vLLM，例如 ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``。"
 
 #: ../../source/user_guide/backends.rst:204
-msgid "Besides LLMs, SGLang can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires SGLang with diffusion support: ``pip install 'sglang[diffusion]'``."
-msgstr "除了大语言模型，在配备 NVIDIA GPU 的 Linux 系统上，SGLang 也可以作为部分文生图模型（例如 ``Qwen-Image``、``Z-Image-Turbo`` ）的引擎，参见 :ref:`图像引擎 <image>`。这需要安装支持扩散模型的 SGLang：``pip install 'sglang[diffusion]'``。"
+msgid "Besides LLMs, SGLang can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires SGLang with diffusion support: ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``."
+msgstr "除了大语言模型，在配备 NVIDIA GPU 的 Linux 系统上，SGLang 也可以作为部分文生图模型（例如 ``Qwen-Image``、``Z-Image-Turbo`` ）的引擎，参见 :ref:`图像引擎 <image>`。这需要安装支持扩散模型的 SGLang：``pip install 'sglang[diffusion]>=0.5.20,<0.6'``。"
 
 #: ../../source/user_guide/backends.rst:217
 msgid "MLX can also serve supported audio models on Apple silicon. Whisper models, ``F5-TTS``, and ``Kokoro-82M`` expose it through ``--model-engine MLX``; see :ref:`Audio engines <audio>`."

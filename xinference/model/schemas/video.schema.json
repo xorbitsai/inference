@@ -113,7 +113,9 @@
           "type": "string",
           "enum": [
             "diffusers",
-            "MLX"
+            "MLX",
+            "vLLM",
+            "SGLang"
           ]
         },
         "model_format": {

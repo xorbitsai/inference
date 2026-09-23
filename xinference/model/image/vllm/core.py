@@ -69,6 +69,9 @@ class _RequestWaiter:
 
 
 class VLLMDiffusionModel:
+    supported_abilities = VLLM_SUPPORTED_ABILITIES
+    generation_mode = "text-to-image"
+
     # ModelActor skips its serializing lock when allow_batch is True.
     # Omni.generate itself is NOT safe for concurrent callers (it drains the
     # shared engine output queue and drops messages of other requests), so
@@ -91,22 +94,22 @@ class VLLMDiffusionModel:
     ):
         if gguf_model_path:
             raise ValueError(
-                "GGUF quantization is not supported by the vLLM image engine, "
+                "GGUF quantization is not supported by the vLLM diffusion engine, "
                 "please use the diffusers engine instead"
             )
         if lightning_model_path:
             raise ValueError(
-                "Lightning LoRA acceleration is not supported by the vLLM image "
+                "Lightning LoRA acceleration is not supported by the vLLM diffusion "
                 "engine, please use the diffusers engine instead"
             )
         if lora_model:
             raise ValueError(
-                "LoRA is not supported by the vLLM image engine yet, "
+                "LoRA is not supported by the vLLM diffusion engine yet, "
                 "please use the diffusers engine instead"
             )
         if kwargs.get("controlnet"):
             raise ValueError(
-                "Controlnet is not supported by the vLLM image engine, "
+                "Controlnet is not supported by the vLLM diffusion engine, "
                 "please use the diffusers engine instead"
             )
         # only advertise the abilities this engine implements, so the model
@@ -118,7 +121,7 @@ class VLLMDiffusionModel:
             restricted_spec.model_ability = [
                 ability
                 for ability in (restricted_spec.model_ability or [])
-                if ability in VLLM_SUPPORTED_ABILITIES
+                if ability in self.supported_abilities
             ]
             model_spec = restricted_spec
         self.model_family = model_spec
@@ -166,9 +169,9 @@ class VLLMDiffusionModel:
             error_message = f"Failed to import module 'vllm_omni': {e}"
             installation_guide = [
                 "Please make sure 'vllm-omni' is installed and that the installed ",
-                "'vllm' shares the same major.minor version (e.g. vllm-omni 0.24.x ",
-                "requires vllm 0.24.x). You can install a matching pair by ",
-                "`pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'`\n",
+                "'vllm' shares the same major.minor version (e.g. vllm-omni 0.28.x ",
+                "requires vllm 0.28.x). You can install a matching pair by ",
+                "`pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'`\n",
             ]
             raise ImportError(
                 f"{error_message}\n\n{''.join(installation_guide)}"
@@ -181,7 +184,7 @@ class VLLMDiffusionModel:
         )
         self._model = Omni(
             model=self._model_path,
-            mode="text-to-image",
+            mode=self.generation_mode,
             **self._kwargs,
         )
 

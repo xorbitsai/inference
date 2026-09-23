@@ -38,9 +38,9 @@
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
-        "sglang[diffusion] ; #engine# == \"SGLang\"",
-        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
-        "vllm==0.24.* ; #engine# == \"vLLM\"",
+        "sglang[diffusion]>=0.5.20,<0.6 ; #engine# == \"SGLang\"",
+        "vllm-omni==0.28.* ; #engine# == \"vLLM\"",
+        "vllm==0.28.* ; #engine# == \"vLLM\"",
         "transformers>=4.51.0 ; #engine# == \"diffusers\"",
         "transformers>=4.51.0 ; #engine# == \"vLLM\"",
         "#system_torch# ; #engine# == \"diffusers\"",
@@ -61,6 +61,6 @@
       }
     },
     "featured": true,
-    "updated_at": 1785233837
+    "updated_at": 1790075296
   }
 ]

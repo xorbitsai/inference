@@ -79,5 +79,82 @@
     },
     "updated_at": 1787065586,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-A14B",
+    "model_family": "Wan",
+    "engine": "vLLM",
+    "model_format": "diffusers",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 832,
+      "height": 480,
+      "num_frames": 81,
+      "num_inference_steps": 50,
+      "guidance_scale": 5.0,
+      "fps": 16
+    },
+    "virtualenv": {
+      "packages": [
+        "vllm-omni==0.28.* ; #engine# == \"vLLM\"",
+        "vllm==0.28.* ; #engine# == \"vLLM\"",
+        "imageio",
+        "imageio-ffmpeg"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+        "model_revision": "5be7df9619b54f4e2667b2755bc6a756675b5cd7"
+      },
+      "modelscope": {
+        "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1790075296,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-A14B",
+    "model_family": "Wan",
+    "engine": "SGLang",
+    "model_format": "diffusers",
+    "model_ability": [
+      "text2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 832,
+      "height": 480,
+      "num_frames": 81,
+      "num_inference_steps": 50,
+      "guidance_scale": 5.0,
+      "fps": 16
+    },
+    "virtualenv": {
+      "packages": [
+        "sglang[diffusion]>=0.5.20,<0.6 ; #engine# == \"SGLang\"",
+        "imageio",
+        "imageio-ffmpeg"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+        "model_revision": "5be7df9619b54f4e2667b2755bc6a756675b5cd7"
+      },
+      "modelscope": {
+        "model_id": "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1790075296,
+    "featured": true
   }
 ]

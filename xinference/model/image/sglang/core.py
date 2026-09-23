@@ -61,6 +61,11 @@ def _filter_kwargs_by_dataclass_fields(
 
 
 class SGLangDiffusionModel:
+    # SGLang 0.5.20 uses a separate scheduler socket for every request.
+    # Concurrent calls reach its native dynamic batching queue.
+    allow_batch = True
+    supported_abilities = SGLANG_SUPPORTED_ABILITIES
+
     def __init__(
         self,
         model_uid: str,
@@ -76,22 +81,22 @@ class SGLangDiffusionModel:
     ):
         if gguf_model_path:
             raise ValueError(
-                "GGUF quantization is not supported by the SGLang image engine, "
+                "GGUF quantization is not supported by the SGLang diffusion engine, "
                 "please use the diffusers engine instead"
             )
         if lightning_model_path:
             raise ValueError(
-                "Lightning LoRA acceleration is not supported by the SGLang image "
+                "Lightning LoRA acceleration is not supported by the SGLang diffusion "
                 "engine, please use the diffusers engine instead"
             )
         if lora_model:
             raise ValueError(
-                "LoRA is not supported by the SGLang image engine yet, "
+                "LoRA is not supported by the SGLang diffusion engine yet, "
                 "please use the diffusers engine instead"
             )
         if kwargs.get("controlnet"):
             raise ValueError(
-                "Controlnet is not supported by the SGLang image engine, "
+                "Controlnet is not supported by the SGLang diffusion engine, "
                 "please use the diffusers engine instead"
             )
         # only advertise the abilities this engine implements, so the model
@@ -103,7 +108,7 @@ class SGLangDiffusionModel:
             restricted_spec.model_ability = [
                 ability
                 for ability in (restricted_spec.model_ability or [])
-                if ability in SGLANG_SUPPORTED_ABILITIES
+                if ability in self.supported_abilities
             ]
             model_spec = restricted_spec
         self.model_family = model_spec
@@ -120,6 +125,12 @@ class SGLangDiffusionModel:
         return self._abilities
 
     def load(self):
+        from importlib.metadata import version
+
+        from packaging.version import Version
+
+        if Version(version("sglang")) < Version("0.5.20"):
+            raise ImportError("Concurrent diffusion requires sglang[diffusion]>=0.5.20")
         # sglang JIT-compiles kernels at runtime via the ninja binary, which
         # the ninja wheel installs into the interpreter's bin directory; that
         # directory is not on PATH when the model subprocess is spawned with

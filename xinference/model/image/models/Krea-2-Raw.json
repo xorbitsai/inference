@@ -34,7 +34,7 @@
         "huggingface-hub>=1.23.0,<2.0 ; #engine# == \"diffusers\"",
         "numpy<2.3 ; #engine# == \"SGLang\"",
         "pandas<3 ; #engine# == \"SGLang\"",
-        "sglang[diffusion]>=0.5.15 ; #engine# == \"SGLang\"",
+        "sglang[diffusion]>=0.5.20,<0.6 ; #engine# == \"SGLang\"",
         "#system_torch# ; #engine# == \"diffusers\"",
         "#system_torchvision# ; #engine# == \"diffusers\"",
         "#system_numpy# ; #engine# == \"diffusers\""
@@ -43,6 +43,6 @@
       "index_strategy": "unsafe-best-match"
     },
     "featured": false,
-    "updated_at": 1787576957
+    "updated_at": 1790075295
   }
 ]
