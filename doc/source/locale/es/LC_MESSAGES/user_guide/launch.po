@@ -298,21 +298,9 @@ msgstr ""
 "``XINFERENCE_BATCH_SIZE`` y ``XINFERENCE_BATCH_INTERVAL`` se utilizan para "
 "controlar el comportamiento normal del procesamiento por lotes."
 
-#: ../../source/user_guide/launch.rst:99
-msgid ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
-"supported)."
-msgstr ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` (tamaño de lote para modelo de "
-"texto a imagen, cuando sea compatible)."
-
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
 msgstr "Ejemplo (Gran modelo de lenguaje, Transformers):"
-
-#: ../../source/user_guide/launch.rst:108
-msgid "Example (text-to-image):"
-msgstr "Ejemplo (texto a imagen):"
 
 #: ../../source/user_guide/launch.rst:114
 msgid ""
@@ -366,3 +354,13 @@ msgid ""
 "removes the previous model UID and history or automatic-startup metadata, and "
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"Para los modelos de imagen y vídeo, el procesamiento por lotes depende del "
+"motor nativo y del modelo seleccionados. Diffusers no utiliza un "
+"planificador por pasos de Xinference. Consulte :ref:`image` y :ref:`video`."

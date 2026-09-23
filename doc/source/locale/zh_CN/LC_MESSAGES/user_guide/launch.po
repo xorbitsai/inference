@@ -266,19 +266,9 @@ msgid ""
 "batching behavior."
 msgstr "``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用于控制常规的批处理行为。"
 
-#: ../../source/user_guide/launch.rst:99
-msgid ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when"
-" supported)."
-msgstr "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` 用于支持批处理的文生图模型。"
-
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
 msgstr "示例（大型语言模型，Transformers）："
-
-#: ../../source/user_guide/launch.rst:108
-msgid "Example (text-to-image):"
-msgstr "示例（文生图）："
 
 #: ../../source/user_guide/launch.rst:114
 msgid ""
@@ -376,3 +366,12 @@ msgstr "一次增加多个副本时，``replica_config`` 也可以是一个列�
 
 msgid "Scale-up is not supported for Xavier-distributed models or models launched with ``n_worker > 1``. Deleting the last replica terminates the running model."
 msgstr "使用 Xavier 分布式运行的模型，以及通过 ``n_worker > 1`` 启动的模型，暂不支持增加副本。删除最后一个副本时，运行中的模型也会终止。"
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"图像和视频模型的批处理能力取决于所选原生引擎和模型。Diffusers 不使用 Xinference 自研的逐步调度器。请参阅 :ref:`image`"
+" 和 :ref:`video`。"

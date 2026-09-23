@@ -82,11 +82,6 @@ Path to the ``llmman`` executable used to resolve ``oci://`` model URIs.
 Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an
 ``llmman serve`` daemon that is not on ``127.0.0.1:17434``.
 
-XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Enable continuous batching for text-to-image models by specifying the target image size
-(e.g., ``1024*1024``). Default is unset.
-
 XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Server-Sent Events keepalive ping interval (seconds).

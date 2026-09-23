@@ -511,20 +511,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     cache_branch_id=self._kwargs.get("deepcache_cache_branch_id", 0),
                 )
 
-        # Initialize batch scheduler if batching is enabled
-        self._image_batch_scheduler = None
-        if self._should_use_batching():
-            from ..scheduler.flux import FluxBatchScheduler
-
-            self._image_batch_scheduler = FluxBatchScheduler(self)
-            # Note: scheduler will be started when first request comes in
-
-    def _should_use_batching(self) -> bool:
-        """Check if this model should use batch scheduling for images"""
-        from ....constants import XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
-
-        return XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE is not None
-
     def _get_quantize_config(self, method: str, quantization: str, module: str):
         if method == "bnb":
             self._has_bnb_quantization = True
@@ -737,9 +723,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 model.enable_vae_slicing()
             except AttributeError:
                 model.vae.enable_slicing()
-
-    def get_max_num_images_for_batching(self):
-        return self._kwargs.get("max_num_images", 16)
 
     @staticmethod
     def _get_scheduler(model: Any, sampler_name: str, scheduler="automatic"):
@@ -1046,38 +1029,6 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 logger.warning(f"{type(model)} cannot accept `{key}`, will ignore it")
                 kwargs.pop(key)
 
-    async def text_to_image(
-        self,
-        prompt: str,
-        n: int = 1,
-        size: str = "1024*1024",
-        response_format: str = "url",
-        **kwargs,
-    ):
-        """Text to image method that handles both batching and non-batching"""
-        if self._image_batch_scheduler and "gen_prompt_embeds" not in kwargs:
-            await self._ensure_scheduler_started()
-            # Use batching path
-            from concurrent.futures import Future as ConcurrentFuture
-
-            future: ConcurrentFuture = ConcurrentFuture()
-            await self._image_batch_scheduler.add_request(
-                prompt, future, n, size, response_format, **kwargs
-            )
-
-            fut = asyncio.wrap_future(future)
-            return await fut
-        else:
-            # Use direct path
-            return await self._direct_text_to_image(
-                prompt, n, size, response_format, **kwargs
-            )
-
-    async def _ensure_scheduler_started(self):
-        """Ensure the image batch scheduler is started"""
-        if self._image_batch_scheduler and not self._image_batch_scheduler._running:
-            await self._image_batch_scheduler.start()
-
     def _gen_config_for_lightning(self, kwargs):
         if (
             not kwargs.get("num_inference_steps")
@@ -1090,7 +1041,7 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 assert "8steps" in self._lightning_model_path
                 kwargs["num_inference_steps"] = 8
 
-    async def _direct_text_to_image(
+    async def text_to_image(
         self,
         prompt: str,
         n: int = 1,

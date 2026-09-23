@@ -131,18 +131,6 @@ msgstr "XINFERENCE_LLMMAN_BIN"
 msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
 msgstr "``oci://`` 모델 URI를 확인하는 데 사용하는 ``llmman`` 실행 파일의 경로입니다. 기본값은 ``PATH`` 상의 ``llmman`` 입니다. ``127.0.0.1:17434`` 가 아닌 곳에서 실행되는 ``llmman serve`` 데몬에 연결하려면 ``LLMMAN_HOST`` 를 설정하세요."
 
-#: ../../source/getting_started/environments.rst:58
-msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-
-#: ../../source/getting_started/environments.rst:59
-msgid ""
-"Enable continuous batching for text-to-image models by specifying the "
-"target image size (e.g., ``1024*1024``). Default is unset."
-msgstr ""
-"텍스트-이미지 모델에 대해 대상 이미지 크기(예: ``1024*1024``)를 지정하여 연속 배치 처리를 활성화합니다. 기본적으로 "
-"설정되지 않습니다."
-
 #: ../../source/getting_started/environments.rst:63
 msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
 msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
