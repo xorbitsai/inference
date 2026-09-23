@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
-import { Ban, Download, Rocket, Sparkles } from 'lucide-react';
+import { Ban, Download, LoaderCircle, Rocket, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
@@ -1654,27 +1654,24 @@ export default function LaunchDialog({
 
   const fetchProgress = useCallback(async () => {
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
-    try {
-      const [progressRes, replicaRes] = await Promise.all([
-        request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
-        request.get<unknown>(`/v1/models/${modelUid}/replicas`),
-      ]);
+    const [progressResult, replicaResult] = await Promise.allSettled([
+      request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
+      request.get<unknown>(`/v1/models/${modelUid}/replicas`),
+    ]);
+    if (pollingRef.current === null) return;
 
+    if (progressResult.status === 'fulfilled') {
+      const progressRes = progressResult.value;
       const progressValue =
         progressRes && typeof progressRes === 'object' ? progressRes.progress : progressRes;
-      const nextProgress = normalizeProgress(progressValue);
-
-      setProgress(nextProgress);
+      // The tracker can finish before wait_for_load and the launch request do.
+      setProgress(Math.min(normalizeProgress(progressValue), 99));
       setProgressDetails(progressRes && typeof progressRes === 'object' ? progressRes : null);
-      setReplicaStatuses(normalizeReplicaStatuses(replicaRes));
-
-      if (nextProgress >= 100) {
-        stopPolling();
-      }
-    } catch {
-      stopPolling();
     }
-  }, [stopPolling, form, model]);
+    if (replicaResult.status === 'fulfilled') {
+      setReplicaStatuses(normalizeReplicaStatuses(replicaResult.value));
+    }
+  }, [form, model]);
 
   const fetchDownloadProgress = useCallback(async () => {
     const cacheUid = cacheUidRef.current;
@@ -1775,6 +1772,16 @@ export default function LaunchDialog({
     );
   };
 
+  const launchStage = progressDetails?.stage;
+  const launchStageKey =
+    progress >= 100
+      ? 'launchModel.stageReady'
+      : launchStage === 'downloading'
+        ? 'launchModel.stageDownloading'
+        : launchStage === 'loading'
+          ? 'launchModel.stageLoading'
+          : 'launchModel.stagePreparing';
+
   const handleCancelLaunch = async () => {
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
     setCanceling(true);
@@ -1838,6 +1845,10 @@ export default function LaunchDialog({
           return;
         }
 
+        stopPolling();
+        setProgress(100);
+        setProgressDetails({ stage: 'completed' });
+
         const launchedValues = {
           ...newValues,
           model_uid: launchResponse?.model_uid || newValues.model_uid || newValues.model_name,
@@ -1883,6 +1894,9 @@ export default function LaunchDialog({
       })
       .catch(() => {
         stopPolling();
+        setProgress(0);
+        setProgressDetails(null);
+        setReplicaStatuses([]);
       })
       .finally(() => {
         setLoading(false);
@@ -2123,6 +2137,22 @@ export default function LaunchDialog({
                     {Math.round(progress)}%
                   </span>
                 </div>
+                {!isDownloading && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    {progress < 100 && (
+                      <LoaderCircle
+                        className="size-4 shrink-0 animate-spin text-primary"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span>{t(launchStageKey)}</span>
+                  </div>
+                )}
                 {(progressDetails?.stage === 'downloading' ||
                   Boolean(progressDetails?.download_files?.length)) && (
                   <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
