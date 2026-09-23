@@ -375,7 +375,8 @@ def test_memory_snapshot_failure_and_units(monkeypatch):
         "psutil.virtual_memory", lambda: SimpleNamespace(available=1024**3)
     )
     monkeypatch.setattr(
-        "xinference.device_utils.get_gpu_info", lambda: {"gpu-0": {"free": 2 * 1024**3}}
+        "xinference.device_utils.get_gpu_info",
+        lambda: {"gpu-0": {"free": 2 * 1024**3, "free_memory_mib": 2048}},
     )
     assert recommendation_memory_snapshot() == {
         "host_available_mib": 1024,
@@ -387,6 +388,47 @@ def test_memory_snapshot_failure_and_units(monkeypatch):
 
     monkeypatch.setattr("xinference.device_utils.get_gpu_info", failed)
     assert recommendation_memory_snapshot() == {"host_available_mib": 1024}
+
+
+@pytest.mark.parametrize("backend", ["_get_info_by_torch", "_get_rocm_gpu_mem_info"])
+def test_unknown_backend_memory_keeps_smallest_fallback(monkeypatch, backend):
+    from xinference import device_utils
+    from xinference.core.model_recommendation import recommendation_memory_snapshot
+
+    monkeypatch.setattr(
+        device_utils,
+        "get_gpu_info",
+        lambda: {"gpu-0": getattr(device_utils, backend)(0)},
+    )
+    worker = memory_worker()
+    worker["gpu_indices"] = [0]
+    worker["memory"] = recommendation_memory_snapshot()
+    assert worker["memory"]["gpu_available_mib"] == {}
+    result = recommend([worker])
+    assert result["config"]["model_size_in_billions"] == 4
+    assert not any(r["code"] == "memory_estimate" for r in result["reasons"])
+
+
+@pytest.mark.parametrize("visible", [False, True])
+def test_ascend_memory_is_already_mib(monkeypatch, visible):
+    from xinference.core.model_recommendation import recommendation_memory_snapshot
+    from xinference.device_utils import get_npu_info
+
+    monkeypatch.delenv("ASCEND_RT_VISIBLE_DEVICES", raising=False)
+    if visible:
+        monkeypatch.setenv("ASCEND_RT_VISIBLE_DEVICES", "0")
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *a, **kw: SimpleNamespace(
+            stdout=("| 0 Ascend | OK | info |\n" "| 0 | info | 1000 / 21000 |\n")
+        ),
+    )
+    monkeypatch.setattr("xinference.device_utils.get_gpu_info", get_npu_info)
+    worker = memory_worker()
+    worker["gpu_indices"] = [0]
+    worker["memory"] = recommendation_memory_snapshot()
+    assert worker["memory"]["gpu_available_mib"] == {"gpu-0": 20000}
+    assert recommend([worker])["config"]["model_size_in_billions"] == 8
 
 
 @pytest.mark.asyncio

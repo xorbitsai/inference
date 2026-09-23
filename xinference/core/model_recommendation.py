@@ -131,7 +131,13 @@ def recommendation_memory_snapshot() -> dict:
         pass
     try:
         snapshot["gpu_available_mib"] = {
-            key: value["free"] / 1024**2 for key, value in get_gpu_info().items()
+            # Only backend-normalized measurements are usable. Legacy `free`
+            # can be a sentinel or have backend-specific units.
+            (f"gpu-{value['device_index']}" if "device_index" in value else key): value[
+                "free_memory_mib"
+            ]
+            for key, value in get_gpu_info().items()
+            if "free_memory_mib" in value
         }
     except Exception:
         pass
