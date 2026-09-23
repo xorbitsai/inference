@@ -67,7 +67,21 @@ const model: CatalogModel = {
 let root: Root;
 let poll: () => Promise<void>;
 let polling = false;
-let progress: { progress: number; stage: string; download_files?: unknown[] };
+type ReplicaProgress = {
+  replica_id: number;
+  replica_model_uid: string;
+  progress: number;
+  stage: string;
+  info: null;
+  updated_at: null;
+  download_files: [];
+};
+let progress: {
+  progress: number;
+  stage: string;
+  download_files?: unknown[];
+  replicas?: ReplicaProgress[];
+};
 let replicaStatuses: unknown[];
 let failProgressOnce = false;
 let failReplicasOnce = false;
@@ -254,6 +268,60 @@ it('stops polling and clears progress when deployment fails', async () => {
   assert.doesNotMatch(document.body.textContent!, /Preparing the runtime and loading the model/);
 });
 
+it('shows the stage and progress for each replica independently', async () => {
+  await deploy();
+  replicaStatuses = [
+    { replica_id: 0, worker_address: 'worker-a:1234', status: 'CREATING' },
+    { replica_id: 1, worker_address: 'worker-b:1234', status: 'CREATING' },
+  ];
+  progress = {
+    progress: 0.55,
+    stage: 'downloading',
+    replicas: [
+      {
+        replica_id: 0,
+        replica_model_uid: 'demo-0',
+        progress: 0.3,
+        stage: 'downloading',
+        info: null,
+        updated_at: null,
+        download_files: [],
+      },
+      {
+        replica_id: 1,
+        replica_model_uid: 'demo-1',
+        progress: 0.8,
+        stage: 'loading',
+        info: null,
+        updated_at: null,
+        download_files: [],
+      },
+    ],
+  };
+  await tick();
+
+  assert.match(document.body.textContent!, /Overall progress/);
+  const replicaBar = (id: number) =>
+    document.querySelector<HTMLElement>(`[role="progressbar"][aria-label^="Replica ${id}:"]`);
+  assert.equal(replicaBar(0)?.getAttribute('aria-valuenow'), '30');
+  assert.match(replicaBar(0)?.getAttribute('aria-label') ?? '', /Downloading model files/);
+  assert.equal(replicaBar(1)?.getAttribute('aria-valuenow'), '80');
+  assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /loading the model/);
+
+  replicaStatuses = [
+    { replica_id: 0, worker_address: 'worker-a:1234', status: 'READY' },
+    { replica_id: 1, worker_address: 'worker-b:1234', status: 'ERROR' },
+  ];
+  progress.replicas![0].progress = 1;
+  progress.replicas![1].progress = 1;
+  await tick();
+  assert.equal(replicaBar(0)?.getAttribute('aria-valuenow'), '100');
+  assert.match(replicaBar(0)?.getAttribute('aria-label') ?? '', /Model is ready/);
+  assert.equal(replicaBar(1)?.getAttribute('aria-valuenow'), '99');
+  assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Replica failed to start/);
+  await act(async () => rejectLaunch(new Error('replica failed')));
+});
+
 it('stops polling and clears progress when deployment is cancelled', async () => {
   await deploy();
   progress = { progress: 0.8, stage: 'loading' };
@@ -273,10 +341,12 @@ it('provides the deployment stage and empty replica labels in every locale', () 
     const labels = translations[locale].launchModel;
     for (const key of [
       'noReplicaStatus',
+      'overallProgress',
       'stagePreparing',
       'stageDownloading',
       'stageLoading',
       'stageReady',
+      'stageFailed',
     ] as const) {
       assert.ok(labels[key]);
       assert.doesNotMatch(labels[key], /^launchModel\./);
