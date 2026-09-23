@@ -82,9 +82,9 @@
       "packages": [
         "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
-        "sglang[diffusion] ; #engine# == \"SGLang\"",
-        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
-        "vllm==0.24.* ; #engine# == \"vLLM\"",
+        "sglang[diffusion]>=0.5.20,<0.6 ; #engine# == \"SGLang\"",
+        "vllm-omni==0.28.* ; #engine# == \"vLLM\"",
+        "vllm==0.28.* ; #engine# == \"vLLM\"",
         "peft>=0.17.0",
         "#system_torch# ; #engine# == \"diffusers\"",
         "#system_torch# ; #engine# == \"vLLM\"",
@@ -93,6 +93,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1785233837
+    "updated_at": 1790075295
   }
 ]

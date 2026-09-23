@@ -238,3 +238,77 @@ def test_builtin_specs_have_sglang_virtualenv_marker():
             assert any(
                 "sglang" in pkg and '#engine# == "SGLang"' in pkg for pkg in packages
             ), f"{model_name} misses sglang virtualenv marker"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_generations_keep_results_separate(
+    fake_sglang_sampling_params, monkeypatch
+):
+    import asyncio
+    import threading
+
+    from PIL import Image
+
+    from ..sglang import core
+
+    model = SGLangDiffusionModel("uid", "/path", model_spec=_get_spec("Qwen-Image"))
+    barrier = threading.Barrier(2, timeout=5)
+
+    def generate(sampling_params_kwargs):
+        # Both independent requests must enter the native client before either
+        # finishes. A serialized wrapper would break the barrier.
+        barrier.wait()
+        color = sampling_params_kwargs["seed"]
+        return types.SimpleNamespace(frames=[Image.new("RGB", (2, 2), (color, 0, 0))])
+
+    model._model = types.SimpleNamespace(generate=generate)
+    monkeypatch.setattr(core, "handle_image_result", lambda fmt, images: images)
+    assert model.allow_batch is True
+    first, second = await asyncio.gather(
+        model.text_to_image("first", seed=10),
+        model.text_to_image("second", seed=20),
+    )
+    assert first[0].getpixel((0, 0)) == (10, 0, 0)
+    assert second[0].getpixel((0, 0)) == (20, 0, 0)
+
+
+def test_load_preserves_native_batching_settings(monkeypatch):
+    @dataclasses.dataclass
+    class ServerArgs:
+        batching_max_size: int = 1
+        batching_delay_ms: float = 0
+
+    received = {}
+
+    def from_pretrained(**kwargs):
+        received.update(kwargs)
+        return object()
+
+    generator = types.SimpleNamespace(from_pretrained=from_pretrained)
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.multimodal_gen",
+        types.SimpleNamespace(DiffGenerator=generator),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.multimodal_gen.runtime.server_args",
+        types.SimpleNamespace(ServerArgs=ServerArgs),
+    )
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.5.20")
+    model = SGLangDiffusionModel(
+        "uid",
+        "/path",
+        model_spec=_get_spec("Qwen-Image"),
+        batching_max_size=4,
+        batching_delay_ms=5,
+    )
+    model.load()
+    assert received == {
+        "model_path": "/path",
+        "batching_max_size": 4,
+        "batching_delay_ms": 5,
+    }
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.5.9")
+    with pytest.raises(ImportError, match="0.5.20"):
+        model.load()

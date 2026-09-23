@@ -88,6 +88,13 @@ Wan2.2-A14B with either engine explicitly:
     xinference launch --model-name Wan2.2-A14B --model-type video --model-engine diffusers
     xinference launch --model-name Wan2.2-A14B --model-type video --model-engine MLX
 
+On Linux with CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` and ``Wan2.2-A14B`` also support text-to-video with ``SGLang`` (0.5.20 or newer) and ``vLLM`` (vLLM-Omni and vLLM 0.28). Concurrent requests are submitted to the native engine scheduler. Use ``batching_max_size`` and ``batching_delay_ms`` for SGLang, or ``max_num_seqs`` for vLLM. These engine variants do not expose image-to-video or Lightning/GGUF adapters. Diffusers remains the default.
+
+.. code-block:: bash
+
+    xinference launch --model-name Wan2.1-1.3B --model-type video --model-engine SGLang --batching_max_size 2 --batching_delay_ms 5
+    xinference launch --model-name Wan2.1-1.3B --model-type video --model-engine vLLM --max_num_seqs 2
+
 The ``MLX`` engine uses `Blaizzy/mlx-video
 <https://github.com/Blaizzy/mlx-video>`_ and is available on Apple Silicon with
 Python 3.11 or newer. It supports Wan2.1 T2V, Wan2.2 T2V/I2V/TI2V, and the

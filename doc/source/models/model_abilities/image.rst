@@ -123,9 +123,11 @@ batching (e.g. sd3.5-medium, Qwen-Image, FLUX.1-dev) can additionally batch
 concurrent requests on the GPU; pass ``max_num_seqs`` at launch to set the
 maximum batch size.
 
+SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request.
+
 To use them, install SGLang with diffusion support via
-``pip install 'sglang[diffusion]'``, or vLLM-Omni together with a vLLM of the
-same major.minor version via ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``,
+``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the
+same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``,
 then launch the model with ``--model-engine SGLang`` or
 ``--model-engine vLLM``, for example:
 

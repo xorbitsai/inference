@@ -56,7 +56,7 @@ def test_krea_2_model_metadata(krea_families):
                 in spec.virtualenv.packages
             )
             assert any(
-                "sglang[diffusion]>=0.5.15" in package
+                "sglang[diffusion]>=0.5.20,<0.6" in package
                 and '#engine# == "SGLang"' in package
                 for package in spec.virtualenv.packages
             )

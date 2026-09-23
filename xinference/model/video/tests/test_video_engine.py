@@ -405,7 +405,12 @@ async def test_video_catalog_groups_hub_variants():
     ]
     assert len(wan_entries) == 1
     wan_specs = wan_entries[0]["model_specs"]
-    assert {spec["model_engine"] for spec in wan_specs} == {"diffusers", "MLX"}
+    assert {spec["model_engine"] for spec in wan_specs} == {
+        "diffusers",
+        "MLX",
+        "vLLM",
+        "SGLang",
+    }
     assert {spec["model_format"] for spec in wan_specs} == {"diffusers", "mlx"}
     assert {spec["model_hub"] for spec in wan_specs} == {"huggingface", "modelscope"}
 
