@@ -79,11 +79,11 @@ With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchrono
 
 Image Model
 -----------
-Xinference no longer provides its own step-level scheduler for Diffusers image models. Diffusers still supports ordinary image generation and multiple images per request. For native engine batching and model-specific support, see :ref:`image` and :ref:`video`.
+For image-model batching, select the ``vLLM`` or ``SGLang`` engine with ``--model-engine``. SGLang supports dynamic request batching via ``batching_max_size`` and ``batching_delay_ms``; new requests wait while a batch is running. vLLM-Omni supports request batching via ``max_num_seqs`` and, on supported models, experimental step-level continuous batching with ``step_execution=true`` and ``max_num_seqs>1``. Diffusers supports ordinary image generation and multiple images per request, but does not provide Xinference-managed continuous batching. See :ref:`image` for supported models, required versions, and launch instructions.
 
 Abort your request
 ==================
-In this mode, you can abort requests that are in the process of inference.
+For LLMs using Xinference's continuous batching, you can abort requests that are in the process of inference.
 
 #. First, add ``request_id`` option in ``generate_config``. For example:
 

@@ -85,11 +85,6 @@ msgstr "画像モデル"
 msgid "Abort your request"
 msgstr "中断リクエスト"
 
-#: ../../source/user_guide/continuous_batching.rst:87
-msgid ""
-"In this mode, you can abort requests that are in the process of inference."
-msgstr "この機能では、推論中のリクエストをエレガントに中断することができます。"
-
 #: ../../source/user_guide/continuous_batching.rst:89
 msgid "First, add ``request_id`` option in ``generate_config``. For example:"
 msgstr "まず、推論リクエストの ``generate_config`` 内で ``request_id`` オプションを指定します。例えば："
@@ -151,17 +146,30 @@ msgstr "vLLM >= 0.19.0 では、テキストの cross-encoder リランキング
 
 #: doc/source/user_guide/continuous_batching.rst
 msgid ""
-"Xinference no longer provides its own step-level scheduler for Diffusers "
-"image models. Diffusers still supports ordinary image generation and "
-"multiple images per request. For native engine batching and model-specific "
-"support, see :ref:`image` and :ref:`video`."
-msgstr ""
-"Xinference は Diffusers 画像モデル向けの独自のステップ単位スケジューラを提供しなくなりました。Diffusers "
-"は通常の画像生成と、1 リクエストでの複数画像生成を引き続きサポートします。ネイティブエンジンのバッチ処理とモデル別の対応状況は "
-":ref:`image` と :ref:`video` を参照してください。"
-
-#: doc/source/user_guide/continuous_batching.rst
-msgid ""
 "Note that if your request has already finished, aborting the request will be"
 " a no-op."
 msgstr "リクエストがすでに完了している場合、キャンセルしても何も起こりません。"
+
+msgid ""
+"For image-model batching, select the ``vLLM`` or ``SGLang`` engine with "
+"``--model-engine``. SGLang supports dynamic request batching via "
+"``batching_max_size`` and ``batching_delay_ms``; new requests wait while a "
+"batch is running. vLLM-Omni supports request batching via ``max_num_seqs`` "
+"and, on supported models, experimental step-level continuous batching with "
+"``step_execution=true`` and ``max_num_seqs>1``. Diffusers supports ordinary "
+"image generation and multiple images per request, but does not provide "
+"Xinference-managed continuous batching. See :ref:`image` for supported "
+"models, required versions, and launch instructions."
+msgstr ""
+"画像モデルのバッチ処理には、``--model-engine`` で ``vLLM`` または ``SGLang`` "
+"エンジンを選択してください。SGLang は ``batching_max_size`` と ``batching_delay_ms`` "
+"による動的リクエストバッチ処理をサポートし、バッチ実行中の新しいリクエストは待機します。vLLM-Omni は ``max_num_seqs`` "
+"によるリクエストバッチ処理と、対応モデルでの ``step_execution=true`` と ``max_num_seqs>1`` "
+"による実験的なステップ単位の連続バッチ処理をサポートします。Diffusers は通常の画像生成と 1 "
+"リクエストでの複数画像生成をサポートしますが、Xinference が管理する連続バッチ処理は提供しません。対応モデル、必要なバージョン、起動方法は "
+":ref:`image` を参照してください。"
+
+msgid ""
+"For LLMs using Xinference's continuous batching, you can abort requests that"
+" are in the process of inference."
+msgstr "Xinference の連続バッチ処理を使用する LLM では、推論中のリクエストをキャンセルできます。"
