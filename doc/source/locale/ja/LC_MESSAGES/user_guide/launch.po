@@ -331,6 +331,9 @@ msgstr "Web UI は各レプリカのファイルダウンロード詳細を、�
 msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
 msgstr "依存パッケージのインストール中は、各レプリカの進捗に、主なインストールで予定されているパッケージ数と、その仮想環境にすでに存在するパッケージ数が表示されます。共有環境を待機しているレプリカには独自のインストール数はありません。インストーラーが信頼できる計画を解決できない場合、件数は表示されません。"
 
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "レプリカがモデルを読み込んでいる間も、Web UI には依存パッケージのインストール結果が表示されます。インストールが不要な場合は、レプリカのカードにその旨が表示されます。"
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

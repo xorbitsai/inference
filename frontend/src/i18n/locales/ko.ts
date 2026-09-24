@@ -721,6 +721,7 @@ const ko = {
     stageInstallingDependencies: '모델 의존성 패키지 설치 중...',
     dependencyInstallCount: '설치된 의존성 패키지: {{completed}} / {{total}}',
     dependencyInstallPlan: '설치 계획',
+    dependencyInstallSkipped: '이번 실행에는 의존성 패키지 설치가 필요하지 않습니다',
     stageLoading: '실행 환경을 준비하고 모델을 불러오는 중...',
     stageReady: '모델 준비 완료',
     stageFailed: '복제본 시작 실패',

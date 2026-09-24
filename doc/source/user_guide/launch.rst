@@ -168,6 +168,9 @@ virtual environment. A replica waiting for a shared environment has no install
 count of its own. If the installer cannot resolve a reliable plan, the count is
 omitted.
 
+The Web UI keeps the dependency installation result visible while a replica is
+loading. When no dependency installation is needed, the replica card says so.
+
 Replicas specify the number of model instances to load. For example, if you have two GPUs and each can host one replica of the model,
 you can set the replica count to 2. This way, two identical instances of the model will be distributed across the two GPUs.
 Xinference automatically load-balances requests to ensure even distribution across multiple GPUs.

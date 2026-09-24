@@ -79,6 +79,7 @@ type ReplicaProgress = {
   dependency_install_completed?: number;
   dependency_install_total?: number;
   dependency_install_plan?: string[];
+  dependency_install_status?: 'performed' | 'skipped';
 };
 let progress: {
   progress: number;
@@ -366,7 +367,7 @@ it('shows the stage and progress for each replica independently', async () => {
   progress.replicas![1].stage = 'loading';
   await tick();
   assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /loading the model/);
-  assert.doesNotMatch(replicaCard(1)?.textContent ?? '', /Dependencies installed/);
+  assert.match(replicaCard(1)?.textContent ?? '', /Dependencies installed: 2 \/ 5/);
 
   replicaStatuses = [
     { replica_id: 0, worker_address: 'worker-a:1234', status: 'READY' },
@@ -380,6 +381,58 @@ it('shows the stage and progress for each replica independently', async () => {
   assert.equal(replicaBar(1)?.getAttribute('aria-valuenow'), '99');
   assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Replica failed to start/);
   await act(async () => rejectLaunch(new Error('replica failed')));
+});
+
+it('shows the dependency result when installation finishes between polls', async () => {
+  await deploy();
+  replicaStatuses = [{ replica_id: 0, worker_address: 'worker-a:1234', status: 'CREATING' }];
+  progress = {
+    progress: 0.82,
+    stage: 'loading',
+    replicas: [
+      {
+        replica_id: 0,
+        replica_model_uid: 'demo-0',
+        progress: 0.82,
+        stage: 'loading',
+        info: null,
+        updated_at: null,
+        download_files: [],
+        dependency_install_completed: 2,
+        dependency_install_total: 2,
+        dependency_install_plan: ['example==2.0', 'child-pkg==3.0'],
+      },
+    ],
+  };
+  await tick();
+
+  const replicaCard = document.querySelector<HTMLElement>('article[aria-label="Replica 0"]');
+  assert.match(replicaCard?.textContent ?? '', /Dependencies installed: 2 \/ 2/);
+});
+
+it('explains when a replica reuses prepared dependencies', async () => {
+  await deploy();
+  replicaStatuses = [{ replica_id: 0, worker_address: 'worker-a:1234', status: 'CREATING' }];
+  progress = {
+    progress: 0.82,
+    stage: 'loading',
+    replicas: [
+      {
+        replica_id: 0,
+        replica_model_uid: 'demo-0',
+        progress: 0.82,
+        stage: 'loading',
+        info: null,
+        updated_at: null,
+        download_files: [],
+        dependency_install_status: 'skipped',
+      },
+    ],
+  };
+  await tick();
+
+  const replicaCard = document.querySelector<HTMLElement>('article[aria-label="Replica 0"]');
+  assert.match(replicaCard?.textContent ?? '', /No dependency installation needed/);
 });
 
 it('stops polling and clears progress when deployment is cancelled', async () => {
@@ -408,6 +461,7 @@ it('provides the deployment stage and empty replica labels in every locale', () 
       'stageInstallingDependencies',
       'dependencyInstallCount',
       'dependencyInstallPlan',
+      'dependencyInstallSkipped',
       'stageLoading',
       'stageReady',
       'stageFailed',

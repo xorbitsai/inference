@@ -4745,6 +4745,7 @@ class WorkerActor(xo.StatelessActor):
 
                         progressor.activate_stage()
                         # install packages in virtual env
+                        dependency_install_details: Dict[str, Any] = {}
                         if virtual_env_manager:
                             progressor.set_progress(
                                 0.0,
@@ -4756,6 +4757,9 @@ class WorkerActor(xo.StatelessActor):
                             )
 
                             def report_install_stage(stage: str) -> None:
+                                dependency_install_details[
+                                    "dependency_install_status"
+                                ] = "performed"
                                 progressor.set_progress(
                                     0.0,
                                     "Installing model dependencies",
@@ -4765,6 +4769,11 @@ class WorkerActor(xo.StatelessActor):
                             def report_install_progress(
                                 completed: int, total: int, plan: List[str]
                             ) -> None:
+                                dependency_install_details.update(
+                                    dependency_install_completed=completed,
+                                    dependency_install_total=total,
+                                    dependency_install_plan=plan,
+                                )
                                 progressor.set_progress(
                                     0.0,
                                     "Installing model dependencies",
@@ -4815,6 +4824,13 @@ class WorkerActor(xo.StatelessActor):
                                     pass
                                 raise
                             assert virtual_env_fingerprint is not None
+                            if (
+                                "dependency_install_status"
+                                not in dependency_install_details
+                            ):
+                                dependency_install_details[
+                                    "dependency_install_status"
+                                ] = "skipped"
                             self._activate_virtual_env_usage(
                                 virtual_env_path,
                                 virtual_env_fingerprint,
@@ -4825,7 +4841,11 @@ class WorkerActor(xo.StatelessActor):
                         progressor.set_progress(
                             0.1,
                             "Loading model",
-                            {"stage": "loading", "updated_at": time.time()},
+                            {
+                                "stage": "loading",
+                                "updated_at": time.time(),
+                                **dependency_install_details,
+                            },
                         )
 
                         # check before creating subpool and model actor

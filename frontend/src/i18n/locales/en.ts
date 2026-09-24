@@ -739,6 +739,7 @@ const en = {
     stageInstallingDependencies: 'Installing model dependencies...',
     dependencyInstallCount: 'Dependencies installed: {{completed}} / {{total}}',
     dependencyInstallPlan: 'Installation plan',
+    dependencyInstallSkipped: 'No dependency installation needed for this launch',
     stageLoading: 'Preparing the runtime and loading the model...',
     stageReady: 'Model is ready',
     stageFailed: 'Replica failed to start',

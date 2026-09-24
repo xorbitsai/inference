@@ -3829,6 +3829,9 @@ class SupervisorActor(xo.StatelessActor):
                     ),
                     "dependency_install_total": details.get("dependency_install_total"),
                     "dependency_install_plan": details.get("dependency_install_plan"),
+                    "dependency_install_status": details.get(
+                        "dependency_install_status"
+                    ),
                 }
             )
 

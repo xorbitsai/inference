@@ -330,6 +330,9 @@ msgstr "Web 介面會在各副本的卡片中顯示該副本的檔案下載詳�
 msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
 msgstr "安裝依賴套件期間，每個副本的進度會顯示主要安裝工作計劃安裝的套件數，以及其虛擬環境中已有的套件數。等待共用環境的副本沒有自己的安裝計數。如果安裝程式無法解析出可靠的計劃，則不顯示計數。"
 
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "副本載入模型時，Web 介面仍會顯示依賴套件的安裝結果。如果本次無需安裝依賴套件，副本卡片也會明確提示。"
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

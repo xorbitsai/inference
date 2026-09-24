@@ -85,6 +85,7 @@ interface LaunchProgressReplica {
   dependency_install_completed?: number | null;
   dependency_install_total?: number | null;
   dependency_install_plan?: string[] | null;
+  dependency_install_status?: 'performed' | 'skipped' | null;
 }
 
 interface LaunchProgressResponse {
@@ -1816,8 +1817,10 @@ export default function LaunchDialog({
                   Boolean(replicaProgress?.download_files?.length)) && (
                   <DownloadProgressDetails files={replicaProgress?.download_files ?? []} compact />
                 )}
-                {replicaProgress?.stage === 'installing_dependencies' &&
+                {(replicaProgress?.stage === 'installing_dependencies' ||
+                  replicaProgress?.stage === 'loading') &&
                   typeof replicaProgress.dependency_install_total === 'number' &&
+                  replicaProgress.dependency_install_total > 0 &&
                   typeof replicaProgress.dependency_install_completed === 'number' && (
                     <div className="space-y-1.5 text-xs text-muted-foreground">
                       <div className="tabular-nums">
@@ -1840,6 +1843,13 @@ export default function LaunchDialog({
                           </ul>
                         </details>
                       )}
+                    </div>
+                  )}
+                {replicaProgress?.stage === 'loading' &&
+                  (replicaProgress.dependency_install_status === 'skipped' ||
+                    replicaProgress.dependency_install_total === 0) && (
+                    <div className="text-xs text-muted-foreground">
+                      {t('launchModel.dependencyInstallSkipped')}
                     </div>
                   )}
               </article>

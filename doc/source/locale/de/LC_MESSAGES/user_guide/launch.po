@@ -363,6 +363,9 @@ msgstr "Die Weboberfläche zeigt die Download-Details jeder Replik in ihrer eige
 msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
 msgstr "Während der Installation der Abhängigkeiten zeigt der Fortschritt jeder Replik die Anzahl der für die Hauptinstallation geplanten Pakete und die Anzahl der bereits in ihrer virtuellen Umgebung vorhandenen Pakete. Eine Replik, die auf eine gemeinsame Umgebung wartet, hat keinen eigenen Installationszähler. Kann der Installer keinen zuverlässigen Plan ermitteln, wird der Zähler nicht angezeigt."
 
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "Die Weboberfläche zeigt das Ergebnis der Abhängigkeitsinstallation weiterhin an, während eine Replik das Modell lädt. Wenn keine Installation erforderlich ist, weist die Replikkarte darauf hin."
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

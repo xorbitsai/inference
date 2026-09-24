@@ -716,6 +716,7 @@ const zhTW = {
     stageInstallingDependencies: '正在安裝模型依賴套件...',
     dependencyInstallCount: '已安裝依賴套件：{{completed}} / {{total}}',
     dependencyInstallPlan: '安裝計劃',
+    dependencyInstallSkipped: '本次無需安裝依賴套件',
     stageLoading: '正在準備執行環境並載入模型...',
     stageReady: '模型已就緒',
     stageFailed: '副本啟動失敗',
