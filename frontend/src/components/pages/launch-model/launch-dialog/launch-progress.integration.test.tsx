@@ -7,6 +7,7 @@ import { ModelType } from '@/constants';
 import { JSDOM } from 'jsdom';
 import type { Root } from 'react-dom/client';
 import type { FormInstance } from '@/types/form';
+import type { DownloadProgressFile } from '@/types/services';
 import type { CatalogModel } from '../types';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' });
@@ -74,12 +75,12 @@ type ReplicaProgress = {
   stage: string;
   info: null;
   updated_at: null;
-  download_files: [];
+  download_files: DownloadProgressFile[];
 };
 let progress: {
   progress: number;
   stage: string;
-  download_files?: unknown[];
+  download_files?: DownloadProgressFile[];
   replicas?: ReplicaProgress[];
 };
 let replicaStatuses: unknown[];
@@ -320,7 +321,35 @@ it('shows the stage and progress for each replica independently', async () => {
   assert.equal(replicaBar(0)?.getAttribute('aria-valuenow'), '30');
   assert.match(replicaBar(0)?.getAttribute('aria-label') ?? '', /Downloading model files/);
   assert.equal(replicaBar(1)?.getAttribute('aria-valuenow'), '80');
-  assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Waiting to prepare model dependencies/);
+  assert.match(
+    replicaBar(1)?.getAttribute('aria-label') ?? '',
+    /Waiting to prepare model dependencies/
+  );
+
+  const downloadFile = (name: string): DownloadProgressFile => ({
+    name,
+    downloaded_bytes: 50,
+    total_bytes: 100,
+    progress: 0.5,
+    speed_bytes_per_second: 10,
+    elapsed_seconds: 5,
+    eta_seconds: 5,
+    status: 'downloading',
+  });
+  progress.replicas![0].download_files = [downloadFile('worker-a-model.bin')];
+  progress.replicas![1].stage = 'downloading';
+  progress.replicas![1].download_files = [downloadFile('worker-b-model.bin')];
+  await tick();
+  const replicaCard = (id: number) =>
+    document.querySelector<HTMLElement>(`article[aria-label="Replica ${id}"]`);
+  assert.match(replicaCard(0)?.textContent ?? '', /worker-a-model\.bin/);
+  assert.doesNotMatch(replicaCard(0)?.textContent ?? '', /worker-b-model\.bin/);
+  assert.match(replicaCard(1)?.textContent ?? '', /worker-b-model\.bin/);
+  assert.doesNotMatch(replicaCard(1)?.textContent ?? '', /worker-a-model\.bin/);
+  assert.equal(replicaCard(0)?.querySelectorAll('[data-slot="collapsible-trigger"]').length, 1);
+  assert.equal(replicaCard(1)?.querySelectorAll('[data-slot="collapsible-trigger"]').length, 1);
+
+  progress.replicas![1].download_files = [];
   progress.replicas![1].stage = 'installing_dependencies';
   await tick();
   assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Installing model dependencies/);

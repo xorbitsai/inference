@@ -163,6 +163,8 @@ percentage returned by the endpoint covers the whole launch. The Web UI shows
 progress for each replica without an overall launch bar. Dependency installation
 has no separate package-level percentage.
 
+The Web UI shows each replica's file download details inside its replica card.
+
 Replicas specify the number of model instances to load. For example, if you have two GPUs and each can host one replica of the model,
 you can set the replica count to 2. This way, two identical instances of the model will be distributed across the two GPUs.
 Xinference automatically load-balances requests to ensure even distribution across multiple GPUs.

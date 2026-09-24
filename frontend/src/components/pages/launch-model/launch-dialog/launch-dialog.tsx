@@ -1749,8 +1749,9 @@ export default function LaunchDialog({
                   : 'border-border bg-muted/40 text-muted-foreground';
 
             return (
-              <div
+              <article
                 key={replica.replica_id}
+                aria-label={`${t('launchModel.replica')} ${replica.replica_id}`}
                 className="flex min-w-0 flex-col gap-3 rounded-md border bg-background/60 p-3"
               >
                 <div className="flex min-w-0 items-start justify-between gap-3">
@@ -1808,7 +1809,11 @@ export default function LaunchDialog({
                     />
                   )}
                 </div>
-              </div>
+                {(replicaProgress?.stage === 'downloading' ||
+                  Boolean(replicaProgress?.download_files?.length)) && (
+                  <DownloadProgressDetails files={replicaProgress?.download_files ?? []} compact />
+                )}
+              </article>
             );
           })}
         </div>
@@ -2173,10 +2178,11 @@ export default function LaunchDialog({
                     </span>
                   </div>
                 )}
-                {(progressDetails?.stage === 'downloading' ||
-                  Boolean(progressDetails?.download_files?.length)) && (
-                  <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
-                )}
+                {isDownloading &&
+                  (progressDetails?.stage === 'downloading' ||
+                    Boolean(progressDetails?.download_files?.length)) && (
+                    <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
+                  )}
                 {!isDownloading && renderReplicaStatuses()}
               </div>
             )}
