@@ -340,6 +340,8 @@ The following OpenAI APIs are supported:
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
 
+- Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details.
+
 Xinference also supports Anthropic API via base url ``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code and so forth.
 Refer to :ref:`anthropic client <anthropic_client>` for more details.
 

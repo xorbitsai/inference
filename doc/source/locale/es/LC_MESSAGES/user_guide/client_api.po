@@ -107,6 +107,18 @@ msgstr ""
 " favor, proporciona el texto en chino simplificado que necesita ser "
 "traducido."
 
+msgid "OpenAI Client Responses API"
+msgstr "API Responses con el cliente de OpenAI"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "La dirección de acceso a la API Responses es: /v1/responses"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "En Xinference, la API Responses no tiene estado. Las respuestas no se almacenan, por lo que ``previous_response_id`` y ``conversation`` se rechazan: envía la conversación completa en ``input`` en cada solicitud. Se admiten entrada de texto e imágenes, herramientas de función y personalizadas, razonamiento, salida estructurada y streaming. Las herramientas alojadas como ``web_search`` se ignoran."
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI llama a proveedores personalizados a través de esta API. Añade Xinference como proveedor en ``~/.codex/config.toml``:"
+
 #: ../../source/user_guide/client_api.rst:142
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
