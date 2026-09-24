@@ -355,8 +355,8 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
-msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch."
-msgstr "Durante el despliegue, el endpoint de progreso ``GET /v1/models/{model_uid}/progress`` informa de la etapa de cada réplica. Tras descargar los archivos del modelo, una réplica puede indicar ``waiting_for_dependencies`` mientras otro inicio prepara el entorno virtual compartido, después ``installing_dependencies`` durante la instalación de paquetes y ``loading`` cuando el entorno está listo. El porcentaje general que devuelve el endpoint corresponde a todo el inicio."
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "Durante el despliegue, el endpoint de progreso ``GET /v1/models/{model_uid}/progress`` informa de la etapa de cada réplica. Tras descargar los archivos del modelo, una réplica puede indicar ``waiting_for_dependencies`` mientras otro inicio prepara el entorno virtual compartido, después ``installing_dependencies`` durante la instalación de paquetes y ``loading`` cuando el entorno está listo."
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "La interfaz web muestra los detalles de descarga de archivos de cada réplica dentro de su tarjeta."

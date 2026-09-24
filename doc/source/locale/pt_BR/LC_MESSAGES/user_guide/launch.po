@@ -358,8 +358,8 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
-msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch."
-msgstr "Durante a implantação, o endpoint de progresso ``GET /v1/models/{model_uid}/progress`` informa a etapa de cada réplica. Após o download dos arquivos do modelo, uma réplica pode informar ``waiting_for_dependencies`` enquanto outra inicialização prepara o ambiente virtual compartilhado, depois ``installing_dependencies`` durante a instalação dos pacotes e ``loading`` quando o ambiente estiver pronto. A porcentagem geral retornada pelo endpoint cobre toda a inicialização."
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "Durante a implantação, o endpoint de progresso ``GET /v1/models/{model_uid}/progress`` informa a etapa de cada réplica. Após o download dos arquivos do modelo, uma réplica pode informar ``waiting_for_dependencies`` enquanto outra inicialização prepara o ambiente virtual compartilhado, depois ``installing_dependencies`` durante a instalação dos pacotes e ``loading`` quando o ambiente estiver pronto."
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "A interface Web mostra os detalhes de download dos arquivos de cada réplica em seu respectivo cartão."

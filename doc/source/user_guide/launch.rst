@@ -158,8 +158,7 @@ During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress``
 reports a stage for each replica. After model files finish downloading, a replica
 can report ``waiting_for_dependencies`` while another launch prepares its shared
 virtual environment, then ``installing_dependencies`` while packages are being
-installed, and ``loading`` after the environment is ready. The overall
-percentage returned by the endpoint covers the whole launch.
+installed, and ``loading`` after the environment is ready.
 
 The Web UI shows each replica's file download details inside its replica card.
 

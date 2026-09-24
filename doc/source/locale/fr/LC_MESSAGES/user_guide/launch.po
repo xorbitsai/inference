@@ -359,8 +359,8 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
-msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch."
-msgstr "Pendant le déploiement, le point de terminaison ``GET /v1/models/{model_uid}/progress`` indique l'étape de chaque réplique. Après le téléchargement des fichiers du modèle, une réplique peut indiquer ``waiting_for_dependencies`` pendant qu'un autre lancement prépare l'environnement virtuel partagé, puis ``installing_dependencies`` pendant l'installation des paquets et ``loading`` une fois l'environnement prêt. Le pourcentage global renvoyé par le point de terminaison couvre tout le lancement."
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "Pendant le déploiement, le point de terminaison ``GET /v1/models/{model_uid}/progress`` indique l'étape de chaque réplique. Après le téléchargement des fichiers du modèle, une réplique peut indiquer ``waiting_for_dependencies`` pendant qu'un autre lancement prépare l'environnement virtuel partagé, puis ``installing_dependencies`` pendant l'installation des paquets et ``loading`` une fois l'environnement prêt."
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "L'interface Web affiche les détails des téléchargements de chaque réplique dans sa carte."
