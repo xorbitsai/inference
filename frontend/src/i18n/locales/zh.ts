@@ -700,6 +700,8 @@ const zh = {
     noReplicaStatus: '正在等待副本状态...',
     stagePreparing: '正在准备部署...',
     stageDownloading: '正在下载模型文件...',
+    stageWaitingDependencies: '正在等待准备模型依赖...',
+    stageInstallingDependencies: '正在安装模型依赖包...',
     stageLoading: '正在准备运行环境并加载模型...',
     stageReady: '模型已就绪',
     stageFailed: '副本启动失败',

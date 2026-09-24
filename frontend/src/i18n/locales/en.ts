@@ -735,6 +735,8 @@ const en = {
     noReplicaStatus: 'Waiting for replica status...',
     stagePreparing: 'Preparing deployment...',
     stageDownloading: 'Downloading model files...',
+    stageWaitingDependencies: 'Waiting to prepare model dependencies...',
+    stageInstallingDependencies: 'Installing model dependencies...',
     stageLoading: 'Preparing the runtime and loading the model...',
     stageReady: 'Model is ready',
     stageFailed: 'Replica failed to start',

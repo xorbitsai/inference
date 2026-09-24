@@ -3832,6 +3832,8 @@ class SupervisorActor(xo.StatelessActor):
                 candidate
                 for candidate in (
                     "downloading",
+                    "installing_dependencies",
+                    "waiting_for_dependencies",
                     "loading",
                     "cancelled",
                     "completed",

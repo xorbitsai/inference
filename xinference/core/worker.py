@@ -3586,6 +3586,7 @@ class WorkerActor(xo.StatelessActor):
         model_uid: Optional[str] = None,
         reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
         release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
+        report_install_stage: Optional[Callable[[str], None]] = None,
     ) -> Optional[str]:
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
@@ -3939,6 +3940,8 @@ class WorkerActor(xo.StatelessActor):
                     reserve_usage(venv_path, fingerprint, model_uid, not setup_matches)
                     usage_reserved = True
                 if not setup_matches:
+                    if report_install_stage is not None:
+                        report_install_stage("installing_dependencies")
                     if modern_sglang_kernel:
                         # SGLang 0.5.11 renamed the distribution while retaining the
                         # same import package.  Remove the cached legacy owner before
@@ -4701,8 +4704,25 @@ class WorkerActor(xo.StatelessActor):
                         # check cancel before prepare virtual env
                         check_cancel()
 
+                        progressor.activate_stage()
                         # install packages in virtual env
                         if virtual_env_manager:
+                            progressor.set_progress(
+                                0.0,
+                                "Waiting to prepare model dependencies",
+                                {
+                                    "stage": "waiting_for_dependencies",
+                                    "updated_at": time.time(),
+                                },
+                            )
+
+                            def report_install_stage(stage: str) -> None:
+                                progressor.set_progress(
+                                    0.0,
+                                    "Installing model dependencies",
+                                    {"stage": stage, "updated_at": time.time()},
+                                )
+
                             prepare_task = asyncio.create_task(
                                 asyncio.to_thread(
                                     self._prepare_virtual_env,
@@ -4723,6 +4743,7 @@ class WorkerActor(xo.StatelessActor):
                                     model_uid=model_uid,
                                     reserve_usage=self._reserve_virtual_env_usage,
                                     release_usage=self._release_virtual_env_usage,
+                                    report_install_stage=report_install_stage,
                                 )
                             )
                             try:
@@ -4745,6 +4766,12 @@ class WorkerActor(xo.StatelessActor):
                                 model_uid,
                             )
                             launch_info.virtual_env_manager = virtual_env_manager
+
+                        progressor.set_progress(
+                            0.1,
+                            "Loading model",
+                            {"stage": "loading", "updated_at": time.time()},
+                        )
 
                         # check before creating subpool and model actor
                         check_cancel()

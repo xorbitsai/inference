@@ -198,6 +198,10 @@ class Progressor:
             self._sub_progress_stack.extend(spans[::-1])
 
     def __enter__(self):
+        self.activate_stage()
+
+    def activate_stage(self):
+        """Select the next stage before reporting progress outside a context."""
         if self.request_id:
             (
                 self._current_sub_progress_start,

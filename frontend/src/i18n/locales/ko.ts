@@ -717,6 +717,8 @@ const ko = {
     noReplicaStatus: '복제본 상태를 기다리는 중...',
     stagePreparing: '배포 준비 중...',
     stageDownloading: '모델 파일 다운로드 중...',
+    stageWaitingDependencies: '모델 의존성 준비 대기 중...',
+    stageInstallingDependencies: '모델 의존성 패키지 설치 중...',
     stageLoading: '실행 환경을 준비하고 모델을 불러오는 중...',
     stageReady: '모델 준비 완료',
     stageFailed: '복제본 시작 실패',

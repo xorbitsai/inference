@@ -214,7 +214,7 @@ afterEach(async () => {
   globalThis.clearInterval = originalClearInterval;
 });
 
-it('shows preparing, downloading, and loading stages without claiming readiness early', async () => {
+it('shows replica progress without an overall launch bar', async () => {
   await act(async () => {
     Array.from(document.querySelectorAll('label'))
       .find((label) => label.textContent?.includes('Autostart after successful launch'))!
@@ -222,8 +222,8 @@ it('shows preparing, downloading, and loading stages without claiming readiness 
       .click();
   });
   await deploy();
-  assert.match(document.body.textContent!, /Preparing deployment/);
   assert.match(document.body.textContent!, /Waiting for replica status/);
+  assert.equal(document.querySelector('[aria-label="Overall progress"]'), null);
   assert.doesNotMatch(document.body.textContent!, /launchModel\.noReplicaStatus/);
 
   failProgressOnce = true;
@@ -232,24 +232,38 @@ it('shows preparing, downloading, and loading stages without claiming readiness 
   assert.equal(polling, true);
   assert.match(document.body.textContent!, /CREATING/);
 
-  progress = { progress: 0.4, stage: 'downloading', download_files: [] };
+  const replicaProgress: ReplicaProgress = {
+    replica_id: 0,
+    replica_model_uid: 'demo-0',
+    progress: 0.4,
+    stage: 'downloading',
+    info: null,
+    updated_at: null,
+    download_files: [],
+  };
+  progress = { progress: 0.4, stage: 'downloading', replicas: [replicaProgress] };
   failReplicasOnce = true;
   await tick();
   assert.equal(polling, true);
   assert.match(document.body.textContent!, /Downloading model files/);
   assert.match(document.body.textContent!, /40%/);
 
-  progress = { progress: 0.8, stage: 'loading' };
+  replicaProgress.progress = 0.8;
+  replicaProgress.stage = 'loading';
+  progress = { progress: 0.8, stage: 'loading', replicas: [replicaProgress] };
   await tick();
   assert.match(document.body.textContent!, /Preparing the runtime and loading the model/);
   assert.match(document.body.textContent!, /80%/);
 
-  progress = { progress: 1, stage: 'loading' };
+  replicaProgress.progress = 1;
+  progress = { progress: 1, stage: 'loading', replicas: [replicaProgress] };
   await tick();
   assert.match(document.body.textContent!, /99%/);
   assert.equal(polling, true);
   assert.equal(closed, false);
 
+  replicaStatuses = [{ replica_id: 0, worker_address: 'worker:1234', status: 'READY' }];
+  await tick();
   await act(async () => resolveLaunch({ model_uid: 'demo' }));
   assert.equal(polling, false);
   assert.match(document.body.textContent!, /100%/);
@@ -291,7 +305,7 @@ it('shows the stage and progress for each replica independently', async () => {
         replica_id: 1,
         replica_model_uid: 'demo-1',
         progress: 0.8,
-        stage: 'loading',
+        stage: 'waiting_for_dependencies',
         info: null,
         updated_at: null,
         download_files: [],
@@ -300,12 +314,18 @@ it('shows the stage and progress for each replica independently', async () => {
   };
   await tick();
 
-  assert.match(document.body.textContent!, /Overall progress/);
+  assert.equal(document.querySelector('[aria-label="Overall progress"]'), null);
   const replicaBar = (id: number) =>
     document.querySelector<HTMLElement>(`[role="progressbar"][aria-label^="Replica ${id}:"]`);
   assert.equal(replicaBar(0)?.getAttribute('aria-valuenow'), '30');
   assert.match(replicaBar(0)?.getAttribute('aria-label') ?? '', /Downloading model files/);
   assert.equal(replicaBar(1)?.getAttribute('aria-valuenow'), '80');
+  assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Waiting to prepare model dependencies/);
+  progress.replicas![1].stage = 'installing_dependencies';
+  await tick();
+  assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Installing model dependencies/);
+  progress.replicas![1].stage = 'loading';
+  await tick();
   assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /loading the model/);
 
   replicaStatuses = [
@@ -344,6 +364,8 @@ it('provides the deployment stage and empty replica labels in every locale', () 
       'overallProgress',
       'stagePreparing',
       'stageDownloading',
+      'stageWaitingDependencies',
+      'stageInstallingDependencies',
       'stageLoading',
       'stageReady',
       'stageFailed',

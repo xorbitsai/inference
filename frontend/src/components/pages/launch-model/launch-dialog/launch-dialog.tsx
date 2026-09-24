@@ -99,6 +99,8 @@ const DOWNLOAD_TERMINAL_STAGES = new Set(['completed', 'failed', 'cancelled']);
 
 function getLaunchStageKey(stage?: string, status?: string): string {
   if (stage === 'downloading') return 'launchModel.stageDownloading';
+  if (stage === 'waiting_for_dependencies') return 'launchModel.stageWaitingDependencies';
+  if (stage === 'installing_dependencies') return 'launchModel.stageInstallingDependencies';
   if (stage === 'loading' || status === 'LOADING') return 'launchModel.stageLoading';
   return 'launchModel.stagePreparing';
 }
@@ -1668,10 +1670,6 @@ export default function LaunchDialog({
 
     if (progressResult.status === 'fulfilled') {
       const progressRes = progressResult.value;
-      const progressValue =
-        progressRes && typeof progressRes === 'object' ? progressRes.progress : progressRes;
-      // The tracker can finish before wait_for_load and the launch request do.
-      setProgress(Math.min(normalizeProgress(progressValue), 99));
       setProgressDetails(progressRes && typeof progressRes === 'object' ? progressRes : null);
     }
     if (replicaResult.status === 'fulfilled') {
@@ -1818,12 +1816,6 @@ export default function LaunchDialog({
     );
   };
 
-  const launchStage = progressDetails?.stage;
-  const launchStageKey =
-    progress >= 100
-      ? 'launchModel.stageReady'
-      : getLaunchStageKey(launchStage);
-
   const handleCancelLaunch = async () => {
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
     setCanceling(true);
@@ -1833,7 +1825,6 @@ export default function LaunchDialog({
       isCanceledLaunchRef.current = true;
       stopPolling();
       setLoading(false);
-      setProgress(0);
       setProgressDetails(null);
       setReplicaStatuses([]);
       toast.success(t('launchModel.launchCanceled'));
@@ -1875,7 +1866,6 @@ export default function LaunchDialog({
     const newValues = transformFormToFetch(values);
     isCanceledLaunchRef.current = false;
     setLoading(true);
-    setProgress(0);
     setProgressDetails(null);
     setReplicaStatuses([]);
 
@@ -1888,7 +1878,6 @@ export default function LaunchDialog({
         }
 
         stopPolling();
-        setProgress(100);
         setProgressDetails({ stage: 'completed' });
 
         const launchedValues = {
@@ -1936,7 +1925,6 @@ export default function LaunchDialog({
       })
       .catch(() => {
         stopPolling();
-        setProgress(0);
         setProgressDetails(null);
         setReplicaStatuses([]);
       })
@@ -2173,35 +2161,16 @@ export default function LaunchDialog({
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>
             {loading && (
               <div className="w-full space-y-2 pr-3">
-                {!isDownloading && (
-                  <div className="text-xs font-medium text-muted-foreground">
-                    {t('launchModel.overallProgress')}
-                  </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <Progress
-                    value={progress}
-                    className="flex-1"
-                    aria-label={t('launchModel.overallProgress')}
-                  />
-                  <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                    {Math.round(progress)}%
-                  </span>
-                </div>
-                {!isDownloading && (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    aria-atomic="true"
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                  >
-                    {progress < 100 && (
-                      <LoaderCircle
-                        className="size-4 shrink-0 animate-spin text-primary"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <span>{t(launchStageKey)}</span>
+                {isDownloading && (
+                  <div className="flex items-center gap-3">
+                    <Progress
+                      value={progress}
+                      className="flex-1"
+                      aria-label={t('launchModel.overallProgress')}
+                    />
+                    <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                      {Math.round(progress)}%
+                    </span>
                   </div>
                 )}
                 {(progressDetails?.stage === 'downloading' ||

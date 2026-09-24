@@ -721,6 +721,8 @@ const ja = {
     noReplicaStatus: 'レプリカの状態を待っています...',
     stagePreparing: 'デプロイを準備しています...',
     stageDownloading: 'モデルファイルをダウンロードしています...',
+    stageWaitingDependencies: 'モデルの依存パッケージの準備を待っています...',
+    stageInstallingDependencies: 'モデルの依存パッケージをインストールしています...',
     stageLoading: '実行環境を準備し、モデルを読み込んでいます...',
     stageReady: 'モデルの準備が完了しました',
     stageFailed: 'レプリカの起動に失敗しました',

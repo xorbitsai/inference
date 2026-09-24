@@ -712,6 +712,8 @@ const zhTW = {
     noReplicaStatus: '正在等待副本狀態...',
     stagePreparing: '正在準備部署...',
     stageDownloading: '正在下載模型檔案...',
+    stageWaitingDependencies: '正在等待準備模型依賴...',
+    stageInstallingDependencies: '正在安裝模型依賴套件...',
     stageLoading: '正在準備執行環境並載入模型...',
     stageReady: '模型已就緒',
     stageFailed: '副本啟動失敗',
