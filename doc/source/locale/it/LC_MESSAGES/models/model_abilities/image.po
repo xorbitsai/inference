@@ -570,19 +570,3 @@ msgstr "SGLang 0.5.20 o successivo accetta anche richieste di immagini simultane
 
 msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
 msgstr "Installare SGLang con supporto diffusion tramite ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, oppure vLLM-Omni e vLLM con la stessa versione principale e secondaria tramite ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, quindi avviare il modello con ``--model-engine SGLang`` o ``--model-engine vLLM``, ad esempio:"
-
-#: ../../source/models/model_abilities/image.rst:520
-msgid "TeleOCR Usage"
-msgstr ""
-
-#: ../../source/models/model_abilities/image.rst:522
-msgid "TeleOCR uses the image OCR API with Transformers or vLLM. Its Hugging Face weights are ``StarDoc-AI/TeleOCR``; the ModelScope mirror is ``XingChen-AGI/TeleOCR``. Launch the regular weights with::"
-msgstr ""
-
-#: ../../source/models/model_abilities/image.rst:528
-msgid "GGUF quantizations use the older NaviDC-OCR conversion with a separate vision projector. Select one with::"
-msgstr ""
-
-#: ../../source/models/model_abilities/image.rst:533
-msgid "The GGUF publisher reports that these files require a patched llama.cpp build; stock llama.cpp fails with ``check_tensor_dims``. Use a compatible patched ``xllamacpp`` build before launching. See the `GGUF patch instructions <https://huggingface.co/nandraj/NaviDC-OCR-GGUF/blob/main/PATCHES.md>`_."
-msgstr ""

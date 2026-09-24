@@ -534,19 +534,3 @@ msgstr "SGLang 0.5.20 及更新版本支持并发图片请求的原生动态批�
 
 msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
 msgstr "安装带 diffusion 支持的 SGLang：``pip install 'sglang[diffusion]>=0.5.20,<0.6'``，或安装主次版本匹配的 vLLM-Omni 和 vLLM：``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``，然后使用 ``--model-engine SGLang`` 或 ``--model-engine vLLM`` 启动模型，例如："
-
-#: ../../source/models/model_abilities/image.rst:520
-msgid "TeleOCR Usage"
-msgstr "TeleOCR 使用方法"
-
-#: ../../source/models/model_abilities/image.rst:522
-msgid "TeleOCR uses the image OCR API with Transformers or vLLM. Its Hugging Face weights are ``StarDoc-AI/TeleOCR``; the ModelScope mirror is ``XingChen-AGI/TeleOCR``. Launch the regular weights with::"
-msgstr "TeleOCR 通过图像 OCR API 使用 Transformers 或 vLLM。Hugging Face 权重为 ``StarDoc-AI/TeleOCR``，ModelScope 镜像为 ``XingChen-AGI/TeleOCR``。使用以下命令启动原始权重："
-
-#: ../../source/models/model_abilities/image.rst:528
-msgid "GGUF quantizations use the older NaviDC-OCR conversion with a separate vision projector. Select one with::"
-msgstr "GGUF 量化权重来自旧版 NaviDC-OCR 转换，使用独立的视觉投影器。使用以下命令选择量化版本："
-
-#: ../../source/models/model_abilities/image.rst:533
-msgid "The GGUF publisher reports that these files require a patched llama.cpp build; stock llama.cpp fails with ``check_tensor_dims``. Use a compatible patched ``xllamacpp`` build before launching. See the `GGUF patch instructions <https://huggingface.co/nandraj/NaviDC-OCR-GGUF/blob/main/PATCHES.md>`_."
-msgstr "GGUF 发布者指出，这些文件需要打补丁的 llama.cpp；原版 llama.cpp 会出现 ``check_tensor_dims`` 错误。启动前须使用兼容且已打补丁的 ``xllamacpp`` 构建。参见 `GGUF 补丁说明 <https://huggingface.co/nandraj/NaviDC-OCR-GGUF/blob/main/PATCHES.md>`_。"
