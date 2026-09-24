@@ -82,6 +82,9 @@ interface LaunchProgressReplica {
   info: string | null;
   updated_at: number | null;
   download_files: DownloadProgressFile[];
+  dependency_install_completed?: number | null;
+  dependency_install_total?: number | null;
+  dependency_install_plan?: string[] | null;
 }
 
 interface LaunchProgressResponse {
@@ -1813,6 +1816,32 @@ export default function LaunchDialog({
                   Boolean(replicaProgress?.download_files?.length)) && (
                   <DownloadProgressDetails files={replicaProgress?.download_files ?? []} compact />
                 )}
+                {replicaProgress?.stage === 'installing_dependencies' &&
+                  typeof replicaProgress.dependency_install_total === 'number' &&
+                  typeof replicaProgress.dependency_install_completed === 'number' && (
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <div className="tabular-nums">
+                        {t('launchModel.dependencyInstallCount', {
+                          completed: replicaProgress.dependency_install_completed,
+                          total: replicaProgress.dependency_install_total,
+                        })}
+                      </div>
+                      {Boolean(replicaProgress.dependency_install_plan?.length) && (
+                        <details>
+                          <summary className="cursor-pointer">
+                            {t('launchModel.dependencyInstallPlan')}
+                          </summary>
+                          <ul className="mt-1 max-h-32 space-y-0.5 overflow-y-auto pl-4 font-mono">
+                            {replicaProgress.dependency_install_plan?.map((packageSpec) => (
+                              <li key={packageSpec} className="break-all">
+                                {packageSpec}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
               </article>
             );
           })}

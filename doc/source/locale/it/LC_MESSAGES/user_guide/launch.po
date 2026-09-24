@@ -361,6 +361,9 @@ msgstr "Durante la distribuzione, l'endpoint di avanzamento ``GET /v1/models/{mo
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "L'interfaccia Web mostra i dettagli dei file scaricati da ogni replica nella relativa scheda."
 
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "Durante l'installazione delle dipendenze, l'avanzamento di ogni replica include il numero di pacchetti previsti per l'installazione principale e il numero già presente nel suo ambiente virtuale. Una replica in attesa di un ambiente condiviso non ha un conteggio di installazione proprio. Se il programma di installazione non riesce a determinare un piano affidabile, il conteggio viene omesso."
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

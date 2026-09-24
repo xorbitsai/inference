@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import zipfile
 from pathlib import Path
 from unittest import mock
@@ -49,8 +50,69 @@ from ..virtual_env_manager import (
     is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
     needs_flashinfer_aot,
+    observe_dependency_install,
+    resolve_dependency_install_plan,
     validate_virtual_env_find_links,
 )
+
+
+def test_dependency_install_plan_uses_actual_resolved_distributions(tmp_path):
+    manager = mock.Mock()
+    manager.process_packages.return_value = ["example>=1"]
+    manager._resolve_install_plan.return_value = ["Example==2.0", "child_pkg==3.0"]
+    manager.get_lib_path.return_value = str(tmp_path)
+
+    plan = resolve_dependency_install_plan(
+        manager, ["example>=1"], {"skip_installed": False}, {}
+    )
+
+    assert plan == [("example", "2.0"), ("child-pkg", "3.0")]
+    manager._resolve_install_plan.assert_called_once()
+
+
+def test_dependency_install_plan_respects_skip_installed_and_unknown_versions():
+    manager = mock.Mock()
+    manager.process_packages.return_value = ["example>=1"]
+    manager._filter_packages_not_installed.return_value = ["example==2.0"]
+
+    assert resolve_dependency_install_plan(
+        manager, ["example>=1"], {"skip_installed": True}, {}
+    ) == [("example", "2.0")]
+    manager._filter_packages_not_installed.assert_called_once()
+    manager._resolve_install_plan.assert_not_called()
+
+    manager._filter_packages_not_installed.return_value = [
+        "example @ git+https://example.test"
+    ]
+    assert (
+        resolve_dependency_install_plan(
+            manager, ["example>=1"], {"skip_installed": True}, {}
+        )
+        is None
+    )
+
+
+def test_dependency_install_progress_counts_matching_child_distributions(tmp_path):
+    counts = []
+    manager = mock.Mock()
+    manager.get_lib_path.return_value = str(tmp_path)
+    stopped, thread = observe_dependency_install(
+        manager,
+        [("example", "2.0")],
+        lambda completed, total: counts.append((completed, total)),
+    )
+    try:
+        (tmp_path / "example-2.0.dist-info").mkdir()
+        (tmp_path / "example-2.0.dist-info" / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: example\nVersion: 2.0\n"
+        )
+        deadline = time.monotonic() + 3
+        while (1, 1) not in counts and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert (1, 1) in counts
+    finally:
+        stopped.set()
+        thread.join(timeout=1)
 
 
 def _create_test_wheel(

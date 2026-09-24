@@ -76,6 +76,9 @@ type ReplicaProgress = {
   info: null;
   updated_at: null;
   download_files: DownloadProgressFile[];
+  dependency_install_completed?: number;
+  dependency_install_total?: number;
+  dependency_install_plan?: string[];
 };
 let progress: {
   progress: number;
@@ -351,11 +354,19 @@ it('shows the stage and progress for each replica independently', async () => {
 
   progress.replicas![1].download_files = [];
   progress.replicas![1].stage = 'installing_dependencies';
+  progress.replicas![1].dependency_install_completed = 2;
+  progress.replicas![1].dependency_install_total = 5;
+  progress.replicas![1].dependency_install_plan = ['example==2.0', 'child-pkg==3.0'];
   await tick();
   assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /Installing model dependencies/);
+  assert.match(replicaCard(1)?.textContent ?? '', /Dependencies installed: 2 \/ 5/);
+  assert.match(replicaCard(1)?.textContent ?? '', /Installation plan/);
+  assert.match(replicaCard(1)?.textContent ?? '', /child-pkg==3\.0/);
+  assert.doesNotMatch(replicaCard(0)?.textContent ?? '', /Dependencies installed/);
   progress.replicas![1].stage = 'loading';
   await tick();
   assert.match(replicaBar(1)?.getAttribute('aria-label') ?? '', /loading the model/);
+  assert.doesNotMatch(replicaCard(1)?.textContent ?? '', /Dependencies installed/);
 
   replicaStatuses = [
     { replica_id: 0, worker_address: 'worker-a:1234', status: 'READY' },
@@ -395,6 +406,8 @@ it('provides the deployment stage and empty replica labels in every locale', () 
       'stageDownloading',
       'stageWaitingDependencies',
       'stageInstallingDependencies',
+      'dependencyInstallCount',
+      'dependencyInstallPlan',
       'stageLoading',
       'stageReady',
       'stageFailed',

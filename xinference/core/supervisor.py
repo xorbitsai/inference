@@ -3824,6 +3824,11 @@ class SupervisorActor(xo.StatelessActor):
                     "info": info,
                     "updated_at": details.get("updated_at"),
                     "download_files": normalized_files,
+                    "dependency_install_completed": details.get(
+                        "dependency_install_completed"
+                    ),
+                    "dependency_install_total": details.get("dependency_install_total"),
+                    "dependency_install_plan": details.get("dependency_install_plan"),
                 }
             )
 

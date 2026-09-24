@@ -327,6 +327,9 @@ msgstr "部署期間，進度端點 ``GET /v1/models/{model_uid}/progress`` 會�
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web 介面會在各副本的卡片中顯示該副本的檔案下載詳情。"
 
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "安裝依賴套件期間，每個副本的進度會顯示主要安裝工作計劃安裝的套件數，以及其虛擬環境中已有的套件數。等待共用環境的副本沒有自己的安裝計數。如果安裝程式無法解析出可靠的計劃，則不顯示計數。"
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

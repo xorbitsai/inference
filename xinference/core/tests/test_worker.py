@@ -920,6 +920,38 @@ def test_prepare_virtual_env_injects_engine_vars(tmp_path):
     assert kwargs["model_engine"] == "vllm"
 
 
+def test_prepare_virtual_env_reports_dependency_plan_per_replica(tmp_path, monkeypatch):
+    manager = DummyVirtualEnvManager()
+    manager.env_path = str(tmp_path / "venv")
+    plan = [("example", "2.0"), ("child-pkg", "3.0")]
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.resolve_dependency_install_plan",
+        lambda *_args: plan,
+    )
+    stopped = threading.Event()
+    monkeypatch.setattr(
+        "xinference.core.virtual_env_manager.observe_dependency_install",
+        lambda *_args: (stopped, SimpleNamespace(join=lambda timeout: None)),
+    )
+    reported = []
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        VirtualEnvSettings(packages=["example>=1"], inherit_pip_config=False),
+        None,
+        model_engine=None,
+        report_install_progress=lambda completed, total, packages: reported.append(
+            (completed, total, packages)
+        ),
+    )
+
+    assert reported == [
+        (0, 2, ["example==2.0", "child-pkg==3.0"]),
+        (2, 2, ["example==2.0", "child-pkg==3.0"]),
+    ]
+    assert stopped.is_set()
+
+
 def test_prepare_virtual_env_merges_validated_find_links(tmp_path, monkeypatch):
     allowed = tmp_path / "allowed"
     requested = allowed / "requested"

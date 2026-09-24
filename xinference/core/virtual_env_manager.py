@@ -19,9 +19,12 @@ import re
 import shutil
 import stat
 import subprocess
+import threading
 from importlib import metadata
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+from packaging.utils import canonicalize_name
 
 from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
@@ -29,6 +32,85 @@ from ..constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_dependency_install_plan(
+    manager: Any, packages: List[str], conf: Dict[str, Any], variables: Dict[str, Any]
+) -> Optional[List[Tuple[str, str]]]:
+    """Resolve distributions uv intends to add to this virtual environment.
+
+    A failed or unsupported dry run must never prevent the actual installation.
+    """
+    if not packages or not all(
+        hasattr(manager, name)
+        for name in ("process_packages", "_resolve_install_plan", "get_lib_path")
+    ):
+        return None
+    try:
+        processed = manager.process_packages(packages, **variables)
+        sources = {
+            key: conf.get(key)
+            for key in (
+                "index_url",
+                "extra_index_url",
+                "index_strategy",
+                "find_links",
+                "trusted_host",
+            )
+        }
+        if conf.get("skip_installed"):
+            if not hasattr(manager, "_filter_packages_not_installed"):
+                return None
+            resolved = manager._filter_packages_not_installed(processed, **sources)
+        else:
+            resolved = manager._resolve_install_plan(processed, {}, **sources)
+        plan = []
+        for spec in resolved:
+            name, separator, version = spec.partition("==")
+            if not separator or not name or not version:
+                # VCS and direct references have no reliable version here.
+                return None
+            plan.append((canonicalize_name(name), version))
+        return list(dict.fromkeys(plan))
+    except Exception:
+        logger.debug("Could not resolve dependency progress plan", exc_info=True)
+        return None
+
+
+def observe_dependency_install(
+    manager: Any,
+    plan: List[Tuple[str, str]],
+    report: Callable[[int, int], None],
+) -> Tuple[threading.Event, threading.Thread]:
+    """Report distributions whose matching metadata is visible in the child env."""
+    stopped = threading.Event()
+    site_packages = manager.get_lib_path()
+    total = len(plan)
+
+    def poll() -> None:
+        last_count = -1
+        while not stopped.is_set():
+            try:
+                installed = {
+                    (canonicalize_name(dist.metadata["Name"]), dist.version)
+                    for dist in metadata.distributions(path=[site_packages])
+                    if dist.metadata and "Name" in dist.metadata
+                }
+                count = sum(package in installed for package in plan)
+                if count != last_count:
+                    report(count, total)
+                    last_count = count
+            except Exception:
+                logger.debug(
+                    "Could not inspect dependency install progress", exc_info=True
+                )
+            stopped.wait(0.5)
+
+    thread = threading.Thread(
+        target=poll, name="dependency-install-progress", daemon=True
+    )
+    thread.start()
+    return stopped, thread
 
 
 class VirtualEnvConflictError(ValueError):

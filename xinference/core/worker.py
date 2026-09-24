@@ -3587,6 +3587,7 @@ class WorkerActor(xo.StatelessActor):
         reserve_usage: Optional[Callable[[str, str, str, bool], None]] = None,
         release_usage: Optional[Callable[[str, Optional[str]], None]] = None,
         report_install_stage: Optional[Callable[[str], None]] = None,
+        report_install_progress: Optional[Callable[[int, int, List[str]], None]] = None,
     ) -> Optional[str]:
         engine_defaults = get_engine_model_format_virtualenv_packages(
             model_engine, model_format
@@ -3949,10 +3950,48 @@ class WorkerActor(xo.StatelessActor):
                         cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
                     if force_reinstall_xllamacpp:
                         cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
-                    with _sglang_source_build_environment(regular_packages):
-                        virtual_env_manager.install_packages(
-                            regular_packages, **conf, **variables
+                    from .virtual_env_manager import (
+                        observe_dependency_install,
+                        resolve_dependency_install_plan,
+                    )
+
+                    plan = (
+                        resolve_dependency_install_plan(
+                            virtual_env_manager, regular_packages, conf, variables
                         )
+                        if report_install_progress is not None
+                        else None
+                    )
+                    observer = None
+                    if plan is not None and report_install_progress is not None:
+                        plan_labels = [f"{name}=={version}" for name, version in plan]
+                        report_install_progress(0, len(plan), plan_labels)
+                        if plan:
+                            try:
+                                observer = observe_dependency_install(
+                                    virtual_env_manager,
+                                    plan,
+                                    lambda completed, total: report_install_progress(
+                                        completed, total, plan_labels
+                                    ),
+                                )
+                            except Exception:
+                                logger.debug(
+                                    "Could not observe dependency installation",
+                                    exc_info=True,
+                                )
+                    try:
+                        with _sglang_source_build_environment(regular_packages):
+                            virtual_env_manager.install_packages(
+                                regular_packages, **conf, **variables
+                            )
+                    finally:
+                        if observer is not None:
+                            stopped, thread = observer
+                            stopped.set()
+                            thread.join(timeout=1)
+                    if plan is not None and report_install_progress is not None:
+                        report_install_progress(len(plan), len(plan), plan_labels)
 
                     from .virtual_env_manager import apply_flash_attn_wheel_post_install
 
@@ -4723,6 +4762,21 @@ class WorkerActor(xo.StatelessActor):
                                     {"stage": stage, "updated_at": time.time()},
                                 )
 
+                            def report_install_progress(
+                                completed: int, total: int, plan: List[str]
+                            ) -> None:
+                                progressor.set_progress(
+                                    0.0,
+                                    "Installing model dependencies",
+                                    {
+                                        "stage": "installing_dependencies",
+                                        "dependency_install_completed": completed,
+                                        "dependency_install_total": total,
+                                        "dependency_install_plan": plan,
+                                        "updated_at": time.time(),
+                                    },
+                                )
+
                             prepare_task = asyncio.create_task(
                                 asyncio.to_thread(
                                     self._prepare_virtual_env,
@@ -4744,6 +4798,7 @@ class WorkerActor(xo.StatelessActor):
                                     reserve_usage=self._reserve_virtual_env_usage,
                                     release_usage=self._release_virtual_env_usage,
                                     report_install_stage=report_install_stage,
+                                    report_install_progress=report_install_progress,
                                 )
                             )
                             try:

@@ -737,6 +737,8 @@ const en = {
     stageDownloading: 'Downloading model files...',
     stageWaitingDependencies: 'Waiting to prepare model dependencies...',
     stageInstallingDependencies: 'Installing model dependencies...',
+    dependencyInstallCount: 'Dependencies installed: {{completed}} / {{total}}',
+    dependencyInstallPlan: 'Installation plan',
     stageLoading: 'Preparing the runtime and loading the model...',
     stageReady: 'Model is ready',
     stageFailed: 'Replica failed to start',

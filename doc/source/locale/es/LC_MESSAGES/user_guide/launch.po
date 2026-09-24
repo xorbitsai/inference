@@ -361,6 +361,9 @@ msgstr "Durante el despliegue, el endpoint de progreso ``GET /v1/models/{model_u
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "La interfaz web muestra los detalles de descarga de archivos de cada réplica dentro de su tarjeta."
 
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "Durante la instalación de dependencias, el progreso de cada réplica incluye el número de paquetes previstos para la instalación principal y el número ya presente en su entorno virtual. Una réplica que espera un entorno compartido no tiene un contador de instalación propio. Si el instalador no puede determinar un plan fiable, se omite el contador."
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

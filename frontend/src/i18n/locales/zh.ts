@@ -702,6 +702,8 @@ const zh = {
     stageDownloading: '正在下载模型文件...',
     stageWaitingDependencies: '正在等待准备模型依赖...',
     stageInstallingDependencies: '正在安装模型依赖包...',
+    dependencyInstallCount: '已安装依赖包：{{completed}} / {{total}}',
+    dependencyInstallPlan: '安装计划',
     stageLoading: '正在准备运行环境并加载模型...',
     stageReady: '模型已就绪',
     stageFailed: '副本启动失败',

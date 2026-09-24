@@ -723,6 +723,8 @@ const ja = {
     stageDownloading: 'モデルファイルをダウンロードしています...',
     stageWaitingDependencies: 'モデルの依存パッケージの準備を待っています...',
     stageInstallingDependencies: 'モデルの依存パッケージをインストールしています...',
+    dependencyInstallCount: 'インストール済みの依存パッケージ: {{completed}} / {{total}}',
+    dependencyInstallPlan: 'インストール計画',
     stageLoading: '実行環境を準備し、モデルを読み込んでいます...',
     stageReady: 'モデルの準備が完了しました',
     stageFailed: 'レプリカの起動に失敗しました',

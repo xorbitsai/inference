@@ -328,6 +328,9 @@ msgstr "デプロイ中、進捗エンドポイント ``GET /v1/models/{model_ui
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web UI は各レプリカのファイルダウンロード詳細を、それぞれのレプリカカード内に表示します。"
 
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "依存パッケージのインストール中は、各レプリカの進捗に、主なインストールで予定されているパッケージ数と、その仮想環境にすでに存在するパッケージ数が表示されます。共有環境を待機しているレプリカには独自のインストール数はありません。インストーラーが信頼できる計画を解決できない場合、件数は表示されません。"
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

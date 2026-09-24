@@ -365,6 +365,9 @@ msgstr "Pendant le déploiement, le point de terminaison ``GET /v1/models/{model
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "L'interface Web affiche les détails des téléchargements de chaque réplique dans sa carte."
 
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "Pendant l’installation des dépendances, la progression de chaque réplique indique le nombre de paquets prévus pour l’installation principale et le nombre déjà présents dans son environnement virtuel. Une réplique qui attend un environnement partagé n’a pas de compteur d’installation propre. Si le programme d’installation ne peut pas établir un plan fiable, le compteur est omis."
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "
