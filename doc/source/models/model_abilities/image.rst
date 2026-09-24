@@ -516,6 +516,25 @@ raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
       -F 'kwargs={"pages": [1, 2], "dpi": 300}' \
       -F image=@xxx.pdf
 
+TeleOCR Usage
+~~~~~~~~~~~~~
+
+TeleOCR uses the image OCR API with Transformers or vLLM. Its Hugging Face
+weights are ``StarDoc-AI/TeleOCR``; the ModelScope mirror is
+``XingChen-AGI/TeleOCR``. Launch the regular weights with::
+
+    xinference launch --model-name TeleOCR --model-type image --model-engine transformers
+
+GGUF quantizations use the older NaviDC-OCR conversion with a separate vision
+projector. Select one with::
+
+    xinference launch --model-name TeleOCR --model-type image --model-engine llama.cpp --model-format ggufv2 --quantization Q4_K_M
+
+The GGUF publisher reports that these files require a patched llama.cpp build;
+stock llama.cpp fails with ``check_tensor_dims``. Use a compatible patched
+``xllamacpp`` build before launching. See the `GGUF patch instructions
+<https://huggingface.co/nandraj/NaviDC-OCR-GGUF/blob/main/PATCHES.md>`_.
+
 Whole-document parsing
 ~~~~~~~~~~~~~~~~~~~~~~
 

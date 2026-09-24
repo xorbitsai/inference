@@ -1,0 +1,40 @@
+# TeleOCR built-in model documentation.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../../source/models/builtin/image/teleocr.rst:5
+msgid "TeleOCR"
+msgstr "TeleOCR"
+
+#: ../../source/models/builtin/image/teleocr.rst:7
+msgid "**Model Name:** TeleOCR"
+msgstr "**模型名称：** TeleOCR"
+
+#: ../../source/models/builtin/image/teleocr.rst:8
+msgid "**Model Family:** ocr"
+msgstr "**模型家族：** ocr"
+
+#: ../../source/models/builtin/image/teleocr.rst:9
+msgid "**Abilities:** ocr"
+msgstr "**能力：** ocr"
+
+#: ../../source/models/builtin/image/teleocr.rst:10
+msgid "**Available ControlNet:** None"
+msgstr "**可用 ControlNet：** 无"
+
+#: ../../source/models/builtin/image/teleocr.rst:13
+msgid "Specifications"
+msgstr "规格"
+
+#: ../../source/models/builtin/image/teleocr.rst:15
+msgid "**Model ID:** StarDoc-AI/TeleOCR"
+msgstr "**模型 ID：** StarDoc-AI/TeleOCR"
+
+#: ../../source/models/builtin/image/teleocr.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr "使用以下命令启动模型："

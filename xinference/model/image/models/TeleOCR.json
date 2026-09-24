@@ -1,0 +1,53 @@
+[
+  {
+    "version": 2,
+    "model_name": "TeleOCR",
+    "model_family": "ocr",
+    "model_ability": ["ocr"],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "virtualenv": {
+          "packages": [
+            "transformers==4.57.1",
+            "pillow>=11,<12",
+            "accelerate==1.12.0 ; #engine# == \"transformers\"",
+            "#system_torch# ; #engine# == \"transformers\"",
+            "#system_torchvision# ; #engine# == \"transformers\"",
+            "vllm>=0.23,<0.24 ; #engine# == \"vllm\"",
+            "#system_numpy#"
+          ]
+        },
+        "model_src": {
+          "huggingface": {
+            "model_id": "StarDoc-AI/TeleOCR",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "XingChen-AGI/TeleOCR",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_file_name_template": "NaviDC-OCR-{quantization}.gguf",
+        "multimodal_projector": "NaviDC-OCR-mmproj-q8_0.gguf",
+        "model_src": {
+          "huggingface": {
+            "model_id": "nandraj/NaviDC-OCR-GGUF",
+            "model_revision": "main",
+            "quantizations": ["Q4_K_M", "Q2_K", "Q3_K_L", "Q3_K_M", "Q3_K_S", "Q4_K_S", "Q5_K_M", "Q5_K_S", "Q6_K", "Q8_0", "f16"]
+          },
+          "modelscope": {
+            "model_id": "tardigrade4ai/NaviDC-OCR-GGUF",
+            "model_revision": "master",
+            "quantizations": ["Q4_K_M", "Q2_K", "Q3_K_L", "Q3_K_M", "Q3_K_S", "Q4_K_S", "Q5_K_M", "Q5_K_S", "Q6_K", "Q8_0", "f16"]
+          }
+        }
+      }
+    ],
+    "featured": false,
+    "updated_at": 1790233065
+  }
+]

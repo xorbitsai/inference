@@ -28,6 +28,7 @@ from .hunyuan_ocr import HunyuanOCRModel
 from .navidc_ocr import NaviDCOCRModel
 from .ovisocr2 import OvisOCR2Model
 from .paddleocr_vl import PaddleOCRVLModel
+from .teleocr import TeleOCRModel
 
 logger = logging.getLogger(__name__)
 _navidc_vllm_executor_lock = threading.Lock()
@@ -431,6 +432,10 @@ class VLLMNaviDCOCRModel(NaviDCOCRModel):
         )
         texts = _extract_text(outputs)
         return texts[0] if texts else ""
+
+
+class VLLMTeleOCRModel(VLLMNaviDCOCRModel, TeleOCRModel):
+    """TeleOCR uses the NaviDC architecture and vLLM adapter."""
 
 
 class VLLMOvisOCR2Model(OvisOCR2Model):
