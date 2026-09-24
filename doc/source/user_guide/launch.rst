@@ -154,6 +154,23 @@ cache receives the files. If it is omitted, the supervisor selects one worker.
 Replica
 =======
 
+During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress``
+reports a stage for each replica. After model files finish downloading, a replica
+can report ``waiting_for_dependencies`` while another launch prepares its shared
+virtual environment, then ``installing_dependencies`` while packages are being
+installed, and ``loading`` after the environment is ready.
+
+The Web UI shows each replica's file download details inside its replica card.
+
+During dependency installation, each replica's progress includes the number of
+packages planned for the main install and the number already present in its
+virtual environment. A replica waiting for a shared environment has no install
+count of its own. If the installer cannot resolve a reliable plan, the count is
+omitted.
+
+The Web UI keeps the dependency installation result visible while a replica is
+loading. When no dependency installation is needed, the replica card says so.
+
 Replicas specify the number of model instances to load. For example, if you have two GPUs and each can host one replica of the model,
 you can set the replica count to 2. This way, two identical instances of the model will be distributed across the two GPUs.
 Xinference automatically load-balances requests to ensure even distribution across multiple GPUs.

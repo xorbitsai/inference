@@ -367,6 +367,18 @@ msgstr "一次增加多个副本时，``replica_config`` 也可以是一个列�
 msgid "Scale-up is not supported for Xavier-distributed models or models launched with ``n_worker > 1``. Deleting the last replica terminates the running model."
 msgstr "使用 Xavier 分布式运行的模型，以及通过 ``n_worker > 1`` 启动的模型，暂不支持增加副本。删除最后一个副本时，运行中的模型也会终止。"
 
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "部署期间，进度接口 ``GET /v1/models/{model_uid}/progress`` 会报告每个副本所处的阶段。模型文件下载完成后，如果另一个启动任务正在准备共享虚拟环境，副本会报告 ``waiting_for_dependencies``；安装依赖包时报告 ``installing_dependencies``；环境就绪后报告 ``loading``。"
+
+msgid "The Web UI shows each replica's file download details inside its replica card."
+msgstr "Web 界面会在各副本的卡片中显示该副本的文件下载详情。"
+
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "安装依赖包期间，每个副本的进度会显示主安装任务计划安装的包数量，以及其虚拟环境中已有的包数量。等待共享环境的副本没有自己的安装计数。如果安装器无法解析出可靠的计划，则不显示计数。"
+
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "副本加载模型时，Web 界面仍会显示依赖包的安装结果。如果本次无需安装依赖包，副本卡片也会明确提示。"
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

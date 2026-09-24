@@ -21,6 +21,7 @@ export type { DownloadProgressFile } from '@/types/services';
 interface DownloadProgressDetailsProps {
   files: DownloadProgressFile[];
   embedded?: boolean;
+  compact?: boolean;
 }
 
 function getProgressPercent(file: DownloadProgressFile): number {
@@ -77,6 +78,7 @@ function formatDuration(seconds: number | null): string {
 export default function DownloadProgressDetails({
   files,
   embedded = false,
+  compact = false,
 }: DownloadProgressDetailsProps) {
   const { t } = useI18n();
   const hasMultipleReplicas =
@@ -87,6 +89,47 @@ export default function DownloadProgressDetails({
       <div className="flex min-h-24 items-center justify-center gap-2 px-4 py-6 text-sm text-muted-foreground">
         <LoaderCircle className="size-4 animate-spin text-primary" />
         {t('launchModel.waitingDownloadDetails')}
+      </div>
+    ) : compact ? (
+      <div className="max-h-64 divide-y overflow-y-auto" aria-live="polite">
+        {files.map((file, index) => {
+          const progress = getProgressPercent(file);
+          const completed = file.status === 'completed' || progress >= 100;
+
+          return (
+            <div
+              key={`${file.replica_model_uid || 'model'}:${file.name}:${index}`}
+              className="space-y-2 p-3 text-xs"
+            >
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="truncate font-medium" title={file.name || '-'}>
+                  {file.name || '-'}
+                </span>
+                <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                  {completed ? (
+                    <CheckCircle2 className="size-3.5 text-emerald-500" />
+                  ) : (
+                    <LoaderCircle className="size-3.5 animate-spin text-primary" />
+                  )}
+                  {t(
+                    completed ? 'launchModel.downloadCompleted' : 'launchModel.downloadInProgress'
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Progress value={progress} className="h-1.5 flex-1" />
+                <span className="w-9 shrink-0 text-right tabular-nums text-muted-foreground">
+                  {Math.round(progress)}%
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
+                <span>{formatDownloadedSize(file.downloaded_bytes, file.total_bytes)}</span>
+                {!completed && <span>{formatSpeed(file.speed_bytes_per_second, false)}</span>}
+                {!completed && <span>{formatDuration(file.eta_seconds)}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     ) : (
       <div

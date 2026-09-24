@@ -354,6 +354,18 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "Während der Bereitstellung meldet der Fortschrittsendpunkt ``GET /v1/models/{model_uid}/progress`` die Phase jeder Replik. Nach dem Download der Modelldateien meldet eine Replik ``waiting_for_dependencies``, während ein anderer Start die gemeinsame virtuelle Umgebung vorbereitet, dann ``installing_dependencies`` während der Paketinstallation und ``loading``, sobald die Umgebung bereit ist."
+
+msgid "The Web UI shows each replica's file download details inside its replica card."
+msgstr "Die Weboberfläche zeigt die Download-Details jeder Replik in ihrer eigenen Replikkarte an."
+
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "Während der Installation der Abhängigkeiten zeigt der Fortschritt jeder Replik die Anzahl der für die Hauptinstallation geplanten Pakete und die Anzahl der bereits in ihrer virtuellen Umgebung vorhandenen Pakete. Eine Replik, die auf eine gemeinsame Umgebung wartet, hat keinen eigenen Installationszähler. Kann der Installer keinen zuverlässigen Plan ermitteln, wird der Zähler nicht angezeigt."
+
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "Die Weboberfläche zeigt das Ergebnis der Abhängigkeitsinstallation weiterhin an, während eine Replik das Modell lädt. Wenn keine Installation erforderlich ist, weist die Replikkarte darauf hin."
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

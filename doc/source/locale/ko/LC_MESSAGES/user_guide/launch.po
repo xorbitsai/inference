@@ -328,6 +328,18 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready."
+msgstr "배포 중 진행 상황 엔드포인트 ``GET /v1/models/{model_uid}/progress`` 는 각 복제본의 단계를 보고합니다. 모델 파일 다운로드 후 다른 시작 작업이 공유 가상 환경을 준비하는 동안에는 ``waiting_for_dependencies``, 패키지 설치 중에는 ``installing_dependencies``, 환경 준비 후에는 ``loading`` 을 보고합니다."
+
+msgid "The Web UI shows each replica's file download details inside its replica card."
+msgstr "웹 UI는 각 복제본의 파일 다운로드 세부 정보를 해당 복제본 카드 안에 표시합니다."
+
+msgid "During dependency installation, each replica's progress includes the number of packages planned for the main install and the number already present in its virtual environment. A replica waiting for a shared environment has no install count of its own. If the installer cannot resolve a reliable plan, the count is omitted."
+msgstr "의존성 설치 중에는 각 복제본의 진행 상황에 기본 설치 대상으로 계획된 패키지 수와 해당 가상 환경에 이미 있는 패키지 수가 표시됩니다. 공유 환경을 기다리는 복제본에는 자체 설치 개수가 없습니다. 설치 프로그램이 신뢰할 수 있는 계획을 확인할 수 없으면 개수를 표시하지 않습니다."
+
+msgid "The Web UI keeps the dependency installation result visible while a replica is loading. When no dependency installation is needed, the replica card says so."
+msgstr "복제본이 모델을 불러오는 동안에도 웹 UI에 의존성 설치 결과가 표시됩니다. 설치가 필요하지 않으면 복제본 카드에 이를 알립니다."
+
 #: doc/source/user_guide/launch.rst
 msgid ""
 "For image and video models, batching depends on the selected native engine "

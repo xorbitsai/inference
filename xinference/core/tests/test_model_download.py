@@ -231,7 +231,18 @@ async def test_operation_progress_aggregation_is_shared():
                     "updated_at": 1,
                 },
             ),
-            (1.0, "Loaded", {"stage": "loading", "download_files": []}),
+            (
+                1.0,
+                "Installing",
+                {
+                    "stage": "installing_dependencies",
+                    "download_files": [],
+                    "dependency_install_completed": 2,
+                    "dependency_install_total": 5,
+                    "dependency_install_plan": ["example==2.0", "child-pkg==3.0"],
+                    "dependency_install_status": "performed",
+                },
+            ),
         ]
     )
 
@@ -251,3 +262,10 @@ async def test_operation_progress_aggregation_is_shared():
         {"name": "a.bin", "replica_id": 0, "replica_model_uid": "a"}
     ]
     assert len(result["replicas"]) == 2
+    assert result["replicas"][1]["dependency_install_completed"] == 2
+    assert result["replicas"][1]["dependency_install_total"] == 5
+    assert result["replicas"][1]["dependency_install_plan"] == [
+        "example==2.0",
+        "child-pkg==3.0",
+    ]
+    assert result["replicas"][1]["dependency_install_status"] == "performed"
