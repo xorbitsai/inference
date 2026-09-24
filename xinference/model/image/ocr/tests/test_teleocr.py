@@ -100,6 +100,7 @@ def test_teleocr_sources_and_engine_selection(monkeypatch):
 
 def test_teleocr_gguf_downloads_only_model_and_projector(monkeypatch, tmp_path):
     import huggingface_hub
+
     import xinference.model.utils as utils
 
     spec = next(

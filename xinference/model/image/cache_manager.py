@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from ..cache_manager import CacheManager
 
@@ -44,7 +44,7 @@ class ImageCacheManager(CacheManager):
             if family.model_hub == "huggingface":
                 from huggingface_hub import hf_hub_download
 
-                download_kwargs = {"revision": family.model_revision}
+                download_kwargs: Dict[str, Any] = {"revision": family.model_revision}
                 if not IS_NEW_HUGGINGFACE_HUB:
                     download_kwargs.update(
                         {"local_dir": cache_dir, "local_dir_use_symlinks": True}
