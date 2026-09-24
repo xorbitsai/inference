@@ -106,7 +106,9 @@ def test_teleocr_gguf_downloads_only_model_and_projector(monkeypatch, tmp_path):
     spec = next(
         s
         for s in _families()
-        if s.model_hub == "huggingface" and s.quantization == "Q4_K_M"
+        if s.model_format == "ggufv2"
+        and s.model_hub == "huggingface"
+        and s.quantization == "Q4_K_M"
     )
     manager = ImageCacheManager(spec)
     manager._cache_dir = str(tmp_path / "cache")
@@ -179,7 +181,9 @@ def test_teleocr_gguf_modelscope_revision(monkeypatch, tmp_path):
     spec = next(
         s
         for s in _families()
-        if s.model_hub == "modelscope" and s.quantization == "Q4_K_M"
+        if s.model_format == "ggufv2"
+        and s.model_hub == "modelscope"
+        and s.quantization == "Q4_K_M"
     )
     manager = ImageCacheManager(spec)
     manager._cache_dir = str(tmp_path / "cache")
