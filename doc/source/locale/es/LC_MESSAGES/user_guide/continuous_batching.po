@@ -92,46 +92,9 @@ msgstr ""
 msgid "Image Model"
 msgstr "Modelo de imagen"
 
-#: ../../source/user_guide/continuous_batching.rst:72
-msgid ""
-"Currently, for image models, only the ``text_to_image`` interface is "
-"supported for ``FLUX.1`` series models."
-msgstr ""
-"Actualmente, solo la interfaz ``text_to_image`` (texto a imagen) de la serie"
-" de modelos ``FLUX.1`` es compatible con esta función."
-
-#: ../../source/user_guide/continuous_batching.rst:74
-msgid ""
-"Enabling this feature requires setting the environment variable "
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of "
-"the generated images."
-msgstr ""
-"Para habilitar esta función en el modelo de imágenes, se debe especificar la"
-" variable de entorno ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` al iniciar "
-"xinference, la cual indica el tamaño de la imagen generada."
-
-#: ../../source/user_guide/continuous_batching.rst:76
-msgid "For example, starting xinference like this:"
-msgstr "Por ejemplo, inicia xinference de esta manera:"
-
-#: ../../source/user_guide/continuous_batching.rst:83
-msgid ""
-"Then just use the ``text_to_image`` interface as before, and nothing else "
-"needs to be changed."
-msgstr ""
-"A continuación, use la interfaz ``text_to_image`` como de costumbre, no "
-"necesita cambiar nada más."
-
 #: ../../source/user_guide/continuous_batching.rst:86
 msgid "Abort your request"
 msgstr "Cancelar solicitud"
-
-#: ../../source/user_guide/continuous_batching.rst:87
-msgid ""
-"In this mode, you can abort requests that are in the process of inference."
-msgstr ""
-"En esta función, puedes finalizar elegantemente una solicitud que está en "
-"proceso de inferencia."
 
 #: ../../source/user_guide/continuous_batching.rst:89
 msgid "First, add ``request_id`` option in ``generate_config``. For example:"
@@ -146,12 +109,6 @@ msgstr ""
 "Luego, usa el ``request_id`` que especificaste para cancelar la solicitud. "
 "Por ejemplo:"
 
-#: ../../source/user_guide/continuous_batching.rst:106
-msgid ""
-"Note that if your request has already finished, aborting the request will be"
-" a no-op. Image models also support this feature."
-msgstr "Nota: si tu solicitud ya ha finalizado, esta operación no hará nada."
-
 #: ../../source/user_guide/continuous_batching.rst:110
 msgid "Note"
 msgstr "**Notas importantes**"
@@ -164,14 +121,6 @@ msgstr ""
 "Actualmente, esta función solo admite las capacidades ``generate``, "
 "``chat``, ``tool call`` (llamada a herramientas) y ``vision`` (multimodal) "
 "de los modelos LLM."
-
-#: ../../source/user_guide/continuous_batching.rst:114
-msgid ""
-"Currently, for ``image`` models, this feature only supports the "
-"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
-msgstr ""
-"Actualmente, para los modelos de imagen, solo se admite la función "
-"`text_to_image` (texto a imagen) de la serie de modelos `FLUX.1`."
 
 #: ../../source/user_guide/continuous_batching.rst:116
 msgid ""
@@ -212,3 +161,38 @@ msgstr "Rerank"
 #: ../../source/user_guide/continuous_batching.rst
 msgid "With vLLM >= 0.19.0, text cross-encoder rerank models also use native asynchronous pooling. The same ``max_num_seqs`` and ``max_num_batched_tokens`` settings apply instead of Xinference batch settings. Older vLLM versions, VACC, Qwen3-VL rerankers and other scoring types retain the existing path. Ranking, ``top_n``, returned documents and token counts keep the same API behavior."
 msgstr "Con vLLM >= 0.19.0, los modelos de reranking de texto cross-encoder también usan pooling asíncrono nativo. Se aplican los mismos ajustes ``max_num_seqs`` y ``max_num_batched_tokens`` en lugar de los ajustes de lotes de Xinference. Las versiones anteriores de vLLM, VACC, los rerankers Qwen3-VL y otros tipos de puntuación conservan la ruta existente. La clasificación, ``top_n``, los documentos devueltos y el recuento de tokens mantienen el mismo comportamiento de la API."
+
+#: doc/source/user_guide/continuous_batching.rst
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op."
+msgstr "Si su solicitud ya ha finalizado, cancelarla no tendrá ningún efecto."
+
+msgid ""
+"For image-model batching, select the ``vLLM`` or ``SGLang`` engine with "
+"``--model-engine``. SGLang supports dynamic request batching via "
+"``batching_max_size`` and ``batching_delay_ms``; new requests wait while a "
+"batch is running. vLLM-Omni supports request batching via ``max_num_seqs`` "
+"and, on supported models, experimental step-level continuous batching with "
+"``step_execution=true`` and ``max_num_seqs>1``. Diffusers supports ordinary "
+"image generation and multiple images per request, but does not provide "
+"Xinference-managed continuous batching. See :ref:`image` for supported "
+"models, required versions, and launch instructions."
+msgstr ""
+"Para procesar solicitudes de modelos de imagen por lotes, seleccione el "
+"motor ``vLLM`` o ``SGLang`` con ``--model-engine``. SGLang admite lotes "
+"dinámicos mediante ``batching_max_size`` y ``batching_delay_ms``; las nuevas"
+" solicitudes esperan mientras se ejecuta un lote. vLLM-Omni admite lotes de "
+"solicitudes mediante ``max_num_seqs`` y, en modelos compatibles, lotes "
+"continuos por paso experimentales con ``step_execution=true`` y "
+"``max_num_seqs>1``. Diffusers admite la generación normal y varias imágenes "
+"por solicitud, pero no ofrece lotes continuos gestionados por Xinference. "
+"Consulte :ref:`image` para conocer los modelos compatibles, las versiones "
+"necesarias y las instrucciones de inicio."
+
+msgid ""
+"For LLMs using Xinference's continuous batching, you can abort requests that"
+" are in the process of inference."
+msgstr ""
+"Para los LLM que utilizan lotes continuos de Xinference, puede cancelar "
+"solicitudes durante la inferencia."

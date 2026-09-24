@@ -360,7 +360,6 @@ continuous batching is available and can be enabled via environment variables at
 Key settings:
 
 - ``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general batching behavior.
-- ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when supported).
 
 Example (LLM, transformers):
 
@@ -369,11 +368,7 @@ Example (LLM, transformers):
   XINFERENCE_BATCH_SIZE=32 XINFERENCE_BATCH_INTERVAL=0.003 xinference-local --log-level debug
   xinference launch -e <endpoint> --model-engine transformers -n qwen1.5-chat -s 4 -f pytorch -q none
 
-Example (text-to-image):
-
-.. code-block:: bash
-
-  XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE=1024*1024 xinference-local --log-level debug
+For image and video models, batching depends on the selected native engine and model. Diffusers does not use a Xinference step-level scheduler. See :ref:`image` and :ref:`video`.
 
 For detailed behavior, supported models, and aborting requests, see
 :ref:`Continuous Batching <user_guide_continuous_batching>`.

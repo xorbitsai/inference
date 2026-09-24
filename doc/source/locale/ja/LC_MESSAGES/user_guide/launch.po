@@ -267,19 +267,9 @@ msgstr ""
 "``XINFERENCE_BATCH_SIZE`` と ``XINFERENCE_BATCH_INTERVAL`` "
 "は、通常のバッチ処理の動作を制御するために使用されます。"
 
-#: ../../source/user_guide/launch.rst:99
-msgid ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
-"supported)."
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE（テキストから画像へのモデル、対応時）。"
-
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
 msgstr "例（大規模言語モデル、Transformer）"
-
-#: ../../source/user_guide/launch.rst:108
-msgid "Example (text-to-image):"
-msgstr "例（テキストから画像生成）："
 
 #: ../../source/user_guide/launch.rst:114
 msgid ""
@@ -337,3 +327,12 @@ msgstr "デプロイ中、進捗エンドポイント ``GET /v1/models/{model_ui
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web UI は各レプリカのファイルダウンロード詳細を、それぞれのレプリカカード内に表示します。"
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"画像・動画モデルのバッチ処理は、選択したネイティブエンジンとモデルに依存します。Diffusers は Xinference "
+"独自のステップ単位スケジューラを使用しません。:ref:`image` と :ref:`video` を参照してください。"

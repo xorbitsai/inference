@@ -146,19 +146,6 @@ msgstr "XINFERENCE_LLMMAN_BIN"
 msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
 msgstr "Chemin de l'exécutable ``llmman`` utilisé pour résoudre les URI de modèle ``oci://``. Par défaut, ``llmman`` dans ``PATH``. Définissez ``LLMMAN_HOST`` pour atteindre un démon ``llmman serve`` qui n'écoute pas sur ``127.0.0.1:17434``."
 
-#: ../../source/getting_started/environments.rst:58
-msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-
-#: ../../source/getting_started/environments.rst:59
-msgid ""
-"Enable continuous batching for text-to-image models by specifying the "
-"target image size (e.g., ``1024*1024``). Default is unset."
-msgstr ""
-"Activez le traitement par lots continu pour le modèle texte-image en "
-"spécifiant la taille de l'image cible (par exemple ``1024*1024``). Non "
-"défini par défaut."
-
 #: ../../source/getting_started/environments.rst:63
 msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
 msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"

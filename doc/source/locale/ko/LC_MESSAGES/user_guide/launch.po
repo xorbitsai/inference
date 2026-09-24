@@ -273,19 +273,9 @@ msgstr ""
 "``XINFERENCE_BATCH_SIZE`` 와 ``XINFERENCE_BATCH_INTERVAL`` 은 일반적인 배치 처리 동작을 "
 "제어하는 데 사용됩니다."
 
-#: ../../source/user_guide/launch.rst:99
-msgid ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
-"supported)."
-msgstr "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` (텍스트-이미지 모델, 지원 시)."
-
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
 msgstr "예시 (Large Language Model, Transformers)"
-
-#: ../../source/user_guide/launch.rst:108
-msgid "Example (text-to-image):"
-msgstr "예시 (텍스트-이미지 생성):"
 
 #: ../../source/user_guide/launch.rst:114
 msgid ""
@@ -343,3 +333,12 @@ msgstr "배포 중 진행 상황 엔드포인트 ``GET /v1/models/{model_uid}/pr
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "웹 UI는 각 복제본의 파일 다운로드 세부 정보를 해당 복제본 카드 안에 표시합니다."
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"이미지 및 비디오 모델의 배치 처리는 선택한 네이티브 엔진과 모델에 따라 달라집니다. Diffusers는 Xinference 자체 단계별"
+" 스케줄러를 사용하지 않습니다. :ref:`image` 및 :ref:`video` 를 참조하세요."

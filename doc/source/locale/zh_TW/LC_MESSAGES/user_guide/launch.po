@@ -268,19 +268,9 @@ msgid ""
 msgstr ""
 "``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用於控制常規的批次處理行為。"
 
-#: ../../source/user_guide/launch.rst:99
-msgid ""
-"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
-"supported)."
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE（文字轉圖片模型，若支援）。"
-
 #: ../../source/user_guide/launch.rst:101
 msgid "Example (LLM, transformers):"
 msgstr "範例（大型語言模型，Transformers）："
-
-#: ../../source/user_guide/launch.rst:108
-msgid "Example (text-to-image):"
-msgstr "範例（文生圖）："
 
 #: ../../source/user_guide/launch.rst:114
 msgid ""
@@ -336,3 +326,12 @@ msgstr "部署期間，進度端點 ``GET /v1/models/{model_uid}/progress`` 會�
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web 介面會在各副本的卡片中顯示該副本的檔案下載詳情。"
+
+#: doc/source/user_guide/launch.rst
+msgid ""
+"For image and video models, batching depends on the selected native engine "
+"and model. Diffusers does not use a Xinference step-level scheduler. See "
+":ref:`image` and :ref:`video`."
+msgstr ""
+"圖像和影片模型的批次處理能力取決於所選原生引擎和模型。Diffusers 不使用 Xinference 自行實作的逐步排程器。請參閱 "
+":ref:`image` 和 :ref:`video`。"
