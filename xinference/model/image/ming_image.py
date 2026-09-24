@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class MingImageModel(SDAPIDiffusionModelMixin):
     """Expose generation, editing, and layer decomposition through image APIs."""
 
@@ -52,7 +53,7 @@ class MingImageModel(SDAPIDiffusionModelMixin):
         self._model = None
         self._processor = None
         self._profile = None
-        self._infer = None
+        self._infer: Optional[Any] = None
         self._dtype = None
 
     @property

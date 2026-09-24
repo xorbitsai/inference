@@ -33,8 +33,7 @@ def test_ming_image_catalog(name, abilities, cfg):
         assert spec.default_generate_config["guidance_scale"] == cfg
         assert (
             'flash-attn==2.8.3 ; #engine# == "diffusers" and sys_platform == '
-            '"linux" and platform_machine == "x86_64"'
-            in spec.virtualenv.packages
+            '"linux" and platform_machine == "x86_64"' in spec.virtualenv.packages
         )
         assert MingImageEngineModel.match(spec)
         assert not DiffusersImageModel.match(spec)
@@ -77,6 +76,7 @@ def test_ming_image_load_uses_upstream_contract(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
     def import_upstream(name):
         assert name == "xinference.thirdparty.ming_image.infer"
         return upstream
@@ -110,9 +110,7 @@ def test_ming_image_attention_fallback_configures_both_submodels(
     vision_config = SimpleNamespace()
     llm_config = SimpleNamespace()
     assert (
-        modeling_bailingmm2._configure_attn_implementation(
-            vision_config, llm_config
-        )
+        modeling_bailingmm2._configure_attn_implementation(vision_config, llm_config)
         == expected
     )
     assert vision_config._attn_implementation == expected
