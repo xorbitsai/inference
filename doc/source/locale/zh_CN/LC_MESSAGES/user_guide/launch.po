@@ -367,8 +367,8 @@ msgstr "一次增加多个副本时，``replica_config`` 也可以是一个列�
 msgid "Scale-up is not supported for Xavier-distributed models or models launched with ``n_worker > 1``. Deleting the last replica terminates the running model."
 msgstr "使用 Xavier 分布式运行的模型，以及通过 ``n_worker > 1`` 启动的模型，暂不支持增加副本。删除最后一个副本时，运行中的模型也会终止。"
 
-msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch. The Web UI shows progress for each replica without an overall launch bar. Dependency installation has no separate package-level percentage."
-msgstr "部署期间，进度接口 ``GET /v1/models/{model_uid}/progress`` 会报告每个副本所处的阶段。模型文件下载完成后，如果另一个启动任务正在准备共享虚拟环境，副本会报告 ``waiting_for_dependencies``；安装依赖包时报告 ``installing_dependencies``；环境就绪后报告 ``loading``。接口返回的总百分比代表整个启动过程。Web 界面分别显示每个副本的进度，不显示总体进度条。依赖包安装没有单独的逐包百分比。"
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch."
+msgstr "部署期间，进度接口 ``GET /v1/models/{model_uid}/progress`` 会报告每个副本所处的阶段。模型文件下载完成后，如果另一个启动任务正在准备共享虚拟环境，副本会报告 ``waiting_for_dependencies``；安装依赖包时报告 ``installing_dependencies``；环境就绪后报告 ``loading``。接口返回的总百分比代表整个启动过程。"
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web 界面会在各副本的卡片中显示该副本的文件下载详情。"

@@ -322,8 +322,8 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
-msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch. The Web UI shows progress for each replica without an overall launch bar. Dependency installation has no separate package-level percentage."
-msgstr "デプロイ中、進捗エンドポイント ``GET /v1/models/{model_uid}/progress`` は各レプリカの段階を返します。モデルファイルのダウンロード後、共有仮想環境を別の起動処理が準備している間は ``waiting_for_dependencies``、パッケージのインストール中は ``installing_dependencies``、環境の準備後は ``loading`` を返します。エンドポイントが返す全体のパーセンテージは起動全体を示します。Web UI は全体の進捗バーを表示せず、各レプリカの進捗を表示します。依存パッケージごとのパーセンテージはありません。"
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch."
+msgstr "デプロイ中、進捗エンドポイント ``GET /v1/models/{model_uid}/progress`` は各レプリカの段階を返します。モデルファイルのダウンロード後、共有仮想環境を別の起動処理が準備している間は ``waiting_for_dependencies``、パッケージのインストール中は ``installing_dependencies``、環境の準備後は ``loading`` を返します。エンドポイントが返す全体のパーセンテージは起動全体を示します。"
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web UI は各レプリカのファイルダウンロード詳細を、それぞれのレプリカカード内に表示します。"

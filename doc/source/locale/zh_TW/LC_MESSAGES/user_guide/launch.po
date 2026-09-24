@@ -321,8 +321,8 @@ msgid ""
 "copies the remaining launch options into the form without starting a model."
 msgstr ""
 
-msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch. The Web UI shows progress for each replica without an overall launch bar. Dependency installation has no separate package-level percentage."
-msgstr "部署期間，進度端點 ``GET /v1/models/{model_uid}/progress`` 會回報每個副本的階段。模型檔案下載完成後，若其他啟動工作正在準備共用虛擬環境，副本會回報 ``waiting_for_dependencies``；安裝依賴套件時回報 ``installing_dependencies``；環境就緒後回報 ``loading``。端點回傳的總百分比涵蓋整個啟動流程。Web 介面分別顯示每個副本的進度，不顯示總體進度條。依賴套件安裝沒有個別套件的百分比。"
+msgid "During deployment, the progress endpoint ``GET /v1/models/{model_uid}/progress`` reports a stage for each replica. After model files finish downloading, a replica can report ``waiting_for_dependencies`` while another launch prepares its shared virtual environment, then ``installing_dependencies`` while packages are being installed, and ``loading`` after the environment is ready. The overall percentage returned by the endpoint covers the whole launch."
+msgstr "部署期間，進度端點 ``GET /v1/models/{model_uid}/progress`` 會回報每個副本的階段。模型檔案下載完成後，若其他啟動工作正在準備共用虛擬環境，副本會回報 ``waiting_for_dependencies``；安裝依賴套件時回報 ``installing_dependencies``；環境就緒後回報 ``loading``。端點回傳的總百分比涵蓋整個啟動流程。"
 
 msgid "The Web UI shows each replica's file download details inside its replica card."
 msgstr "Web 介面會在各副本的卡片中顯示該副本的檔案下載詳情。"

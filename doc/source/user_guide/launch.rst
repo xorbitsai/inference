@@ -159,9 +159,7 @@ reports a stage for each replica. After model files finish downloading, a replic
 can report ``waiting_for_dependencies`` while another launch prepares its shared
 virtual environment, then ``installing_dependencies`` while packages are being
 installed, and ``loading`` after the environment is ready. The overall
-percentage returned by the endpoint covers the whole launch. The Web UI shows
-progress for each replica without an overall launch bar. Dependency installation
-has no separate package-level percentage.
+percentage returned by the endpoint covers the whole launch.
 
 The Web UI shows each replica's file download details inside its replica card.
 
