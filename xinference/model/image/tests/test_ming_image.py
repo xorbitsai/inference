@@ -1,3 +1,4 @@
+from importlib.metadata import version
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -100,8 +101,7 @@ def test_ming_image_load_uses_upstream_contract(monkeypatch, tmp_path):
 def test_ming_image_attention_fallback_configures_both_submodels(
     monkeypatch, available, expected
 ):
-    pytest.importorskip("transformers")
-    pytest.importorskip("diffusers")
+    _require_ming_image_attention_dependencies()
     from xinference.thirdparty.ming_image import modeling_bailingmm2
 
     monkeypatch.setattr(
@@ -118,7 +118,7 @@ def test_ming_image_attention_fallback_configures_both_submodels(
 
 
 def test_ming_image_sdpa_attention_uses_torch_sdpa(monkeypatch):
-    pytest.importorskip("transformers")
+    _require_ming_image_attention_dependencies()
     from xinference.thirdparty.ming_image import modeling_bailing_moe_v2 as modeling
     from xinference.thirdparty.ming_image.configuration_bailing_moe_v2 import (
         BailingMoeV2Config,
@@ -162,6 +162,18 @@ def test_ming_image_sdpa_attention_uses_torch_sdpa(monkeypatch):
             "is_causal": True,
         }
     ]
+
+
+def _require_ming_image_attention_dependencies():
+    requirements = {"transformers": "4.57.1", "diffusers": "0.36.0"}
+    for package, required_version in requirements.items():
+        pytest.importorskip(package)
+        installed_version = version(package)
+        if installed_version != required_version:
+            pytest.skip(
+                f"Ming-Image attention tests require {package}=={required_version}; "
+                f"found {installed_version}"
+            )
 
 
 @pytest.mark.parametrize(

@@ -3329,11 +3329,13 @@ class RESTfulAPI(CancelMixin):
             description = await (await self._get_supervisor_ref()).describe_model(
                 model_uid
             )
-            preserve_alpha = (
-                description.get("model_name", "").lower() == "qwen-image-2.1"
-            )
+            preserve_alpha = description.get("model_name", "").lower() in {
+                "qwen-image-2.1",
+                "ming-image-0.1-design",
+                "ming-image-0.1-design-layer",
+            }
 
-            # Preserve transparent references for Qwen-Image-2.1.
+            # Preserve transparent references for models with RGBA inputs.
             pil_images: list[Image.Image] = []
             for img_file in image_files:
                 image_content = await img_file.read()
