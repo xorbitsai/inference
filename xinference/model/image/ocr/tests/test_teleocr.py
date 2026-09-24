@@ -172,6 +172,7 @@ def test_teleocr_accepts_image_gguf_options(monkeypatch):
         "llama.cpp",
         {"model_format": "ggufv2", "quantization": "Q4_K_M"},
     )
+    assert calls["instance"]["model_engine"] == "llama.cpp"
     assert calls["instance"]["model_path"] == "/local/model.gguf"
 
 

@@ -328,7 +328,7 @@ def create_image_model_instance(
         return create_ocr_model_instance(
             model_uid=model_uid,
             model_spec=model_spec,
-            model_engine=ocr_engine,
+            model_engine=ocr_engine if ocr_gguf else model_engine,
             model_path=(gguf_model_path or model_path) if ocr_gguf else model_path,
             **kwargs,
         )
