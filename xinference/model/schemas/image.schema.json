@@ -15,12 +15,40 @@
           "type": "string",
           "enum": [
             "pytorch",
-            "mlx"
+            "mlx",
+            "ggufv2"
           ]
         },
         "model_src": {
           "$ref": "#/$defs/sources"
+        },
+        "virtualenv": {
+          "$ref": "common.schema.json#/$defs/virtualenv"
+        },
+        "model_file_name_template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "multimodal_projector": {
+          "type": "string",
+          "minLength": 1
         }
+      },
+      "if": {
+        "properties": {
+          "model_format": {
+            "const": "ggufv2"
+          }
+        },
+        "required": [
+          "model_format"
+        ]
+      },
+      "then": {
+        "required": [
+          "model_file_name_template",
+          "multimodal_projector"
+        ]
       },
       "required": [
         "model_format",
