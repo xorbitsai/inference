@@ -51,6 +51,7 @@ WORKDIR /build
 # from what the runtime actually installs.
 COPY xinference/constants.py xinference/_compat.py /build/src/xinference/
 COPY xinference/core/utils.py \
+     xinference/core/rpc_context.py \
      xinference/core/virtual_env_manager.py /build/src/xinference/core/
 COPY xinference/model/ /build/src/xinference/model/
 COPY xinference/deploy/docker/requirements-runtime.txt /build/requirements-runtime.txt

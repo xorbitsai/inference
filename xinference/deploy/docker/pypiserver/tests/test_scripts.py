@@ -16,12 +16,15 @@ import hashlib
 import importlib.util
 import io
 import json
+import shlex
+import shutil
 import subprocess
 import sys
 from http.client import IncompleteRead
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
+import pytest
 from packaging.requirements import InvalidRequirement, Requirement
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
@@ -69,6 +72,46 @@ def test_generate_package_list_classification():
     )
     standard_marker = 'decord2==3.4.0 ; platform_machine == "aarch64"'
     assert generator.normalize_mirror_spec(standard_marker) == standard_marker
+
+
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+def test_generate_package_lists_from_docker_sources(tmp_path, platform):
+    src_root = tmp_path / "src"
+    dockerfile = (SCRIPT_DIR / "Dockerfile.pypiserver").read_text(encoding="utf-8")
+    for line in dockerfile.replace("\\\n", " ").splitlines():
+        fields = shlex.split(line)
+        if not fields or fields[0] != "COPY":
+            continue
+        destination = fields[-1]
+        if not destination.startswith("/build/src/"):
+            continue
+        target = src_root / destination.removeprefix("/build/src/")
+        target.mkdir(parents=True, exist_ok=True)
+        for source in fields[1:-1]:
+            source_path = REPO_ROOT / source
+            if source_path.is_dir():
+                shutil.copytree(source_path, target, dirs_exist_ok=True)
+            else:
+                shutil.copy2(source_path, target)
+
+    out = tmp_path / "out"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_DIR / "generate_package_lists.py"),
+            "--platform",
+            platform,
+            "--src-root",
+            str(src_root),
+            "--out",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (out / "manifest.json").is_file()
+    assert (out / "engines" / "transformers.in").is_file()
 
 
 def test_load_xinference_modules_restores_sys_modules():
