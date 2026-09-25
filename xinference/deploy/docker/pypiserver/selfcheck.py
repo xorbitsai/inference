@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import List, Optional
 from urllib.parse import unquote, urlparse
 
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 
 
@@ -52,8 +53,16 @@ def wait_for_server(index_url: str, timeout: int = 60) -> None:
 
 def wheel_url_to_spec(url: str) -> Optional[str]:
     """https://…/name-1.2.3+local-…​.whl -> 'name==1.2.3+local'."""
+    marker = None
     if "@" in url and not url.startswith(("http://", "https://")):
-        url = url.partition("@")[2].strip()
+        try:
+            requirement = Requirement(url)
+        except InvalidRequirement:
+            return None
+        if requirement.url is None:
+            return None
+        url = requirement.url
+        marker = requirement.marker
     filename = unquote(posixpath.basename(urlparse(url).path))
     if not filename.endswith(".whl"):
         return None
@@ -64,7 +73,8 @@ def wheel_url_to_spec(url: str) -> Optional[str]:
     # parse_wheel_filename canonicalizes the distribution name. Keep the
     # filename spelling for compatibility with existing manifests and logs.
     distribution = filename.split("-", 1)[0]
-    return f"{distribution}=={version}"
+    spec = f"{distribution}=={version}"
+    return f"{spec} ; {marker}" if marker is not None else spec
 
 
 def compile_against_index(
