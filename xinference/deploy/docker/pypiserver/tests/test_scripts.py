@@ -222,6 +222,17 @@ def test_selfcheck_wheel_url_to_spec():
     assert selfcheck.wheel_url_to_spec("https://example.com/invalid.whl") is None
 
 
+@pytest.mark.parametrize("marker", ["", ' ; platform_machine == "aarch64"'])
+def test_selfcheck_named_wheel_reference(marker):
+    selfcheck = _load_script("selfcheck")
+    assert (
+        selfcheck.wheel_url_to_spec(
+            "torchao @ https://example.com/torchao-0.16.0-py3-none-any.whl" + marker
+        )
+        == "torchao==0.16.0" + marker
+    )
+
+
 def test_download_report_wheel_filename_parsing():
     downloader = _load_script("download_packages")
 
@@ -760,6 +771,8 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
     )
     (manifest / "urls.txt").write_text(
         "https://example.invalid/direct-1.0-py3-none-any.whl\n"
+        "torchao @ https://example.invalid/torchao-0.16.0-py3-none-any.whl"
+        ' ; platform_machine == "aarch64"\n'
     )
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
@@ -796,6 +809,7 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
         ["engine-pkg>=1.0"],
         ["model-pin==1.0"],
         ["direct==1.0"],
+        ['torchao==0.16.0 ; platform_machine == "aarch64"'],
     ]
     output = capsys.readouterr().out
     assert "UNSUPPORTED offline direct reference " + git_source in output
