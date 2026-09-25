@@ -24,7 +24,15 @@ from starlette.datastructures import UploadFile
 from ..restful_api import RESTfulAPI
 
 
-@pytest.mark.parametrize("model_name", ["Qwen-Image-2.1", "Qwen-Image-Edit-2511"])
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "Qwen-Image-2.1",
+        "Qwen-Image-Edit-2511",
+        "Ming-Image-0.1-Design",
+        "Ming-Image-0.1-Design-Layer",
+    ],
+)
 def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
     model_ref = SimpleNamespace(image_to_image=AsyncMock(return_value=b'{"data": []}'))
     supervisor = SimpleNamespace(
@@ -66,7 +74,11 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
     supervisor.describe_model.assert_awaited_once_with("custom-model-uid")
     kwargs = model_ref.image_to_image.call_args.kwargs
     for image in [kwargs["image"], *kwargs["reference_images"]]:
-        if model_name == "Qwen-Image-2.1":
+        if model_name in {
+            "Qwen-Image-2.1",
+            "Ming-Image-0.1-Design",
+            "Ming-Image-0.1-Design-Layer",
+        }:
             assert image.mode == "RGBA"
             assert image.getpixel((0, 0)) == (0, 0, 0, 0)
         else:

@@ -63,6 +63,10 @@ The following is a list of built-in image models in Xinference:
 
    mineru2.5
 
+   ming-image-0.1-design
+
+   ming-image-0.1-design-layer
+
    monkeyocr
   
    navidc-ocr
