@@ -19,7 +19,7 @@ from types import SimpleNamespace
 
 import pytest
 import torch
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from .. import BUILTIN_AUDIO_MODELS
 from .. import confucius4_tts as confucius_module
