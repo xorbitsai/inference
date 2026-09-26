@@ -699,3 +699,44 @@ def test_cached_tokens_passed_through():
         req,
     )
     assert unreported["usage"]["input_tokens_details"] == {"cached_tokens": 0}
+
+
+@pytest.mark.asyncio
+async def test_stream_released_when_client_leaves_before_body_starts(monkeypatch):
+    from starlette.requests import Request
+
+    model = FakeModel()
+    app = _make_app(monkeypatch, model)
+    api = next(r.endpoint.__self__ for r in app.routes if r.path == "/v1/responses")
+    body = json.dumps({"model": "m", "input": "ping", "stream": True}).encode()
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    scope = {"type": "http", "method": "POST", "path": "/v1/responses"}
+    response = await api.create_response(Request({**scope, "headers": []}, receive))
+    await response.background()
+    await response.background()
+    assert model.released == 1
+
+
+def test_malformed_tools_and_history_items():
+    with pytest.raises(ResponsesProtocolError) as exc:
+        parse_responses_request({"model": "m", "input": "x", "tools": {"a": 1}})
+    assert exc.value.param == "tools"
+
+    req = parse_responses_request(
+        {
+            "model": "m",
+            "input": [
+                {"type": "web_search_call", "id": "ws_1", "status": "completed"},
+                {"type": "reasoning", "summary": "oops", "content": [{"text": 5}]},
+                {"role": "assistant", "content": "hi"},
+                {"role": "user", "content": "next"},
+            ],
+        }
+    )
+    assert req.chat_body["messages"] == [
+        {"role": "assistant", "content": "hi"},
+        {"role": "user", "content": "next"},
+    ]

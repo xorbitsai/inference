@@ -2606,6 +2606,26 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(exc))
             return self._responses_model_error(exc)
 
+        async def release_serve_count() -> None:
+            from xoscar.api import IteratorWrapper
+
+            if (
+                inspect.isasyncgen(iterator)
+                or inspect.isgenerator(iterator)
+                or isinstance(iterator, IteratorWrapper)
+            ):
+                await model.decrease_serve_count()
+
+        cleanup_task: asyncio.Task[None] | None = None
+
+        # Also run as the response's background task: a client that disconnects
+        # before the body starts never enters the generator's finally block.
+        async def release_resources() -> None:
+            nonlocal cleanup_task
+            if cleanup_task is None:
+                cleanup_task = asyncio.create_task(release_serve_count())
+            await asyncio.shield(cleanup_task)
+
         async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
             reporter = get_stream_outcome_reporter(request)
             model_chunks = observe_stream(
@@ -2632,15 +2652,7 @@ class RESTfulAPI(CancelMixin):
                 await self._report_error_event(model_uid, str(exc))
                 yield {"error": {"message": str(exc)}}
             finally:
-                if iterator is not None:
-                    from xoscar.api import IteratorWrapper
-
-                    if (
-                        inspect.isasyncgen(iterator)
-                        or inspect.isgenerator(iterator)
-                        or isinstance(iterator, IteratorWrapper)
-                    ):
-                        await model.decrease_serve_count()
+                await release_resources()
 
         return EventSourceResponse(
             observe_stream(
@@ -2649,6 +2661,7 @@ class RESTfulAPI(CancelMixin):
                 failure_origin=FailureOrigin.PROTOCOL,
             ),
             ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+            background=BackgroundTask(release_resources),
         )
 
     async def _create_response_via_token_router(

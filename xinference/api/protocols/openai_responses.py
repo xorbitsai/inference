@@ -119,13 +119,16 @@ def _output_text(output: Any) -> str:
 
 
 def _reasoning_text(item: Dict[str, Any]) -> str:
-    parts = [
-        part.get("text") or ""
-        for key in ("summary", "content")
-        for part in (item.get(key) or [])
-        if isinstance(part, dict)
-    ]
-    return "\n".join(part for part in parts if part)
+    parts = []
+    for key in ("summary", "content"):
+        value = item.get(key)
+        if not isinstance(value, list):
+            continue
+        for part in value:
+            text = part.get("text") if isinstance(part, dict) else None
+            if isinstance(text, str) and text:
+                parts.append(text)
+    return "\n".join(parts)
 
 
 def _normalize_system(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -245,6 +248,10 @@ def _input_to_messages(instructions: Any, raw_input: Any) -> List[Dict[str, Any]
                 "item_reference needs stored responses, which are not supported",
                 code="unsupported_parameter",
             )
+        else:
+            # Hosted-tool items (web_search_call, local_shell_call, ...) have no chat
+            # equivalent; rejecting them would break histories that contain them.
+            continue
     flush()
     return _normalize_system(messages)
 
@@ -306,9 +313,16 @@ def _convert_tools(
             custom.add(flat)
         tools.append(_chat_tool(tool, flat))
 
+    if raw_tools is not None and not isinstance(raw_tools, list):
+        raise ResponsesProtocolError("tools must be an array", param="tools")
     for tool in raw_tools or []:
         if isinstance(tool, dict) and tool.get("type") == "namespace":
-            for inner in tool.get("tools") or []:
+            inner_tools = tool.get("tools") or []
+            if not isinstance(inner_tools, list):
+                raise ResponsesProtocolError(
+                    "namespace tools must be an array", param="tools"
+                )
+            for inner in inner_tools:
                 add(inner, tool.get("name"))
         else:
             add(tool)
