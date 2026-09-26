@@ -79,11 +79,7 @@ def _text(content: Any) -> str:
     return "\n".join(parts)
 
 
-def _user_content(content: Any) -> Any:
-    if isinstance(content, str):
-        return content
-    if not isinstance(content, list):
-        raise ResponsesProtocolError("Message content must be a string or an array")
+def _content_parts(content: List[Any]) -> List[Dict[str, Any]]:
     parts: List[Dict[str, Any]] = []
     for part in content:
         if not isinstance(part, dict):
@@ -105,17 +101,29 @@ def _user_content(content: Any) -> Any:
             parts.append({"type": "image_url", "image_url": image})
         else:
             raise ResponsesProtocolError(f"Unsupported content part type: {part_type}")
+    return parts
+
+
+def _user_content(content: Any) -> Any:
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        raise ResponsesProtocolError("Message content must be a string or an array")
+    parts = _content_parts(content)
     if all(part["type"] == "text" for part in parts):
         return "\n".join(part["text"] for part in parts)
     return parts
 
 
-def _output_text(output: Any) -> str:
+def _tool_output(output: Any) -> tuple[str, List[Dict[str, Any]]]:
+    """Split a tool output into its text and its image parts."""
     if isinstance(output, str):
-        return output
-    if isinstance(output, list):
-        return _text(output)
-    return json.dumps(output, ensure_ascii=False)
+        return output, []
+    if not isinstance(output, list):
+        return json.dumps(output, ensure_ascii=False), []
+    parts = _content_parts(output)
+    text = "\n".join(part["text"] for part in parts if part["type"] == "text")
+    return text, [part for part in parts if part["type"] == "image_url"]
 
 
 def _reasoning_text(item: Dict[str, Any]) -> str:
@@ -165,6 +173,7 @@ def _input_to_messages(instructions: Any, raw_input: Any) -> List[Dict[str, Any]
 
     pending_calls: List[Dict[str, Any]] = []
     tool_outputs: List[Dict[str, Any]] = []
+    tool_images: List[Dict[str, Any]] = []
     pending_reasoning: Optional[str] = None
     # Text followed by calls in one turn must stay one assistant message, or
     # the calls lose the reasoning DeepSeek requires to be sent back with them.
@@ -187,6 +196,11 @@ def _input_to_messages(instructions: Any, raw_input: Any) -> List[Dict[str, Any]
             messages.extend(tool_outputs)
             tool_outputs.clear()
             open_assistant = None
+        # Chat tool messages carry text only, so images a tool returned follow
+        # the whole batch of results as one user message.
+        if tool_images:
+            messages.append({"role": "user", "content": list(tool_images)})
+            tool_images.clear()
 
     for item in raw_input:
         if not isinstance(item, dict):
@@ -236,12 +250,18 @@ def _input_to_messages(instructions: Any, raw_input: Any) -> List[Dict[str, Any]
                 }
             )
         elif item_type in ("function_call_output", "custom_tool_call_output"):
+            text, images = _tool_output(item.get("output"))
+            if images:
+                text = text or f"The tool returned {len(images)} image(s)."
+                tool_images.append(
+                    {
+                        "type": "text",
+                        "text": f"Images from tool call {item.get('call_id')}:",
+                    }
+                )
+                tool_images.extend(images)
             tool_outputs.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": item.get("call_id"),
-                    "content": _output_text(item.get("output")),
-                }
+                {"role": "tool", "tool_call_id": item.get("call_id"), "content": text}
             )
         elif item_type == "item_reference":
             raise ResponsesProtocolError(
@@ -329,12 +349,57 @@ def _convert_tools(
     return tools, custom, namespaced
 
 
-def _convert_tool_choice(choice: Any) -> Any:
+def _apply_tool_choice(
+    tools: List[Dict[str, Any]], choice: Any
+) -> tuple[List[Dict[str, Any]], Any]:
+    """Convert tool_choice, narrowing tools to the allowed_tools subset."""
     if choice is None or isinstance(choice, str):
-        return choice
-    if isinstance(choice, dict) and choice.get("type") in ("function", "custom"):
-        return {"type": "function", "function": {"name": choice.get("name")}}
-    return "auto"
+        return tools, choice
+    if not isinstance(choice, dict):
+        raise ResponsesProtocolError("tool_choice must be a string or an object")
+    names = {tool["function"]["name"] for tool in tools}
+
+    def resolve(entry: Dict[str, Any]) -> str:
+        name = _flat_name(entry.get("namespace"), entry.get("name") or "")
+        if name not in names:
+            raise ResponsesProtocolError(
+                f"tool_choice names a tool that is not in tools: {name}",
+                param="tool_choice",
+            )
+        return name
+
+    if choice.get("type") in ("function", "custom"):
+        return tools, {"type": "function", "function": {"name": resolve(choice)}}
+    if choice.get("type") == "allowed_tools":
+        mode = choice.get("mode") or "auto"
+        if mode not in ("auto", "required"):
+            raise ResponsesProtocolError(
+                f"Unsupported allowed_tools mode: {mode}", param="tool_choice"
+            )
+        allowed = choice.get("tools")
+        if not isinstance(allowed, list):
+            raise ResponsesProtocolError(
+                "allowed_tools needs a tools array", param="tool_choice"
+            )
+        # Hosted tools are dropped from tools too, so only function/custom
+        # entries can narrow the list.
+        keep = {
+            resolve(entry)
+            for entry in allowed
+            if isinstance(entry, dict) and entry.get("type") in ("function", "custom")
+        }
+        subset = [tool for tool in tools if tool["function"]["name"] in keep]
+        if not subset and mode == "required":
+            raise ResponsesProtocolError(
+                "allowed_tools requires a call but allows no function tools",
+                param="tool_choice",
+            )
+        return subset, mode
+    raise ResponsesProtocolError(
+        f"Unsupported tool_choice type: {choice.get('type')}",
+        param="tool_choice",
+        code="unsupported_parameter",
+    )
 
 
 def _response_format(text: Any) -> Optional[Dict[str, Any]]:
@@ -384,9 +449,11 @@ def parse_responses_request(raw: Any) -> ResponsesRequest:
     for key in ("temperature", "top_p"):
         if raw.get(key) is not None:
             body[key] = raw[key]
+    choice = None
+    if tools:
+        tools, choice = _apply_tool_choice(tools, raw.get("tool_choice"))
     if tools:
         body["tools"] = tools
-        choice = _convert_tool_choice(raw.get("tool_choice"))
         if choice is not None:
             body["tool_choice"] = choice
     response_format = _response_format(raw.get("text"))

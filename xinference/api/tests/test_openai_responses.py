@@ -740,3 +740,112 @@ def test_malformed_tools_and_history_items():
         {"role": "assistant", "content": "hi"},
         {"role": "user", "content": "next"},
     ]
+
+
+IMAGE = "data:image/png;base64,iVBORw0KGgo="
+
+
+def test_image_tool_outputs_reach_the_model():
+    call = {"type": "function_call", "call_id": "c1", "name": "view_image"}
+    req = parse_responses_request(
+        {
+            "model": "m",
+            "input": [
+                {"role": "user", "content": "look"},
+                {**call, "arguments": "{}"},
+                {
+                    "type": "function_call_output",
+                    "call_id": "c1",
+                    "output": [{"type": "input_image", "image_url": IMAGE}],
+                },
+                {
+                    "type": "custom_tool_call",
+                    "call_id": "c2",
+                    "name": "shot",
+                    "input": "",
+                },
+                {
+                    "type": "custom_tool_call_output",
+                    "call_id": "c2",
+                    "output": [
+                        {"type": "input_text", "text": "saved"},
+                        {"type": "input_image", "image_url": IMAGE},
+                    ],
+                },
+            ],
+        }
+    )
+    messages = req.chat_body["messages"]
+    assert [m["role"] for m in messages] == [
+        "user",
+        "assistant",
+        "tool",
+        "user",
+        "assistant",
+        "tool",
+        "user",
+    ]
+    assert messages[2]["content"] == "The tool returned 1 image(s)."
+    assert messages[5]["content"] == "saved"
+    for images in (messages[3]["content"], messages[6]["content"]):
+        assert images[1] == {"type": "image_url", "image_url": {"url": IMAGE}}
+
+    with pytest.raises(ResponsesProtocolError):
+        parse_responses_request(
+            {
+                "model": "m",
+                "input": [
+                    {**call, "arguments": "{}"},
+                    {
+                        "type": "function_call_output",
+                        "call_id": "c1",
+                        "output": [{"type": "input_file", "file_id": "f"}],
+                    },
+                ],
+            }
+        )
+
+
+def test_allowed_tools_narrow_the_tool_list():
+    tools = [
+        {"type": "function", "name": "read_status", "parameters": {}},
+        {"type": "function", "name": "delete_record", "parameters": {}},
+    ]
+
+    def convert(choice):
+        body = parse_responses_request(
+            {"model": "m", "input": "x", "tools": tools, "tool_choice": choice}
+        ).chat_body
+        return [t["function"]["name"] for t in body.get("tools", [])], body.get(
+            "tool_choice"
+        )
+
+    allowed = [{"type": "function", "name": "read_status"}]
+    assert convert({"type": "allowed_tools", "mode": "required", "tools": allowed}) == (
+        ["read_status"],
+        "required",
+    )
+    assert convert({"type": "allowed_tools", "mode": "auto", "tools": allowed}) == (
+        ["read_status"],
+        "auto",
+    )
+    assert convert({"type": "function", "name": "delete_record"}) == (
+        ["read_status", "delete_record"],
+        {"type": "function", "function": {"name": "delete_record"}},
+    )
+    for bad in (
+        {
+            "type": "allowed_tools",
+            "mode": "required",
+            "tools": [{"type": "function", "name": "nope"}],
+        },
+        {
+            "type": "allowed_tools",
+            "mode": "required",
+            "tools": [{"type": "web_search"}],
+        },
+        {"type": "web_search_preview"},
+    ):
+        with pytest.raises(ResponsesProtocolError) as exc:
+            convert(bad)
+        assert exc.value.param == "tool_choice"
