@@ -17,6 +17,7 @@ from .deepseek_ocr import DeepSeekOCRModel
 from .dots_ocr import DotsOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .jina_ocr import JinaOCRModel
 from .mlx import MLXDeepSeekOCRModel
 from .monkeyocr import MonkeyOCRModel
 from .navidc_ocr import NaviDCOCRModel
@@ -41,6 +42,7 @@ __all__ = [
     "DotsOCRModel",
     "GotOCR2Model",
     "HunyuanOCRModel",
+    "JinaOCRModel",
     "MonkeyOCRModel",
     "NaviDCOCRModel",
     "OvisOCR2Model",
@@ -57,6 +59,7 @@ def register_builtin_ocr_engines() -> None:
         DotsOCRModel,
         GotOCR2Model,
         HunyuanOCRModel,
+        JinaOCRModel,
         MonkeyOCRModel,
         NaviDCOCRModel,
         OvisOCR2Model,
