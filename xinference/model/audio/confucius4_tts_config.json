@@ -1,0 +1,51 @@
+{
+  "log_dir": null,
+  "seed": null,
+  "paths": {
+    "tokenizer_path": "./checkpoints",
+    "w2v_bert_path": "facebook/w2v-bert-2.0",
+    "w2v_stat": "./checkpoints/wav2vec2bert_stats.pt",
+    "style_encoder": {
+      "target": "external.campplus.CAMPPlus",
+      "init_args": {
+        "feat_dim": 80,
+        "embedding_size": 192
+      },
+      "checkpoint": "campplus_cn_common.bin"
+    },
+    "vocoder_path": "nvidia/bigvgan_v2_22khz_80band_256x",
+    "t2s_checkpoint": "t2s_model.safetensors",
+    "s2a_checkpoint": "s2a_model.pt"
+  },
+  "t2s_model": {
+    "num_layers": 24,
+    "model_dim": 1280,
+    "num_heads": 20,
+    "max_text_seq_lens": 520,
+    "max_semantic_seq_lens": 1520,
+    "vocab_size": 32000,
+    "semantic_vocab_size": 8194,
+    "text_embedding_dim": 4096,
+    "speaker_embedding_dim": 1024,
+    "start_semantic_token": 8192,
+    "stop_semantic_token": 8193
+  },
+  "s2a_model": {
+    "input_size": 512,
+    "output_size": 80,
+    "spk_embed_dim": 192,
+    "semantic_embed_dim": 1024,
+    "lm_latent_dim": 1280,
+    "estimator_mlp_ratio": 3.0
+  },
+  "audio": {
+    "target_sample_rate": 22050,
+    "prompt_sample_rate": 16000,
+    "n_fft": 1024,
+    "hop_length": 256,
+    "win_length": 1024,
+    "n_mels": 80,
+    "fmin": 0,
+    "fmax": null
+  }
+}

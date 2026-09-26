@@ -1,0 +1,50 @@
+[
+  {
+    "version": 2,
+    "model_name": "Confucius4-TTS",
+    "model_family": "Confucius4-TTS",
+    "model_description": "Confucius4-TTS clones a reference voice across 14 languages. Pass reference audio bytes as prompt_speech and a language code via language (default: zh). Reference text is not required. Wav2Vec2-BERT, CAMPPlus, and BigVGAN download separately from the selected hub during first load.",
+    "model_ability": ["text2audio", "text2audio_zero_shot", "text2audio_voice_cloning"],
+    "multilingual": true,
+    "model_lang": ["zh", "en", "ja", "ko", "de", "fr", "es", "id", "it", "th", "pt", "ru", "ms", "vi"],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.4",
+        "wetext==0.1.4",
+        "regex",
+        "huggingface-hub>=0.36,<1.0",
+        "safetensors>=0.7.0",
+        "PyYAML>=6.0",
+        "librosa>=0.10",
+        "scipy>=1.15",
+        "soundfile>=0.13",
+        "sentencepiece>=0.2",
+        "ema-pytorch>=0.7",
+        "packaging>=26",
+        "filelock>=3.25",
+        "matplotlib",
+        "fsspec>=2026",
+        "inflect",
+        "jaconv",
+        "pykakasi",
+        "protobuf>=3.19",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "netease-youdao/Confucius4-TTS",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "netease-youdao/Confucius4-TTS",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1790427062,
+    "featured": false
+  }
+]

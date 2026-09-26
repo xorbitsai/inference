@@ -21,6 +21,7 @@ from .ace_step import AceStepModel, is_ace_step_python_supported
 from .auk import AukModel
 from .breeze_tts import BreezeTTS2Model
 from .chattts import ChatTTSModel
+from .confucius4_tts import Confucius4TTSModel
 from .cosyvoice import CosyVoiceModel
 from .engine_family import AudioEngineModel
 from .f5tts import F5TTSModel
@@ -259,6 +260,7 @@ def create_audio_model_instance(
     FunASRModel,
     ChatTTSModel,
     CosyVoiceModel,
+    Confucius4TTSModel,
     FishSpeechModel,
     F5TTSModel,
     F5TTSMLXModel,
@@ -365,6 +367,7 @@ def create_audio_model_instance(
         FunASRModel,
         ChatTTSModel,
         CosyVoiceModel,
+        Confucius4TTSModel,
         FishSpeechModel,
         F5TTSModel,
         F5TTSMLXModel,
@@ -401,6 +404,8 @@ def create_audio_model_instance(
         model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "CosyVoice":
         model = CosyVoiceModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "Confucius4-TTS":
+        model = Confucius4TTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "FishAudio":
         model = FishSpeechModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "F5-TTS":

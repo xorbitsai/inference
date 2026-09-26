@@ -22,6 +22,8 @@ The following is a list of built-in audio models in Xinference:
 
    chattts
   
+   confucius4-tts
+
    cosyvoice-300m
   
    cosyvoice-300m-instruct
