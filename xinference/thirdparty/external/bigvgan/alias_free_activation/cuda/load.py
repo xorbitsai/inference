@@ -15,6 +15,11 @@ os.environ["TORCH_CUDA_ARCH_LIST"] = ""
 
 
 def load():
+    if cpp_extension.CUDA_HOME is None:
+        raise RuntimeError(
+            "CUDA_HOME is not set; the BigVGAN CUDA extension cannot be compiled."
+        )
+
     # Check if cuda 11 is installed for compute capability 8.0
     cc_flag = []
     _, bare_metal_major, _ = _get_cuda_bare_metal_version(cpp_extension.CUDA_HOME)

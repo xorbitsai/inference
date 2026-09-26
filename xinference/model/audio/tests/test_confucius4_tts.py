@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import json
+import sys
 from importlib.machinery import PathFinder
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
 import yaml  # type: ignore[import-untyped]
@@ -26,6 +28,15 @@ from .. import confucius4_tts as confucius_module
 from .. import load_model_family_from_json
 from ..confucius4_tts import Confucius4TTSModel
 from ..core import create_audio_model_instance, match_audio
+
+
+def _import_confuciustts_module(module_name):
+    thirdparty_dir = str(Path(__file__).resolve().parents[3] / "thirdparty")
+    if thirdparty_dir not in sys.path:
+        sys.path.insert(0, thirdparty_dir)
+    import importlib
+
+    return importlib.import_module(module_name)
 
 
 @pytest.fixture
@@ -202,3 +213,94 @@ def test_speech_rejects_missing_reference_and_stream(tmp_path, model_spec):
         model.speech("Hello")
     with pytest.raises(ValueError, match="streaming"):
         model.speech("Hello", stream=True, prompt_speech=b"reference")
+
+
+def test_vllm_model_dir_copies_weights_when_symlinks_fail(monkeypatch, tmp_path):
+    from xinference.thirdparty.confuciustts.llm import vllm_compat
+
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{}", encoding="utf-8")
+    checkpoint = tmp_path / "checkpoint.safetensors"
+    checkpoint.write_bytes(b"weights")
+    temp_dir = tmp_path / "fallback"
+
+    def make_temp_dir(prefix):
+        temp_dir.mkdir()
+        return str(temp_dir)
+
+    def fail_symlink(*args):
+        raise OSError("symlinks unavailable")
+
+    monkeypatch.setattr(vllm_compat.tempfile, "mkdtemp", make_temp_dir)
+    monkeypatch.setattr(vllm_compat.os, "symlink", fail_symlink)
+
+    result = vllm_compat.prepare_vllm_model_dir(str(model_dir), str(checkpoint))
+
+    assert result == str(temp_dir)
+    assert (temp_dir / "config.json").read_text(encoding="utf-8") == "{}"
+    assert (temp_dir / "model.safetensors").read_bytes() == b"weights"
+
+
+def test_vllm_position_correction_shifts_prompt_prefix():
+    from xinference.thirdparty.confuciustts.llm.vllm_compat import (
+        correct_confucius_positions,
+    )
+
+    class FakePositions:
+        def __init__(self):
+            self.np = np.array([0, 1, 0])
+            self.copied_tokens = None
+
+        def copy_to_gpu(self, num_tokens):
+            self.copied_tokens = num_tokens
+
+    positions = FakePositions()
+    runner = SimpleNamespace(
+        arange_np=np.arange(2),
+        input_batch=SimpleNamespace(num_reqs=2, req_ids=["first", "second"]),
+        positions=positions,
+        requests={
+            "first": SimpleNamespace(prompt_token_ids=[1, 2, 3]),
+            "second": SimpleNamespace(prompt_token_ids=[4, 5]),
+        },
+    )
+    scheduler_output = SimpleNamespace(total_num_scheduled_tokens=3)
+
+    correct_confucius_positions(runner, scheduler_output, np.array([2, 1]))
+
+    assert positions.np.tolist() == [-2, -1, -1]
+    assert positions.copied_tokens == 3
+
+
+def test_text_normalizer_splits_long_segments_even_with_multiple_sentences():
+    TextNormalizer = _import_confuciustts_module(
+        "confuciustts.frontend.text_normalizer"
+    ).TextNormalizer
+
+    text = "Short. " + "longword " * 16 + "Tail."
+    segments = TextNormalizer().segment_text(
+        text,
+        tokenize_fn=lambda value: value.split(),
+        language="en",
+        max_tokens=5,
+        min_tokens=1,
+    )
+
+    assert "".join(segments) == text
+    assert all(len(segment.split()) <= 5 for segment in segments)
+
+
+def test_audio_feature_caches_have_a_fixed_bound():
+    audio_features = _import_confuciustts_module("confuciustts.utils.audio_features")
+
+    assert audio_features._get_mel_transform.cache_info().maxsize == 16
+    assert audio_features._get_mel_spectrogram_basis.cache_info().maxsize == 16
+
+
+def test_bigvgan_cuda_loader_reports_missing_cuda_home(monkeypatch):
+    from xinference.thirdparty.external.bigvgan.alias_free_activation.cuda import load
+
+    monkeypatch.setattr(load.cpp_extension, "CUDA_HOME", None)
+    with pytest.raises(RuntimeError, match="CUDA_HOME is not set"):
+        load.load()

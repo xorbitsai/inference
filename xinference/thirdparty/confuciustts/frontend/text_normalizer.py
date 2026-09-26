@@ -189,24 +189,44 @@ class TextNormalizer:
 
                     segments.append(segment)
 
-        if len(segments) == 1 and calc_length(segments[0]) > max_tokens:
-            long_text = segments[0][:-1]  # Remove added punctuation
-            segments = []
-            for i in range(0, len(long_text), max_tokens):
-                chunk = long_text[i:i + max_tokens]
-                segments.append(chunk)
+        def split_long_segment(segment: str) -> List[str]:
+            if calc_length(segment) <= max_tokens:
+                return [segment]
+
+            chunks = []
+            while segment:
+                chunk_end = min(max_tokens, len(segment))
+                chunk = segment[:chunk_end]
+                while chunk and calc_length(chunk) > max_tokens:
+                    chunk_end -= 1
+                    chunk = segment[:chunk_end]
+                if not chunk:
+                    raise ValueError("max_tokens is too small to split this segment")
+                chunks.append(chunk)
+                segment = segment[chunk_end:]
+            return chunks
+
+        segments = [
+            chunk
+            for segment in segments
+            for chunk in split_long_segment(segment)
+        ]
 
         final_segments = []
         current = ""
 
         for seg in segments:
-            if calc_length(current + seg) > max_tokens and calc_length(current) > min_tokens:
+            if current and calc_length(current + seg) > max_tokens:
                 final_segments.append(current)
                 current = ""
             current = current + seg
 
         if current:
-            if should_merge(current) and final_segments:
+            if (
+                should_merge(current)
+                and final_segments
+                and calc_length(final_segments[-1] + current) <= max_tokens
+            ):
                 final_segments[-1] = final_segments[-1] + current
             else:
                 final_segments.append(current)

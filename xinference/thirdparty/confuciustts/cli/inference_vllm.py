@@ -62,6 +62,7 @@ from confuciustts.flow.flow import MaskedDiffWithXvec, MaskedDiffWithXvecConfig
 from confuciustts.frontend.text_normalizer import TextNormalizer
 from confuciustts.llm.llm import Text2Semantic, Text2SemanticConfig
 from confuciustts.llm.llm_vllm import PLACEHOLDER_TOKEN
+from confuciustts.llm.vllm_compat import prepare_vllm_model_dir
 from confuciustts.utils.audio_features import mel_spectrogram
 from confuciustts.utils.audio_post import cross_fade_concat
 from confuciustts.utils.text_utils import LANGUAGE_TOKEN_MAP
@@ -234,29 +235,9 @@ class ConfuciusTTSVLLM:
                 except OSError:
                     pass
 
-        # Point model.safetensors at the real T2S checkpoint via symlink. If the
-        # filesystem does not support symlinks, fall back to a temp dir that
-        # copies the config/tokenizer files alongside a symlinked weight file.
-        import shutil, tempfile
-        _weights_link = os.path.join(vllm_model_dir, "model.safetensors")
-        _link_ok = (
-            os.path.lexists(_weights_link)
-            and os.path.islink(_weights_link)
-            and os.readlink(_weights_link) == t2s_ckpt
-        )
-        if not _link_ok:
-            try:
-                if os.path.lexists(_weights_link):
-                    os.remove(_weights_link)
-                os.symlink(t2s_ckpt, _weights_link)
-            except OSError:
-                _tmp_dir = tempfile.mkdtemp(prefix="confucius_t2s_vllm_")
-                for _fn in os.listdir(vllm_model_dir):
-                    _fp = os.path.join(vllm_model_dir, _fn)
-                    if os.path.isfile(_fp) and not _fn.endswith(".safetensors"):
-                        shutil.copy2(_fp, os.path.join(_tmp_dir, _fn))
-                os.symlink(t2s_ckpt, os.path.join(_tmp_dir, "model.safetensors"))
-                vllm_model_dir = _tmp_dir
+        # Point model.safetensors at the real checkpoint, copying it if the
+        # filesystem does not support symlinks.
+        vllm_model_dir = prepare_vllm_model_dir(vllm_model_dir, t2s_ckpt)
 
         # Build the async vLLM engine. enable_mm_embeds lets us feed precomputed
         # prefix embeddings (speaker + text + BOS) as a "multimodal" input;

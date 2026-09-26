@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Optional
 
 import torch
@@ -5,12 +6,10 @@ import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 
 
-_MEL_TRANSFORMS: dict = {}
 _FBANK_TRANSFORMS: dict = {}
-_MEL_BASIS_CACHE: dict = {}
-_HANN_WINDOW_CACHE: dict = {}
 
 
+@lru_cache(maxsize=16)
 def _get_mel_transform(
     sample_rate: int,
     n_fft: int,
@@ -19,27 +18,40 @@ def _get_mel_transform(
     n_mels: int,
     f_min: float,
     f_max: Optional[float],
-    device: torch.device,
+    device: str,
 ) -> torchaudio.transforms.MelSpectrogram:
-    key = (sample_rate, n_fft, win_length, hop_length, n_mels, f_min, f_max, str(device))
-    tx = _MEL_TRANSFORMS.get(key)
-    if tx is None:
-        tx = torchaudio.transforms.MelSpectrogram(
-            sample_rate=sample_rate,
-            n_fft=n_fft,
-            win_length=win_length,
-            hop_length=hop_length,
-            n_mels=n_mels,
-            f_min=f_min,
-            f_max=f_max,
-            power=1.0,
-            center=True,
-            pad_mode="reflect",
-            mel_scale="slaney",
-            norm="slaney",
-        ).to(device)
-        _MEL_TRANSFORMS[key] = tx
-    return tx
+    return torchaudio.transforms.MelSpectrogram(
+        sample_rate=sample_rate,
+        n_fft=n_fft,
+        win_length=win_length,
+        hop_length=hop_length,
+        n_mels=n_mels,
+        f_min=f_min,
+        f_max=f_max,
+        power=1.0,
+        center=True,
+        pad_mode="reflect",
+        mel_scale="slaney",
+        norm="slaney",
+    ).to(torch.device(device))
+
+
+@lru_cache(maxsize=16)
+def _get_mel_spectrogram_basis(
+    n_fft: int,
+    n_mels: int,
+    sample_rate: int,
+    win_length: int,
+    fmin: float,
+    fmax: Optional[float],
+    device: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    mel = librosa_mel_fn(
+        sr=sample_rate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax
+    )
+    mel_basis = torch.from_numpy(mel).float().to(torch.device(device))
+    hann_window = torch.hann_window(win_length).to(torch.device(device))
+    return mel_basis, hann_window
 
 
 def extract_mel(
@@ -58,7 +70,14 @@ def extract_mel(
     if waveform.size(0) > 1:
         waveform = waveform.mean(dim=0, keepdim=True)
     tx = _get_mel_transform(
-        sample_rate, n_fft, win_length, hop_length, n_mels, f_min, f_max, waveform.device
+        sample_rate,
+        n_fft,
+        win_length,
+        hop_length,
+        n_mels,
+        f_min,
+        f_max,
+        str(waveform.device),
     )
     mel = tx(waveform)
     mel = torch.log(mel.clamp_min(log_eps))
@@ -76,13 +95,9 @@ def mel_spectrogram(
     fmax: Optional[float],
 ) -> torch.Tensor:
     device = audio.device
-    key = (n_fft, n_mels, sample_rate, hop_length, win_length, fmin, fmax, str(device))
-    if key not in _MEL_BASIS_CACHE:
-        mel = librosa_mel_fn(sr=sample_rate, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
-        _MEL_BASIS_CACHE[key] = torch.from_numpy(mel).float().to(device)
-        _HANN_WINDOW_CACHE[key] = torch.hann_window(win_length).to(device)
-    mel_basis = _MEL_BASIS_CACHE[key]
-    hann_window = _HANN_WINDOW_CACHE[key]
+    mel_basis, hann_window = _get_mel_spectrogram_basis(
+        n_fft, n_mels, sample_rate, win_length, fmin, fmax, str(device)
+    )
 
     pad = (n_fft - hop_length) // 2
     y = torch.nn.functional.pad(audio.unsqueeze(1), (pad, pad), mode="reflect").squeeze(1)
