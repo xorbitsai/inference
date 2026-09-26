@@ -419,6 +419,9 @@ msgstr ""
 "reference/embeddings <https://platform.openai.com/docs/api-"
 "reference/embeddings>`_"
 
+msgid "Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details."
+msgstr "Responses (sin estado, usada por Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Consulta :ref:`responses client <openai_responses_client>` para más detalles."
+
 #: ../../source/getting_started/using_xinference.rst:329
 msgid ""
 "Xinference also supports Anthropic API via base url "

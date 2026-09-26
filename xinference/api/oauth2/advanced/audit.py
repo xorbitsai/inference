@@ -69,6 +69,7 @@ _AUDIT_SKIP_ENDPOINTS = (
 _INFERENCE_PREFIXES = (
     "/v1/chat/",
     "/v1/completions",
+    "/v1/responses",
     "/v1/embeddings",
     "/v1/rerank",
     "/v1/images/",

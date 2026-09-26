@@ -110,6 +110,15 @@ from .protocols import (
     openai_to_anthropic,
     parse_anthropic_request,
 )
+from .protocols.openai_responses import (
+    ResponsesProtocolError,
+    ResponsesRequest,
+    chat_to_response,
+    parse_responses_request,
+    responses_error,
+    responses_error_code,
+    responses_stream_events,
+)
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
@@ -2485,6 +2494,275 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(exc))
             status_code = 429 if "Rate limit reached" in str(exc) else 500
             return self._anthropic_error(status_code, str(exc), request_id)
+
+    @staticmethod
+    def _responses_error(
+        status_code: int,
+        message: str,
+        *,
+        param: Optional[str] = None,
+        code: Optional[str] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> JSONResponse:
+        error_type = {
+            400: "invalid_request_error",
+            401: "authentication_error",
+            403: "permission_error",
+            404: "not_found_error",
+            429: "rate_limit_error",
+        }.get(status_code, "server_error")
+        return JSONResponse(
+            status_code=status_code,
+            headers=headers,
+            content=responses_error(message, error_type, param, code),
+        )
+
+    @classmethod
+    def _responses_model_error(cls, exc: Exception) -> JSONResponse:
+        message = str(exc)
+        code = responses_error_code(message)
+        # A 400 keeps clients from retrying a request that can never fit.
+        if code == "context_length_exceeded":
+            return cls._responses_error(400, message, code=code)
+        status_code = 429 if "Rate limit reached" in message else 500
+        return cls._responses_error(status_code, message, code=code)
+
+    async def create_response(self, request: Request) -> Response:
+        try:
+            raw_body = await request.json()
+        except Exception:
+            return self._responses_error(400, "Request body must be valid JSON")
+        try:
+            req = parse_responses_request(raw_body)
+        except ResponsesProtocolError as exc:
+            return self._responses_error(
+                exc.status_code, exc.message, param=exc.param, code=exc.code
+            )
+        except (AttributeError, KeyError, TypeError) as exc:
+            return self._responses_error(400, f"Invalid request: {exc}")
+
+        model_uid = req.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
+        try:
+            self._check_model_access(request, model_uid, "LLM")
+        except HTTPException as exc:
+            return self._responses_error(
+                exc.status_code, str(exc.detail), headers=exc.headers
+            )
+
+        try:
+            supervisor_ref = await self._get_supervisor_ref()
+            token_router_runtime = await supervisor_ref.resolve_token_router_runtime(
+                model_uid
+            )
+        except Exception:
+            logger.exception("Failed to resolve Responses model target: %s", model_uid)
+            return self._responses_error(500, "Failed to resolve the requested model")
+        if token_router_runtime is not None:
+            return await self._create_response_via_token_router(
+                request, req, token_router_runtime
+            )
+
+        try:
+            model = await require_model(
+                self._get_supervisor_ref, model_uid, self._report_error_event
+            )
+        except HTTPException as exc:
+            return self._responses_error(
+                exc.status_code, str(exc.detail), headers=exc.headers
+            )
+        except Exception as exc:
+            logger.error(exc, exc_info=True)
+            return self._responses_error(500, str(exc))
+
+        messages = req.chat_body["messages"]
+        kwargs = {
+            key: value
+            for key, value in req.chat_body.items()
+            if key not in {"model", "messages"}
+        }
+        raw_kwargs = dict(kwargs)
+
+        if not req.stream:
+            try:
+                data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+                if isinstance(data, bytes):
+                    data = data.decode("utf-8")
+                chat = json.loads(data) if isinstance(data, str) else data
+                return JSONResponse(content=chat_to_response(chat, req))
+            except Exception as exc:
+                exc = await self._get_model_last_error(model.uid, exc)
+                logger.error(exc, exc_info=True)
+                await self._report_error_event(model_uid, str(exc))
+                return self._responses_model_error(exc)
+
+        iterator = None
+        try:
+            iterator = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+        except Exception as exc:
+            exc = await self._get_model_last_error(model.uid, exc)
+            logger.error(exc, exc_info=True)
+            await self._report_error_event(model_uid, str(exc))
+            return self._responses_model_error(exc)
+
+        async def release_serve_count() -> None:
+            from xoscar.api import IteratorWrapper
+
+            if (
+                inspect.isasyncgen(iterator)
+                or inspect.isgenerator(iterator)
+                or isinstance(iterator, IteratorWrapper)
+            ):
+                await model.decrease_serve_count()
+
+        cleanup_task: asyncio.Task[None] | None = None
+
+        # Also run as the response's background task: a client that disconnects
+        # before the body starts never enters the generator's finally block.
+        async def release_resources() -> None:
+            nonlocal cleanup_task
+            if cleanup_task is None:
+                cleanup_task = asyncio.create_task(release_serve_count())
+            await asyncio.shield(cleanup_task)
+
+        async def physical_chunks() -> AsyncIterator[Dict[str, Any]]:
+            reporter = get_stream_outcome_reporter(request)
+            model_chunks = observe_stream(
+                iterator, reporter, failure_origin=FailureOrigin.MODEL_GENERATOR
+            )
+            protocol_chunks = observe_stream(
+                self._iter_model_openai_chunks(model_chunks),
+                reporter,
+                failure_origin=FailureOrigin.PROTOCOL,
+            )
+            try:
+                async for chunk in protocol_chunks:
+                    if await request.is_disconnected():
+                        report_client_disconnect(request)
+                        break
+                    yield chunk
+            except asyncio.CancelledError as exc:
+                report_client_disconnect(request, exc)
+                raise
+            except Exception as exc:
+                report_stream_failure(request, exc, FailureOrigin.MODEL_GENERATOR)
+                exc = await self._get_model_last_error(model.uid, exc)
+                logger.exception("Responses physical model stream failed")
+                await self._report_error_event(model_uid, str(exc))
+                yield {"error": {"message": str(exc)}}
+            finally:
+                await release_resources()
+
+        return EventSourceResponse(
+            observe_stream(
+                responses_stream_events(physical_chunks(), req),
+                get_stream_outcome_reporter(request),
+                failure_origin=FailureOrigin.PROTOCOL,
+            ),
+            ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+            background=BackgroundTask(release_resources),
+        )
+
+    async def _create_response_via_token_router(
+        self,
+        request: Request,
+        req: ResponsesRequest,
+        runtime: Dict[str, Any],
+    ) -> Response:
+        if not runtime.get("available"):
+            return self._responses_error(
+                503,
+                f"No ready Token Router runtime is available for virtual model {req.model}",
+                headers={"Retry-After": "1"},
+            )
+        try:
+            upstream_response, _ = await self._open_token_router_chat_completion(
+                request, req.chat_body, runtime, forward_external_credential=False
+            )
+        except httpx.HTTPError:
+            logger.exception(
+                "Responses Token Router connection failed: virtual_model_uid=%s",
+                req.model,
+            )
+            return self._responses_error(
+                502,
+                "Token Router runtime is temporarily unavailable",
+                headers={"Retry-After": "1"},
+            )
+
+        if upstream_response.status_code >= 400:
+            retry_after = upstream_response.headers.get("retry-after")
+            try:
+                raw_error = await upstream_response.aread()
+                error_payload = json.loads(raw_error) if raw_error else {}
+            except Exception:
+                error_payload = {}
+            finally:
+                await upstream_response.aclose()
+            error = error_payload.get("error") or {}
+            message = error.get("message") if isinstance(error, dict) else str(error)
+            return self._responses_error(
+                upstream_response.status_code,
+                message or "Token Router request failed",
+                headers={"Retry-After": retry_after} if retry_after else None,
+            )
+
+        if not req.stream:
+            try:
+                chat = json.loads(await upstream_response.aread())
+                return JSONResponse(content=chat_to_response(chat, req))
+            except json.JSONDecodeError as exc:
+                logger.error("Invalid Token Router response: %s", exc)
+                return self._responses_error(502, str(exc))
+            finally:
+                await upstream_response.aclose()
+
+        cleanup_task: asyncio.Task[None] | None = None
+
+        async def release_resources() -> None:
+            nonlocal cleanup_task
+            if cleanup_task is None:
+                cleanup_task = asyncio.create_task(upstream_response.aclose())
+            await asyncio.shield(cleanup_task)
+
+        async def router_chunks() -> AsyncIterator[Dict[str, Any]]:
+            reporter = get_stream_outcome_reporter(request)
+            upstream_chunks = observe_stream(
+                upstream_response.aiter_raw(),
+                reporter,
+                failure_origin=FailureOrigin.UPSTREAM,
+            )
+            protocol_chunks = observe_stream(
+                self._iter_openai_sse_bytes(upstream_chunks),
+                reporter,
+                failure_origin=FailureOrigin.PROTOCOL,
+            )
+            try:
+                async for chunk in protocol_chunks:
+                    if await request.is_disconnected():
+                        report_client_disconnect(request)
+                        break
+                    yield chunk
+            except asyncio.CancelledError as exc:
+                report_client_disconnect(request, exc)
+                raise
+            except Exception as exc:
+                report_stream_failure(request, exc, FailureOrigin.PROTOCOL)
+                logger.exception("Responses Token Router stream failed")
+                yield {"error": {"message": str(exc)}}
+            finally:
+                await release_resources()
+
+        return EventSourceResponse(
+            observe_stream(
+                responses_stream_events(router_chunks(), req),
+                get_stream_outcome_reporter(request),
+                failure_origin=FailureOrigin.PROTOCOL,
+            ),
+            ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+            background=BackgroundTask(release_resources),
+        )
 
     async def create_embedding(self, request: Request) -> Response:
         payload = await request.json()

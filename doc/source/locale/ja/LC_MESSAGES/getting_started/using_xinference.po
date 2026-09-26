@@ -365,6 +365,9 @@ msgstr ""
 "ベクトル生成：`https://platform.openai.com/docs/api-reference/embeddings "
 "<https://platform.openai.com/docs/api-reference/embeddings>`_"
 
+msgid "Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details."
+msgstr "Responses（ステートレス、Codex CLI が使用）： `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_ 。詳細は :ref:`responses client <openai_responses_client>` を参照してください。"
+
 #: ../../source/getting_started/using_xinference.rst:329
 msgid ""
 "Xinference also supports Anthropic API via base url "

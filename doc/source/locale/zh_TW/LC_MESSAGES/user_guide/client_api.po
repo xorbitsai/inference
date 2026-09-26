@@ -97,6 +97,18 @@ msgstr "OpenAI 工具調用"
 msgid "Output:"
 msgstr "输出："
 
+msgid "OpenAI Client Responses API"
+msgstr "OpenAI 用戶端 Responses API"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "Responses API 的訪問地址為：/v1/responses"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "Xinference 中的 Responses API 是無狀態的。回應不會被儲存，因此 ``previous_response_id`` 與 ``conversation`` 會被拒絕：每次請求都需要在 ``input`` 中傳送完整的對話。支援文字與圖片輸入、函式工具與自訂工具、推理、結構化輸出以及串流輸出。 ``web_search`` 等託管工具會被忽略。"
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI 透過此 API 呼叫自訂提供者。在 ``~/.codex/config.toml`` 中將 Xinference 新增為提供者："
+
 #: ../../source/user_guide/client_api.rst:142
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
