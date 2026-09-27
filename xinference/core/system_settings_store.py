@@ -48,6 +48,86 @@ ENV_DOWNLOAD_MAX_ATTEMPTS = "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
 ENV_HUB_DETECT_TIMEOUT = "XINFERENCE_HUB_DETECT_TIMEOUT"
 ENV_MODEL_DOWNLOAD_WORKERS = "XINFERENCE_MODEL_DOWNLOAD_WORKERS"
 
+_file_locks: Dict[str, threading.RLock] = {}
+_file_locks_lock = threading.Lock()
+
+
+def get_system_settings_file_lock(path: Path) -> threading.RLock:
+    """Return the process-wide lock for one settings document."""
+    key = str(path.resolve())
+    with _file_locks_lock:
+        lock = _file_locks.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _file_locks[key] = lock
+        return lock
+
+
+def load_system_settings_document(path: Path) -> Dict[str, Any]:
+    """Load and validate the shared settings document envelope."""
+    with path.open("r", encoding="utf-8") as file:
+        payload = json.load(file)
+    if not isinstance(payload, dict):
+        raise ValueError("root must be an object")
+    if payload.get("version") != SYSTEM_SETTINGS_VERSION:
+        raise ValueError("unsupported version")
+    return payload
+
+
+def load_system_settings_document_for_update(path: Path) -> Dict[str, Any]:
+    """Load a writable document, replacing only an invalid envelope."""
+    try:
+        return load_system_settings_document(path)
+    except FileNotFoundError:
+        return {"version": SYSTEM_SETTINGS_VERSION, "settings": {}}
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        logger.warning("Replacing invalid system settings file %s: %s", path, exc)
+        return {"version": SYSTEM_SETTINGS_VERSION, "settings": {}}
+
+
+def write_system_settings_document(path: Path, payload: Mapping[str, Any]) -> None:
+    """Atomically persist the shared settings document."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temporary_path = file.name
+            json.dump(payload, file, ensure_ascii=False, indent=2)
+            file.write("\n")
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path:
+            try:
+                os.unlink(temporary_path)
+            except FileNotFoundError:
+                pass
+
+
+def write_or_remove_system_settings_document(
+    path: Path, payload: Mapping[str, Any]
+) -> None:
+    """Persist remaining sections, or remove an empty document."""
+    settings = payload.get("settings")
+    has_download = isinstance(settings, dict) and bool(settings)
+    has_other_sections = any(key not in {"version", "settings"} for key in payload)
+    if has_download or has_other_sections:
+        write_system_settings_document(path, payload)
+        return
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
 
 @dataclass(frozen=True)
 class SystemSettings:
@@ -231,7 +311,7 @@ class SystemSettingsStore:
     ) -> None:
         self._path = Path(path)
         self._environ = environ if environ is not None else os.environ
-        self._lock = threading.RLock()
+        self._lock = get_system_settings_file_lock(self._path)
         self._startup = self._settings_from_environment(dict(self._environ))
         self._current = self._load_saved() or self._startup
 
@@ -300,12 +380,7 @@ class SystemSettingsStore:
         if not self._path.is_file():
             return None
         try:
-            with self._path.open("r", encoding="utf-8") as file:
-                payload = json.load(file)
-            if not isinstance(payload, dict):
-                raise ValueError("root must be an object")
-            if payload.get("version") != SYSTEM_SETTINGS_VERSION:
-                raise ValueError("unsupported version")
+            payload = load_system_settings_document(self._path)
             settings = payload.get("settings")
             if not isinstance(settings, dict):
                 raise ValueError("settings must be an object")
@@ -346,38 +421,10 @@ class SystemSettingsStore:
         return self.public_dict(self.get())
 
     def _write(self, settings: SystemSettings) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        temporary_path: Optional[str] = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w",
-                encoding="utf-8",
-                dir=self._path.parent,
-                prefix=f".{self._path.name}.",
-                suffix=".tmp",
-                delete=False,
-            ) as file:
-                temporary_path = file.name
-                json.dump(
-                    {
-                        "version": SYSTEM_SETTINGS_VERSION,
-                        "settings": settings.to_dict(),
-                    },
-                    file,
-                    ensure_ascii=False,
-                    indent=2,
-                )
-                file.write("\n")
-                file.flush()
-                os.fsync(file.fileno())
-            os.replace(temporary_path, self._path)
-            temporary_path = None
-        finally:
-            if temporary_path:
-                try:
-                    os.unlink(temporary_path)
-                except FileNotFoundError:
-                    pass
+        payload = load_system_settings_document_for_update(self._path)
+        payload["version"] = SYSTEM_SETTINGS_VERSION
+        payload["settings"] = settings.to_dict()
+        write_system_settings_document(self._path, payload)
 
     def save_public(self, data: Mapping[str, Any]) -> Dict[str, Any]:
         """Persist and immediately apply a full snapshot."""
@@ -401,9 +448,11 @@ class SystemSettingsStore:
         """Remove the snapshot and restore the page state to the startup baseline."""
         with self._lock:
             try:
-                self._path.unlink()
-            except FileNotFoundError:
-                pass
+                payload = load_system_settings_document(self._path)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                payload = {"version": SYSTEM_SETTINGS_VERSION, "settings": {}}
+            payload["settings"] = {}
+            write_or_remove_system_settings_document(self._path, payload)
             self._current = self._startup
             self.apply_to_environment(self._startup)
             return self.public_dict(self._startup)

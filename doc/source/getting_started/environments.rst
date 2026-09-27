@@ -84,8 +84,11 @@ variable.
 
 XINFERENCE_SYSTEM_SETTINGS_PATH
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Path to the JSON file that stores system settings configured through the Web UI.
+Path to the JSON file that stores system settings configured through the Web UI,
+including the independent ``settings`` (download) and ``observability`` sections.
 Default value is ``<XINFERENCE_HOME>/system-settings.json``.
+Each Web UI tab updates only its own section. An absent section falls back to
+the corresponding startup environment variables.
 
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

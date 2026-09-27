@@ -18,6 +18,7 @@ from . import (
     llm,
     model_favorites,
     models,
+    observability_settings,
     realtime,
     rerank,
     runtime_logs,
@@ -36,6 +37,7 @@ def register_all_routes(api: RESTfulAPI) -> None:
     admin.register_routes(api)
     runtime_logs.register_routes(api)
     system_settings.register_routes(api)
+    observability_settings.register_routes(api)
     models.register_routes(api)
     benchmarks.register_routes(api)
     model_favorites.register_routes(api)

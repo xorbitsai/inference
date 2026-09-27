@@ -104,9 +104,11 @@ def start_local_cluster(
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
 ):
+    from ..core.observability_settings_store import initialize_observability_settings
     from ..core.system_settings_store import initialize_system_settings
 
     initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
+    initialize_observability_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from .local import main
 
     dict_config = get_config_dict(
@@ -272,9 +274,11 @@ def supervisor(
     port: int,
     supervisor_port: Optional[int],
 ):
+    from ..core.observability_settings_store import initialize_observability_settings
     from ..core.system_settings_store import initialize_system_settings
 
     initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
+    initialize_observability_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(

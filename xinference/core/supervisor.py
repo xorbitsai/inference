@@ -50,7 +50,6 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_DOWNLOAD_TASK_DB_PATH,
-    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -1217,7 +1216,9 @@ class SupervisorActor(ModelReloadMixin, SupervisorHandoffMixin, xo.StatelessActo
         get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._uptime = time.time()
-        if XINFERENCE_ENABLE_OTEL:
+        from .. import constants as xinference_constants
+
+        if xinference_constants.XINFERENCE_ENABLE_OTEL:
             try:
                 from .otel import setup_otel
 
