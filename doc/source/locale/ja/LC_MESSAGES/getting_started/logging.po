@@ -156,3 +156,19 @@ msgstr ""
 #: ../../source/getting_started/logging.rst:137
 msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
 msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If ``XINFERENCE_POD_NAME`` is set, the file is named ``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines Supervisor and Worker logs in this file. In distributed deployment, each node writes to its own local log directory. Rotated files stay beside the active file."
+msgstr "アプリケーションログは ``<XINFERENCE_LOG_DIR>/xinference.log`` に書き込まれます。既定の ``XINFERENCE_LOG_DIR`` は ``<XINFERENCE_HOME>/logs`` です。``XINFERENCE_POD_NAME`` を設定すると、ファイル名は ``xinference-<XINFERENCE_POD_NAME>.log`` になります。ローカル構成では Supervisor と Worker のログが同じファイルに保存されます。分散構成では各ノードがローカルのログディレクトリに書き込みます。ローテーション済みファイルも同じディレクトリに置かれます。"
+
+#: ../../source/getting_started/logging.rst
+msgid "Web UI runtime logs"
+msgstr "Web UI の実行ログ"
+
+#: ../../source/getting_started/logging.rst
+msgid "Open **Monitoring Management > Log Center > Runtime logs** to view recent application logs and errors without Elasticsearch. The page reads the active log file on the selected node and refreshes every two seconds. It works when Xinference runs directly with Python or inside Docker. If Elasticsearch is configured, the Log Center also offers an Indexed logs tab for historical search."
+msgstr "**監視管理 > ログセンター > 実行ログ** を開くと、Elasticsearch なしで最近のアプリケーションログとエラーを確認できます。ページは選択したノードのログファイルを 2 秒ごとに読み取ります。Python で直接起動した場合も Docker 内で起動した場合も利用できます。Elasticsearch を設定すると、過去のログを検索するタブも表示されます。"
+
+#: ../../source/getting_started/logging.rst
+msgid "The runtime view shows the latest part of the active file and keeps a bounded amount of text in the browser. Search filters only loaded text. Output written directly to stdout or stderr outside Xinference logging, and failures before the API starts, may require the terminal or ``docker logs``. Log access uses the ``logs:list`` permission when authentication is enabled."
+msgstr "実行ログ画面は現在のファイルの末尾を表示し、ブラウザーに保持するテキスト量を制限します。検索対象は読み込み済みのテキストのみです。Xinference のログ処理を経ずに stdout または stderr に直接書かれた出力や、API 起動前の障害は、端末または ``docker logs`` で確認する必要があります。認証を有効にした場合、ログへのアクセスには ``logs:list`` 権限が必要です。"

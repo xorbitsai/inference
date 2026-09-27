@@ -45,33 +45,28 @@ Example usage:
 
 Log Directory Structure
 ***********************
-All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, where ``<XINFERENCE_HOME>`` can be configured as mentioned in :ref:`using_xinference`.
+Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By
+default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If
+``XINFERENCE_POD_NAME`` is set, the file is named
+``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines
+Supervisor and Worker logs in this file. In distributed deployment, each node
+writes to its own local log directory. Rotated files stay beside the active file.
 
-Xinference creates a subdirectory under the log directory ``<XINFERENCE_HOME>/logs``.
-The name of the subdirectory corresponds to the Xinference cluster startup time in milliseconds.
+Web UI runtime logs
+###################
 
-Local deployment
-================
-In a local deployment, the logs of Xinference supervisor and Xinference workers are combined into a single file. An example of the log directory structure is shown below::
+Open **Monitoring Management > Log Center > Runtime logs** to view recent
+application logs and errors without Elasticsearch. The page reads the active
+log file on the selected node and refreshes every two seconds. It works when
+Xinference runs directly with Python or inside Docker. If Elasticsearch is
+configured, the Log Center also offers an Indexed logs tab for historical
+search.
 
-    <XINFERENCE_HOME>/logs
-        └── local_1699503558105
-            └── xinference.log
-
-where ``1699503558105`` is the timestamp when the Xinference cluster was created.
-Therefore, when you create a cluster locally multiple times, you can look for the corresponding logs based on this timestamp.
-
-Distributed deployment
-======================
-In a distributed deployment, Xinference supervisor and Xinference workers each create their own subdirectory under the log directory.
-The name of the subdirectory starts with the role name, followed by the role startup time in milliseconds.
-An example of the log directory structure is shown below::
-
-    <XINFERENCE_HOME>/logs
-        └── supervisor_1699503558908
-            └── xinference.log
-            worker_1699503559105
-            └── xinference.log
+The runtime view shows the latest part of the active file and keeps a bounded
+amount of text in the browser. Search filters only loaded text. Output written
+directly to stdout or stderr outside Xinference logging, and failures before
+the API starts, may require the terminal or ``docker logs``. Log access uses
+the ``logs:list`` permission when authentication is enabled.
 
 
 Token Router logging

@@ -6616,6 +6616,11 @@ class WorkerActor(xo.StatelessActor):
         }
         return ret
 
+    async def read_runtime_logs(self, cursor: str = "") -> Dict[str, object]:
+        from .runtime_logs import read_runtime_log
+
+        return await asyncio.to_thread(read_runtime_log, cursor)
+
     def update_model_status(self, model_uid: str, **kwargs):
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status is not None:

@@ -168,3 +168,19 @@ msgstr ""
 #: ../../source/getting_started/logging.rst:137
 msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
 msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If ``XINFERENCE_POD_NAME`` is set, the file is named ``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines Supervisor and Worker logs in this file. In distributed deployment, each node writes to its own local log directory. Rotated files stay beside the active file."
+msgstr "Anwendungsprotokolle werden in ``<XINFERENCE_LOG_DIR>/xinference.log`` geschrieben. Standardmäßig ist ``XINFERENCE_LOG_DIR`` gleich ``<XINFERENCE_HOME>/logs``. Wenn ``XINFERENCE_POD_NAME`` gesetzt ist, heißt die Datei ``xinference-<XINFERENCE_POD_NAME>.log``. Bei lokaler Bereitstellung stehen Supervisor- und Worker-Protokolle in derselben Datei. Bei verteilter Bereitstellung schreibt jeder Knoten in sein lokales Protokollverzeichnis. Rotierte Dateien liegen neben der aktiven Datei."
+
+#: ../../source/getting_started/logging.rst
+msgid "Web UI runtime logs"
+msgstr "Laufzeitprotokolle in der Weboberfläche"
+
+#: ../../source/getting_started/logging.rst
+msgid "Open **Monitoring Management > Log Center > Runtime logs** to view recent application logs and errors without Elasticsearch. The page reads the active log file on the selected node and refreshes every two seconds. It works when Xinference runs directly with Python or inside Docker. If Elasticsearch is configured, the Log Center also offers an Indexed logs tab for historical search."
+msgstr "Unter **Überwachung > Protokollzentrum > Laufzeitprotokolle** sind aktuelle Anwendungsprotokolle und Fehler ohne Elasticsearch sichtbar. Die Seite liest die aktive Protokolldatei des ausgewählten Knotens alle zwei Sekunden. Dies funktioniert bei direktem Python-Start und in Docker. Mit Elasticsearch bietet das Protokollzentrum zusätzlich eine Registerkarte zur Suche in älteren Protokollen."
+
+#: ../../source/getting_started/logging.rst
+msgid "The runtime view shows the latest part of the active file and keeps a bounded amount of text in the browser. Search filters only loaded text. Output written directly to stdout or stderr outside Xinference logging, and failures before the API starts, may require the terminal or ``docker logs``. Log access uses the ``logs:list`` permission when authentication is enabled."
+msgstr "Die Laufzeitansicht zeigt den neuesten Teil der aktiven Datei und begrenzt die im Browser gespeicherte Textmenge. Die Suche erfasst nur geladenen Text. Direkte Ausgaben auf stdout oder stderr außerhalb der Xinference-Protokollierung sowie Fehler vor dem API-Start müssen gegebenenfalls im Terminal oder mit ``docker logs`` geprüft werden. Bei aktivierter Authentifizierung ist die Berechtigung ``logs:list`` erforderlich."

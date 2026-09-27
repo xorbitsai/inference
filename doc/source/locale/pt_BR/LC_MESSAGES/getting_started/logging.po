@@ -168,3 +168,19 @@ msgstr ""
 #: ../../source/getting_started/logging.rst:137
 msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
 msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If ``XINFERENCE_POD_NAME`` is set, the file is named ``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines Supervisor and Worker logs in this file. In distributed deployment, each node writes to its own local log directory. Rotated files stay beside the active file."
+msgstr "Os logs da aplicação são gravados em ``<XINFERENCE_LOG_DIR>/xinference.log``. Por padrão, ``XINFERENCE_LOG_DIR`` é ``<XINFERENCE_HOME>/logs``. Se ``XINFERENCE_POD_NAME`` estiver definido, o arquivo se chama ``xinference-<XINFERENCE_POD_NAME>.log``. Na implantação local, os logs de Supervisor e Worker ficam no mesmo arquivo. Na implantação distribuída, cada nó grava no próprio diretório local. Os arquivos rotacionados permanecem ao lado do arquivo ativo."
+
+#: ../../source/getting_started/logging.rst
+msgid "Web UI runtime logs"
+msgstr "Logs de execução na interface web"
+
+#: ../../source/getting_started/logging.rst
+msgid "Open **Monitoring Management > Log Center > Runtime logs** to view recent application logs and errors without Elasticsearch. The page reads the active log file on the selected node and refreshes every two seconds. It works when Xinference runs directly with Python or inside Docker. If Elasticsearch is configured, the Log Center also offers an Indexed logs tab for historical search."
+msgstr "Abra **Gerenciamento de monitoramento > Central de logs > Logs de execução** para ver logs e erros recentes sem Elasticsearch. A página lê o arquivo ativo do nó selecionado a cada dois segundos. Funciona com Python executado diretamente ou dentro do Docker. Com Elasticsearch configurado, uma aba adicional permite pesquisar logs históricos."
+
+#: ../../source/getting_started/logging.rst
+msgid "The runtime view shows the latest part of the active file and keeps a bounded amount of text in the browser. Search filters only loaded text. Output written directly to stdout or stderr outside Xinference logging, and failures before the API starts, may require the terminal or ``docker logs``. Log access uses the ``logs:list`` permission when authentication is enabled."
+msgstr "A visualização de execução mostra a parte mais recente do arquivo ativo e limita o texto mantido no navegador. A pesquisa filtra apenas o texto carregado. Saídas gravadas diretamente em stdout ou stderr fora do sistema de logs do Xinference e falhas anteriores ao início da API podem exigir o terminal ou ``docker logs``. Com autenticação, o acesso exige a permissão ``logs:list``."

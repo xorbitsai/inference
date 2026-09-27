@@ -260,9 +260,7 @@ export function Sidebar() {
             name: t('menu.logCenter'),
             Icon: ScrollText,
             Extra: ChevronRight,
-            show:
-              Boolean(clusterUIConfig?.es_enabled) &&
-              (!clusterUIConfig?.auth_advanced || hasLogsList),
+            show: !clusterUIConfig?.auth_advanced || hasLogsList,
           },
         ],
       },
