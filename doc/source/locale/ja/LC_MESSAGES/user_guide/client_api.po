@@ -97,6 +97,18 @@ msgstr "OpenAI ツール呼び出し"
 msgid "Output:"
 msgstr "出力："
 
+msgid "OpenAI Client Responses API"
+msgstr "OpenAI クライアントの Responses API"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "Responses API のアクセスアドレスは：/v1/responses です。"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "Xinference の Responses API はステートレスです。レスポンスは保存されないため、 ``previous_response_id`` と ``conversation`` は拒否されます。リクエストごとに会話全体を ``input`` で送信してください。テキストと画像の入力、関数ツールとカスタムツール、推論、構造化出力、ストリーミングに対応しています。 ``web_search`` などのホスト型ツールは無視されます。"
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI はこの API を通じてカスタムプロバイダーを呼び出します。 ``~/.codex/config.toml`` に Xinference をプロバイダーとして追加します："
+
 #: ../../source/user_guide/client_api.rst:142
 msgid "Anthropic Client"
 msgstr "Anthropic Client"

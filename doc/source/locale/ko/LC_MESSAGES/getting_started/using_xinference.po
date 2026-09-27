@@ -371,6 +371,9 @@ msgstr ""
 "벡터 생성: `https://platform.openai.com/docs/api-reference/embeddings "
 "<https://platform.openai.com/docs/api-reference/embeddings>`_"
 
+msgid "Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details."
+msgstr "Responses(상태 비저장, Codex CLI에서 사용): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. 자세한 내용은 :ref:`responses client <openai_responses_client>` 를 참조하세요."
+
 #: ../../source/getting_started/using_xinference.rst:329
 msgid ""
 "Xinference also supports Anthropic API via base url "

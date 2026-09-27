@@ -91,6 +91,7 @@ _MODEL_INFERENCE_PATHS = frozenset(
         "/v1/chat/completions",
         "/v1/messages",
         "/anthropic/v1/messages",
+        "/v1/responses",
         "/v1/embeddings",
         "/v1/convert_ids_to_tokens",
         "/v1/rerank",
@@ -397,7 +398,7 @@ async def _capture_request_body(request: Request) -> Tuple[str, Any]:
 def _api_protocol_for_path(path: str) -> str:
     if path in ("/v1/messages", "/anthropic/v1/messages"):
         return "anthropic"
-    if path in ("/v1/chat/completions", "/v1/completions"):
+    if path in ("/v1/chat/completions", "/v1/completions", "/v1/responses"):
         return "openai"
     return "xinference"
 

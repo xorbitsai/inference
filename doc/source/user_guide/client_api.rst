@@ -145,6 +145,44 @@ Output:
 
     ChatCompletion(id='chatcmpl-ad2f383f-31c7-47d9-87b7-3abe928e629c', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(loc=94704, type='plus', time=10)\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_ad2f383f-31c7-47d9-87b7-3abe928e629c', function=Function(arguments='{"loc": 94704, "type": "plus", "time": 10}', name='uber_ride'), type='function')]))], created=1704687803, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
 
+.. _openai_responses_client:
+
+OpenAI Client Responses API
+===========================
+
+    Responses API's access address is: /v1/responses
+
+The Responses API is stateless in Xinference. Responses are not stored, so
+``previous_response_id`` and ``conversation`` are rejected: send the whole
+conversation in ``input`` on every request. Text and image input, function and
+custom tools, reasoning, structured output and streaming are supported. Hosted
+tools such as ``web_search`` are ignored.
+
+.. code-block::
+
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    response = client.responses.create(
+        model="qwen3",
+        instructions="You are a helpful assistant.",
+        input="What is the largest animal?",
+    )
+    print(response.output_text)
+
+Codex CLI calls custom providers through this API. Add Xinference as a provider
+in ``~/.codex/config.toml``:
+
+.. code-block:: toml
+
+    model = "qwen3"
+    model_provider = "xinference"
+
+    [model_providers.xinference]
+    name = "Xinference"
+    base_url = "http://localhost:9997/v1"
+    wire_api = "responses"
+
 .. _anthropic_client:
 
 Anthropic Client
