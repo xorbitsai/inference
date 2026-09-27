@@ -50,9 +50,11 @@ async def list_runtime_log_sources(
         sources = [{"id": "local", "label": "Local"}]
     else:
         sources = [{"id": "supervisor", "label": "Supervisor"}]
-        sources.extend(
-            {"id": address, "label": f"Worker {address}"} for address in workers
-        )
+    sources.extend(
+        {"id": address, "label": f"Worker {address}"}
+        for address in workers
+        if address != api._supervisor_address
+    )
     return JSONResponse(content={"sources": sources})
 
 

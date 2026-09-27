@@ -12,38 +12,48 @@ def _body(response):
     return json.loads(response.body)
 
 
-def test_runtime_log_tail_incremental_read_and_rotation(tmp_path, monkeypatch):
+def test_runtime_log_tail_incremental_read_and_multiple_rotations(
+    tmp_path, monkeypatch
+):
     path = tmp_path / "xinference.log"
     monkeypatch.setattr(log_reader, "get_log_file", lambda _: str(path))
-    path.write_text("first\n", encoding="utf-8")
+    path.write_bytes(b"first\n")
 
     first = log_reader.read_runtime_log()
     assert first["text"] == "first\n"
     assert not first["has_more"]
 
-    with path.open("a", encoding="utf-8") as stream:
-        stream.write("second\n")
+    with path.open("ab") as stream:
+        stream.write(b"second\n")
     second = log_reader.read_runtime_log(first["cursor"])
     assert second["text"] == "second\n"
 
-    archive = tmp_path / "xinference.log.2026-09-27"
-    path.rename(archive)
-    with archive.open("a", encoding="utf-8") as stream:
-        stream.write("last old line\n")
-    path.write_text("first new line\n", encoding="utf-8")
+    first_archive = tmp_path / "xinference.log.2026-09-27.1"
+    path.rename(first_archive)
+    with first_archive.open("ab") as stream:
+        stream.write(b"last old line\n")
+    path.write_bytes(b"intermediate line\n")
+
+    second_archive = tmp_path / "xinference.log.2026-09-27.2"
+    path.rename(second_archive)
+    path.write_bytes(b"active line\n")
 
     old = log_reader.read_runtime_log(second["cursor"])
     assert old["text"] == "last old line\n"
     assert old["has_more"]
-    new = log_reader.read_runtime_log(old["cursor"])
-    assert new["text"] == "first new line\n"
+    intermediate = log_reader.read_runtime_log(old["cursor"])
+    assert intermediate["text"] == "intermediate line\n"
+    assert intermediate["has_more"]
+    new = log_reader.read_runtime_log(intermediate["cursor"])
+    assert new["text"] == "active line\n"
+    assert not new["has_more"]
 
 
 def test_runtime_log_read_is_bounded(tmp_path, monkeypatch):
     path = tmp_path / "xinference.log"
     monkeypatch.setattr(log_reader, "get_log_file", lambda _: str(path))
     monkeypatch.setattr(log_reader, "MAX_RUNTIME_LOG_BYTES", 16)
-    path.write_text("old\n" * 20 + "latest\n", encoding="utf-8")
+    path.write_bytes(b"old\n" * 20 + b"latest\n")
 
     result = log_reader.read_runtime_log()
     assert result["text"].endswith("latest\n")
@@ -51,15 +61,25 @@ def test_runtime_log_read_is_bounded(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_runtime_log_sources_and_unregistered_worker():
+async def test_runtime_log_sources_include_remote_workers_with_local_node():
     api = MagicMock()
     api._supervisor_address = "127.0.0.1:9999"
     supervisor = AsyncMock()
-    supervisor.get_status.return_value = {"workers": {"127.0.0.1:9999": {}}}
+    supervisor.get_status.return_value = {
+        "workers": {
+            "127.0.0.1:9999": {},
+            "10.0.0.2:9999": {},
+        }
+    }
     api._get_supervisor_ref = AsyncMock(return_value=supervisor)
 
     response = await runtime_logs.list_runtime_log_sources(api=api)
-    assert _body(response) == {"sources": [{"id": "local", "label": "Local"}]}
+    assert _body(response) == {
+        "sources": [
+            {"id": "local", "label": "Local"},
+            {"id": "10.0.0.2:9999", "label": "Worker 10.0.0.2:9999"},
+        ]
+    }
 
     with pytest.raises(HTTPException) as exc:
         await runtime_logs.read_runtime_logs(

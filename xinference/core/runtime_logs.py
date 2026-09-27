@@ -34,9 +34,11 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
     position = _parse_cursor(cursor) if cursor else None
     read_path = path
     reset = bool(cursor and position is None)
+    archives: list[tuple[tuple[int, str, int, int], str, os.stat_result]] = []
+    archive_index = None
 
     if position and (position[0], position[1]) != (current.st_dev, current.st_ino):
-        # A rotated file retains its inode. Drain it before reading the new file.
+        # Drain retained archives in rotation order before the active file.
         directory, name = os.path.split(path)
         with os.scandir(directory) as entries:
             for entry in entries:
@@ -45,18 +47,33 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
                 ):
                     continue
                 suffix = entry.name[len(name) + 1 :]
-                if not re.fullmatch(r"(?:\d{4}-\d{2}-\d{2}(?:\.\d+)?|\d+)", suffix):
+                date_match = re.fullmatch(r"(\d{4}-\d{2}-\d{2})(?:\.(\d+))?", suffix)
+                if suffix.isdigit():
+                    sort_key = (0, "", 0, -int(suffix))
+                elif date_match:
+                    date, sequence = date_match.groups()
+                    sort_key = (
+                        1,
+                        date,
+                        0 if sequence else 1,
+                        int(sequence) if sequence else 0,
+                    )
+                else:
                     continue
                 try:
                     stat = entry.stat()
-                except FileNotFoundError:
+                except OSError:
                     continue
-                if (stat.st_dev, stat.st_ino) == position[:2]:
-                    read_path = entry.path
-                    break
-            else:
-                position = None
-                reset = True
+                archives.append((sort_key, entry.path, stat))
+        archives.sort(key=lambda archive: archive[0])
+        for index, (_, archive_path, archive_stat) in enumerate(archives):
+            if (archive_stat.st_dev, archive_stat.st_ino) == position[:2]:
+                read_path = archive_path
+                archive_index = index
+                break
+        else:
+            position = None
+            reset = True
 
     try:
         with open(read_path, "rb") as stream:
@@ -77,8 +94,12 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
         return {"text": "", "cursor": "", "has_more": False, "reset": True}
 
     if read_path != path and offset >= stat.st_size:
-        # On the next poll, resume at the start of the new active file.
-        next_cursor = _cursor(current, 0)
+        # Resume from the next retained archive, then continue into the active file.
+        if archive_index is not None and archive_index + 1 < len(archives):
+            next_stat = archives[archive_index + 1][2]
+        else:
+            next_stat = current
+        next_cursor = _cursor(next_stat, 0)
         has_more = True
     else:
         next_cursor = _cursor(stat, offset)
