@@ -44,8 +44,8 @@ const LogCenter = () => {
   const [fieldFilters, setFieldFilters] = useState<FieldFilter[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
   const [refreshInterval, setRefreshInterval] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSuccessfulRequestRef = useRef<{
     queryKey: string;
     pageFrom: number;
@@ -69,75 +69,85 @@ const LogCenter = () => {
     fetchNodes();
   }, [esEnabled]);
 
-  const fetchLogs = useCallback(async () => {
-    if (!esEnabled) return;
+  const fetchLogs = useCallback(
+    async (isActive: () => boolean) => {
+      if (!esEnabled || !isActive()) return;
 
-    setLoading(true);
+      setLoading(true);
 
-    const params = buildLogQueryParams({
+      const params = buildLogQueryParams({
+        appliedSearch,
+        selectedLevels,
+        selectedLogType,
+        selectedNode: selectedNodes.join(','),
+        nodeField,
+        timeRange,
+        pageFrom,
+        fieldFilters,
+        size: LOG_PAGE_SIZE,
+      });
+      const queryKeyParams = new URLSearchParams(params);
+      queryKeyParams.delete('page_from');
+      queryKeyParams.delete('size');
+      const queryKey = queryKeyParams.toString();
+
+      try {
+        const data = await request.get<LogsResponse>(`/v1/cluster/logs?${params.toString()}`);
+
+        if (!isActive()) return;
+        setLogs(data.hits || []);
+        setTotal(data.total || 0);
+        lastSuccessfulRequestRef.current = { queryKey, pageFrom };
+      } catch {
+        if (!isActive()) return;
+        const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
+        if (lastSuccessfulRequest?.queryKey === queryKey) {
+          setPageFrom(lastSuccessfulRequest.pageFrom);
+        } else {
+          setLogs([]);
+          setTotal(0);
+          setPageFrom(0);
+        }
+      } finally {
+        if (isActive()) setLoading(false);
+      }
+    },
+    [
       appliedSearch,
+      esEnabled,
+      fieldFilters,
+      nodeField,
+      pageFrom,
       selectedLevels,
       selectedLogType,
-      selectedNode: selectedNodes.join(','),
-      nodeField,
+      selectedNodes,
       timeRange,
-      pageFrom,
-      fieldFilters,
-      size: LOG_PAGE_SIZE,
-    });
-    const queryKeyParams = new URLSearchParams(params);
-    queryKeyParams.delete('page_from');
-    queryKeyParams.delete('size');
-    const queryKey = queryKeyParams.toString();
+    ]
+  );
 
-    try {
-      const data = await request.get<LogsResponse>(`/v1/cluster/logs?${params.toString()}`);
+  useEffect(() => {
+    if (!esEnabled) return;
 
-      setLogs(data.hits || []);
-      setTotal(data.total || 0);
-      lastSuccessfulRequestRef.current = { queryKey, pageFrom };
-    } catch {
-      const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
-      if (lastSuccessfulRequest?.queryKey === queryKey) {
-        setPageFrom(lastSuccessfulRequest.pageFrom);
-      } else {
-        setLogs([]);
-        setTotal(0);
-        setPageFrom(0);
+    let active = true;
+    let busy = false;
+    const poll = async () => {
+      if (!active || busy) return;
+      busy = true;
+      try {
+        await fetchLogs(() => active);
+      } finally {
+        busy = false;
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    appliedSearch,
-    esEnabled,
-    fieldFilters,
-    nodeField,
-    pageFrom,
-    selectedLevels,
-    selectedLogType,
-    selectedNodes,
-    timeRange,
-  ]);
+    };
 
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  useEffect(() => {
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-
-    if (refreshInterval > 0) {
-      refreshTimerRef.current = setInterval(() => fetchLogs(), refreshInterval);
-    }
+    poll();
+    const timer = refreshInterval > 0 ? setInterval(poll, refreshInterval) : undefined;
 
     return () => {
-      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+      active = false;
+      if (timer) clearInterval(timer);
     };
-  }, [fetchLogs, refreshInterval]);
+  }, [esEnabled, fetchLogs, refreshInterval, refreshKey]);
 
   useEffect(() => {
     return () => {
@@ -213,7 +223,7 @@ const LogCenter = () => {
                   variant="outline"
                   size="icon"
                   aria-label={t('logCenter.refresh')}
-                  onClick={fetchLogs}
+                  onClick={() => setRefreshKey((current) => current + 1)}
                 >
                   <RefreshCw className="size-4" />
                 </Button>

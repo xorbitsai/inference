@@ -21,8 +21,18 @@ logger = logging.getLogger(__name__)
 
 async def _worker_addresses(api: "RESTfulAPI") -> list[str]:
     supervisor = await api._get_supervisor_ref()
+    if supervisor is None:
+        raise RuntimeError("Supervisor is unavailable")
     status = await supervisor.get_status()
     return sorted(status.get("workers", {}))
+
+
+async def _worker_addresses_or_503(api: "RESTfulAPI") -> list[str]:
+    try:
+        return await _worker_addresses(api)
+    except Exception as exc:
+        logger.warning("Could not retrieve workers for runtime logs", exc_info=True)
+        raise HTTPException(status_code=503, detail="Supervisor is unavailable") from exc
 
 
 async def list_runtime_log_sources(
@@ -51,12 +61,18 @@ async def read_runtime_logs(
 ) -> JSONResponse:
     if source in ("local", "supervisor"):
         if source == "local":
-            workers = await _worker_addresses(api)
+            workers = await _worker_addresses_or_503(api)
             if api._supervisor_address not in workers:
                 raise HTTPException(status_code=404, detail="Log source not found")
-        result = await asyncio.to_thread(read_runtime_log, cursor)
+        try:
+            result = await asyncio.to_thread(read_runtime_log, cursor)
+        except OSError as exc:
+            logger.warning("Could not read runtime logs from %s", source, exc_info=True)
+            raise HTTPException(
+                status_code=503, detail="Runtime logs are unavailable"
+            ) from exc
     else:
-        workers = await _worker_addresses(api)
+        workers = await _worker_addresses_or_503(api)
         if source not in workers:
             raise HTTPException(status_code=404, detail="Log source not found")
         try:

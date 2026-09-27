@@ -32,6 +32,7 @@ export default function RuntimeLogs() {
   const [source, setSource] = useState('');
   const [logs, setLogs] = useState('');
   const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [maxLinesInput, setMaxLinesInput] = useState(String(DEFAULT_MAX_DISPLAY_LINES));
   const [paused, setPaused] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -47,6 +48,11 @@ export default function RuntimeLogs() {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAppliedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     let active = true;
@@ -121,13 +127,13 @@ export default function RuntimeLogs() {
 
   const displayedLogs = useMemo(() => {
     const recentLogs = tailLogLines(logs, maxLines);
-    if (!search.trim()) return recentLogs;
-    const needle = search.toLowerCase();
+    if (!appliedSearch.trim()) return recentLogs;
+    const needle = appliedSearch.toLowerCase();
     return recentLogs
       .split(/(?=^\d{4}-\d{2}-\d{2}T|^\{"@timestamp":)/m)
       .filter((entry) => entry.toLowerCase().includes(needle))
       .join('');
-  }, [logs, maxLines, search]);
+  }, [logs, maxLines, appliedSearch]);
 
   return (
     <PageContainer

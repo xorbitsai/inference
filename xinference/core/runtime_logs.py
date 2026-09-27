@@ -19,7 +19,7 @@ def _parse_cursor(value: str) -> Optional[Tuple[int, int, int]]:
         if min(device, inode, offset) < 0:
             return None
         return device, inode, offset
-    except (TypeError, ValueError):
+    except (AttributeError, TypeError, ValueError):
         return None
 
 
