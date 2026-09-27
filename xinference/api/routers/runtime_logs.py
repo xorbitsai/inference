@@ -32,7 +32,9 @@ async def _worker_addresses_or_503(api: "RESTfulAPI") -> list[str]:
         return await _worker_addresses(api)
     except Exception as exc:
         logger.warning("Could not retrieve workers for runtime logs", exc_info=True)
-        raise HTTPException(status_code=503, detail="Supervisor is unavailable") from exc
+        raise HTTPException(
+            status_code=503, detail="Supervisor is unavailable"
+        ) from exc
 
 
 async def list_runtime_log_sources(
