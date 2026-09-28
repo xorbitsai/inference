@@ -155,3 +155,19 @@ msgstr ""
 #: ../../source/getting_started/logging.rst:137
 msgid "Each request event also records its producing process identity in ``role``, ``address``, ``node``, ``module``, and ``pid``, together with an ``api_protocol`` value of ``openai``, ``anthropic``, or ``xinference``."
 msgstr ""
+
+#: ../../source/getting_started/logging.rst
+msgid "Application logs are written to ``<XINFERENCE_LOG_DIR>/xinference.log``. By default, ``XINFERENCE_LOG_DIR`` is ``<XINFERENCE_HOME>/logs``. If ``XINFERENCE_POD_NAME`` is set, the file is named ``xinference-<XINFERENCE_POD_NAME>.log`` instead. Local deployment combines Supervisor and Worker logs in this file. In distributed deployment, each node writes to its own local log directory. Rotated files stay beside the active file."
+msgstr "應用日誌寫入 ``<XINFERENCE_LOG_DIR>/xinference.log``。預設 ``XINFERENCE_LOG_DIR`` 為 ``<XINFERENCE_HOME>/logs``。設定 ``XINFERENCE_POD_NAME`` 後，檔名改為 ``xinference-<XINFERENCE_POD_NAME>.log``。本機部署將 Supervisor 與 Worker 日誌合併至此檔案。分散式部署中，各節點寫入本機日誌目錄。輪替檔案與目前檔案位於同一目錄。"
+
+#: ../../source/getting_started/logging.rst
+msgid "Web UI runtime logs"
+msgstr "Web UI 執行日誌"
+
+#: ../../source/getting_started/logging.rst
+msgid "Open **Monitoring Management > Log Center > Runtime logs** to view recent application logs and errors without Elasticsearch. The page reads the active log file on the selected node and refreshes every two seconds. It works when Xinference runs directly with Python or inside Docker. If Elasticsearch is configured, the Log Center also offers an Indexed logs tab for historical search."
+msgstr "開啟 **監控管理 > 日誌中心 > 執行日誌**，無需 Elasticsearch 即可查看最近的應用日誌與錯誤。頁面讀取所選節點的目前日誌檔案，每兩秒重新整理一次。直接執行 Python 或使用 Docker 均可使用。設定 Elasticsearch 後，日誌中心也提供「檢索日誌」分頁以搜尋歷史日誌。"
+
+#: ../../source/getting_started/logging.rst
+msgid "The runtime view shows the latest part of the active file and keeps a bounded amount of text in the browser. Search filters only loaded text. Output written directly to stdout or stderr outside Xinference logging, and failures before the API starts, may require the terminal or ``docker logs``. Log access uses the ``logs:list`` permission when authentication is enabled."
+msgstr "執行日誌檢視顯示目前檔案的最新內容，並限制瀏覽器保留的文字量。搜尋僅篩選已載入的文字。繞過 Xinference 日誌系統直接寫入 stdout 或 stderr 的輸出，以及 API 啟動前的故障，可能需要透過終端或 ``docker logs`` 查看。啟用驗證後，存取日誌需要 ``logs:list`` 權限。"
