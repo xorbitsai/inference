@@ -496,7 +496,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     and str(e).find("busy or unavailable") >= 0
                 ):
                     await asyncio.sleep(5)
-                    logger.warning("Retry to load model {model_uid}: %d times", i)
+                    logger.warning(
+                        "Retry to load model %s: %d times", self._replica_model_uid, i
+                    )
                     continue
                 raise
         logger.info(f"{self} loaded")
