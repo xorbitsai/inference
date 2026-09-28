@@ -73,13 +73,14 @@ async def test_opt_pytorch_model(setup, quantization):
 
 
 @pytest.mark.asyncio
-async def test_opt_fp4_model(setup):
+async def test_opt_fp4_model(request):
     try:
         from transformers import FPQuantConfig  # noqa: F401
     except Exception:
         pytest.skip("FPQuantConfig is not available in transformers.")
 
-    endpoint, _ = setup
+    # Check optional support before starting the cluster/API subprocesses.
+    endpoint, _ = request.getfixturevalue("setup")
     client = Client(endpoint)
     assert len(client.list_models()) == 0
 

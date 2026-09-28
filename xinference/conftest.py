@@ -17,7 +17,9 @@ import logging
 import multiprocessing
 import os
 import signal
+import socket
 import sys
+from contextlib import ExitStack
 from typing import Dict, Optional
 
 import pytest
@@ -174,6 +176,21 @@ def run_test_cluster_in_subprocess(
     return p
 
 
+def _get_test_port() -> int:
+    # Let the OS choose a bindable port, including on Windows where netstat
+    # does not list excluded/reserved port ranges. Use the same IPv4 interface
+    # for port selection and both test servers.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _stop_test_process(process: multiprocessing.Process) -> None:
+    if process.is_alive():
+        process.kill()
+    process.join(timeout=10)
+
+
 @pytest.fixture
 def setup():
     from .api.restful_api import run_in_subprocess as run_restful_api
@@ -186,29 +203,28 @@ def setup():
     # before any subprocess (which inherits this env) is started.
     os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
-    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
-    local_cluster_proc = run_test_cluster_in_subprocess(
-        supervisor_addr, TEST_LOGGING_CONF
-    )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Cluster is not available after multiple attempts")
+    with ExitStack() as cleanup:
+        supervisor_addr = f"127.0.0.1:{_get_test_port()}"
+        local_cluster_proc = run_test_cluster_in_subprocess(
+            supervisor_addr, TEST_LOGGING_CONF
+        )
+        cleanup.callback(_stop_test_process, local_cluster_proc)
+        if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Cluster is not available after multiple attempts")
 
-    port = xo.utils.get_next_port()
-    restful_api_proc = run_restful_api(
-        supervisor_addr,
-        host="localhost",
-        port=port,
-        logging_conf=TEST_LOGGING_CONF,
-    )
-    endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Endpoint is not available after multiple attempts")
+        port = _get_test_port()
+        restful_api_proc = run_restful_api(
+            supervisor_addr,
+            host="127.0.0.1",
+            port=port,
+            logging_conf=TEST_LOGGING_CONF,
+        )
+        cleanup.callback(_stop_test_process, restful_api_proc)
+        endpoint = f"http://127.0.0.1:{port}"
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    try:
-        yield f"http://localhost:{port}", supervisor_addr
-    finally:
-        local_cluster_proc.kill()
-        restful_api_proc.kill()
+        yield f"http://127.0.0.1:{port}", supervisor_addr
 
 
 @pytest.fixture
@@ -223,26 +239,25 @@ def setup_with_file_logging():
     # before any subprocess (which inherits this env) is started.
     os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
-    supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
-    local_cluster_proc = run_test_cluster_in_subprocess(
-        supervisor_addr, TEST_FILE_LOGGING_CONF
-    )
-    if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Cluster is not available after multiple attempts")
+    with ExitStack() as cleanup:
+        supervisor_addr = f"127.0.0.1:{_get_test_port()}"
+        local_cluster_proc = run_test_cluster_in_subprocess(
+            supervisor_addr, TEST_FILE_LOGGING_CONF
+        )
+        cleanup.callback(_stop_test_process, local_cluster_proc)
+        if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Cluster is not available after multiple attempts")
 
-    port = xo.utils.get_next_port()
-    restful_api_proc = run_restful_api(
-        supervisor_addr,
-        host="localhost",
-        port=port,
-        logging_conf=TEST_FILE_LOGGING_CONF,
-    )
-    endpoint = f"http://localhost:{port}"
-    if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
-        raise RuntimeError("Endpoint is not available after multiple attempts")
+        port = _get_test_port()
+        restful_api_proc = run_restful_api(
+            supervisor_addr,
+            host="127.0.0.1",
+            port=port,
+            logging_conf=TEST_FILE_LOGGING_CONF,
+        )
+        cleanup.callback(_stop_test_process, restful_api_proc)
+        endpoint = f"http://127.0.0.1:{port}"
+        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+            raise RuntimeError("Endpoint is not available after multiple attempts")
 
-    try:
-        yield f"http://localhost:{port}", supervisor_addr, TEST_LOG_FILE_PATH
-    finally:
-        local_cluster_proc.kill()
-        restful_api_proc.kill()
+        yield f"http://127.0.0.1:{port}", supervisor_addr, TEST_LOG_FILE_PATH
