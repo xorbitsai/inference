@@ -243,3 +243,30 @@ def test_dynamic_cache_reduction_supports_layers_on_multiple_cuda_devices():
         torch.device("cuda:1"),
     ]
     assert all(layer.keys.shape[0] == 2 for layer in reduced.layers)
+
+
+@pytest.mark.parametrize("padding_side", ["left", "right"])
+def test_decode_mask_keeps_cache_width_after_longest_request_finishes(padding_side):
+    model = _model_for_cache_tests()
+    model._device = "cpu"
+    model._tokenizer = SimpleNamespace(padding_side=padding_side)
+    # A later request joins an already-decoding batch. Its cache is padded
+    # to the older request's width; removing the older request only removes
+    # a batch row, not those sequence positions.
+    older = _cache_with_tensor(1, seq_len=124)
+    newer = _cache_with_tensor(2, seq_len=60)
+    merged = model.merge_kv_cache(older, newer)
+    remaining = model.build_reduced_kv_cache(merged, {1})
+    batch_size, seq_len = get_batch_size_and_seq_len_from_kv_cache(remaining, model)
+    request = SimpleNamespace(extra_kwargs={"attention_mask_seq_len": 60})
+
+    mask = model.build_decode_attention_mask(batch_size, seq_len, [request])
+
+    assert mask.shape == (1, 125)
+    assert mask.sum().item() == 61
+    if padding_side == "left":
+        assert mask[0, :64].tolist() == [0] * 64
+        assert mask[0, 64:].tolist() == [1] * 61
+    else:
+        assert mask[0, :61].tolist() == [1] * 61
+        assert mask[0, 61:].tolist() == [0] * 64

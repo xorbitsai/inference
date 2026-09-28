@@ -974,3 +974,35 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
         assert any(
             "qwen-asr[vllm]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
         ), f"{model_name} misses qwen-asr[vllm] virtualenv marker"
+
+
+@pytest.mark.parametrize("hub_version", ["0.36.0", "1.5.0"])
+def test_f5_tts_mlx_keeps_host_hub_version(apple_mlx_engines, monkeypatch, hub_version):
+    from importlib import metadata
+
+    from packaging.requirements import Requirement
+    from xoscar.virtualenv import VirtualEnvManager
+
+    from ....core.utils import filter_virtualenv_packages_by_markers
+
+    mlx_spec = next(
+        spec for spec in apple_mlx_engines["F5-TTS"] if spec.engine == "MLX"
+    )
+    original_version = metadata.version
+    monkeypatch.setattr(
+        metadata,
+        "version",
+        lambda name: (
+            hub_version
+            if name.replace("-", "_") == "huggingface_hub"
+            else original_version(name)
+        ),
+    )
+    packages = filter_virtualenv_packages_by_markers(
+        mlx_spec.virtualenv.packages, model_engine="MLX", cuda_version=None
+    )
+    resolved = VirtualEnvManager.process_packages(packages)
+    hub = [Requirement(package) for package in resolved if "huggingface" in package]
+    assert len(hub) == 1
+    assert str(hub[0].specifier) == f"=={hub_version}"
+    assert "2.0.0" not in hub[0].specifier

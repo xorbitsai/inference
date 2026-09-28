@@ -1602,7 +1602,7 @@ class CancellableDownloader:
                 return result
 
             # Thread-safe patched update
-            def patched_update(tqdm_instance, n):
+            def patched_update(tqdm_instance, n=1):
                 downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
                 progresses = None
                 unit = None
