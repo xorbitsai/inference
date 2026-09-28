@@ -61,7 +61,7 @@ def read_runtime_log(cursor: str = "") -> Dict[str, object]:
                 else:
                     continue
                 try:
-                    stat = entry.stat()
+                    stat = os.stat(entry.path, follow_symlinks=False)
                 except OSError:
                     continue
                 archives.append((sort_key, entry.path, stat))

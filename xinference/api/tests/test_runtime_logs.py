@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -47,6 +48,57 @@ def test_runtime_log_tail_incremental_read_and_multiple_rotations(
     new = log_reader.read_runtime_log(intermediate["cursor"])
     assert new["text"] == "active line\n"
     assert not new["has_more"]
+
+
+def test_runtime_log_rotation_uses_filesystem_archive_identity(tmp_path, monkeypatch):
+    path = tmp_path / "xinference.log"
+    monkeypatch.setattr(log_reader, "get_log_file", lambda _: str(path))
+    path.write_bytes(b"first\n")
+    cursor = log_reader.read_runtime_log()["cursor"]
+
+    archive = tmp_path / "xinference.log.2026-09-27.1"
+    path.rename(archive)
+    with archive.open("ab") as stream:
+        stream.write(b"last old line\n")
+    path.write_bytes(b"active line\n")
+
+    real_scandir = log_reader.os.scandir
+
+    class ZeroIdentityEntry:
+        def __init__(self, entry):
+            self._entry = entry
+            self.name = entry.name
+            self.path = entry.path
+
+        def is_file(self, *, follow_symlinks=True):
+            return self._entry.is_file(follow_symlinks=follow_symlinks)
+
+        def stat(self, *, follow_symlinks=True):
+            stat = self._entry.stat(follow_symlinks=follow_symlinks)
+            return SimpleNamespace(st_dev=0, st_ino=0, st_size=stat.st_size)
+
+    class ScandirResult:
+        def __init__(self, entries):
+            self._entries = entries
+
+        def __enter__(self):
+            return self._entries
+
+        def __exit__(self, *_):
+            return False
+
+    def scandir_with_zero_identity(directory):
+        with real_scandir(directory) as entries:
+            wrapped_entries = [ZeroIdentityEntry(entry) for entry in entries]
+        return ScandirResult(wrapped_entries)
+
+    monkeypatch.setattr(log_reader.os, "scandir", scandir_with_zero_identity)
+
+    old = log_reader.read_runtime_log(cursor)
+    assert old["text"] == "last old line\n"
+    assert old["has_more"]
+    active = log_reader.read_runtime_log(old["cursor"])
+    assert active["text"] == "active line\n"
 
 
 def test_runtime_log_read_is_bounded(tmp_path, monkeypatch):
