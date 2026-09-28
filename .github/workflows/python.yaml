@@ -337,10 +337,22 @@ jobs:
           }
 
           if [ "$MODULE" == "metal" ]; then
-            run_pytest xinference/model/llm/mlx/tests/test_mlx.py && \
-            run_pytest xinference/model/audio/tests/test_whisper_mlx.py && \
-            run_pytest xinference/model/audio/tests/test_f5tts_mlx.py && \
-            run_pytest xinference/model/llm/mlx/tests/test_distributed_model.py
+            status=0
+            mkdir -p test-results
+            python -m pip freeze > test-results/metal-host-packages.txt
+            for test_file in \
+              xinference/model/llm/mlx/tests/test_mlx.py \
+              xinference/model/audio/tests/test_whisper_mlx.py \
+              xinference/model/audio/tests/test_f5tts_mlx.py \
+              xinference/model/llm/mlx/tests/test_distributed_model.py; do
+              group=$(basename "$test_file" .py)
+              echo "::group::Metal tests: $group"
+              # Keep separate processes for model environments, and run every
+              # group even if an earlier one fails. Preserve the failure status.
+              run_pytest --junitxml="test-results/$group.xml" "$test_file" || status=1
+              echo "::endgroup::"
+            done
+            [ "$status" -eq 0 ]
           else
             run_pytest \
               -vv \
@@ -365,6 +377,14 @@ jobs:
               xinference/model/llm/vllm/xavier/test/test_review_regressions.py
           fi
         working-directory: .
+
+      - name: Upload Metal test results
+        if: ${{ always() && matrix.module == 'metal' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metal-test-results-${{ matrix.python-version }}
+          path: test-results/
+          if-no-files-found: ignore
 
   gpu_test_job:
     name: build_test_job (gpu-t4, gpu, 3.12)

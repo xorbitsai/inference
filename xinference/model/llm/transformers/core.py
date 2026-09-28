@@ -622,7 +622,9 @@ class PytorchModel(LLM):
         So we need pad `0` on the left again.
         """
         data = []
-        max_len = max(r.extra_kwargs["attention_mask_seq_len"] for r in reqs) + 1
+        # Cache reduction removes batch rows, but keeps sequence padding from
+        # earlier merges even after the longest request has finished.
+        max_len = seq_length + 1
         for r in reqs:
             r.extra_kwargs["attention_mask_seq_len"] += 1
             real_len = r.extra_kwargs["attention_mask_seq_len"]

@@ -278,7 +278,7 @@ class MockWorkerActorRealTerminate(MockWorkerActor):
 @pytest_asyncio.fixture
 async def setup_pool():
     pool = await create_actor_pool(
-        "test://127.0.0.1:" + str(xo.utils.get_next_port()),
+        "test://127.0.0.1:0",
         n_process=0,
     )
     async with pool:

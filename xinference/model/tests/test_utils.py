@@ -1303,3 +1303,15 @@ def test_auto_detect_honors_hf_offline_mode(
     assert calls["n"] == 0
     assert model_utils.resolve_download_hub(None) == "huggingface"
     assert model_utils.resolve_download_hub("auto") == "huggingface"
+
+
+def test_tqdm_patch_accepts_default_update_increment():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+    with downloader:
+        with tqdm(total=2, file=io.StringIO()) as bar:
+            bar.update()
+            assert bar.n == 1
+            assert downloader.get_progress() == pytest.approx(0.5)
+            bar.update()
+            assert bar.n == 2
+            assert downloader.get_progress() == 1.0
