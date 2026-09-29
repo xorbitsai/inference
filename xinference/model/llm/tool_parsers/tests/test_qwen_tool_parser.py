@@ -771,6 +771,33 @@ def test_tool_parser_extract_calls_with_parser():
     assert result == expected_results, f"Case failed: {result} != {expected_results}"
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Reasoning left in the output when reasoning_content is disabled.
+        "The user wants the weather, I will call the tool.\n</think>\n\n",
+        # Plain text that merely mentions the Qwen3.5 XML call syntax.
+        "Tools are called with <function=get_current_weather>.\n",
+    ],
+)
+def test_tool_parser_extract_calls_keeps_text_outside_tool_call(text, caplog):
+    parser = QwenToolParser()
+
+    test_case = (
+        text + '<tool_call>\n{"name": "get_current_weather", '
+        '"arguments": {"location": "上海"}}\n</tool_call>'
+    )
+
+    with caplog.at_level("WARNING"):
+        result = parser.extract_tool_calls(test_case)
+
+    assert result == [
+        (text, None, None),
+        (None, "get_current_weather", {"location": "上海"}),
+    ]
+    assert not caplog.records
+
+
 def test_streaming_xml_tool_call_emits_function_name_before_arguments_complete():
     parser = QwenToolParser()
 
