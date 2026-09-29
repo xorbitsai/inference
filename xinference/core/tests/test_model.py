@@ -14,6 +14,7 @@
 
 import asyncio
 import json
+import logging
 import types
 from unittest.mock import AsyncMock
 
@@ -460,3 +461,27 @@ async def test_generate_moves_request_id_into_batch_config():
     assert json.loads(result) == {"prompt": "prompt"}
     assert model.generate_config == {"max_tokens": 1, "request_id": "123"}
     assert generate_config == {"max_tokens": 1}
+
+
+class _BusyOnceModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self.calls = 0
+
+    def load(self):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("device is busy or unavailable")
+
+
+@pytest.mark.asyncio
+async def test_load_retry_log_names_the_model(monkeypatch, caplog):
+    model = _BusyOnceModel()
+    actor = ModelActor("test:123", "test:345", model, "retry-model-0")  # type: ignore
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.model"):
+        await actor.load()
+
+    assert model.calls == 2
+    assert "Retry to load model retry-model-0: 1 times" in caplog.text
