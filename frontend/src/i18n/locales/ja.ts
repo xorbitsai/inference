@@ -1260,6 +1260,7 @@ const ja = {
     name: '名前',
     namePlaceholder: '例: my-app-key',
     nameRequired: '名前は必須です',
+    nameExists: 'API キー名は既に存在します。別の名前を使用してください',
     description: '説明',
     descriptionPlaceholder: '任意の説明',
     key: 'キー',

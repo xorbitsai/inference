@@ -1252,6 +1252,7 @@ const ko = {
     name: '이름',
     namePlaceholder: '예: my-app-key',
     nameRequired: '이름은 필수입니다',
+    nameExists: 'API 키 이름이 이미 존재합니다. 다른 이름을 사용하세요',
     description: '설명',
     descriptionPlaceholder: '선택적 설명',
     key: '키',

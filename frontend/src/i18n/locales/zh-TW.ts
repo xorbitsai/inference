@@ -1266,6 +1266,7 @@ const zhTW = {
     name: '名稱',
     namePlaceholder: '例如：my-app-key',
     nameRequired: '名稱不能為空',
+    nameExists: 'API Key 名稱已存在，請使用其他名稱',
     description: '描述',
     descriptionPlaceholder: '可選描述',
     key: '金鑰',

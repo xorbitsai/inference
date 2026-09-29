@@ -225,6 +225,11 @@ and API keys through REST endpoints under ``/v1/admin``, for example:
       -H "Content-Type: application/json" \
       -d '{"name": "my-key"}'
 
+API key names are required. Names are trimmed before storage and must be
+unique across all users; comparisons ignore ASCII letter case. When an existing
+database is upgraded, blank or duplicate names are migrated to deterministic
+unique names without changing the API key values.
+
 Other supported endpoints include listing/updating/deleting users
 (``/v1/admin/users``, ``/v1/admin/users/{user_id}``), changing a user's
 password (``/v1/admin/users/{user_id}/password``), and listing, updating,

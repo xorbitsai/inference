@@ -38,6 +38,7 @@ def test_docanalyze_enforces_model_authorization(
     )
     key = service.create_api_key_for_user(
         user_id=user_id,
+        name=f"docanalyze-{allowed_model}",
         model_permissions=[
             {"permission_type": "model_id", "permission_value": allowed_model}
         ],

@@ -185,7 +185,9 @@ def test_key_reveal_route_uses_db_permissions_grant(auth_service):
     user_id = _create_user(auth_service, "gina", [])
     token = auth_service.create_access_token(user_id, "gina", [])
     auth_service.db.set_user_permissions(user_id, ["keys:manage"])
-    api_key = auth_service.create_api_key_for_user(user_id=user_id)
+    api_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )
 
     response = _make_client(auth_service).get(
         f"/v1/admin/keys/{api_key['id']}/reveal",
@@ -202,8 +204,12 @@ def test_keys_read_route_uses_db_permissions_grant(auth_service):
     other_user_id = _create_user(auth_service, "harry-other", [])
     token = auth_service.create_access_token(user_id, "harry", [])
     auth_service.db.set_user_permissions(user_id, ["keys:manage"])
-    own_key = auth_service.create_api_key_for_user(user_id=user_id)
-    other_key = auth_service.create_api_key_for_user(user_id=other_user_id)
+    own_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )
+    other_key = auth_service.create_api_key_for_user(
+        user_id=other_user_id, name=f"test-key-{other_user_id}"
+    )
 
     response = _make_client(auth_service).get(
         "/v1/admin/keys", headers={"Authorization": f"Bearer {token}"}
@@ -219,7 +225,9 @@ def test_key_get_route_uses_db_permissions_grant(auth_service):
     other_user_id = _create_user(auth_service, "jane-other", [])
     token = auth_service.create_access_token(user_id, "jane", [])
     auth_service.db.set_user_permissions(user_id, ["keys:manage"])
-    other_key = auth_service.create_api_key_for_user(user_id=other_user_id)
+    other_key = auth_service.create_api_key_for_user(
+        user_id=other_user_id, name=f"test-key-{other_user_id}"
+    )
 
     response = _make_client(auth_service).get(
         f"/v1/admin/keys/{other_key['id']}",
@@ -239,7 +247,7 @@ def test_key_create_route_uses_db_permissions_grant_for_owner(auth_service):
 
     response = _make_client(auth_service).post(
         "/v1/admin/keys",
-        json={"owner": other_user_id},
+        json={"owner": other_user_id, "name": "delegated-key"},
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -251,7 +259,9 @@ def test_key_create_route_uses_db_permissions_grant_for_owner(auth_service):
 def test_keys_read_route_rejects_api_key_tokens(auth_service):
     """API keys must not access key-management routes via owner permissions."""
     user_id = _create_user(auth_service, "irene", ["keys:manage"])
-    api_key = auth_service.create_api_key_for_user(user_id=user_id)["key"]
+    api_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )["key"]
 
     response = _make_client(auth_service).get(
         "/v1/admin/keys", headers={"Authorization": f"Bearer {api_key}"}
@@ -333,7 +343,9 @@ async def test_model_request_body_scope_accepts_authorized_jwt(auth_service):
 async def test_model_request_body_scope_rejects_api_key(auth_service):
     permissions = ["logs:list", "model_requests:read_body"]
     user_id = _create_user(auth_service, "api-key-owner", permissions)
-    api_key = auth_service.create_api_key_for_user(user_id=user_id)["key"]
+    api_key = auth_service.create_api_key_for_user(
+        user_id=user_id, name=f"test-key-{user_id}"
+    )["key"]
 
     with pytest.raises(HTTPException) as exc:
         await auth_service(

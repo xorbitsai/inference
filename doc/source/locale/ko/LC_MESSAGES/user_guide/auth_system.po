@@ -403,6 +403,10 @@ msgstr ""
 "두 권한을 모두 가지고 있습니다), ``/v1/admin`` 아래의 REST 엔드포인트를 통해 사용자와 API 키를 관리할 수 "
 "있습니다. 예:"
 
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "API 키 이름은 필수입니다. 이름은 저장 전에 앞뒤 공백이 제거되며 모든 사용자에 걸쳐 전역적으로 고유해야 합니다. 비교 시 ASCII 문자의 대소문자는 구분하지 않습니다. 기존 데이터베이스를 업그레이드하면 비어 있거나 중복된 이름은 API 키 값을 변경하지 않고 결정론적인 고유 이름으로 마이그레이션됩니다."
+
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
 msgid ""

@@ -27,6 +27,7 @@ import { copyToClipboard } from '@/lib/utils';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import {
   MODEL_TYPE_OPTIONS,
+  getApiKeyDisplayName,
   getPermissionType,
   getPermissionValue,
   type ApiKey,
@@ -272,10 +273,10 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
 
   const buildCreatePayload = (values: KeyFormValues) => {
     const body: Record<string, unknown> = {
+      name: values.name?.trim(),
       model_permissions: buildPermissionPayload(values),
     };
 
-    if (values.name) body.name = values.name;
     if (values.description) body.description = values.description;
     if (values.user_id) {
       body.owner = /^\d+$/.test(values.user_id) ? Number(values.user_id) : values.user_id;
@@ -288,7 +289,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
   };
 
   const buildEditPayload = (values: KeyFormValues) => ({
-    name: values.name || null,
+    name: values.name?.trim(),
     description: values.description || null,
     model_permissions: buildPermissionPayload(values),
   });
@@ -297,13 +298,16 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
     setSubmitLoading(true);
     try {
       if (apiKey) {
-        await request.put(`/v1/admin/keys/${apiKey.id}`, buildEditPayload(values));
+        await request.put(`/v1/admin/keys/${apiKey.id}`, buildEditPayload(values), {
+          errorMessages: { 409: t('apiKey.nameExists') },
+        });
         toast.success(t('apiKey.updateSuccess'));
         handleClose();
       } else {
         const result = await request.post<{ key: string }>(
           '/v1/admin/keys',
-          buildCreatePayload(values)
+          buildCreatePayload(values),
+          { errorMessages: { 409: t('apiKey.nameExists') } }
         );
         setNewKeyValue(result.key);
         setNewKeyVisible(false);
@@ -325,7 +329,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
             {newKeyValue
               ? t('apiKey.keyCreated')
               : isEdit
-                ? `${t('common.edit')} ${t('apiKey.key')} ${apiKey?.id || ''}`
+                ? `${t('common.edit')} ${apiKey ? getApiKeyDisplayName(apiKey) : ''}`
                 : t('apiKey.createKey')}
           </DialogTitle>
         </DialogHeader>
@@ -364,6 +368,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
               name="name"
               label={t('apiKey.name')}
               placeholder={t('apiKey.namePlaceholder')}
+              rules={[{ required: true, message: t('apiKey.nameRequired') }]}
             >
               <Input />
             </FormField>
@@ -392,11 +397,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
                 label={t('apiKey.expiresAt')}
                 extra={t('apiKey.expiresAtHint')}
               >
-                <DateTimePicker
-                  showTime={false}
-                  showSelectedTime={false}
-                  inputClassName="h-9"
-                />
+                <DateTimePicker showTime={false} showSelectedTime={false} inputClassName="h-9" />
               </FormField>
             )}
 

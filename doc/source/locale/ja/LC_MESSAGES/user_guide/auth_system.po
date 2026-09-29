@@ -396,6 +396,10 @@ msgstr ""
 "``admin`` アカウントは両方を持っています）、 ``/v1/admin`` 以下の REST エンドポイントを通じてユーザーや API "
 "キーを管理できます。例："
 
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "API キー名は必須です。名前は保存前に前後の空白が削除され、すべてのユーザーを通じてグローバルに一意である必要があります。比較では ASCII 文字の大文字と小文字を区別しません。既存のデータベースをアップグレードすると、空または重複した名前は API キーの値を変更せずに、決定論的な一意の名前へ移行されます。"
+
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
 msgid ""

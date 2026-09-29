@@ -312,7 +312,7 @@ class AdvancedAuthService:
     def create_api_key_for_user(
         self,
         user_id: int,
-        name: Optional[str] = None,
+        name: str,
         description: Optional[str] = None,
         expires_at: Optional[str] = None,
         model_permissions: Optional[List[Dict[str, Optional[str]]]] = None,
@@ -352,7 +352,12 @@ class AdvancedAuthService:
         cache_data["username"] = user["username"] if user else ""
         self._cache.add(cache_data)
 
-        return {"id": key_id, "key": plaintext_key, "prefix": key_prefix, "name": name}
+        return {
+            "id": key_id,
+            "key": plaintext_key,
+            "prefix": key_prefix,
+            "name": cache_data["name"],
+        }
 
     def reveal_api_key(self, key_id: int) -> Optional[str]:
         key_data = self._db.get_api_key_by_id(key_id)
