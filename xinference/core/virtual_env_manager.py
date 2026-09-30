@@ -294,7 +294,14 @@ def _pin_missing_system_torchcodec(packages: List[str]) -> List[str]:
 
     from packaging.version import Version
 
-    torch_version = Version(metadata.version("torch"))
+    try:
+        torch_version = Version(metadata.version("torch"))
+    except metadata.PackageNotFoundError as exc:
+        raise ValueError(
+            "Cannot select TorchCodec because Torch is not installed in the host "
+            "environment. Install Torch in the host environment or specify Torch "
+            "and TorchCodec explicitly in virtual_env_packages."
+        ) from exc
     # https://github.com/pytorch/torchcodec#installing-torchcodec
     # TorchCodec does not express these binary compatibility requirements in
     # wheel metadata. A bare requirement can resolve successfully but fail at

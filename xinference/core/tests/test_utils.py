@@ -132,6 +132,20 @@ def test_system_torchcodec_keeps_installed_host_version(monkeypatch):
     assert ensure_system_torch_pin(packages) is packages
 
 
+def test_missing_system_torchcodec_reports_missing_host_torch(monkeypatch):
+    from importlib import metadata
+
+    def version(name):
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    packages = ["#system_torch#", "#system_torchcodec#"]
+    with pytest.raises(
+        ValueError, match="Torch is not installed.*virtual_env_packages"
+    ):
+        ensure_system_torch_pin(packages)
+
+
 @pytest.mark.parametrize("torch_version", ["2.3.1", "2.12.0.dev20260930"])
 def test_missing_system_torchcodec_reports_unknown_torch(monkeypatch, torch_version):
     from importlib import metadata
