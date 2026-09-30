@@ -61,7 +61,9 @@ require.cache[require.resolve('./launch-history')]!.exports = {
   refreshLaunchConfigHistory: (...args: Parameters<typeof refreshHistory>) =>
     refreshHistory(...args),
 };
-const LaunchDialog = require('./launch-dialog').default as typeof import('./launch-dialog').default;
+const launchDialogModule = require('./launch-dialog') as typeof import('./launch-dialog');
+const LaunchDialog = launchDialogModule.default;
+const { getNGpuOptions } = launchDialogModule;
 const { recommendationRequest, recommendationUnavailable, recommendationPatch } =
   require('./recommendation') as typeof import('./recommendation');
 
@@ -549,6 +551,40 @@ for (const modelType of ['embedding', 'rerank', 'audio']) {
     assert.equal(form.getFieldValue('n_gpu'), 'CPU');
   });
 }
+
+it('exposes GPU device choices only when detected and preserves existing model-type rules', () => {
+  for (const modelType of ['embedding', 'rerank', 'audio'] as RequestModelType[]) {
+    assert.deepEqual(getNGpuOptions(modelType, 2, true), ['auto', 'GPU', 'CPU']);
+    assert.deepEqual(getNGpuOptions(modelType, 0, true), ['auto', 'CPU']);
+    assert.deepEqual(getNGpuOptions(modelType, -1, true), ['auto', 'CPU']);
+  }
+
+  for (const modelType of ['LLM', 'image'] as RequestModelType[]) {
+    assert.deepEqual(getNGpuOptions(modelType, 2, modelType === 'LLM'), ['auto', 'CPU', 1, 2]);
+    assert.deepEqual(getNGpuOptions(modelType, 0, modelType === 'LLM'), ['auto', 'CPU']);
+  }
+
+  for (const modelType of ['video', 'world'] as RequestModelType[]) {
+    assert.deepEqual(getNGpuOptions(modelType, 2, false), ['GPU', 'CPU']);
+    assert.deepEqual(getNGpuOptions(modelType, 0, false), ['CPU']);
+    assert.deepEqual(getNGpuOptions(modelType, -1, false), ['CPU']);
+  }
+});
+
+it('shows the audio GPU index field only after selecting GPU', async () => {
+  await render(model, 'audio', 2);
+  assert.doesNotMatch(document.body.textContent!, /GPU Idx/);
+
+  await act(async () => {
+    form.setFieldValue('n_gpu', 'GPU');
+  });
+  assert.match(document.body.textContent!, /GPU Idx/);
+
+  await act(async () => {
+    form.setFieldValue('n_gpu', 'CPU');
+  });
+  assert.doesNotMatch(document.body.textContent!, /GPU Idx/);
+});
 
 it('restores auto and legacy GPU history without converting either to CPU', () => {
   const { transformFetchToForm } = require('../utils') as typeof import('../utils');
