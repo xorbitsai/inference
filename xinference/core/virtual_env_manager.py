@@ -280,11 +280,9 @@ def get_xllamacpp_cuda_index_url(
 TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
 
 
-def pin_missing_system_torchcodec(
-    packages: List[str], active_packages: List[str]
-) -> List[str]:
+def _pin_missing_system_torchcodec(packages: List[str]) -> List[str]:
     """Constrain a missing host TorchCodec to the inherited Torch ABI."""
-    if not {"#system_torch#", "#system_torchcodec#"}.issubset(active_packages):
+    if not {"#system_torch#", "#system_torchcodec#"}.issubset(packages):
         return packages
     try:
         metadata.version("torchcodec")
@@ -322,15 +320,10 @@ def pin_missing_system_torchcodec(
             "it explicitly in virtual_env_packages."
         )
 
-    result = []
-    for package in packages:
-        requirement, separator, marker = package.partition(";")
-        if requirement.strip() == "#system_torchcodec#":
-            package = f"torchcodec{constraint}"
-            if separator:
-                package += f" ; {marker.strip()}"
-        result.append(package)
-    return result
+    return [
+        f"torchcodec{constraint}" if package == "#system_torchcodec#" else package
+        for package in packages
+    ]
 
 
 # Packages with compiled NumPy extensions that are commonly present in the
@@ -367,8 +360,12 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
     ``#system_torchvision# ; #engine# == "sentence_transformers"`` alongside
     ``#system_torchaudio# ; #engine# == "audio"``), a matching torch pin is added
     for each distinct marker that does not already have one. This covers built-in
-    specs and user-registered models alike, and is a no-op when torch is already
-    pinned under the relevant condition or no companion is pinned.
+    specs and user-registered models alike. No additional Torch pin is needed
+    when Torch is already pinned under the relevant condition or no companion
+    is pinned.
+
+    After aligning Torch, constrain a missing host TorchCodec to a compatible
+    version. The worker filters engine/CUDA/platform markers before this call.
     """
     if not packages:
         return packages
@@ -404,7 +401,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         if _marker_name(pkg) == "torch" or _requirement_name(pkg) == "torch":
             marker = _env_marker(pkg)
             if marker is None:
-                return packages
+                return _pin_missing_system_torchcodec(packages)
             existing_torch_markers.add(marker)
 
     # Inject one torch pin per distinct companion condition that lacks one,
@@ -424,7 +421,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         )
 
     if not to_inject:
-        return packages
+        return _pin_missing_system_torchcodec(packages)
 
     for torch_entry in to_inject:
         logger.info(
@@ -433,7 +430,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
             "ABI mismatch on relaunch (issue #5156).",
             torch_entry,
         )
-    return packages + to_inject
+    return _pin_missing_system_torchcodec(packages + to_inject)
 
 
 def pin_sentence_transformers_numpy_abi(

@@ -37,7 +37,6 @@ from ..virtual_env_manager import (
     XLLAMACPP_CUDA_INDEX_URLS,
     ensure_system_torch_pin,
     get_xllamacpp_cuda_index_url,
-    pin_missing_system_torchcodec,
     pin_sentence_transformers_numpy_abi,
 )
 
@@ -56,8 +55,9 @@ from ..virtual_env_manager import (
         ("2.12.0", ">=0.12,<0.17"),
     ],
 )
+@pytest.mark.parametrize("include_torch_pin", [False, True])
 def test_missing_system_torchcodec_uses_torch_compatibility(
-    monkeypatch, torch_version, expected
+    monkeypatch, torch_version, expected, include_torch_pin
 ):
     from importlib import metadata
 
@@ -70,19 +70,22 @@ def test_missing_system_torchcodec_uses_torch_compatibility(
         raise metadata.PackageNotFoundError(name)
 
     monkeypatch.setattr(metadata, "version", version)
-    packages = ["#system_torch#", "#system_torchcodec#"]
-    result = pin_missing_system_torchcodec(packages, packages)
+    packages = ["#system_torchcodec#"]
+    if include_torch_pin:
+        packages.append("#system_torch#")
+    original = packages.copy()
+    result = ensure_system_torch_pin(packages)
     # Exercise the downstream marker resolver: it must not see a bare codec.
     assert [
         Requirement(package) for package in VirtualEnvManager.process_packages(result)
     ] == [
-        Requirement(f"torch=={torch_version.split('+')[0]}"),
         Requirement(f"torchcodec{expected}"),
+        Requirement(f"torch=={torch_version.split('+')[0]}"),
     ]
-    assert packages == ["#system_torch#", "#system_torchcodec#"]
+    assert packages == original
 
 
-def test_missing_system_torchcodec_preserves_condition(monkeypatch):
+def test_missing_system_torchcodec_after_condition_filtering(monkeypatch):
     from importlib import metadata
 
     def version(name):
@@ -91,10 +94,14 @@ def test_missing_system_torchcodec_preserves_condition(monkeypatch):
         raise metadata.PackageNotFoundError(name)
 
     monkeypatch.setattr(metadata, "version", version)
-    packages = ["#system_torchcodec# ; #engine# == 'PyTorch'", "#system_torch#"]
-    assert pin_missing_system_torchcodec(
-        packages, ["#system_torchcodec#", "#system_torch#"]
-    ) == ["torchcodec>=0.8,<0.10 ; #engine# == 'PyTorch'", "#system_torch#"]
+    packages = ['#system_torchcodec# ; #engine# == "PyTorch"', "#system_torch#"]
+    from ..utils import filter_virtualenv_packages_by_markers
+
+    active = filter_virtualenv_packages_by_markers(packages, "PyTorch", None)
+    assert ensure_system_torch_pin(active) == [
+        "torchcodec>=0.8,<0.10",
+        "#system_torch#",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -106,12 +113,15 @@ def test_missing_system_torchcodec_preserves_condition(monkeypatch):
     ],
 )
 def test_missing_system_torchcodec_does_not_override_explicit_packages(packages):
-    assert pin_missing_system_torchcodec(packages, packages) is packages
+    assert ensure_system_torch_pin(packages) is packages
 
 
 def test_missing_system_torchcodec_skips_inactive_marker():
-    packages = ["#system_torchcodec# ; #engine# == 'PyTorch'", "#system_torch#"]
-    assert pin_missing_system_torchcodec(packages, ["#system_torch#"]) is packages
+    packages = ['#system_torchcodec# ; #engine# == "PyTorch"', "#system_torch#"]
+    from ..utils import filter_virtualenv_packages_by_markers
+
+    active = filter_virtualenv_packages_by_markers(packages, "Other", None)
+    assert ensure_system_torch_pin(active) == ["#system_torch#"]
 
 
 def test_system_torchcodec_keeps_installed_host_version(monkeypatch):
@@ -119,7 +129,7 @@ def test_system_torchcodec_keeps_installed_host_version(monkeypatch):
 
     monkeypatch.setattr(metadata, "version", lambda name: "0.8.1")
     packages = ["#system_torch#", "#system_torchcodec#"]
-    assert pin_missing_system_torchcodec(packages, packages) is packages
+    assert ensure_system_torch_pin(packages) is packages
 
 
 @pytest.mark.parametrize("torch_version", ["2.3.1", "2.12.0.dev20260930"])
@@ -134,7 +144,7 @@ def test_missing_system_torchcodec_reports_unknown_torch(monkeypatch, torch_vers
     monkeypatch.setattr(metadata, "version", version)
     packages = ["#system_torch#", "#system_torchcodec#"]
     with pytest.raises(ValueError, match="virtual_env_packages"):
-        pin_missing_system_torchcodec(packages, packages)
+        ensure_system_torch_pin(packages)
 
 
 @pytest.mark.parametrize(("value", "expected"), [(None, 1), (1, 1), ("2", 2)])
