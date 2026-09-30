@@ -279,6 +279,60 @@ def get_xllamacpp_cuda_index_url(
 # import time with errors like "operator torchvision::nms does not exist".
 TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
 
+
+def pin_missing_system_torchcodec(
+    packages: List[str], active_packages: List[str]
+) -> List[str]:
+    """Constrain a missing host TorchCodec to the inherited Torch ABI."""
+    if not {"#system_torch#", "#system_torchcodec#"}.issubset(active_packages):
+        return packages
+    try:
+        metadata.version("torchcodec")
+    except metadata.PackageNotFoundError:
+        pass
+    else:
+        # Existing host versions retain the usual #system_*# behavior.
+        return packages
+
+    from packaging.version import Version
+
+    torch_version = Version(metadata.version("torch"))
+    # https://github.com/pytorch/torchcodec#installing-torchcodec
+    # TorchCodec does not express these binary compatibility requirements in
+    # wheel metadata. A bare requirement can resolve successfully but fail at
+    # import time (e.g. TorchCodec 0.16 with Torch 2.9).
+    compatibility = {
+        (2, 4): "==0.0.3",
+        (2, 5): ">=0.1,<0.2",
+        (2, 6): ">=0.2,<0.3",
+        (2, 7): ">=0.3,<0.6",
+        (2, 8): ">=0.6,<0.8",
+        (2, 9): ">=0.8,<0.10",
+        (2, 10): ">=0.10,<0.11",
+        (2, 11): ">=0.11,<0.17",
+    }
+    constraint = compatibility.get((torch_version.major, torch_version.minor))
+    # Upstream lists TorchCodec 0.12 through 0.16 as supporting Torch >=2.11.
+    if torch_version >= Version("2.12"):
+        constraint = ">=0.12,<0.17"
+    if constraint is None or torch_version.is_prerelease:
+        raise ValueError(
+            f"Cannot select TorchCodec for host Torch {torch_version}. "
+            "Install a compatible torchcodec in the host environment or specify "
+            "it explicitly in virtual_env_packages."
+        )
+
+    result = []
+    for package in packages:
+        requirement, separator, marker = package.partition(";")
+        if requirement.strip() == "#system_torchcodec#":
+            package = f"torchcodec{constraint}"
+            if separator:
+                package += f" ; {marker.strip()}"
+        result.append(package)
+    return result
+
+
 # Packages with compiled NumPy extensions that are commonly present in the
 # parent environment used by sentence-transformers.  The child venv is created
 # with --system-site-packages, so upgrading only part of this stack can leave an

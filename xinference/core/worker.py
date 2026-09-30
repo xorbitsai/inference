@@ -130,6 +130,7 @@ from .virtual_env_manager import (
     is_cuda_compatible,
     is_model_find_links_only_requirement,
     merge_virtual_env_find_links,
+    pin_missing_system_torchcodec,
     pin_sentence_transformers_numpy_abi,
     resolve_virtualenv_python_path,
     validate_virtual_env_find_links,
@@ -3855,6 +3856,10 @@ class WorkerActor(xo.StatelessActor):
         # version, and the ABI mismatch crashes the model subprocess on relaunch
         # (issue #5156).
         packages = ensure_system_torch_pin(packages)
+        packages = pin_missing_system_torchcodec(
+            packages,
+            filter_virtualenv_packages_by_markers(packages, model_engine, cuda_version),
+        )
         packages = pin_sentence_transformers_numpy_abi(packages, model_engine)
 
         conf = dict(settings)
