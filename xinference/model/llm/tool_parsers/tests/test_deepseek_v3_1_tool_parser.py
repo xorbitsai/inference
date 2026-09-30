@@ -33,6 +33,26 @@ def test_extract_tool_calls_multiple_calls():
     assert result == expected_results, f"Expected {expected_results}, but got {result}"
 
 
+def test_extract_tool_calls_same_function_different_arguments():
+    """Parallel calls to one function with different arguments are all kept."""
+    parser = DeepseekV3_1ToolParser()
+
+    test_case = (
+        '<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>get_current_weather<｜tool▁sep｜>{"location": "北京"}<｜tool▁call▁end｜>'
+        '<｜tool▁call▁begin｜>get_current_weather<｜tool▁sep｜>{"location": "上海"}<｜tool▁call▁end｜>'
+        '<｜tool▁call▁begin｜>get_current_weather<｜tool▁sep｜>{"location": "上海"}<｜tool▁call▁end｜><｜tool▁calls▁end｜>'
+    )
+
+    expected_results = [
+        (None, "get_current_weather", {"location": "北京"}),
+        (None, "get_current_weather", {"location": "上海"}),
+    ]
+
+    result = parser.extract_tool_calls(test_case)
+
+    assert result == expected_results, f"Expected {expected_results}, but got {result}"
+
+
 def test_extract_tool_calls_no_tool_call():
     """Test when no tool call is present."""
     parser = DeepseekV3_1ToolParser()
