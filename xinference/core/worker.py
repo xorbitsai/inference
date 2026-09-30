@@ -3337,10 +3337,10 @@ class WorkerActor(xo.StatelessActor):
 
             if not hasattr(sys, "_MEIPASS"):
                 # Normal execution (pip, venv, conda, source, Docker).
-                # Inject parent site-packages via .pth so xinference and xoscar are
-                # discoverable in the child venv while preserving child-venv isolation.
-                # .pth paths are appended AFTER child site-packages so child-installed
-                # packages always take precedence over parent ones.
+                # Process parent site-packages as a site directory, including its
+                # .pth files: editable installs register their import finders there.
+                # addsitedir appends paths after child site-packages, preserving
+                # precedence for packages installed in the model environment.
                 parent_site_packages = _sysconfig.get_paths()["purelib"]
 
                 # Warn if xinference appears to be user-installed — child venvs
@@ -3370,7 +3370,9 @@ class WorkerActor(xo.StatelessActor):
                     )
                     child_site_packages.mkdir(parents=True, exist_ok=True)
                     pth_file = child_site_packages / "_xinference_parent.pth"
-                    desired_content = parent_site_packages + "\n"
+                    desired_content = (
+                        f"import site; site.addsitedir({parent_site_packages!r})\n"
+                    )
                     # Avoid truncate race when multiple replicas write the
                     # same .pth concurrently: skip if content already correct,
                     # otherwise atomic-write via a temp file + os.replace.
