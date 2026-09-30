@@ -463,6 +463,10 @@ msgstr ""
 "beide), können Sie Benutzer und API-Schlüssel über REST-Endpunkte unter "
 "``/v1/admin`` verwalten, zum Beispiel:"
 
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "Namen von API-Schlüsseln sind erforderlich. Namen werden vor dem Speichern von führenden und nachgestellten Leerzeichen bereinigt und müssen über alle Benutzer hinweg global eindeutig sein; bei ASCII-Buchstaben wird die Groß- und Kleinschreibung beim Vergleich ignoriert. Beim Aktualisieren einer bestehenden Datenbank werden leere oder doppelte Namen in deterministische eindeutige Namen migriert, ohne die Werte der API-Schlüssel zu ändern."
+
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
 msgid ""

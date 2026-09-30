@@ -459,6 +459,10 @@ msgstr ""
 "gerenciar usuários e chaves de API por meio de endpoints REST em "
 "``/v1/admin``, por exemplo:"
 
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "Os nomes das chaves de API são obrigatórios. Os espaços no início e no fim são removidos antes do armazenamento, e os nomes devem ser globalmente exclusivos entre todos os usuários; as comparações ignoram diferenças entre maiúsculas e minúsculas ASCII. Ao atualizar um banco de dados existente, nomes vazios ou duplicados são migrados para nomes exclusivos determinísticos sem alterar os valores das chaves de API."
+
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
 msgid ""

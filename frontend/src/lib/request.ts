@@ -16,6 +16,7 @@ declare module 'axios' {
     noTimeout?: boolean;
     skipAuthRefresh?: boolean;
     _retry?: boolean;
+    errorMessages?: Record<number, string>;
   }
 }
 
@@ -128,6 +129,7 @@ requestInstance.interceptors.response.use(
     }
 
     const errorMessage =
+      originalRequest?.errorMessages?.[status] ||
       response.data?.detail ||
       response.data?.message ||
       response.data?.msg ||

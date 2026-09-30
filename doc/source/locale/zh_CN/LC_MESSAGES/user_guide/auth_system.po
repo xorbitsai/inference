@@ -386,6 +386,10 @@ msgstr ""
 "以拥有 ``users:manage`` 和/或 ``keys:manage`` 权限的用户登录后（初始的 ``admin`` "
 "账号同时拥有这两项权限），即可通过 ``/v1/admin`` 下的 REST 接口管理用户和 API Key，例如："
 
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "API Key 名称为必填项。名称在存储前会去除首尾空白，并且必须在所有用户范围内全局唯一；比较时忽略 ASCII 英文字母大小写。升级现有数据库时，空名称或重复名称会迁移为确定性的唯一名称，且不会更改 API Key 的值。"
+
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
 msgid ""

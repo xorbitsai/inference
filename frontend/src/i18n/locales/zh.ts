@@ -1418,6 +1418,7 @@ const zh = {
     name: '名称',
     namePlaceholder: '例如：my-app-key',
     nameRequired: '名称不能为空',
+    nameExists: 'API Key 名称已存在，请使用其他名称',
     description: '描述',
     descriptionPlaceholder: '可选描述',
     key: '密钥',

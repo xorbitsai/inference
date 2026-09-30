@@ -1442,6 +1442,7 @@ const en = {
     name: 'Name',
     namePlaceholder: 'e.g. my-app-key',
     nameRequired: 'Name is required',
+    nameExists: 'API key name already exists',
     description: 'Description',
     descriptionPlaceholder: 'Optional description',
     key: 'Key',
