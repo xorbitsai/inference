@@ -111,6 +111,15 @@ def test_localized_alert_rules_keep_semantics_in_sync() -> None:
     }
 
 
+def test_audit_index_template_maps_request_metadata() -> None:
+    path = _REPO_ROOT / "monitor/filebeat/es-audit-index-template.json"
+    properties = _load_json(path)["template"]["mappings"]["properties"]
+
+    assert properties["request_id"] == {"type": "keyword"}
+    assert properties["method"] == {"type": "keyword"}
+    assert properties["status_code"] == {"type": "integer"}
+
+
 def test_filebeat_configs_collect_router_json_logs_without_rotated_archives() -> None:
     paths = sorted((_REPO_ROOT / "monitor/filebeat").glob("filebeat-*.yml"))
     assert len(paths) == 6
