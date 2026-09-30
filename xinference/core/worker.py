@@ -3339,6 +3339,8 @@ class WorkerActor(xo.StatelessActor):
                 # Normal execution (pip, venv, conda, source, Docker).
                 # Process parent site-packages as a site directory, including its
                 # .pth files: editable installs register their import finders there.
+                # The parent environment is trusted: all its .pth import hooks run
+                # in model subprocesses, not only editable-install hooks.
                 # addsitedir appends paths after child site-packages, preserving
                 # precedence for packages installed in the model environment.
                 parent_site_packages = _sysconfig.get_paths()["purelib"]
