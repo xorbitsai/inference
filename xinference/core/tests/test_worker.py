@@ -2304,6 +2304,33 @@ def test_prepare_virtual_env_offline_llama_cpp_warns_cpu_fallback(monkeypatch, c
     assert "installing the CPU build" in caplog.text
 
 
+def test_prepare_virtual_env_pins_missing_breeze_torchcodec(monkeypatch):
+    from importlib import metadata
+
+    original_version = metadata.version
+
+    def version(name):
+        if name == "torchcodec":
+            raise metadata.PackageNotFoundError(name)
+        if name == "torch":
+            return "2.9.1+cu128"
+        return original_version(name)
+
+    monkeypatch.setattr(metadata, "version", version)
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["#system_torch#", "#system_torchcodec#"],
+        inherit_pip_config=False,
+    )
+    WorkerActor._prepare_virtual_env(
+        manager, settings, None, model_engine="PyTorch", model_name="Breeze-TTS-2"
+    )
+    packages, _ = manager.calls[0]
+    assert "torchcodec>=0.8,<0.10" in packages
+    assert "#system_torchcodec#" not in packages
+    assert "#system_torch#" in packages
+
+
 def test_prepare_virtual_env_keeps_system_markers():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(

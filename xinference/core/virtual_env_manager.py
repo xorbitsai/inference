@@ -279,6 +279,60 @@ def get_xllamacpp_cuda_index_url(
 # import time with errors like "operator torchvision::nms does not exist".
 TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
 
+
+def _pin_missing_system_torchcodec(packages: List[str]) -> List[str]:
+    """Constrain a missing host TorchCodec to the inherited Torch ABI."""
+    if not {"#system_torch#", "#system_torchcodec#"}.issubset(packages):
+        return packages
+    try:
+        metadata.version("torchcodec")
+    except metadata.PackageNotFoundError:
+        pass
+    else:
+        # Existing host versions retain the usual #system_*# behavior.
+        return packages
+
+    from packaging.version import Version
+
+    try:
+        torch_version = Version(metadata.version("torch"))
+    except metadata.PackageNotFoundError as exc:
+        raise ValueError(
+            "Cannot select TorchCodec because Torch is not installed in the host "
+            "environment. Install Torch in the host environment or specify Torch "
+            "and TorchCodec explicitly in virtual_env_packages."
+        ) from exc
+    # https://github.com/pytorch/torchcodec#installing-torchcodec
+    # TorchCodec does not express these binary compatibility requirements in
+    # wheel metadata. A bare requirement can resolve successfully but fail at
+    # import time (e.g. TorchCodec 0.16 with Torch 2.9).
+    compatibility = {
+        (2, 4): "==0.0.3",
+        (2, 5): ">=0.1,<0.2",
+        (2, 6): ">=0.2,<0.3",
+        (2, 7): ">=0.3,<0.6",
+        (2, 8): ">=0.6,<0.8",
+        (2, 9): ">=0.8,<0.10",
+        (2, 10): ">=0.10,<0.11",
+        (2, 11): ">=0.11,<0.17",
+    }
+    constraint = compatibility.get((torch_version.major, torch_version.minor))
+    # Upstream lists TorchCodec 0.12 through 0.16 as supporting Torch >=2.11.
+    if torch_version >= Version("2.12"):
+        constraint = ">=0.12,<0.17"
+    if constraint is None or torch_version.is_prerelease:
+        raise ValueError(
+            f"Cannot select TorchCodec for host Torch {torch_version}. "
+            "Install a compatible torchcodec in the host environment or specify "
+            "it explicitly in virtual_env_packages."
+        )
+
+    return [
+        f"torchcodec{constraint}" if package == "#system_torchcodec#" else package
+        for package in packages
+    ]
+
+
 # Packages with compiled NumPy extensions that are commonly present in the
 # parent environment used by sentence-transformers.  The child venv is created
 # with --system-site-packages, so upgrading only part of this stack can leave an
@@ -313,8 +367,12 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
     ``#system_torchvision# ; #engine# == "sentence_transformers"`` alongside
     ``#system_torchaudio# ; #engine# == "audio"``), a matching torch pin is added
     for each distinct marker that does not already have one. This covers built-in
-    specs and user-registered models alike, and is a no-op when torch is already
-    pinned under the relevant condition or no companion is pinned.
+    specs and user-registered models alike. No additional Torch pin is needed
+    when Torch is already pinned under the relevant condition or no companion
+    is pinned.
+
+    After aligning Torch, constrain a missing host TorchCodec to a compatible
+    version. The worker filters engine/CUDA/platform markers before this call.
     """
     if not packages:
         return packages
@@ -350,7 +408,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         if _marker_name(pkg) == "torch" or _requirement_name(pkg) == "torch":
             marker = _env_marker(pkg)
             if marker is None:
-                return packages
+                return _pin_missing_system_torchcodec(packages)
             existing_torch_markers.add(marker)
 
     # Inject one torch pin per distinct companion condition that lacks one,
@@ -370,7 +428,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         )
 
     if not to_inject:
-        return packages
+        return _pin_missing_system_torchcodec(packages)
 
     for torch_entry in to_inject:
         logger.info(
@@ -379,7 +437,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
             "ABI mismatch on relaunch (issue #5156).",
             torch_entry,
         )
-    return packages + to_inject
+    return _pin_missing_system_torchcodec(packages + to_inject)
 
 
 def pin_sentence_transformers_numpy_abi(
