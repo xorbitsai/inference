@@ -95,38 +95,39 @@ class DeepseekR1ToolParser(ToolParser):
                     results.append((content_block, None, None))
                     continue
 
-                func_name, raw_json = matches[0]  # Take the first match
+                # A tool calls block may hold several parallel calls
+                for func_name, raw_json in matches:
+                    func_and_args = None
+                    try:
+                        # Parse JSON arguments
+                        func_and_args = json.loads(raw_json)
+                        # Hashable form of the arguments (values may be
+                        # lists or objects) for deduplication
+                        arguments_hashable = json.dumps(func_and_args, sort_keys=True)
+                        tool_call_tuple = (
+                            None,  # No content error
+                            func_name,
+                            func_and_args,
+                        )
+                    except Exception as e:
+                        # JSON parsing failed, treat as raw content
+                        logger.warning(
+                            f"Failed to parse tool call JSON: {raw_json}, error: {e}"
+                        )
+                        tool_call_tuple = (raw_json, None, None)
+                        arguments_hashable = None
 
-                func_and_args = None
-                try:
-                    # Parse JSON arguments
-                    func_and_args = json.loads(raw_json)
-                    # Create hashable representation for deduplication
-                    arguments_hashable = frozenset(func_and_args.items())
-                    tool_call_tuple = (
-                        None,  # No content error
-                        func_name,
-                        func_and_args,
+                    # Create deduplication key
+                    dedup_key = (
+                        (func_name, arguments_hashable)
+                        if func_and_args is not None
+                        else raw_json
                     )
-                except Exception as e:
-                    # JSON parsing failed, treat as raw content
-                    logger.warning(
-                        f"Failed to parse tool call JSON: {raw_json}, error: {e}"
-                    )
-                    tool_call_tuple = (raw_json, None, None)
-                    arguments_hashable = None
 
-                # Create deduplication key
-                dedup_key = (
-                    (func_name, arguments_hashable)
-                    if func_and_args is not None
-                    else raw_json
-                )
-
-                # Add to results if not already seen
-                if dedup_key not in tool_calls:
-                    tool_calls.add(dedup_key)
-                    results.append(tool_call_tuple)
+                    # Add to results if not already seen
+                    if dedup_key not in tool_calls:
+                        tool_calls.add(dedup_key)
+                        results.append(tool_call_tuple)
             else:
                 # This is regular content (text or thinking block), add as-is
                 if content_block.strip():  # Only add non-empty content
