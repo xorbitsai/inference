@@ -75,7 +75,9 @@ class DeepseekV3_1ToolParser(ToolParser):
             ]
             try:
                 arguments = json.loads(args_json)
-                arguments_hashable = frozenset(arguments)
+                # Key on the argument values too, so parallel calls to the same
+                # function with different arguments are not merged.
+                arguments_hashable = json.dumps(arguments, sort_keys=True)
                 tool_call_tuple = (
                     None,
                     name,
