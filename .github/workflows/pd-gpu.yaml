@@ -12,6 +12,11 @@ on:
         required: true
         default: '0.21.0'
         type: string
+      nixl_version:
+        description: NIXL version compatible with the selected vLLM and Torch
+        required: true
+        default: '1.1.0'
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +31,7 @@ jobs:
       XINFERENCE_AUTH_ADVANCED: 'false'
       XINFERENCE_ENABLE_VIRTUAL_ENV: '0'
       VLLM_VERSION: ${{ inputs.vllm_version }}
+      NIXL_VERSION: ${{ inputs.nixl_version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,9 +41,11 @@ jobs:
         run: |
           python -m venv .venv-pd
           .venv-pd/bin/python -m pip install -U pip 'setuptools<82'
-          .venv-pd/bin/python -m pip install -e '.[dev]' "vllm==$VLLM_VERSION" openai
+          .venv-pd/bin/python -m pip install -e '.[dev]' "vllm==$VLLM_VERSION" "nixl==$NIXL_VERSION" openai
       - name: Verify PD with actual KV transfer
-        run: .venv-pd/bin/python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py
+        run: |
+          source .venv-pd/bin/activate
+          python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py
       - name: Upload runtime logs
         if: always()
         uses: actions/upload-artifact@v4

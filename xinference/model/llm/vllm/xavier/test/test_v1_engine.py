@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +13,7 @@ import pytest
 
 @pytest.fixture
 def engine(monkeypatch):
+    monkeypatch.delenv("VLLM_WORKER_MULTIPROC_METHOD", raising=False)
     factory = Mock()
     monkeypatch.setitem(
         sys.modules,
@@ -78,6 +80,22 @@ def test_incompatible_v1_fails_before_engine_start(engine):
     with pytest.raises(RuntimeError, match="0.21.0"):
         module.XavierEngine.from_engine_args(object())
     factory.assert_not_called()
+
+
+@pytest.mark.parametrize("configured", [None, "fork"])
+def test_v1_defaults_to_spawn_before_engine_creation(engine, monkeypatch, configured):
+    module, factory = engine
+    if configured is None:
+        monkeypatch.delenv("VLLM_WORKER_MULTIPROC_METHOD", raising=False)
+    else:
+        monkeypatch.setenv("VLLM_WORKER_MULTIPROC_METHOD", configured)
+
+    def create(*args):
+        assert os.environ["VLLM_WORKER_MULTIPROC_METHOD"] == (configured or "spawn")
+
+    factory.side_effect = create
+    module.XavierEngine.from_engine_args(SimpleNamespace())
+    factory.assert_called_once()
 
 
 @pytest.mark.parametrize(

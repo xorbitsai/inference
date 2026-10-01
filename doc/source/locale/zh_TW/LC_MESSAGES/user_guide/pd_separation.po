@@ -110,10 +110,11 @@ msgstr ""
 
 #: source/user_guide/pd_separation.rst:98
 msgid ""
-"The transferred enterprise implementation provides the Xavier transport; "
-"``vllm_transfer_backend_type`` and ``transfer_backend_type`` normalize to "
-"``xavier``. They do not enable an additional transport backend."
+"``vllm_transfer_backend_type`` (alias ``transfer_backend_type``) selects "
+"``xavier`` (default) or ``nixl``. Unknown backend names are rejected."
 msgstr ""
+"``vllm_transfer_backend_type``（別名 ``transfer_backend_type``）可選擇 "
+"``xavier``（預設）或 ``nixl``。未知後端名稱會被拒絕。"
 
 #: source/user_guide/pd_separation.rst:101
 msgid ""
@@ -201,3 +202,67 @@ msgid ""
 "replicas release only the requested completed sequence; ordinary hybrid and "
 "decode replicas retain normal automatic cleanup."
 msgstr ""
+
+#: user_guide/pd_separation.rst:57
+msgid "Native NIXL backend"
+msgstr "原生 NIXL 後端"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
+"vLLM's native NixlConnector. Install ``nixl`` in the model environment "
+"together with vLLM 0.21.0 or newer. The initial integration supports text-"
+"only models without LoRA and requires TP=1, PP=1 and DP=1 per replica. "
+"Multiple P and D replicas are supported. Xavier remains the default backend."
+msgstr ""
+"在啟動範例中設定 ``vllm_transfer_backend_type=\"nixl\"`` 即可使用 vLLM 原生 "
+"NixlConnector。在模型環境中安裝 ``nixl`` 與 vLLM 0.21.0 或更新版本。初始整合支援無 LoRA "
+"的純文字模型，每個副本要求 TP=1、PP=1、DP=1，支援多個 P 和 D 副本。預設後端仍為 Xavier。"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"Xinference allocates a separate NIXL side-channel port for each replica and "
+"passes the producer's KV handoff metadata to the selected decoder. NIXL "
+"manages transfer completion and cache release; failed handoffs fail the "
+"request instead of silently recomputing. If a decoder never consumes a "
+"completed prefill, vLLM's ``VLLM_NIXL_ABORT_REQUEST_TIMEOUT`` bounds "
+"producer cache retention. Worker addresses must be reachable between "
+"replicas, and the network must allow the allocated side-channel ports. This "
+"path does not create Xavier collective actors or force eager execution."
+msgstr ""
+"Xinference 為每個副本分配獨立的 NIXL 側通道連接埠，將生產端的 KV 交接中繼資料傳給選中的解碼端。NIXL "
+"管理傳輸完成和快取釋放；交接失敗會使請求失敗，不會默默重新計算。若解碼端未取用已完成的預填充，vLLM 的 "
+"``VLLM_NIXL_ABORT_REQUEST_TIMEOUT`` "
+"限制生產端快取保留時間。副本間必須能存取工作節點位址，網路必須允許分配的側通道連接埠。此路徑不建立 Xavier 集合通訊 actor，也不強制 "
+"eager 執行。"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"For a reproducible comparison, run ``python benchmark/benchmark_pd.py "
+"--help`` from the repository root. Supply a launch JSON containing model "
+"settings and P/D replica placement, and a JSONL workload of chat request "
+"bodies. The runner compares ordinary hybrid replicas, Xavier and NIXL "
+"sequentially using the same GPU allocation and workload. It saves per-"
+"request results, TTFT, average time per output token after the first token "
+"(TPOT), latency percentiles and throughput under the specified latency "
+"limits. Repeated workload entries measure warm prefix reuse; use distinct "
+"prefixes for cold-cache measurements. Two GPUs cover 1P1D versus two hybrid "
+"replicas; 2P2D requires four independent replica GPUs."
+msgstr ""
+"為進行可重現的比較，請在儲存庫根目錄執行 ``python benchmark/benchmark_pd.py --help``。提供含模型設定與 "
+"P/D 副本配置的啟動 JSON，以及含聊天請求主體的 JSONL 工作負載。執行器使用相同 GPU 配置和工作負載，依序比較一般混合副本、Xavier"
+" 與 NIXL，儲存逐請求結果、TTFT、首 token 後平均每輸出 token "
+"耗時（TPOT）、延遲百分位數及指定延遲限制下的吞吐量。重複項目測量熱前綴重用；冷快取測量應使用不同前綴。兩張 GPU 可比較 1P1D "
+"與兩個混合副本；2P2D 需要四張獨立副本 GPU。"
+
+#: user_guide/pd_separation.rst:67
+msgid ""
+"For vLLM 0.21.0, GPU CI pins NIXL 1.1.0. Match the vLLM, Torch and NIXL "
+"versions; importing vLLM alone does not validate engine startup."
+msgstr ""
+"對於 vLLM 0.21.0，GPU CI 固定使用 NIXL 1.1.0。請搭配相容的 vLLM、Torch 與 NIXL 版本；僅成功匯入 vLLM"
+" 並不能驗證引擎正常啟動。"
+
+#: user_guide/pd_separation.rst:66
+msgid "Native PD currently requires ``n=1`` per request. Parallel sampling is rejected because its child requests cannot safely share one producer transfer lease."
+msgstr "原生 PD 目前要求每個請求使用 ``n=1``。平行取樣的子請求無法安全共用一個生產端傳輸租約，因此暫不支援平行取樣。"

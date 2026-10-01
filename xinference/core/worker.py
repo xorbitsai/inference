@@ -1860,8 +1860,8 @@ class WorkerActor(xo.StatelessActor):
             model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
             origin_uid, _ = parse_replica_model_uid(replica_model_uid)
             xavier_config = launch_args.get("xavier_config")
-            if xavier_config is not None:
-                # Xavier recovery still depends on supervisor-owned coordination state,
+            if xavier_config is not None or launch_args.get("_nixl_config"):
+                # PD recovery still depends on supervisor-owned routing state,
                 # so only replay replicas that the supervisor can reconstruct safely.
                 continue
             created_ts = int(launch_args.get("launch_ts") or time.time())
@@ -4634,6 +4634,10 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_manager,
                         model_engine,
                     )
+                    if kwargs.get("_nixl_config") is not None:
+                        from ..model.llm.vllm.pd import configure_nixl_environment
+
+                        configure_nixl_environment(subpool_envs, self.address)
                     # Auxiliary model downloads may run later in ModelActor.load,
                     # after the worker's download-phase environment has been
                     # restored. Propagate the same effective worker count to the
@@ -6704,6 +6708,8 @@ class WorkerActor(xo.StatelessActor):
             await supervisor_ref.call_collective_manager(
                 origin_uid, "unregister_rank", rank
             )
+        elif launch_args.get("_nixl_config"):
+            await supervisor_ref.unregister_pd_replica(origin_uid, rep_model_uid)
         subpool_address = await self.launch_builtin_model(**launch_args)
         if is_xavier:
             model_ref = self._model_uid_to_model[rep_model_uid]
@@ -6719,7 +6725,9 @@ class WorkerActor(xo.StatelessActor):
         # permanent "loading" zombie -- the original 33% symptom. launch_builtin_model
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
-        if is_xavier and xavier_config.get("role") in ("prefill", "decode"):
+        if (
+            is_xavier and xavier_config.get("role") in ("prefill", "decode")
+        ) or launch_args.get("_nixl_config"):
             await supervisor_ref.register_pd_replica(
                 origin_uid, rep_model_uid, self._model_uid_to_model[rep_model_uid]
             )

@@ -53,6 +53,40 @@ client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM
 enable per-replica placement, and choose Prefill or Decode for each replica.
 The community launch path automatically enables Xavier when P/D roles appear.
 
+
+Native NIXL backend
+-------------------
+
+Set ``vllm_transfer_backend_type="nixl"`` in the launch example to use vLLM's
+native NixlConnector. Install ``nixl`` in the model environment together with
+vLLM 0.21.0 or newer. The initial integration supports text-only models without
+LoRA and requires TP=1, PP=1 and DP=1 per replica. Multiple P and D replicas are
+supported. Xavier remains the default backend.
+
+Native PD currently requires ``n=1`` per request. Parallel sampling is rejected
+because its child requests cannot safely share one producer transfer lease.
+
+For vLLM 0.21.0, GPU CI pins NIXL 1.1.0. Match the vLLM, Torch and NIXL versions; importing vLLM alone does not validate engine startup.
+
+Xinference allocates a separate NIXL side-channel port for each replica and
+passes the producer's KV handoff metadata to the selected decoder. NIXL manages
+transfer completion and cache release; failed handoffs fail the request instead
+of silently recomputing. If a decoder never consumes a completed prefill,
+vLLM's ``VLLM_NIXL_ABORT_REQUEST_TIMEOUT`` bounds producer cache retention.
+Worker addresses must be reachable between replicas, and the network must allow
+the allocated side-channel ports. This path does not create Xavier collective
+actors or force eager execution.
+
+For a reproducible comparison, run ``python benchmark/benchmark_pd.py --help``
+from the repository root. Supply a launch JSON containing model settings and
+P/D replica placement, and a JSONL workload of chat request bodies. The runner
+compares ordinary hybrid replicas, Xavier and NIXL sequentially using the same
+GPU allocation and workload. It saves per-request results, TTFT, average time
+per output token after the first token (TPOT), latency percentiles and throughput
+under the specified latency limits. Repeated workload entries measure warm
+prefix reuse; use distinct prefixes for cold-cache measurements. Two GPUs cover
+1P1D versus two hybrid replicas; 2P2D requires four independent replica GPUs.
+
 CLI launch
 ----------
 
@@ -95,9 +129,8 @@ Configuration rules
   may run on different workers. Per-replica placement cannot be combined with
   global ``worker_ip``, ``gpu_idx`` or ``n_gpu``, or cross-worker sharding within
   a replica (``n_worker > 1``).
-* The transferred enterprise implementation provides the Xavier transport;
-  ``vllm_transfer_backend_type`` and ``transfer_backend_type`` normalize to
-  ``xavier``. They do not enable an additional transport backend.
+* ``vllm_transfer_backend_type`` (alias ``transfer_backend_type``) selects
+  ``xavier`` (default) or ``nixl``. Unknown backend names are rejected.
 * The topology is fixed for the deployment lifetime. To change its size or roles,
   terminate the model and relaunch it with the new configuration.
 

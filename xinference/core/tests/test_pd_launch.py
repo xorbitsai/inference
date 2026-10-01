@@ -158,3 +158,54 @@ async def test_recovery_refreshes_pd_router(launch_runtime):
     replacement = MagicMock()
     await supervisor.register_pd_replica("pd", "pd-rep0", replacement)
     actors["PDModelActor"].add_prefill_actor.assert_awaited_with("pd-rep0", replacement)
+
+
+@pytest.mark.asyncio
+async def test_nixl_launch_skips_xavier_collectives(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), vllm_transfer_backend_type="nixl"
+    )
+    assert set(actors) == {"PDModelActor"}
+    for worker, role in zip(workers, ("prefill", "decode")):
+        kwargs = worker.launch_builtin_model.call_args.kwargs
+        assert kwargs["xavier_config"] is None
+        assert kwargs["_nixl_config"] == {"role": role}
+        worker.launch_rank0_model.assert_not_awaited()
+        worker.start_transfer_for_vllm.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    assert not supervisor._pd_model_mapping
+    assert not supervisor._replica_model_uid_to_worker
+    assert destroy.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_nixl_worker_recovery_refreshes_route_without_collectives():
+    from ..worker import WorkerActor
+
+    worker = MagicMock()
+    supervisor = AsyncMock()
+    worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
+    worker.launch_builtin_model = AsyncMock(return_value="new:1234")
+    worker.wait_for_load = AsyncMock()
+    replacement = MagicMock()
+    worker._model_uid_to_model = {"pd-rep0": replacement}
+    await WorkerActor.recover_model(
+        worker, {"model_uid": "pd-rep0", "_nixl_config": {"role": "prefill"}}
+    )
+    supervisor.unregister_pd_replica.assert_awaited_once_with("pd", "pd-rep0")
+    supervisor.register_pd_replica.assert_awaited_once_with(
+        "pd", "pd-rep0", replacement
+    )
+    supervisor.call_collective_manager.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_nixl_rejects_unmanaged_scale_up(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), vllm_transfer_backend_type="nixl"
+    )
+    with pytest.raises(ValueError, match="PD topology"):
+        await supervisor._add_model_replica("pd")
+    assert workers[0].launch_builtin_model.await_count == 1

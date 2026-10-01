@@ -36,8 +36,8 @@ def pd_cluster(monkeypatch, tmp_path):
     # Capture connector logs there as well, including the GPU cache write.
     logging_config = deepcopy(TEST_FILE_LOGGING_CONF)
     logging_config["loggers"]["vllm"] = {
-        "handlers": ["stream_handler"],
-        "level": "INFO",
+        "handlers": ["stream_handler", "file_handler"],
+        "level": "DEBUG",
         "propagate": False,
     }
     config_path = tmp_path / "vllm-logging.json"
@@ -66,7 +66,8 @@ def pd_cluster(monkeypatch, tmp_path):
         cluster.join(timeout=10)
 
 
-def test_pd_gpu(pd_cluster):
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+def test_pd_gpu(pd_cluster, backend):
     import re
     from concurrent.futures import ThreadPoolExecutor
 
@@ -83,6 +84,7 @@ def test_pd_gpu(pd_cluster):
     try:
         client.launch_model(
             model_uid=uid,
+            vllm_transfer_backend_type=backend,
             model_name=os.environ.get(
                 "XINFERENCE_TEST_PD_MODEL_NAME", "qwen2.5-instruct"
             ),
@@ -147,8 +149,12 @@ def test_pd_gpu(pd_cluster):
             responses[stream] = chat(str(stream), stream)
             evidence = log_since(offset)
             # Require actual KV transfer, not merely a successful recomputation.
-            assert "Stage Xavier V1 blocks" in evidence
-            assert "Load Xavier V1 blocks" in evidence
+            if backend == "xavier":
+                assert "Stage Xavier V1 blocks" in evidence
+                assert "Load Xavier V1 blocks" in evidence
+            else:
+                assert "calling _read_blocks" in evidence
+                assert re.search(r"and [1-9]\d* requests done recving", evidence)
         # Repeated prompts may hit decode's local prefix cache, but must still
         # yield the same deterministic answer without stale or corrupted KV.
         for stream in (False, True):
@@ -162,9 +168,12 @@ def test_pd_gpu(pd_cluster):
             ]
             for future in futures:
                 future.result(timeout=180)
-        loaded_requests = set(
-            re.findall(r"Load Xavier V1 blocks: request=(\S+)", log_since(offset))
+        pattern = (
+            r"Load Xavier V1 blocks: request=(\S+)"
+            if backend == "xavier"
+            else r"with remote block size \d+ for req (\S+)"
         )
+        loaded_requests = set(re.findall(pattern, log_since(offset)))
         assert len(loaded_requests) == 4
         print("PD concurrent requests: 4 completed with remote KV loads", flush=True)
         client.terminate_model(uid)

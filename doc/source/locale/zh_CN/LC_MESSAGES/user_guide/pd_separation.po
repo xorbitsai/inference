@@ -110,10 +110,11 @@ msgstr "每个条目指定一个 Worker 及其 GPU 分配。不同副本可以�
 
 #: source/user_guide/pd_separation.rst:98
 msgid ""
-"The transferred enterprise implementation provides the Xavier transport; "
-"``vllm_transfer_backend_type`` and ``transfer_backend_type`` normalize to "
-"``xavier``. They do not enable an additional transport backend."
-msgstr "从企业版移入的实现提供 Xavier 传输能力；``vllm_transfer_backend_type`` 和 ``transfer_backend_type`` 都会规范化为 ``xavier``，不会启用额外的传输后端。"
+"``vllm_transfer_backend_type`` (alias ``transfer_backend_type``) selects "
+"``xavier`` (default) or ``nixl``. Unknown backend names are rejected."
+msgstr ""
+"``vllm_transfer_backend_type``（别名 ``transfer_backend_type``）可选择 "
+"``xavier``（默认）或 ``nixl``。未知后端名称会被拒绝。"
 
 #: source/user_guide/pd_separation.rst:101
 msgid ""
@@ -201,3 +202,67 @@ msgid ""
 "replicas release only the requested completed sequence; ordinary hybrid and "
 "decode replicas retain normal automatic cleanup."
 msgstr "连接器支持块维度在前和 K/V 维度在前的注意力缓存布局。如果无法安全识别块所在的维度，则拒绝该布局。V0 Prefill 副本仅释放所请求且已完成的序列；普通 hybrid 副本和 Decode 副本保留正常的自动清理行为。"
+
+#: user_guide/pd_separation.rst:57
+msgid "Native NIXL backend"
+msgstr "原生 NIXL 后端"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
+"vLLM's native NixlConnector. Install ``nixl`` in the model environment "
+"together with vLLM 0.21.0 or newer. The initial integration supports text-"
+"only models without LoRA and requires TP=1, PP=1 and DP=1 per replica. "
+"Multiple P and D replicas are supported. Xavier remains the default backend."
+msgstr ""
+"在启动示例中设置 ``vllm_transfer_backend_type=\"nixl\"`` 即可使用 vLLM 原生 "
+"NixlConnector。在模型环境中安装 ``nixl`` 和 vLLM 0.21.0 或更新版本。初始集成支持无 LoRA "
+"的纯文本模型，每个副本要求 TP=1、PP=1、DP=1，支持多个 P 和 D 副本。默认后端仍为 Xavier。"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"Xinference allocates a separate NIXL side-channel port for each replica and "
+"passes the producer's KV handoff metadata to the selected decoder. NIXL "
+"manages transfer completion and cache release; failed handoffs fail the "
+"request instead of silently recomputing. If a decoder never consumes a "
+"completed prefill, vLLM's ``VLLM_NIXL_ABORT_REQUEST_TIMEOUT`` bounds "
+"producer cache retention. Worker addresses must be reachable between "
+"replicas, and the network must allow the allocated side-channel ports. This "
+"path does not create Xavier collective actors or force eager execution."
+msgstr ""
+"Xinference 为每个副本分配独立的 NIXL 侧通道端口，并将生产端的 KV 交接元数据传给选中的解码端。NIXL "
+"管理传输完成和缓存释放；交接失败会使请求失败，而不会静默重新计算。若解码端未消费已完成的预填充，vLLM 的 "
+"``VLLM_NIXL_ABORT_REQUEST_TIMEOUT`` "
+"限制生产端缓存的保留时间。副本之间必须能访问工作节点地址，网络必须允许分配的侧通道端口。此路径不创建 Xavier 集合通信 actor，也不强制使用 "
+"eager 执行。"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"For a reproducible comparison, run ``python benchmark/benchmark_pd.py "
+"--help`` from the repository root. Supply a launch JSON containing model "
+"settings and P/D replica placement, and a JSONL workload of chat request "
+"bodies. The runner compares ordinary hybrid replicas, Xavier and NIXL "
+"sequentially using the same GPU allocation and workload. It saves per-"
+"request results, TTFT, average time per output token after the first token "
+"(TPOT), latency percentiles and throughput under the specified latency "
+"limits. Repeated workload entries measure warm prefix reuse; use distinct "
+"prefixes for cold-cache measurements. Two GPUs cover 1P1D versus two hybrid "
+"replicas; 2P2D requires four independent replica GPUs."
+msgstr ""
+"为进行可复现的比较，请在仓库根目录运行 ``python benchmark/benchmark_pd.py --help``。提供包含模型设置和 "
+"P/D 副本放置的启动 JSON，以及包含聊天请求体的 JSONL 工作负载。运行器使用相同的 GPU "
+"分配和工作负载，依次比较普通混合副本、Xavier 和 NIXL，保存逐请求结果、TTFT、首 token 后平均每输出 token "
+"耗时（TPOT）、延迟分位数及指定延迟限制下的吞吐。重复工作负载条目测量热前缀复用；冷缓存测量应使用不同前缀。两张 GPU 可比较 1P1D "
+"与两个混合副本；2P2D 需要四张独立副本 GPU。"
+
+#: user_guide/pd_separation.rst:67
+msgid ""
+"For vLLM 0.21.0, GPU CI pins NIXL 1.1.0. Match the vLLM, Torch and NIXL "
+"versions; importing vLLM alone does not validate engine startup."
+msgstr ""
+"对于 vLLM 0.21.0，GPU CI 固定使用 NIXL 1.1.0。请匹配 vLLM、Torch 和 NIXL 版本；仅成功导入 vLLM "
+"并不能验证引擎可正常启动。"
+
+#: user_guide/pd_separation.rst:66
+msgid "Native PD currently requires ``n=1`` per request. Parallel sampling is rejected because its child requests cannot safely share one producer transfer lease."
+msgstr "原生 PD 当前要求每个请求使用 ``n=1``。并行采样的子请求无法安全共享一个生产端传输租约，因此暂不支持并行采样。"
