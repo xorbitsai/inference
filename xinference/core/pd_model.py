@@ -332,7 +332,11 @@ class PDModelActor(xo.StatelessActor):
                 payload = (
                     json.loads(result) if isinstance(result, (bytes, str)) else result
                 )
-                transfer = payload.get("_pd_kv_transfer_params")
+                transfer = (
+                    payload.get("_pd_kv_transfer_params")
+                    if isinstance(payload, dict)
+                    else None
+                )
                 if not isinstance(transfer, dict) or not transfer.get(
                     "do_remote_prefill"
                 ):

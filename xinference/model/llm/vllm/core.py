@@ -2497,7 +2497,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             else:
                 result = self._to_chat_completion(c, self.reasoning_parser)
             if "_pd_kv_transfer_params" in c:
-                result["_pd_kv_transfer_params"] = c["_pd_kv_transfer_params"]
+                result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
+                    "_pd_kv_transfer_params"
+                ]
             return result
 
 

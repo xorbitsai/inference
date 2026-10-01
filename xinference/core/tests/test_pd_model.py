@@ -320,9 +320,11 @@ async def test_nixl_parallel_sampling_rejected_before_prefill(router):
 
 
 @pytest.mark.asyncio
-async def test_nixl_missing_metadata_does_not_silently_recompute(router):
+@pytest.mark.parametrize("payload", [{}, None, b"null", b"[]", b"{}", b"42"])
+async def test_nixl_missing_metadata_does_not_silently_recompute(router, payload):
     actor, prefill, decode = router
     actor._transport_backend = "nixl"
+    prefill.chat.return_value = payload
     with pytest.raises(RuntimeError, match="KV transfer metadata"):
         await actor._infer("chat", [], {})
     decode.chat.assert_not_awaited()

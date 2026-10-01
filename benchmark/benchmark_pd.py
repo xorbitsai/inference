@@ -14,6 +14,7 @@ import subprocess
 import time
 from copy import deepcopy
 from pathlib import Path
+from typing import Optional
 
 from openai import AsyncOpenAI
 
@@ -51,6 +52,21 @@ def summarize(records, elapsed, ttft_slo, tpot_slo):
             "p99": percentile(values, 0.99),
         }
     return result
+
+
+def process_tree_rss(server_pid: int) -> Optional[int]:
+    import psutil
+
+    try:
+        parent = psutil.Process(server_pid)
+        return sum(
+            process.memory_info().rss
+            for process in [parent, *parent.children(recursive=True)]
+        )
+    except psutil.Error:
+        # A process can exit between enumeration and memory_info(). Mark this
+        # sample unavailable rather than report a partial total or stop sampling.
+        return None
 
 
 async def measure(
@@ -129,14 +145,7 @@ async def measure(
                 )
                 process_rss = None
                 if server_pid:
-                    import psutil
-
-                    parent = psutil.Process(server_pid)
-                    process_rss = sum(
-                        process.memory_info().rss
-                        for process in [parent, *parent.children(recursive=True)]
-                        if process.is_running()
-                    )
+                    process_rss = process_tree_rss(server_pid)
                 samples.append(
                     {
                         "server_tree_rss_bytes": process_rss,

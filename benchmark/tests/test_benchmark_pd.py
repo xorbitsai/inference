@@ -1,5 +1,9 @@
 import importlib.util
 from pathlib import Path
+from unittest.mock import Mock
+
+import psutil
+import pytest
 
 spec = importlib.util.spec_from_file_location(
     "benchmark_pd", Path(__file__).parents[1] / "benchmark_pd.py"
@@ -21,3 +25,24 @@ def test_goodput_excludes_errors_and_missing_token_timing():
     assert result["goodput_req_s"] == 0.1
     assert result["output_tokens_s"] == 10.8
     assert result["ttft_s"]["p99"] == 3
+
+
+@pytest.mark.parametrize("stage", ["parent", "children", "memory"])
+@pytest.mark.parametrize("error", [psutil.NoSuchProcess, psutil.AccessDenied])
+def test_rss_sampling_recovers_from_process_races(monkeypatch, stage, error):
+    child = Mock()
+    child.memory_info.return_value.rss = 20
+    parent = Mock()
+    parent.memory_info.return_value.rss = 100
+    parent.children.return_value = [child]
+    lookup = Mock(return_value=parent)
+    monkeypatch.setattr(psutil, "Process", lookup)
+    target = {
+        "parent": lookup,
+        "children": parent.children,
+        "memory": child.memory_info,
+    }[stage]
+    target.side_effect = error(123)
+    assert module.process_tree_rss(123) is None
+    target.side_effect = None
+    assert module.process_tree_rss(123) == 120
