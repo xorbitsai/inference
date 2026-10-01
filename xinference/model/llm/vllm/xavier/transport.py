@@ -24,8 +24,9 @@ XAVIER_CONNECTOR_MODULE = "xinference.model.llm.vllm.xavier.v1_connector"
 
 
 def normalize_xavier_transport_backend(backend: Optional[str]) -> str:
-    if backend in (None, ""):
+    if backend is None or backend == "":
         return XAVIER_TRANSPORT_XAVIER
+    backend = backend.strip().lower()
     if backend not in ("xavier", "nixl"):
         raise ValueError(
             f"Unknown vLLM transfer backend: {backend!r}; use xavier or nixl"

@@ -38,6 +38,7 @@ async def launch_runtime(monkeypatch):
 
     async def create_actor(cls, *args, **kwargs):
         ref = AsyncMock(address=kwargs["address"], uid=kwargs["uid"])
+        ref.constructor_kwargs = kwargs
         actors[cls.__name__] = ref
         return ref
 
@@ -71,6 +72,7 @@ async def test_pd_launch_routes_and_terminates(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     assert await supervisor.launch_builtin_model(**launch_kwargs()) == "pd"
     assert await supervisor.get_model("pd") is actors["PDModelActor"]
+    assert actors["PDModelActor"].constructor_kwargs["transport_backend"] == "xavier"
     for i, worker in enumerate(workers):
         config = worker.launch_builtin_model.call_args.kwargs["xavier_config"]
         assert config["rank"] == i + 1
@@ -167,6 +169,7 @@ async def test_nixl_launch_skips_xavier_collectives(launch_runtime):
         **launch_kwargs(), vllm_transfer_backend_type="nixl"
     )
     assert set(actors) == {"PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["transport_backend"] == "nixl"
     for worker, role in zip(workers, ("prefill", "decode")):
         kwargs = worker.launch_builtin_model.call_args.kwargs
         assert kwargs["xavier_config"] is None
@@ -209,3 +212,22 @@ async def test_nixl_rejects_unmanaged_scale_up(launch_runtime):
     with pytest.raises(ValueError, match="PD topology"):
         await supervisor._add_model_replica("pd")
     assert workers[0].launch_builtin_model.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "replica_config",
+    [None, [ReplicaConfig(role="hybrid"), ReplicaConfig(role="hybrid")]],
+)
+async def test_nixl_requires_explicit_pd_roles(launch_runtime, replica_config):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"] = replica_config
+    with pytest.raises(ValueError, match="NIXL requires explicit prefill and decode"):
+        await supervisor.launch_builtin_model(
+            **kwargs, vllm_transfer_backend_type="nixl"
+        )
+    assert not actors
+    assert not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()

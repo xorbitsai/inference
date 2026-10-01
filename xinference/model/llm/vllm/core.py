@@ -793,7 +793,7 @@ class VLLMModel(LLM):
             f"Enable lora: {enable_lora}. Lora count: {max_loras}."
         )
 
-        if getattr(self, "_nixl_config", None) is not None:
+        if self._nixl_config is not None:
             from .pd import configure_nixl_engine
 
             if isinstance(self, VLLMMultiModel):
@@ -1995,7 +1995,7 @@ class VLLMModel(LLM):
             sampling_params = SamplingParams(**sanitized_generate_config)
 
         if generate_config and "_pd_kv_transfer_params" in generate_config:
-            if getattr(self, "_nixl_config", None) is None:
+            if self._nixl_config is None:
                 raise ValueError("KV handoff requires the NIXL PD backend")
             sampling_params.extra_args = {
                 **(sampling_params.extra_args or {}),
@@ -2178,25 +2178,28 @@ class VLLMModel(LLM):
             completion = self._convert_request_output_to_completion(
                 request_id, model=self.model_uid, request_output=final_output
             )
-            if (
-                getattr(self, "_nixl_config", None) is not None
-                and self._nixl_config["role"] == "prefill"
-            ):
+            if self._nixl_config is not None and self._nixl_config["role"] == "prefill":
                 completion["_pd_kv_transfer_params"] = getattr(
                     final_output, "kv_transfer_params", None
                 )
             return completion
 
     def _log_pd_request_metrics(self, output: Any) -> None:
-        config = getattr(self, "_nixl_config", None) or getattr(
-            self, "_xavier_config", None
-        )
+        config = self._nixl_config or self._xavier_config
         metrics = getattr(output, "metrics", None)
-        if not config or metrics is None:
+        if not config or metrics is None or not logger.isEnabledFor(logging.DEBUG):
             return
-        values = {
-            name: getattr(metrics, name, None)
-            for name in (
+        fields = (
+            (
+                "arrival_time",
+                "queued_ts",
+                "scheduled_ts",
+                "first_token_ts",
+                "last_token_ts",
+                "first_token_latency",
+            )
+            if VLLM_VERSION >= version.parse("0.21.0")
+            else (
                 "arrival_time",
                 "first_scheduled_time",
                 "first_token_time",
@@ -2206,8 +2209,9 @@ class VLLMModel(LLM):
                 "model_forward_time",
                 "model_execute_time",
             )
-        }
-        logger.info(
+        )
+        values = {name: getattr(metrics, name, None) for name in fields}
+        logger.debug(
             "PD engine metrics: model=%s role=%s request=%s metrics=%s",
             self.model_uid,
             config.get("role"),

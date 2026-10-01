@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.fixture
-def pd_cluster(monkeypatch, tmp_path):
+def pd_cluster(monkeypatch, tmp_path, backend):
     import json
     import multiprocessing
     from copy import deepcopy
@@ -43,7 +43,9 @@ def pd_cluster(monkeypatch, tmp_path):
     config_path = tmp_path / "vllm-logging.json"
     config_path.write_text(json.dumps(logging_config))
     monkeypatch.setenv("VLLM_LOGGING_CONFIG_PATH", str(config_path))
-    address = f"127.0.0.1:{xo.utils.get_next_port()}"
+    # Exercise NIXL host discovery without changing Xavier's Gloo interface.
+    host = "0.0.0.0" if backend == "nixl" else "127.0.0.1"
+    address = f"{host}:{xo.utils.get_next_port()}"
     cluster = run_in_subprocess(address, None, None, deepcopy(TEST_FILE_LOGGING_CONF))
     api = None
     try:

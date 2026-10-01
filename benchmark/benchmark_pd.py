@@ -143,9 +143,7 @@ async def measure(
                     text=True,
                     timeout=10,
                 )
-                process_rss = None
-                if server_pid:
-                    process_rss = process_tree_rss(server_pid)
+                process_rss = process_tree_rss(server_pid) if server_pid else None
                 samples.append(
                     {
                         "server_tree_rss_bytes": process_rss,

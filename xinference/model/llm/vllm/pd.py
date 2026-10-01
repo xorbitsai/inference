@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 """Native vLLM PD configuration, without importing optional GPU libraries."""
 
+import os
+import socket
 from typing import Any, Dict
 from uuid import uuid4
 
@@ -13,10 +15,19 @@ def configure_nixl_environment(env: Dict[str, str], worker_address: str) -> None
 
     # Each model subprocess needs its own listener, including same-host replicas.
     # Reallocate on recovery as the old listener may not have exited yet.
-    host = worker_address.rsplit(":", 1)[0]
-    if host in ("0.0.0.0", "::", "[::]"):
-        raise ValueError("NIXL requires a reachable worker host address")
-    env["VLLM_NIXL_SIDE_CHANNEL_HOST"] = host
+    host_key = "VLLM_NIXL_SIDE_CHANNEL_HOST"
+    if host_key not in env:
+        host = os.environ.get(host_key, worker_address.rsplit(":", 1)[0].strip("[]"))
+        if host_key not in os.environ and host in ("0.0.0.0", "::"):
+            # A UDP connect selects the default-route interface without
+            # sending traffic; hostname resolution covers offline hosts.
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                    sock.connect(("8.8.8.8", 80))
+                    host = sock.getsockname()[0]
+            except OSError:
+                host = socket.gethostbyname(socket.gethostname())
+        env[host_key] = host
     env["VLLM_NIXL_SIDE_CHANNEL_PORT"] = str(get_next_port())
 
 

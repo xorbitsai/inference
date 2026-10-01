@@ -322,7 +322,7 @@ class PDModelActor(xo.StatelessActor):
                     pass
             if request_id not in self._request_set:
                 raise asyncio.CancelledError(f"PD request {request_id} was aborted")
-            logger.info(
+            logger.debug(
                 "PD prefill complete: request=%s backend=%s elapsed_s=%.6f",
                 request_id,
                 self._transport_backend,

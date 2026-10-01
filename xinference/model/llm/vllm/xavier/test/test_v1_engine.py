@@ -13,7 +13,9 @@ import pytest
 
 @pytest.fixture
 def engine(monkeypatch):
-    monkeypatch.delenv("VLLM_WORKER_MULTIPROC_METHOD", raising=False)
+    # Record the original state even when absent, before engine.py sets it.
+    monkeypatch.setenv("VLLM_WORKER_MULTIPROC_METHOD", "test")
+    monkeypatch.delenv("VLLM_WORKER_MULTIPROC_METHOD")
     factory = Mock()
     monkeypatch.setitem(
         sys.modules,

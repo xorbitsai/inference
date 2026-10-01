@@ -370,6 +370,8 @@ jobs:
               --ignore xinference/model/llm/mlx \
               xinference
             run_pytest \
+              benchmark/tests/test_benchmark_pd.py \
+              xinference/model/llm/vllm/tests/test_pd.py \
               xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py \
               xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \
               xinference/model/llm/vllm/xavier/test/test_v1_engine.py \
