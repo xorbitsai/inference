@@ -243,3 +243,36 @@ async def test_snapshot_store_configured_once(connector, monkeypatch):
     assert await connector._get_transfer_ref() is ref
     assert await connector._get_transfer_ref() is ref
     ref.configure_snapshots_v1.assert_awaited_once_with(8)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "count,width,expected_calls",
+    [(130, 1, 3), (130, 8192, 5), (3, 262144, 3), (2, 262145, 2)],
+)
+async def test_batched_reads_bound_payload_and_preserve_order(
+    connector_module, count, width, expected_calls
+):
+    calls = []
+
+    async def read(rank, layer, mapping, shape, dtype):
+        calls.append(mapping)
+        assert shape == (len(mapping), width)
+        assert len(mapping) <= 64
+        assert len(mapping) * width * 4 <= 1024 * 1024 or len(mapping) == 1
+        return (
+            torch.tensor(list(mapping), dtype=dtype)
+            .view(-1, 1)
+            .expand(shape)
+            .contiguous()
+        )
+
+    transfer = SimpleNamespace(read_layer_blocks_v1=read)
+    connector = SimpleNamespace(_get_transfer_ref=AsyncMock(return_value=transfer))
+    mapping = {2000 + i: 5000 - i for i in range(count)}
+    result = await connector_module.XavierConnector._read_layer_blocks(
+        connector, "layer", 1, mapping, (count, width), torch.float32
+    )
+    assert len(calls) == expected_calls
+    assert [item for batch in calls for item in batch.items()] == list(mapping.items())
+    assert result[:, 0].tolist() == list(mapping)

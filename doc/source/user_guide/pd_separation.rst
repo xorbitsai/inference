@@ -54,6 +54,8 @@ enable per-replica placement, and choose Prefill or Decode for each replica.
 The community launch path defaults to Xavier when P/D roles appear.
 
 
+For Xavier diagnostics, set ``XINFERENCE_XAVIER_PROFILE=1`` in the model process environment and collect server logs. Run ``python benchmark/analyze_pd_profile.py server.log --output profile.json`` to summarize GPU copy, actor RPC and Gloo receive timings. Profiling synchronizes CUDA and adds logging overhead; run it separately from throughput benchmarks. Timings are nested: ``load_rpc`` includes actor timings, and ``actor_receive`` includes ``gloo_receive``. Do not add nested totals or interpret Gloo receive wait as isolated network time.
+
 Native NIXL backend
 -------------------
 
