@@ -22,6 +22,7 @@ import torch
 import xoscar as xo
 
 from .collective import CollectiveRank
+from .profiling import profile_stage
 from .snapshot import KVSnapshotStore
 
 try:
@@ -362,7 +363,12 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             recv_shape,
             recvbuf.dtype,
         )
-        xp.recv(self._context, recvptr, data_size, datatype, from_rank)
+        with profile_stage(
+            "gloo_receive",
+            rank=self._rank,
+            nbytes=recvbuf.numel() * recvbuf.element_size(),
+        ):
+            xp.recv(self._context, recvptr, data_size, datatype, from_rank)
         logger.debug(
             "Recv Xavier V1 blocks done: rank=%s, from_rank=%s, shape=%s, " "dtype=%s",
             self._rank,
@@ -381,21 +387,25 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
         recv_dtype: torch.dtype,
     ) -> torch.Tensor:
         remote_block_ids = list(src_to_dst.keys())
-        from_address = self._world_addresses[from_rank]
-        sender_ref = await xo.actor_ref(
-            address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
-        )
-        if not await sender_ref.has_layer_blocks_v1(layer_name, remote_block_ids):
-            raise KeyError(
-                "No staged Xavier V1 blocks on rank "
-                f"{from_rank}: layer={layer_name!r}, blocks={remote_block_ids}"
+        with profile_stage(
+            "actor_control", layer=layer_name, blocks=len(src_to_dst), rank=self._rank
+        ):
+            from_address = self._world_addresses[from_rank]
+            sender_ref = await xo.actor_ref(
+                address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
             )
-        await sender_ref.start_send_layer_blocks_v1(
-            self._rank, layer_name, remote_block_ids
-        )
-        recvbuf = await asyncio.to_thread(
-            self.do_recv_layer_blocks_v1, from_rank, recv_shape, recv_dtype
-        )
+            if not await sender_ref.has_layer_blocks_v1(layer_name, remote_block_ids):
+                raise KeyError(
+                    "No staged Xavier V1 blocks on rank "
+                    f"{from_rank}: layer={layer_name!r}, blocks={remote_block_ids}"
+                )
+            await sender_ref.start_send_layer_blocks_v1(
+                self._rank, layer_name, remote_block_ids
+            )
+        with profile_stage("actor_receive", layer=layer_name, rank=self._rank):
+            recvbuf = await asyncio.to_thread(
+                self.do_recv_layer_blocks_v1, from_rank, recv_shape, recv_dtype
+            )
         return recvbuf
 
     @staticmethod

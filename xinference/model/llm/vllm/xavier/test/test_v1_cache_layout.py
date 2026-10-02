@@ -30,14 +30,17 @@ def test_load_uses_registered_packed_hybrid_cache():
 
 
 @pytest.mark.asyncio
-async def test_read_large_cache_blocks_incrementally():
+async def test_read_large_cache_blocks_incrementally(monkeypatch):
     pytest.importorskip("vllm")
     from unittest.mock import AsyncMock
 
     import torch
 
+    from .. import v1_connector
     from ..v1_connector import XavierConnector
 
+    # A one-element mock block fills the byte budget for this boundary test.
+    monkeypatch.setattr(v1_connector, "_MAX_READ_BYTES", 4)
     transfer = SimpleNamespace(
         read_layer_blocks_v1=AsyncMock(
             side_effect=[torch.tensor([[10.0]]), torch.tensor([[20.0]])]

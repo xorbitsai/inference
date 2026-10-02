@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import logging
+import math
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -28,6 +29,7 @@ from vllm.distributed.kv_transfer.kv_connector.v1.base import (
 from vllm.v1.core.sched.output import SchedulerOutput
 
 from .block_tracker import VLLMBlockTracker
+from .profiling import profile_stage
 from .snapshot import block_major_view
 from .transfer import XAVIER_BF16_TRANSPORT_DTYPE, TransferActor
 from .utils import hash_block_tokens
@@ -41,6 +43,9 @@ if TYPE_CHECKING:
     from vllm.v1.request import Request
 
 logger = logging.getLogger(__name__)
+
+_MAX_READ_BYTES = 1024 * 1024
+_MAX_READ_BLOCKS = 64
 
 
 @dataclass
@@ -441,14 +446,21 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         recv_dtype: torch.dtype,
     ):
         transfer_ref = await self._get_transfer_ref()
-        # Bound each actor reply; packed hybrid cache blocks can be several
-        # MiB each. Consume replies incrementally rather than sending a large
-        # tensor through the engine's synchronous actor bridge.
+        # Amortize actor/control RPCs for small attention blocks, while keeping
+        # large cache replies bounded. A single oversized block stays indivisible.
+        block_bytes = math.prod(recv_shape[1:]) * recv_dtype.itemsize
+        batch_size = max(1, min(_MAX_READ_BLOCKS, _MAX_READ_BYTES // block_bytes))
+        items = list(src_to_dst.items())
         blocks = []
-        for src, dst in src_to_dst.items():
+        for offset in range(0, len(items), batch_size):
+            batch = dict(items[offset : offset + batch_size])
             blocks.append(
                 await transfer_ref.read_layer_blocks_v1(
-                    from_rank, layer_name, {src: dst}, (1, *recv_shape[1:]), recv_dtype
+                    from_rank,
+                    layer_name,
+                    batch,
+                    (len(batch), *recv_shape[1:]),
+                    recv_dtype,
                 )
             )
         return torch.cat(blocks, dim=0)
@@ -479,20 +491,35 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     else kv_tensor.dtype
                 )
                 recv_shape = (len(local_block_ids), *tuple(kv_tensor.shape[1:]))
-                blocks = self._call(
-                    self._read_layer_blocks(
-                        kv_layer_name,
-                        from_rank,
-                        src_to_dst,
-                        recv_shape,
-                        transfer_dtype,
+                with profile_stage(
+                    "load_rpc",
+                    request_id=request.request_id,
+                    layer=kv_layer_name,
+                    blocks=len(local_block_ids),
+                    rank=self._rank,
+                ):
+                    blocks = self._call(
+                        self._read_layer_blocks(
+                            kv_layer_name,
+                            from_rank,
+                            src_to_dst,
+                            recv_shape,
+                            transfer_dtype,
+                        )
                     )
-                )
-                if blocks.dtype != kv_tensor.dtype:
-                    blocks = blocks.to(dtype=kv_tensor.dtype)
-                kv_tensor[torch.tensor(local_block_ids, device=kv_tensor.device)] = (
-                    blocks.to(device=kv_tensor.device, non_blocking=True)
-                )
+                with profile_stage(
+                    "load_h2d",
+                    device=kv_tensor.device,
+                    request_id=request.request_id,
+                    layer=kv_layer_name,
+                    nbytes=blocks.numel() * blocks.element_size(),
+                    rank=self._rank,
+                ):
+                    if blocks.dtype != kv_tensor.dtype:
+                        blocks = blocks.to(dtype=kv_tensor.dtype)
+                    kv_tensor[
+                        torch.tensor(local_block_ids, device=kv_tensor.device)
+                    ] = blocks.to(device=kv_tensor.device, non_blocking=True)
                 logger.debug(
                     "Load Xavier V1 blocks: request=%s rank=%s from_rank=%s layer=%s blocks=%s",
                     request.request_id,
@@ -521,20 +548,38 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 continue
             transport_block_ids = request.block_hashes[:num_blocks]
             source_block_ids = source_block_ids[:num_blocks]
-            block_ids_tensor = torch.tensor(
-                source_block_ids, device=kv_tensor.device, dtype=torch.long
-            )
-            blocks = (
-                kv_tensor.index_select(0, block_ids_tensor).detach().cpu().contiguous()
-            )
-            self._call(
-                self._stage_layer_blocks(
-                    request.request_id,
-                    kv_layer_name,
-                    transport_block_ids,
-                    blocks,
+            with profile_stage(
+                "store_d2h",
+                device=kv_tensor.device,
+                request_id=request.request_id,
+                layer=kv_layer_name,
+                blocks=num_blocks,
+                rank=self._rank,
+            ):
+                block_ids_tensor = torch.tensor(
+                    source_block_ids, device=kv_tensor.device, dtype=torch.long
                 )
-            )
+                blocks = (
+                    kv_tensor.index_select(0, block_ids_tensor)
+                    .detach()
+                    .cpu()
+                    .contiguous()
+                )
+            with profile_stage(
+                "store_rpc",
+                request_id=request.request_id,
+                layer=kv_layer_name,
+                nbytes=blocks.numel() * blocks.element_size(),
+                rank=self._rank,
+            ):
+                self._call(
+                    self._stage_layer_blocks(
+                        request.request_id,
+                        kv_layer_name,
+                        transport_block_ids,
+                        blocks,
+                    )
+                )
             staged_layers.add(kv_layer_name)
 
     def _stage_missing_registered_layers(
