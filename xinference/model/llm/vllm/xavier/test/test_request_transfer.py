@@ -133,3 +133,71 @@ def test_payload_preserves_all_bf16_bit_patterns():
     reads = [LayerRead("K", list(range(8)), list(range(8)), (8192,), torch.bfloat16)]
     _, restored = next(unpack_reads(pack_reads(store, reads), reads))
     assert torch.equal(restored.view(torch.int16), bits)
+
+
+@pytest.mark.asyncio
+async def test_cancelled_receive_keeps_buffer_alive(monkeypatch):
+    import gc
+    import threading
+    import weakref
+    from contextlib import suppress
+
+    import xoscar as xo
+    from xoscar.collective import xoscar_pygloo as xp
+
+    entered, release, finished = (threading.Event() for _ in range(3))
+    buffers = []
+    failures = []
+    empty = torch.empty
+
+    def allocate(*args, **kwargs):
+        tensor = empty(*args, **kwargs)
+        buffers.append(weakref.ref(tensor))
+        return tensor
+
+    def recv(*args):
+        entered.set()
+        try:
+            if not release.wait(5):
+                failures.append("receive was not released")
+            if buffers[0]() is None:
+                failures.append("buffer freed while native receive was active")
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(torch, "empty", allocate)
+    monkeypatch.setattr(xp, "recv", recv)
+    monkeypatch.setattr(
+        xo,
+        "actor_ref",
+        AsyncMock(
+            return_value=SimpleNamespace(start_send_request_blocks_v1=AsyncMock())
+        ),
+    )
+    receiver = SimpleNamespace(
+        _world_addresses=["sender"], _rank=1, _context=None, get_gloo_dtype=lambda t: t
+    )
+    reads = [LayerRead("K", [1], [0], (2,), torch.float32)]
+    task = asyncio.create_task(TransferActor.read_request_blocks_v1(receiver, 0, reads))
+    try:
+        assert await asyncio.to_thread(entered.wait, 5)
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        del task
+        gc.collect()
+        assert buffers[0]() is not None
+    finally:
+        release.set()
+        assert await asyncio.to_thread(finished.wait, 5)
+    assert not failures
+
+
+def test_block_limit_after_byte_limit_split(monkeypatch):
+    from .. import request_transfer as module
+
+    monkeypatch.setattr(module, "MAX_REQUEST_BYTES", 20)
+    read = LayerRead("K", list(range(150)), list(range(150)), (1,), torch.float32)
+    parts = [part for batch in batch_reads([read]) for part in batch]
+    assert [key for part in parts for key in part.keys] == list(range(150))
+    assert all(len(part.keys) <= module.MAX_REQUEST_BLOCKS for part in parts)

@@ -35,29 +35,27 @@ def batch_reads(reads):
         block_bytes = math.prod(read.block_shape) * read.dtype.itemsize
         if block_bytes <= 0:
             raise ValueError("Invalid KV block size")
-        for offset in range(0, len(read.keys), MAX_REQUEST_BLOCKS):
-            end = min(offset + MAX_REQUEST_BLOCKS, len(read.keys))
-            while offset < end:
-                count = max(
-                    1, min(end - offset, (MAX_REQUEST_BYTES - size) // block_bytes)
-                )
-                if batch and size + count * block_bytes > MAX_REQUEST_BYTES:
-                    yield batch
-                    batch, size = [], 0
-                    continue
-                part = LayerRead(
-                    read.layer,
-                    read.keys[offset : offset + count],
-                    read.destinations[offset : offset + count],
-                    read.block_shape,
-                    read.dtype,
-                )
-                batch.append(part)
-                size += part.nbytes
-                offset += count
-                if size >= MAX_REQUEST_BYTES:
-                    yield batch
-                    batch, size = [], 0
+        offset = 0
+        while offset < len(read.keys):
+            limit = min(MAX_REQUEST_BLOCKS, len(read.keys) - offset)
+            count = max(1, min(limit, (MAX_REQUEST_BYTES - size) // block_bytes))
+            if batch and size + count * block_bytes > MAX_REQUEST_BYTES:
+                yield batch
+                batch, size = [], 0
+                continue
+            part = LayerRead(
+                read.layer,
+                read.keys[offset : offset + count],
+                read.destinations[offset : offset + count],
+                read.block_shape,
+                read.dtype,
+            )
+            batch.append(part)
+            size += part.nbytes
+            offset += count
+            if size >= MAX_REQUEST_BYTES:
+                yield batch
+                batch, size = [], 0
     if batch:
         yield batch
 

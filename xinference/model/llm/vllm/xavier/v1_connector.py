@@ -509,7 +509,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         elif blocks.dtype != cache.dtype:
                             blocks = blocks.to(cache.dtype)
                         cache[torch.tensor(read.destinations, device=cache.device)] = (
-                            blocks.to(cache.device)
+                            blocks.to(cache.device, non_blocking=True)
                         )
 
         self._call(load())
