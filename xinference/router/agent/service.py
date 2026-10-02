@@ -7,12 +7,17 @@ import argparse
 import asyncio
 import logging
 import os
+import random
 import signal
 import socket
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar
 
+import httpx
 import psutil
 
 from xinference import __version__
@@ -24,6 +29,44 @@ from .control_plane import RouterAgentControlPlaneClient, assignment_snapshot
 from .process_manager import RouterRuntimeProcessManager
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+_RETRYABLE_BOOTSTRAP_STATUS_CODES = frozenset({429, 502, 503, 504})
+
+
+class _RouterAgentStopRequested(Exception):
+    """Internal control flow used to stop bootstrap without an error."""
+
+
+class _RouterAgentBootstrapTimeout(TimeoutError):
+    """Raised when Router Agent bootstrap exceeds its configured deadline."""
+
+
+def _is_retryable_bootstrap_error(exc: BaseException) -> bool:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in _RETRYABLE_BOOTSTRAP_STATUS_CODES
+    return isinstance(exc, httpx.TransportError)
+
+
+def _retry_after_seconds(exc: BaseException) -> Optional[float]:
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return None
+    if exc.response.status_code != 429:
+        return None
+    value = exc.response.headers.get("Retry-After")
+    if not value:
+        return None
+    try:
+        seconds = float(value)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(value)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        seconds = (retry_at - datetime.now(timezone.utc)).total_seconds()
+    return max(0.0, seconds)
 
 
 def _gather_host_resources() -> Dict[str, Any]:
@@ -65,6 +108,9 @@ class RouterAgentConfig:
     watch_seconds: float = 30.0
     max_restart_backoff_seconds: float = 60.0
     drain_timeout_seconds: float = 7200.0
+    startup_retry_initial_seconds: float = 1.0
+    startup_retry_max_seconds: float = 15.0
+    startup_retry_timeout_seconds: float = 120.0
     log_level: str = "INFO"
 
     @classmethod
@@ -102,6 +148,24 @@ class RouterAgentConfig:
             drain_timeout_seconds=float(
                 os.getenv("XINFERENCE_TOKEN_ROUTER_AGENT_DRAIN_TIMEOUT_SECONDS", "7200")
             ),
+            startup_retry_initial_seconds=float(
+                os.getenv(
+                    "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS",
+                    "1",
+                )
+            ),
+            startup_retry_max_seconds=float(
+                os.getenv(
+                    "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS",
+                    "15",
+                )
+            ),
+            startup_retry_timeout_seconds=float(
+                os.getenv(
+                    "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS",
+                    "120",
+                )
+            ),
             log_level=normalize_log_level(
                 log_level
                 or os.getenv("XINFERENCE_TOKEN_ROUTER_LOG_LEVEL", "INFO")
@@ -126,6 +190,16 @@ class RouterAgentConfig:
             raise ValueError("Router Agent heartbeat/watch intervals are invalid")
         if self.max_restart_backoff_seconds <= 0 or self.drain_timeout_seconds <= 0:
             raise ValueError("Router Agent restart/drain timeouts must be positive")
+        if self.startup_retry_initial_seconds <= 0:
+            raise ValueError(
+                "Router Agent startup retry initial delay must be positive"
+            )
+        if self.startup_retry_max_seconds < self.startup_retry_initial_seconds:
+            raise ValueError(
+                "Router Agent startup retry maximum must not be less than initial"
+            )
+        if self.startup_retry_timeout_seconds <= 0:
+            raise ValueError("Router Agent startup retry timeout must be positive")
         runtime = Path(self.runtime_executable)
         if not runtime.is_file() or not os.access(runtime, os.X_OK):
             raise ValueError(
@@ -261,52 +335,208 @@ class RouterAgent:
                 logger.exception("Router Agent Asset Binding watch failed")
                 await asyncio.sleep(min(5.0, self.config.heartbeat_seconds))
 
-    async def run(self) -> None:
-        await self.control_plane.register_node(self._node_registration())
-        initial_assets = await self.control_plane.watch_asset_bindings(
-            self.config.node_id, wait_seconds=0
-        )
-        if initial_assets is not None:
-            self._asset_cursor = str(initial_assets.get("cursor", ""))
-            self._asset_bindings = asset_binding_snapshot(initial_assets)
-        await self.asset_manager.reconcile(self._asset_bindings)
+    async def _wait_for_startup_retry(self, delay: float) -> None:
+        if self._stop_event.is_set():
+            raise _RouterAgentStopRequested
+        try:
+            await asyncio.wait_for(self._stop_event.wait(), timeout=delay)
+        except asyncio.TimeoutError:
+            return
+        raise _RouterAgentStopRequested
 
-        initial = await self.control_plane.watch_assignments(
-            self.config.node_id, wait_seconds=0
-        )
-        if initial is not None:
-            self._cursor = str(initial.get("cursor", ""))
-            self._assignments = assignment_snapshot(initial)
-        await self.process_manager.reconcile(self._assignments)
-        heartbeat_task = asyncio.create_task(
-            self._heartbeat_loop(), name="router-agent-heartbeat"
-        )
-        watch_task = asyncio.create_task(
-            self._watch_loop(), name="router-agent-assignment-watch"
-        )
-        asset_watch_task = asyncio.create_task(
-            self._asset_watch_loop(), name="router-agent-asset-watch"
+    async def _run_startup_operation(
+        self,
+        operation_name: str,
+        operation: Callable[[], Awaitable[_T]],
+        *,
+        timeout: float,
+    ) -> _T:
+        operation_task = asyncio.ensure_future(operation())
+        stop_task = asyncio.create_task(
+            self._stop_event.wait(),
+            name=f"router-agent-bootstrap-stop-{operation_name}",
         )
         try:
+            done, _ = await asyncio.wait(
+                {operation_task, stop_task},
+                timeout=timeout,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if not done:
+                raise asyncio.TimeoutError
+            if operation_task in done:
+                return await operation_task
+            raise _RouterAgentStopRequested
+        finally:
+            for task in (operation_task, stop_task):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(operation_task, stop_task, return_exceptions=True)
+
+    async def _run_startup_step(
+        self,
+        operation_name: str,
+        operation: Callable[[], Awaitable[_T]],
+        *,
+        deadline: float,
+    ) -> _T:
+        delay = self.config.startup_retry_initial_seconds
+        attempt = 0
+        step_started = time.monotonic()
+        while True:
+            if self._stop_event.is_set():
+                raise _RouterAgentStopRequested
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise _RouterAgentBootstrapTimeout(
+                    f"Router Agent bootstrap timed out during {operation_name}"
+                )
+            attempt += 1
+            try:
+                result = await self._run_startup_operation(
+                    operation_name,
+                    operation,
+                    timeout=remaining,
+                )
+            except asyncio.CancelledError:
+                raise
+            except asyncio.TimeoutError as exc:
+                raise _RouterAgentBootstrapTimeout(
+                    f"Router Agent bootstrap timed out during {operation_name}"
+                ) from exc
+            except Exception as exc:
+                if not _is_retryable_bootstrap_error(exc):
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise _RouterAgentBootstrapTimeout(
+                        f"Router Agent bootstrap timed out during {operation_name}"
+                    ) from exc
+                retry_after = _retry_after_seconds(exc)
+                retry_delay = (
+                    retry_after
+                    if retry_after is not None
+                    else delay * random.uniform(0.9, 1.1)
+                )
+                retry_delay = min(
+                    retry_delay,
+                    self.config.startup_retry_max_seconds,
+                    remaining,
+                )
+                log_retry = (
+                    logger.warning if attempt == 1 or attempt % 5 == 0 else logger.info
+                )
+                log_retry(
+                    "Router Agent bootstrap step failed; operation=%s "
+                    "attempt=%d retry_in_seconds=%.3f error=%s",
+                    operation_name,
+                    attempt,
+                    retry_delay,
+                    type(exc).__name__,
+                )
+                await self._wait_for_startup_retry(retry_delay)
+                delay = min(
+                    delay * 2,
+                    self.config.startup_retry_max_seconds,
+                )
+                continue
+            if attempt > 1:
+                logger.info(
+                    "Router Agent bootstrap step recovered; operation=%s "
+                    "attempts=%d elapsed_seconds=%.3f",
+                    operation_name,
+                    attempt,
+                    time.monotonic() - step_started,
+                )
+            return result
+
+    async def _bootstrap(self) -> bool:
+        started = time.monotonic()
+        deadline = started + self.config.startup_retry_timeout_seconds
+        try:
+            await self._run_startup_step(
+                "register_node",
+                lambda: self.control_plane.register_node(self._node_registration()),
+                deadline=deadline,
+            )
+            initial_assets = await self._run_startup_step(
+                "watch_asset_bindings",
+                lambda: self.control_plane.watch_asset_bindings(
+                    self.config.node_id, wait_seconds=0
+                ),
+                deadline=deadline,
+            )
+            if initial_assets is not None:
+                self._asset_cursor = str(initial_assets.get("cursor", ""))
+                self._asset_bindings = asset_binding_snapshot(initial_assets)
+            await self._run_startup_step(
+                "reconcile_asset_bindings",
+                lambda: self.asset_manager.reconcile(self._asset_bindings),
+                deadline=deadline,
+            )
+
+            initial = await self._run_startup_step(
+                "watch_assignments",
+                lambda: self.control_plane.watch_assignments(
+                    self.config.node_id, wait_seconds=0
+                ),
+                deadline=deadline,
+            )
+            if initial is not None:
+                self._cursor = str(initial.get("cursor", ""))
+                self._assignments = assignment_snapshot(initial)
+            await self._run_startup_step(
+                "reconcile_assignments",
+                lambda: self.process_manager.reconcile(self._assignments),
+                deadline=deadline,
+            )
+        except _RouterAgentStopRequested:
+            logger.info("Router Agent bootstrap stopped before completion")
+            return False
+        logger.info(
+            "Router Agent bootstrap succeeded; elapsed_seconds=%.3f",
+            time.monotonic() - started,
+        )
+        return True
+
+    async def run(self) -> None:
+        tasks: list[asyncio.Task] = []
+        bootstrapped = False
+        try:
+            bootstrapped = await self._bootstrap()
+            if not bootstrapped:
+                return
+            tasks = [
+                asyncio.create_task(
+                    self._heartbeat_loop(), name="router-agent-heartbeat"
+                ),
+                asyncio.create_task(
+                    self._watch_loop(), name="router-agent-assignment-watch"
+                ),
+                asyncio.create_task(
+                    self._asset_watch_loop(), name="router-agent-asset-watch"
+                ),
+            ]
             await self._stop_event.wait()
         finally:
-            heartbeat_task.cancel()
-            watch_task.cancel()
-            asset_watch_task.cancel()
-            await asyncio.gather(
-                heartbeat_task, watch_task, asset_watch_task, return_exceptions=True
-            )
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            if bootstrapped:
+                try:
+                    await self.control_plane.heartbeat_node(
+                        self.config.node_id,
+                        self._heartbeat_payload("draining"),
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to publish final Router Agent heartbeat", exc_info=True
+                    )
             try:
-                await self.control_plane.heartbeat_node(
-                    self.config.node_id,
-                    self._heartbeat_payload("draining"),
-                )
-            except Exception:
-                logger.warning(
-                    "Failed to publish final Router Agent heartbeat", exc_info=True
-                )
-            await self.process_manager.shutdown()
-            await self.control_plane.aclose()
+                await self.process_manager.shutdown()
+            finally:
+                await self.control_plane.aclose()
 
 
 def build_parser() -> argparse.ArgumentParser:

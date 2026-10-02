@@ -469,3 +469,27 @@ msgid ""
 "Maximum size in bytes of one fetched media file. Default value is 67108864"
 " (64 MiB)."
 msgstr "单个已抓取媒体文件的最大字节数。默认值为 67108864（64 MiB）。"
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr "Router Agent 启动重试之间的初始延迟（秒）。延迟采用带抖动的指数退避。默认值为 1。"
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr "Router Agent 启动重试之间的最大延迟（秒）。默认值为 15，且不能小于初始延迟。"
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr "Router Agent 启动注册和初始同步重试的总截止时间（秒）。默认值为 120。"
