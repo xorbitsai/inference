@@ -118,7 +118,8 @@ Quickly get Xinference running in your environment with this [starter guide](#ge
 Use our [documentation](https://inference.readthedocs.io/) for further references and more in-depth instructions.
 
 - **Xinference for enterprise / organizations</br>**
-We provide additional enterprise-centric features. [send us an email](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry) to discuss enterprise needs. </br>
+**Xinference Enterprise** is the commercial edition for teams running models in production. Deploy it in your own cloud or data centre, or choose a managed dedicated deployment with **Xinference Cloud**. The hosted **Model API** gives you access to supported models through an OpenAI-compatible API without managing inference infrastructure. Learn more at [xinference.co](https://xinference.co).
+For enterprise enquiries, [email us](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry).
 
 ## Staying Ahead
 

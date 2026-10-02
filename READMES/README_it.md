@@ -102,7 +102,8 @@ Xorbits Inference (Xinference) è una libreria potente e versatile per modelli d
   Segui la [guida di avvio](#getting-started) per lanciare Xinference localmente. Dettagli nella documentazione: https://inference.readthedocs.io/.
 
 - **Xinference per le aziende**
-  Sono disponibili funzionalità enterprise; per richieste contatta: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
+  **Xinference Enterprise** è l’edizione commerciale per i team che eseguono modelli in produzione. È possibile distribuirla nel proprio cloud o data center, oppure scegliere una distribuzione dedicata gestita con **Xinference Cloud**. La **Model API** ospitata consente di accedere ai modelli supportati tramite un’API compatibile con OpenAI senza gestire l’infrastruttura di inferenza. Maggiori informazioni su [xinference.co](https://xinference.co).
+  Per richieste aziendali, [contattateci via e-mail](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry).
 
 ## Rimani aggiornato
 

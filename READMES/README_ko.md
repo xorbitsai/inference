@@ -102,7 +102,8 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
   스타터 가이드를 따라 로컬에서 Xinference를 시작하세요. 자세한 내용은 문서(https://inference.readthedocs.io/) 참조.
 
 - **기업용 Xinference**
-  엔터프라이즈 기능이 필요하면 다음으로 문의하세요: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
+  **Xinference Enterprise** 는 프로덕션 환경에서 모델을 운영하는 팀을 위한 상용 버전입니다. 자체 클라우드나 데이터 센터에 배포하거나 **Xinference Cloud** 의 관리형 전용 배포를 선택할 수 있습니다. 호스팅되는 **Model API** 를 통해 추론 인프라를 관리하지 않고도 OpenAI 호환 API로 지원 모델에 접근할 수 있습니다. 자세한 내용은 [xinference.co](https://xinference.co) 에서 확인하세요.
+  기업 관련 문의는 [이메일](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)로 연락해 주세요.
 
 ## 최신 상태 유지
 

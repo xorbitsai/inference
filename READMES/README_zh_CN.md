@@ -106,7 +106,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 参考 [文档](https://inference.readthedocs.io/zh-cn) 以获得参考和更多说明。
 
 - **面向企业/组织的 Xinference 版本</br>**
-我们提供额外的面向企业的功能。 [通过企业微信联系](https://xinference.cn/images/WeCom.jpg)
+**Xinference Enterprise** 是面向生产环境模型服务的商业版本。您可以将其部署在自己的云环境或数据中心，也可以选择 **Xinference Cloud** 提供的托管专属部署。托管 **Model API** 让您无需维护推理基础设施，即可通过兼容 OpenAI 的 API 调用支持的模型。了解更多：[xinference.co](https://xinference.co)。
+您可以 [通过企业微信联系](https://xinference.cn/images/WeCom.jpg)
 或 [提交表单](https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh) 讨论企业需求。 </br>
 
 ## 保持领先
