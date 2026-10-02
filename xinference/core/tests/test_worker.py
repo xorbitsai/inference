@@ -3384,7 +3384,9 @@ def test_wait_for_metrics_export_server_times_out(monkeypatch):
     metrics_thread.is_alive.return_value = True
     monotonic_values = iter((100.0, 101.0))
     monkeypatch.setattr(
-        "xinference.core.worker.time.monotonic", lambda: next(monotonic_values)
+        worker_module,
+        "time",
+        SimpleNamespace(monotonic=lambda: next(monotonic_values)),
     )
 
     with pytest.raises(
