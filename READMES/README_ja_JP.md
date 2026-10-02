@@ -102,7 +102,8 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
   この [スターターガイド](#getting-started) に従って、自分の環境で Xinference を素早く起動してください。詳細はドキュメント（https://inference.readthedocs.io/）を参照してください。
 
 - **企業/組織向け Xinference**
-  企業向けの追加機能を提供しています。企業ニーズについてはメール（mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry）でお問い合わせください。
+  **Xinference Enterprise** は、本番環境でモデルを運用するチーム向けの商用版です。自社のクラウドやデータセンターに導入するか、**Xinference Cloud** によるマネージド専用環境を選択できます。ホスト型の **Model API** では、推論インフラを管理することなく、OpenAI 互換 API を通じて対応モデルにアクセスできます。詳細は [xinference.co](https://xinference.co) をご覧ください。
+  企業向けのお問い合わせは、[メール](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)でご連絡ください。
 
 ## 常に先を行くために
 

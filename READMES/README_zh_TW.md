@@ -102,7 +102,8 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
   請依照 [快速上手指南](#getting-started) 在本地啟動 Xinference。詳細說明請參閱文件：https://inference.readthedocs.io/。
 
 - **Xinference for Enterprise**
-  若需企業功能與支援，請聯絡： mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
+  **Xinference Enterprise** 是面向正式環境模型服務的商業版本。您可以將其部署在自己的雲端環境或資料中心，也可以選擇 **Xinference Cloud** 提供的託管專屬部署。託管 **Model API** 讓您無需維護推論基礎設施，即可透過相容 OpenAI 的 API 呼叫支援的模型。瞭解更多：[xinference.co](https://xinference.co)。
+  如需洽詢企業需求，請[透過電子郵件聯絡我們](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)。
 
 ## 保持更新
 

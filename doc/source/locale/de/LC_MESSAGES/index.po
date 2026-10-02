@@ -36,6 +36,23 @@ msgstr ""
 "multimodale Modell in der Cloud oder in der lokalen Umgebung ausführen und "
 "leistungsstarke KI-Anwendungen erstellen."
 
+#: ../../source/index.rst:23
+msgid ""
+"**Xinference Enterprise** is the commercial edition for teams running models "
+"in production. Deploy it in your own cloud or data centre, or choose a "
+"managed dedicated deployment with **Xinference Cloud**. The hosted **Model "
+"API** gives you access to supported models through an OpenAI-compatible API "
+"without managing inference infrastructure. Learn more at `xinference.co "
+"<https://xinference.co>`_."
+msgstr ""
+"**Xinference Enterprise** ist die kommerzielle Edition für Teams, die "
+"Modelle in Produktionsumgebungen betreiben. Sie können sie in Ihrer eigenen "
+"Cloud oder Ihrem Rechenzentrum bereitstellen oder eine verwaltete dedizierte "
+"Bereitstellung mit **Xinference Cloud** wählen. Die gehostete **Model API** "
+"bietet über eine OpenAI-kompatible API Zugriff auf unterstützte Modelle, "
+"ohne dass Sie die Inferenzinfrastruktur verwalten müssen. Mehr erfahren Sie "
+"unter `xinference.co <https://xinference.co>`_."
+
 #: ../../source/index.rst:25
 msgid "Developing Real-world AI Applications with Xinference"
 msgstr ""
