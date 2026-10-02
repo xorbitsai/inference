@@ -3,9 +3,12 @@
 """Share the synchronous actor RPC loop among connectors in an EngineCore thread."""
 
 import asyncio
+import logging
 import os
 import threading
 
+logger = logging.getLogger(__name__)
+_SHUTDOWN_TIMEOUT = 5.0
 _local = threading.local()
 
 
@@ -33,9 +36,23 @@ def release_actor_loop(loop: asyncio.AbstractEventLoop) -> None:
         pending = asyncio.all_tasks(loop)
         for task in pending:
             task.cancel()
-        if pending:
-            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-        loop.run_until_complete(loop.shutdown_asyncgens())
+
+        async def drain():
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+            await loop.shutdown_asyncgens()
+
+        cleanup = loop.create_task(drain())
+        _, unfinished = loop.run_until_complete(
+            asyncio.wait({cleanup}, timeout=_SHUTDOWN_TIMEOUT)
+        )
+        if unfinished:
+            logger.warning("Timed out draining Xavier actor loop during shutdown")
+            cleanup.cancel()
+            # Give cancellation one turn, without waiting on unresponsive peers.
+            loop.run_until_complete(asyncio.sleep(0))
+        elif not cleanup.cancelled():
+            cleanup.result()
     finally:
         try:
             loop.close()

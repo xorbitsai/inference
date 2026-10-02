@@ -165,3 +165,56 @@ def test_connector_shutdown_clears_reference_on_failure(connector_module, monkey
     assert connector._loop is None
     cls.shutdown(connector)
     assert len(released) == 1
+
+
+def test_shutdown_bounds_stalled_listener_cleanup(monkeypatch, caplog):
+    import time
+
+    from .. import actor_loop
+
+    monkeypatch.setattr(actor_loop, "_SHUTDOWN_TIMEOUT", 0.01)
+    loop = acquire_actor_loop()
+    started = []
+
+    async def listener():
+        try:
+            await asyncio.Event().wait()
+        finally:
+            started.append(True)
+            await asyncio.Event().wait()  # Simulate a stuck writer.wait_closed().
+
+    async def start():
+        return asyncio.create_task(listener())
+
+    task = loop.run_until_complete(start())
+    before = time.monotonic()
+    release_actor_loop(loop)
+    assert time.monotonic() - before < 1
+    assert started == [True]
+    assert loop.is_closed()
+    assert task.cancelled()
+    assert "Timed out draining Xavier actor loop" in caplog.text
+    assert not hasattr(actor_loop._local, "loop")
+
+
+def test_pid_change_does_not_reuse_or_release_parent_loop(monkeypatch):
+    from .. import actor_loop
+
+    parent = acquire_actor_loop()
+    parent_pid = actor_loop.os.getpid()
+    monkeypatch.setattr(actor_loop.os, "getpid", lambda: parent_pid + 1)
+    try:
+        release_actor_loop(parent)
+        assert not parent.is_closed()
+        assert actor_loop._local.users == 1
+        child = acquire_actor_loop()
+        assert child is not parent
+        assert actor_loop._local.users == 1
+        release_actor_loop(parent)
+        assert actor_loop._local.users == 1
+        assert not child.is_closed()
+        release_actor_loop(child)
+        assert child.is_closed()
+        assert not parent.is_closed()
+    finally:
+        parent.close()
