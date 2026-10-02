@@ -39,6 +39,14 @@ logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
 
+def _resolve_sentence_transformer_device(model: Any, device: Any) -> Any:
+    """Use an explicit encode device or the model's public device property."""
+
+    if device is not None:
+        return device
+    return model.device
+
+
 def _atomic_write_text(path: str, content: str) -> None:
     directory = os.path.dirname(os.path.abspath(path))
     temp_path: Optional[str] = None
@@ -636,8 +644,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                         tokenized_prompt["input_ids"].shape[-1] - 1
                     )
 
-            if device is None:
-                device = model._target_device
+            device = _resolve_sentence_transformer_device(model, device)
 
             if (
                 "gte" in self.model_family.model_name.lower()
