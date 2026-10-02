@@ -441,25 +441,33 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
     async def read_request_blocks_v1(self, from_rank, reads):
         from xoscar.collective import xoscar_pygloo as xp
 
-        sender = await xo.actor_ref(
-            address=self._world_addresses[from_rank],
-            uid=f"{TransferActor.default_uid()}-{from_rank}",
+        fields = dict(
+            rank=self._rank,
+            nbytes=sum(read.nbytes for read in reads),
+            blocks=sum(len(read.keys) for read in reads),
         )
-        payload = torch.empty(sum(read.nbytes for read in reads), dtype=torch.uint8)
-        await sender.start_send_request_blocks_v1(self._rank, reads)
+        payload = torch.empty(fields["nbytes"], dtype=torch.uint8)
+        with profile_stage("actor_control", **fields):
+            sender = await xo.actor_ref(
+                address=self._world_addresses[from_rank],
+                uid=f"{TransferActor.default_uid()}-{from_rank}",
+            )
+            await sender.start_send_request_blocks_v1(self._rank, reads)
 
         def recv(buffer):
             # Cancellation stops the await, not the native thread. Keep ownership
             # in the executor until Gloo has finished writing to the pointer.
-            xp.recv(
-                self._context,
-                buffer.numpy().ctypes.data,
-                buffer.numel(),
-                self.get_gloo_dtype(torch.uint8),
-                from_rank,
-            )
+            with profile_stage("gloo_receive", **fields):
+                xp.recv(
+                    self._context,
+                    buffer.numpy().ctypes.data,
+                    buffer.numel(),
+                    self.get_gloo_dtype(torch.uint8),
+                    from_rank,
+                )
 
-        await asyncio.to_thread(recv, payload)
+        with profile_stage("actor_receive", **fields):
+            await asyncio.to_thread(recv, payload)
         return payload
 
     @staticmethod

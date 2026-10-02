@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 import asyncio
 import ctypes
+import json
+import logging
 import queue
 from types import MethodType, SimpleNamespace
 from unittest.mock import AsyncMock
@@ -55,7 +57,11 @@ def test_cross_layer_round_trip(dtype):
 
 
 @pytest.mark.asyncio
-async def test_actual_actor_cross_layer_read(monkeypatch):
+async def test_actual_actor_cross_layer_read(monkeypatch, caplog):
+    from .. import profiling
+
+    monkeypatch.setattr(profiling, "_ENABLED", True)
+    caplog.set_level(logging.INFO, logger=profiling.__name__)
     import xoscar as xo
     from xoscar.collective import xoscar_pygloo as xp
 
@@ -96,18 +102,41 @@ async def test_actual_actor_cross_layer_read(monkeypatch):
     payload = await TransferActor.read_request_blocks_v1(receiver, 0, reads)
     await asyncio.gather(*sender._layer_send_tasks_v1)
     assert calls == [16]
+    events = [
+        json.loads(r.message.split("Xavier profile: ")[1])
+        for r in caplog.records
+        if r.message.startswith("Xavier profile: ")
+    ]
+    assert {e["stage"] for e in events} == {
+        "actor_control",
+        "actor_receive",
+        "gloo_receive",
+    }
+    assert all(
+        e["nbytes"] == 16 and e["blocks"] == 2 and e["succeeded"] for e in events
+    )
     assert all(
         torch.equal(t, torch.tensor([[1.0, 2.0]]))
         for _, t in unpack_reads(payload, reads)
     )
 
 
-def test_connector_writes_correct_destinations(connector, connector_module):
-    caches = {name: torch.zeros(8, 4) for name in ["K", "V"]}
+@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16])
+def test_connector_writes_correct_destinations(
+    connector, connector_module, dtype, monkeypatch, caplog
+):
+    from .. import profiling
+
+    monkeypatch.setattr(profiling, "_ENABLED", True)
+    caplog.set_level(logging.INFO, logger=profiling.__name__)
+    caches = {name: torch.zeros(8, 4, dtype=dtype) for name in ["K", "V"]}
     connector._registered_kv_caches = caches
     source = KVSnapshotStore(1)
+    producer = SimpleNamespace(_snapshot_store=source, _rank=2)
+    values = torch.tensor([[1.0, -2.0, 1e10, 1e-10]], dtype=dtype)
     for name in caches:
-        source.stage(name, [77], torch.tensor([[1.0, 2.0, 3.0, 4.0]]))
+        TransferActor.stage_layer_blocks_v1(producer, "r", name, [77], values)
+        assert source.read(name, [77]).dtype == torch.float32
     source.publish([77], set(caches))
     transfer = SimpleNamespace(
         read_request_blocks_v1=AsyncMock(
@@ -120,12 +149,23 @@ def test_connector_writes_correct_destinations(connector, connector_module):
     )
     connector._load_request_blocks(request)
     assert transfer.read_request_blocks_v1.await_count == 1
+    events = [
+        json.loads(r.message.split("Xavier profile: ")[1])
+        for r in caplog.records
+        if r.message.startswith("Xavier profile: ")
+    ]
+    rpc = [e for e in events if e["stage"] == "load_rpc"]
+    h2d = [e for e in events if e["stage"] == "load_h2d"]
+    assert len(rpc) == 1 and rpc[0]["nbytes"] == 32 and rpc[0]["blocks"] == 2
+    assert len(h2d) == 2
+    assert all(e["nbytes"] == 16 and e["blocks"] == 1 and e["succeeded"] for e in h2d)
     for cache in caches.values():
-        assert cache[3].tolist() == [1, 2, 3, 4]
+        assert torch.equal(cache[3], values[0])
         assert cache[:3].count_nonzero() == 0
 
 
 def test_payload_preserves_all_bf16_bit_patterns():
+    # Packing-only invariant; production BF16 staging currently uses float32.
     bits = torch.arange(65536, dtype=torch.int32).to(torch.int16).reshape(8, 8192)
     store = KVSnapshotStore(8)
     store.stage("K", list(range(8)), bits.view(torch.bfloat16))
@@ -201,3 +241,13 @@ def test_block_limit_after_byte_limit_split(monkeypatch):
     parts = [part for batch in batch_reads([read]) for part in batch]
     assert [key for part in parts for key in part.keys] == list(range(150))
     assert all(len(part.keys) <= module.MAX_REQUEST_BLOCKS for part in parts)
+
+
+def test_block_limit_with_large_byte_budget(monkeypatch):
+    from .. import request_transfer as module
+
+    monkeypatch.setattr(module, "MAX_REQUEST_BYTES", 4096)
+    read = LayerRead("K", list(range(150)), list(range(150)), (1,), torch.float32)
+    batches = list(batch_reads([read]))
+    assert [len(part.keys) for batch in batches for part in batch] == [64, 64, 22]
+    assert all(sum(part.nbytes for part in batch) <= 4096 for batch in batches)

@@ -496,21 +496,29 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         )
                 for batch in batch_reads(reads):
                     with profile_stage(
-                        "load_rpc", request_id=request.request_id, rank=self._rank
+                        "load_rpc",
+                        request_id=request.request_id,
+                        rank=self._rank,
+                        nbytes=sum(read.nbytes for read in batch),
+                        blocks=sum(len(read.keys) for read in batch),
                     ):
                         payload = await transfer.read_request_blocks_v1(rank, batch)
                     for read, blocks in unpack_reads(payload, batch):
                         cache = caches[read.layer]
-                        if (
-                            cache.dtype == torch.bfloat16
-                            and blocks.dtype == torch.float16
+                        with profile_stage(
+                            "load_h2d",
+                            device=cache.device,
+                            request_id=request.request_id,
+                            layer=read.layer,
+                            rank=self._rank,
+                            nbytes=read.nbytes,
+                            blocks=len(read.keys),
                         ):
-                            blocks = blocks.view(torch.bfloat16)
-                        elif blocks.dtype != cache.dtype:
-                            blocks = blocks.to(cache.dtype)
-                        cache[torch.tensor(read.destinations, device=cache.device)] = (
-                            blocks.to(cache.device, non_blocking=True)
-                        )
+                            if blocks.dtype != cache.dtype:
+                                blocks = blocks.to(cache.dtype)
+                            cache[
+                                torch.tensor(read.destinations, device=cache.device)
+                            ] = blocks.to(cache.device, non_blocking=True)
 
         self._call(load())
 
