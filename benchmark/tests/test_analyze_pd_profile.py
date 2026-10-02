@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 spec = importlib.util.spec_from_file_location(
     "analyze_pd_profile", Path(__file__).parents[1] / "analyze_pd_profile.py"
 )
@@ -33,3 +35,35 @@ def test_nested_profile_stages_are_not_added_and_failures_are_separate():
     assert result["stages"]["load_rpc"]["failed_calls"] == 1
     assert result["stages"]["load_rpc"]["bytes"] == 64
     assert result["stages"]["actor_control"]["mean_ms"] == 300
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"stage":',
+        "null",
+        "[]",
+        '"text"',
+        "42",
+        "{}",
+        '{"stage": []}',
+        '{"stage": "load_rpc", "succeeded": true, "elapsed_s": "bad"}',
+        '{"stage": "load_rpc", "succeeded": true, "elapsed_s": NaN}',
+        '{"stage": "load_rpc", "succeeded": true, "elapsed_s": -1}',
+        '{"stage": "load_rpc", "succeeded": true, "elapsed_s": 1, "nbytes": null}',
+    ],
+)
+def test_invalid_events_do_not_discard_valid_measurements(payload):
+    valid = dict(stage="load_rpc", elapsed_s=0.5, succeeded=True, nbytes=64)
+    result = module.summarize(
+        [
+            "unrelated log",
+            module.PREFIX + json.dumps(valid),
+            module.PREFIX + payload,
+            module.PREFIX + "  " + json.dumps(valid) + " trailing log context",
+        ]
+    )
+    assert result["skipped_events"] == 1
+    assert result["stages"]["load_rpc"]["calls"] == 2
+    assert result["stages"]["load_rpc"]["total_s"] == 1
+    assert result["stages"]["load_rpc"]["bytes"] == 128

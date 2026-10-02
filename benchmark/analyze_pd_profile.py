@@ -8,6 +8,7 @@ never use this diagnostic run for headline throughput comparisons.
 """
 import argparse
 import json
+import math
 from collections import defaultdict
 from pathlib import Path
 
@@ -16,10 +17,30 @@ PREFIX = "Xavier profile: "
 
 def summarize(lines):
     stages = defaultdict(list)
+    decoder = json.JSONDecoder()
+    skipped_events = 0
     for line in lines:
         if PREFIX not in line:
             continue
-        event, _ = json.JSONDecoder().raw_decode(line.split(PREFIX, 1)[1])
+        try:
+            event, _ = decoder.raw_decode(line.split(PREFIX, 1)[1].lstrip())
+        except json.JSONDecodeError:
+            skipped_events += 1
+            continue
+        if (
+            not isinstance(event, dict)
+            or not isinstance(event.get("stage"), str)
+            or not isinstance(event.get("succeeded"), bool)
+            or type(event.get("elapsed_s")) not in (int, float)
+            or not math.isfinite(event["elapsed_s"])
+            or event["elapsed_s"] < 0
+            or any(
+                type(event.get(key, 0)) is not int or event.get(key, 0) < 0
+                for key in ("nbytes", "blocks")
+            )
+        ):
+            skipped_events += 1
+            continue
         stages[event["stage"]].append(event)
     summary = {}
     for stage, events in sorted(stages.items()):
@@ -35,6 +56,7 @@ def summarize(lines):
         }
     return {
         "stages": summary,
+        "skipped_events": skipped_events,
         "timing_semantics": {
             "load_rpc": "Engine wait including actor_control, actor_receive, serialization and concatenation.",
             "actor_receive": "Includes gloo_receive, CPU buffer allocation and thread scheduling.",
