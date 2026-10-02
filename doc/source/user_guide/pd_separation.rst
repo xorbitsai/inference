@@ -179,7 +179,7 @@ instances for these models, or a full-attention model such as Qwen3 for PD.
 Successful launch alone is not evidence of correct hybrid-state transfer.
 
 Xavier V1 supported configurations and cache safety
---------------------------------------------------
+---------------------------------------------------
 
 The V1 connector currently requires one GPU per replica (TP=1, PP=1), text-only
 models, and no LoRA adapters. Multimodal models, prompt embeddings and salted
