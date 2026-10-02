@@ -221,11 +221,12 @@ async def test_missing_log_file_returns_empty(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
-    """ES mode must support dynamic and explicitly mapped string fields.
+async def test_es_mode_supports_mixed_audit_index_mappings(monkeypatch):
+    """ES mode must support mixed dynamic and explicit string mappings.
 
     Dynamic mapping creates `text` + `.keyword`, while index templates commonly
-    map audit fields directly as `keyword` or `wildcard`.
+    map audit fields directly as `keyword` or `wildcard`. A PIT opened over the
+    wildcard index alias can therefore span both mapping shapes.
     """
     captured: Dict[str, Any] = {}
 
@@ -288,17 +289,27 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
     assert captured["closed_pit_id"] == "pit-2"
     clauses = captured["body"]["query"]["bool"]["filter"]
     time_range = clauses[0]["range"]["@timestamp"]
+    request_id_candidates = [
+        "0b359038-38eb-4361-ab5a-b82c0472685d",
+        "xinf-0b359038-38eb-4361-ab5a-b82c0472685d",
+    ]
     assert clauses[1] == {
-        "terms": {
-            "request_id": [
-                "0b359038-38eb-4361-ab5a-b82c0472685d",
-                "xinf-0b359038-38eb-4361-ab5a-b82c0472685d",
-            ]
+        "bool": {
+            "should": [
+                {"terms": {"request_id": request_id_candidates}},
+                {"terms": {"request_id.keyword": request_id_candidates}},
+            ],
+            "minimum_should_match": 1,
         }
     }
     assert not time_range["gte"].startswith("now")
     assert not time_range["lte"].startswith("now")
-    substring_clauses = [c["bool"] for c in clauses if "bool" in c]
+    substring_clauses = [
+        clause["bool"]
+        for clause in clauses
+        if "bool" in clause
+        and any("wildcard" in item for item in clause["bool"]["should"])
+    ]
     assert len(substring_clauses) == 1
     substring_clause = substring_clauses[0]
     assert substring_clause["minimum_should_match"] == 1

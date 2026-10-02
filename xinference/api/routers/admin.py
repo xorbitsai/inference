@@ -1481,6 +1481,19 @@ def _es_substring_clause(field_name: str, value: str) -> dict[str, Any]:
     }
 
 
+def _es_exact_terms_clause(field_name: str, values: list[str]) -> dict[str, Any]:
+    """Build an exact query compatible with direct and dynamic ES mappings."""
+    return {
+        "bool": {
+            "should": [
+                {"terms": {field: values}}
+                for field in (field_name, f"{field_name}.keyword")
+            ],
+            "minimum_should_match": 1,
+        }
+    }
+
+
 _AUDIT_TEXT_FILTER_FIELDS = (
     "user",
     "api_key_name",
@@ -1932,7 +1945,9 @@ async def search_audit_logs(
         {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}
     ]
     if request_id_candidates:
-        filter_clauses.append({"terms": {"request_id": request_id_candidates}})
+        filter_clauses.append(
+            _es_exact_terms_clause("request_id", request_id_candidates)
+        )
 
     for field_name, value in [
         ("user", user),

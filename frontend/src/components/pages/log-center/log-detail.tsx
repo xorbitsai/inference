@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -57,6 +58,7 @@ export function LogDetail({
   onViewContext,
 }: LogDetailProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const { clusterAuth, clusterUIConfig } = useGlobal();
   const menuAuth = useMenuAuth();
   const [copied, setCopied] = useState(false);
@@ -138,7 +140,7 @@ export function LogDetail({
 
   const handleViewAuditInitiator = () => {
     if (!correlationId) return;
-    window.location.assign(buildAuditCenterHref(correlationId, row['@timestamp']));
+    router.push(buildAuditCenterHref(correlationId, row['@timestamp']));
   };
 
   return (
