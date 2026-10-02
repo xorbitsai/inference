@@ -413,16 +413,14 @@ class RouterAgent:
                         f"Router Agent bootstrap timed out during {operation_name}"
                     ) from exc
                 retry_after = _retry_after_seconds(exc)
-                retry_delay = (
-                    retry_after
-                    if retry_after is not None
-                    else delay * random.uniform(0.9, 1.1)
-                )
-                retry_delay = min(
-                    retry_delay,
-                    self.config.startup_retry_max_seconds,
-                    remaining,
-                )
+                if retry_after is not None:
+                    retry_delay = min(retry_after, remaining)
+                else:
+                    retry_delay = min(
+                        delay * random.uniform(0.9, 1.1),
+                        self.config.startup_retry_max_seconds,
+                        remaining,
+                    )
                 log_retry = (
                     logger.warning if attempt == 1 or attempt % 5 == 0 else logger.info
                 )

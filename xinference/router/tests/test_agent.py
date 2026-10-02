@@ -413,9 +413,11 @@ async def test_agent_bootstrap_retries_temporary_http_status(monkeypatch, tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_agent_bootstrap_honors_retry_after(monkeypatch, tmp_path):
+async def test_agent_bootstrap_honors_retry_after_beyond_backoff_cap(
+    monkeypatch, tmp_path
+):
     control = _AgentControlPlane(
-        register_results=[_http_status_error(429, retry_after="7"), {"ok": True}]
+        register_results=[_http_status_error(429, retry_after="20"), {"ok": True}]
     )
     agent, _, _ = _router_agent(
         tmp_path,
@@ -431,7 +433,38 @@ async def test_agent_bootstrap_honors_retry_after(monkeypatch, tmp_path):
     monkeypatch.setattr(agent, "_wait_for_startup_retry", record_retry)
 
     assert await agent._bootstrap() is True
-    assert delays == [7.0]
+    assert delays == [20.0]
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_retry_after_stops_at_startup_deadline(
+    monkeypatch, tmp_path
+):
+    control = _AgentControlPlane(
+        register_results=[_http_status_error(429, retry_after="30"), {"ok": True}]
+    )
+    agent, _, _ = _router_agent(
+        tmp_path,
+        control_plane=control,
+        startup_retry_max_seconds=10,
+        startup_retry_timeout_seconds=5,
+    )
+    clock = 0.0
+    delays = []
+
+    async def advance_clock(delay):
+        nonlocal clock
+        delays.append(delay)
+        clock += delay
+
+    monkeypatch.setattr(agent_service.time, "monotonic", lambda: clock)
+    monkeypatch.setattr(agent, "_wait_for_startup_retry", advance_clock)
+
+    with pytest.raises(agent_service._RouterAgentBootstrapTimeout):
+        await agent._bootstrap()
+
+    assert control.register_calls == 1
+    assert delays == [5.0]
 
 
 @pytest.mark.asyncio
