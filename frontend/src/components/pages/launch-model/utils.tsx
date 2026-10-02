@@ -417,6 +417,8 @@ function normalizeNGPU(value?: string | number) {
   if (!value) return null;
 
   if (value === 'CPU') return null;
+  // `GPU` is a UI-only explicit-device choice. The launch API keeps using
+  // `auto`; launch history restores the original UI value separately.
   if (value === 'auto' || value === 'GPU') return 'auto';
 
   return value === 0 ? null : value;
@@ -468,7 +470,16 @@ export function transformFormToFetch(values: FormValues) {
     nextValues.n_gpu = normalizeNGPU(values.n_gpu);
   }
   if ('gpu_idx' in values) {
-    nextValues.gpu_idx = parseGpuIndexes(values.gpu_idx);
+    const gpuIndexVisible =
+      !values.model_type ||
+      (values.n_gpu !== 'CPU' &&
+        ([ModelType.LLM, ModelType.Image].includes(values.model_type) || values.n_gpu === 'GPU'));
+
+    if (gpuIndexVisible) {
+      nextValues.gpu_idx = parseGpuIndexes(values.gpu_idx);
+    } else {
+      delete nextValues.gpu_idx;
+    }
   }
   if ('worker_ip' in values) {
     const workerIp = transformWorkerIpToFetch(values.worker_ip);
@@ -515,15 +526,40 @@ export function transformFormToFetch(values: FormValues) {
   }
   return nextValues;
 }
+
+export function buildLaunchHistoryValues(
+  formValues: FormValues,
+  launchedValues: FormValues
+): FormValues {
+  const historyValues = { ...launchedValues };
+
+  if (formValues.replica_placement_mode === 'custom') {
+    delete historyValues.n_worker;
+    delete historyValues.worker_ip;
+    delete historyValues.n_gpu;
+    delete historyValues.gpu_idx;
+  } else if (Object.hasOwn(formValues, 'n_gpu')) {
+    // Preserve the UI distinction between explicit GPU and automatic device
+    // selection. Both values intentionally map to `auto` in the launch API.
+    historyValues.n_gpu = formValues.n_gpu;
+  }
+
+  return historyValues;
+}
+
+const AUTO_DEVICE_MODEL_TYPES: RequestModelType[] = [
+  ModelType.LLM,
+  ModelType.Image,
+  ModelType.Embedding,
+  ModelType.Rerank,
+  ModelType.Audio,
+];
+
 function restoreNGPU(value: null | string | number, modelType: RequestModelType) {
-  if (value === null) return 'CPU';
-  if (
-    [ModelType.Embedding, ModelType.Rerank, ModelType.Audio].includes(modelType) &&
-    (value === 'auto' || value === 'GPU')
-  )
-    return 'auto';
+  if (value === null || value === 'CPU') return 'CPU';
+  if (value === 'GPU') return 'GPU';
   if (value === 'auto') {
-    return [ModelType.LLM, ModelType.Image].includes(modelType) ? 'auto' : 'GPU';
+    return AUTO_DEVICE_MODEL_TYPES.includes(modelType) ? 'auto' : 'GPU';
   }
   if (typeof value === 'number') return value;
   return value || 'CPU';
@@ -1144,4 +1180,55 @@ export function extractWorkerItems(clusterInfo: ClusterInfoResponse, t: TFunc): 
 }
 export function requiresGpuWorkers(value: unknown) {
   return value != null && value !== '' && value !== undefined && value !== 'CPU';
+}
+
+export function reconcileWorkerSelectionForDevice(
+  workerIps: unknown,
+  nextNGpu: unknown,
+  workerOptions: WorkerOption[]
+): string[] | undefined {
+  const selectedWorkerIps = transformWorkerIpToForm(workerIps);
+
+  if (!Array.isArray(selectedWorkerIps)) return undefined;
+  if (!requiresGpuWorkers(nextNGpu)) return selectedWorkerIps;
+
+  const knownWorkers = new Map(workerOptions.map((option) => [option.value, option]));
+
+  return selectedWorkerIps.filter((workerIp) => {
+    const worker = knownWorkers.get(workerIp);
+
+    // Preserve manually entered or temporarily unavailable Worker addresses.
+    return !worker || worker.gpuCount > 0;
+  });
+}
+
+export function reconcileGpuIndexesForDevice(
+  gpuIdx: unknown,
+  currentNGpu: unknown,
+  nextNGpu: unknown,
+  modelType: RequestModelType
+): unknown {
+  if (nextNGpu === 'CPU' || nextNGpu === null || nextNGpu === undefined || nextNGpu === '') {
+    return undefined;
+  }
+
+  if (
+    nextNGpu === 'auto' &&
+    ![ModelType.LLM, ModelType.Image].includes(modelType) &&
+    currentNGpu !== 'auto'
+  ) {
+    return undefined;
+  }
+
+  if (typeof nextNGpu === 'number' && nextNGpu !== currentNGpu && typeof gpuIdx === 'string') {
+    const normalizedGpuIdx = gpuIdx.trim();
+
+    if (GPU_IDX_PATTERN.test(normalizedGpuIdx)) {
+      const indexes = parseGpuIndexes(normalizedGpuIdx);
+
+      if (indexes?.length !== nextNGpu) return undefined;
+    }
+  }
+
+  return gpuIdx;
 }

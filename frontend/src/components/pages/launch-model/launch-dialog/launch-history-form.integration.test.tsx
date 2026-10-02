@@ -55,7 +55,8 @@ const { FormField } =
   require('@/components/ui/form-field') as typeof import('@/components/ui/form-field');
 const { Input } = require('@/components/ui/input') as typeof import('@/components/ui/input');
 const { Select } = require('@/components/ui/select') as typeof import('@/components/ui/select');
-const { transformFormToFetch } = require('../utils') as typeof import('../utils');
+const { buildLaunchHistoryValues, transformFormToFetch } =
+  require('../utils') as typeof import('../utils');
 
 let readHistory: () => LaunchConfigHistoryItem[] = () => [];
 let refreshHistory: () => Promise<{
@@ -193,6 +194,96 @@ async function flush() {
 }
 
 describe('launch history form integration', () => {
+  it('keeps the UI device choice in history while preserving launch payload fields', () => {
+    const cases: Array<
+      [
+        FormValues['model_type'],
+        FormValues['n_gpu'],
+        FormValues['n_gpu'],
+        FormValues['n_gpu'],
+        boolean,
+      ]
+    > = [
+      [ModelType.Embedding, 'GPU', 'auto', 'GPU', true],
+      [ModelType.Embedding, 'auto', 'auto', 'auto', false],
+      [ModelType.Embedding, 'CPU', null, 'CPU', false],
+      [ModelType.LLM, 2, 2, 2, true],
+    ];
+
+    for (const [modelType, nGpu, expectedLaunchNGpu, expectedHistoryNGpu, expectsGpuIdx] of cases) {
+      const formValues: FormValues = {
+        model_name: 'demo',
+        model_type: modelType,
+        model_uid: 'requested-uid',
+        replica_placement_mode: 'auto',
+        n_gpu: nGpu,
+        worker_ip: ['gpu-worker:9999'],
+        gpu_idx: '0',
+      };
+      const launchRequestValues = transformFormToFetch(formValues);
+      const launchedValues: FormValues = {
+        ...launchRequestValues,
+        model_uid: 'server-uid',
+      };
+      const historyValues = buildLaunchHistoryValues(formValues, launchedValues);
+
+      assert.equal(launchRequestValues.n_gpu, expectedLaunchNGpu);
+      assert.equal(launchedValues.n_gpu, expectedLaunchNGpu);
+      assert.equal(historyValues.n_gpu, expectedHistoryNGpu);
+      assert.equal(historyValues.worker_ip, 'gpu-worker:9999');
+      if (expectsGpuIdx) {
+        assert.deepEqual(historyValues.gpu_idx, [0]);
+      } else {
+        assert.equal(Object.hasOwn(historyValues, 'gpu_idx'), false);
+      }
+      assert.equal(historyValues.model_uid, 'server-uid');
+    }
+  });
+
+  it('does not restore global placement fields into custom replica history', () => {
+    const formValues = {
+      model_name: 'demo',
+      model_type: ModelType.Embedding,
+      replica_placement_mode: 'custom',
+      n_worker: 1,
+      n_gpu: 'GPU',
+      worker_ip: ['global-worker:9999'],
+      gpu_idx: '0',
+      replica_config: [
+        {
+          replica_uid: 'replica-0',
+          worker_ip: 'replica-worker:9999',
+          gpu_idx: '1',
+        },
+      ],
+    };
+    const launchedValues = {
+      ...transformFormToFetch(formValues),
+      n_worker: 1,
+      n_gpu: 'auto',
+      worker_ip: 'global-worker:9999',
+      gpu_idx: [0],
+    };
+    const historyValues = buildLaunchHistoryValues(formValues, launchedValues);
+
+    for (const key of ['n_worker', 'n_gpu', 'worker_ip', 'gpu_idx']) {
+      assert.equal(Object.hasOwn(historyValues, key), false);
+    }
+    assert.deepEqual(historyValues.replica_config, [
+      {
+        role: 'hybrid',
+        replica_uid: 'replica-0',
+        devices: [
+          {
+            worker_ip: 'replica-worker:9999',
+            n_gpu: 1,
+            gpu_idx: [1],
+          },
+        ],
+      },
+    ]);
+  });
+
   let container: HTMLDivElement;
   let root: Root;
 
