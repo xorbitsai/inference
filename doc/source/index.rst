@@ -23,8 +23,7 @@ AI-driven applications.
 **Xinference Enterprise** is the commercial edition for teams running models in production.
 Deploy it in your own cloud or data centre, or choose a managed dedicated deployment with
 **Xinference Cloud**. The hosted **Model API** gives you access to supported models through an
-OpenAI-compatible API without managing inference infrastructure. Learn more at `xinference.co
-<https://xinference.co>`_.
+OpenAI-compatible API without managing inference infrastructure. Learn more at `xinference.co <https://xinference.co>`_.
 
 Developing Real-world AI Applications with Xinference
 -----------------------------------------------------
