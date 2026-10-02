@@ -20,13 +20,14 @@ def test_load_uses_registered_packed_hybrid_cache():
         _get_connector_metadata=lambda: XavierConnectorMetadata(
             load_requests=[request]
         ),
-        _load_layer_blocks=load,
+        _load_request_blocks=load,
     )
     context = SimpleNamespace(
         no_compile_layers={"linear_attn": SimpleNamespace(kv_cache=(conv, ssm))}
     )
     XavierConnector.start_load_kv(connector, context)
-    load.assert_called_once_with("linear_attn", packed, request)
+    load.assert_called_once_with(request)
+    assert connector._registered_kv_caches["linear_attn"] is packed
 
 
 @pytest.mark.asyncio

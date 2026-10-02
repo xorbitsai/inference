@@ -408,6 +408,55 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             )
         return recvbuf
 
+    async def start_send_request_blocks_v1(self, to_rank, reads):
+        from xoscar.collective import xoscar_pygloo as xp
+
+        from .request_transfer import pack_reads
+
+        # Validate and retain the complete payload before acknowledging the send.
+        payload = pack_reads(self._snapshot_store, reads)
+
+        def send():
+            # The thread owns payload even if its asyncio wrapper is cancelled.
+            xp.send(
+                self._context,
+                payload.numpy().ctypes.data,
+                payload.numel(),
+                self.get_gloo_dtype(torch.uint8),
+                to_rank,
+            )
+
+        task = asyncio.create_task(asyncio.to_thread(send))
+        self._layer_send_tasks_v1.add(task)
+
+        def completed(future):
+            self._layer_send_tasks_v1.discard(future)
+            if not future.cancelled() and future.exception() is not None:
+                logger.error(
+                    "Xavier cross-layer send failed", exc_info=future.exception()
+                )
+
+        task.add_done_callback(completed)
+
+    async def read_request_blocks_v1(self, from_rank, reads):
+        from xoscar.collective import xoscar_pygloo as xp
+
+        sender = await xo.actor_ref(
+            address=self._world_addresses[from_rank],
+            uid=f"{TransferActor.default_uid()}-{from_rank}",
+        )
+        payload = torch.empty(sum(read.nbytes for read in reads), dtype=torch.uint8)
+        await sender.start_send_request_blocks_v1(self._rank, reads)
+        await asyncio.to_thread(
+            xp.recv,
+            self._context,
+            payload.numpy().ctypes.data,
+            payload.numel(),
+            self.get_gloo_dtype(torch.uint8),
+            from_rank,
+        )
+        return payload
+
     @staticmethod
     def _get_swap_block_ids(src_to_dst: Dict[int, int], is_sender: bool) -> List[int]:
         return list(sorted([r if is_sender else l for r, l in src_to_dst.items()]))

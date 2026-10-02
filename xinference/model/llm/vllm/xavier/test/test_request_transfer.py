@@ -1,0 +1,135 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# Licensed under the Apache License, Version 2.0.
+import asyncio
+import ctypes
+import queue
+from types import MethodType, SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+import torch
+
+from ..request_transfer import LayerRead, batch_reads, pack_reads, unpack_reads
+from ..snapshot import KVSnapshotStore
+from ..transfer import TransferActor
+
+
+def test_batch_limits_and_dtype_boundaries(monkeypatch):
+    from .. import request_transfer as module
+
+    monkeypatch.setattr(module, "MAX_REQUEST_BYTES", 16)
+    reads = [
+        LayerRead("K", list(range(10)), list(range(10)), (1,), torch.float32),
+        LayerRead("V", [0], [0], (1,), torch.float16),
+    ]
+    batches = list(batch_reads(reads))
+    assert [sum(r.nbytes for r in b) for b in batches] == [16, 16, 8, 2]
+    assert [k for b in batches for r in b if r.layer == "K" for k in r.keys] == list(
+        range(10)
+    )
+    big = LayerRead("large", [1, 2], [4, 5], (8,), torch.float32)
+    assert len(list(batch_reads([big]))) == 2
+
+
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32, torch.bfloat16])
+def test_cross_layer_round_trip(dtype):
+    store = KVSnapshotStore(3)
+    source = torch.arange(12).reshape(3, 4).to(dtype)
+    for name in ["K", "V"]:
+        store.stage(name, [1, 2, 3], source)
+    store.publish([1, 2, 3], {"K", "V"})
+    reads = [
+        LayerRead("K", [3, 1], [0, 2], (4,), dtype),
+        LayerRead("V", [2], [1], (4,), dtype),
+    ]
+    payload = pack_reads(store, reads)
+    decoded = list(unpack_reads(payload, reads))
+    assert torch.equal(decoded[0][1], source[[2, 0]])
+    assert torch.equal(decoded[1][1], source[[1]])
+    with pytest.raises(ValueError, match="payload"):
+        list(unpack_reads(payload[:-1], reads))
+    with pytest.raises(ValueError, match="layout"):
+        pack_reads(store, [LayerRead("K", [1], [0], (3,), dtype)])
+    with pytest.raises(KeyError):
+        pack_reads(store, [LayerRead("K", [99], [0], (4,), dtype)])
+
+
+@pytest.mark.asyncio
+async def test_actual_actor_cross_layer_read(monkeypatch):
+    import xoscar as xo
+    from xoscar.collective import xoscar_pygloo as xp
+
+    wire = queue.Queue()
+    calls = []
+
+    def send(ctx, ptr, count, dtype, rank):
+        calls.append(count)
+        wire.put(ctypes.string_at(ptr, count))
+
+    def recv(ctx, ptr, count, dtype, rank):
+        data = wire.get(timeout=5)
+        assert len(data) == count
+        ctypes.memmove(ptr, data, count)
+
+    monkeypatch.setattr(xp, "send", send)
+    monkeypatch.setattr(xp, "recv", recv)
+    store = KVSnapshotStore(1)
+    for layer in ["K", "V"]:
+        store.stage(layer, [7], torch.tensor([[1.0, 2.0]]))
+    store.publish([7], {"K", "V"})
+    sender = SimpleNamespace(
+        _snapshot_store=store,
+        _context=None,
+        _layer_send_tasks_v1=set(),
+        get_gloo_dtype=lambda t: t,
+    )
+    ref = SimpleNamespace(
+        start_send_request_blocks_v1=AsyncMock(
+            side_effect=MethodType(TransferActor.start_send_request_blocks_v1, sender)
+        )
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    receiver = SimpleNamespace(
+        _world_addresses=["sender"], _rank=1, _context=None, get_gloo_dtype=lambda t: t
+    )
+    reads = [LayerRead(name, [7], [0], (2,), torch.float32) for name in ["K", "V"]]
+    payload = await TransferActor.read_request_blocks_v1(receiver, 0, reads)
+    await asyncio.gather(*sender._layer_send_tasks_v1)
+    assert calls == [16]
+    assert all(
+        torch.equal(t, torch.tensor([[1.0, 2.0]]))
+        for _, t in unpack_reads(payload, reads)
+    )
+
+
+def test_connector_writes_correct_destinations(connector, connector_module):
+    caches = {name: torch.zeros(8, 4) for name in ["K", "V"]}
+    connector._registered_kv_caches = caches
+    source = KVSnapshotStore(1)
+    for name in caches:
+        source.stage(name, [77], torch.tensor([[1.0, 2.0, 3.0, 4.0]]))
+    source.publish([77], set(caches))
+    transfer = SimpleNamespace(
+        read_request_blocks_v1=AsyncMock(
+            side_effect=lambda rank, reads: pack_reads(source, reads)
+        )
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=transfer)
+    request = connector_module.XavierLoadRequest(
+        "r", {2: {77: 3}}, local_transfers_by_group={0: {2: {77: 3}}}
+    )
+    connector._load_request_blocks(request)
+    assert transfer.read_request_blocks_v1.await_count == 1
+    for cache in caches.values():
+        assert cache[3].tolist() == [1, 2, 3, 4]
+        assert cache[:3].count_nonzero() == 0
+
+
+def test_payload_preserves_all_bf16_bit_patterns():
+    bits = torch.arange(65536, dtype=torch.int32).to(torch.int16).reshape(8, 8192)
+    store = KVSnapshotStore(8)
+    store.stage("K", list(range(8)), bits.view(torch.bfloat16))
+    store.publish(list(range(8)), {"K"})
+    reads = [LayerRead("K", list(range(8)), list(range(8)), (8192,), torch.bfloat16)]
+    _, restored = next(unpack_reads(pack_reads(store, reads), reads))
+    assert torch.equal(restored.view(torch.int16), bits)

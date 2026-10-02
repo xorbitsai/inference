@@ -146,9 +146,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
         try:
             if self._registered_kv_caches:
-                for layer_name, kv_layer in self._registered_kv_caches.items():
-                    for request in metadata.load_requests:
-                        self._load_layer_blocks(layer_name, kv_layer, request)
+                for request in metadata.load_requests:
+                    self._load_request_blocks(request)
             else:
                 layers = getattr(forward_context, "no_compile_layers", {}) or {}
                 for layer_name, layer in layers.items():
@@ -464,6 +463,56 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 )
             )
         return torch.cat(blocks, dim=0)
+
+    def _load_request_blocks(self, request):
+        from .request_transfer import LayerRead, batch_reads, unpack_reads
+
+        caches = {
+            name: block_major_view(tensor, self._num_cache_blocks)
+            for layer, cache in self._registered_kv_caches.items()
+            for name, tensor in self._iter_kv_tensors(layer, cache)
+        }
+
+        async def load():
+            transfer = await self._get_transfer_ref()
+            for rank in request.transfers:
+                reads = []
+                for layer, tensor in caches.items():
+                    mapping = self._get_local_transfer_map(request, layer, rank)
+                    if mapping:
+                        dtype = (
+                            XAVIER_BF16_TRANSPORT_DTYPE
+                            if tensor.dtype == torch.bfloat16
+                            else tensor.dtype
+                        )
+                        reads.append(
+                            LayerRead(
+                                layer,
+                                list(mapping),
+                                list(mapping.values()),
+                                tuple(tensor.shape[1:]),
+                                dtype,
+                            )
+                        )
+                for batch in batch_reads(reads):
+                    with profile_stage(
+                        "load_rpc", request_id=request.request_id, rank=self._rank
+                    ):
+                        payload = await transfer.read_request_blocks_v1(rank, batch)
+                    for read, blocks in unpack_reads(payload, batch):
+                        cache = caches[read.layer]
+                        if (
+                            cache.dtype == torch.bfloat16
+                            and blocks.dtype == torch.float16
+                        ):
+                            blocks = blocks.view(torch.bfloat16)
+                        elif blocks.dtype != cache.dtype:
+                            blocks = blocks.to(cache.dtype)
+                        cache[torch.tensor(read.destinations, device=cache.device)] = (
+                            blocks.to(cache.device)
+                        )
+
+        self._call(load())
 
     def _load_layer_blocks(
         self,
