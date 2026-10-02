@@ -250,7 +250,14 @@ def log_sync(logger, level=logging.DEBUG, log_exception=True):
             metadata, context_token = pop_rpc_metadata(kwargs, operation_request_id)
             correlation_id = metadata.correlation_id if metadata else None
             display_id = correlation_id or operation_request_id
-            request_prefix = f"[request {display_id}] " if display_id else ""
+            request_id_text = None
+            if display_id:
+                # Keep untrusted IDs from injecting control characters into text logs.
+                request_id_text = "".join(
+                    char if ord(char) >= 32 and ord(char) != 127 else "?"
+                    for char in str(display_id)[:256]
+                )
+            request_prefix = f"[request {request_id_text}] " if request_id_text else ""
             formatted_args = ",".join(map(truncate_log_arg, args))
             formatted_kwargs = ",".join(
                 [
@@ -269,44 +276,52 @@ def log_sync(logger, level=logging.DEBUG, log_exception=True):
                 "parent_call_id": metadata.parent_call_id if metadata else "",
                 "operation": func.__name__,
             }
+            if request_id_text:
+                fields["request_id"] = request_id_text
             logger.log(
                 level,
                 f"{request_prefix}Enter {func.__name__}, args: {formatted_args}, kwargs: {formatted_kwargs}",
                 extra={"xinference_fields": {**fields, "phase": "enter"}},
             )
-            start = time.time()
+            start = time.perf_counter()
             try:
                 ret = func(*args, **kwargs)
+                elapsed = time.perf_counter() - start
                 logger.log(
                     level,
-                    f"{request_prefix}Leave {func.__name__}, elapsed time: {int(time.time() - start)} s",
-                    extra={"xinference_fields": {**fields, "phase": "leave"}},
+                    f"{request_prefix}Leave {func.__name__}, elapsed time: {int(elapsed)} s",
+                    extra={
+                        "xinference_fields": {
+                            **fields,
+                            "phase": "leave",
+                            "elapsed_ms": round(elapsed * 1000, 3),
+                        }
+                    },
                 )
                 return ret
             except Exception as e:
+                elapsed = time.perf_counter() - start
+                message = (
+                    f"{request_prefix}Leave {func.__name__}, error: {e}, "
+                    f"elapsed time: {int(elapsed)} s"
+                )
+                error_fields = {
+                    **fields,
+                    "phase": "error",
+                    "elapsed_ms": round(elapsed * 1000, 3),
+                    "error_type": type(e).__name__,
+                }
                 if log_exception:
                     logger.error(
-                        f"{request_prefix}Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
+                        message,
                         exc_info=True,
-                        extra={
-                            "xinference_fields": {
-                                **fields,
-                                "phase": "error",
-                                "error_type": type(e).__name__,
-                            }
-                        },
+                        extra={"xinference_fields": error_fields},
                     )
                 else:
                     logger.log(
                         level,
-                        f"{request_prefix}Leave {func.__name__}, error: {e}, elapsed time: {int(time.time() - start)} s",
-                        extra={
-                            "xinference_fields": {
-                                **fields,
-                                "phase": "error",
-                                "error_type": type(e).__name__,
-                            }
-                        },
+                        message,
+                        extra={"xinference_fields": error_fields},
                     )
                 raise
             finally:
