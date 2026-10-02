@@ -388,3 +388,13 @@ async def test_nixl_stream_close_releases_decode_slot(router):
     assert not actor._request_set
     decode.decrease_serve_count.assert_awaited_once()
     prefill.free_model_cache.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_generation_config_rejected_before_dispatch(router):
+    actor, prefill, decode = router
+    with pytest.raises(TypeError, match="Generation config supplied twice"):
+        await actor._infer("chat", [], {}, generate_config={})
+    prefill.chat.assert_not_awaited()
+    decode.chat.assert_not_awaited()
+    assert not actor._request_set

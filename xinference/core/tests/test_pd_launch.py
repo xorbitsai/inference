@@ -231,3 +231,46 @@ async def test_nixl_requires_explicit_pd_roles(launch_runtime, replica_config):
     assert not supervisor._model_uid_to_replica_info
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_nixl_startup_replay_is_skipped_and_removed(tmp_path):
+    import json
+
+    from ..worker import WorkerActor
+
+    class Worker:
+        _load_persisted_launch_args = WorkerActor._load_persisted_launch_args
+        _persist_launch_args = WorkerActor._persist_launch_args
+
+        def _get_recovery_file_path(self):
+            return str(tmp_path / "models.json")
+
+    worker = Worker()
+    worker._supervisor_ref = AsyncMock()
+    worker._supervisor_ref.describe_model.return_value = {"model_name": "still-running"}
+    worker._model_uid_to_launch_args = {}
+    worker.launch_builtin_model = AsyncMock()
+    worker.wait_for_load = AsyncMock()
+    (tmp_path / "models.json").write_text(
+        json.dumps(
+            {"pd-rep0": {"model_uid": "pd-rep0", "_nixl_config": {"role": "prefill"}}}
+        )
+    )
+    await WorkerActor._try_recover_models(worker)
+    worker.launch_builtin_model.assert_not_awaited()
+    worker.wait_for_load.assert_not_awaited()
+    assert json.loads((tmp_path / "models.json").read_text()) == {}
+
+
+def test_registration_snapshot_excludes_nixl():
+    from ..worker import WorkerActor
+
+    worker = MagicMock()
+    worker._model_uid_to_model_spec = {"pd-rep0": {}, "regular-rep0": {}}
+    worker._model_uid_to_launch_args = {
+        "pd-rep0": {"_nixl_config": {"role": "prefill"}},
+        "regular-rep0": {},
+    }
+    snapshots = WorkerActor._get_running_replica_states(worker)
+    assert [item["replica_model_uid"] for item in snapshots] == ["regular-rep0"]

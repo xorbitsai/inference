@@ -1981,6 +1981,14 @@ class WorkerActor(xo.StatelessActor):
         skipped = 0
         failed = 0
         for model_uid, launch_args in persisted.items():
+            # Worker restart cannot rebuild the supervisor-owned native PD
+            # route. Do not allocate an unregistered replacement replica.
+            if launch_args.get("_nixl_config") is not None:
+                logger.info(
+                    "Skipping native PD replica %s on worker startup", model_uid
+                )
+                skipped += 1
+                continue
             try:
                 # Cross-validate: check if supervisor still knows about this model
                 origin_uid, rep_id = parse_replica_model_uid(model_uid)

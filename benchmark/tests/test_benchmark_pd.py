@@ -46,3 +46,61 @@ def test_rss_sampling_recovers_from_process_races(monkeypatch, stage, error):
     assert module.process_tree_rss(123) is None
     target.side_effect = None
     assert module.process_tree_rss(123) == 120
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        FileNotFoundError("nvidia-smi missing"),
+        module.subprocess.TimeoutExpired("nvidia-smi", 10),
+    ],
+)
+async def test_gpu_sampler_records_failure_and_continues(monkeypatch, error):
+    import asyncio
+    from types import SimpleNamespace
+
+    attempts = []
+
+    def run(*args, **kwargs):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise error
+        return SimpleNamespace(stdout="gpu data", stderr="", returncode=0)
+
+    class Stream:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def __aiter__(self):
+            yield SimpleNamespace(
+                usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2), choices=[]
+            )
+
+    async def create(**kwargs):
+        while len(attempts) < 2:
+            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.01)
+        return Stream()
+
+    class Client:
+        chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+    monkeypatch.setattr(module, "AsyncOpenAI", lambda **kwargs: Client())
+    monkeypatch.setattr(module.subprocess, "run", run)
+    records, _, samples = await asyncio.wait_for(
+        module.measure("http://unused", "m", [{"messages": []}], 1, 1, True), 5
+    )
+    assert "error" not in records[0]
+    assert str(error) == samples[0]["error"]
+    assert samples[1]["gpu_csv"] == "gpu data"
+    assert samples[1]["error"] == ""

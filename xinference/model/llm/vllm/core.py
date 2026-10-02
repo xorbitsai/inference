@@ -2228,6 +2228,15 @@ class VLLMModel(LLM):
             completed = False
             try:
                 async for request_output in results_iterator:
+                    # vLLM V1 reports failed KV loads as terminal outputs, not
+                    # exceptions. Raise before either completion conversion path.
+                    if any(
+                        output.finish_reason == "error"
+                        for output in getattr(request_output, "outputs", ())
+                    ):
+                        raise RuntimeError(
+                            f"vLLM request {request_id} failed (finish_reason=error)"
+                        )
                     yield request_output
                 completed = True
             finally:

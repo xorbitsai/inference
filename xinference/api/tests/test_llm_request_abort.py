@@ -320,3 +320,65 @@ async def test_non_vllm_chat_keeps_request_id_in_generation_config(monkeypatch):
     call = model.chat.await_args
     assert call.args[1]["request_id"] == "chat-request"
     assert "request_id" not in call.kwargs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_vllm_terminal_error_reaches_http_or_sse_error(monkeypatch, stream):
+    import json
+
+    from fastapi import HTTPException
+
+    from xinference.model.llm.vllm.core import VLLMModel
+
+    engine_model = object.__new__(VLLMModel)
+    engine_model._engine = SimpleNamespace(abort=AsyncMock())
+    engine_model._active_request_ids = set()
+
+    async def failed_outputs():
+        yield SimpleNamespace(outputs=[SimpleNamespace(finish_reason="error")])
+
+    async def chat(messages, config, **kwargs):
+        outputs = engine_model._track_engine_request(
+            kwargs["request_id"], failed_outputs()
+        )
+        if config.get("stream"):
+            return outputs
+        async for _ in outputs:
+            pytest.fail("terminal error was returned as a successful result")
+
+    model = SimpleNamespace(
+        uid=b"chat-model",
+        chat=chat,
+        is_vllm_backend=AsyncMock(return_value=True),
+        abort_request=AsyncMock(),
+        decrease_serve_count=AsyncMock(),
+    )
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
+    monkeypatch.setattr(restful_api, "XINFERENCE_TOKEN_ROUTER_ENABLED", False)
+    api = _new_api()
+    api._get_supervisor_ref = AsyncMock(
+        return_value=SimpleNamespace(
+            describe_model=AsyncMock(return_value={"model_family": "test-family"})
+        )
+    )
+    api._get_model_last_error = AsyncMock(side_effect=lambda uid, error: error)
+    req = _Request(
+        {
+            "model": "chat-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": stream,
+            "request_id": "failed",
+        }
+    )
+    if stream:
+        response = await api.create_chat_completion(req)
+        chunks = [chunk async for chunk in response.body_iterator]
+        assert len(chunks) == 1
+        assert "finish_reason=error" in json.loads(chunks[0]["data"])["error"]
+    else:
+        with pytest.raises(HTTPException) as exc:
+            await api.create_chat_completion(req)
+        assert exc.value.status_code == 500
+        assert "finish_reason=error" in exc.value.detail
+    assert not engine_model._active_request_ids

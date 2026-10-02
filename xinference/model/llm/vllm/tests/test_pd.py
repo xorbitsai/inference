@@ -61,9 +61,11 @@ def test_backend_selection():
         normalize_xavier_transport_backend("typo")
 
 
+@pytest.mark.parametrize("role", ["prefill", "decode"])
 @pytest.mark.asyncio
 async def test_generate_passes_native_handoff_and_returns_producer_metadata(
     monkeypatch,
+    role,
 ):
     from .. import core
 
@@ -89,7 +91,7 @@ async def test_generate_passes_native_handoff_and_returns_producer_metadata(
     monkeypatch.setattr(core, "VLLM_VERSION", Version("0.21.0"))
     monkeypatch.setattr(core, "VLLM_INSTALLED", False)
     model = object.__new__(core.VLLMModel)
-    model._nixl_config = {"role": "prefill"}
+    model._nixl_config = {"role": role}
     model._engine = Engine()
     model._active_request_ids = set()
     model.lora_requests = []
@@ -103,7 +105,10 @@ async def test_generate_passes_native_handoff_and_returns_producer_metadata(
         request_id="r",
     )
     assert received == [{"kv_transfer_params": {"do_remote_decode": True}}]
-    assert result["_pd_kv_transfer_params"] == transfer
+    if role == "prefill":
+        assert result["_pd_kv_transfer_params"] == transfer
+    else:
+        assert "_pd_kv_transfer_params" not in result
     assert not model._active_request_ids
 
 
@@ -237,3 +242,128 @@ def test_pd_metrics_uses_matching_fields_at_debug(
     record = caplog.records[-1]
     assert record.levelno == logging.DEBUG
     assert record.args[-1] == values
+
+
+@pytest.mark.parametrize("value", [True, 1, {}, []])
+def test_backend_rejects_non_strings(value):
+    with pytest.raises(ValueError, match="Unknown vLLM transfer backend"):
+        normalize_xavier_transport_backend(value)
+
+
+@pytest.mark.parametrize("resolved", ["127.0.1.1", "0.0.0.0", None])
+def test_nixl_discovery_failure_names_override(monkeypatch, resolved):
+    from .. import pd
+
+    monkeypatch.delenv("VLLM_NIXL_SIDE_CHANNEL_HOST", raising=False)
+    sock = MagicMock()
+    sock.__enter__.return_value = sock
+    sock.connect.side_effect = OSError("no route")
+    monkeypatch.setattr(pd.socket, "socket", Mock(return_value=sock))
+    lookup = Mock(return_value=resolved)
+    if resolved is None:
+        lookup.side_effect = pd.socket.gaierror("no hostname")
+    monkeypatch.setattr(pd.socket, "gethostbyname", lookup)
+    with pytest.raises(ValueError, match="VLLM_NIXL_SIDE_CHANNEL_HOST"):
+        configure_nixl_environment({}, "0.0.0.0:9997")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+async def test_native_decode_failure_propagates_before_conversion(monkeypatch, stream):
+    from .. import core
+
+    class SamplingParams:
+        def __init__(self, max_tokens=1, n=1, **kwargs):
+            self.max_tokens = max_tokens
+            self.n = n
+            self.__dict__.update(kwargs)
+            self.extra_args = None
+
+    class Engine:
+        abort = AsyncMock()
+
+        async def generate(self, *args, **kwargs):
+            yield SimpleNamespace(
+                finished=True,
+                outputs=[SimpleNamespace(finish_reason="error", token_ids=[], text="")],
+            )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.sampling_params",
+        SimpleNamespace(SamplingParams=SamplingParams),
+    )
+    monkeypatch.setattr(core, "VLLM_VERSION", Version("0.21.0"))
+    monkeypatch.setattr(core, "VLLM_INSTALLED", False)
+    model = object.__new__(core.VLLMModel)
+    model._nixl_config = {"role": "decode"}
+    model._xavier_config = None
+    model._engine = Engine()
+    model._active_request_ids = set()
+    model.lora_requests = []
+    model.reasoning_parser = None
+    model.model_uid = "d"
+    conversion = Mock(side_effect=AssertionError("failed output must not be converted"))
+    model._convert_request_output_to_completion = conversion
+    model._convert_request_output_to_completion_chunk = conversion
+    with pytest.raises(RuntimeError, match="finish_reason=error"):
+        result = await core.VLLMModel.async_generate.__wrapped__(
+            model, "prompt", {"max_tokens": 1, "stream": stream}, request_id="failed"
+        )
+        if stream:
+            async for _ in result:
+                pytest.fail("error output yielded a success chunk")
+    conversion.assert_not_called()
+    assert not model._active_request_ids
+    model._engine.abort.assert_awaited_once_with("failed")
+
+
+@pytest.mark.parametrize("multimodal", [False, True])
+def test_nixl_load_configures_engine_args_or_rejects_multimodal(
+    monkeypatch, multimodal
+):
+    from .. import core
+
+    class ReachedEngineArgs(Exception):
+        pass
+
+    def engine_args(**kwargs):
+        assert kwargs["kv_transfer_config"].kv_connector == "NixlConnector"
+        raise ReachedEngineArgs()
+
+    args_factory = Mock(side_effect=engine_args)
+    for name, module in {
+        "vllm": SimpleNamespace(__version__="0.21.0"),
+        "vllm.engine.arg_utils": SimpleNamespace(AsyncEngineArgs=args_factory),
+        "vllm.engine.async_llm_engine": SimpleNamespace(AsyncLLMEngine=object),
+        "vllm.lora.request": SimpleNamespace(LoRARequest=object),
+        "vllm.v1.executor": SimpleNamespace(Executor=object),
+        "vllm.config": SimpleNamespace(KVTransferConfig=SimpleNamespace),
+    }.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    monkeypatch.setattr(core, "VLLM_INSTALLED", False)
+    monkeypatch.setattr(core, "VLLM_VERSION", None)
+    monkeypatch.setattr(core, "_init_guided_decoding_classes", lambda: None)
+    monkeypatch.setattr(core, "_update_vllm_supported_lists", lambda: None)
+    model = object.__new__(core.VLLMMultiModel if multimodal else core.VLLMModel)
+    model.model_uid = "pd"
+    model.model_path = "unused"
+    model.model_spec = SimpleNamespace()
+    model._n_worker = 1
+    model._model_config = {}
+    model._nixl_config = {"role": "prefill"}
+    model._xavier_config = None
+    model.lora_modules = None
+    model._get_cuda_count = lambda: 1
+    model._sanitize_model_config = lambda config: {"reasoning_content": False}
+    model.prepare_parse_reasoning_content = Mock()
+    model.prepare_parse_tool_calls = Mock()
+    model._native_mp_route = lambda: (False, "test")
+    if multimodal:
+        with pytest.raises(ValueError, match="text-only"):
+            model.load()
+        args_factory.assert_not_called()
+    else:
+        with pytest.raises(ReachedEngineArgs):
+            model.load()
+        args_factory.assert_called_once()

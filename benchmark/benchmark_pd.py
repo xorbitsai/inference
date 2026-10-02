@@ -132,26 +132,38 @@ async def measure(
 
         async def sample_resources():
             while True:
-                result = await asyncio.to_thread(
-                    subprocess.run,
-                    [
-                        "nvidia-smi",
-                        "--query-gpu=index,memory.used,utilization.gpu,power.draw",
-                        "--format=csv,noheader,nounits",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                process_rss = process_tree_rss(server_pid) if server_pid else None
-                samples.append(
-                    {
-                        "server_tree_rss_bytes": process_rss,
-                        "time": time.time(),
-                        "gpu_csv": result.stdout.strip(),
-                        "error": result.stderr.strip(),
-                    }
-                )
+                sample = {
+                    "server_tree_rss_bytes": process_tree_rss(server_pid)
+                    if server_pid
+                    else None,
+                    "time": time.time(),
+                    "gpu_csv": "",
+                    "error": "",
+                }
+                # Publish a pending sample too: a short run may cancel the
+                # sampler while nvidia-smi is still running in its thread.
+                sample["error"] = "GPU sampling did not finish before the run ended"
+                samples.append(sample)
+                try:
+                    result = await asyncio.to_thread(
+                        subprocess.run,
+                        [
+                            "nvidia-smi",
+                            "--query-gpu=index,memory.used,utilization.gpu,power.draw",
+                            "--format=csv,noheader,nounits",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    sample["gpu_csv"] = result.stdout.strip()
+                    sample["error"] = result.stderr.strip()
+                    if result.returncode and not sample["error"]:
+                        sample[
+                            "error"
+                        ] = f"nvidia-smi exited with status {result.returncode}"
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    sample["error"] = str(exc)
                 await asyncio.sleep(1)
 
         sampler = asyncio.create_task(sample_resources()) if sample_gpu else None

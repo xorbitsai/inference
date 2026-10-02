@@ -4,14 +4,14 @@ PD separation
 =============
 
 Prefill/Decode (PD) separation is available in the community edition. Prefill
-replicas compute prompt KV cache; decode replicas reuse it through Xavier and
+replicas compute prompt KV cache; decode replicas reuse it through Xavier or native NIXL and
 produce the response. Requests are scheduled round-robin within each role.
 No enterprise package or License is required.
 
 Launch
 ------
 
-Use NVIDIA GPUs and a reachable host address (not ``0.0.0.0``). The V1 connector
+For Xavier, use NVIDIA GPUs and a reachable host address (not ``0.0.0.0``). The V1 connector
 requires vLLM 0.21.0 or newer. The existing V0 Xavier adapter is retained for
 vLLM versions below 0.11.0; versions 0.11 through 0.20 are not supported by this
 V1 connector. GPU integration CI pins vLLM 0.21.0.
@@ -51,7 +51,7 @@ configuration.
 The same ``replica_config`` is accepted by ``POST /v1/models``, the async Python
 client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM,
 enable per-replica placement, and choose Prefill or Decode for each replica.
-The community launch path automatically enables Xavier when P/D roles appear.
+The community launch path defaults to Xavier when P/D roles appear.
 
 
 Native NIXL backend
@@ -77,6 +77,8 @@ Worker addresses must be reachable between replicas, and the network must allow
 the allocated side-channel ports. This path does not create Xavier collective
 actors or force eager execution.
 
+For NIXL, wildcard worker binds are supported through automatic host discovery. Set ``VLLM_NIXL_SIDE_CHANNEL_HOST`` in launch ``envs`` or the worker environment to select a reachable interface; launch ``envs`` take precedence. If discovery fails or returns loopback, configure this variable explicitly. Xinference always replaces ``VLLM_NIXL_SIDE_CHANNEL_PORT`` with a dynamically allocated port per replica, including on recovery. A fixed side-channel port is not supported; firewalls must allow dynamic ports between replica hosts.
+
 For a reproducible comparison, run ``python benchmark/benchmark_pd.py --help``
 from the repository root. Supply a launch JSON containing model settings and
 P/D replica placement, and a JSONL workload of chat request bodies. The runner
@@ -94,7 +96,7 @@ Start a local server first, or use an existing supervisor endpoint:
 
 .. code-block:: bash
 
-   xinference-local --host 0.0.0.0 --port 9997
+   xinference-local --host 127.0.0.1 --port 9997
 
 In another terminal, launch a 1P+1D deployment:
 
@@ -144,6 +146,8 @@ Routing becomes available only after all replicas and transfer components are
 ready. Aborting a request reaches both roles. Terminating a deployment also
 removes its router, rank-zero coordinator, collective manager, and block tracker.
 
+Native NIXL replicas are not replayed automatically after a worker restart because their routing state belongs to the supervisor. Relaunch the deployment after a worker restart. Recovery of a model subprocess on a live worker re-registers its PD route.
+
 Verification
 ------------
 
@@ -163,6 +167,8 @@ evidence, and terminates the deployment. To use locally cached weights, set
 and size. The manually triggered ``PD GPU integration`` GitHub
 Actions workflow runs the same test on a selected runner with two GPUs.
 
+The GPU test runs both Xavier and NIXL; install ``nixl`` alongside the pinned vLLM version. Xavier verification requires producer staging and decoder load logs. NIXL verification requires ``calling _read_blocks`` and completed receive logs, including all four concurrent requests.
+
 Hybrid/recurrent attention limitation
 -------------------------------------
 
@@ -172,8 +178,8 @@ state across prefix-cache reuse and concurrent requests. Use ordinary single
 instances for these models, or a full-attention model such as Qwen3 for PD.
 Successful launch alone is not evidence of correct hybrid-state transfer.
 
-V1 supported configurations and cache safety
--------------------------------------------
+Xavier V1 supported configurations and cache safety
+--------------------------------------------------
 
 The V1 connector currently requires one GPU per replica (TP=1, PP=1), text-only
 models, and no LoRA adapters. Multimodal models, prompt embeddings and salted

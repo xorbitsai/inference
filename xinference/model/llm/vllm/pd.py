@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 """Native vLLM PD configuration, without importing optional GPU libraries."""
 
+import ipaddress
 import os
 import socket
 from typing import Any, Dict
@@ -26,7 +27,20 @@ def configure_nixl_environment(env: Dict[str, str], worker_address: str) -> None
                     sock.connect(("8.8.8.8", 80))
                     host = sock.getsockname()[0]
             except OSError:
-                host = socket.gethostbyname(socket.gethostname())
+                try:
+                    host = socket.gethostbyname(socket.gethostname())
+                except OSError as exc:
+                    raise ValueError(
+                        f"Cannot discover a reachable NIXL host; set {host_key} explicitly"
+                    ) from exc
+            if (
+                ipaddress.ip_address(host).is_loopback
+                or ipaddress.ip_address(host).is_unspecified
+            ):
+                raise ValueError(
+                    f"Discovered NIXL host {host!r} is not remotely reachable; "
+                    f"set {host_key} explicitly"
+                )
         env[host_key] = host
     env["VLLM_NIXL_SIDE_CHANNEL_PORT"] = str(get_next_port())
 
