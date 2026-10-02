@@ -75,7 +75,7 @@ def main():
     parser.add_argument("log", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    with args.log.open() as log:
+    with args.log.open(encoding="utf-8", errors="replace") as log:
         result = summarize(log)
     if not result["stages"]:
         parser.error("no Xavier profile events found")

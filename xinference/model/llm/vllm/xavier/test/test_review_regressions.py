@@ -248,7 +248,7 @@ async def test_snapshot_store_configured_once(connector, monkeypatch):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "count,width,expected_calls",
-    [(130, 1, 3), (130, 8192, 5), (3, 262144, 3), (2, 262145, 2)],
+    [(65, 1, 2), (130, 1, 3), (130, 8192, 5), (3, 262144, 3), (2, 262145, 2)],
 )
 async def test_batched_reads_bound_payload_and_preserve_order(
     connector_module, count, width, expected_calls
@@ -276,3 +276,18 @@ async def test_batched_reads_bound_payload_and_preserve_order(
     assert len(calls) == expected_calls
     assert [item for batch in calls for item in batch.items()] == list(mapping.items())
     assert result[:, 0].tolist() == list(mapping)
+
+
+@pytest.mark.asyncio
+async def test_later_read_batch_failure_propagates(connector_module):
+    read = AsyncMock(side_effect=[torch.zeros(64, 1), KeyError("missing block")])
+    connector = SimpleNamespace(
+        _get_transfer_ref=AsyncMock(
+            return_value=SimpleNamespace(read_layer_blocks_v1=read)
+        )
+    )
+    with pytest.raises(KeyError, match="missing block"):
+        await connector_module.XavierConnector._read_layer_blocks(
+            connector, "layer", 1, {i: i for i in range(130)}, (130, 1), torch.float32
+        )
+    assert read.await_count == 2

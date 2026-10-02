@@ -70,3 +70,74 @@ async def test_receive_failure_releases_buffer(monkeypatch, empty):
         actor.get_buffer_index.assert_not_called()
     else:
         actor.free_buffer_index.assert_called_once_with(7)
+
+
+@pytest.mark.asyncio
+async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
+    import asyncio
+    import ctypes
+    import queue
+    from types import MethodType
+    from unittest.mock import AsyncMock
+
+    import xoscar as xo
+    from xoscar.collective import xoscar_pygloo as xp
+
+    from ..snapshot import KVSnapshotStore
+
+    wire = queue.Queue()
+    sizes = []
+
+    def send(context, pointer, count, dtype, rank):
+        sizes.append(count)
+        wire.put(ctypes.string_at(pointer, count * dtype.itemsize))
+
+    def recv(context, pointer, count, dtype, rank):
+        data = wire.get(timeout=5)
+        assert len(data) == count * dtype.itemsize
+        ctypes.memmove(pointer, data, len(data))
+
+    monkeypatch.setattr(xp, "send", send)
+    monkeypatch.setattr(xp, "recv", recv)
+    sender = SimpleNamespace(
+        _rank=0,
+        _context=None,
+        _snapshot_store=KVSnapshotStore(8),
+        _layer_send_tasks_v1=set(),
+        get_gloo_dtype=lambda dtype: dtype,
+    )
+    for name in (
+        "_get_staged_layer_blocks_v1",
+        "do_send_layer_blocks_v1",
+        "start_send_layer_blocks_v1",
+        "has_layer_blocks_v1",
+    ):
+        setattr(sender, name, MethodType(getattr(TransferActor, name), sender))
+    blocks = torch.arange(12, dtype=torch.float32).reshape(3, 2, 2)
+    TransferActor.stage_layer_blocks_v1(sender, "r", "layer", [11, 22, 33], blocks)
+    TransferActor.publish_blocks_v1(sender, [11, 22, 33], ["layer"])
+    ref = SimpleNamespace(
+        has_layer_blocks_v1=AsyncMock(side_effect=sender.has_layer_blocks_v1),
+        start_send_layer_blocks_v1=AsyncMock(
+            side_effect=sender.start_send_layer_blocks_v1
+        ),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    receiver = SimpleNamespace(
+        _rank=1,
+        _context=None,
+        _world_addresses=["sender", "receiver"],
+        get_gloo_dtype=lambda dtype: dtype,
+    )
+    receiver.do_recv_layer_blocks_v1 = MethodType(
+        TransferActor.do_recv_layer_blocks_v1, receiver
+    )
+    result = await TransferActor.read_layer_blocks_v1(
+        receiver, 0, "layer", {33: 7, 11: 2, 22: 5}, (3, 2, 2), torch.float32
+    )
+    await asyncio.gather(*sender._layer_send_tasks_v1)
+    assert sizes == [12]
+    assert result.shape == (3, 2, 2)
+    assert torch.equal(result, blocks[[2, 0, 1]])
+    ref.has_layer_blocks_v1.assert_awaited_once_with("layer", [33, 11, 22])
+    ref.start_send_layer_blocks_v1.assert_awaited_once_with(1, "layer", [33, 11, 22])

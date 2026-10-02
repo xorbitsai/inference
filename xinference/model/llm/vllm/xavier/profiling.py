@@ -12,11 +12,11 @@ from typing import Any, Iterator
 logger = logging.getLogger(__name__)
 _ENABLED = os.environ.get("XINFERENCE_XAVIER_PROFILE") == "1"
 if _ENABLED:
-    # EngineCore is spawned outside xoscar's logging configuration. Emit to its
-    # stderr directly so diagnostics include engine and actor processes alike.
-    logger.addHandler(logging.StreamHandler())
+    # Keep configured actor/file logging; EngineCore may have no handlers.
+    if not logger.hasHandlers():
+        logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.INFO)
-    logger.propagate = False
+    logger.propagate = True
 
 
 @contextmanager

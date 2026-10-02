@@ -67,3 +67,17 @@ def test_invalid_events_do_not_discard_valid_measurements(payload):
     assert result["stages"]["load_rpc"]["calls"] == 2
     assert result["stages"]["load_rpc"]["total_s"] == 1
     assert result["stages"]["load_rpc"]["bytes"] == 128
+
+
+def test_cli_tolerates_non_utf8_log_bytes(monkeypatch, tmp_path):
+    import sys
+
+    log = tmp_path / "server.log"
+    output = tmp_path / "summary.json"
+    event = dict(stage="load_rpc", elapsed_s=0.5, succeeded=True)
+    log.write_bytes(
+        b"invalid byte: \xff\n" + (module.PREFIX + json.dumps(event)).encode()
+    )
+    monkeypatch.setattr(sys, "argv", ["analyze", str(log), "--output", str(output)])
+    module.main()
+    assert json.loads(output.read_text())["stages"]["load_rpc"]["calls"] == 1
