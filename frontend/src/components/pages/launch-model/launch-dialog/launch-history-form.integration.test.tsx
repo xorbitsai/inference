@@ -229,14 +229,15 @@ describe('launch history form integration', () => {
 
       assert.equal(launchRequestValues.n_gpu, expectedLaunchNGpu);
       assert.equal(launchedValues.n_gpu, expectedLaunchNGpu);
-      assert.equal(historyValues.n_gpu, expectedHistoryNGpu);
-      assert.equal(historyValues.worker_ip, 'gpu-worker:9999');
+      assert.equal(historyValues.data.n_gpu, expectedLaunchNGpu);
+      assert.equal(historyValues.uiData.n_gpu, expectedHistoryNGpu);
+      assert.equal(historyValues.data.worker_ip, 'gpu-worker:9999');
       if (expectsGpuIdx) {
-        assert.deepEqual(historyValues.gpu_idx, [0]);
+        assert.deepEqual(historyValues.data.gpu_idx, [0]);
       } else {
-        assert.equal(Object.hasOwn(historyValues, 'gpu_idx'), false);
+        assert.equal(Object.hasOwn(historyValues.data, 'gpu_idx'), false);
       }
-      assert.equal(historyValues.model_uid, 'server-uid');
+      assert.equal(historyValues.data.model_uid, 'server-uid');
     }
   });
 
@@ -267,9 +268,10 @@ describe('launch history form integration', () => {
     const historyValues = buildLaunchHistoryValues(formValues, launchedValues);
 
     for (const key of ['n_worker', 'n_gpu', 'worker_ip', 'gpu_idx']) {
-      assert.equal(Object.hasOwn(historyValues, key), false);
+      assert.equal(Object.hasOwn(historyValues.data, key), false);
     }
-    assert.deepEqual(historyValues.replica_config, [
+    assert.deepEqual(historyValues.uiData, {});
+    assert.deepEqual(historyValues.data.replica_config, [
       {
         role: 'hybrid',
         replica_uid: 'replica-0',

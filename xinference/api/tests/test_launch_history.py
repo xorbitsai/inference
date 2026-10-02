@@ -24,6 +24,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from xinference.api.routers import launch_history
+from xinference.core.autostart import normalize_autostart_model_entry
 from xinference.core.launch_history_store import LaunchHistoryStore
 
 
@@ -223,7 +224,101 @@ def test_store_migrates_autostart_columns(tmp_path):
     row = store.list()[0]
     assert row["autostart_enabled"] is False
     assert row["autostart_priority"] == 100
+    assert row["ui_data"] == {}
     assert store.list_autostart() == []
+
+
+@pytest.mark.parametrize(
+    ("ui_n_gpu", "launch_n_gpu"),
+    [("GPU", "auto"), ("CPU", None)],
+)
+def test_history_device_metadata_does_not_corrupt_enabled_autostart(
+    store, ui_n_gpu, launch_n_gpu
+):
+    launch = {
+        "model_name": "llama",
+        "model_uid": "uid-1",
+        "model_type": "embedding",
+        "n_gpu": launch_n_gpu,
+    }
+    store.upsert_autostart({"launch": launch}, username="alice")
+
+    store.upsert(
+        "llama",
+        "uid-1",
+        launch,
+        username="alice",
+        ui_data={"n_gpu": ui_n_gpu},
+    )
+
+    row = store.list(model_name="llama", username="alice")[0]
+    assert row["data"]["n_gpu"] == launch_n_gpu
+    assert row["ui_data"] == {"n_gpu": ui_n_gpu}
+    autostart_entry = store.list_autostart()[0]
+    assert autostart_entry["launch"]["n_gpu"] == launch_n_gpu
+    normalized_launch = normalize_autostart_model_entry(autostart_entry)["launch"]
+    if launch_n_gpu is None:
+        assert "n_gpu" not in normalized_launch
+    else:
+        assert normalized_launch["n_gpu"] == launch_n_gpu
+
+
+def test_save_with_autostart_preserves_ui_metadata_in_either_write_order(store):
+    launch = {
+        "model_name": "llama",
+        "model_uid": "uid-1",
+        "model_type": "embedding",
+        "n_gpu": "auto",
+    }
+
+    # History can finish before the independently saved autostart request.
+    store.upsert(
+        "llama",
+        "uid-1",
+        launch,
+        username="alice",
+        ui_data={"n_gpu": "GPU"},
+    )
+    store.upsert_autostart({"launch": launch}, username="alice")
+    row = store.list(model_name="llama", username="alice")[0]
+    assert row["data"]["n_gpu"] == "auto"
+    assert row["ui_data"] == {"n_gpu": "GPU"}
+
+    # A later history save updates only the UI intent with normalized launch data.
+    cpu_launch = {**launch, "n_gpu": None}
+    store.upsert_autostart({"launch": cpu_launch}, username="alice")
+    store.upsert(
+        "llama",
+        "uid-1",
+        cpu_launch,
+        username="alice",
+        ui_data={"n_gpu": "CPU"},
+    )
+    row = store.list(model_name="llama", username="alice")[0]
+    assert row["data"]["n_gpu"] is None
+    assert row["ui_data"] == {"n_gpu": "CPU"}
+    assert store.list_autostart()[0]["launch"]["n_gpu"] is None
+
+
+def test_legacy_history_update_preserves_existing_ui_metadata(store):
+    store.upsert(
+        "llama",
+        "uid-1",
+        {"model_name": "llama", "model_uid": "uid-1", "n_gpu": "auto"},
+        username="alice",
+        ui_data={"n_gpu": "GPU"},
+    )
+
+    store.upsert(
+        "llama",
+        "uid-1",
+        {"model_name": "llama", "model_uid": "uid-1", "n_gpu": "auto"},
+        username="alice",
+    )
+
+    assert store.list(model_name="llama", username="alice")[0]["ui_data"] == {
+        "n_gpu": "GPU"
+    }
 
 
 def test_upsert_autostart_inserts_and_lists_unredacted_payload(store):
@@ -437,7 +532,12 @@ def test_list_handler_raises_500_on_error(mock_api):
 @pytest.mark.asyncio
 async def test_create_handler_upserts_with_username(mock_api):
     request = _request_with_json(
-        {"model_name": "llama", "model_uid": "", "data": {"model_engine": "vllm"}}
+        {
+            "model_name": "llama",
+            "model_uid": "",
+            "data": {"model_engine": "vllm"},
+            "ui_data": {"n_gpu": "GPU"},
+        }
     )
     response = await launch_history.create_launch_history(
         request=request, api=mock_api, user={"username": "alice"}
@@ -448,6 +548,7 @@ async def test_create_handler_upserts_with_username(mock_api):
         model_uid="",
         data={"model_engine": "vllm"},
         username="alice",
+        ui_data={"n_gpu": "GPU"},
     )
 
 
@@ -457,6 +558,7 @@ async def test_create_handler_blank_username_without_user(mock_api):
     await launch_history.create_launch_history(request=request, api=mock_api)
     _, kwargs = mock_api._launch_history_store.upsert.call_args
     assert kwargs["username"] == ""
+    assert kwargs["ui_data"] is None
 
 
 @pytest.mark.asyncio

@@ -530,21 +530,22 @@ export function transformFormToFetch(values: FormValues) {
 export function buildLaunchHistoryValues(
   formValues: FormValues,
   launchedValues: FormValues
-): FormValues {
-  const historyValues = { ...launchedValues };
+): { data: FormValues; uiData: FormValues } {
+  const data = { ...launchedValues };
+  const uiData: FormValues = {};
 
   if (formValues.replica_placement_mode === 'custom') {
-    delete historyValues.n_worker;
-    delete historyValues.worker_ip;
-    delete historyValues.n_gpu;
-    delete historyValues.gpu_idx;
+    delete data.n_worker;
+    delete data.worker_ip;
+    delete data.n_gpu;
+    delete data.gpu_idx;
   } else if (Object.hasOwn(formValues, 'n_gpu')) {
-    // Preserve the UI distinction between explicit GPU and automatic device
-    // selection. Both values intentionally map to `auto` in the launch API.
-    historyValues.n_gpu = formValues.n_gpu;
+    // Keep UI-only device intent separate from the executable launch payload.
+    // In particular, `GPU` maps to API `auto` and `CPU` maps to API `null`.
+    uiData.n_gpu = formValues.n_gpu;
   }
 
-  return historyValues;
+  return { data, uiData };
 }
 
 const AUTO_DEVICE_MODEL_TYPES: RequestModelType[] = [

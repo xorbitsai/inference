@@ -26,8 +26,19 @@ export const normalizeLaunchHistoryItem = (item, defaults = {}) => {
   const updatedAt = normalizeTimestamp(item.updated_at ?? item.created_at);
   if (updatedAt === null) return null;
 
+  const uiData =
+    item.ui_data && typeof item.ui_data === 'object' && !Array.isArray(item.ui_data)
+      ? item.ui_data
+      : {};
+  const launchData =
+    item.launch_data && typeof item.launch_data === 'object' && !Array.isArray(item.launch_data)
+      ? item.launch_data
+      : item.data;
+
   return {
-    data: item.data,
+    data: { ...item.data, ...uiData },
+    launch_data: launchData,
+    ui_data: uiData,
     model_name: item.model_name,
     model_uid: typeof item.model_uid === 'string' ? item.model_uid : '',
     created_by: typeof item.created_by === 'string' ? item.created_by : defaults.created_by || '',

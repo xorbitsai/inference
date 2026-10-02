@@ -278,7 +278,10 @@ export default function ConfigCache({
                   </h3>
                   {modelConfigHistory.length ? (
                     modelConfigHistory.map((item) => {
-                      const isActiveConfig = isSameConfig(currentFetchValues, item.data);
+                      const isActiveConfig = isSameConfig(
+                        currentFetchValues,
+                        item.launch_data ?? item.data
+                      );
                       const canDelete = item.is_owner && !item.autostart_enabled;
 
                       return (

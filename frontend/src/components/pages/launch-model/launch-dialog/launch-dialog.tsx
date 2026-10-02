@@ -1951,7 +1951,7 @@ export default function LaunchDialog({
             launchRequestValues.model_name,
         };
         const historyValues = buildLaunchHistoryValues(values, launchedValues);
-        void saveLaunchConfigHistory(historyValues, clusterAuth?.auth)
+        void saveLaunchConfigHistory(historyValues.data, clusterAuth?.auth, historyValues.uiData)
           .then((historySaved) => {
             if (!historySaved) {
               toast.warning(t('launchModel.configHistorySyncFailed'));
