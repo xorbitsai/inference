@@ -37,5 +37,7 @@ def release_actor_loop(loop: asyncio.AbstractEventLoop) -> None:
             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         loop.run_until_complete(loop.shutdown_asyncgens())
     finally:
-        loop.close()
-        del _local.loop
+        try:
+            loop.close()
+        finally:
+            del _local.loop

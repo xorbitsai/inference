@@ -3,6 +3,8 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+import pytest
+
 from ..actor_loop import acquire_actor_loop, release_actor_loop
 
 
@@ -91,3 +93,75 @@ def test_alternating_connectors_reuse_router_client(connector_module, monkeypatc
     finally:
         for connector in connectors:
             cls.shutdown(connector)
+
+
+def test_cleanup_errors_do_not_interrupt_loop_release():
+    loop = acquire_actor_loop()
+    reported = []
+    loop.set_exception_handler(lambda loop, context: reported.append(context))
+
+    async def listener():
+        try:
+            await asyncio.Event().wait()
+        finally:
+            raise RuntimeError("listener cleanup failed")
+
+    async def generator():
+        try:
+            yield
+        finally:
+            raise RuntimeError("generator cleanup failed")
+
+    async def start():
+        gen = generator()
+        await gen.__anext__()
+        return asyncio.create_task(listener()), gen
+
+    task, gen = loop.run_until_complete(start())
+    release_actor_loop(loop)
+    assert loop.is_closed()
+    assert str(task.exception()) == "listener cleanup failed"
+    assert len(reported) == 1
+    assert str(reported[0]["exception"]) == "generator cleanup failed"
+    assert gen.ag_frame is None
+
+
+def test_close_failure_clears_loop_reference(monkeypatch):
+    from .. import actor_loop
+
+    loop = acquire_actor_loop()
+    close = loop.close
+
+    def fail_close():
+        raise RuntimeError("close failed")
+
+    monkeypatch.setattr(loop, "close", fail_close)
+    try:
+        with pytest.raises(RuntimeError, match="close failed"):
+            release_actor_loop(loop)
+        assert not hasattr(actor_loop._local, "loop")
+        release_actor_loop(loop)
+        replacement = acquire_actor_loop()
+        assert replacement is not loop
+        release_actor_loop(replacement)
+    finally:
+        close()
+
+
+def test_connector_shutdown_clears_reference_on_failure(connector_module, monkeypatch):
+    from types import SimpleNamespace
+
+    connector = SimpleNamespace(_loop=object())
+    released = []
+
+    def fail_release(loop):
+        released.append(loop)
+        raise RuntimeError("release failed")
+
+    monkeypatch.setattr(connector_module, "release_actor_loop", fail_release)
+    cls = connector_module.XavierConnector
+    with pytest.raises(RuntimeError, match="release failed"):
+        cls.shutdown(connector)
+    assert connector._loop is None
+    cls.shutdown(connector)
+    assert len(released) == 1

@@ -132,8 +132,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def shutdown(self):
         if self._loop is None:
             return
-        release_actor_loop(self._loop)
-        self._loop = None
+        try:
+            release_actor_loop(self._loop)
+        finally:
+            self._loop = None
 
     def start_load_kv(self, forward_context: "ForwardContext", **kwargs: Any) -> None:
         if not self._is_consumer:
