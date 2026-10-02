@@ -483,8 +483,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 kv_tensor = block_major_view(kv_tensor, self._num_cache_blocks)
                 local_block_ids = list(src_to_dst.values())
                 # Must match the producer-side staging dtype in
-                # TransferActor.stage_layer_blocks_v1: bf16 is transported as
-                # float32 (not float16) to avoid overflow that corrupts KV.
+                # TransferActor.stage_layer_blocks_v1: float16 carries the
+                # original BF16 bits without numeric conversion.
                 transfer_dtype = (
                     XAVIER_BF16_TRANSPORT_DTYPE
                     if kv_tensor.dtype is torch.bfloat16
@@ -515,7 +515,12 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     nbytes=blocks.numel() * blocks.element_size(),
                     rank=self._rank,
                 ):
-                    if blocks.dtype != kv_tensor.dtype:
+                    if (
+                        kv_tensor.dtype == torch.bfloat16
+                        and blocks.dtype == XAVIER_BF16_TRANSPORT_DTYPE
+                    ):
+                        blocks = blocks.view(torch.bfloat16)
+                    elif blocks.dtype != kv_tensor.dtype:
                         blocks = blocks.to(dtype=kv_tensor.dtype)
                     kv_tensor[
                         torch.tensor(local_block_ids, device=kv_tensor.device)

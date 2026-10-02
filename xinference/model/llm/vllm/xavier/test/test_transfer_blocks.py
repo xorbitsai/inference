@@ -73,7 +73,8 @@ async def test_receive_failure_releases_buffer(monkeypatch, empty):
 
 
 @pytest.mark.asyncio
-async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch, dtype):
     import asyncio
     import ctypes
     import queue
@@ -113,7 +114,7 @@ async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
         "has_layer_blocks_v1",
     ):
         setattr(sender, name, MethodType(getattr(TransferActor, name), sender))
-    blocks = torch.arange(12, dtype=torch.float32).reshape(3, 2, 2)
+    blocks = torch.arange(12, dtype=dtype).reshape(3, 2, 2)
     TransferActor.stage_layer_blocks_v1(sender, "r", "layer", [11, 22, 33], blocks)
     TransferActor.publish_blocks_v1(sender, [11, 22, 33], ["layer"])
     ref = SimpleNamespace(
@@ -133,11 +134,14 @@ async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
         TransferActor.do_recv_layer_blocks_v1, receiver
     )
     result = await TransferActor.read_layer_blocks_v1(
-        receiver, 0, "layer", {33: 7, 11: 2, 22: 5}, (3, 2, 2), torch.float32
+        receiver, 0, "layer", {33: 7, 11: 2, 22: 5}, (3, 2, 2), dtype
     )
     await asyncio.gather(*sender._layer_send_tasks_v1)
     assert sizes == [12]
     assert result.shape == (3, 2, 2)
+    if dtype == torch.bfloat16:
+        assert result.dtype == torch.float16
+        result = result.view(torch.bfloat16)
     assert torch.equal(result, blocks[[2, 0, 1]])
     ref.has_layer_blocks_v1.assert_awaited_once_with("layer", [33, 11, 22])
     ref.start_send_layer_blocks_v1.assert_awaited_once_with(1, "layer", [33, 11, 22])
