@@ -487,7 +487,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 # original BF16 bits without numeric conversion.
                 transfer_dtype = (
                     XAVIER_BF16_TRANSPORT_DTYPE
-                    if kv_tensor.dtype is torch.bfloat16
+                    if kv_tensor.dtype == torch.bfloat16
                     else kv_tensor.dtype
                 )
                 recv_shape = (len(local_block_ids), *tuple(kv_tensor.shape[1:]))

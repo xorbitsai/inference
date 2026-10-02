@@ -293,10 +293,16 @@ async def test_later_read_batch_failure_propagates(connector_module):
     assert read.await_count == 2
 
 
-def test_bf16_snapshot_and_connector_preserve_all_bits(connector, connector_module):
+@pytest.mark.parametrize("noncontiguous", [False, True])
+def test_bf16_snapshot_and_connector_preserve_all_bits(
+    connector, connector_module, noncontiguous
+):
     # Includes infinities, NaNs, subnormals and values above the FP16 range.
     bits = torch.arange(65536, dtype=torch.int32).to(torch.int16)
     source = bits.view(torch.bfloat16).reshape(8, 8192)
+    if noncontiguous:
+        source = source.t().contiguous().t()
+        assert not source.is_contiguous()
     actor = SimpleNamespace(_rank=0, _snapshot_store=KVSnapshotStore(8))
     TransferActor.stage_layer_blocks_v1(actor, "r", "layer", list(range(8)), source)
     payload = actor._snapshot_store.read("layer", list(range(8)))
@@ -307,7 +313,11 @@ def test_bf16_snapshot_and_connector_preserve_all_bits(connector, connector_modu
     async def read(layer, rank, mapping, shape, dtype):
         assert dtype == torch.float16
         # Exercise the NumPy transport representation, without numeric casts.
-        return torch.from_numpy(payload.numpy().copy())
+        result = torch.from_numpy(payload.numpy().copy())
+        if noncontiguous:
+            result = result.t().contiguous().t()
+            assert not result.is_contiguous()
+        return result
 
     connector._read_layer_blocks = read
     destination = torch.empty_like(source)
