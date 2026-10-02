@@ -38,6 +38,7 @@ async def launch_runtime(monkeypatch):
 
     async def create_actor(cls, *args, **kwargs):
         ref = AsyncMock(address=kwargs["address"], uid=kwargs["uid"])
+        ref.constructor_kwargs = kwargs
         actors[cls.__name__] = ref
         return ref
 
@@ -71,6 +72,7 @@ async def test_pd_launch_routes_and_terminates(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     assert await supervisor.launch_builtin_model(**launch_kwargs()) == "pd"
     assert await supervisor.get_model("pd") is actors["PDModelActor"]
+    assert actors["PDModelActor"].constructor_kwargs["transport_backend"] == "xavier"
     for i, worker in enumerate(workers):
         config = worker.launch_builtin_model.call_args.kwargs["xavier_config"]
         assert config["rank"] == i + 1
@@ -158,3 +160,117 @@ async def test_recovery_refreshes_pd_router(launch_runtime):
     replacement = MagicMock()
     await supervisor.register_pd_replica("pd", "pd-rep0", replacement)
     actors["PDModelActor"].add_prefill_actor.assert_awaited_with("pd-rep0", replacement)
+
+
+@pytest.mark.asyncio
+async def test_nixl_launch_skips_xavier_collectives(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), vllm_transfer_backend_type="nixl"
+    )
+    assert set(actors) == {"PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["transport_backend"] == "nixl"
+    for worker, role in zip(workers, ("prefill", "decode")):
+        kwargs = worker.launch_builtin_model.call_args.kwargs
+        assert kwargs["xavier_config"] is None
+        assert kwargs["_nixl_config"] == {"role": role}
+        worker.launch_rank0_model.assert_not_awaited()
+        worker.start_transfer_for_vllm.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    assert not supervisor._pd_model_mapping
+    assert not supervisor._replica_model_uid_to_worker
+    assert destroy.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_nixl_worker_recovery_refreshes_route_without_collectives():
+    from ..worker import WorkerActor
+
+    worker = MagicMock()
+    supervisor = AsyncMock()
+    worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
+    worker.launch_builtin_model = AsyncMock(return_value="new:1234")
+    worker.wait_for_load = AsyncMock()
+    replacement = MagicMock()
+    worker._model_uid_to_model = {"pd-rep0": replacement}
+    await WorkerActor.recover_model(
+        worker, {"model_uid": "pd-rep0", "_nixl_config": {"role": "prefill"}}
+    )
+    supervisor.unregister_pd_replica.assert_awaited_once_with("pd", "pd-rep0")
+    supervisor.register_pd_replica.assert_awaited_once_with(
+        "pd", "pd-rep0", replacement
+    )
+    supervisor.call_collective_manager.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_nixl_rejects_unmanaged_scale_up(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), vllm_transfer_backend_type="nixl"
+    )
+    with pytest.raises(ValueError, match="PD topology"):
+        await supervisor._add_model_replica("pd")
+    assert workers[0].launch_builtin_model.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "replica_config",
+    [None, [ReplicaConfig(role="hybrid"), ReplicaConfig(role="hybrid")]],
+)
+async def test_nixl_requires_explicit_pd_roles(launch_runtime, replica_config):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"] = replica_config
+    with pytest.raises(ValueError, match="NIXL requires explicit prefill and decode"):
+        await supervisor.launch_builtin_model(
+            **kwargs, vllm_transfer_backend_type="nixl"
+        )
+    assert not actors
+    assert not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_nixl_startup_replay_is_skipped_and_removed(tmp_path):
+    import json
+
+    from ..worker import WorkerActor
+
+    class Worker:
+        _load_persisted_launch_args = WorkerActor._load_persisted_launch_args
+        _persist_launch_args = WorkerActor._persist_launch_args
+
+        def _get_recovery_file_path(self):
+            return str(tmp_path / "models.json")
+
+    worker = Worker()
+    worker._supervisor_ref = AsyncMock()
+    worker._supervisor_ref.describe_model.return_value = {"model_name": "still-running"}
+    worker._model_uid_to_launch_args = {}
+    worker.launch_builtin_model = AsyncMock()
+    worker.wait_for_load = AsyncMock()
+    (tmp_path / "models.json").write_text(
+        json.dumps(
+            {"pd-rep0": {"model_uid": "pd-rep0", "_nixl_config": {"role": "prefill"}}}
+        )
+    )
+    await WorkerActor._try_recover_models(worker)
+    worker.launch_builtin_model.assert_not_awaited()
+    worker.wait_for_load.assert_not_awaited()
+    assert json.loads((tmp_path / "models.json").read_text()) == {}
+
+
+def test_registration_snapshot_excludes_nixl():
+    from ..worker import WorkerActor
+
+    worker = MagicMock()
+    worker._model_uid_to_model_spec = {"pd-rep0": {}, "regular-rep0": {}}
+    worker._model_uid_to_launch_args = {
+        "pd-rep0": {"_nixl_config": {"role": "prefill"}},
+        "regular-rep0": {},
+    }
+    snapshots = WorkerActor._get_running_replica_states(worker)
+    assert [item["replica_model_uid"] for item in snapshots] == ["regular-rep0"]

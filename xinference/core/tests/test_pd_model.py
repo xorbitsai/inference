@@ -275,3 +275,126 @@ async def test_abort_failure_still_cleans_request(router):
         await actor.abort_request("r")
     assert not actor._request_set
     _assert_free_model_cache_called(prefill, "r")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["chat", "generate"])
+async def test_nixl_handoff_preserves_metadata_and_decode_settings(router, method):
+    import json
+
+    actor, prefill, decode = router
+    actor._transport_backend = "nixl"
+    transfer = {
+        "do_remote_prefill": True,
+        "remote_engine_id": "engine-p",
+        "remote_block_ids": [[1, 2]],
+        "remote_request_id": "internal-request",
+        "remote_host": "10.0.0.1",
+        "remote_port": 5000,
+    }
+    getattr(prefill, method).return_value = json.dumps(
+        {"_pd_kv_transfer_params": transfer}
+    ).encode()
+    config = {"max_tokens": 64, "n": 1, "stream": False, "temperature": 0.7}
+    await actor._infer(method, "input", config, request_id="r")
+    p_config = getattr(prefill, method).call_args.args[1]
+    assert p_config["n"] == p_config["max_tokens"] == 1
+    assert p_config["_pd_kv_transfer_params"]["do_remote_decode"]
+    d_config = getattr(decode, method).call_args.args[1]
+    assert d_config == {**config, "_pd_kv_transfer_params": transfer}
+    assert "_pd_kv_transfer_params" not in config
+    decode.set_unpin_handler.assert_not_awaited()
+    prefill.free_model_cache.assert_not_awaited()
+    assert not actor._request_set
+
+
+@pytest.mark.asyncio
+async def test_nixl_parallel_sampling_rejected_before_prefill(router):
+    actor, prefill, decode = router
+    actor._transport_backend = "nixl"
+    with pytest.raises(ValueError, match="n=1"):
+        await actor._infer("chat", [], {"n": 2})
+    prefill.chat.assert_not_awaited()
+    decode.chat.assert_not_awaited()
+    assert not actor._request_set
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [{}, None, b"null", b"[]", b"{}", b"42"])
+async def test_nixl_missing_metadata_does_not_silently_recompute(router, payload):
+    actor, prefill, decode = router
+    actor._transport_backend = "nixl"
+    prefill.chat.return_value = payload
+    with pytest.raises(RuntimeError, match="KV transfer metadata"):
+        await actor._infer("chat", [], {})
+    decode.chat.assert_not_awaited()
+    assert not actor._request_set
+
+
+@pytest.mark.asyncio
+async def test_nixl_multiple_prefillers_and_decoders():
+    actor = PDModelActor("pd", transport_backend="nixl")
+    actor.address = "localhost:1234"
+    prefills, decodes = [], []
+    for i in range(2):
+        model = MagicMock()
+        model.chat = AsyncMock(
+            return_value={
+                "_pd_kv_transfer_params": {
+                    "do_remote_prefill": True,
+                    "remote_engine_id": f"p{i}",
+                }
+            }
+        )
+        prefills.append(model)
+        await actor.add_prefill_actor(f"p{i}", model)
+    for i in range(3):
+        model = MagicMock()
+        model.chat = AsyncMock(return_value=b'{"choices":[]}')
+        decodes.append(model)
+        await actor.add_decode_actor(f"d{i}", model)
+    for i in range(6):
+        await actor._infer("chat", [], {}, request_id=str(i))
+    assert [p.chat.await_count for p in prefills] == [3, 3]
+    for d in decodes:
+        sources = {
+            call.args[1]["_pd_kv_transfer_params"]["remote_engine_id"]
+            for call in d.chat.call_args_list
+        }
+        assert sources == {"p0", "p1"}
+
+
+@pytest.mark.asyncio
+async def test_nixl_stream_close_releases_decode_slot(router):
+    actor, prefill, decode = router
+    actor._transport_backend = "nixl"
+    prefill.chat.return_value = {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
+    closed = []
+
+    async def chunks():
+        try:
+            yield b"first"
+            yield b"second"
+        finally:
+            closed.append(True)
+
+    decode.chat.return_value = chunks()
+    stream = await actor._infer(
+        "chat", [], generate_config={"stream": True}, request_id="r"
+    )
+    assert await anext(stream) == b"first"
+    await stream.aclose()
+    assert closed == [True]
+    assert not actor._request_set
+    decode.decrease_serve_count.assert_awaited_once()
+    prefill.free_model_cache.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_generation_config_rejected_before_dispatch(router):
+    actor, prefill, decode = router
+    with pytest.raises(TypeError, match="Generation config supplied twice"):
+        await actor._infer("chat", [], {}, generate_config={})
+    prefill.chat.assert_not_awaited()
+    decode.chat.assert_not_awaited()
+    assert not actor._request_set

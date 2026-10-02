@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import os
 from typing import Any, Dict, Optional
 
 from packaging import version
@@ -141,6 +142,9 @@ class XavierEngine:
             raise RuntimeError("Xavier V1 requires vLLM >= 0.21.0")
         cls._xavier_config = xavier_config
         cls._patch_v1_engine_args(engine_args, xavier_config)
+        # EngineCore calls back into the actor runtime. Forking the loaded model
+        # process can inherit actor clients whose event-loop threads are gone.
+        os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
         logger.debug("Start Xavier V1 adapter for vLLM with config: %s", xavier_config)
         return AsyncLLMEngine.from_engine_args(
             engine_args,

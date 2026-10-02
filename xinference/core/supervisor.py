@@ -3090,9 +3090,12 @@ class SupervisorActor(xo.StatelessActor):
         from ..model.llm.vllm.xavier.transport import normalize_xavier_transport_backend
 
         transport_backend = normalize_xavier_transport_backend(transport_backend)
+        if transport_backend == "nixl" and not pd_enabled:
+            raise ValueError("NIXL requires explicit prefill and decode replica roles")
         # Xavier-related
         enable_xavier: bool = (
             (bool(kwargs.pop("enable_xavier", False)) or pd_enabled)
+            and transport_backend == "xavier"
             and model_engine is not None
             and model_engine.lower() == "vllm"
         )
@@ -3197,6 +3200,12 @@ class SupervisorActor(xo.StatelessActor):
             _addr = worker_ref.address
             self._workers_launching[_addr] = self._workers_launching.get(_addr, 0) + 1
 
+            replica_kwargs = dict(kwargs)
+            if pd_enabled and transport_backend == "nixl":
+                assert replica_config is not None
+                replica_kwargs["_nixl_config"] = {
+                    "role": replica_config[rank - 1].role,
+                }
             try:
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
@@ -3217,7 +3226,7 @@ class SupervisorActor(xo.StatelessActor):
                     virtual_env_find_links=virtual_env_find_links,
                     envs=envs,
                     xavier_config=xavier_config,
-                    **kwargs,
+                    **replica_kwargs,
                 )
                 # Track the worker before waiting so a failed load is cleaned up.
                 # Worker.get_model rejects requests until wait_for_load completes.
@@ -3508,6 +3517,7 @@ class SupervisorActor(xo.StatelessActor):
                     pd_ref = await xo.create_actor(
                         PDModelActor,
                         model_uid,
+                        transport_backend=transport_backend,
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
@@ -4765,6 +4775,10 @@ class SupervisorActor(xo.StatelessActor):
         ``worker_address`` for the caller.
         """
         # ---- 1. Look up the model ------------------------------------------------
+        if model_uid in self._pd_model_mapping:
+            raise ValueError(
+                "PD topology cannot be resized in place; terminate and relaunch the model"
+            )
         replica_info = self._model_uid_to_replica_info.get(model_uid)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")

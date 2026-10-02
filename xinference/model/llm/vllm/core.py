@@ -519,6 +519,9 @@ class VLLMModel(LLM):
         self.lora_modules = peft_model
         self.lora_requests: List[Any] = []
         self._xavier_config = None
+        self._nixl_config = cast(Dict[str, Any], model_config or {}).pop(
+            "_nixl_config", None
+        )
         self._context_length: Optional[int] = None
         # distributed inference
         self._device_count = None
@@ -790,6 +793,12 @@ class VLLMModel(LLM):
             f"Enable lora: {enable_lora}. Lora count: {max_loras}."
         )
 
+        if self._nixl_config is not None:
+            from .pd import configure_nixl_engine
+
+            if isinstance(self, VLLMMultiModel):
+                raise ValueError("Native NIXL PD currently supports text-only models")
+            configure_nixl_engine(self._model_config, VLLM_VERSION, enable_lora)
         use_native_mp, native_mp_reason = self._native_mp_route()
         if self._xavier_config is not None:
             from .xavier.engine import XavierEngine
@@ -1985,6 +1994,14 @@ class VLLMModel(LLM):
                 )
             sampling_params = SamplingParams(**sanitized_generate_config)
 
+        if generate_config and "_pd_kv_transfer_params" in generate_config:
+            if self._nixl_config is None:
+                raise ValueError("KV handoff requires the NIXL PD backend")
+            sampling_params.extra_args = {
+                **(sampling_params.extra_args or {}),
+                "kv_transfer_params": generate_config["_pd_kv_transfer_params"],
+            }
+
         prompt_or_token_ids: Union[str, Dict[str, Any], List[int]] = prompt
         if sampling_params.max_tokens is None:
             # no max_tokens set, try to get the max tokens
@@ -2031,6 +2048,8 @@ class VLLMModel(LLM):
             chunk = None
             finish_reason = None
             async for _request_output in results_generator:
+                if _request_output.finished:
+                    self._log_pd_request_metrics(_request_output)
                 chunk, finish_reason = self._convert_request_output_to_completion_chunk(
                     request_id=request_id,
                     model=self.model_uid,
@@ -2155,9 +2174,50 @@ class VLLMModel(LLM):
                 final_output = request_output
 
             assert final_output is not None
-            return self._convert_request_output_to_completion(
+            self._log_pd_request_metrics(final_output)
+            completion = self._convert_request_output_to_completion(
                 request_id, model=self.model_uid, request_output=final_output
             )
+            if self._nixl_config is not None and self._nixl_config["role"] == "prefill":
+                completion["_pd_kv_transfer_params"] = getattr(
+                    final_output, "kv_transfer_params", None
+                )
+            return completion
+
+    def _log_pd_request_metrics(self, output: Any) -> None:
+        config = self._nixl_config or self._xavier_config
+        metrics = getattr(output, "metrics", None)
+        if not config or metrics is None or not logger.isEnabledFor(logging.DEBUG):
+            return
+        fields = (
+            (
+                "arrival_time",
+                "queued_ts",
+                "scheduled_ts",
+                "first_token_ts",
+                "last_token_ts",
+                "first_token_latency",
+            )
+            if VLLM_VERSION >= version.parse("0.21.0")
+            else (
+                "arrival_time",
+                "first_scheduled_time",
+                "first_token_time",
+                "finished_time",
+                "time_in_queue",
+                "scheduler_time",
+                "model_forward_time",
+                "model_execute_time",
+            )
+        )
+        values = {name: getattr(metrics, name, None) for name in fields}
+        logger.debug(
+            "PD engine metrics: model=%s role=%s request=%s metrics=%s",
+            self.model_uid,
+            config.get("role"),
+            output.request_id,
+            values,
+        )
 
     def _track_engine_request(self, request_id: str, results_generator: Any) -> Any:
         """Track a vLLM request and abort it when consumption ends early."""
@@ -2168,6 +2228,15 @@ class VLLMModel(LLM):
             completed = False
             try:
                 async for request_output in results_iterator:
+                    # vLLM V1 reports failed KV loads as terminal outputs, not
+                    # exceptions. Raise before either completion conversion path.
+                    if any(
+                        output.finish_reason == "error"
+                        for output in getattr(request_output, "outputs", ())
+                    ):
+                        raise RuntimeError(
+                            f"vLLM request {request_id} failed (finish_reason=error)"
+                        )
                     yield request_output
                 completed = True
             finally:
@@ -2435,10 +2504,16 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._post_process_completion(
+                result = self._post_process_completion(
                     self.model_family, self.model_uid, c
                 )
-            return self._to_chat_completion(c, self.reasoning_parser)
+            else:
+                result = self._to_chat_completion(c, self.reasoning_parser)
+            if "_pd_kv_transfer_params" in c:
+                result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
+                    "_pd_kv_transfer_params"
+                ]
+            return result
 
 
 class VLLMMultiModel(VLLMModel, ChatModelMixin):

@@ -14,7 +14,9 @@
 
 import asyncio
 import copy
+import json
 import logging
+import time
 import uuid
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
@@ -81,12 +83,14 @@ class PDModelActor(xo.StatelessActor):
         scheduling_policy: Callable[
             [List[xo.ActorRefType["ModelActor"]]], SchedulingPolicy
         ] = RoundRobinSchedulingPolicy,
+        transport_backend: str = "xavier",
     ):
         super().__init__()
         # Prefill request map, used to skip the timeout task for specific request id.
         self._request_set: Set[str] = set()
 
         self._model_uid = model_uid
+        self._transport_backend = transport_backend
 
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -242,7 +246,7 @@ class PDModelActor(xo.StatelessActor):
         )
         if request_id in self._request_set:
             self._request_set.remove(request_id)
-            if self._prefill_replicas:
+            if self._prefill_replicas and self._transport_backend == "xavier":
                 await asyncio.gather(
                     *[
                         actor_call(
@@ -276,8 +280,21 @@ class PDModelActor(xo.StatelessActor):
         kwargs["request_id"] = request_id
         if request_id in self._request_set:
             raise ValueError(f"Request {request_id} is already running")
+        if "generate_config" in kwargs:
+            if args:
+                raise TypeError("Generation config supplied twice")
+            args = (kwargs.pop("generate_config"),)
         if args and args[0] is not None and not isinstance(args[0], dict):
             raise TypeError("Generation config must be a dict or None")
+        if (
+            self._transport_backend == "nixl"
+            and args
+            and args[0]
+            and args[0].get("n", 1) != 1
+        ):
+            # NIXL releases the producer lease after one decoder (per TP rank)
+            # acknowledges the read, not after all parallel sampling children.
+            raise ValueError("Native NIXL PD currently requires n=1")
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
         prefill_args = list(copy.deepcopy(args))
@@ -285,10 +302,17 @@ class PDModelActor(xo.StatelessActor):
             prefill_args = [{}] + prefill_args[1:]
         prefill_args[0]["max_tokens"] = 1
         prefill_args[0]["stream"] = False
+        if self._transport_backend == "nixl":
+            prefill_args[0]["n"] = 1
+            prefill_args[0]["_pd_kv_transfer_params"] = {
+                "do_remote_decode": True,
+                "do_remote_prefill": False,
+            }
         prefill_kwargs = copy.deepcopy(kwargs)
         if isinstance(prefill_kwargs.get("raw_params"), dict):
             prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)
         self._request_set.add(request_id)
+        prefill_start = time.perf_counter()
         try:
             result = await actor_call(
                 prefill, method, inputs, *prefill_args, **prefill_kwargs
@@ -298,14 +322,41 @@ class PDModelActor(xo.StatelessActor):
                     pass
             if request_id not in self._request_set:
                 raise asyncio.CancelledError(f"PD request {request_id} was aborted")
-            await actor_call(
-                decode,
-                "set_unpin_handler",
-                self._model_uid,
+            logger.debug(
+                "PD prefill complete: request=%s backend=%s elapsed_s=%.6f",
                 request_id,
-                self.address,
-                _rpc_operation_request_id=request_id,
+                self._transport_backend,
+                time.perf_counter() - prefill_start,
             )
+            if self._transport_backend == "nixl":
+                payload = (
+                    json.loads(result) if isinstance(result, (bytes, str)) else result
+                )
+                transfer = (
+                    payload.get("_pd_kv_transfer_params")
+                    if isinstance(payload, dict)
+                    else None
+                )
+                if not isinstance(transfer, dict) or not transfer.get(
+                    "do_remote_prefill"
+                ):
+                    raise RuntimeError(
+                        "NIXL prefill did not return KV transfer metadata"
+                    )
+                decode_args = list(copy.deepcopy(args))
+                if not decode_args or decode_args[0] is None:
+                    decode_args = [{}] + decode_args[1:]
+                decode_args[0]["_pd_kv_transfer_params"] = transfer
+                args = tuple(decode_args)
+            else:
+                await actor_call(
+                    decode,
+                    "set_unpin_handler",
+                    self._model_uid,
+                    request_id,
+                    self.address,
+                    _rpc_operation_request_id=request_id,
+                )
             result = await actor_call(
                 decode,
                 method,
@@ -383,6 +434,7 @@ class PDModelActor(xo.StatelessActor):
         """获取PD分离信息"""
         return {
             "model_uid": self._model_uid,
+            "transport_backend": self._transport_backend,
             "prefill_count": len(self._prefill_replicas),
             "decode_count": len(self._decode_replicas),
             "prefill_replica_uids": list(self._prefill_replicas.keys()),
