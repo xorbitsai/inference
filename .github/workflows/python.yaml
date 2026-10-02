@@ -373,6 +373,7 @@ jobs:
               benchmark/tests/test_benchmark_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \
               xinference/model/llm/vllm/xavier/test/test_profiling.py \
+              xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
               xinference/model/llm/vllm/tests/test_pd.py \
               xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py \
               xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \

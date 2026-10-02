@@ -28,6 +28,7 @@ from vllm.distributed.kv_transfer.kv_connector.v1.base import (
 )
 from vllm.v1.core.sched.output import SchedulerOutput
 
+from .actor_loop import acquire_actor_loop, release_actor_loop
 from .block_tracker import VLLMBlockTracker
 from .profiling import profile_stage
 from .snapshot import block_major_view
@@ -131,9 +132,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def shutdown(self):
         if self._loop is None:
             return
-        if self._loop.is_closed():
-            return
-        self._loop.close()
+        release_actor_loop(self._loop)
+        self._loop = None
 
     def start_load_kv(self, forward_context: "ForwardContext", **kwargs: Any) -> None:
         if not self._is_consumer:
@@ -350,9 +350,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         # vLLM creates the KV connector inside EngineCore after CUDA/JIT
         # initialization. Starting a helper thread here can trip glibc static
         # TLS allocation in CUDA-heavy environments, so run actor calls on a
-        # connector-local loop in the EngineCore thread.
+        # shared loop in the EngineCore thread. Scheduler and worker connectors
+        # must not switch loops and invalidate xoscar's connection cache.
         if self._loop is None:
-            self._loop = asyncio.new_event_loop()
+            self._loop = acquire_actor_loop()
         return self._loop.run_until_complete(coro)
 
     async def _get_tracker_ref(self) -> xo.ActorRefType["VLLMBlockTracker"]:
