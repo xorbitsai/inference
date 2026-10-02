@@ -153,7 +153,7 @@ msgid "``XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT``: Maximum number of rotated 
 msgstr ""
 
 #: ../../source/getting_started/logging.rst
-msgid "Each inference response includes ``X-Request-ID``. Xinference preserves a valid caller-provided ``request-id`` or ``x-request-id`` value (in that order), or generates an ``xinf-`` prefixed UUID. The same correlation ID is attached to Supervisor model lookup logs without replacing model operation request IDs used for cancellation or progress tracking."
+msgid "Each inference response includes ``X-Request-ID``. Xinference preserves a valid caller-provided ``request-id`` or ``x-request-id`` value (in that order), or generates a UUID. The same correlation ID is attached to Supervisor model lookup logs without replacing model operation request IDs used for cancellation or progress tracking."
 msgstr ""
 
 #: ../../source/getting_started/logging.rst:143

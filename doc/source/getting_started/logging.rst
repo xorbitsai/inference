@@ -133,7 +133,7 @@ The following environment variables configure the feature:
 
 Each inference response includes ``X-Request-ID``. Xinference preserves a valid
 caller-provided ``request-id`` or ``x-request-id`` value (in that order), or
-generates an ``xinf-`` prefixed UUID. The same correlation ID is attached to
+generates a UUID. The same correlation ID is attached to
 Supervisor model lookup logs without replacing model operation request IDs used
 for cancellation or progress tracking.
 
