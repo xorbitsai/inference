@@ -220,7 +220,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         ):
             # Release imported CUDA IPC handles while EngineCore still owns the
             # allocations, after any in-flight transfer has completed.
-            await self._transfer_ref.close_gpu_caches_v1()
+            try:
+                await self._transfer_ref.close_gpu_caches_v1()
+            except Exception:
+                logger.warning(
+                    "Failed to close Xavier GPU caches; continuing model cleanup",
+                    exc_info=True,
+                )
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)

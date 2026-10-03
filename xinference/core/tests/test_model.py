@@ -485,3 +485,36 @@ async def test_load_retry_log_names_the_model(monkeypatch, caplog):
 
     assert model.calls == 2
     assert "Retry to load model retry-model-0: 1 times" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(monkeypatch):
+    from unittest.mock import Mock
+
+    from ...model.llm.vllm.core import VLLMModel
+
+    calls = []
+    model = Mock(spec=VLLMModel)
+    model.model_spec = types.SimpleNamespace(model_format="pytorch")
+    model.stop.side_effect = lambda: calls.append("stop")
+
+    async def close():
+        calls.append("close")
+        raise RuntimeError("transfer actor unreachable")
+
+    ref = types.SimpleNamespace(close_gpu_caches_v1=AsyncMock(side_effect=close))
+    stub = types.SimpleNamespace(
+        _model=model,
+        _transfer_ref=ref,
+        _xavier_config={"gpu_cache_bytes": 0},
+        address="test:0",
+    )
+    destroy = AsyncMock(side_effect=lambda ref: calls.append("destroy"))
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    monkeypatch.setattr(
+        "xinference.core.model.empty_cache", lambda: calls.append("free")
+    )
+    await ModelActor.__pre_destroy__(stub)
+    assert calls == ["close", "stop", "destroy", "free"]
+    destroy.assert_awaited_once_with(ref)
+    assert not hasattr(stub, "_model")

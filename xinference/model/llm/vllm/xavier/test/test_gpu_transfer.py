@@ -82,6 +82,8 @@ async def test_cancel_waits_for_transfer_before_buffer_reuse(monkeypatch):
     task.cancel()
     await asyncio.sleep(0)
     assert not task.done() and r.recv_lock.locked()
+    if hasattr(task, "cancelling"):
+        assert task.cancelling() == 2
     release.set()
     with pytest.raises(asyncio.CancelledError):
         await task
