@@ -17,7 +17,9 @@ def direct_runtime(monkeypatch):
     r = runtime(monkeypatch, gpu_slots=0)
     r.__class__ = DirectGPUTransfer
     r.direct_requests, r.finished_sending = {}, set()
-    r.metrics.update(direct_registered=0, direct_finished=0, direct_expired=0)
+    r.metrics.update(
+        direct_registered=0, direct_finished=0, direct_expired=0, index_uploads=0
+    )
     return r
 
 
@@ -89,11 +91,14 @@ async def test_release_during_read_waits_for_copy_and_fence(monkeypatch):
         )
     )
     await asyncio.wait_for(entered.wait(), 2)
+    state = source.direct_requests["ticket"]
     source.release_direct("ticket")
+    assert state.indices
     assert not source.poll_direct()
     release.set()
     await task
     assert calls == ["fence", "copy", "fence"]
+    assert not state.indices
     assert source.poll_direct() == {"producer"}
 
 
@@ -185,3 +190,85 @@ def test_direct_producer_retains_original_engine_blocks(
     actor.register_direct_gpu_v1.assert_awaited_once_with(
         handoff["ticket"], "producer", [4, 5]
     )
+
+
+@pytest.mark.asyncio
+async def test_indices_reused_across_layers_and_slabs_but_not_requests(monkeypatch):
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    for layer in ("K", "V", "Q"):
+        source.caches[layer] = torch.arange(16, dtype=torch.bfloat16).reshape(8, 2)
+        dest.caches[layer] = torch.zeros_like(source.caches[layer])
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer_for(source)))
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    for ticket, destinations in (("first", [5, 3]), ("second", [3, 5])):
+        source.register_direct(ticket, ticket, [1, 2])
+        state = source.direct_requests[ticket]
+        mapping = {name: dict(zip([1, 2], destinations)) for name in source.caches}
+        await dest.run(dest.load_direct, [{0: mapping}], [ticket])
+        for layer in source.caches:
+            assert torch.equal(
+                dest.caches[layer][destinations], source.caches[layer][[1, 2]]
+            )
+        assert not state.indices
+    assert source.metrics["index_uploads"] == dest.metrics["index_uploads"] == 2
+    assert dest.metrics["gpu_batches"] == 4
+    assert source.poll_direct() == {"first", "second"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("finish", ["release", "expire", "close"])
+async def test_request_indices_reclaimed_on_lifecycle_end(monkeypatch, finish):
+    source = direct_runtime(monkeypatch)
+    source.register_direct("ticket", "request", [1, 2])
+    state = source.direct_requests["ticket"]
+    index = source._index_tensor(state.indices, [1, 2])
+    assert source._index_tensor(state.indices, [1, 2]) is index
+    assert source._index_tensor(state.indices, [2, 1]).tolist() == [2, 1]
+    assert index.dtype == torch.long
+    if finish == "release":
+        source.release_direct("ticket")
+    elif finish == "expire":
+        state.deadline = 0
+        source.poll_direct()
+    else:
+        await source.close()
+    assert not source.direct_requests
+    assert not state.indices
+
+
+@pytest.mark.asyncio
+async def test_failed_later_slab_releases_both_index_sets(monkeypatch):
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    for layer in ("V", "Q"):
+        source.caches[layer] = source.caches["K"].clone()
+        dest.caches[layer] = dest.caches["K"].clone()
+    source.register_direct("ticket", "producer", [1, 2])
+    state = source.direct_requests["ticket"]
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer_for(source)))
+    copies = 0
+    receiver_indices = []
+    original_index = dest._index_tensor
+
+    def index(indices, values):
+        receiver_indices.append(indices)
+        return original_index(indices, values)
+
+    async def copy(buffers, refs):
+        nonlocal copies
+        copies += 1
+        if copies == 2:
+            raise RuntimeError("transfer failed")
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(dest, "_index_tensor", index)
+    monkeypatch.setattr(xo, "copy_to", copy)
+    mapping = {name: {1: 5, 2: 3} for name in source.caches}
+    with pytest.raises(RuntimeError, match="transfer failed"):
+        await dest.run(dest.load_direct, [{0: mapping}], ["ticket"])
+    assert receiver_indices and all(not indices for indices in receiver_indices)
+    assert not state.indices
+    assert source.poll_direct() == {"producer"}

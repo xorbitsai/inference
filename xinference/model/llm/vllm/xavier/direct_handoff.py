@@ -4,7 +4,7 @@
 
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 import xoscar as xo
@@ -20,6 +20,7 @@ class DirectRequest:
     deadline: float
     reading: bool = False
     released: bool = False
+    indices: dict[tuple[int, ...], torch.Tensor] = field(default_factory=dict)
 
 
 class DirectGPUTransfer(GPUTransfer):
@@ -27,7 +28,27 @@ class DirectGPUTransfer(GPUTransfer):
         super().__init__(actor, caches, 0)
         self.direct_requests: dict[str, DirectRequest] = {}
         self.finished_sending: set[str] = set()
-        self.metrics.update(direct_registered=0, direct_finished=0, direct_expired=0)
+        self.metrics.update(
+            direct_registered=0, direct_finished=0, direct_expired=0, index_uploads=0
+        )
+
+    def _index_tensor(
+        self, indices: dict[tuple[int, ...], torch.Tensor], values: list[int]
+    ) -> torch.Tensor:
+        # Reuse across layers and slabs within one request. Constructing a CUDA
+        # tensor from a Python list otherwise synchronizes an H2D copy each time.
+        key = tuple(values)
+        if key not in indices:
+            indices[key] = torch.tensor(values, dtype=torch.long, device=self.device)
+            self.metrics["index_uploads"] += 1
+        return indices[key]
+
+    async def _close(self):
+        await super()._close()
+        for state in self.direct_requests.values():
+            state.indices.clear()
+        self.direct_requests.clear()
+        self.finished_sending.clear()
 
     def register_direct(self, ticket, request_id, blocks):
         if self.closing or ticket in self.direct_requests:
@@ -49,6 +70,7 @@ class DirectGPUTransfer(GPUTransfer):
             return
         state.released = True
         if not state.reading:
+            state.indices.clear()
             self.finished_sending.add(state.request_id)
             del self.direct_requests[ticket]
             self.metrics["direct_finished"] += 1
@@ -94,7 +116,7 @@ class DirectGPUTransfer(GPUTransfer):
                     torch.index_select(
                         cache,
                         0,
-                        torch.tensor(read.keys, device=self.device),
+                        self._index_tensor(state.indices, read.keys),
                         out=target,
                     )
                     offset = end
@@ -123,6 +145,7 @@ class DirectGPUTransfer(GPUTransfer):
                     address=self.actor._world_addresses[rank],
                     uid=f"{TransferActor.default_uid()}-{rank}",
                 )
+                indices: dict[tuple[int, ...], torch.Tensor] = {}
                 try:
                     reads = [
                         LayerRead(
@@ -145,11 +168,12 @@ class DirectGPUTransfer(GPUTransfer):
                             self.recv_buffer[:size], batch
                         ):
                             cache = self.caches[read.layer]
-                            cache[
-                                torch.tensor(read.destinations, device=self.device)
-                            ] = blocks
+                            cache[self._index_tensor(indices, read.destinations)] = (
+                                blocks
+                            )
                         await asyncio.to_thread(torch.cuda.synchronize, self.device)
                         self.metrics["gpu_batches"] += 1
                 finally:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                    indices.clear()
                     await sender.release_direct_gpu_v1(ticket)
