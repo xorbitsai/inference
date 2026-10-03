@@ -183,10 +183,14 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             self._snapshot_store = KVSnapshotStore(capacity)
 
     def stage_layer_blocks_v1(self, request_id, layer_name, block_ids, blocks):
+        logical_dtype = blocks.dtype
         if blocks.dtype == torch.bfloat16:
             blocks = blocks.view(XAVIER_BF16_TRANSPORT_DTYPE)
         self._snapshot_store.stage(
-            layer_name, block_ids, blocks.detach().cpu().contiguous()
+            layer_name,
+            block_ids,
+            blocks.detach().cpu().contiguous(),
+            logical_dtype=logical_dtype,
         )
         logger.debug(
             "Stage Xavier V1 blocks: request=%s, rank=%s, layer=%s, blocks=%s",
@@ -256,10 +260,11 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
     def _get_staged_layer_blocks_v1(self, layer_name, remote_block_ids):
         return self._snapshot_store.read(layer_name, remote_block_ids)
 
-    def has_layer_blocks_v1(self, layer_name, remote_block_ids):
+    def has_layer_blocks_v1(self, layer_name, remote_block_ids, expected_dtype):
         return self._snapshot_store is not None and all(
             key in self._snapshot_store.ready
             and layer_name in self._snapshot_store.blocks[key]
+            and self._snapshot_store.logical_dtypes[key][layer_name] == expected_dtype
             for key in remote_block_ids
         )
 
@@ -391,7 +396,9 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             sender_ref = await xo.actor_ref(
                 address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
             )
-            if not await sender_ref.has_layer_blocks_v1(layer_name, remote_block_ids):
+            if not await sender_ref.has_layer_blocks_v1(
+                layer_name, remote_block_ids, recv_dtype
+            ):
                 raise KeyError(
                     "No staged Xavier V1 blocks on rank "
                     f"{from_rank}: layer={layer_name!r}, blocks={remote_block_ids}"

@@ -311,7 +311,7 @@ def test_bf16_snapshot_and_connector_preserve_all_bits(
     assert torch.equal(payload.view(torch.int16), bits.reshape(8, 8192))
 
     async def read(layer, rank, mapping, shape, dtype):
-        assert dtype == torch.float16
+        assert dtype == torch.bfloat16
         # Exercise the NumPy transport representation, without numeric casts.
         result = torch.from_numpy(payload.numpy().copy())
         if noncontiguous:
@@ -328,3 +328,28 @@ def test_bf16_snapshot_and_connector_preserve_all_bits(
     )
     connector._load_layer_blocks("layer", destination, request)
     assert torch.equal(destination.view(torch.int16), source.view(torch.int16))
+
+
+def test_connector_rejects_unexpected_transport_dtype(connector, connector_module):
+    async def read(*args):
+        return torch.ones(1, 2, dtype=torch.float32)
+
+    connector._read_layer_blocks = read
+    destination = torch.zeros(8, 2, dtype=torch.bfloat16)
+    request = connector_module.XavierLoadRequest(
+        "r", {1: {1: 0}}, local_transfers_by_group={0: {1: {1: 0}}}
+    )
+    with pytest.raises(RuntimeError, match="torch.float32.*torch.bfloat16"):
+        connector._load_layer_blocks("layer", destination, request)
+    assert destination.count_nonzero() == 0
+
+
+def test_snapshot_logical_dtype_tracks_immutable_blocks_and_eviction():
+    store = KVSnapshotStore(1)
+    carrier = torch.ones(1, 2, dtype=torch.float16)
+    store.stage("K", [1], carrier, logical_dtype=torch.bfloat16)
+    store.stage("K", [1], carrier, logical_dtype=torch.float16)
+    assert store.logical_dtypes[1]["K"] == torch.bfloat16
+    store.stage("K", [2], carrier)
+    assert 1 not in store.logical_dtypes
+    assert store.logical_dtypes == {2: {"K": torch.float16}}

@@ -143,5 +143,39 @@ async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch, dtype):
         assert result.dtype == torch.float16
         result = result.view(torch.bfloat16)
     assert torch.equal(result, blocks[[2, 0, 1]])
-    ref.has_layer_blocks_v1.assert_awaited_once_with("layer", [33, 11, 22])
+    ref.has_layer_blocks_v1.assert_awaited_once_with("layer", [33, 11, 22], dtype)
     ref.start_send_layer_blocks_v1.assert_awaited_once_with(1, "layer", [33, 11, 22])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source_dtype, destination_dtype",
+    [(torch.bfloat16, torch.float16), (torch.float16, torch.bfloat16)],
+)
+async def test_mismatched_logical_dtype_rejected_before_send(
+    monkeypatch, source_dtype, destination_dtype
+):
+    from unittest.mock import AsyncMock
+
+    import xoscar as xo
+
+    from ..snapshot import KVSnapshotStore
+
+    sender = SimpleNamespace(_rank=0, _snapshot_store=KVSnapshotStore(1))
+    TransferActor.stage_layer_blocks_v1(
+        sender, "r", "layer", [1], torch.ones(1, 2, dtype=source_dtype)
+    )
+    TransferActor.publish_blocks_v1(sender, [1], ["layer"])
+    ref = SimpleNamespace(
+        has_layer_blocks_v1=AsyncMock(
+            side_effect=lambda *args: TransferActor.has_layer_blocks_v1(sender, *args)
+        ),
+        start_send_layer_blocks_v1=AsyncMock(),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    receiver = SimpleNamespace(_rank=1, _world_addresses=["sender"])
+    with pytest.raises(KeyError, match="No staged Xavier"):
+        await TransferActor.read_layer_blocks_v1(
+            receiver, 0, "layer", {1: 0}, (1, 2), destination_dtype
+        )
+    ref.start_send_layer_blocks_v1.assert_not_awaited()
