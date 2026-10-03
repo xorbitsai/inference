@@ -1060,3 +1060,19 @@ async def test_async_load_cancellation_holds_leases_until_writes_finish(monkeypa
         await job
     r.actor.release_remote_blocks_v1.assert_awaited_once_with("a", {})
     await r.close()
+
+
+@pytest.mark.asyncio
+async def test_async_load_preserves_write_error_when_release_also_fails(
+    monkeypatch, caplog
+):
+    r = runtime(monkeypatch)
+    r.load_requests = AsyncMock(side_effect=RuntimeError("write failed"))
+    r.actor.release_remote_blocks_v1 = AsyncMock(
+        side_effect=[ValueError("release failed"), None]
+    )
+    with pytest.raises(RuntimeError, match="write failed"):
+        await r.run(r.load_requests_with_leases, [{}], [("a", {}), ("b", {})])
+    assert r.actor.release_remote_blocks_v1.await_count == 2
+    assert "release failed" in caplog.text
+    await r.close()

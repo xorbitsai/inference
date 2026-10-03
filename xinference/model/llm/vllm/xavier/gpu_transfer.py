@@ -108,8 +108,12 @@ class GPUTransfer:
         return await finish_before_cancel(task)
 
     async def load_requests_with_leases(self, requests, leases):
+        load_failed = False
         try:
             await self.load_requests(requests)
+        except BaseException:
+            load_failed = True
+            raise
         finally:
             results = await asyncio.gather(
                 *(
@@ -121,7 +125,12 @@ class GPUTransfer:
             )
             for result in results:
                 if isinstance(result, BaseException):
-                    raise result
+                    if not load_failed:
+                        raise result
+                    logger.warning(
+                        "Failed to release Xavier snapshot lease after load failure",
+                        exc_info=(type(result), result, result.__traceback__),
+                    )
 
     async def close(self):
         task = getattr(self, "_close_task", None)
