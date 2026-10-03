@@ -106,6 +106,122 @@ def _manager(tmp_path, control=None, **kwargs):
     )
 
 
+def _agent_config(tmp_path, **overrides) -> RouterAgentConfig:
+    runtime = tmp_path / "xinference-router"
+    runtime.write_text("#!/bin/sh\nexit 0\n")
+    runtime.chmod(0o755)
+    values: dict[str, Any] = {
+        "supervisor_url": "http://supervisor:9997",
+        "node_id": "node-a",
+        "node_host": "127.0.0.1",
+        "port_range_start": 12080,
+        "port_range_end": 12089,
+        "max_instances": 5,
+        "runtime_executable": str(runtime),
+        "runtime_log_root": str(tmp_path / "runtime-logs"),
+        "internal_token": "secret",
+        "startup_retry_initial_seconds": 0.001,
+        "startup_retry_max_seconds": 0.01,
+        "startup_retry_timeout_seconds": 1.0,
+    }
+    values.update(overrides)
+    config = RouterAgentConfig(**values)
+    config.validate()
+    return config
+
+
+class _AgentControlPlane:
+    def __init__(
+        self,
+        *,
+        register_results=None,
+        asset_results=None,
+        assignment_results=None,
+    ):
+        self.register_results = list(register_results or [{}])
+        self.asset_results = list(asset_results or [None])
+        self.assignment_results = list(assignment_results or [None])
+        self.register_calls = 0
+        self.asset_calls = 0
+        self.assignment_calls = 0
+        self.heartbeat_payloads = []
+        self.close_calls = 0
+
+    @staticmethod
+    def _next(results, default):
+        result = results.pop(0) if results else default
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+    async def register_node(self, payload):
+        self.register_calls += 1
+        return self._next(self.register_results, {})
+
+    async def watch_asset_bindings(self, node_id, **kwargs):
+        self.asset_calls += 1
+        return self._next(self.asset_results, None)
+
+    async def watch_assignments(self, node_id, **kwargs):
+        self.assignment_calls += 1
+        return self._next(self.assignment_results, None)
+
+    async def heartbeat_node(self, node_id, payload):
+        self.heartbeat_payloads.append(payload)
+        return {"ok": True}
+
+    async def aclose(self):
+        self.close_calls += 1
+
+
+class _AgentProcessManager:
+    def __init__(self):
+        self.reconciled = []
+        self.shutdown_calls = 0
+
+    @property
+    def running_count(self):
+        return 0
+
+    def observed_assignments(self):
+        return []
+
+    async def reconcile(self, assignments):
+        self.reconciled.append(list(assignments))
+
+    async def shutdown(self):
+        self.shutdown_calls += 1
+
+
+class _AgentAssetManager:
+    def __init__(self):
+        self.reconciled = []
+
+    async def reconcile(self, bindings):
+        self.reconciled.append(list(bindings))
+
+
+def _http_status_error(status_code: int, *, retry_after: str | None = None):
+    request = httpx.Request("POST", "http://supervisor:9997/register")
+    headers = {"Retry-After": retry_after} if retry_after is not None else None
+    response = httpx.Response(status_code, request=request, headers=headers)
+    return httpx.HTTPStatusError(
+        f"HTTP {status_code}", request=request, response=response
+    )
+
+
+def _router_agent(tmp_path, *, control_plane=None, **config_overrides):
+    process_manager = _AgentProcessManager()
+    asset_manager = _AgentAssetManager()
+    agent = RouterAgent(
+        _agent_config(tmp_path, **config_overrides),
+        control_plane=control_plane or _AgentControlPlane(),
+        process_manager=process_manager,
+        asset_manager=asset_manager,
+    )
+    return agent, process_manager, asset_manager
+
+
 def test_runtime_instance_id_replaces_only_uuid_host_prefix(tmp_path) -> None:
     manager = _manager(tmp_path)
     assignment = _assignment()
@@ -197,7 +313,306 @@ def test_agent_config_reads_node_scope_environment(monkeypatch, tmp_path):
     assert config.node_id == "router-node-1"
     assert config.port_range_start == 12080
     assert config.port_range_end == 12089
+    assert config.startup_retry_initial_seconds == 1.0
+    assert config.startup_retry_max_seconds == 15.0
+    assert config.startup_retry_timeout_seconds == 120.0
     assert not hasattr(config, "router_uid")
+
+
+def test_agent_config_reads_startup_retry_environment(monkeypatch, tmp_path):
+    runtime = tmp_path / "xinference-router"
+    runtime.write_text("#!/bin/sh\nexit 0\n")
+    runtime.chmod(0o755)
+    values = {
+        "XINFERENCE_TOKEN_ROUTER_SUPERVISOR_URL": "http://supervisor:9997",
+        "XINFERENCE_TOKEN_ROUTER_NODE_ID": "router-node-1",
+        "XINFERENCE_TOKEN_ROUTER_NODE_HOST": "127.0.0.1",
+        "XINFERENCE_TOKEN_ROUTER_PORT_RANGE_START": "12080",
+        "XINFERENCE_TOKEN_ROUTER_PORT_RANGE_END": "12089",
+        "XINFERENCE_TOKEN_ROUTER_MAX_INSTANCES": "5",
+        "XINFERENCE_TOKEN_ROUTER_RUNTIME_EXECUTABLE": str(runtime),
+        "XINFERENCE_TOKEN_ROUTER_RUNTIME_LOG_ROOT": str(tmp_path / "logs"),
+        "XINFERENCE_TOKEN_ROUTER_INTERNAL_TOKEN": "secret",
+        "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS": "2",
+        "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS": "20",
+        "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS": "180",
+    }
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+
+    config = RouterAgentConfig.from_env()
+
+    assert config.startup_retry_initial_seconds == 2.0
+    assert config.startup_retry_max_seconds == 20.0
+    assert config.startup_retry_timeout_seconds == 180.0
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"startup_retry_initial_seconds": 0}, "initial delay"),
+        (
+            {
+                "startup_retry_initial_seconds": 2,
+                "startup_retry_max_seconds": 1,
+            },
+            "maximum",
+        ),
+        ({"startup_retry_timeout_seconds": 0}, "retry timeout"),
+    ],
+)
+def test_agent_config_rejects_invalid_startup_retry(tmp_path, overrides, message):
+    with pytest.raises(ValueError, match=message):
+        _agent_config(tmp_path, **overrides)
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_retries_connect_error(monkeypatch, tmp_path):
+    control = _AgentControlPlane(
+        register_results=[
+            httpx.ConnectError("not ready"),
+            httpx.ConnectError("still not ready"),
+            {"ok": True},
+        ]
+    )
+    agent, process_manager, asset_manager = _router_agent(
+        tmp_path, control_plane=control
+    )
+    delays = []
+
+    async def record_retry(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(agent, "_wait_for_startup_retry", record_retry)
+    monkeypatch.setattr(agent_service.random, "uniform", lambda lower, upper: 1.0)
+
+    assert await agent._bootstrap() is True
+    assert control.register_calls == 3
+    assert delays == [0.001, 0.002]
+    assert process_manager.reconciled == [[]]
+    assert asset_manager.reconciled == [[]]
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_retries_temporary_http_status(monkeypatch, tmp_path):
+    control = _AgentControlPlane(
+        register_results=[_http_status_error(503), {"ok": True}]
+    )
+    agent, _, _ = _router_agent(tmp_path, control_plane=control)
+    delays = []
+
+    async def record_retry(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(agent, "_wait_for_startup_retry", record_retry)
+    monkeypatch.setattr(agent_service.random, "uniform", lambda lower, upper: 1.0)
+
+    assert await agent._bootstrap() is True
+    assert control.register_calls == 2
+    assert delays == [0.001]
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_honors_retry_after_beyond_backoff_cap(
+    monkeypatch, tmp_path
+):
+    control = _AgentControlPlane(
+        register_results=[_http_status_error(429, retry_after="20"), {"ok": True}]
+    )
+    agent, _, _ = _router_agent(
+        tmp_path,
+        control_plane=control,
+        startup_retry_max_seconds=10,
+        startup_retry_timeout_seconds=30,
+    )
+    delays = []
+
+    async def record_retry(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(agent, "_wait_for_startup_retry", record_retry)
+
+    assert await agent._bootstrap() is True
+    assert delays == [20.0]
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_retry_after_stops_at_startup_deadline(
+    monkeypatch, tmp_path
+):
+    control = _AgentControlPlane(
+        register_results=[_http_status_error(429, retry_after="30"), {"ok": True}]
+    )
+    agent, _, _ = _router_agent(
+        tmp_path,
+        control_plane=control,
+        startup_retry_max_seconds=10,
+        startup_retry_timeout_seconds=5,
+    )
+    clock = 0.0
+    delays = []
+
+    async def advance_clock(delay):
+        nonlocal clock
+        delays.append(delay)
+        clock += delay
+
+    monkeypatch.setattr(agent_service.time, "monotonic", lambda: clock)
+    monkeypatch.setattr(agent, "_wait_for_startup_retry", advance_clock)
+
+    with pytest.raises(agent_service._RouterAgentBootstrapTimeout):
+        await agent._bootstrap()
+
+    assert control.register_calls == 1
+    assert delays == [5.0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [400, 401, 403, 404])
+async def test_agent_bootstrap_does_not_retry_permanent_http_status(
+    tmp_path, status_code
+):
+    control = _AgentControlPlane(register_results=[_http_status_error(status_code)])
+    agent, process_manager, _ = _router_agent(tmp_path, control_plane=control)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await agent.run()
+
+    assert control.register_calls == 1
+    assert control.close_calls == 1
+    assert process_manager.shutdown_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_timeout_is_bounded(monkeypatch, tmp_path):
+    control = _AgentControlPlane(register_results=[httpx.ConnectError("not ready")])
+    agent, process_manager, _ = _router_agent(
+        tmp_path,
+        control_plane=control,
+        startup_retry_timeout_seconds=1,
+    )
+    clock = 0.0
+
+    def advancing_monotonic():
+        nonlocal clock
+        clock += 0.4
+        return clock
+
+    monkeypatch.setattr(agent_service.time, "monotonic", advancing_monotonic)
+
+    with pytest.raises(agent_service._RouterAgentBootstrapTimeout):
+        await agent.run()
+
+    assert control.register_calls == 1
+    assert control.close_calls == 1
+    assert process_manager.shutdown_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_stop_interrupts_retry(tmp_path):
+    control = _AgentControlPlane(register_results=[httpx.ConnectError("not ready")] * 2)
+    agent, _, _ = _router_agent(
+        tmp_path,
+        control_plane=control,
+        startup_retry_initial_seconds=30,
+        startup_retry_max_seconds=30,
+        startup_retry_timeout_seconds=60,
+    )
+
+    task = asyncio.create_task(agent._bootstrap())
+    for _ in range(20):
+        if control.register_calls:
+            break
+        await asyncio.sleep(0)
+    agent.request_stop()
+
+    assert await asyncio.wait_for(task, timeout=1) is False
+    assert control.register_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_stop_interrupts_in_flight_operation(tmp_path):
+    control = _AgentControlPlane()
+    entered = asyncio.Event()
+
+    async def wait_forever(payload):
+        control.register_calls += 1
+        entered.set()
+        await asyncio.Event().wait()
+
+    control.register_node = wait_forever
+    agent, _, _ = _router_agent(
+        tmp_path,
+        control_plane=control,
+        startup_retry_timeout_seconds=60,
+    )
+
+    task = asyncio.create_task(agent._bootstrap())
+    await asyncio.wait_for(entered.wait(), timeout=1)
+    agent.request_stop()
+
+    assert await asyncio.wait_for(task, timeout=1) is False
+    assert control.register_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_run_starts_after_bootstrap_and_cleans_up(tmp_path):
+    control = _AgentControlPlane()
+    agent, process_manager, asset_manager = _router_agent(
+        tmp_path, control_plane=control
+    )
+    original_reconcile = process_manager.reconcile
+
+    async def reconcile_and_stop(assignments):
+        await original_reconcile(assignments)
+        agent.request_stop()
+
+    process_manager.reconcile = reconcile_and_stop
+
+    await agent.run()
+
+    assert process_manager.reconciled == [[]]
+    assert asset_manager.reconciled == [[]]
+    assert process_manager.shutdown_calls == 1
+    assert control.close_calls == 1
+    assert [payload["status"] for payload in control.heartbeat_payloads] == ["draining"]
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_retries_initial_snapshot(monkeypatch, tmp_path):
+    control = _AgentControlPlane(
+        asset_results=[
+            httpx.ConnectError("assets not ready"),
+            {"cursor": "asset-cursor", "bindings": []},
+        ],
+        assignment_results=[
+            httpx.ReadTimeout("assignments not ready"),
+            {"cursor": "assignment-cursor", "assignments": []},
+        ],
+    )
+    agent, _, _ = _router_agent(tmp_path, control_plane=control)
+
+    async def no_wait(delay):
+        return None
+
+    monkeypatch.setattr(agent, "_wait_for_startup_retry", no_wait)
+
+    assert await agent._bootstrap() is True
+    assert control.asset_calls == 2
+    assert control.assignment_calls == 2
+    assert agent._asset_cursor == "asset-cursor"
+    assert agent._cursor == "assignment-cursor"
+
+
+@pytest.mark.asyncio
+async def test_agent_bootstrap_does_not_retry_invalid_snapshot(tmp_path):
+    control = _AgentControlPlane(asset_results=[{"bindings": "invalid"}])
+    agent, _, _ = _router_agent(tmp_path, control_plane=control)
+
+    with pytest.raises(ValueError, match="snapshot must be a list"):
+        await agent._bootstrap()
+
+    assert control.asset_calls == 1
 
 
 def test_agent_registration_ignores_removed_legacy_environment(monkeypatch, caplog):

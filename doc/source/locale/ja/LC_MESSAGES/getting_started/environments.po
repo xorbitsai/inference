@@ -401,3 +401,27 @@ msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
 #: ../../source/getting_started/environments.rst:58
 msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
 msgstr "収集が失敗またはスキップされて worker がフィールドを省略した場合に、Supervisor が保持するモデル別 GPU メモリの最後の有効なスナップショットの最大経過時間（秒）です。明示的な空のスナップショットは、引き続きキャッシュを直ちに消去します。デフォルト値は 90 です。"
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr ""
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr ""
