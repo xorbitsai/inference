@@ -29,6 +29,7 @@ def connector_module(monkeypatch):
         SimpleNamespace(
             KVConnectorBase_V1=Base,
             KVConnectorMetadata=Metadata,
+            KVConnectorHandshakeMetadata=Metadata,
             KVConnectorRole=object,
             SupportsHMA=HMA,
         ),
@@ -51,7 +52,7 @@ def connector_module(monkeypatch):
 @pytest.fixture
 def connector_config():
     return SimpleNamespace(
-        cache_config=SimpleNamespace(block_size=16),
+        cache_config=SimpleNamespace(block_size=16, cache_dtype="auto"),
         parallel_config=SimpleNamespace(
             tensor_parallel_size=1, pipeline_parallel_size=1
         ),

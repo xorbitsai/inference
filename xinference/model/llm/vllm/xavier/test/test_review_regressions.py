@@ -176,10 +176,14 @@ async def test_partial_reservation_rolls_back(monkeypatch):
         reserve_blocks_v1=AsyncMock(return_value=False), release_blocks_v1=AsyncMock()
     )
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(side_effect=[first, second]))
-    actor = SimpleNamespace(_world_addresses=["zero", "one", "two"])
+    actor = SimpleNamespace(
+        _world_addresses=["zero", "one", "two"],
+        _kv_schema_v1=(16, {"layer": ((2,), torch.float32)}, "auto"),
+    )
     assert not await TransferActor.reserve_remote_blocks_v1(
         actor, "3:r", {1: {111: 0}, 2: {222: 1}}
     )
+    first.reserve_blocks_v1.assert_awaited_once_with("3:r", [111], actor._kv_schema_v1)
     first.release_blocks_v1.assert_awaited_once_with("3:r")
 
 
