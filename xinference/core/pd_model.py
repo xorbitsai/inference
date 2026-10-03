@@ -16,6 +16,7 @@ import asyncio
 import copy
 import json
 import logging
+import os
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -91,6 +92,7 @@ class PDModelActor(xo.StatelessActor):
 
         self._model_uid = model_uid
         self._transport_backend = transport_backend
+        self._direct_test = os.getenv("XINFERENCE_XAVIER_DIRECT_TEST") == "1"
 
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -246,7 +248,11 @@ class PDModelActor(xo.StatelessActor):
         )
         if request_id in self._request_set:
             self._request_set.remove(request_id)
-            if self._prefill_replicas and self._transport_backend == "xavier":
+            if (
+                self._prefill_replicas
+                and self._transport_backend == "xavier"
+                and not self._direct_test
+            ):
                 await asyncio.gather(
                     *[
                         actor_call(
@@ -287,7 +293,7 @@ class PDModelActor(xo.StatelessActor):
         if args and args[0] is not None and not isinstance(args[0], dict):
             raise TypeError("Generation config must be a dict or None")
         if (
-            self._transport_backend == "nixl"
+            (self._transport_backend == "nixl" or self._direct_test)
             and args
             and args[0]
             and args[0].get("n", 1) != 1
@@ -302,7 +308,7 @@ class PDModelActor(xo.StatelessActor):
             prefill_args = [{}] + prefill_args[1:]
         prefill_args[0]["max_tokens"] = 1
         prefill_args[0]["stream"] = False
-        if self._transport_backend == "nixl":
+        if self._transport_backend == "nixl" or self._direct_test:
             prefill_args[0]["n"] = 1
             prefill_args[0]["_pd_kv_transfer_params"] = {
                 "do_remote_decode": True,
@@ -328,7 +334,7 @@ class PDModelActor(xo.StatelessActor):
                 self._transport_backend,
                 time.perf_counter() - prefill_start,
             )
-            if self._transport_backend == "nixl":
+            if self._transport_backend == "nixl" or self._direct_test:
                 payload = (
                     json.loads(result) if isinstance(result, (bytes, str)) else result
                 )

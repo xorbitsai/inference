@@ -1,0 +1,155 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# Licensed under the Apache License, Version 2.0.
+"""Experimental request-scoped handoff; no persistent snapshot retention."""
+
+import asyncio
+import time
+from dataclasses import dataclass
+
+import torch
+import xoscar as xo
+
+from .gpu_transfer import GPUTransfer
+from .request_transfer import LayerRead, batch_reads, unpack_reads
+
+
+@dataclass
+class DirectRequest:
+    request_id: str
+    blocks: set[int]
+    deadline: float
+    reading: bool = False
+    released: bool = False
+
+
+class DirectGPUTransfer(GPUTransfer):
+    def __init__(self, actor, caches, budget):
+        super().__init__(actor, caches, 0)
+        self.direct_requests: dict[str, DirectRequest] = {}
+        self.finished_sending: set[str] = set()
+        self.metrics.update(direct_registered=0, direct_finished=0, direct_expired=0)
+
+    def register_direct(self, ticket, request_id, blocks):
+        if self.closing or ticket in self.direct_requests:
+            raise ValueError("Invalid direct handoff registration")
+        if not blocks or any(
+            block < 0 or block >= len(cache)
+            for cache in self.caches.values()
+            for block in blocks
+        ):
+            raise ValueError("Invalid direct KV block IDs")
+        self.direct_requests[ticket] = DirectRequest(
+            request_id, set(blocks), time.monotonic() + 120
+        )
+        self.metrics["direct_registered"] += 1
+
+    def release_direct(self, ticket):
+        state = self.direct_requests.get(ticket)
+        if state is None:
+            return
+        state.released = True
+        if not state.reading:
+            self.finished_sending.add(state.request_id)
+            del self.direct_requests[ticket]
+            self.metrics["direct_finished"] += 1
+
+    def poll_direct(self):
+        for ticket, state in list(self.direct_requests.items()):
+            if not state.released and time.monotonic() >= state.deadline:
+                self.metrics["direct_expired"] += 1
+                self.release_direct(ticket)
+        result = self.finished_sending
+        self.finished_sending = set()
+        return result
+
+    async def send_direct(self, ticket, reads, remote_ref, slab_bytes):
+        async with self.send_lock:
+            state = self.direct_requests.get(ticket)
+            if state is None or state.released:
+                raise RuntimeError("Direct KV handoff expired or was released")
+            if slab_bytes not in self.send_buffers:
+                raise ValueError("Direct peer transfer slab sizes differ")
+            if sum(read.nbytes for read in reads) > slab_bytes:
+                raise ValueError("Direct transfer exceeds slab capacity")
+            for read in reads:
+                cache = self.caches[read.layer]
+                if (
+                    not set(read.keys) <= state.blocks
+                    or cache.dtype != read.dtype
+                    or tuple(cache.shape[1:]) != read.block_shape
+                ):
+                    raise ValueError("Direct KV source layout or block IDs differ")
+            state.reading = True
+            state.deadline = time.monotonic() + 120
+            try:
+                offset = 0
+                for read in reads:
+                    end = offset + read.nbytes
+                    target = (
+                        self.send_buffer[offset:end]
+                        .view(read.dtype)
+                        .reshape(len(read.keys), *read.block_shape)
+                    )
+                    cache = self.caches[read.layer]
+                    torch.index_select(
+                        cache,
+                        0,
+                        torch.tensor(read.keys, device=self.device),
+                        out=target,
+                    )
+                    offset = end
+                await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                await xo.copy_to([self.send_buffers[slab_bytes]], [remote_ref])
+                self.metrics["wire_bytes"] += slab_bytes
+                self.metrics["useful_bytes"] += offset
+            finally:
+                # Even a failed gather may have queued reads of engine slots.
+                await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                state.reading = False
+                if state.released:
+                    self.release_direct(ticket)
+
+    async def load_direct(self, requests, tickets):
+        from .transfer import TransferActor
+
+        self.metrics["load_calls"] += 1
+        self.metrics["load_requests"] += len(requests)
+        async with self.recv_lock:
+            for ranks, ticket in zip(requests, tickets):
+                if len(ranks) != 1:
+                    raise ValueError("Direct prototype requires one producer")
+                rank, layers = next(iter(ranks.items()))
+                sender = await xo.actor_ref(
+                    address=self.actor._world_addresses[rank],
+                    uid=f"{TransferActor.default_uid()}-{rank}",
+                )
+                try:
+                    reads = [
+                        LayerRead(
+                            name,
+                            list(mapping),
+                            list(mapping.values()),
+                            tuple(self.caches[name].shape[1:]),
+                            self.caches[name].dtype,
+                        )
+                        for name, mapping in layers.items()
+                        if mapping
+                    ]
+                    for batch in batch_reads(reads, max_bytes=self.slab_bytes):
+                        size = sum(read.nbytes for read in batch)
+                        slab_bytes = min(n for n in self.recv_refs if n >= size)
+                        await sender.send_direct_gpu_v1(
+                            ticket, batch, self.recv_refs[slab_bytes], slab_bytes
+                        )
+                        for read, blocks in unpack_reads(
+                            self.recv_buffer[:size], batch
+                        ):
+                            cache = self.caches[read.layer]
+                            cache[
+                                torch.tensor(read.destinations, device=self.device)
+                            ] = blocks
+                        await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                        self.metrics["gpu_batches"] += 1
+                finally:
+                    await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                    await sender.release_direct_gpu_v1(ticket)

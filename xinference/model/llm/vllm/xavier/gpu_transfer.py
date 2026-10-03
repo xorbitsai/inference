@@ -460,7 +460,14 @@ class GPUTransferMixin:
         caches = {
             name: rebuild_cuda_tensor(*desc) for name, desc in descriptors.items()
         }
-        runtime = GPUTransfer(self, caches, budget)
+        import os
+
+        runtime_type = GPUTransfer
+        if os.getenv("XINFERENCE_XAVIER_DIRECT_TEST") == "1":
+            from .direct_handoff import DirectGPUTransfer
+
+            runtime_type = DirectGPUTransfer
+        runtime = runtime_type(self, caches, budget)
         self._gpu_transfer = runtime
         self._snapshot_store = runtime.store
 
@@ -487,3 +494,28 @@ class GPUTransferMixin:
             # Keep the closed runtime as a tombstone: close() reuses its task,
             # and map_gpu_caches_v1 must not re-register after shutdown/failure.
             await runtime.close()
+
+    def register_direct_gpu_v1(self, ticket, request_id, blocks):
+        self._gpu_transfer.register_direct(ticket, request_id, blocks)
+
+    def release_direct_gpu_v1(self, ticket):
+        self._gpu_transfer.release_direct(ticket)
+
+    def poll_direct_gpu_v1(self):
+        return self._gpu_transfer.poll_direct()
+
+    async def send_direct_gpu_v1(self, ticket, reads, remote_ref, slab_bytes):
+        runtime = self._gpu_transfer
+        return await runtime.run(
+            runtime.send_direct, ticket, reads, remote_ref, slab_bytes
+        )
+
+    async def load_direct_gpu_v1(self, requests, tickets):
+        runtime = self._gpu_transfer
+        return await runtime.run(runtime.load_direct, requests, tickets)
+
+    async def release_remote_direct_gpu_v1(self, rank, ticket):
+        ref = await xo.actor_ref(
+            address=self._world_addresses[rank], uid=f"{self.default_uid()}-{rank}"
+        )
+        await ref.release_direct_gpu_v1(ticket)

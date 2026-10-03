@@ -14,6 +14,7 @@
 import asyncio
 import logging
 import math
+import os
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -123,7 +124,12 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise ValueError(
                 "Xavier V1 currently supports text-only models without LoRA"
             )
+        self._direct_test = os.getenv("XINFERENCE_XAVIER_DIRECT_TEST") == "1"
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
+        if self._direct_test and (
+            self._gpu_budget is None or len(kv_cache_config.kv_cache_groups) != 1
+        ):
+            raise ValueError("Direct prototype requires GPU transport and one KV group")
         self._gpu_cache_mapped = False
         self._gpu_mapping_lock = asyncio.Lock()
         self._kv_schema: Optional[XavierKVSchema] = None
@@ -217,8 +223,12 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 raise release_error
 
     def get_finished(self, finished_req_ids: set[str]) -> tuple[set[str], set[str]]:
+        sent = set()
+        if self._direct_test and self._is_producer and self._gpu_cache_mapped:
+            assert self._transfer_ref is not None
+            sent = self._call(self._transfer_ref.poll_direct_gpu_v1())
         if not self._gpu_load_jobs:
-            return set(), set()
+            return sent, set()
         # Pump responses on the shared actor loop without waiting for any RPC.
         # CUDA writes and lease cleanup progress in the independent actor process.
         self._call(asyncio.sleep(0))
@@ -237,7 +247,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         # If the last request aborts while a load is pending, an idle EngineCore
         # may not poll again until new work arrives. Destination reclamation then
         # waits for that step; actor-side writes and lease release still progress.
-        return set(), received
+        return sent, received
 
     def wait_for_layer_load(self, layer_name: str) -> None:
         return
@@ -298,6 +308,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             self._pending_store_requests[request.request_id] = request
 
     def wait_for_save(self):
+        if self._direct_test and self._is_producer:
+            self._call(self._ensure_gpu_cache_mapping())
+            torch.cuda.synchronize()
+            return
         if not self._is_producer or not self._pending_store_requests:
             return
 
@@ -324,6 +338,32 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise ValueError(
                 "Xavier V1 does not support LoRA, multimodal, embedding or salted prompts"
             )
+        if self._direct_test:
+            params = getattr(request, "kv_transfer_params", None) or {}
+            handoff = params.get("xavier_direct")
+            if not self._is_consumer:
+                return 0, False
+            if handoff is None:
+                raise ValueError("Missing direct Xavier handoff metadata")
+            tokens = handoff["tokens"]
+            rank, ticket = handoff["rank"], handoff["ticket"]
+            if tokens <= num_computed_tokens:
+                if ticket:
+
+                    async def release():
+                        ref = await self._get_transfer_ref()
+                        await ref.release_remote_direct_gpu_v1(rank, ticket)
+
+                    self._call(release())
+                return 0, False
+            start = num_computed_tokens // self._block_size
+            blocks = handoff["blocks"]
+            self._requests_need_load[request.request_id] = XavierLoadRequest(
+                request.request_id,
+                {rank: {block: i for i, block in enumerate(blocks) if i >= start}},
+                lease=ticket,
+            )
+            return tokens - num_computed_tokens, True
         self._requests_need_load.pop(request.request_id, None)
         previous = self._leased_requests.pop(request.request_id, None)
         if previous is not None:
@@ -424,7 +464,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         scheduler_output: SchedulerOutput,
     ) -> KVConnectorMetadata:
         meta = XavierConnectorMetadata()
-        if self._is_producer:
+        if self._is_producer and not self._direct_test:
             self._build_store_meta(scheduler_output, meta)
         if self._is_consumer:
             self._build_load_meta(scheduler_output, meta)
@@ -435,6 +475,50 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request: "Request",
         block_ids: List[int],
     ) -> tuple[bool, dict[str, Any] | None]:
+        if self._direct_test:
+            params = getattr(request, "kv_transfer_params", None) or {}
+            if self._is_producer and params.get("do_remote_decode"):
+                from vllm.v1.request import RequestStatus
+
+                if request.status == RequestStatus.FINISHED_ABORTED:
+                    return False, None
+                token_count = max(len(request.prompt_token_ids) - 1, 0)
+                count = min(
+                    len(block_ids),
+                    (token_count + self._block_size - 1) // self._block_size,
+                )
+                blocks = block_ids[:count]
+                ticket = uuid.uuid4().hex if blocks else ""
+                if blocks:
+
+                    async def register():
+                        ref = await self._get_transfer_ref()
+                        await ref.register_direct_gpu_v1(
+                            ticket, request.request_id, blocks
+                        )
+
+                    self._call(register())
+                return bool(blocks), {
+                    "do_remote_prefill": True,
+                    "xavier_direct": {
+                        "rank": self._rank,
+                        "ticket": ticket,
+                        "blocks": blocks,
+                        "tokens": min(token_count, count * self._block_size),
+                    },
+                }
+            pending = self._requests_need_load.get(request.request_id)
+            if pending is not None and not pending.local_transfers_by_group:
+                self._requests_need_load.pop(request.request_id)
+
+                async def release():
+                    ref = await self._get_transfer_ref()
+                    await ref.release_remote_direct_gpu_v1(
+                        next(iter(pending.transfers)), pending.lease
+                    )
+
+                self._call(release())
+            return False, None
         self._chunked_prefill.pop(request.request_id, None)
         pending = self._requests_need_load.get(request.request_id)
         if (
@@ -843,11 +927,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         ranks[rank] = layers
                 entries.append(ranks)
             torch.cuda.synchronize()
-            task = asyncio.create_task(
-                transfer.load_gpu_requests_v1(
+            if self._direct_test:
+                operation = transfer.load_direct_gpu_v1(entries, [r.lease for r in requests])
+            else:
+                operation = transfer.load_gpu_requests_v1(
                     entries, [(r.lease, r.transfers) for r in requests]
                 )
-            )
+            task = asyncio.create_task(operation)
         except BaseException:
             # Worker metadata already owns these leases. Until task creation
             # succeeds, the TransferActor has no operation that can release them.
