@@ -52,8 +52,11 @@ _MAX_READ_BLOCKS = 64
 
 @dataclass
 class XavierKVSchema(KVConnectorHandshakeMetadata):
+    """Missing or mismatched schemas cause a cache miss and local recomputation."""
+
     block_size: int
     layers: Dict[str, Tuple[Tuple[int, ...], torch.dtype]]
+    cache_dtype: str
 
 
 @dataclass
@@ -99,6 +102,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             self._kv_transfer_config.get_from_extra_config("xavier_config", {}) or {}
         )
         self._block_size = vllm_config.cache_config.block_size
+        self._cache_dtype = vllm_config.cache_config.cache_dtype
         has_recurrent_cache = any(
             hasattr(group.kv_cache_spec, "mamba_cache_mode")
             for group in kv_cache_config.kv_cache_groups
@@ -201,7 +205,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for name, tensor in self._iter_kv_tensors(layer, cache)
         }
 
-        self._kv_schema = XavierKVSchema(self._block_size, schema)
+        self._kv_schema = XavierKVSchema(self._block_size, schema, self._cache_dtype)
         cache_groups = {
             layer_name: self._get_layer_group_id(layer_name)
             for layer_name in self._registered_kv_caches
@@ -409,15 +413,18 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
     async def _get_transfer_ref(self) -> xo.ActorRefType["TransferActor"]:
         if self._transfer_ref is None:
-            self._transfer_ref = await xo.actor_ref(
+            ref = await xo.actor_ref(
                 address=self._xavier_config.get("rank_address"),
                 uid=f"{TransferActor.default_uid()}-{self._rank}",
             )
-            await self._transfer_ref.configure_snapshots_v1(self._num_cache_blocks)
+            await ref.configure_snapshots_v1(self._num_cache_blocks)
             if self._kv_schema is not None:
-                await self._transfer_ref.configure_kv_schema_v1(
-                    self._kv_schema.block_size, self._kv_schema.layers
+                await ref.configure_kv_schema_v1(
+                    self._kv_schema.block_size,
+                    self._kv_schema.layers,
+                    self._kv_schema.cache_dtype,
                 )
+            self._transfer_ref = ref
         return self._transfer_ref
 
     async def _reserve_load_request(self, request):

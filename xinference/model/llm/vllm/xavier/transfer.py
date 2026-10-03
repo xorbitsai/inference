@@ -149,6 +149,8 @@ class TransferActor(
         self._cache_engine: Optional[List[CacheEngine]] = None
         self._scheduler: Optional[List[Scheduler]] = None
         self._snapshot_store: Optional[KVSnapshotStore] = None
+        self._kv_schema_v1: Optional[Tuple[int, dict, str]] = None
+        self._schema_mismatch_warnings: Set[Tuple[str, str]] = set()
         self._layer_send_tasks_v1: Set[asyncio.Task[Any]] = set()
         self._swap_stream = torch.cuda.Stream()
 
@@ -218,16 +220,42 @@ class TransferActor(
         self._snapshot_store.evicted.clear()
         return available, evicted
 
-    def configure_kv_schema_v1(self, block_size: int, layers: dict):
-        schema = (block_size, dict(layers))
-        previous = getattr(self, "_kv_schema_v1", None)
+    def configure_kv_schema_v1(self, block_size: int, layers: dict, cache_dtype: str):
+        schema = (block_size, dict(layers), cache_dtype)
+        previous = self._kv_schema_v1
         if previous is not None and previous != schema:
             raise ValueError("Xavier registered KV schema changed")
         self._kv_schema_v1 = schema
 
-    def reserve_blocks_v1(self, lease, keys, expected_schema=None):
-        schema = getattr(self, "_kv_schema_v1", None)
-        if not schema or not schema[1] or schema != expected_schema:
+    def reserve_blocks_v1(self, lease, keys, expected_schema):
+        schema = self._kv_schema_v1
+        if not schema or not schema[1]:
+            logger.debug(
+                "Xavier KV schema is not registered; treating reservation as a miss"
+            )
+            return False
+        if schema != expected_schema:
+            peer = lease.partition(":")[0]
+            fields = []
+            if schema[0] != expected_schema[0]:
+                fields.append("block_size")
+            if schema[2] != expected_schema[2]:
+                fields.append("cache_dtype")
+            if schema[1].keys() != expected_schema[1].keys():
+                fields.append("layer set")
+            for layer in schema[1].keys() & expected_schema[1].keys():
+                for index, field in enumerate(("shape", "dtype")):
+                    if schema[1][layer][index] != expected_schema[1][layer][index]:
+                        fields.append(field)
+            for field in set(fields):
+                warning = (peer, field)
+                if warning not in self._schema_mismatch_warnings:
+                    self._schema_mismatch_warnings.add(warning)
+                    logger.warning(
+                        "Xavier KV schema mismatch with peer %s: %s; recomputing locally",
+                        peer,
+                        field,
+                    )
             return False
         return self._snapshot_store is not None and self._snapshot_store.reserve(
             lease, keys
@@ -242,8 +270,11 @@ class TransferActor(
             self._snapshot_store.release_consumer(rank)
 
     async def reserve_remote_blocks_v1(self, lease, transfers):
-        schema = getattr(self, "_kv_schema_v1", None)
+        schema = self._kv_schema_v1
         if not schema or not schema[1]:
+            logger.debug(
+                "Xavier consumer KV schema is not registered; recomputing locally"
+            )
             return False
         refs = []
         success = False
