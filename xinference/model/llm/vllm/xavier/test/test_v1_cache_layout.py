@@ -71,7 +71,9 @@ def test_hybrid_cache_is_rejected_before_serving(monkeypatch):
         )
 
     monkeypatch.setattr(KVConnectorBase_V1, "__init__", init_base)
-    config = SimpleNamespace(cache_config=SimpleNamespace(block_size=16))
+    config = SimpleNamespace(
+        cache_config=SimpleNamespace(block_size=16, cache_dtype="auto")
+    )
     caches = SimpleNamespace(
         kv_cache_groups=[
             SimpleNamespace(kv_cache_spec=SimpleNamespace(mamba_cache_mode="all"))
