@@ -63,6 +63,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             self.history.leases.clear()
             self.history.evicted.clear()
         self._history_leases.clear()
+        self._history_probation.clear()
         for state in self.direct_requests.values():
             state.indices.clear()
         self.direct_requests.clear()

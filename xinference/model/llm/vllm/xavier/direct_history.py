@@ -5,6 +5,7 @@
 import asyncio
 import logging
 import time
+from collections import OrderedDict
 
 import torch
 
@@ -53,6 +54,15 @@ class DirectHistoryMixin:
         self._history_closing = False
         self._history_leases = {}
         self._history_reading = set()
+        # Metadata only. A second completed request demonstrates reuse before
+        # new content can displace existing GPU history. Empty slots need no
+        # probation, preserving first-request retention while there is room.
+        self._history_probation: OrderedDict[int, None] = OrderedDict()
+        self._history_probation_limit = min(
+            8192, 2 * self.history.gpu_capacity if self.history else 0
+        )
+        self.history_chunk_bytes = 2 * 1024 * 1024
+        self.history_fill_chunk_bytes = 8 * 1024 * 1024
         self.history_pending_bytes = min(budget, 64 * 1024 * 1024)
         # A soft admission deadline, not a cancellation timeout: an in-flight
         # CUDA chunk always drains before the engine can reuse its blocks.
@@ -63,6 +73,9 @@ class DirectHistoryMixin:
             history_failures=0,
             history_hit_blocks=0,
             history_loaded_requests=0,
+            history_admission_rejected_blocks=0,
+            history_admission_reused_blocks=0,
+            history_save_chunks=0,
         )
 
     def _expire_history_leases(self):
@@ -104,20 +117,36 @@ class DirectHistoryMixin:
         if state.held_blocks * self.history.block_bytes > self.history_pending_bytes:
             self.metrics["history_skipped_requests"] += 1
             return False
-        if self._history_task is not None and not self._history_task.done():
-            self.metrics["history_skipped_requests"] += 1
-            return False
         limit = min(
             self.history.gpu_capacity,
             self.history_pending_bytes // self.history.block_bytes,
         )
         candidates = []
+        free = max(0, self.history.gpu_capacity - len(self.history.blocks))
         for block, key in state.hashes.items():
             if key in self.history.ready:
                 self.history.touch(key)
-            elif len(candidates) < limit:
-                candidates.append((key, block))
+                self._history_probation.pop(key, None)
+                continue
+            repeated = key in self._history_probation
+            self._history_probation[key] = None
+            self._history_probation.move_to_end(key)
+            while len(self._history_probation) > self._history_probation_limit:
+                self._history_probation.popitem(last=False)
+            if free or repeated:
+                if len(candidates) < limit:
+                    candidates.append((key, block))
+                    free = max(0, free - 1)
+                    if repeated:
+                        self.metrics["history_admission_reused_blocks"] += 1
+            else:
+                self.metrics["history_admission_rejected_blocks"] += 1
         if not candidates:
+            return False
+        # Observe completed requests even when the single writer is busy, but
+        # never queue another writer or extend engine block ownership for it.
+        if self._history_task is not None and not self._history_task.done():
+            self.metrics["history_skipped_requests"] += 1
             return False
         state.retaining = True
         deadline = time.monotonic() + self.history_retention_seconds
@@ -143,8 +172,27 @@ class DirectHistoryMixin:
         try:
             # At most one writer and one bounded chunk. Yield between chunks;
             # never queue the writer ahead of an already active handoff or load.
-            count = max(1, min(32, self.slab_bytes // self.history.block_bytes))
-            for start in range(0, len(candidates), count):
+            start = 0
+            while start < len(candidates):
+                # Filling unused capacity can amortize per-layer gathers;
+                # replacements use smaller chunks to limit lock hold time.
+                free = self.history.gpu_capacity - len(self.history.blocks)
+                chunk_bytes = (
+                    self.history_fill_chunk_bytes
+                    if free > 0
+                    else self.history_chunk_bytes
+                )
+                count = max(
+                    1,
+                    min(
+                        32,
+                        min(self.slab_bytes, chunk_bytes) // self.history.block_bytes,
+                    ),
+                )
+                if free > 0:
+                    count = min(count, free)
+                chunk = candidates[start : start + count]
+                start += count
                 while self.send_lock.locked() or self.recv_lock.locked():
                     if self._history_closing or time.monotonic() >= deadline:
                         return
@@ -153,11 +201,7 @@ class DirectHistoryMixin:
                     return
                 async with self.send_lock:
                     self._expire_history_leases()
-                    pairs = [
-                        (k, b)
-                        for k, b in candidates[start : start + count]
-                        if k not in self.history.ready
-                    ]
+                    pairs = [(k, b) for k, b in chunk if k not in self.history.ready]
                     if not pairs:
                         continue
                     pending, ids = map(list, zip(*pairs))
@@ -170,6 +214,9 @@ class DirectHistoryMixin:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
                     available = self.history.publish(pending, set(self.caches))
                     self.metrics["history_saved_blocks"] += len(available)
+                    self.metrics["history_save_chunks"] += 1
+                    for key in available:
+                        self._history_probation.pop(key, None)
                     pending = []
                     del layers, index
                 await asyncio.sleep(0)

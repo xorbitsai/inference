@@ -241,3 +241,98 @@ def test_local_prefix_partial_tail_does_not_query_history(connector):
     assert connector.get_num_new_matched_tokens(request, 32) == (0, False)
     connector._get_transfer_ref.assert_not_called()
     assert not connector._requests_need_load
+
+
+@pytest.mark.asyncio
+async def test_full_history_preserves_hot_content_until_new_content_repeats(
+    monkeypatch,
+):
+    r = history_runtime(monkeypatch)
+    r._init_history(8)
+    r.history_retention_seconds = 10
+
+    async def finish(ticket, blocks, hashes):
+        r.register_direct(ticket, ticket, blocks, hashes)
+        r.release_direct(ticket)
+        if r._history_task:
+            await r._history_task
+        assert r.poll_direct() == {ticket}
+
+    await finish("warm", [1, 2], [101, 102])
+    assert r.history.ready == {101, 102}
+    await finish("cold", [3, 4], [103, 104])
+    assert r.history.ready == {101, 102}
+    assert r.metrics["history_admission_rejected_blocks"] == 2
+    await finish("repeat", [3, 4], [103, 104])
+    assert r.history.ready == {103, 104}
+    assert r.reserve_history("hit", [103, 104]) == [103, 104]
+    assert not r._history_probation
+    assert r.metrics["history_saved_blocks"] == 4
+    assert r.history.stats()["cpu_blocks"] == 0
+
+
+@pytest.mark.asyncio
+async def test_probation_is_bounded_and_forgets_old_cold_content(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r._init_history(4)
+    r.history_retention_seconds = 10
+    for key in (100, 101, 102, 103, 101):
+        r.register_direct(str(key), str(key), [1], [key])
+        r.release_direct(str(key))
+        if r._history_task:
+            await r._history_task
+        r.poll_direct()
+    assert r.history.ready == {100}
+    assert list(r._history_probation) == [103, 101]
+    await r.close()
+    assert not r._history_probation
+
+
+@pytest.mark.asyncio
+async def test_snapshot_chunks_respect_byte_budget(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r.history_chunk_bytes = r.history_fill_chunk_bytes = 8
+    r.register_direct("t", "p", [1, 2, 3, 4, 5], [101, 102, 103, 104, 105])
+    original = r.history.stage_blocks
+    sizes = []
+
+    def stage(keys, layers):
+        sizes.append(sum(t.numel() * t.element_size() for t in layers.values()))
+        return original(keys, layers)
+
+    monkeypatch.setattr(r.history, "stage_blocks", stage)
+    r.release_direct("t")
+    await r._history_task
+    assert sizes == [8, 8, 4]
+    assert r.metrics["history_save_chunks"] == 3
+    assert r.history.ready == {101, 102, 103, 104, 105}
+    assert r.poll_direct() == {"p"}
+
+
+@pytest.mark.asyncio
+async def test_fill_batches_grow_but_replacement_batches_stay_small(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r._init_history(20)
+    r.history_retention_seconds = 10
+    r.history_fill_chunk_bytes = 16
+    r.history_chunk_bytes = 8
+    sizes = []
+    original = r.history.stage_blocks
+
+    def stage(keys, layers):
+        sizes.append(len(keys))
+        return original(keys, layers)
+
+    monkeypatch.setattr(r.history, "stage_blocks", stage)
+    for ticket, hashes in (
+        ("fill", list(range(101, 106))),
+        ("observe", list(range(201, 206))),
+        ("replace", list(range(201, 206))),
+    ):
+        r.register_direct(ticket, ticket, [1, 2, 3, 4, 5], hashes)
+        r.release_direct(ticket)
+        if r._history_task:
+            await r._history_task
+        assert r.poll_direct() == {ticket}
+    assert sizes == [4, 1, 2, 2, 1]
+    assert r.history.ready == set(range(201, 206))
