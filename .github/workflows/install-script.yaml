@@ -1,0 +1,52 @@
+name: Install Script CI
+
+on:
+  push:
+    branches:
+      - '*'
+    paths:
+      - 'scripts/install.sh'
+      - '.github/workflows/install-script.yaml'
+  pull_request:
+    types: ['opened', 'reopened', 'synchronize']
+    paths:
+      - 'scripts/install.sh'
+      - '.github/workflows/install-script.yaml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Run shellcheck
+        run: shellcheck scripts/install.sh
+
+  install:
+    name: install (${{ matrix.os }}, cpu)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu-latest", "macos-latest" ]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Exercise the installer end-to-end. CPU backend keeps the download small
+      # and works on runners without a GPU (ignored on macOS).
+      - name: Run installer (CPU backend)
+        env:
+          XINFERENCE_BACKEND: cpu
+          XINFERENCE_HOME_DIR: ${{ runner.temp }}/xinf-venv
+        run: sh scripts/install.sh
+
+      - name: Verify the command is installed and runnable
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          xinference-local --help
+          xinference --version
