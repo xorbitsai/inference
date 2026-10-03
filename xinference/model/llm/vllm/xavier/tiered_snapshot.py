@@ -10,6 +10,16 @@ from .snapshot import KVSnapshotStore
 
 
 class TieredKVSnapshotStore(KVSnapshotStore):
+    """GPU-first snapshot policy, independent of the actor transport.
+
+    ``block_bytes`` reserves a complete block across all layers, including while
+    it is only partially staged. The GPU budget covers retained snapshots, not
+    temporary copy/read tensors or the CUDA allocator's reserved memory.
+    Leased blocks cannot migrate or be evicted. Reads default to CPU to retain
+    the base store's interface; GPU consumers must select their output device.
+    CUDA operations follow the caller's current stream.
+    """
+
     def __init__(
         self,
         cpu_capacity: int,
@@ -75,21 +85,29 @@ class TieredKVSnapshotStore(KVSnapshotStore):
     def stage(self, layer: str, keys: List[int], tensors: torch.Tensor):
         pinned = set().union(*self.leases.values()) if self.leases else set()
         for key, tensor in zip(keys, tensors):
+            existing = self.blocks.get(key, {})
+            if layer in existing:
+                self.blocks.move_to_end(key)
+                continue
+            used = sum(t.numel() * t.element_size() for t in existing.values())
+            if used + tensor.numel() * tensor.element_size() > self.block_bytes:
+                raise ValueError("Snapshot exceeds configured full-block size")
             if key not in self.blocks and not self._admit(key, pinned):
                 continue
             self.blocks.move_to_end(key)
             if layer not in self.blocks[key]:
-                used = sum(
-                    t.numel() * t.element_size() for t in self.blocks[key].values()
-                )
-                if used + tensor.numel() * tensor.element_size() > self.block_bytes:
-                    raise ValueError("Snapshot exceeds configured full-block size")
                 device = (
                     self.gpu_device if self.tiers[key] == "gpu" else torch.device("cpu")
                 )
-                self.blocks[key][layer] = (
-                    tensor.detach().to(device, copy=True).contiguous()
-                )
+                try:
+                    self.blocks[key][layer] = (
+                        tensor.detach().to(device, copy=True).contiguous()
+                    )
+                except Exception:
+                    # A failed first layer must not consume an empty slot.
+                    if not self.blocks[key]:
+                        self._drop(key)
+                    raise
 
     def reserve(self, lease: str, keys: List[int]) -> bool:
         if not super().reserve(lease, keys):
@@ -97,6 +115,14 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         for key in keys:
             self.metrics[self.tiers[key] + "_hits"] += 1
         return True
+
+    def read(
+        self, layer: str, keys: List[int], device: torch.device | None = None
+    ) -> torch.Tensor:
+        target = torch.device("cpu") if device is None else device
+        return torch.stack(
+            [self.blocks[key][layer].to(target) for key in keys]
+        ).contiguous()
 
     def stats(self) -> dict:
         return dict(
