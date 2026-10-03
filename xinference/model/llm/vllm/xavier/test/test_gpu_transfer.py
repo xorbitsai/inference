@@ -25,6 +25,9 @@ def runtime(monkeypatch, gpu_slots=1):
     r.send_buffer = torch.zeros(16, dtype=torch.uint8)
     r.recv_buffer = torch.zeros_like(r.send_buffer)
     r.recv_ref = r.recv_buffer
+    r.send_buffers = {r.slab_bytes: r.send_buffer}
+    r.recv_buffers = {r.slab_bytes: r.recv_buffer}
+    r.recv_refs = {r.slab_bytes: r.recv_ref}
     r.send_lock, r.recv_lock = asyncio.Lock(), asyncio.Lock()
     r.tasks, r.closing = set(), False
     r.metrics = dict(gpu_batches=0, cpu_batches=0, wire_bytes=0, useful_bytes=0)
@@ -38,8 +41,13 @@ def stage(r, key):
 
 
 @pytest.mark.asyncio
-async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch):
+@pytest.mark.parametrize("small_slab", [False, True])
+async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch, small_slab):
     source, dest = runtime(monkeypatch), runtime(monkeypatch)
+    if small_slab:
+        source.send_buffers[4] = source.send_buffer[:4]
+        dest.recv_buffers[4] = dest.recv_buffer[:4]
+        dest.recv_refs[4] = dest.recv_buffers[4]
     stage(source, 1)
     stage(source, 2)
     assert source.store.tiers == {1: "cpu", 2: "gpu"}
@@ -61,7 +69,55 @@ async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch):
     assert dest.caches["K"][:3].count_nonzero() == 0
     assert dest.metrics["gpu_batches"] == dest.metrics["cpu_batches"] == 1
     assert source.metrics["useful_bytes"] == 4
-    assert source.metrics["wire_bytes"] == 16
+    assert source.metrics["wire_bytes"] == (4 if small_slab else 16)
+
+
+@pytest.mark.asyncio
+async def test_load_selects_smallest_slab_and_reuses_buffer_objects(monkeypatch):
+    source, dest = runtime(monkeypatch, gpu_slots=2), runtime(monkeypatch)
+    stage(source, 1)
+    stage(source, 2)
+    source.send_buffers[4] = source.send_buffer[:4]
+    dest.recv_buffers[4] = dest.recv_buffer[:4]
+    dest.recv_refs[4] = dest.recv_buffers[4]
+    buffers_seen = []
+
+    async def copy(buffers, refs):
+        buffers_seen.append(buffers[0])
+        assert buffers[0].numel() == refs[0].numel()
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peer = SimpleNamespace(
+        gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+        send_gpu_request_v1=AsyncMock(side_effect=source.send),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    await dest.run(dest.load, {0: {"K": {1: 0}}})
+    await dest.run(dest.load, {0: {"K": {2: 1}}})
+    await dest.run(dest.load, {0: {"K": {1: 2, 2: 3}}})
+    assert [b.numel() for b in buffers_seen] == [4, 4, 16]
+    assert buffers_seen[0] is buffers_seen[1] is source.send_buffers[4]
+    assert buffers_seen[2] is source.send_buffer
+    assert dest.caches["K"][:4].tolist() == [[1, -1], [2, -2], [1, -1], [2, -2]]
+    assert source.metrics["wire_bytes"] == 24
+    assert source.metrics["useful_bytes"] == 16
+
+
+@pytest.mark.asyncio
+async def test_send_rejects_payload_exceeding_selected_slab(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    stage(r, 1)
+    stage(r, 2)
+    r.send_buffers[4] = r.send_buffer[:4]
+    copy = AsyncMock()
+    monkeypatch.setattr(xo, "copy_to", copy)
+    reads = [LayerRead("K", [1, 2], [0, 1], (2,), torch.bfloat16)]
+    with pytest.raises(ValueError, match="exceeds transfer slab"):
+        await r.send(reads, r.recv_ref, 4)
+    with pytest.raises(ValueError, match="slab sizes differ"):
+        await r.send(reads, r.recv_ref, 8)
+    copy.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -105,6 +161,7 @@ async def test_close_drains_operations_and_rejects_new_work(monkeypatch):
     release.set()
     await asyncio.gather(task, close)
     assert not r.caches and r.recv_ref is None
+    assert not r.recv_refs and not r.recv_buffers and not r.send_buffers
 
 
 @pytest.mark.asyncio
@@ -256,6 +313,7 @@ async def test_cancelled_close_finishes_ipc_cleanup(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await closing
     assert not r.caches and r.recv_ref is None
+    assert not r.recv_refs and not r.recv_buffers and not r.send_buffers
     await r.close()
 
 
@@ -272,6 +330,7 @@ async def test_gpu_packing_preserves_all_bf16_bits(monkeypatch, device):
     r.store.publish(list(range(8)), {"K"})
     r.slab_bytes = 131072
     r.send_buffer = torch.empty(r.slab_bytes, dtype=torch.uint8, device=device)
+    r.send_buffers = {r.slab_bytes: r.send_buffer}
     received = torch.empty_like(r.send_buffer)
 
     async def copy(buffers, refs):
@@ -449,3 +508,57 @@ def test_xavier_advertises_reachable_nixl_address(monkeypatch, address, expected
     sock.getsockname.return_value = ("127.0.0.1", 0)
     with pytest.raises(ValueError, match="remotely reachable"):
         gpu_pool_options("0.0.0.0:1234", {})
+
+
+@pytest.mark.asyncio
+async def test_staging_reused_layer_skips_gather_and_preserves_lru(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    stage(r, 1)
+    stage(r, 2)
+    before = r.store.blocks[1]["K"]
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+
+    def unexpected(*args, **kwargs):
+        raise AssertionError("immutable cached layer must not be gathered")
+
+    monkeypatch.setattr(torch.Tensor, "index_select", unexpected)
+    await r.stage([{"K": ([1], [7])}])
+    assert list(r.store.blocks) == [2, 1]
+    assert r.store.blocks[1]["K"] is before
+    assert not syncs
+
+
+@pytest.mark.asyncio
+async def test_staging_partial_hit_still_copies_and_synchronizes(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    stage(r, 1)
+    r.caches["K"][3] = torch.tensor([3, -3])
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+    await r.stage([{"K": ([1, 3], [0, 3])}])
+    assert r.store.read("K", [1, 3]).tolist() == [[1, -1], [3, -3]]
+    assert len(syncs) == 1
+    r.caches["K"].zero_()
+    assert r.store.read("K", [3]).tolist() == [[3, -3]]
+
+
+@pytest.mark.asyncio
+async def test_staging_missing_layer_is_not_a_reuse_hit(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    r.store.block_bytes = 8
+    stage(r, 1)
+    r.caches["V"] = torch.ones_like(r.caches["K"])
+    await r.stage([{"K": ([1], [0]), "V": ([1], [0])}])
+    assert r.store.read("K", [1]).tolist() == [[1, -1]]
+    assert r.store.read("V", [1]).tolist() == [[1, 1]]
+
+
+@pytest.mark.asyncio
+async def test_unpublished_snapshot_still_synchronizes(monkeypatch):
+    r = runtime(monkeypatch)
+    r.store.stage("K", [1], torch.ones(1, 2, dtype=torch.bfloat16))
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+    await r.stage([{"K": ([1], [0])}])
+    assert len(syncs) == 1
