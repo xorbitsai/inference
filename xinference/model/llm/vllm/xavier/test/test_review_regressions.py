@@ -291,3 +291,65 @@ async def test_later_read_batch_failure_propagates(connector_module):
             connector, "layer", 1, {i: i for i in range(130)}, (130, 1), torch.float32
         )
     assert read.await_count == 2
+
+
+@pytest.mark.parametrize("noncontiguous", [False, True])
+def test_bf16_snapshot_and_connector_preserve_all_bits(
+    connector, connector_module, noncontiguous
+):
+    # Includes infinities, NaNs, subnormals and values above the FP16 range.
+    bits = torch.arange(65536, dtype=torch.int32).to(torch.int16)
+    source = bits.view(torch.bfloat16).reshape(8, 8192)
+    if noncontiguous:
+        source = source.t().contiguous().t()
+        assert not source.is_contiguous()
+    actor = SimpleNamespace(_rank=0, _snapshot_store=KVSnapshotStore(8))
+    TransferActor.stage_layer_blocks_v1(actor, "r", "layer", list(range(8)), source)
+    payload = actor._snapshot_store.read("layer", list(range(8)))
+    assert payload.dtype == torch.float16
+    assert payload.element_size() == 2
+    assert torch.equal(payload.view(torch.int16), bits.reshape(8, 8192))
+
+    async def read(layer, rank, mapping, shape, dtype):
+        assert dtype == torch.bfloat16
+        # Exercise the NumPy transport representation, without numeric casts.
+        result = torch.from_numpy(payload.numpy().copy())
+        if noncontiguous:
+            result = result.t().contiguous().t()
+            assert not result.is_contiguous()
+        return result
+
+    connector._read_layer_blocks = read
+    destination = torch.empty_like(source)
+    request = connector_module.XavierLoadRequest(
+        "r",
+        {1: {i: i for i in range(8)}},
+        local_transfers_by_group={0: {1: {i: i for i in range(8)}}},
+    )
+    connector._load_layer_blocks("layer", destination, request)
+    assert torch.equal(destination.view(torch.int16), source.view(torch.int16))
+
+
+def test_connector_rejects_unexpected_transport_dtype(connector, connector_module):
+    async def read(*args):
+        return torch.ones(1, 2, dtype=torch.float32)
+
+    connector._read_layer_blocks = read
+    destination = torch.zeros(8, 2, dtype=torch.bfloat16)
+    request = connector_module.XavierLoadRequest(
+        "r", {1: {1: 0}}, local_transfers_by_group={0: {1: {1: 0}}}
+    )
+    with pytest.raises(RuntimeError, match="torch.float32.*torch.bfloat16"):
+        connector._load_layer_blocks("layer", destination, request)
+    assert destination.count_nonzero() == 0
+
+
+def test_snapshot_logical_dtype_tracks_immutable_blocks_and_eviction():
+    store = KVSnapshotStore(1)
+    carrier = torch.ones(1, 2, dtype=torch.float16)
+    store.stage("K", [1], carrier, logical_dtype=torch.bfloat16)
+    store.stage("K", [1], carrier, logical_dtype=torch.float16)
+    assert store.logical_dtypes[1]["K"] == torch.bfloat16
+    store.stage("K", [2], carrier)
+    assert 1 not in store.logical_dtypes
+    assert store.logical_dtypes == {2: {"K": torch.float16}}

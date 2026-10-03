@@ -495,6 +495,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                                 list(mapping.values()),
                                 tuple(tensor.shape[1:]),
                                 dtype,
+                                tensor.dtype,
                             )
                         )
                 for batch in batch_reads(reads):
@@ -517,8 +518,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             nbytes=read.nbytes,
                             blocks=len(read.keys),
                         ):
-                            if blocks.dtype != cache.dtype:
-                                blocks = blocks.to(cache.dtype)
+                            if (
+                                cache.dtype == torch.bfloat16
+                                and blocks.dtype == XAVIER_BF16_TRANSPORT_DTYPE
+                            ):
+                                blocks = blocks.view(torch.bfloat16)
+                            elif blocks.dtype != cache.dtype:
+                                raise RuntimeError(
+                                    f"Xavier received {blocks.dtype} for "
+                                    f"{cache.dtype} KV cache"
+                                )
                             cache[
                                 torch.tensor(read.destinations, device=cache.device)
                             ] = blocks.to(cache.device, non_blocking=True)
@@ -542,14 +551,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     continue
                 kv_tensor = block_major_view(kv_tensor, self._num_cache_blocks)
                 local_block_ids = list(src_to_dst.values())
-                # Must match the producer-side staging dtype in
-                # TransferActor.stage_layer_blocks_v1: bf16 is transported as
-                # float32 (not float16) to avoid overflow that corrupts KV.
-                transfer_dtype = (
-                    XAVIER_BF16_TRANSPORT_DTYPE
-                    if kv_tensor.dtype is torch.bfloat16
-                    else kv_tensor.dtype
-                )
+                # Pass the logical dtype so the producer can validate its snapshot.
                 recv_shape = (len(local_block_ids), *tuple(kv_tensor.shape[1:]))
                 with profile_stage(
                     "load_rpc",
@@ -564,7 +566,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             from_rank,
                             src_to_dst,
                             recv_shape,
-                            transfer_dtype,
+                            kv_tensor.dtype,
                         )
                     )
                 with profile_stage(
@@ -575,8 +577,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     nbytes=blocks.numel() * blocks.element_size(),
                     rank=self._rank,
                 ):
-                    if blocks.dtype != kv_tensor.dtype:
-                        blocks = blocks.to(dtype=kv_tensor.dtype)
+                    if (
+                        kv_tensor.dtype == torch.bfloat16
+                        and blocks.dtype == XAVIER_BF16_TRANSPORT_DTYPE
+                    ):
+                        blocks = blocks.view(torch.bfloat16)
+                    elif blocks.dtype != kv_tensor.dtype:
+                        raise RuntimeError(
+                            f"Unexpected Xavier KV dtype {blocks.dtype} for cache {kv_tensor.dtype}"
+                        )
                     kv_tensor[
                         torch.tensor(local_block_ids, device=kv_tensor.device)
                     ] = blocks.to(device=kv_tensor.device, non_blocking=True)

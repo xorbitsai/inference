@@ -73,7 +73,8 @@ async def test_receive_failure_releases_buffer(monkeypatch, empty):
 
 
 @pytest.mark.asyncio
-async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.bfloat16])
+async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch, dtype):
     import asyncio
     import ctypes
     import queue
@@ -113,7 +114,7 @@ async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
         "has_layer_blocks_v1",
     ):
         setattr(sender, name, MethodType(getattr(TransferActor, name), sender))
-    blocks = torch.arange(12, dtype=torch.float32).reshape(3, 2, 2)
+    blocks = torch.arange(12, dtype=dtype).reshape(3, 2, 2)
     TransferActor.stage_layer_blocks_v1(sender, "r", "layer", [11, 22, 33], blocks)
     TransferActor.publish_blocks_v1(sender, [11, 22, 33], ["layer"])
     ref = SimpleNamespace(
@@ -133,11 +134,48 @@ async def test_v1_multiblock_actor_transfer_preserves_order(monkeypatch):
         TransferActor.do_recv_layer_blocks_v1, receiver
     )
     result = await TransferActor.read_layer_blocks_v1(
-        receiver, 0, "layer", {33: 7, 11: 2, 22: 5}, (3, 2, 2), torch.float32
+        receiver, 0, "layer", {33: 7, 11: 2, 22: 5}, (3, 2, 2), dtype
     )
     await asyncio.gather(*sender._layer_send_tasks_v1)
     assert sizes == [12]
     assert result.shape == (3, 2, 2)
+    if dtype == torch.bfloat16:
+        assert result.dtype == torch.float16
+        result = result.view(torch.bfloat16)
     assert torch.equal(result, blocks[[2, 0, 1]])
-    ref.has_layer_blocks_v1.assert_awaited_once_with("layer", [33, 11, 22])
+    ref.has_layer_blocks_v1.assert_awaited_once_with("layer", [33, 11, 22], dtype)
     ref.start_send_layer_blocks_v1.assert_awaited_once_with(1, "layer", [33, 11, 22])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source_dtype, destination_dtype",
+    [(torch.bfloat16, torch.float16), (torch.float16, torch.bfloat16)],
+)
+async def test_mismatched_logical_dtype_rejected_before_send(
+    monkeypatch, source_dtype, destination_dtype
+):
+    from unittest.mock import AsyncMock
+
+    import xoscar as xo
+
+    from ..snapshot import KVSnapshotStore
+
+    sender = SimpleNamespace(_rank=0, _snapshot_store=KVSnapshotStore(1))
+    TransferActor.stage_layer_blocks_v1(
+        sender, "r", "layer", [1], torch.ones(1, 2, dtype=source_dtype)
+    )
+    TransferActor.publish_blocks_v1(sender, [1], ["layer"])
+    ref = SimpleNamespace(
+        has_layer_blocks_v1=AsyncMock(
+            side_effect=lambda *args: TransferActor.has_layer_blocks_v1(sender, *args)
+        ),
+        start_send_layer_blocks_v1=AsyncMock(),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    receiver = SimpleNamespace(_rank=1, _world_addresses=["sender"])
+    with pytest.raises(KeyError, match="No staged Xavier"):
+        await TransferActor.read_layer_blocks_v1(
+            receiver, 0, "layer", {1: 0}, (1, 2), destination_dtype
+        )
+    ref.start_send_layer_blocks_v1.assert_not_awaited()

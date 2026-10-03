@@ -48,13 +48,10 @@ else:
 
 logger = logging.getLogger(__name__)
 
-# gloo (xoscar collective) cannot transfer bfloat16 tensors, so bf16 KV must be
-# moved as another dtype. Use float32 rather than float16: float16's 5-bit
-# exponent overflows to +/-inf for KV values above 65504 (which occur in
-# Qwen3.5's linear_attn state cache and attention outliers), silently
-# corrupting the transferred cache and producing garbage generation. bf16 has
-# the same 8-bit exponent as float32, so bf16 -> float32 -> bf16 is lossless.
-XAVIER_BF16_TRANSPORT_DTYPE = torch.float32
+# Gloo cannot transfer bfloat16 directly. Use float16 only as a 16-bit carrier:
+# view() preserves every bit, including BF16 values outside the FP16 range.
+# Never numerically convert these payloads or perform arithmetic on the carrier.
+XAVIER_BF16_TRANSPORT_DTYPE = torch.float16
 
 
 class BufferTransferMixin:
@@ -186,10 +183,14 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             self._snapshot_store = KVSnapshotStore(capacity)
 
     def stage_layer_blocks_v1(self, request_id, layer_name, block_ids, blocks):
+        logical_dtype = blocks.dtype
         if blocks.dtype == torch.bfloat16:
-            blocks = blocks.to(dtype=XAVIER_BF16_TRANSPORT_DTYPE)
+            blocks = blocks.view(XAVIER_BF16_TRANSPORT_DTYPE)
         self._snapshot_store.stage(
-            layer_name, block_ids, blocks.detach().cpu().contiguous()
+            layer_name,
+            block_ids,
+            blocks.detach().cpu().contiguous(),
+            logical_dtype=logical_dtype,
         )
         logger.debug(
             "Stage Xavier V1 blocks: request=%s, rank=%s, layer=%s, blocks=%s",
@@ -259,10 +260,11 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
     def _get_staged_layer_blocks_v1(self, layer_name, remote_block_ids):
         return self._snapshot_store.read(layer_name, remote_block_ids)
 
-    def has_layer_blocks_v1(self, layer_name, remote_block_ids):
+    def has_layer_blocks_v1(self, layer_name, remote_block_ids, expected_dtype):
         return self._snapshot_store is not None and all(
             key in self._snapshot_store.ready
             and layer_name in self._snapshot_store.blocks[key]
+            and self._snapshot_store.logical_dtypes[key][layer_name] == expected_dtype
             for key in remote_block_ids
         )
 
@@ -394,7 +396,9 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             sender_ref = await xo.actor_ref(
                 address=from_address, uid=f"{TransferActor.default_uid()}-{from_rank}"
             )
-            if not await sender_ref.has_layer_blocks_v1(layer_name, remote_block_ids):
+            if not await sender_ref.has_layer_blocks_v1(
+                layer_name, remote_block_ids, recv_dtype
+            ):
                 raise KeyError(
                     "No staged Xavier V1 blocks on rank "
                     f"{from_rank}: layer={layer_name!r}, blocks={remote_block_ids}"

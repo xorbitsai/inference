@@ -192,10 +192,10 @@ msgid ""
 "IDs. Readers reserve complete snapshots during transfer; cache pressure or a"
 " missing snapshot falls back to local computation. The number of retained "
 "CPU blocks is bounded by the engine's KV block capacity. CPU memory can "
-"approach the GPU KV cache size (twice that size for BF16 transported as "
-"FP32), in addition to in-flight transfer buffers. Only complete layers are "
+"approach the GPU KV cache size, in addition to in-flight transfer buffers. "
+"Only complete layers are "
 "published for remote reuse."
-msgstr ""
+msgstr "Gli snapshot CPU sono indicizzati in base al contenuto del prompt anziché agli ID riutilizzabili dei blocchi GPU. I lettori riservano snapshot completi durante il trasferimento; in caso di pressione sulla cache o snapshot mancanti si ricorre al calcolo locale. Il numero di blocchi CPU conservati è limitato dalla capacità di blocchi KV del motore. Oltre ai buffer di trasferimento attivi, la memoria CPU può avvicinarsi alle dimensioni della cache KV GPU. Solo i livelli completi vengono pubblicati per il riutilizzo remoto."
 
 #: source/user_guide/pd_separation.rst:156
 msgid ""

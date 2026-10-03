@@ -16,11 +16,18 @@ class KVSnapshotStore:
     def __init__(self, capacity: int):
         self.capacity = capacity
         self.blocks: OrderedDict[int, Dict[str, torch.Tensor]] = OrderedDict()
+        self.logical_dtypes: Dict[int, Dict[str, torch.dtype]] = {}
         self.ready: Set[int] = set()
         self.leases: Dict[str, Set[int]] = {}
         self.evicted: Set[int] = set()
 
-    def stage(self, layer: str, keys: List[int], tensors: torch.Tensor):
+    def stage(
+        self,
+        layer: str,
+        keys: List[int],
+        tensors: torch.Tensor,
+        logical_dtype: torch.dtype | None = None,
+    ):
         pinned = set().union(*self.leases.values()) if self.leases else set()
         for key, tensor in zip(keys, tensors):
             if key not in self.blocks:
@@ -29,13 +36,16 @@ class KVSnapshotStore:
                     if victim is None:
                         continue  # No room: leave this block to local recomputation.
                     del self.blocks[victim]
+                    del self.logical_dtypes[victim]
                     self.ready.discard(victim)
                     self.evicted.add(victim)
                 self.blocks[key] = {}
+                self.logical_dtypes[key] = {}
             self.blocks.move_to_end(key)
             # Identical content is immutable, including while a reader holds it.
             if layer not in self.blocks[key]:
                 self.blocks[key][layer] = tensor.clone().contiguous()
+                self.logical_dtypes[key][layer] = logical_dtype or tensors.dtype
 
     def publish(self, keys: List[int], layers: Set[str]) -> List[int]:
         available = []
