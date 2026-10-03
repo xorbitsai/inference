@@ -384,7 +384,7 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
         stage_gpu_requests_v1=AsyncMock(
             side_effect=lambda *args: calls.append("stage")
         ),
-        load_gpu_request_v1=AsyncMock(side_effect=lambda *args: calls.append("load")),
+        load_gpu_requests_v1=AsyncMock(side_effect=lambda *args: calls.append("load")),
         close_gpu_caches_v1=AsyncMock(),
     )
     connector._get_transfer_ref = AsyncMock(return_value=transfer)
@@ -404,9 +404,12 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
     load = connector_module.XavierLoadRequest(
         "r", {1: {111: 0}}, local_transfers_by_group={0: {1: {111: 3}}}
     )
-    await connector._load_gpu_request(load)
-    assert calls == ["fence", "load", "fence"]
-    transfer.load_gpu_request_v1.assert_awaited_once_with({1: {"layer": {111: 3}}})
+    await connector._submit_gpu_requests([load])
+    await next(iter(connector._gpu_load_jobs))
+    assert calls == ["fence", "load"]
+    transfer.load_gpu_requests_v1.assert_awaited_once_with(
+        [{1: {"layer": {111: 3}}}], [(load.lease, load.transfers)]
+    )
     assert transfer.map_gpu_caches_v1.await_count == 1
     connector._get_connector_metadata = (
         lambda: connector_module.XavierConnectorMetadata(store_requests=[request])
