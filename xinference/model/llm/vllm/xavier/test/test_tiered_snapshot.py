@@ -361,3 +361,90 @@ def test_incremental_size_survives_demotion_eviction_and_key_reuse():
         assert s._block_sizes[key] == sum(
             value.numel() * value.element_size() for value in layers.values()
         )
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_packed_blocks_own_storage_and_preserve_mixed_dtypes(device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    target = torch.device(device)
+    s = TieredKVSnapshotStore(2, 64, 32, target)
+    layers = {
+        "K": torch.arange(8, device=target, dtype=torch.float32).reshape(2, 2, 2),
+        "V": torch.arange(4, device=target, dtype=torch.bfloat16).reshape(2, 1, 2),
+        "index": torch.tensor([[7], [9]], device=target, dtype=torch.int64),
+    }
+    expected = {name: value.cpu().clone() for name, value in layers.items()}
+    s.stage_blocks([1, 2], layers)
+    assert s.publish([1, 2], set(layers)) == [1, 2]
+    for name, value in layers.items():
+        value.zero_()
+        assert torch.equal(s.read(name, [1, 2]), expected[name])
+        first, second = s.blocks[1][name], s.blocks[2][name]
+        assert first.untyped_storage().data_ptr() != second.untyped_storage().data_ptr()
+        assert s.logical_dtypes[1][name] == expected[name].dtype
+    assert s._block_sizes == {1: 28, 2: 28}
+    s.stage_blocks([3], {name: value[:1] for name, value in layers.items()})
+    assert s.tiers == {1: "cpu", 2: "gpu", 3: "gpu"}
+    for name in layers:
+        assert torch.equal(s.read(name, [1]), expected[name][:1])
+
+
+def test_packed_blocks_respect_leases_and_reject_invalid_batch():
+    s = store(gpu=1, cpu=1)
+    layers = {"K": torch.tensor([[1.0, 2.0]]), "V": torch.tensor([[3.0, 4.0]])}
+    s.stage_blocks([1], layers)
+    s.publish([1], set(layers))
+    assert s.reserve("2:gpu", [1])
+    s.stage_blocks([2], layers)
+    s.publish([2], set(layers))
+    assert s.reserve("2:cpu", [2])
+    s.stage_blocks([3], layers)
+    assert set(s.blocks) == {1, 2}
+    with pytest.raises(ValueError, match="new snapshot"):
+        s.stage_blocks([1], layers)
+    with pytest.raises(ValueError, match="full-block size"):
+        s.stage_blocks([4], {"K": torch.ones(1, 5)})
+    with pytest.raises(ValueError, match="length"):
+        s.stage_blocks([4, 5], layers)
+    with pytest.raises(ValueError, match="unique"):
+        s.stage_blocks(
+            [4, 4], {name: value.repeat(2, 1) for name, value in layers.items()}
+        )
+    s.stage_blocks([], {})
+    assert set(s.blocks) == {1, 2}
+    assert s.read("K", [1, 2]).tolist() == [[1.0, 2.0], [1.0, 2.0]]
+
+
+def test_packed_copy_failure_drops_incomplete_block(monkeypatch):
+    s = store()
+    original = torch.Tensor.to
+
+    def fail(value, *args, **kwargs):
+        if kwargs.get("copy"):
+            raise RuntimeError("copy failed")
+        return original(value, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "to", fail)
+    with pytest.raises(RuntimeError, match="copy failed"):
+        s.stage_blocks([1], {"K": torch.ones(1, 2)})
+    assert not s.blocks and not s._block_sizes and not s._gpu_lru
+    assert s.counts == {"cpu": 0, "gpu": 0}
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_packed_bf16_preserves_all_bit_patterns(device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    bits = torch.arange(65536, dtype=torch.int32).to(torch.int16).reshape(2, -1)
+    values = bits.to(device).view(torch.bfloat16)
+    s = TieredKVSnapshotStore(2, 262144, 131072, torch.device(device))
+    s.stage_blocks([1, 2], {"K": values, "V": values})
+    for name in ("K", "V"):
+        assert torch.equal(s.read(name, [1, 2]).view(torch.int16), bits)
+    # Compatible layers share only their own block allocation.
+    assert (
+        s.blocks[1]["K"].untyped_storage().data_ptr()
+        == s.blocks[1]["V"].untyped_storage().data_ptr()
+    )
+    assert s.blocks[1]["K"].untyped_storage().nbytes() == 131072

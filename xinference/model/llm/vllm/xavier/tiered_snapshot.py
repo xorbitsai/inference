@@ -166,6 +166,65 @@ class TieredKVSnapshotStore(KVSnapshotStore):
                         self._drop(key)
                     raise
 
+    def stage_blocks(self, keys: List[int], layers: Dict[str, torch.Tensor]):
+        """Copy complete new blocks once per dtype, with independent ownership."""
+        if not keys:
+            return
+        if len(keys) != len(set(keys)):
+            raise ValueError("Packed staging requires unique snapshot keys")
+        if not layers or any(len(value) != len(keys) for value in layers.values()):
+            raise ValueError("Snapshot keys and tensors differ in length")
+        groups: Dict[
+            Tuple[torch.device, torch.dtype], List[Tuple[str, torch.Tensor]]
+        ] = {}
+        nbytes = sum(
+            value[0].numel() * value.element_size() for value in layers.values()
+        )
+        if nbytes > self.block_bytes:
+            raise ValueError("Snapshot exceeds configured full-block size")
+        if any(key in self.blocks for key in keys):
+            raise ValueError("Packed staging requires new snapshot keys")
+        for name, value in layers.items():
+            groups.setdefault((value.device, value.dtype), []).append((name, value))
+        packed = []
+        for group in groups.values():
+            values = torch.cat(
+                [value.reshape(len(keys), -1) for _, value in group], dim=1
+            )
+            names = [name for name, _ in group]
+            shapes = [value.shape[1:] for _, value in group]
+            sizes = [value[0].numel() for _, value in group]
+            uniform = all(shape == shapes[0] for shape in shapes)
+            packed.append((names, shapes, sizes, uniform, values))
+        dtypes = {name: value.dtype for name, value in layers.items()}
+        pinned = set().union(*self.leases.values()) if self.leases else set()
+        for index, key in enumerate(keys):
+            if not self._admit(key, pinned):
+                continue
+            try:
+                target = (
+                    self.gpu_device if self.tiers[key] == "gpu" else torch.device("cpu")
+                )
+                content: Dict[str, torch.Tensor] = {}
+                for names, shapes, sizes, uniform, values in packed:
+                    # Layers share only this block's allocation. Evicting one
+                    # block cannot retain the rest of the staging batch.
+                    block = values[index].detach().to(target, copy=True)
+                    if uniform:
+                        parts = block.reshape(len(names), *shapes[0]).unbind(0)
+                    else:
+                        parts = tuple(
+                            value.reshape(shape)
+                            for value, shape in zip(block.split(sizes), shapes)
+                        )
+                    content.update(zip(names, parts))
+                self.blocks[key] = content
+                self.logical_dtypes[key] = dtypes.copy()
+                self._block_sizes[key] = nbytes
+            except Exception:
+                self._drop(key)
+                raise
+
     def reserve(self, lease: str, keys: List[int]) -> bool:
         if not super().reserve(lease, keys):
             return False
