@@ -412,3 +412,7 @@ msgstr "Le cache privilégiant le GPU nécessite le backend Xavier et plusieurs 
 #: source/user_guide/pd_separation.rst
 msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
 msgstr "Si la préparation des instantanés échoue, Xavier attend la fin des opérations CUDA en cours et supprime les instantanés non publiés. Les échecs de synchronisation CUDA sont toujours propagés comme erreurs."
+
+#: user_guide/pd_separation.rst:211
+msgid "With this path, KV loads run asynchronously in the TransferActor, allowing other ready requests to continue decoding. Cancelling a request retains its destination blocks and snapshot leases until the transfer finishes."
+msgstr "Avec ce chemin, le TransferActor charge les KV de manière asynchrone, ce qui permet aux autres requêtes prêtes de poursuivre le décodage. Lorsqu’une requête est annulée, ses blocs de destination et ses baux de snapshots sont conservés jusqu’à la fin du transfert."
