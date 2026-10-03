@@ -883,7 +883,9 @@ def test_model_request_routes_use_separate_metadata_and_body_permissions():
 
     correlated = captured[("/v1/cluster/logs/correlated", ("GET",))]
     body = captured[("/v1/cluster/model-requests/{request_id}/body", ("GET",))]
+    audit = captured[("/v1/audit/search", ("GET",))]
     assert correlated["dependencies"][0].scopes == ["logs:list"]
+    assert audit["dependencies"][0].scopes == ["admin"]
     assert body["dependencies"][0].scopes == [
         "logs:list",
         "model_requests:read_body",
@@ -995,6 +997,19 @@ def test_correlated_request_id_candidates_support_legacy_uuid_prefix():
     assert admin._correlated_request_id_candidates("external-request-id") == [
         "external-request-id"
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("request_id", [" ", "bad\nrequest", "x" * 257])
+async def test_search_audit_logs_rejects_invalid_request_id_before_query(
+    monkeypatch, request_id
+):
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.search_audit_logs(request_id=request_id)
+
+    assert exc_info.value.status_code == 400
 
 
 def test_parse_relative_time_rejects_compound_date_math():
