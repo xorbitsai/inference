@@ -116,6 +116,8 @@ class GPUTransfer:
         try:
             for layers in entries:
                 for layer, (block_keys, ids) in layers.items():
+                    # Unpublished layers may still be copying in another stage
+                    # awaiting its fence; only published data can skip the copy.
                     if all(
                         key in self.store.ready
                         and layer in self.store.blocks.get(key, {})
@@ -137,8 +139,9 @@ class GPUTransfer:
                 exc_info=True,
             )
         finally:
-            # Even a failed gather/copy may have queued reads of EngineCore's
-            # slots. Drain them before returning ownership to EngineCore.
+            # Fence only if this call copied or failed: even a failed gather
+            # may have queued reads of EngineCore slots. Pure published reuse
+            # needs no fence before returning ownership to EngineCore.
             try:
                 if copied or failed:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
