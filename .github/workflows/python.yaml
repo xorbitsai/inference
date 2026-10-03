@@ -378,6 +378,7 @@ jobs:
               xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py \
               xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \
               xinference/model/llm/vllm/xavier/test/test_v1_engine.py \
+              xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py \
               xinference/model/llm/vllm/xavier/test/test_tiered_snapshot.py \
               xinference/model/llm/vllm/xavier/test/test_request_transfer.py \
               xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py \

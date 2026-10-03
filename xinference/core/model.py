@@ -212,6 +212,16 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
         from ..model.rerank.core import RerankModel
 
+        if (
+            isinstance(self._model, LLMVLLMModel)
+            and self._transfer_ref is not None
+            and self._xavier_config is not None
+            and self._xavier_config.get("gpu_cache_bytes") is not None
+        ):
+            # Release imported CUDA IPC handles while EngineCore still owns the
+            # allocations, after any in-flight transfer has completed.
+            await self._transfer_ref.close_gpu_caches_v1()
+
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
 

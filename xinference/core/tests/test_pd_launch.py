@@ -274,3 +274,28 @@ def test_registration_snapshot_excludes_nixl():
     }
     snapshots = WorkerActor._get_running_replica_states(worker)
     assert [item["replica_model_uid"] for item in snapshots] == ["regular-rep0"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("budget", [0, 8388608])
+async def test_gpu_budget_reaches_each_xavier_replica(launch_runtime, budget):
+    supervisor, workers, actors, destroy = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), xavier_gpu_cache_bytes=budget
+    )
+    for worker in workers:
+        kwargs = worker.launch_builtin_model.call_args.kwargs
+        assert kwargs["xavier_config"]["gpu_cache_bytes"] == budget
+        assert "xavier_gpu_cache_bytes" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_gpu_budget_rejects_native_backend_before_actor_creation(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    with pytest.raises(ValueError, match="requires Xavier"):
+        await supervisor.launch_builtin_model(
+            **launch_kwargs(),
+            xavier_gpu_cache_bytes=1,
+            vllm_transfer_backend_type="nixl",
+        )
+    assert not actors

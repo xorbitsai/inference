@@ -1,0 +1,253 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# Licensed under the Apache License, Version 2.0.
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+import torch
+import xoscar as xo
+
+from ..gpu_transfer import GPUTransfer
+from ..request_transfer import LayerRead, pack_reads
+from ..tiered_snapshot import TieredKVSnapshotStore
+
+
+def runtime(monkeypatch, gpu_slots=1):
+    # Run transport orchestration on CPU; real CUDA IPC/NIXL is covered by the
+    # two-GPU integration run. Only hardware operations are substituted here.
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: None)
+    r = GPUTransfer.__new__(GPUTransfer)
+    r.device = torch.device("cpu")
+    r.caches = {"K": torch.zeros(8, 2, dtype=torch.bfloat16)}
+    r.store = TieredKVSnapshotStore(2, gpu_slots * 4, 4, r.device)
+    r.slab_bytes = 16
+    r.send_buffer = torch.zeros(16, dtype=torch.uint8)
+    r.recv_buffer = torch.zeros_like(r.send_buffer)
+    r.recv_ref = r.recv_buffer
+    r.send_lock, r.recv_lock = asyncio.Lock(), asyncio.Lock()
+    r.tasks, r.closing = set(), False
+    r.metrics = dict(gpu_batches=0, cpu_batches=0, wire_bytes=0, useful_bytes=0)
+    r.actor = SimpleNamespace(_world_addresses=["source"])
+    return r
+
+
+def stage(r, key):
+    r.store.stage("K", [key], torch.tensor([[key, -key]], dtype=torch.bfloat16))
+    r.store.publish([key], {"K"})
+
+
+@pytest.mark.asyncio
+async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch):
+    source, dest = runtime(monkeypatch), runtime(monkeypatch)
+    stage(source, 1)
+    stage(source, 2)
+    assert source.store.tiers == {1: "cpu", 2: "gpu"}
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peer = SimpleNamespace(
+        gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+        send_gpu_request_v1=AsyncMock(side_effect=source.send),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    dest.actor.read_request_blocks_v1 = AsyncMock(
+        side_effect=lambda rank, reads: pack_reads(source.store, reads)
+    )
+    await dest.run(dest.load, {0: {"K": {1: 5, 2: 3}}})
+    assert dest.caches["K"][[5, 3]].tolist() == [[1, -1], [2, -2]]
+    assert dest.caches["K"][:3].count_nonzero() == 0
+    assert dest.metrics["gpu_batches"] == dest.metrics["cpu_batches"] == 1
+    assert source.metrics["useful_bytes"] == 4
+    assert source.metrics["wire_bytes"] == 16
+
+
+@pytest.mark.asyncio
+async def test_cancel_waits_for_transfer_before_buffer_reuse(monkeypatch):
+    r = runtime(monkeypatch)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def operation():
+        async with r.recv_lock:
+            entered.set()
+            await release.wait()
+
+    task = asyncio.create_task(r.run(operation))
+    await entered.wait()
+    task.cancel()
+    await asyncio.sleep(0)
+    assert not task.done() and r.recv_lock.locked()
+    task.cancel()
+    await asyncio.sleep(0)
+    assert not task.done() and r.recv_lock.locked()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert not r.recv_lock.locked()
+    assert not r.tasks
+
+
+@pytest.mark.asyncio
+async def test_close_drains_operations_and_rejects_new_work(monkeypatch):
+    r = runtime(monkeypatch)
+    release = asyncio.Event()
+    task = asyncio.create_task(r.run(release.wait))
+    await asyncio.sleep(0)
+    close = asyncio.create_task(r.close())
+    await asyncio.sleep(0)
+    assert not close.done()
+    with pytest.raises(RuntimeError, match="shutting down"):
+        await r.run(release.wait)
+    release.set()
+    await asyncio.gather(task, close)
+    assert not r.caches and r.recv_ref is None
+
+
+@pytest.mark.asyncio
+async def test_invalid_layout_fails_before_nixl_copy(monkeypatch):
+    r = runtime(monkeypatch)
+    stage(r, 1)
+    copy = AsyncMock()
+    monkeypatch.setattr(xo, "copy_to", copy)
+    reads = [LayerRead("K", [1], [0], (2,), torch.float16)]
+    with pytest.raises(ValueError, match="layouts"):
+        await r.send(reads, r.recv_ref, r.slab_bytes)
+    copy.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_send_failure_releases_lock_for_retry(monkeypatch):
+    r = runtime(monkeypatch)
+    stage(r, 1)
+    monkeypatch.setattr(
+        xo, "copy_to", AsyncMock(side_effect=RuntimeError("transfer failed"))
+    )
+    with pytest.raises(RuntimeError, match="transfer failed"):
+        await r.run(
+            r.send,
+            [LayerRead("K", [1], [0], (2,), torch.bfloat16)],
+            r.recv_ref,
+            r.slab_bytes,
+        )
+    assert not r.send_lock.locked() and not r.tasks
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, True, "1024"])
+def test_invalid_gpu_budget(value):
+    from ..transport import validate_gpu_cache_budget
+
+    with pytest.raises(ValueError, match="integer"):
+        validate_gpu_cache_budget(value, True, 2)
+
+
+def test_gpu_budget_is_opt_in_and_requires_xavier():
+    from ..transport import validate_gpu_cache_budget
+
+    assert validate_gpu_cache_budget(None, False, 1) is None
+    assert validate_gpu_cache_budget(0, True, 2) == 0
+    assert validate_gpu_cache_budget(1024, True, 2) == 1024
+    with pytest.raises(ValueError, match="multiple replicas"):
+        validate_gpu_cache_budget(1, False, 2)
+    with pytest.raises(ValueError, match="multiple replicas"):
+        validate_gpu_cache_budget(1, True, 1)
+
+
+def test_nixl_pool_options_keep_explicit_ucx_transport(monkeypatch):
+    import importlib.metadata
+    import importlib.util
+
+    from ..transport import gpu_pool_options
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.11.1")
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: object())
+    env = {"UCX_TLS": "rc,cuda_copy,cuda_ipc"}
+    assert gpu_pool_options("10.0.0.1:1234", env) == {
+        "external_address": "nixl://10.0.0.1:0"
+    }
+    assert env == {"UCX_TLS": "rc,cuda_copy,cuda_ipc", "UCX_MEMTYPE_CACHE": "n"}
+
+
+@pytest.mark.asyncio
+async def test_simultaneous_hybrid_loads_do_not_deadlock(monkeypatch):
+    first, second = runtime(monkeypatch), runtime(monkeypatch)
+    stage(first, 1)
+    stage(second, 2)
+    first.actor._world_addresses = ["first", "second"]
+    second.actor._world_addresses = ["first", "second"]
+
+    async def copy(buffers, refs):
+        await asyncio.sleep(0)
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peers = {}
+    for address, source in [("first", first), ("second", second)]:
+        peers[address] = SimpleNamespace(
+            gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+            send_gpu_request_v1=AsyncMock(side_effect=source.send),
+        )
+    monkeypatch.setattr(
+        xo, "actor_ref", AsyncMock(side_effect=lambda address, uid: peers[address])
+    )
+    await asyncio.wait_for(
+        asyncio.gather(
+            first.run(first.load, {1: {"K": {2: 0}}}),
+            second.run(second.load, {0: {"K": {1: 0}}}),
+        ),
+        timeout=2,
+    )
+    assert first.caches["K"][0].tolist() == [2, -2]
+    assert second.caches["K"][0].tolist() == [1, -1]
+
+
+def test_gpu_connector_failure_releases_lease(connector, connector_module):
+    request = connector_module.XavierLoadRequest("r", {2: {1: 0}}, lease="1:lease")
+    connector._gpu_budget = 0
+    connector._get_connector_metadata = (
+        lambda: connector_module.XavierConnectorMetadata(load_requests=[request])
+    )
+    connector._load_gpu_request = AsyncMock(side_effect=RuntimeError("peer failed"))
+    connector._release_load_request = AsyncMock()
+    with pytest.raises(RuntimeError, match="peer failed"):
+        connector.start_load_kv(SimpleNamespace())
+    connector._release_load_request.assert_awaited_once_with(request)
+
+
+def test_shutdown_releases_loop_after_gpu_close_failure(
+    connector, connector_module, monkeypatch
+):
+    connector._gpu_cache_mapped = True
+    connector._transfer_ref = SimpleNamespace(
+        close_gpu_caches_v1=AsyncMock(side_effect=RuntimeError("peer lost"))
+    )
+
+    async def start():
+        return None
+
+    connector._call(start())
+    loop = connector._loop
+    with pytest.raises(RuntimeError, match="peer lost"):
+        connector.shutdown()
+    assert connector._loop is None
+    assert loop.is_closed()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_close_finishes_ipc_cleanup(monkeypatch):
+    r = runtime(monkeypatch)
+    release = asyncio.Event()
+    active = asyncio.create_task(r.run(release.wait))
+    await asyncio.sleep(0)
+    closing = asyncio.create_task(r.close())
+    await asyncio.sleep(0)
+    closing.cancel()
+    await asyncio.sleep(0)
+    assert not closing.done()
+    release.set()
+    await active
+    with pytest.raises(asyncio.CancelledError):
+        await closing
+    assert not r.caches and r.recv_ref is None
+    await r.close()

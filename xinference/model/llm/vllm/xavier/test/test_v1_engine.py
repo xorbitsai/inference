@@ -110,3 +110,13 @@ def test_unsafe_parallelism_and_lora_fail_before_engine_creation(engine, field, 
     with pytest.raises(ValueError):
         module.XavierEngine.from_engine_args(args, xavier_config={"role": "prefill"})
     factory.assert_not_called()
+
+
+def test_gpu_path_rejects_legacy_before_engine_start(engine):
+    module, factory = engine
+    module.VLLM_VERSION = "0.7.3"
+    with pytest.raises(RuntimeError, match="GPU transfer requires vLLM"):
+        module.XavierEngine.from_engine_args(
+            object(), xavier_config={"gpu_cache_bytes": 0}
+        )
+    factory.assert_not_called()

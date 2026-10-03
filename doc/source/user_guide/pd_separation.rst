@@ -197,3 +197,13 @@ The connector handles block-first and K/V-first attention cache layouts. A
 layout whose block axis cannot be identified safely is rejected. V0 prefill
 replicas release only the requested completed sequence; ordinary hybrid and
 decode replicas retain normal automatic cleanup.
+
+
+GPU-first Xavier cache (experimental)
+-------------------------------------
+
+With ``vllm_transfer_backend_type="xavier"``, set the additional launch parameter ``xavier_gpu_cache_bytes`` to a non-negative integer, for example ``268435456`` (256 MiB per replica). Omitting it keeps the existing CPU path; ``0`` enables the new transfer path with CPU-only snapshots. GPU snapshots use xoscar NIXL; CPU snapshots use batched Gloo transfers. This setting does not select the native vLLM NIXL connector.
+
+Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. This path requires Linux, NVIDIA CUDA, vLLM >= 0.21, registered full-attention KV caches, TP=1 and PP=1. Replicas must use matching KV layouts and dtypes. Local EngineCore caches are shared with their TransferActor through CUDA IPC. The worker sets ``UCX_MEMTYPE_CACHE=n`` and defaults ``UCX_TLS`` to ``tcp,cuda_copy,cuda_ipc``; an explicitly configured ``UCX_TLS`` is preserved.
+
+The budget covers retained GPU snapshots only. Leave headroom for the model, vLLM KV cache, two persistent transfer buffers (normally up to 16 MiB each), temporary tensors and allocator overhead. GPU overflow moves unleased blocks to the existing CPU cache; when both tiers are leased, new snapshots are skipped. Transfer failures or layout mismatches raise errors rather than silently converting data or promising local recomputation. Shutdown logs cache placement and transfer counters.

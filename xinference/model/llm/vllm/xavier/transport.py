@@ -52,3 +52,34 @@ def set_xavier_transport_backend(
     xavier_config[XAVIER_TRANSPORT_BACKEND_KEY] = normalized
     xavier_config[XAVIER_TRANSPORT_BACKEND_ALIAS_KEY] = normalized
     return xavier_config
+
+
+def validate_gpu_cache_budget(value, enabled: bool, replicas: int):
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("xavier_gpu_cache_bytes must be a non-negative integer")
+    if not enabled or replicas <= 1:
+        raise ValueError(
+            "xavier_gpu_cache_bytes requires Xavier with multiple replicas"
+        )
+    return value
+
+
+def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
+    from importlib.metadata import version
+    from importlib.util import find_spec
+    from urllib.parse import urlsplit
+
+    from packaging.version import Version
+
+    if Version(version("xoscar")) < Version("0.11.1") or find_spec("nixl") is None:
+        raise RuntimeError(
+            "Xavier GPU transfer requires xoscar[nixl]>=0.11.1 on the worker and in the model environment"
+        )
+    host = urlsplit(address if "://" in address else "tcp://" + address).hostname
+    if not host:
+        raise ValueError("Cannot determine Xavier NIXL worker host")
+    env["UCX_MEMTYPE_CACHE"] = "n"
+    env.setdefault("UCX_TLS", "tcp,cuda_copy,cuda_ipc")
+    return {"external_address": f"nixl://{host}:0"}

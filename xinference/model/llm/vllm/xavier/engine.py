@@ -127,6 +127,12 @@ class XavierEngine:
         stat_loggers: Optional[Any] = None,
         xavier_config: Optional[Dict] = None,
     ) -> "AsyncLLMEngine":
+        if (
+            xavier_config
+            and xavier_config.get("gpu_cache_bytes") is not None
+            and version.parse(VLLM_VERSION) < version.parse("0.21.0")
+        ):
+            raise RuntimeError("Xavier GPU transfer requires vLLM >= 0.21.0")
         if version.parse(VLLM_VERSION) < version.parse("0.11.0"):
             from .legacy_engine import XavierEngine as LegacyXavierEngine
 

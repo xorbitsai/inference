@@ -2233,6 +2233,7 @@ class WorkerActor(xo.StatelessActor):
         env: Optional[Dict[str, str]] = None,
         start_python: Optional[str] = None,
         model_uid: str = "",
+        external_address: Optional[str] = None,
     ) -> str:
         """Append a sub-pool under _subpool_creation_lock with a launch timeout.
 
@@ -2246,10 +2247,15 @@ class WorkerActor(xo.StatelessActor):
         caller can run its own failure-path cleanup (e.g. release_devices).
         env keys are logged (never values) because env may carry secrets.
         """
+        pool_kwargs = (
+            {} if external_address is None else {"external_address": external_address}
+        )
         async with self._subpool_creation_lock:
             try:
                 return await xo.wait_for(
-                    self._main_pool.append_sub_pool(env=env, start_python=start_python),
+                    self._main_pool.append_sub_pool(
+                        env=env, start_python=start_python, **pool_kwargs
+                    ),
                     timeout=XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
                 )
             except asyncio.TimeoutError:
@@ -2346,6 +2352,7 @@ class WorkerActor(xo.StatelessActor):
         env: Dict[str, str],
         devices: List[str],
         start_python: Optional[str] = None,
+        external_address: Optional[str] = None,
     ) -> str:
         """Spawn the model sub-pool process for devices already reserved by
         _allocate_subpool_devices."""
@@ -2414,9 +2421,12 @@ class WorkerActor(xo.StatelessActor):
             start_python,
             sorted(env.keys()) if env else [],
         )
+        pool_kwargs = (
+            {} if external_address is None else {"external_address": external_address}
+        )
         try:
             subpool_address = await self._append_sub_pool_protected(
-                env=env, start_python=start_python, model_uid=model_uid
+                env=env, start_python=start_python, model_uid=model_uid, **pool_kwargs
             )
         except asyncio.TimeoutError:
             # Release devices allocated above; otherwise the GPU allocation
@@ -4871,11 +4881,24 @@ class WorkerActor(xo.StatelessActor):
                             # Devices were already reserved above; only spawn
                             # the subprocess now that the virtualenv (if any)
                             # is installed.
+                            pool_kwargs = {}
+                            if (
+                                xavier_config is not None
+                                and xavier_config.get("gpu_cache_bytes") is not None
+                            ):
+                                from ..model.llm.vllm.xavier.transport import (
+                                    gpu_pool_options,
+                                )
+
+                                pool_kwargs = gpu_pool_options(
+                                    self.address, subpool_alloc_env
+                                )
                             subpool_address = await self._spawn_subpool(
                                 model_uid,
                                 subpool_alloc_env,
                                 devices,
                                 start_python=subpool_python_path,
+                                **pool_kwargs,
                             )
                             all_subpool_addresses.append(subpool_address)
                         if xavier_config is not None:
