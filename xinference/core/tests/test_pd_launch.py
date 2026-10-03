@@ -331,3 +331,18 @@ async def test_gpu_pool_options_reach_actual_subpool(monkeypatch):
     )
     assert env["UCX_MEMTYPE_CACHE"] == "n"
     worker._ensure_subpool_monitor.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("budget", [None, 0, 268435456])
+async def test_gpu_pd_defaults_to_direct_handoff(launch_runtime, budget):
+    supervisor, workers, actors, _ = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), xavier_gpu_cache_bytes=budget
+    )
+    assert actors["PDModelActor"].constructor_kwargs["direct_handoff"] is True
+    for worker in workers:
+        config = worker.launch_builtin_model.call_args.kwargs
+        assert config["xavier_config"]["gpu_cache_bytes"] == (
+            268435456 if budget is None else budget
+        )

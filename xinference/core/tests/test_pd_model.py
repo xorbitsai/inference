@@ -279,11 +279,15 @@ async def test_abort_failure_still_cleans_request(router):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["chat", "generate"])
-async def test_nixl_handoff_preserves_metadata_and_decode_settings(router, method):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_handoff_preserves_metadata_and_decode_settings(
+    router, backend, method
+):
     import json
 
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     transfer = {
         "do_remote_prefill": True,
         "remote_engine_id": "engine-p",
@@ -309,9 +313,11 @@ async def test_nixl_handoff_preserves_metadata_and_decode_settings(router, metho
 
 
 @pytest.mark.asyncio
-async def test_nixl_parallel_sampling_rejected_before_prefill(router):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_parallel_sampling_rejected_before_prefill(router, backend):
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     with pytest.raises(ValueError, match="n=1"):
         await actor._infer("chat", [], {"n": 2})
     prefill.chat.assert_not_awaited()
@@ -321,9 +327,13 @@ async def test_nixl_parallel_sampling_rejected_before_prefill(router):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("payload", [{}, None, b"null", b"[]", b"{}", b"42"])
-async def test_nixl_missing_metadata_does_not_silently_recompute(router, payload):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_missing_metadata_does_not_silently_recompute(
+    router, backend, payload
+):
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     prefill.chat.return_value = payload
     with pytest.raises(RuntimeError, match="KV transfer metadata"):
         await actor._infer("chat", [], {})
@@ -365,9 +375,11 @@ async def test_nixl_multiple_prefillers_and_decoders():
 
 
 @pytest.mark.asyncio
-async def test_nixl_stream_close_releases_decode_slot(router):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_stream_close_releases_decode_slot(router, backend):
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     prefill.chat.return_value = {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
     closed = []
 

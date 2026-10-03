@@ -296,3 +296,44 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "Falhas de transferência e layouts incompatíveis do cache KV geram erros em vez de recalcular a solicitação silenciosamente."
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D usa transferência direta entre GPUs por padrão. Requer Linux, "
+"GPUs NVIDIA, vLLM >= 0.21.0 e ``xoscar[nixl]>=0.11.1`` nos ambientes do "
+"worker e do modelo. Use um endereço de host acessível (não ``0.0.0.0``). Sem"
+" NIXL, a inicialização falha; não há alternativa por CPU."
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"Para P/D, ``xavier_gpu_cache_bytes`` assume ``268435456`` por padrão (256 "
+"MiB por réplica). O histórico usa primeiro a GPU e passa para a CPU quando a"
+" capacidade GPU se esgota. O histórico CPU é limitado pela capacidade de "
+"blocos KV do motor e pode ocupar um tamanho próximo ao desse cache na "
+"memória do host. Acertos CPU restauram KV na GPU; ausências são calculadas "
+"localmente. ``0`` desativa o histórico e mantém a transferência direta. "
+"Falhas de transferência geram erros."
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "Transferência direta e histórico em camadas"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "A transferência direta atualmente exige ``n=1``."
+

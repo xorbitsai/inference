@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Experimental direct handoff with optional bounded GPU history."""
+"""Request-scoped GPU handoff with independent tiered history."""
 
 import asyncio
 import time
@@ -169,7 +169,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
         async with self.recv_lock:
             for ranks, ticket in zip(requests, tickets):
                 if len(ranks) != 1:
-                    raise ValueError("Direct prototype requires one producer")
+                    raise ValueError("Direct handoff requires one producer")
                 rank, layers = next(iter(ranks.items()))
                 sender = await xo.actor_ref(
                     address=self.actor._world_addresses[rank],

@@ -145,7 +145,7 @@ async def test_cancelled_decoder_drains_before_releasing_source(monkeypatch):
 
 
 def test_direct_metadata_preserves_local_prefix_offset(connector):
-    connector._direct_test = True
+    connector._direct_handoff = True
     request = SimpleNamespace(
         request_id="decoder",
         kv_transfer_params={
@@ -175,7 +175,7 @@ def test_direct_producer_retains_original_engine_blocks(
         "vllm.v1.request",
         SimpleNamespace(RequestStatus=SimpleNamespace(FINISHED_ABORTED="aborted")),
     )
-    connector._direct_test = True
+    connector._direct_handoff = True
     actor = SimpleNamespace(register_direct_gpu_v1=AsyncMock())
     connector._get_transfer_ref = AsyncMock(return_value=actor)
     request = SimpleNamespace(
@@ -273,3 +273,16 @@ async def test_failed_later_slab_releases_both_index_sets(monkeypatch):
     assert receiver_indices and all(not indices for indices in receiver_indices)
     assert not state.indices
     assert source.poll_direct() == {"producer"}
+
+
+@pytest.mark.parametrize("role", ["prefill", "decode", "hybrid"])
+@pytest.mark.parametrize("budget", [None, 0, 268435456])
+def test_direct_handoff_selection_is_per_model(role, budget, monkeypatch):
+    from ..transport import uses_direct_handoff
+
+    # No environment setting is consulted, including the old prototype flag.
+    monkeypatch.setenv("XINFERENCE_XAVIER_DIRECT_TEST", "1")
+    assert uses_direct_handoff({"role": role, "gpu_cache_bytes": budget}) is (
+        role != "hybrid" and budget is not None
+    )
+    assert not uses_direct_handoff(None)

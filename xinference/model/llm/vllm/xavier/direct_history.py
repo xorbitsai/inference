@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Bounded GPU history retained after request-scoped handoff."""
+"""Bounded GPU/CPU history retained after request-scoped handoff."""
 
 import asyncio
 import logging
@@ -15,40 +15,33 @@ from .tiered_snapshot import TieredKVSnapshotStore
 logger = logging.getLogger(__name__)
 
 
-class GPUHistoryStore(TieredKVSnapshotStore):
-    """Independent, immutable GPU blocks; eviction never performs CPU copies."""
+class HistoryStore(TieredKVSnapshotStore):
+    """Independent GPU-first history with bounded CPU overflow."""
 
-    def __init__(self, budget, block_bytes, device):
-        super().__init__(1, budget, block_bytes, device)
-        self.capacity = self.gpu_capacity
-        self.cpu_capacity = 0
+    def __init__(self, budget, block_bytes, device, cpu_capacity=0):
+        super().__init__(max(1, cpu_capacity), budget, block_bytes, device)
+        self.cpu_capacity = cpu_capacity
+        self.capacity = self.gpu_capacity + cpu_capacity
 
-    def _admit(self, key, pinned):
-        if not self.gpu_capacity:
-            self.metrics["skipped"] += 1
-            return False
-        if len(self.blocks) >= self.gpu_capacity:
-            victim = next((k for k in self.blocks if k not in pinned), None)
-            if victim is None:
-                self.metrics["skipped"] += 1
-                return False
-            self._drop(victim)
-            # No external directory in this phase: lookup is local to the P.
-            self.evicted.clear()
-        self.blocks[key] = {}
-        self.logical_dtypes[key] = {}
-        self._block_sizes[key] = 0
-        self.tiers[key] = "gpu"
-        self._gpu_lru[key] = None
-        self.counts["gpu"] += 1
-        return True
+    def read(self, layer, keys, device=None):
+        # Batch same-tier blocks before H2D instead of synchronizing once per
+        # block. load_history partitions reads by tier and holds their leases.
+        values = [self.blocks[key][layer] for key in keys]
+        target = torch.device("cpu") if device is None else device
+        if all(value.device == values[0].device for value in values):
+            return torch.stack(values).to(target).contiguous()
+        return super().read(layer, keys, device)
 
 
 class DirectHistoryMixin:
-    def _init_history(self, budget):
+    def _init_history(self, budget, cpu_capacity=None):
         block_bytes = sum(c[0].numel() * c.element_size() for c in self.caches.values())
+        if cpu_capacity is None:
+            cpu_capacity = self.store.cpu_capacity
         self.history = (
-            GPUHistoryStore(budget, block_bytes, self.device) if budget else None
+            HistoryStore(budget, block_bytes, self.device, cpu_capacity)
+            if budget
+            else None
         )
         self._history_task = None
         self._history_closing = False
@@ -59,11 +52,13 @@ class DirectHistoryMixin:
         # probation, preserving first-request retention while there is room.
         self._history_probation: OrderedDict[int, None] = OrderedDict()
         self._history_probation_limit = min(
-            8192, 2 * self.history.gpu_capacity if self.history else 0
+            8192, 2 * self.history.capacity if self.history else 0
         )
         self.history_chunk_bytes = 2 * 1024 * 1024
         self.history_fill_chunk_bytes = 8 * 1024 * 1024
-        self.history_pending_bytes = min(budget, 64 * 1024 * 1024)
+        self.history_pending_bytes = min(
+            self.history.capacity * block_bytes if self.history else 0, 64 * 1024 * 1024
+        )
         # A soft admission deadline, not a cancellation timeout: an in-flight
         # CUDA chunk always drains before the engine can reuse its blocks.
         self.history_retention_seconds = 0.01
@@ -72,6 +67,8 @@ class DirectHistoryMixin:
             history_skipped_requests=0,
             history_failures=0,
             history_hit_blocks=0,
+            history_cpu_hit_blocks=0,
+            history_gpu_hit_blocks=0,
             history_loaded_requests=0,
             history_admission_rejected_blocks=0,
             history_admission_reused_blocks=0,
@@ -118,11 +115,11 @@ class DirectHistoryMixin:
             self.metrics["history_skipped_requests"] += 1
             return False
         limit = min(
-            self.history.gpu_capacity,
+            self.history.capacity,
             self.history_pending_bytes // self.history.block_bytes,
         )
         candidates = []
-        free = max(0, self.history.gpu_capacity - len(self.history.blocks))
+        free = max(0, self.history.capacity - len(self.history.blocks))
         for block, key in state.hashes.items():
             if key in self.history.ready:
                 self.history.touch(key)
@@ -176,7 +173,7 @@ class DirectHistoryMixin:
             while start < len(candidates):
                 # Filling unused capacity can amortize per-layer gathers;
                 # replacements use smaller chunks to limit lock hold time.
-                free = self.history.gpu_capacity - len(self.history.blocks)
+                free = self.history.gpu_capacity - self.history.counts["gpu"]
                 chunk_bytes = (
                     self.history_fill_chunk_bytes
                     if free > 0
@@ -248,15 +245,23 @@ class DirectHistoryMixin:
                             cache = self.caches[name]
                             if not set(mapping).issubset(self.history.leases[lease]):
                                 raise ValueError("History read outside lease")
-                            reads.append(
-                                LayerRead(
-                                    name,
-                                    list(mapping),
-                                    list(mapping.values()),
-                                    tuple(cache.shape[1:]),
-                                    cache.dtype,
-                                )
-                            )
+                            for tier in ("gpu", "cpu"):
+                                pairs = [
+                                    (key, dest)
+                                    for key, dest in mapping.items()
+                                    if self.history.tiers[key] == tier
+                                ]
+                                if pairs:
+                                    keys, destinations = map(list, zip(*pairs))
+                                    reads.append(
+                                        LayerRead(
+                                            name,
+                                            keys,
+                                            destinations,
+                                            tuple(cache.shape[1:]),
+                                            cache.dtype,
+                                        )
+                                    )
                     for batch in batch_reads(reads, max_bytes=self.slab_bytes):
                         for read in batch:
                             blocks = self.history.read(
@@ -271,6 +276,9 @@ class DirectHistoryMixin:
                                 self._index_tensor(indices, read.destinations)
                             ] = blocks
                         await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                    for key in self.history.leases[lease]:
+                        tier = self.history.tiers[key]
+                        self.metrics[f"history_{tier}_hit_blocks"] += 1
                     self.metrics["history_hit_blocks"] += len(
                         self.history.leases[lease]
                     )

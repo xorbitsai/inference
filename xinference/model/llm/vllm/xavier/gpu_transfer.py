@@ -452,7 +452,7 @@ class GPUTransfer:
 
 
 class GPUTransferMixin:
-    def map_gpu_caches_v1(self, descriptors, budget):
+    def map_gpu_caches_v1(self, descriptors, budget, direct_handoff=False):
         from torch.multiprocessing.reductions import rebuild_cuda_tensor
 
         if getattr(self, "_gpu_transfer", None) is not None:
@@ -460,10 +460,8 @@ class GPUTransferMixin:
         caches = {
             name: rebuild_cuda_tensor(*desc) for name, desc in descriptors.items()
         }
-        import os
-
         runtime_type = GPUTransfer
-        if os.getenv("XINFERENCE_XAVIER_DIRECT_TEST") == "1":
+        if direct_handoff:
             from .direct_handoff import DirectGPUTransfer
 
             runtime_type = DirectGPUTransfer

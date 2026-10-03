@@ -62,10 +62,12 @@ def test_backend_selection():
 
 
 @pytest.mark.parametrize("role", ["prefill", "decode"])
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
 @pytest.mark.asyncio
 async def test_generate_passes_native_handoff_and_returns_producer_metadata(
     monkeypatch,
     role,
+    backend,
 ):
     from .. import core
 
@@ -91,7 +93,10 @@ async def test_generate_passes_native_handoff_and_returns_producer_metadata(
     monkeypatch.setattr(core, "VLLM_VERSION", Version("0.21.0"))
     monkeypatch.setattr(core, "VLLM_INSTALLED", False)
     model = object.__new__(core.VLLMModel)
-    model._nixl_config = {"role": role}
+    model._nixl_config = {"role": role} if backend == "nixl" else None
+    model._xavier_config = (
+        {"role": role, "gpu_cache_bytes": 0} if backend == "xavier" else None
+    )
     model._engine = Engine()
     model._active_request_ids = set()
     model.lora_requests = []

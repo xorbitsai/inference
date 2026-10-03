@@ -14,7 +14,6 @@
 import asyncio
 import logging
 import math
-import os
 import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -35,6 +34,7 @@ from .block_tracker import VLLMBlockTracker
 from .profiling import profile_stage
 from .snapshot import block_major_view
 from .transfer import XAVIER_BF16_TRANSPORT_DTYPE, TransferActor
+from .transport import uses_direct_handoff
 from .utils import hash_block_tokens
 
 if TYPE_CHECKING:
@@ -124,19 +124,23 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise ValueError(
                 "Xavier V1 currently supports text-only models without LoRA"
             )
-        self._direct_test = os.getenv("XINFERENCE_XAVIER_DIRECT_TEST") == "1"
+        self._direct_handoff = uses_direct_handoff(self._xavier_config)
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
-        if self._direct_test and (
-            self._gpu_budget is None or len(kv_cache_config.kv_cache_groups) != 1
+        if self._direct_handoff and (
+            self._gpu_budget is None
+            or len(kv_cache_config.kv_cache_groups) != 1
+            or self._xavier_config.get("role") not in ("prefill", "decode")
         ):
-            raise ValueError("Direct prototype requires GPU transport and one KV group")
+            raise ValueError(
+                "Direct handoff requires P/D roles, GPU transport and one KV group"
+            )
         self._gpu_cache_mapped = False
         self._gpu_mapping_lock = asyncio.Lock()
         self._kv_schema: Optional[XavierKVSchema] = None
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
         self._is_consumer = self._kv_transfer_config.is_kv_consumer
-        self._history_enabled = self._direct_test and bool(self._gpu_budget)
+        self._history_enabled = self._direct_handoff and bool(self._gpu_budget)
         if self._history_enabled and self._is_producer:
             # P may restore its own independent history before computing a suffix.
             self._is_consumer = True
@@ -228,7 +232,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
     def get_finished(self, finished_req_ids: set[str]) -> tuple[set[str], set[str]]:
         sent = set()
-        if self._direct_test and self._is_producer and self._gpu_cache_mapped:
+        if self._direct_handoff and self._is_producer and self._gpu_cache_mapped:
             assert self._transfer_ref is not None
             sent = self._call(self._transfer_ref.poll_direct_gpu_v1())
         if not self._gpu_load_jobs:
@@ -312,7 +316,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             self._pending_store_requests[request.request_id] = request
 
     def wait_for_save(self):
-        if self._direct_test and self._is_producer:
+        if self._direct_handoff and self._is_producer:
             self._call(self._ensure_gpu_cache_mapping())
             torch.cuda.synchronize()
             return
@@ -342,7 +346,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise ValueError(
                 "Xavier V1 does not support LoRA, multimodal, embedding or salted prompts"
             )
-        if self._direct_test:
+        if self._direct_handoff:
             params = getattr(request, "kv_transfer_params", None) or {}
             handoff = params.get("xavier_direct")
             if self._is_producer and getattr(self, "_history_enabled", False):
@@ -505,7 +509,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         scheduler_output: SchedulerOutput,
     ) -> KVConnectorMetadata:
         meta = XavierConnectorMetadata()
-        if self._is_producer and not self._direct_test:
+        if self._is_producer and not self._direct_handoff:
             self._build_store_meta(scheduler_output, meta)
         if self._is_consumer:
             self._build_load_meta(scheduler_output, meta)
@@ -516,7 +520,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request: "Request",
         block_ids: List[int],
     ) -> tuple[bool, dict[str, Any] | None]:
-        if self._direct_test:
+        if self._direct_handoff:
             pending = self._requests_need_load.get(request.request_id)
             if pending is not None and pending.lease.startswith("history:"):
                 if not pending.local_transfers_by_group:
@@ -559,6 +563,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             )
 
                     self._call(register())
+                    logger.debug(
+                        "Register Xavier direct handoff: request=%s blocks=%s",
+                        request.request_id,
+                        len(blocks),
+                    )
                 return bool(blocks), {
                     "do_remote_prefill": True,
                     "xavier_direct": {
@@ -956,7 +965,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         "Xavier GPU transfer requires registered KV caches"
                     )
                 torch.cuda.synchronize()
-                await transfer.map_gpu_caches_v1(descriptors, self._gpu_budget)
+                await transfer.map_gpu_caches_v1(
+                    descriptors, self._gpu_budget, direct_handoff=self._direct_handoff
+                )
                 self._gpu_cache_mapped = True
         return transfer
 
@@ -993,7 +1004,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 entries.append(ranks)
             torch.cuda.synchronize()
             async def load():
-                if self._direct_test:
+                if self._direct_handoff:
                     historical = [
                         i for i, r in enumerate(requests) if r.lease.startswith("history:")
                     ]

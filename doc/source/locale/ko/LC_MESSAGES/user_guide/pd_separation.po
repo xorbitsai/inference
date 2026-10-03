@@ -272,3 +272,40 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "전송 실패와 호환되지 않는 KV 캐시 레이아웃은 요청을 조용히 다시 계산하는 대신 오류를 발생시킵니다."
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D는 기본적으로 GPU 간 직접 전송을 사용합니다. Linux, NVIDIA GPU, vLLM >= 0.21.0이 "
+"필요하며 워커와 모델 환경 모두에 ``xoscar[nixl]>=0.11.1`` 을 설치해야 합니다. 연결 가능한 호스트 주소를 "
+"사용하세요(``0.0.0.0`` 제외). NIXL이 없으면 시작에 실패하며 CPU로 대체하지 않습니다."
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"P/D의 ``xavier_gpu_cache_bytes`` 기본값은 ``268435456`` (복제본당 256 MiB)입니다. 이력은 "
+"GPU를 우선 사용하고 GPU 용량이 부족하면 CPU로 이동합니다. CPU 이력 블록 수는 엔진 KV 블록 용량으로 제한되며 호스트 "
+"메모리 사용량이 해당 캐시 크기에 근접할 수 있습니다. CPU 적중 시 KV를 GPU로 복원하고 미스 시 로컬에서 계산합니다. ``0``"
+" 은 이력을 비활성화하지만 직접 전송은 유지합니다. 전송 실패는 오류를 발생시킵니다."
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "직접 전송 및 계층형 이력"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "직접 전송은 현재 ``n=1`` 을 요구합니다."
+

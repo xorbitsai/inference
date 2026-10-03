@@ -385,7 +385,9 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
     connector._gpu_cache_mapped = False
     connector._registered_kv_caches = {"layer": cache}
     transfer = SimpleNamespace(
-        map_gpu_caches_v1=AsyncMock(side_effect=lambda *args: calls.append("map")),
+        map_gpu_caches_v1=AsyncMock(
+            side_effect=lambda *args, **kwargs: calls.append("map")
+        ),
         stage_gpu_requests_v1=AsyncMock(
             side_effect=lambda *args: calls.append("stage")
         ),

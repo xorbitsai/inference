@@ -88,8 +88,19 @@ def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
     if not host:
         raise ValueError("Cannot determine Xavier NIXL worker host")
     host = resolve_nixl_host(host, "a reachable worker address")
+    if not host:
+        raise ValueError("Cannot determine Xavier NIXL worker host")
     if ":" in host:
         host = f"[{host}]"
     env["UCX_MEMTYPE_CACHE"] = "n"
     env.setdefault("UCX_TLS", os.environ.get("UCX_TLS", "tcp,cuda_copy,cuda_ipc"))
     return {"external_address": f"nixl://{host}:0"}
+
+
+def uses_direct_handoff(config: Optional[Dict[str, Any]]) -> bool:
+    """GPU P/D uses request-scoped handoff; CPU and hybrid caches stay unchanged."""
+    return bool(
+        config
+        and config.get("gpu_cache_bytes") is not None
+        and config.get("role") in {"prefill", "decode"}
+    )

@@ -16,7 +16,6 @@ import asyncio
 import copy
 import json
 import logging
-import os
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -85,6 +84,7 @@ class PDModelActor(xo.StatelessActor):
             [List[xo.ActorRefType["ModelActor"]]], SchedulingPolicy
         ] = RoundRobinSchedulingPolicy,
         transport_backend: str = "xavier",
+        direct_handoff: bool = False,
     ):
         super().__init__()
         # Prefill request map, used to skip the timeout task for specific request id.
@@ -92,7 +92,7 @@ class PDModelActor(xo.StatelessActor):
 
         self._model_uid = model_uid
         self._transport_backend = transport_backend
-        self._direct_test = os.getenv("XINFERENCE_XAVIER_DIRECT_TEST") == "1"
+        self._direct_handoff = transport_backend == "xavier" and direct_handoff
 
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -251,7 +251,7 @@ class PDModelActor(xo.StatelessActor):
             if (
                 self._prefill_replicas
                 and self._transport_backend == "xavier"
-                and not self._direct_test
+                and not self._direct_handoff
             ):
                 await asyncio.gather(
                     *[
@@ -293,14 +293,13 @@ class PDModelActor(xo.StatelessActor):
         if args and args[0] is not None and not isinstance(args[0], dict):
             raise TypeError("Generation config must be a dict or None")
         if (
-            (self._transport_backend == "nixl" or self._direct_test)
+            (self._transport_backend == "nixl" or self._direct_handoff)
             and args
             and args[0]
             and args[0].get("n", 1) != 1
         ):
-            # NIXL releases the producer lease after one decoder (per TP rank)
-            # acknowledges the read, not after all parallel sampling children.
-            raise ValueError("Native NIXL PD currently requires n=1")
+            # Handoff leases cover one decoder, not parallel sampling children.
+            raise ValueError("PD KV handoff currently requires n=1")
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
         prefill_args = list(copy.deepcopy(args))
@@ -308,7 +307,7 @@ class PDModelActor(xo.StatelessActor):
             prefill_args = [{}] + prefill_args[1:]
         prefill_args[0]["max_tokens"] = 1
         prefill_args[0]["stream"] = False
-        if self._transport_backend == "nixl" or self._direct_test:
+        if self._transport_backend == "nixl" or self._direct_handoff:
             prefill_args[0]["n"] = 1
             prefill_args[0]["_pd_kv_transfer_params"] = {
                 "do_remote_decode": True,
@@ -334,7 +333,7 @@ class PDModelActor(xo.StatelessActor):
                 self._transport_backend,
                 time.perf_counter() - prefill_start,
             )
-            if self._transport_backend == "nixl" or self._direct_test:
+            if self._transport_backend == "nixl" or self._direct_handoff:
                 payload = (
                     json.loads(result) if isinstance(result, (bytes, str)) else result
                 )
@@ -346,9 +345,7 @@ class PDModelActor(xo.StatelessActor):
                 if not isinstance(transfer, dict) or not transfer.get(
                     "do_remote_prefill"
                 ):
-                    raise RuntimeError(
-                        "NIXL prefill did not return KV transfer metadata"
-                    )
+                    raise RuntimeError("PD prefill did not return KV transfer metadata")
                 decode_args = list(copy.deepcopy(args))
                 if not decode_args or decode_args[0] is None:
                     decode_args = [{}] + decode_args[1:]

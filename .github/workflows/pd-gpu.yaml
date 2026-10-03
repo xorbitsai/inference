@@ -41,11 +41,11 @@ jobs:
         run: |
           python -m venv .venv-pd
           .venv-pd/bin/python -m pip install -U pip 'setuptools<82'
-          .venv-pd/bin/python -m pip install -e '.[dev]' "vllm==$VLLM_VERSION" "nixl==$NIXL_VERSION" openai
+          .venv-pd/bin/python -m pip install -e '.[dev]' "vllm==$VLLM_VERSION" "nixl==$NIXL_VERSION" "xoscar[nixl]>=0.11.1" openai
       - name: Verify PD with actual KV transfer
         run: |
           source .venv-pd/bin/activate
-          python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py
+          python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py xinference/model/llm/vllm/xavier/test/test_direct_history.py
       - name: Upload runtime logs
         if: always()
         uses: actions/upload-artifact@v4
