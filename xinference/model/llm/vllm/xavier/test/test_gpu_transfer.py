@@ -341,18 +341,24 @@ async def test_gpu_packing_preserves_all_bf16_bits(monkeypatch, device):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [torch.cuda.OutOfMemoryError, RuntimeError])
-async def test_staging_failure_drains_and_drops_only_unpublished(monkeypatch, failure):
+@pytest.mark.parametrize("packed", [False, True])
+async def test_staging_failure_drains_and_drops_only_unpublished(
+    monkeypatch, failure, packed
+):
     r = runtime(monkeypatch, gpu_slots=3)
     stage(r, 1)
     assert r.store.reserve("2:live", [1])
-    original = r.store.stage
+    method = "stage_blocks" if packed else "stage"
+    original = getattr(r.store, method)
+    if not packed:
+        monkeypatch.setattr(r, "_can_stage_blocks", lambda layers: False)
     calls = []
 
-    def copy(layer, keys, tensors):
-        original(layer, keys, tensors)
+    def copy(*args):
+        original(*args)
         raise failure("copy failed after partial staging")
 
-    monkeypatch.setattr(r.store, "stage", copy)
+    monkeypatch.setattr(r.store, method, copy)
     monkeypatch.setattr(torch.cuda, "synchronize", lambda device: calls.append("sync"))
     await r.run(r.stage, [{"K": ([1, 2], [0, 1])}])
     assert calls == ["sync"]
@@ -911,3 +917,97 @@ async def test_new_snapshot_resets_reused_layer_lru_shortcut(monkeypatch):
     assert list(r.store.blocks) == [3, 1, 2]
     assert list(r.store._gpu_lru) == [3, 2]
     assert r.store.tiers == {1: "cpu", 2: "gpu", 3: "gpu"}
+
+
+@pytest.mark.asyncio
+async def test_complete_block_staging_is_bounded_and_preserves_content(monkeypatch):
+    from .. import gpu_transfer
+
+    r = runtime(monkeypatch, gpu_slots=8)
+    r.store.block_bytes = 8
+    r.caches["K"] = torch.arange(16, dtype=torch.bfloat16).reshape(8, 2)
+    r.caches["V"] = -r.caches["K"]
+    monkeypatch.setattr(gpu_transfer, "MAX_REQUEST_BYTES", 16)
+    batches = []
+    original = r.store.stage_blocks
+
+    def capture(keys, layers):
+        batches.append(list(keys))
+        return original(keys, layers)
+
+    monkeypatch.setattr(r.store, "stage_blocks", capture)
+    await r.stage(
+        [{name: ([11, 12, 13, 14, 15], [7, 5, 3, 1, 0]) for name in r.caches}]
+    )
+    assert batches == [[11, 12], [13, 14], [15]]
+    assert r.store.publish([11, 12, 13, 14, 15], {"K", "V"}) == [11, 12, 13, 14, 15]
+    assert r.store.read("K", [11, 12, 13, 14, 15]).tolist() == [
+        [14, 15],
+        [10, 11],
+        [6, 7],
+        [2, 3],
+        [0, 1],
+    ]
+    assert torch.equal(
+        r.store.read("V", [11, 12, 13, 14, 15]),
+        -r.store.read("K", [11, 12, 13, 14, 15]),
+    )
+    r.caches["K"].zero_()
+    assert r.store.read("K", [11]).tolist() == [[14, 15]]
+
+
+@pytest.mark.asyncio
+async def test_layer_specific_block_indices_use_existing_staging(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    r.store.block_bytes = 8
+    r.caches["K"][3] = torch.tensor([3, -3])
+    r.caches["V"] = torch.ones_like(r.caches["K"])
+
+    def unexpected(*args):
+        raise AssertionError("Different layer indices must not use packed staging")
+
+    monkeypatch.setattr(r.store, "stage_blocks", unexpected)
+    await r.stage([{"K": ([9], [3]), "V": ([9], [1])}])
+    assert r.store.read("K", [9]).tolist() == [[3, -3]]
+    assert r.store.read("V", [9]).tolist() == [[1, 1]]
+
+
+@pytest.mark.asyncio
+async def test_packed_partial_hit_gathers_only_missing_blocks(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=4)
+    stage(r, 1)
+    stage(r, 3)
+    r.caches["K"][2] = torch.tensor([2, -2])
+    r.caches["K"][4] = torch.tensor([4, -4])
+    gathered = []
+    original = torch.Tensor.index_select
+
+    def gather(value, dim, index):
+        gathered.extend(index.tolist())
+        return original(value, dim, index)
+
+    monkeypatch.setattr(torch.Tensor, "index_select", gather)
+    await r.stage([{"K": ([1, 2, 3, 4], [0, 2, 0, 4])}])
+    assert gathered == [2, 4]
+    assert list(r.store.blocks) == [1, 2, 3, 4]
+    assert r.store.read("K", [1, 2, 3, 4]).tolist() == [
+        [1, -1],
+        [2, -2],
+        [3, -3],
+        [4, -4],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_packed_hit_evicted_by_preceding_admission_is_copied(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=1)
+    r.store.cpu_capacity = 1
+    stage(r, 1)
+    stage(r, 2)
+    r.caches["K"][2] = torch.tensor([2, -2])
+    r.caches["K"][3] = torch.tensor([3, -3])
+    r.caches["K"][4] = torch.tensor([4, -4])
+    await r.stage([{"K": ([3, 4, 2], [3, 4, 2])}])
+    assert list(r.store.blocks) == [4, 2]
+    assert r.store.publish([3, 4, 2], {"K"}) == [4, 2]
+    assert r.store.read("K", [2]).tolist() == [[2, -2]]
