@@ -521,6 +521,8 @@ async def test_staging_reused_layer_skips_gather_and_preserves_lru(monkeypatch):
     assert list(r.store.blocks) == [2, 1]
     assert r.store.blocks[1]["K"] is before
     assert not syncs
+    stage(r, 3)
+    assert r.store.tiers == {1: "gpu", 2: "cpu", 3: "gpu"}
 
 
 @pytest.mark.asyncio
