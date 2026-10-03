@@ -495,8 +495,12 @@ class GPUTransferMixin:
             # and map_gpu_caches_v1 must not re-register after shutdown/failure.
             await runtime.close()
 
-    def register_direct_gpu_v1(self, ticket, request_id, blocks):
-        self._gpu_transfer.register_direct(ticket, request_id, blocks)
+    def register_direct_gpu_v1(
+        self, ticket, request_id, blocks, hashes=None, held_blocks=None
+    ):
+        self._gpu_transfer.register_direct(
+            ticket, request_id, blocks, hashes, held_blocks
+        )
 
     def release_direct_gpu_v1(self, ticket):
         self._gpu_transfer.release_direct(ticket)
@@ -519,3 +523,16 @@ class GPUTransferMixin:
             address=self._world_addresses[rank], uid=f"{self.default_uid()}-{rank}"
         )
         await ref.release_direct_gpu_v1(ticket)
+
+    def reserve_direct_history_v1(self, lease, keys):
+        runtime = getattr(self, "_gpu_transfer", None)
+        return runtime.reserve_history(lease, keys) if runtime is not None else []
+
+    def release_direct_history_v1(self, lease):
+        runtime = getattr(self, "_gpu_transfer", None)
+        if runtime is not None:
+            runtime.release_history(lease)
+
+    async def load_direct_history_v1(self, requests, leases):
+        runtime = self._gpu_transfer
+        return await runtime.run(runtime.load_history, requests, leases)

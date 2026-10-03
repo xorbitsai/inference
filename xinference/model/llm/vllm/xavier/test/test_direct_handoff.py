@@ -20,6 +20,7 @@ def direct_runtime(monkeypatch):
     r.metrics.update(
         direct_registered=0, direct_finished=0, direct_expired=0, index_uploads=0
     )
+    r._init_history(0)
     return r
 
 

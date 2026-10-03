@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Experimental request-scoped handoff; no persistent snapshot retention."""
+"""Experimental direct handoff with optional bounded GPU history."""
 
 import asyncio
 import time
@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import torch
 import xoscar as xo
 
+from .direct_history import DirectHistoryMixin
 from .gpu_transfer import GPUTransfer
 from .request_transfer import LayerRead, batch_reads, unpack_reads
 
@@ -21,9 +22,13 @@ class DirectRequest:
     reading: bool = False
     released: bool = False
     indices: dict[tuple[int, ...], torch.Tensor] = field(default_factory=dict)
+    hashes: dict[int, int] = field(default_factory=dict)
+    retaining: bool = False
+    retention_attempted: bool = False
+    held_blocks: int = 0
 
 
-class DirectGPUTransfer(GPUTransfer):
+class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
     def __init__(self, actor, caches, budget):
         super().__init__(actor, caches, 0)
         self.direct_requests: dict[str, DirectRequest] = {}
@@ -31,6 +36,8 @@ class DirectGPUTransfer(GPUTransfer):
         self.metrics.update(
             direct_registered=0, direct_finished=0, direct_expired=0, index_uploads=0
         )
+
+        self._init_history(budget)
 
     def _index_tensor(
         self, indices: dict[tuple[int, ...], torch.Tensor], values: list[int]
@@ -44,13 +51,26 @@ class DirectGPUTransfer(GPUTransfer):
         return indices[key]
 
     async def _close(self):
+        self._history_closing = True
+        if self._history_task is not None:
+            await asyncio.gather(self._history_task, return_exceptions=True)
+        if self.history is not None:
+            self.metrics["history"] = self.history.stats()
         await super()._close()
+        if self.history is not None:
+            for key in list(self.history.blocks):
+                self.history._drop(key)
+            self.history.leases.clear()
+            self.history.evicted.clear()
+        self._history_leases.clear()
         for state in self.direct_requests.values():
             state.indices.clear()
         self.direct_requests.clear()
         self.finished_sending.clear()
 
-    def register_direct(self, ticket, request_id, blocks):
+    def register_direct(
+        self, ticket, request_id, blocks, hashes=None, held_blocks=None
+    ):
         if self.closing or ticket in self.direct_requests:
             raise ValueError("Invalid direct handoff registration")
         if not blocks or any(
@@ -59,8 +79,14 @@ class DirectGPUTransfer(GPUTransfer):
             for block in blocks
         ):
             raise ValueError("Invalid direct KV block IDs")
+        if hashes is not None and len(hashes) != len(blocks):
+            raise ValueError("History hashes and engine blocks differ")
         self.direct_requests[ticket] = DirectRequest(
-            request_id, set(blocks), time.monotonic() + 120
+            request_id,
+            set(blocks),
+            time.monotonic() + 120,
+            hashes=dict(zip(blocks, hashes or [])),
+            held_blocks=len(blocks) if held_blocks is None else held_blocks,
         )
         self.metrics["direct_registered"] += 1
 
@@ -70,6 +96,8 @@ class DirectGPUTransfer(GPUTransfer):
             return
         state.released = True
         if not state.reading:
+            if self._schedule_history(ticket, state):
+                return
             state.indices.clear()
             self.finished_sending.add(state.request_id)
             del self.direct_requests[ticket]
@@ -79,6 +107,7 @@ class DirectGPUTransfer(GPUTransfer):
         for ticket, state in list(self.direct_requests.items()):
             if not state.released and time.monotonic() >= state.deadline:
                 self.metrics["direct_expired"] += 1
+                state.retention_attempted = True
                 self.release_direct(ticket)
         result = self.finished_sending
         self.finished_sending = set()
