@@ -30,7 +30,14 @@ def runtime(monkeypatch, gpu_slots=1):
     r.recv_refs = {r.slab_bytes: r.recv_ref}
     r.send_lock, r.recv_lock = asyncio.Lock(), asyncio.Lock()
     r.tasks, r.closing = set(), False
-    r.metrics = dict(gpu_batches=0, cpu_batches=0, wire_bytes=0, useful_bytes=0)
+    r.metrics = dict(
+        gpu_batches=0,
+        cpu_batches=0,
+        wire_bytes=0,
+        useful_bytes=0,
+        load_calls=0,
+        load_requests=0,
+    )
     r.actor = SimpleNamespace(_world_addresses=["source"])
     return r
 
@@ -271,7 +278,7 @@ def test_gpu_connector_failure_releases_lease(connector, connector_module):
     connector._get_connector_metadata = (
         lambda: connector_module.XavierConnectorMetadata(load_requests=[request])
     )
-    connector._load_gpu_request = AsyncMock(side_effect=RuntimeError("peer failed"))
+    connector._load_gpu_requests = AsyncMock(side_effect=RuntimeError("peer failed"))
     connector._release_load_request = AsyncMock()
     with pytest.raises(RuntimeError, match="peer failed"):
         connector.start_load_kv(SimpleNamespace())
@@ -562,3 +569,177 @@ async def test_unpublished_snapshot_still_synchronizes(monkeypatch):
     monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
     await r.stage([{"K": ([1], [0])}])
     assert len(syncs) == 1
+
+
+@pytest.mark.asyncio
+async def test_batch_load_preserves_shared_keys_and_bounds_transfers(monkeypatch):
+    source, dest = runtime(monkeypatch), runtime(monkeypatch)
+    stage(source, 1)
+    stage(source, 2)
+    sent = []
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    async def send(reads, ref, size):
+        assert sum(r.nbytes for r in reads) <= size
+        sent.append(reads)
+        await source.send(reads, ref, size)
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peer = SimpleNamespace(
+        gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+        send_gpu_request_v1=AsyncMock(side_effect=send),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    dest.actor.read_request_blocks_v1 = AsyncMock(
+        side_effect=lambda rank, reads: pack_reads(source.store, reads)
+    )
+    requests = [{0: {"K": {2: i}}} for i in range(6)]
+    requests += [{0: {"K": {1: 6}}}, {0: {"K": {1: 7, 2: 0}}}]
+    await dest.run(dest.load_requests, requests)
+    assert dest.caches["K"].tolist() == [[2, -2]] * 6 + [[1, -1]] * 2
+    peer.gpu_snapshot_locations_v1.assert_awaited_once()
+    assert len(sent) == 2
+    assert [len(r.keys) for batch in sent for r in batch] == [4, 2]
+    assert dest.metrics["gpu_batches"] == 2
+    assert dest.metrics["cpu_batches"] == 1
+
+
+@pytest.mark.asyncio
+async def test_batch_conflicting_destinations_fail_before_transfer(monkeypatch):
+    r = runtime(monkeypatch)
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    with pytest.raises(ValueError, match="Conflicting"):
+        await r.run(r.load_requests, [{0: {"K": {1: 0}}}, {1: {"K": {2: 0}}}])
+    lookup.assert_not_awaited()
+    assert r.caches["K"].count_nonzero() == 0
+
+
+@pytest.mark.asyncio
+async def test_connector_batch_cancellation_holds_all_leases(
+    connector, connector_module
+):
+    requests = [
+        connector_module.XavierLoadRequest(str(i), {}, lease=str(i)) for i in range(2)
+    ]
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def load(entries):
+        assert entries == requests
+        entered.set()
+        await release.wait()
+
+    connector._load_gpu_requests = AsyncMock(side_effect=load)
+    connector._release_load_request = AsyncMock()
+    task = asyncio.create_task(connector._load_gpu_batch(requests))
+    await entered.wait()
+    task.cancel()
+    await asyncio.sleep(0)
+    task.cancel()
+    await asyncio.sleep(0)
+    connector._release_load_request.assert_not_awaited()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert connector._release_load_request.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_connector_batch_attempts_all_lease_releases(connector, connector_module):
+    requests = [
+        connector_module.XavierLoadRequest(str(i), {}, lease=str(i)) for i in range(2)
+    ]
+    connector._load_gpu_requests = AsyncMock()
+    connector._release_load_request = AsyncMock(
+        side_effect=[RuntimeError("release failed"), None]
+    )
+    with pytest.raises(RuntimeError, match="release failed"):
+        await connector._load_gpu_batch(requests)
+    assert connector._release_load_request.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_connector_batch_builds_one_actor_call(
+    connector, connector_module, monkeypatch
+):
+    requests = [
+        connector_module.XavierLoadRequest(
+            str(i), {0: {123: i}}, local_transfers_by_group={0: {0: {123: i}}}
+        )
+        for i in range(2)
+    ]
+    connector._registered_kv_caches = {"layer": torch.zeros(8, 2)}
+    transfer = SimpleNamespace(load_gpu_requests_v1=AsyncMock())
+    connector._ensure_gpu_cache_mapping = AsyncMock(return_value=transfer)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: None)
+    await connector._load_gpu_requests(requests)
+    transfer.load_gpu_requests_v1.assert_awaited_once_with(
+        [{0: {"layer": {123: 0}}}, {0: {"layer": {123: 1}}}]
+    )
+
+
+@pytest.mark.asyncio
+async def test_batch_small_requests_keep_small_slab_bound(monkeypatch):
+    source, dest = runtime(monkeypatch, gpu_slots=2), runtime(monkeypatch)
+    stage(source, 2)
+    source.send_buffers[8] = source.send_buffer[:8]
+    dest.recv_buffers[8] = dest.recv_buffer[:8]
+    dest.recv_refs[8] = dest.recv_buffers[8]
+
+    async def copy(buffers, refs):
+        assert buffers[0].numel() == refs[0].numel() == 8
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peer = SimpleNamespace(
+        gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+        send_gpu_request_v1=AsyncMock(side_effect=source.send),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    await dest.run(dest.load_requests, [{0: {"K": {2: i}}} for i in range(6)])
+    assert dest.caches["K"][:6].tolist() == [[2, -2]] * 6
+    assert peer.send_gpu_request_v1.await_count == 3
+    assert source.metrics["wire_bytes"] == 24
+    assert dest.metrics["load_calls"] == 1
+    assert dest.metrics["load_requests"] == 6
+
+
+@pytest.mark.asyncio
+async def test_batch_groups_multiple_source_ranks_without_losing_destinations(
+    monkeypatch,
+):
+    sources = [runtime(monkeypatch), runtime(monkeypatch)]
+    dest = runtime(monkeypatch)
+    dest.actor._world_addresses = ["first", "second"]
+    for key, source in enumerate(sources, 1):
+        stage(source, key)
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peers = {
+        address: SimpleNamespace(
+            gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+            send_gpu_request_v1=AsyncMock(side_effect=source.send),
+        )
+        for address, source in zip(dest.actor._world_addresses, sources)
+    }
+    monkeypatch.setattr(
+        xo, "actor_ref", AsyncMock(side_effect=lambda address, uid: peers[address])
+    )
+    await dest.run(
+        dest.load_requests,
+        [
+            {0: {"K": {1: 0}}},
+            {1: {"K": {2: 1}}},
+            {0: {"K": {1: 2}}},
+            {1: {"K": {2: 3}}},
+        ],
+    )
+    assert dest.caches["K"][:4].tolist() == [[1, -1], [2, -2], [1, -1], [2, -2]]
+    for peer in peers.values():
+        peer.gpu_snapshot_locations_v1.assert_awaited_once()
+        peer.send_gpu_request_v1.assert_awaited_once()
