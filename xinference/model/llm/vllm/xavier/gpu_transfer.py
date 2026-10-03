@@ -145,12 +145,17 @@ class GPUTransfer:
                 raise ValueError("Xavier GPU batch exceeds transfer slab")
             offset = 0
             for read in reads:
-                for key in read.keys:
-                    tensor = (
-                        self.store.blocks[key][read.layer].view(torch.uint8).reshape(-1)
-                    )
-                    self.send_buffer[offset : offset + tensor.numel()].copy_(tensor)
-                    offset += tensor.numel()
+                end = offset + read.nbytes
+                target = (
+                    self.send_buffer[offset:end]
+                    .view(read.dtype)
+                    .reshape(len(read.keys), *read.block_shape)
+                )
+                torch.stack(
+                    [self.store.blocks[key][read.layer] for key in read.keys],
+                    out=target,
+                )
+                offset = end
             torch.cuda.synchronize(self.device)
             await xo.copy_to([self.send_buffer], [remote_ref])
             self.metrics["wire_bytes"] += self.slab_bytes
