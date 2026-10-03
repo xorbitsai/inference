@@ -68,6 +68,18 @@ class GPUTransfer:
         )
         self.recv_buffer = torch.zeros_like(self.send_buffer)
         self.recv_ref = xo.buffer_ref(actor.address, self.recv_buffer)
+        # Keep stable views for small warm-cache transfers. Reuse their buffer
+        # identities, rather than creating and registering a slice per request.
+        small_bytes = min(self.slab_bytes, 256 * 1024)
+        self.send_buffers = {self.slab_bytes: self.send_buffer}
+        self.recv_buffers = {self.slab_bytes: self.recv_buffer}
+        self.recv_refs = {self.slab_bytes: self.recv_ref}
+        if small_bytes < self.slab_bytes:
+            self.send_buffers[small_bytes] = self.send_buffer[:small_bytes]
+            self.recv_buffers[small_bytes] = self.recv_buffer[:small_bytes]
+            self.recv_refs[small_bytes] = xo.buffer_ref(
+                actor.address, self.recv_buffers[small_bytes]
+            )
         self.send_lock, self.recv_lock = asyncio.Lock(), asyncio.Lock()
         self.tasks: set[asyncio.Task] = set()
         self.closing = False
@@ -104,6 +116,9 @@ class GPUTransfer:
                 dict(self.metrics, cache=self.store.stats()),
             )
         finally:
+            self.recv_refs.clear()
+            self.recv_buffers.clear()
+            self.send_buffers.clear()
             self.recv_ref = None
             self.caches.clear()
 
@@ -174,13 +189,13 @@ class GPUTransfer:
 
     async def send(self, reads, remote_ref, slab_bytes):
         async with self.send_lock:
-            if slab_bytes != self.slab_bytes:
+            if slab_bytes not in self.send_buffers:
                 raise ValueError("Xavier peer transfer slab sizes differ")
             locations = self.locations(reads)
             if any(tier != "gpu" for tier in locations.values()):
                 raise ValueError("GPU transfer requested for a CPU snapshot")
             size = sum(read.nbytes for read in reads)
-            if size > self.slab_bytes:
+            if size > slab_bytes:
                 raise ValueError("Xavier GPU batch exceeds transfer slab")
             offset = 0
             for read in reads:
@@ -196,8 +211,8 @@ class GPUTransfer:
                 )
                 offset = end
             await asyncio.to_thread(torch.cuda.synchronize, self.device)
-            await xo.copy_to([self.send_buffer], [remote_ref])
-            self.metrics["wire_bytes"] += self.slab_bytes
+            await xo.copy_to([self.send_buffers[slab_bytes]], [remote_ref])
+            self.metrics["wire_bytes"] += slab_bytes
             self.metrics["useful_bytes"] += size
 
     async def load(self, ranks):
@@ -242,8 +257,9 @@ class GPUTransfer:
                     for batch in batch_reads(selected, max_bytes=self.slab_bytes):
                         size = sum(read.nbytes for read in batch)
                         if tier == "gpu":
+                            slab_bytes = min(n for n in self.recv_refs if n >= size)
                             await sender.send_gpu_request_v1(
-                                batch, self.recv_ref, self.slab_bytes
+                                batch, self.recv_refs[slab_bytes], slab_bytes
                             )
                             payload = self.recv_buffer[:size]
                         else:
