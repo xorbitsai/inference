@@ -211,3 +211,5 @@ Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. This
 The budget covers retained GPU snapshots only. Leave headroom for the model, vLLM KV cache, two persistent transfer buffers (normally up to 16 MiB each), temporary tensors and allocator overhead. GPU overflow moves unleased blocks to the existing CPU cache; when both tiers are leased, new snapshots are skipped. Transfer failures or layout mismatches raise errors rather than silently converting data or promising local recomputation. Shutdown logs cache placement and transfer counters.
 
 If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors.
+
+With this path, KV loads run asynchronously in the TransferActor, allowing other ready requests to continue decoding. Cancelling a request retains its destination blocks and snapshot leases until the transfer finishes.
