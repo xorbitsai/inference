@@ -41,6 +41,8 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         self.counts = {"gpu": 0, "cpu": 0}
         self.metrics = dict(demotions=0, gpu_hits=0, cpu_hits=0, skipped=0)
         self.block_bytes = block_bytes
+        # Avoid rescanning every previous layer when validating the next one.
+        self._block_sizes: Dict[int, int] = {}
 
     def touch(self, key: int) -> None:
         self.blocks.move_to_end(key)
@@ -52,6 +54,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         self.counts[self.tiers.pop(key)] -= 1
         del self.blocks[key]
         del self.logical_dtypes[key]
+        del self._block_sizes[key]
         self.ready.discard(key)
         self.evicted.add(key)
 
@@ -120,6 +123,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
             return False
         self.blocks[key] = {}
         self.logical_dtypes[key] = {}
+        self._block_sizes[key] = 0
         self.tiers[key] = tier
         if tier == "gpu":
             self._gpu_lru[key] = None
@@ -138,7 +142,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
             existing = self.blocks.get(key, {})
             if layer in existing:
                 continue
-            used = sum(t.numel() * t.element_size() for t in existing.values())
+            used = self._block_sizes.get(key, 0)
             if used + tensor.numel() * tensor.element_size() > self.block_bytes:
                 raise ValueError("Snapshot exceeds configured full-block size")
         pinned = set().union(*self.leases.values()) if self.leases else set()
@@ -155,6 +159,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
                         tensor.detach().to(device, copy=True).contiguous()
                     )
                     self.logical_dtypes[key][layer] = logical_dtype or tensors.dtype
+                    self._block_sizes[key] += tensor.numel() * tensor.element_size()
                 except Exception:
                     # A failed first layer must not consume an empty slot.
                     if not self.blocks[key]:

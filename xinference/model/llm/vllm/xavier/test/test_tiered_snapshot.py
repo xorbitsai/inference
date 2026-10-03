@@ -314,3 +314,41 @@ def test_gpu_lru_tracks_drops_and_failed_first_copy(monkeypatch):
         stage(s, 2)
     assert not s._gpu_lru
     assert not s.blocks
+
+
+def test_incremental_size_uses_physical_dtype_and_cleans_failed_slots(monkeypatch):
+    s = store(gpu=2)
+    s.stage("K", [1], torch.ones(1, 2, dtype=torch.float32), torch.bfloat16)
+    assert s._block_sizes == {1: 8}
+    # Immutable hits must not add the same layer twice.
+    s.stage("K", [1], torch.ones(1, 2, dtype=torch.float32))
+    assert s._block_sizes == {1: 8}
+    with pytest.raises(ValueError, match="full-block"):
+        s.stage("V", [1], torch.ones(1, 3))
+    assert s._block_sizes == {1: 8}
+    s._drop(1)
+    assert not s._block_sizes
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("copy failed")
+
+    monkeypatch.setattr(torch.Tensor, "to", fail)
+    with pytest.raises(RuntimeError, match="copy failed"):
+        stage(s, 2)
+    assert not s._block_sizes
+
+
+def test_incremental_size_survives_demotion_eviction_and_key_reuse():
+    s = store(gpu=1, cpu=1)
+    for key in [1, 2]:
+        stage(s, key)
+    assert s._block_sizes == {1: 16, 2: 16}
+    stage(s, 3)
+    assert s._block_sizes == {2: 16, 3: 16}
+    # Reusing an evicted hash starts accounting from its new content.
+    s.stage("K", [1], torch.ones(1, 1))
+    assert s._block_sizes == {3: 16, 1: 4}
+    for key, layers in s.blocks.items():
+        assert s._block_sizes[key] == sum(
+            value.numel() * value.element_size() for value in layers.values()
+        )
