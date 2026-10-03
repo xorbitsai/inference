@@ -181,7 +181,7 @@ class GPUTransfer:
                         for key in block_keys
                     ):
                         for key in block_keys:
-                            self.store.blocks.move_to_end(key)
+                            self.store.touch(key)
                         continue
                     cache = self.caches[layer]
                     blocks = cache.index_select(

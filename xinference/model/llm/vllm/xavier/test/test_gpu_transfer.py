@@ -531,6 +531,8 @@ async def test_staging_reused_layer_skips_gather_and_preserves_lru(
     assert r.store.tiers[1] == ("cpu" if gpu_slots == 1 else "gpu")
     assert not gathers
     assert not syncs
+    stage(r, 3)
+    assert r.store.tiers == {1: "gpu", 2: "cpu", 3: "gpu"}
 
 
 @pytest.mark.asyncio

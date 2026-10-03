@@ -201,3 +201,97 @@ def test_invalid_later_key_rejects_entire_batch():
     assert not s.evicted
     assert s.stats() == before
     assert s.read("K", [1, 2]).tolist() == [[1, 2], [2, 3]]
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_demotion_packs_compatible_layers_and_preserves_shapes(monkeypatch):
+    layers = {
+        "K": torch.arange(6, device="cuda", dtype=torch.float32).reshape(2, 3),
+        "V": torch.arange(4, device="cuda", dtype=torch.float32).reshape(4, 1),
+        "index": torch.arange(3, device="cuda", dtype=torch.int64),
+    }
+    expected = {name: value.cpu() for name, value in layers.items()}
+    copies = []
+    original_to = torch.Tensor.to
+
+    def track_copy(value, *args, **kwargs):
+        if value.is_cuda and args and args[0] == "cpu":
+            copies.append(value.numel())
+        return original_to(value, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "to", track_copy)
+    host = TieredKVSnapshotStore._copy_to_cpu(layers)
+    assert copies == [10, 3]
+    for name, value in host.items():
+        assert value.device.type == "cpu"
+        assert value.dtype == expected[name].dtype
+        assert value.shape == expected[name].shape
+        assert torch.equal(value, expected[name])
+    for value in layers.values():
+        value.zero_()
+    assert all(torch.equal(host[name], value) for name, value in expected.items())
+    host["K"].fill_(42)
+    assert torch.equal(host["V"], expected["V"])
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+def test_failed_packed_demotion_preserves_content(monkeypatch):
+    s = TieredKVSnapshotStore(1, 16, 16, torch.device("cuda:0"))
+    stage(s, 1)
+    stage(s, 2)
+    before = s.stats()
+    order = list(s.blocks)
+    original_to = torch.Tensor.to
+
+    def fail_host_copy(value, *args, **kwargs):
+        if value.is_cuda and args and args[0] == "cpu":
+            raise RuntimeError("packed copy failed")
+        return original_to(value, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(torch.Tensor, "to", fail_host_copy)
+        with pytest.raises(RuntimeError, match="packed copy failed"):
+            stage(s, 3)
+    assert list(s.blocks) == order
+    assert s.tiers == {1: "cpu", 2: "gpu"}
+    assert s.ready == {1, 2}
+    assert not s.evicted
+    assert s.stats() == before
+    assert s.read("K", [1, 2]).tolist() == [[1, 2], [2, 3]]
+
+
+def test_gpu_victims_follow_global_lru_after_hits_and_leases():
+    s = store(gpu=2, cpu=3)
+    for key in [1, 2, 3]:
+        stage(s, key)
+    # A repeated staging hit refreshes GPU LRU without copying the snapshot.
+    s.stage("K", [2], torch.zeros(1, 2))
+    stage(s, 4)
+    assert s.tiers == {1: "cpu", 2: "gpu", 3: "cpu", 4: "gpu"}
+    assert s.reserve("2:hot", [2])
+    stage(s, 5)
+    assert s.tiers[4] == "cpu"
+    s.release("2:hot")
+    s.touch(2)
+    stage(s, 6)
+    assert s.tiers[5] == "cpu"
+    assert 1 not in s.blocks
+    assert list(s._gpu_lru) == [2, 6]
+    assert list(s._gpu_lru) == [k for k in s.blocks if s.tiers[k] == "gpu"]
+    assert s.read("K", [2]).tolist() == [[2, 3]]
+
+
+def test_gpu_lru_tracks_drops_and_failed_first_copy(monkeypatch):
+    s = store(gpu=2)
+    stage(s, 1)
+    s._drop(1)
+    assert not s._gpu_lru
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("copy failed")
+
+    monkeypatch.setattr(torch.Tensor, "to", fail)
+    with pytest.raises(RuntimeError, match="copy failed"):
+        stage(s, 2)
+    assert not s._gpu_lru
+    assert not s.blocks
