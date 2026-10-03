@@ -222,7 +222,7 @@ def test_gpu_connector_failure_releases_lease(connector, connector_module):
 
 
 def test_shutdown_releases_loop_after_gpu_close_failure(
-    connector, connector_module, monkeypatch
+    connector, connector_module, monkeypatch, caplog
 ):
     connector._gpu_cache_mapped = True
     connector._transfer_ref = SimpleNamespace(
@@ -234,8 +234,8 @@ def test_shutdown_releases_loop_after_gpu_close_failure(
 
     connector._call(start())
     loop = connector._loop
-    with pytest.raises(RuntimeError, match="peer lost"):
-        connector.shutdown()
+    connector.shutdown()
+    assert "Failed to close Xavier GPU caches during shutdown" in caplog.text
     assert connector._loop is None
     assert loop.is_closed()
 

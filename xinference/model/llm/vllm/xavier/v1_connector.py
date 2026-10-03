@@ -136,7 +136,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             return
         try:
             if getattr(self, "_gpu_cache_mapped", False):
-                self._call(self._transfer_ref.close_gpu_caches_v1())
+                try:
+                    self._call(self._transfer_ref.close_gpu_caches_v1())
+                except Exception:
+                    logger.warning(
+                        "Failed to close Xavier GPU caches during shutdown; continuing",
+                        exc_info=True,
+                    )
         finally:
             try:
                 release_actor_loop(self._loop)
