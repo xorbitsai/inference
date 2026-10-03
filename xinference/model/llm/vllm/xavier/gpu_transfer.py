@@ -68,10 +68,29 @@ class GPUTransfer:
         )
         self.recv_buffer = torch.zeros_like(self.send_buffer)
         self.recv_ref = xo.buffer_ref(actor.address, self.recv_buffer)
+        # Keep stable views for small warm-cache transfers. Reuse their buffer
+        # identities, rather than creating and registering a slice per request.
+        small_bytes = min(self.slab_bytes, 256 * 1024)
+        self.send_buffers = {self.slab_bytes: self.send_buffer}
+        self.recv_buffers = {self.slab_bytes: self.recv_buffer}
+        self.recv_refs = {self.slab_bytes: self.recv_ref}
+        if small_bytes < self.slab_bytes:
+            self.send_buffers[small_bytes] = self.send_buffer[:small_bytes]
+            self.recv_buffers[small_bytes] = self.recv_buffer[:small_bytes]
+            self.recv_refs[small_bytes] = xo.buffer_ref(
+                actor.address, self.recv_buffers[small_bytes]
+            )
         self.send_lock, self.recv_lock = asyncio.Lock(), asyncio.Lock()
         self.tasks: set[asyncio.Task] = set()
         self.closing = False
-        self.metrics = dict(gpu_batches=0, cpu_batches=0, wire_bytes=0, useful_bytes=0)
+        self.metrics = dict(
+            gpu_batches=0,
+            cpu_batches=0,
+            wire_bytes=0,
+            useful_bytes=0,
+            load_calls=0,
+            load_requests=0,
+        )
 
     async def run(self, function, *args):
         if self.closing:
@@ -86,6 +105,31 @@ class GPUTransfer:
 
         task.add_done_callback(completed)
         return await finish_before_cancel(task)
+
+    async def load_requests_with_leases(self, requests, leases):
+        load_failed = False
+        try:
+            await self.load_requests(requests)
+        except BaseException:
+            load_failed = True
+            raise
+        finally:
+            results = await asyncio.gather(
+                *(
+                    self.actor.release_remote_blocks_v1(lease, ranks)
+                    for lease, ranks in leases
+                    if lease
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    if not load_failed:
+                        raise result
+                    logger.warning(
+                        "Failed to release Xavier snapshot lease after load failure",
+                        exc_info=(type(result), result, result.__traceback__),
+                    )
 
     async def close(self):
         task = getattr(self, "_close_task", None)
@@ -104,6 +148,9 @@ class GPUTransfer:
                 dict(self.metrics, cache=self.store.stats()),
             )
         finally:
+            self.recv_refs.clear()
+            self.recv_buffers.clear()
+            self.send_buffers.clear()
             self.recv_ref = None
             self.caches.clear()
 
@@ -112,14 +159,32 @@ class GPUTransfer:
             raise RuntimeError("Xavier GPU transfer is shutting down")
         keys = {key for layers in entries for ids, _ in layers.values() for key in ids}
         failed = False
+        copied = False
+        last_reused_keys = None
         try:
             for layers in entries:
+                if self._can_stage_blocks(layers):
+                    copied = self._stage_blocks(layers) or copied
+                    last_reused_keys = None
+                    continue
                 for layer, (block_keys, ids) in layers.items():
+                    if all(
+                        key in self.store.ready
+                        and layer in self.store.blocks.get(key, {})
+                        for key in block_keys
+                    ):
+                        if block_keys != last_reused_keys:
+                            for key in block_keys:
+                                self.store.touch(key)
+                        last_reused_keys = block_keys
+                        continue
+                    last_reused_keys = None
                     cache = self.caches[layer]
                     blocks = cache.index_select(
                         0, torch.tensor(ids, device=cache.device)
                     )
                     self.store.stage(layer, block_keys, blocks)
+                    copied = True
         except Exception:
             failed = True
             logger.warning(
@@ -130,7 +195,8 @@ class GPUTransfer:
             # Even a failed gather/copy may have queued reads of EngineCore's
             # slots. Drain them before returning ownership to EngineCore.
             try:
-                await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                if copied or failed:
+                    await asyncio.to_thread(torch.cuda.synchronize, self.device)
             except BaseException:
                 failed = True
                 raise
@@ -139,6 +205,61 @@ class GPUTransfer:
                     for key in keys:
                         if key in self.store.blocks and key not in self.store.ready:
                             self.store._drop(key)
+
+    def _can_stage_blocks(self, layers):
+        if not layers or set(layers) != set(self.caches):
+            return False
+        keys, ids = next(iter(layers.values()))
+        return (
+            bool(keys)
+            and len(keys) == len(ids)
+            and len(keys) == len(set(keys))
+            and all(value == (keys, ids) for value in layers.values())
+            and all(
+                key not in self.store.blocks
+                or (
+                    key in self.store.ready
+                    and self.caches.keys() <= self.store.blocks[key].keys()
+                )
+                for key in keys
+            )
+        )
+
+    def _stage_blocks(self, layers):
+        keys, ids = next(iter(layers.values()))
+        count = max(
+            1, min(MAX_REQUEST_BLOCKS, MAX_REQUEST_BYTES // self.store.block_bytes)
+        )
+        pending_keys, pending_ids = [], []
+        copied = False
+
+        def flush():
+            nonlocal copied
+            if not pending_keys:
+                return
+            index = torch.tensor(pending_ids, device=self.device)
+            values = {
+                name: cache.index_select(0, index)
+                for name, cache in self.caches.items()
+            }
+            self.store.stage_blocks(pending_keys, values)
+            copied = True
+            pending_keys.clear()
+            pending_ids.clear()
+
+        for key, source in zip(keys, ids):
+            if key in self.store.ready:
+                flush()
+                # Admission of preceding blocks may have evicted this hit.
+                if key in self.store.ready:
+                    self.store.touch(key)
+                    continue
+            pending_keys.append(key)
+            pending_ids.append(source)
+            if len(pending_keys) == count:
+                flush()
+        flush()
+        return copied
 
     def locations(self, reads):
         result = {}
@@ -160,13 +281,13 @@ class GPUTransfer:
 
     async def send(self, reads, remote_ref, slab_bytes):
         async with self.send_lock:
-            if slab_bytes != self.slab_bytes:
+            if slab_bytes not in self.send_buffers:
                 raise ValueError("Xavier peer transfer slab sizes differ")
             locations = self.locations(reads)
             if any(tier != "gpu" for tier in locations.values()):
                 raise ValueError("GPU transfer requested for a CPU snapshot")
             size = sum(read.nbytes for read in reads)
-            if size > self.slab_bytes:
+            if size > slab_bytes:
                 raise ValueError("Xavier GPU batch exceeds transfer slab")
             offset = 0
             for read in reads:
@@ -182,13 +303,44 @@ class GPUTransfer:
                 )
                 offset = end
             await asyncio.to_thread(torch.cuda.synchronize, self.device)
-            await xo.copy_to([self.send_buffer], [remote_ref])
-            self.metrics["wire_bytes"] += self.slab_bytes
+            await xo.copy_to([self.send_buffers[slab_bytes]], [remote_ref])
+            self.metrics["wire_bytes"] += slab_bytes
             self.metrics["useful_bytes"] += size
 
     async def load(self, ranks):
+        return await self.load_requests([ranks])
+
+    async def load_requests(self, requests):
         from .transfer import TransferActor
 
+        # Index by destination, not hash: one cached block may feed multiple
+        # requests' slots. Reject conflicting writes before any transfer starts.
+        ranks = {}
+        owners = {}
+        request_bytes = {}
+        for request in requests:
+            for rank, layers in request.items():
+                size = sum(
+                    len(mapping)
+                    * self.caches[name][0].numel()
+                    * self.caches[name].element_size()
+                    for name, mapping in layers.items()
+                )
+                request_bytes[rank] = max(request_bytes.get(rank, 0), size)
+                for name, mapping in layers.items():
+                    for key, destination in mapping.items():
+                        target = (name, destination)
+                        if target in owners:
+                            if owners[target] != key:
+                                raise ValueError("Conflicting Xavier KV destinations")
+                            continue
+                        owners[target] = key
+                        ranks.setdefault(rank, {}).setdefault(name, {})[
+                            destination
+                        ] = key
+
+        self.metrics["load_calls"] += 1
+        self.metrics["load_requests"] += len(requests)
         async with self.recv_lock:
             for rank, layers in ranks.items():
                 sender = await xo.actor_ref(
@@ -198,8 +350,8 @@ class GPUTransfer:
                 reads = [
                     LayerRead(
                         name,
-                        list(mapping),
                         list(mapping.values()),
+                        list(mapping),
                         tuple(self.caches[name].shape[1:]),
                         self.caches[name].dtype,
                     )
@@ -225,11 +377,21 @@ class GPUTransfer:
                                     read.dtype,
                                 )
                             )
-                    for batch in batch_reads(selected, max_bytes=self.slab_bytes):
+                    # Combining small requests must not turn each transfer back
+                    # into a padded full-slab copy. Large requests retain the
+                    # original batch bound to avoid fragmenting cold prefills.
+                    limit = self.slab_bytes
+                    if tier == "gpu":
+                        limit = min(
+                            (n for n in self.recv_refs if n >= request_bytes[rank]),
+                            default=self.slab_bytes,
+                        )
+                    for batch in batch_reads(selected, max_bytes=limit):
                         size = sum(read.nbytes for read in batch)
                         if tier == "gpu":
+                            slab_bytes = min(n for n in self.recv_refs if n >= size)
                             await sender.send_gpu_request_v1(
-                                batch, self.recv_ref, self.slab_bytes
+                                batch, self.recv_refs[slab_bytes], slab_bytes
                             )
                             payload = self.recv_buffer[:size]
                         else:
@@ -274,6 +436,12 @@ class GPUTransferMixin:
     async def load_gpu_request_v1(self, ranks):
         runtime = self._gpu_transfer
         return await runtime.run(runtime.load, ranks)
+
+    async def load_gpu_requests_v1(self, requests, leases=()):
+        runtime = self._gpu_transfer
+        # The actor loop advances independently of EngineCore. Keep both writes
+        # and lease cleanup inside the protected task before returning readiness.
+        return await runtime.run(runtime.load_requests_with_leases, requests, leases)
 
     async def close_gpu_caches_v1(self):
         runtime = getattr(self, "_gpu_transfer", None)
