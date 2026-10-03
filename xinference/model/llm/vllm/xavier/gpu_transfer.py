@@ -112,14 +112,24 @@ class GPUTransfer:
             raise RuntimeError("Xavier GPU transfer is shutting down")
         keys = {key for layers in entries for ids, _ in layers.values() for key in ids}
         failed = False
+        copied = False
         try:
             for layers in entries:
                 for layer, (block_keys, ids) in layers.items():
+                    if all(
+                        key in self.store.ready
+                        and layer in self.store.blocks.get(key, {})
+                        for key in block_keys
+                    ):
+                        for key in block_keys:
+                            self.store.blocks.move_to_end(key)
+                        continue
                     cache = self.caches[layer]
                     blocks = cache.index_select(
                         0, torch.tensor(ids, device=cache.device)
                     )
                     self.store.stage(layer, block_keys, blocks)
+                    copied = True
         except Exception:
             failed = True
             logger.warning(
@@ -130,7 +140,8 @@ class GPUTransfer:
             # Even a failed gather/copy may have queued reads of EngineCore's
             # slots. Drain them before returning ownership to EngineCore.
             try:
-                await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                if copied or failed:
+                    await asyncio.to_thread(torch.cuda.synchronize, self.device)
             except BaseException:
                 failed = True
                 raise
