@@ -67,12 +67,14 @@ def test_lru_lease_release_and_immutable_content():
     s = store(gpu=2)
     stage(s, 1)
     stage(s, 2)
-    assert s.reserve("2:r", [1])
-    s.release("2:r")
+    assert s.reserve("2:r", [2])
     stage(s, 3)
+    assert s.tiers[2] == "gpu"
+    s.release("2:r")
+    stage(s, 4)
     assert s.tiers[2] == "cpu"
-    s.stage("K", [1], torch.tensor([[99.0, 99.0]]))
-    assert s.read("K", [1]).tolist() == [[1, 2]]
+    s.stage("K", [2], torch.tensor([[99.0, 99.0]]))
+    assert s.read("K", [2]).tolist() == [[2, 3]]
 
 
 def test_full_block_size_is_enforced():
@@ -144,3 +146,58 @@ def test_failed_first_copy_releases_empty_slot(monkeypatch):
     assert not s.blocks
     assert not s.tiers
     assert s.counts == {"gpu": 0, "cpu": 0}
+
+
+def test_leased_cpu_does_not_block_unleased_gpu_replacement():
+    s = store(cpu=1)
+    stage(s, 1)
+    stage(s, 2)
+    assert s.reserve("2:r", [1])
+    stage(s, 3)
+    assert s.tiers == {1: "cpu", 3: "gpu"}
+    assert s.ready == {1, 3}
+    assert s.evicted == {2}
+    assert s.counts == {"gpu": 1, "cpu": 1}
+    assert s.read("K", [1, 3]).tolist() == [[1, 2], [3, 4]]
+
+
+def test_failed_demotion_preserves_both_tiers(monkeypatch):
+    s = store(cpu=1)
+    stage(s, 1)
+    stage(s, 2)
+    before = s.stats()
+    order = list(s.blocks)
+    original_to = torch.Tensor.to
+    failed_value = s.blocks[2]["V"]
+
+    def fail_second_layer(value, *args, **kwargs):
+        if value is failed_value:
+            raise RuntimeError("host copy failed")
+        return original_to(value, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "to", fail_second_layer)
+    with pytest.raises(RuntimeError, match="host copy failed"):
+        s.stage("K", [3], torch.ones(1, 2))
+    assert list(s.blocks) == order
+    assert s.tiers == {1: "cpu", 2: "gpu"}
+    assert s.ready == {1, 2}
+    assert not s.evicted
+    assert s.stats() == before
+    assert s.read("K", [1, 2]).tolist() == [[1, 2], [2, 3]]
+
+
+def test_invalid_later_key_rejects_entire_batch():
+    s = store(cpu=1)
+    stage(s, 1)
+    stage(s, 2)
+    before = s.stats()
+    order = list(s.blocks)
+    # Key 3 fits, but key 2 already occupies its full block budget.
+    with pytest.raises(ValueError, match="full-block"):
+        s.stage("extra", [3, 2], torch.ones(2, 2))
+    assert list(s.blocks) == order
+    assert s.tiers == {1: "cpu", 2: "gpu"}
+    assert s.ready == {1, 2}
+    assert not s.evicted
+    assert s.stats() == before
+    assert s.read("K", [1, 2]).tolist() == [[1, 2], [2, 3]]

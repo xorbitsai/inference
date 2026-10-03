@@ -62,17 +62,25 @@ class TieredKVSnapshotStore(KVSnapshotStore):
                 (k for k in self.blocks if self.tiers[k] == "gpu" and k not in pinned),
                 None,
             )
-            if victim is not None and self._cpu_room(pinned):
-                # Complete all host copies before publishing the new location.
-                host = {
-                    layer: value.to("cpu", copy=True)
-                    for layer, value in self.blocks[victim].items()
-                }
-                self.blocks[victim] = host
-                self.tiers[victim] = "cpu"
-                self.counts["gpu"] -= 1
-                self.counts["cpu"] += 1
-                self.metrics["demotions"] += 1
+            if victim is not None:
+                cpu_available = self.counts["cpu"] < self.cpu_capacity or any(
+                    self.tiers[k] == "cpu" and k not in pinned for k in self.blocks
+                )
+                if cpu_available:
+                    # Copy before evicting CPU content or publishing the new tier.
+                    host = {
+                        layer: value.to("cpu", copy=True)
+                        for layer, value in self.blocks[victim].items()
+                    }
+                    self._cpu_room(pinned)
+                    self.blocks[victim] = host
+                    self.tiers[victim] = "cpu"
+                    self.counts["gpu"] -= 1
+                    self.counts["cpu"] += 1
+                    self.metrics["demotions"] += 1
+                else:
+                    # CPU leases must not prevent reuse of an unleased GPU slot.
+                    self._drop(victim)
         tier = "gpu" if self.counts["gpu"] < self.gpu_capacity else "cpu"
         if tier == "cpu" and not self._cpu_room(pinned):
             self.metrics["skipped"] += 1
@@ -83,15 +91,16 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         return True
 
     def stage(self, layer: str, keys: List[int], tensors: torch.Tensor):
-        pinned = set().union(*self.leases.values()) if self.leases else set()
+        # Reject the whole batch before changing content, placement, or LRU order.
         for key, tensor in zip(keys, tensors):
             existing = self.blocks.get(key, {})
             if layer in existing:
-                self.blocks.move_to_end(key)
                 continue
             used = sum(t.numel() * t.element_size() for t in existing.values())
             if used + tensor.numel() * tensor.element_size() > self.block_bytes:
                 raise ValueError("Snapshot exceeds configured full-block size")
+        pinned = set().union(*self.leases.values()) if self.leases else set()
+        for key, tensor in zip(keys, tensors):
             if key not in self.blocks and not self._admit(key, pinned):
                 continue
             self.blocks.move_to_end(key)
