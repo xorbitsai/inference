@@ -167,6 +167,10 @@ def test_nixl_pool_options_keep_explicit_ucx_transport(monkeypatch):
         "external_address": "nixl://10.0.0.1:0"
     }
     assert env == {"UCX_TLS": "rc,cuda_copy,cuda_ipc", "UCX_MEMTYPE_CACHE": "n"}
+    monkeypatch.setenv("UCX_TLS", "rc,cuda_copy")
+    inherited = {}
+    gpu_pool_options("10.0.0.1:1234", inherited)
+    assert inherited["UCX_TLS"] == "rc,cuda_copy"
 
 
 @pytest.mark.asyncio

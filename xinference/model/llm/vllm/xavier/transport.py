@@ -67,6 +67,7 @@ def validate_gpu_cache_budget(value, enabled: bool, replicas: int):
 
 
 def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
+    import os
     from importlib.metadata import version
     from importlib.util import find_spec
     from urllib.parse import urlsplit
@@ -81,5 +82,5 @@ def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
     if not host:
         raise ValueError("Cannot determine Xavier NIXL worker host")
     env["UCX_MEMTYPE_CACHE"] = "n"
-    env.setdefault("UCX_TLS", "tcp,cuda_copy,cuda_ipc")
+    env.setdefault("UCX_TLS", os.environ.get("UCX_TLS", "tcp,cuda_copy,cuda_ipc"))
     return {"external_address": f"nixl://{host}:0"}
