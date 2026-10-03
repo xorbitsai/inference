@@ -84,7 +84,14 @@ class GPUTransfer:
         self.send_lock, self.recv_lock = asyncio.Lock(), asyncio.Lock()
         self.tasks: set[asyncio.Task] = set()
         self.closing = False
-        self.metrics = dict(gpu_batches=0, cpu_batches=0, wire_bytes=0, useful_bytes=0)
+        self.metrics = dict(
+            gpu_batches=0,
+            cpu_batches=0,
+            wire_bytes=0,
+            useful_bytes=0,
+            load_calls=0,
+            load_requests=0,
+        )
 
     async def run(self, function, *args):
         if self.closing:
@@ -229,8 +236,39 @@ class GPUTransfer:
         return candidate if streak == 2 else self.slab_bytes
 
     async def load(self, ranks):
+        return await self.load_requests([ranks])
+
+    async def load_requests(self, requests):
         from .transfer import TransferActor
 
+        # Index by destination, not hash: one cached block may feed multiple
+        # requests' slots. Reject conflicting writes before any transfer starts.
+        ranks = {}
+        owners = {}
+        request_bytes = {}
+        for request in requests:
+            for rank, layers in request.items():
+                size = sum(
+                    len(mapping)
+                    * self.caches[name][0].numel()
+                    * self.caches[name].element_size()
+                    for name, mapping in layers.items()
+                )
+                request_bytes[rank] = max(request_bytes.get(rank, 0), size)
+                for name, mapping in layers.items():
+                    for key, destination in mapping.items():
+                        target = (name, destination)
+                        if target in owners:
+                            if owners[target] != key:
+                                raise ValueError("Conflicting Xavier KV destinations")
+                            continue
+                        owners[target] = key
+                        ranks.setdefault(rank, {}).setdefault(name, {})[
+                            destination
+                        ] = key
+
+        self.metrics["load_calls"] += 1
+        self.metrics["load_requests"] += len(requests)
         async with self.recv_lock:
             for rank, layers in ranks.items():
                 sender = await xo.actor_ref(
@@ -240,8 +278,8 @@ class GPUTransfer:
                 reads = [
                     LayerRead(
                         name,
-                        list(mapping),
                         list(mapping.values()),
+                        list(mapping),
                         tuple(self.caches[name].shape[1:]),
                         self.caches[name].dtype,
                     )
@@ -267,7 +305,16 @@ class GPUTransfer:
                                     read.dtype,
                                 )
                             )
-                    for batch in batch_reads(selected, max_bytes=self.slab_bytes):
+                    # Combining small requests must not turn each transfer back
+                    # into a padded full-slab copy. Large requests retain the
+                    # original batch bound to avoid fragmenting cold prefills.
+                    limit = self.slab_bytes
+                    if tier == "gpu":
+                        limit = min(
+                            (n for n in self.recv_refs if n >= request_bytes[rank]),
+                            default=self.slab_bytes,
+                        )
+                    for batch in batch_reads(selected, max_bytes=limit):
                         size = sum(read.nbytes for read in batch)
                         if tier == "gpu":
                             slab_bytes = self._select_slab_bytes(rank, size)
@@ -321,6 +368,10 @@ class GPUTransferMixin:
     async def load_gpu_request_v1(self, ranks):
         runtime = self._gpu_transfer
         return await runtime.run(runtime.load, ranks)
+
+    async def load_gpu_requests_v1(self, requests):
+        runtime = self._gpu_transfer
+        return await runtime.run(runtime.load_requests, requests)
 
     async def close_gpu_caches_v1(self):
         runtime = getattr(self, "_gpu_transfer", None)

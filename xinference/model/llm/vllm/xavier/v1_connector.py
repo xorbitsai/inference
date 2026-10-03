@@ -171,11 +171,12 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if not metadata.load_requests:
             return
 
+        if getattr(self, "_gpu_budget", None) is not None:
+            self._call(self._load_gpu_batch(metadata.load_requests))
+            return
+
         try:
-            if getattr(self, "_gpu_budget", None) is not None:
-                for request in metadata.load_requests:
-                    self._call(self._load_gpu_request(request))
-            elif self._registered_kv_caches:
+            if self._registered_kv_caches:
                 for request in metadata.load_requests:
                     self._load_request_blocks(request)
             else:
@@ -758,21 +759,41 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         torch.cuda.synchronize()
         await transfer.stage_gpu_requests_v1(entries)
 
-    async def _load_gpu_request(self, request):
+    async def _load_gpu_batch(self, requests):
+        from .gpu_transfer import finish_before_cancel
+
+        async def load_and_release():
+            try:
+                await self._load_gpu_requests(requests)
+            finally:
+                results = await asyncio.gather(
+                    *(self._release_load_request(r) for r in requests if r.lease),
+                    return_exceptions=True,
+                )
+                for result in results:
+                    if isinstance(result, BaseException):
+                        raise result
+
+        # A cancelled caller must not release leases while the peer is writing.
+        await finish_before_cancel(asyncio.create_task(load_and_release()))
+
+    async def _load_gpu_requests(self, requests):
         transfer = await self._ensure_gpu_cache_mapping()
-        ranks = {}
-        for rank in request.transfers:
-            layers = {}
-            for name, cache in self._registered_kv_caches.items():
-                for layer, _ in self._iter_kv_tensors(name, cache):
-                    mapping = self._get_local_transfer_map(request, layer, rank)
-                    if mapping:
-                        layers[layer] = mapping
-            if layers:
-                ranks[rank] = layers
-        # Drain prior EngineCore kernels before another process writes recycled slots.
+        entries = []
+        for request in requests:
+            ranks = {}
+            for rank in request.transfers:
+                layers = {}
+                for name, cache in self._registered_kv_caches.items():
+                    for layer, _ in self._iter_kv_tensors(name, cache):
+                        mapping = self._get_local_transfer_map(request, layer, rank)
+                        if mapping:
+                            layers[layer] = mapping
+                if layers:
+                    ranks[rank] = layers
+            entries.append(ranks)
         torch.cuda.synchronize()
-        await transfer.load_gpu_request_v1(ranks)
+        await transfer.load_gpu_requests_v1(entries)
         torch.cuda.synchronize()
 
     @staticmethod
