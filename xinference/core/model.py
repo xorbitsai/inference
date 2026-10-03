@@ -137,7 +137,6 @@ def request_limit(fn):
                     or isinstance(ret, IteratorWrapper)
                 )
                 if not _is_stream:
-                    # 先释放本地额度，避免指标 RPC 的取消打断清理。
                     self._serve_count = max(0, self._serve_count - 1)
                     released = True
                 stream_label = "true" if _is_stream else "false"
@@ -169,7 +168,6 @@ def request_limit(fn):
                         "add",
                         {"labels": self._metrics_labels, "value": 1},
                     )
-            # 只有成功返回的流，才由调用方负责释放额度。
             stream_transferred = _is_stream
             return ret
         finally:
