@@ -274,19 +274,6 @@ async def test_simultaneous_hybrid_loads_do_not_deadlock(monkeypatch):
     assert second.caches["K"][0].tolist() == [1, -1]
 
 
-def test_gpu_connector_failure_releases_lease(connector, connector_module):
-    request = connector_module.XavierLoadRequest("r", {2: {1: 0}}, lease="1:lease")
-    connector._gpu_budget = 0
-    connector._get_connector_metadata = (
-        lambda: connector_module.XavierConnectorMetadata(load_requests=[request])
-    )
-    connector._load_gpu_requests = AsyncMock(side_effect=RuntimeError("peer failed"))
-    connector._release_load_request = AsyncMock()
-    with pytest.raises(RuntimeError, match="peer failed"):
-        connector.start_load_kv(SimpleNamespace())
-    connector._release_load_request.assert_awaited_once_with(request)
-
-
 def test_shutdown_releases_loop_after_gpu_close_failure(
     connector, connector_module, monkeypatch, caplog
 ):
@@ -722,66 +709,116 @@ async def test_batch_conflicting_destinations_fail_before_transfer(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_connector_batch_cancellation_holds_all_leases(
-    connector, connector_module
-):
-    requests = [
-        connector_module.XavierLoadRequest(str(i), {}, lease=str(i)) for i in range(2)
-    ]
-    entered, release = asyncio.Event(), asyncio.Event()
-
-    async def load(entries):
-        assert entries == requests
-        entered.set()
-        await release.wait()
-
-    connector._load_gpu_requests = AsyncMock(side_effect=load)
-    connector._release_load_request = AsyncMock()
-    task = asyncio.create_task(connector._load_gpu_batch(requests))
-    await entered.wait()
-    task.cancel()
-    await asyncio.sleep(0)
-    task.cancel()
-    await asyncio.sleep(0)
-    connector._release_load_request.assert_not_awaited()
-    release.set()
-    with pytest.raises(asyncio.CancelledError):
-        await task
-    assert connector._release_load_request.await_count == 2
-
-
-@pytest.mark.asyncio
-async def test_connector_batch_attempts_all_lease_releases(connector, connector_module):
-    requests = [
-        connector_module.XavierLoadRequest(str(i), {}, lease=str(i)) for i in range(2)
-    ]
-    connector._load_gpu_requests = AsyncMock()
-    connector._release_load_request = AsyncMock(
-        side_effect=[RuntimeError("release failed"), None]
-    )
-    with pytest.raises(RuntimeError, match="release failed"):
-        await connector._load_gpu_batch(requests)
-    assert connector._release_load_request.await_count == 2
-
-
-@pytest.mark.asyncio
 async def test_connector_batch_builds_one_actor_call(
     connector, connector_module, monkeypatch
 ):
     requests = [
         connector_module.XavierLoadRequest(
-            str(i), {0: {123: i}}, local_transfers_by_group={0: {0: {123: i}}}
+            str(i),
+            {2: {1: i}},
+            lease=str(i),
+            local_transfers_by_group={0: {2: {1: i}}},
         )
         for i in range(2)
     ]
     connector._registered_kv_caches = {"layer": torch.zeros(8, 2)}
     transfer = SimpleNamespace(load_gpu_requests_v1=AsyncMock())
     connector._ensure_gpu_cache_mapping = AsyncMock(return_value=transfer)
-    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: None)
-    await connector._load_gpu_requests(requests)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda: None)
+    await connector._submit_gpu_requests(requests)
+    task = next(iter(connector._gpu_load_jobs))
     transfer.load_gpu_requests_v1.assert_awaited_once_with(
-        [{0: {"layer": {123: 0}}}, {0: {"layer": {123: 1}}}]
+        [{2: {"layer": {1: 0}}}, {2: {"layer": {1: 1}}}],
+        [(r.lease, r.transfers) for r in requests],
     )
+    assert connector._gpu_load_jobs.pop(task) == ["0", "1"]
+    await task
+
+
+@pytest.mark.asyncio
+async def test_async_load_progress_cleanup_and_close(monkeypatch):
+    r = runtime(monkeypatch)
+    started, finish, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+
+    async def load(requests):
+        started.set()
+        await finish.wait()
+
+    async def cleanup(*args):
+        await release.wait()
+
+    r.load_requests = AsyncMock(side_effect=load)
+    r.actor.release_remote_blocks_v1 = AsyncMock(side_effect=cleanup)
+    job = asyncio.create_task(r.run(r.load_requests_with_leases, [{}], [("lease", {})]))
+    await started.wait()  # Progress without an EngineCore RPC loop or poll.
+    assert not job.done()
+    close = asyncio.create_task(r.close())
+    await asyncio.sleep(0)
+    assert not close.done()
+    assert r.caches
+    finish.set()
+    await asyncio.sleep(0)
+    assert not job.done()  # Lease cleanup is part of completion.
+    release.set()
+    await close
+    r.actor.release_remote_blocks_v1.assert_awaited_once_with("lease", {})
+    assert not r.caches
+    await job
+
+
+@pytest.mark.asyncio
+async def test_async_load_failure_is_not_ready_and_releases_all_leases(monkeypatch):
+    r = runtime(monkeypatch)
+    r.load_requests = AsyncMock(side_effect=RuntimeError("write failed"))
+    r.actor.release_remote_blocks_v1 = AsyncMock()
+    with pytest.raises(RuntimeError, match="write failed"):
+        await r.run(r.load_requests_with_leases, [{}], [("a", {}), ("b", {})])
+    assert r.actor.release_remote_blocks_v1.await_count == 2
+    await r.close()
+
+
+def test_async_load_metadata_and_abort_preserve_ownership(connector, connector_module):
+    connector._gpu_budget = 0
+    load = connector_module.XavierLoadRequest("r", {2: {1: 0}}, lease="lease")
+    connector._requests_need_load["r"] = load
+    connector._leased_requests["r"] = load
+    meta = connector_module.XavierConnectorMetadata()
+    connector._build_load_meta(SimpleNamespace(), meta)
+    assert not meta.load_requests  # Not allocated yet.
+    req = SimpleNamespace(request_id="r")
+    connector.update_state_after_alloc(
+        req, SimpleNamespace(get_block_ids=lambda: ([3],)), 16
+    )
+    connector._release_load_request = AsyncMock()
+    connector.request_finished(req, [3])
+    connector._release_load_request.assert_not_awaited()
+    connector._build_load_meta(SimpleNamespace(), meta)
+    assert len(meta.load_requests) == 1
+    assert meta.load_requests[0].local_transfers_by_group == {0: {2: {1: 3}}}
+    assert not connector._leased_requests
+    connector.request_finished(req, [3])
+    connector._release_load_request.assert_not_awaited()
+    connector._build_load_meta(
+        SimpleNamespace(), connector_module.XavierConnectorMetadata()
+    )
+
+
+def test_async_completion_includes_aborted_requests(connector):
+    ready = asyncio.Event()
+
+    async def load():
+        await ready.wait()
+
+    async def submit():
+        task = asyncio.create_task(load())
+        connector._gpu_load_jobs[task] = ["live", "aborted"]
+
+    connector._call(submit())
+    for _ in range(3):
+        assert connector.get_finished({"aborted"}) == (set(), set())
+    ready.set()
+    assert connector.get_finished(set()) == (set(), {"live", "aborted"})
+    assert connector.get_finished(set()) == (set(), set())
 
 
 @pytest.mark.asyncio
@@ -950,3 +987,76 @@ def test_alloc_filters_only_null_positions_in_hybrid_groups(
         mapping = connector._requests_need_load[request_id].local_transfers_by_group
         assert mapping[0] == {0: {key: destination, key + 1: destination + 2}}
         assert mapping[1] == {0: {key + 1: destination}}
+
+
+@pytest.mark.parametrize("budget", [None, 0, 256])
+def test_cache_hit_async_only_for_mapped_transfer_path(connector, budget):
+    connector._gpu_budget = budget
+    connector._query_remote_blocks = AsyncMock(return_value={2: {(1, 4, 0)}})
+    connector._reserve_load_request = AsyncMock(return_value=True)
+    connector._release_load_request = AsyncMock()
+    request = SimpleNamespace(request_id="r", prompt_token_ids=list(range(17)))
+    assert connector.get_num_new_matched_tokens(request, 0) == (16, budget is not None)
+    # An unallocated hit is still owned by the scheduler and releases on abort.
+    connector.request_finished(request, [])
+    connector._release_load_request.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_async_load_attempts_every_release_after_cleanup_failure(monkeypatch):
+    r = runtime(monkeypatch)
+    r.load_requests = AsyncMock()
+    r.actor.release_remote_blocks_v1 = AsyncMock(
+        side_effect=[RuntimeError("release failed"), None]
+    )
+    with pytest.raises(RuntimeError, match="release failed"):
+        await r.run(r.load_requests_with_leases, [{}], [("a", {}), ("b", {})])
+    assert r.actor.release_remote_blocks_v1.await_count == 2
+    await r.close()
+
+
+def test_shutdown_drains_loads_before_closing_gpu_mapping(connector):
+    async def load():
+        await asyncio.sleep(0.01)
+
+    async def submit():
+        task = asyncio.create_task(load())
+        connector._gpu_load_jobs[task] = ["r"]
+        return task
+
+    async def close():
+        assert task.done()
+        assert not connector._gpu_load_jobs
+
+    task = connector._call(submit())
+    connector._gpu_cache_mapped = True
+    connector._transfer_ref = SimpleNamespace(
+        close_gpu_caches_v1=AsyncMock(side_effect=close)
+    )
+    connector.shutdown()
+    connector._transfer_ref.close_gpu_caches_v1.assert_awaited_once()
+    assert connector._loop is None
+
+
+@pytest.mark.asyncio
+async def test_async_load_cancellation_holds_leases_until_writes_finish(monkeypatch):
+    r = runtime(monkeypatch)
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def load(requests):
+        started.set()
+        await finish.wait()
+
+    r.load_requests = AsyncMock(side_effect=load)
+    r.actor.release_remote_blocks_v1 = AsyncMock()
+    job = asyncio.create_task(r.run(r.load_requests_with_leases, [{}], [("a", {})]))
+    await started.wait()
+    for _ in range(2):
+        job.cancel()
+        await asyncio.sleep(0)
+    r.actor.release_remote_blocks_v1.assert_not_awaited()
+    finish.set()
+    with pytest.raises(asyncio.CancelledError):
+        await job
+    r.actor.release_remote_blocks_v1.assert_awaited_once_with("a", {})
+    await r.close()

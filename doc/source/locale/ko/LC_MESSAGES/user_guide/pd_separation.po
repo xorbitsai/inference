@@ -379,3 +379,7 @@ msgstr "GPU 우선 캐시에는 Xavier 백엔드와 2개 이상의 복제본이 
 #: source/user_guide/pd_separation.rst
 msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
 msgstr "스냅샷 스테이징이 실패하면 Xavier는 진행 중인 CUDA 작업을 기다린 후 게시되지 않은 스냅샷을 삭제합니다. CUDA 동기화 실패는 계속 오류로 전파됩니다."
+
+#: user_guide/pd_separation.rst:211
+msgid "With this path, KV loads run asynchronously in the TransferActor, allowing other ready requests to continue decoding. Cancelling a request retains its destination blocks and snapshot leases until the transfer finishes."
+msgstr "이 경로에서는 TransferActor가 KV를 비동기적으로 로드하므로 준비된 다른 요청은 디코딩을 계속할 수 있습니다. 요청을 취소해도 전송이 완료될 때까지 대상 블록과 스냅샷 임대가 유지됩니다."

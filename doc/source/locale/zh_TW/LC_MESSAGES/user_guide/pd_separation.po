@@ -373,3 +373,7 @@ msgstr "GPU 優先快取要求使用 Xavier 後端，且副本數必須大於 1�
 #: source/user_guide/pd_separation.rst
 msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
 msgstr "如果快照暫存失敗，Xavier 會等待未完成的 CUDA 工作並捨棄尚未發布的快照。CUDA 同步失敗仍會作為錯誤向上傳遞。"
+
+#: user_guide/pd_separation.rst:211
+msgid "With this path, KV loads run asynchronously in the TransferActor, allowing other ready requests to continue decoding. Cancelling a request retains its destination blocks and snapshot leases until the transfer finishes."
+msgstr "此路徑由 TransferActor 非同步載入 KV，其他已就緒的請求可以繼續解碼。取消請求後，其目標區塊和快照租約仍會保留，直到傳輸完成。"
