@@ -255,3 +255,30 @@ async def test_cancelled_close_finishes_ipc_cleanup(monkeypatch):
         await closing
     assert not r.caches and r.recv_ref is None
     await r.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+async def test_gpu_packing_preserves_all_bf16_bits(monkeypatch, device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA required for GPU packing")
+    r = runtime(monkeypatch)
+    r.device = torch.device(device)
+    bits = torch.arange(65536, dtype=torch.int32).to(torch.int16).reshape(8, 8192)
+    r.store = TieredKVSnapshotStore(1, 131072, 16384, r.device)
+    r.store.stage("K", list(range(8)), bits.view(torch.bfloat16).to(device))
+    r.store.publish(list(range(8)), {"K"})
+    r.slab_bytes = 131072
+    r.send_buffer = torch.empty(r.slab_bytes, dtype=torch.uint8, device=device)
+    received = torch.empty_like(r.send_buffer)
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    await r.send(
+        [LayerRead("K", list(range(8)), list(range(8)), (8192,), torch.bfloat16)],
+        received,
+        r.slab_bytes,
+    )
+    assert torch.equal(received.view(torch.int16).reshape_as(bits).cpu(), bits)
