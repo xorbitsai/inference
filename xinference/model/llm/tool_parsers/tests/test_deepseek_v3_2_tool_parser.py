@@ -1,3 +1,5 @@
+import pytest
+
 from ..deepseek_v3_2_tool_parser import DeepseekV3_2ToolParser
 
 
@@ -428,3 +430,76 @@ def test_extract_tool_calls_streaming_plain_full_sequence():
         "get_current_weather",
         {"location": "上海"},
     ), f"Expected tool call result, but got {detected_result}"
+
+
+def _typed_invoke(dsml=True):
+    prefix = "<｜DSML｜" if dsml else "<"
+    close_prefix = "｜DSML｜" if dsml else ""
+    return (
+        f"{prefix}function_calls>"
+        f'{prefix}invoke name="typed_args">'
+        f'{prefix}parameter name="text" string="true">001</{close_prefix}parameter>'
+        f'{prefix}parameter name="integer" string="false">42</{close_prefix}parameter>'
+        f'{prefix}parameter name="float" string="false">3.5</{close_prefix}parameter>'
+        f'{prefix}parameter name="boolean" string="false">true</{close_prefix}parameter>'
+        f'{prefix}parameter name="nothing" string="false">null</{close_prefix}parameter>'
+        f'{prefix}parameter name="array" string="false">[1, "two"]</{close_prefix}parameter>'
+        f'{prefix}parameter name="object" string="false">{{"nested": false}}'
+        f"</{close_prefix}parameter>"
+        f"</{close_prefix}invoke>"
+        f"</{close_prefix}function_calls>"
+    )
+
+
+@pytest.mark.parametrize("dsml", [True, False])
+def test_extract_tool_calls_preserves_json_parameter_types(dsml):
+    parser = DeepseekV3_2ToolParser()
+
+    assert parser.extract_tool_calls(_typed_invoke(dsml)) == [
+        (
+            None,
+            "typed_args",
+            {
+                "text": "001",
+                "integer": 42,
+                "float": 3.5,
+                "boolean": True,
+                "nothing": None,
+                "array": [1, "two"],
+                "object": {"nested": False},
+            },
+        )
+    ]
+
+
+def test_extract_tool_calls_keeps_malformed_non_string_json_as_text():
+    parser = DeepseekV3_2ToolParser()
+    model_output = (
+        "<｜DSML｜function_calls>"
+        '<｜DSML｜invoke name="broken">'
+        '<｜DSML｜parameter name="payload" string="false">{"missing": }'
+        "</｜DSML｜parameter>"
+        "</｜DSML｜invoke>"
+        "</｜DSML｜function_calls>"
+    )
+
+    assert parser.extract_tool_calls(model_output) == [
+        (None, "broken", {"payload": '{"missing": }'})
+    ]
+
+
+def test_extract_tool_calls_streaming_returns_typed_parameters():
+    parser = DeepseekV3_2ToolParser()
+    incomplete = (
+        '<｜DSML｜function_calls><｜DSML｜invoke name="typed_args">'
+        '<｜DSML｜parameter name="count" string="false">7'
+    )
+    complete = incomplete + (
+        '</｜DSML｜parameter><｜DSML｜parameter name="label" string="true">007'
+        "</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>"
+    )
+
+    assert parser.extract_tool_calls_streaming([], incomplete, incomplete) is None
+    assert parser.extract_tool_calls_streaming(
+        [incomplete], complete, complete[len(incomplete) :]
+    ) == (None, "typed_args", {"count": 7, "label": "007"})
