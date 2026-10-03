@@ -1,5 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+import asyncio
 from collections import deque
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -420,3 +421,56 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
     )
     connector.save_kv_layer("layer", cache, None)
     assert connector._pending_store_requests["r"] is request
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_first", [False, True])
+async def test_gpu_mapping_serializes_callers_and_retries(
+    connector, connector_module, monkeypatch, fail_first
+):
+    from torch.multiprocessing import reductions
+
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    calls = []
+
+    async def register(descriptors, budget):
+        calls.append((descriptors, budget))
+        if len(calls) == 1:
+            entered.set()
+            await release.wait()
+            if fail_first:
+                raise RuntimeError("registration failed")
+
+    transfer = SimpleNamespace(map_gpu_caches_v1=register)
+    connector._get_transfer_ref = AsyncMock(return_value=transfer)
+    connector._registered_kv_caches = {"K": object()}
+    connector._gpu_budget = 256
+    tensor = SimpleNamespace(is_cuda=True)
+    connector._iter_kv_tensors = lambda *args: [("K", tensor)]
+    monkeypatch.setattr(connector_module, "block_major_view", lambda t, n: t)
+    monkeypatch.setattr(reductions, "reduce_tensor", lambda t: (None, ("descriptor",)))
+    monkeypatch.setattr(torch.cuda, "synchronize", Mock())
+
+    first = asyncio.create_task(connector._ensure_gpu_cache_mapping())
+    await asyncio.wait_for(entered.wait(), timeout=2)
+    second = asyncio.create_task(connector._ensure_gpu_cache_mapping())
+    try:
+        await asyncio.sleep(0)
+        assert len(calls) == 1
+        assert not connector._gpu_cache_mapped
+    finally:
+        release.set()
+        results = await asyncio.wait_for(
+            asyncio.gather(first, second, return_exceptions=True), timeout=2
+        )
+    assert results[1] is transfer
+    if fail_first:
+        assert isinstance(results[0], RuntimeError)
+        assert str(results[0]) == "registration failed"
+    else:
+        assert results[0] is transfer
+    assert len(calls) == (2 if fail_first else 1)
+    assert connector._gpu_cache_mapped
+    assert await connector._ensure_gpu_cache_mapping() is transfer
+    assert len(calls) == (2 if fail_first else 1)

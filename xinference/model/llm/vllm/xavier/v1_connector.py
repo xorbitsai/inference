@@ -125,6 +125,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
         self._gpu_cache_mapped = False
+        self._gpu_mapping_lock = asyncio.Lock()
         self._kv_schema: Optional[XavierKVSchema] = None
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
@@ -722,19 +723,24 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         from torch.multiprocessing.reductions import reduce_tensor
 
         transfer = await self._get_transfer_ref()
-        if not self._gpu_cache_mapped:
-            descriptors = {}
-            for name, cache in self._registered_kv_caches.items():
-                for layer, tensor in self._iter_kv_tensors(name, cache):
-                    tensor = block_major_view(tensor, self._num_cache_blocks)
-                    if not tensor.is_cuda:
-                        raise ValueError("Xavier GPU transfer requires CUDA KV caches")
-                    _, descriptors[layer] = reduce_tensor(tensor)
-            if not descriptors:
-                raise ValueError("Xavier GPU transfer requires registered KV caches")
-            torch.cuda.synchronize()
-            await transfer.map_gpu_caches_v1(descriptors, self._gpu_budget)
-            self._gpu_cache_mapped = True
+        async with self._gpu_mapping_lock:
+            if not self._gpu_cache_mapped:
+                descriptors = {}
+                for name, cache in self._registered_kv_caches.items():
+                    for layer, tensor in self._iter_kv_tensors(name, cache):
+                        tensor = block_major_view(tensor, self._num_cache_blocks)
+                        if not tensor.is_cuda:
+                            raise ValueError(
+                                "Xavier GPU transfer requires CUDA KV caches"
+                            )
+                        _, descriptors[layer] = reduce_tensor(tensor)
+                if not descriptors:
+                    raise ValueError(
+                        "Xavier GPU transfer requires registered KV caches"
+                    )
+                torch.cuda.synchronize()
+                await transfer.map_gpu_caches_v1(descriptors, self._gpu_budget)
+                self._gpu_cache_mapped = True
         return transfer
 
     async def _stage_gpu_requests(self, requests):

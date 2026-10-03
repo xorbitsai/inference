@@ -143,7 +143,7 @@ class GPUTransfer:
                         continue
                     cache = self.caches[layer]
                     blocks = cache.index_select(
-                        0, torch.tensor(ids, device=cache.device)
+                        0, torch.tensor(ids, dtype=torch.long, device=cache.device)
                     )
                     self.store.stage(layer, block_keys, blocks)
                     copied = True
@@ -269,7 +269,11 @@ class GPUTransfer:
                         for read, blocks in unpack_reads(payload, batch):
                             cache = self.caches[read.layer]
                             cache[
-                                torch.tensor(read.destinations, device=cache.device)
+                                torch.tensor(
+                                    read.destinations,
+                                    dtype=torch.long,
+                                    device=cache.device,
+                                )
                             ] = blocks.to(cache.device, non_blocking=True)
                         # Both producer's IPC ownership and receiver slab reuse
                         # require the cache writes to finish before acknowledging.
