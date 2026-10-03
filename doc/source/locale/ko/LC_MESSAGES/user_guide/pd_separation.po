@@ -321,3 +321,61 @@ msgstr ""
 "추가하므로 처리량 벤치마크와 별도로 실행하세요. 시간은 중첩됩니다. ``load_rpc`` 는 actor 시간을 포함하고 "
 "``actor_receive`` 는 ``gloo_receive`` 를 포함합니다. 중첩된 합계를 더하거나 Gloo 수신 대기를 순수한 "
 "네트워크 시간으로 해석하지 마세요."
+
+#: source/user_guide/pd_separation.rst:203
+msgid "GPU-first Xavier cache (experimental)"
+msgstr "GPU 우선 Xavier 캐시 (실험적)"
+
+#: source/user_guide/pd_separation.rst:206
+msgid ""
+"With ``vllm_transfer_backend_type=\"xavier\"``, set the additional launch "
+"parameter ``xavier_gpu_cache_bytes`` to a non-negative integer, for example "
+"``268435456`` (256 MiB per replica). Omitting it keeps the existing CPU "
+"path; ``0`` enables the new transfer path with CPU-only snapshots. GPU "
+"snapshots use xoscar NIXL; CPU snapshots use batched Gloo transfers. This "
+"setting does not select the native vLLM NIXL connector."
+msgstr ""
+"``vllm_transfer_backend_type=\"xavier\"`` 에서 추가 실행 매개변수 "
+"``xavier_gpu_cache_bytes`` 를 음이 아닌 정수로 설정합니다. 예: ``268435456`` (복제본당 256 "
+"MiB). 생략하면 기존 CPU 경로를 유지하며, ``0`` 은 CPU 전용 스냅샷으로 새 전송 경로를 활성화합니다. GPU 스냅샷은 "
+"xoscar NIXL, CPU 스냅샷은 일괄 Gloo 전송을 사용합니다. 이 설정은 vLLM 네이티브 NIXL 커넥터를 선택하지 "
+"않습니다."
+
+#: source/user_guide/pd_separation.rst:208
+msgid ""
+"Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. "
+"This path requires Linux, NVIDIA CUDA, vLLM >= 0.21, registered full-"
+"attention KV caches, TP=1 and PP=1. Replicas must use matching KV layouts "
+"and dtypes. Local EngineCore caches are shared with their TransferActor "
+"through CUDA IPC. The worker sets ``UCX_MEMTYPE_CACHE=n`` and defaults "
+"``UCX_TLS`` to ``tcp,cuda_copy,cuda_ipc``; an explicitly configured "
+"``UCX_TLS`` is preserved."
+msgstr ""
+"worker 및 모델 환경 모두에 ``xoscar[nixl]>=0.11.1`` 을 설치합니다. Linux, NVIDIA CUDA, "
+"vLLM >= 0.21, 등록된 전체 어텐션 KV 캐시, TP=1 및 PP=1이 필요합니다. 복제본의 KV 레이아웃과 dtype이 "
+"일치해야 합니다. 로컬 EngineCore 캐시는 CUDA IPC로 TransferActor와 공유됩니다. worker는 "
+"``UCX_MEMTYPE_CACHE=n`` 을 설정하고 ``UCX_TLS`` 기본값으로 ``tcp,cuda_copy,cuda_ipc`` "
+"를 사용합니다. 명시적인 ``UCX_TLS`` 설정은 유지됩니다."
+
+#: source/user_guide/pd_separation.rst:210
+msgid ""
+"The budget covers retained GPU snapshots only. Leave headroom for the model,"
+" vLLM KV cache, two persistent transfer buffers (normally up to 16 MiB "
+"each), temporary tensors and allocator overhead. GPU overflow moves unleased"
+" blocks to the existing CPU cache; when both tiers are leased, new snapshots"
+" are skipped. Transfer failures or layout mismatches raise errors rather "
+"than silently converting data or promising local recomputation. Shutdown "
+"logs cache placement and transfer counters."
+msgstr ""
+"예산에는 보관된 GPU 스냅샷만 포함됩니다. 모델, vLLM KV 캐시, 영구 전송 버퍼 2개 (일반적으로 각각 최대 16 MiB), "
+"임시 텐서 및 할당기 오버헤드 공간을 확보하세요. GPU 용량이 부족하면 lease가 없는 블록을 기존 CPU 캐시로 이동하며, 두 계층"
+" 모두 lease로 사용 중이면 새 스냅샷을 건너뜁니다. 전송 실패나 레이아웃 불일치는 오류를 발생시키며, 자동 데이터 변환이나 로컬 "
+"재계산을 보장하지 않습니다. 종료 시 캐시 배치 및 전송 카운터를 기록합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 우선 캐시에는 Xavier 백엔드와 2개 이상의 복제본이 필요합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "스냅샷 스테이징이 실패하면 Xavier는 진행 중인 CUDA 작업을 기다린 후 게시되지 않은 스냅샷을 삭제합니다. CUDA 동기화 실패는 계속 오류로 전파됩니다."

@@ -3099,6 +3099,11 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "vllm"
         )
+        from ..model.llm.vllm.xavier.transport import validate_gpu_cache_budget
+
+        gpu_cache_bytes = validate_gpu_cache_budget(
+            kwargs.pop("xavier_gpu_cache_bytes", None), enable_xavier, replica
+        )
         store_address = None
         store_port = None
         world_size = None
@@ -3173,6 +3178,7 @@ class SupervisorActor(xo.StatelessActor):
                     ),
                     "vllm_transfer_backend_type": transport_backend,
                     "world_size": world_size,
+                    "gpu_cache_bytes": gpu_cache_bytes,
                     "store_address": store_address,
                     "store_port": store_port,
                 }

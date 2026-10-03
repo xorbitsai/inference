@@ -26,7 +26,8 @@ class LayerRead:
         return len(self.keys) * math.prod(self.block_shape) * self.dtype.itemsize
 
 
-def batch_reads(reads):
+def batch_reads(reads, max_bytes=None):
+    max_bytes = MAX_REQUEST_BYTES if max_bytes is None else max_bytes
     batch = []
     size = 0
     for read in reads:
@@ -39,8 +40,8 @@ def batch_reads(reads):
         offset = 0
         while offset < len(read.keys):
             limit = min(MAX_REQUEST_BLOCKS, len(read.keys) - offset)
-            count = max(1, min(limit, (MAX_REQUEST_BYTES - size) // block_bytes))
-            if batch and size + count * block_bytes > MAX_REQUEST_BYTES:
+            count = max(1, min(limit, (max_bytes - size) // block_bytes))
+            if batch and size + count * block_bytes > max_bytes:
                 yield batch
                 batch, size = [], 0
                 continue
@@ -55,7 +56,7 @@ def batch_reads(reads):
             batch.append(part)
             size += part.nbytes
             offset += count
-            if size >= MAX_REQUEST_BYTES:
+            if size >= max_bytes:
                 yield batch
                 batch, size = [], 0
     if batch:

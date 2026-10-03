@@ -544,3 +544,16 @@ def test_nvml_init_with_timeout_background_thread_falls_back():
     t.join()
     assert result["ok"] is True
     mock_pynvml.nvmlInit.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_nixl_external_address_reaches_subpool(patched_subpool_deps):
+    worker = _make_worker()
+    worker._main_pool.append_sub_pool = AsyncMock(return_value="nixl://test:1234")
+    result = await worker._spawn_subpool(
+        "gpu-model", {}, [], external_address="nixl://test:0"
+    )
+    assert result == "nixl://test:1234"
+    worker._main_pool.append_sub_pool.assert_awaited_once_with(
+        env={}, start_python=None, external_address="nixl://test:0"
+    )

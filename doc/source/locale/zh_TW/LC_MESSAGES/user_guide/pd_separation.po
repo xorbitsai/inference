@@ -318,3 +318,58 @@ msgstr ""
 "複製、actor RPC 和 Gloo 接收耗時。分析會同步 CUDA "
 "並增加日誌開銷，應與吞吐量測試分開執行。計時存在巢狀關係：``load_rpc`` 包含 actor 耗時，``actor_receive`` 包含 "
 "``gloo_receive``。不要將巢狀耗時相加，也不要將 Gloo 接收等待視為純網路耗時。"
+
+#: source/user_guide/pd_separation.rst:203
+msgid "GPU-first Xavier cache (experimental)"
+msgstr "GPU 優先的 Xavier 快取（實驗性）"
+
+#: source/user_guide/pd_separation.rst:206
+msgid ""
+"With ``vllm_transfer_backend_type=\"xavier\"``, set the additional launch "
+"parameter ``xavier_gpu_cache_bytes`` to a non-negative integer, for example "
+"``268435456`` (256 MiB per replica). Omitting it keeps the existing CPU "
+"path; ``0`` enables the new transfer path with CPU-only snapshots. GPU "
+"snapshots use xoscar NIXL; CPU snapshots use batched Gloo transfers. This "
+"setting does not select the native vLLM NIXL connector."
+msgstr ""
+"使用 ``vllm_transfer_backend_type=\"xavier\"`` 時，將附加啟動參數 "
+"``xavier_gpu_cache_bytes`` 設為非負整數，例如 ``268435456``（每個副本 256 MiB）。省略參數保留既有 "
+"CPU 路徑；``0`` 啟用新傳輸路徑，但快照全部存放於 CPU。GPU 快照透過 xoscar NIXL 傳輸，CPU 快照透過批次 Gloo "
+"傳輸。此設定不會選取 vLLM 原生 NIXL 連接器。"
+
+#: source/user_guide/pd_separation.rst:208
+msgid ""
+"Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. "
+"This path requires Linux, NVIDIA CUDA, vLLM >= 0.21, registered full-"
+"attention KV caches, TP=1 and PP=1. Replicas must use matching KV layouts "
+"and dtypes. Local EngineCore caches are shared with their TransferActor "
+"through CUDA IPC. The worker sets ``UCX_MEMTYPE_CACHE=n`` and defaults "
+"``UCX_TLS`` to ``tcp,cuda_copy,cuda_ipc``; an explicitly configured "
+"``UCX_TLS`` is preserved."
+msgstr ""
+"在 worker 與模型環境中都安裝 ``xoscar[nixl]>=0.11.1``。此路徑要求 Linux、NVIDIA CUDA、vLLM >= "
+"0.21、已註冊的全注意力 KV 快取、TP=1 與 PP=1。副本的 KV 配置與 dtype 必須一致。本機 EngineCore 透過 CUDA "
+"IPC 與 TransferActor 共用快取。worker 設定 ``UCX_MEMTYPE_CACHE=n``，並將 ``UCX_TLS`` "
+"預設為 ``tcp,cuda_copy,cuda_ipc``；明確設定的 ``UCX_TLS`` 會保留。"
+
+#: source/user_guide/pd_separation.rst:210
+msgid ""
+"The budget covers retained GPU snapshots only. Leave headroom for the model,"
+" vLLM KV cache, two persistent transfer buffers (normally up to 16 MiB "
+"each), temporary tensors and allocator overhead. GPU overflow moves unleased"
+" blocks to the existing CPU cache; when both tiers are leased, new snapshots"
+" are skipped. Transfer failures or layout mismatches raise errors rather "
+"than silently converting data or promising local recomputation. Shutdown "
+"logs cache placement and transfer counters."
+msgstr ""
+"預算僅包含持續保存的 GPU 快照。請為模型、vLLM KV 快取、兩個持久傳輸緩衝區（通常每個不超過 16 "
+"MiB）、暫存張量與配置器開銷預留空間。GPU 容量不足時將未持有 lease 的 block 移入既有 CPU 快取；兩層皆被 lease "
+"佔用時略過新快照。傳輸失敗或配置不符會報錯，不會靜默轉換資料，也不保證本機重新計算。結束時會記錄快取配置與傳輸計數。"
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 優先快取要求使用 Xavier 後端，且副本數必須大於 1。"
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "如果快照暫存失敗，Xavier 會等待未完成的 CUDA 工作並捨棄尚未發布的快照。CUDA 同步失敗仍會作為錯誤向上傳遞。"

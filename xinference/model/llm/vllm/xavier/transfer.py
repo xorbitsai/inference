@@ -117,7 +117,12 @@ class BufferTransferMixin:
         return TypeMappingGloo[TORCH_DTYPE_TO_NUMPY_DTYPE[input_dtype]]
 
 
-class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
+from .gpu_transfer import GPUTransferMixin
+
+
+class TransferActor(
+    xo.StatelessActor, BufferTransferMixin, CollectiveRank, GPUTransferMixin
+):
     @classmethod
     def default_uid(cls):
         return f"vllm-transfer-actor"
@@ -167,6 +172,13 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
         )
 
     async def __pre_destroy__(self):
+        try:
+            await self.close_gpu_caches_v1()
+        except Exception:
+            logger.warning(
+                "Failed to close Xavier GPU caches; continuing transfer cleanup",
+                exc_info=True,
+            )
         for task in self._layer_send_tasks_v1:
             task.cancel()
         self._context.closeConnections()

@@ -41,6 +41,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
     def _drop(self, key: int) -> None:
         self.counts[self.tiers.pop(key)] -= 1
         del self.blocks[key]
+        del self.logical_dtypes[key]
         self.ready.discard(key)
         self.evicted.add(key)
 
@@ -86,11 +87,18 @@ class TieredKVSnapshotStore(KVSnapshotStore):
             self.metrics["skipped"] += 1
             return False
         self.blocks[key] = {}
+        self.logical_dtypes[key] = {}
         self.tiers[key] = tier
         self.counts[tier] += 1
         return True
 
-    def stage(self, layer: str, keys: List[int], tensors: torch.Tensor):
+    def stage(
+        self,
+        layer: str,
+        keys: List[int],
+        tensors: torch.Tensor,
+        logical_dtype: torch.dtype | None = None,
+    ):
         # Reject the whole batch before changing content, placement, or LRU order.
         for key, tensor in zip(keys, tensors):
             existing = self.blocks.get(key, {})
@@ -112,6 +120,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
                     self.blocks[key][layer] = (
                         tensor.detach().to(device, copy=True).contiguous()
                     )
+                    self.logical_dtypes[key][layer] = logical_dtype or tensors.dtype
                 except Exception:
                     # A failed first layer must not consume an empty slot.
                     if not self.blocks[key]:

@@ -14,6 +14,8 @@
 import logging
 from typing import List, Optional
 
+from .transport import get_transport_host
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +50,7 @@ class CollectiveRank:
 
         self._context = xp.rendezvous.Context(rank=self._rank, size=self._world_size)
 
-        attr = xp.transport.tcp.attr(self._rank_address.split(":")[0])
+        attr = xp.transport.tcp.attr(get_transport_host(self._rank_address))
         self._device = xp.transport.tcp.CreateDevice(attr)
 
         opt = xp.rendezvous.TCPStoreOptions()

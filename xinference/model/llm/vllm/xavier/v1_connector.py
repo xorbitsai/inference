@@ -112,6 +112,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise ValueError(
                 "Xavier V1 currently supports text-only models without LoRA"
             )
+        self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
+        self._gpu_cache_mapped = False
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
         self._is_consumer = self._kv_transfer_config.is_kv_consumer
@@ -133,9 +135,19 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if self._loop is None:
             return
         try:
-            release_actor_loop(self._loop)
+            if getattr(self, "_gpu_cache_mapped", False):
+                try:
+                    self._call(self._transfer_ref.close_gpu_caches_v1())
+                except Exception:
+                    logger.warning(
+                        "Failed to close Xavier GPU caches during shutdown; continuing",
+                        exc_info=True,
+                    )
         finally:
-            self._loop = None
+            try:
+                release_actor_loop(self._loop)
+            finally:
+                self._loop = None
 
     def start_load_kv(self, forward_context: "ForwardContext", **kwargs: Any) -> None:
         if not self._is_consumer:
@@ -147,7 +159,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             return
 
         try:
-            if self._registered_kv_caches:
+            if getattr(self, "_gpu_budget", None) is not None:
+                for request in metadata.load_requests:
+                    self._call(self._load_gpu_request(request))
+            elif self._registered_kv_caches:
                 for request in metadata.load_requests:
                     self._load_request_blocks(request)
             else:
@@ -198,7 +213,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         for request in metadata.store_requests:
             if not request.block_ids:
                 continue
-            self._stage_kv_layer_for_request(request, layer_name, kv_layer)
+            if getattr(self, "_gpu_budget", None) is None:
+                self._stage_kv_layer_for_request(request, layer_name, kv_layer)
             self._pending_store_requests[request.request_id] = request
 
     def wait_for_save(self):
@@ -525,8 +541,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                                 blocks = blocks.view(torch.bfloat16)
                             elif blocks.dtype != cache.dtype:
                                 raise RuntimeError(
-                                    f"Xavier received {blocks.dtype} for "
-                                    f"{cache.dtype} KV cache"
+                                    f"Unexpected Xavier KV dtype {blocks.dtype} for cache {cache.dtype}"
                                 )
                             cache[
                                 torch.tensor(read.destinations, device=cache.device)
@@ -654,6 +669,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def _stage_missing_registered_layers(
         self, requests: List[XavierStoreRequest]
     ) -> None:
+        if getattr(self, "_gpu_budget", None) is not None:
+            self._call(self._stage_gpu_requests(requests))
+            return
         if not self._registered_kv_caches:
             return
 
@@ -662,6 +680,57 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 continue
             for layer_name, kv_layer in self._registered_kv_caches.items():
                 self._stage_kv_layer_for_request(request, layer_name, kv_layer)
+
+    async def _ensure_gpu_cache_mapping(self):
+        from torch.multiprocessing.reductions import reduce_tensor
+
+        transfer = await self._get_transfer_ref()
+        if not self._gpu_cache_mapped:
+            descriptors = {}
+            for name, cache in self._registered_kv_caches.items():
+                for layer, tensor in self._iter_kv_tensors(name, cache):
+                    tensor = block_major_view(tensor, self._num_cache_blocks)
+                    if not tensor.is_cuda:
+                        raise ValueError("Xavier GPU transfer requires CUDA KV caches")
+                    _, descriptors[layer] = reduce_tensor(tensor)
+            if not descriptors:
+                raise ValueError("Xavier GPU transfer requires registered KV caches")
+            torch.cuda.synchronize()
+            await transfer.map_gpu_caches_v1(descriptors, self._gpu_budget)
+            self._gpu_cache_mapped = True
+        return transfer
+
+    async def _stage_gpu_requests(self, requests):
+        transfer = await self._ensure_gpu_cache_mapping()
+        entries = []
+        for request in requests:
+            layers = {}
+            for name, cache in self._registered_kv_caches.items():
+                for layer, _ in self._iter_kv_tensors(name, cache):
+                    ids = self._get_source_block_ids(request, layer)
+                    count = min(len(request.block_ids), len(ids))
+                    if count:
+                        layers[layer] = (request.block_hashes[:count], ids[:count])
+            entries.append(layers)
+        torch.cuda.synchronize()
+        await transfer.stage_gpu_requests_v1(entries)
+
+    async def _load_gpu_request(self, request):
+        transfer = await self._ensure_gpu_cache_mapping()
+        ranks = {}
+        for rank in request.transfers:
+            layers = {}
+            for name, cache in self._registered_kv_caches.items():
+                for layer, _ in self._iter_kv_tensors(name, cache):
+                    mapping = self._get_local_transfer_map(request, layer, rank)
+                    if mapping:
+                        layers[layer] = mapping
+            if layers:
+                ranks[rank] = layers
+        # Drain prior EngineCore kernels before another process writes recycled slots.
+        torch.cuda.synchronize()
+        await transfer.load_gpu_request_v1(ranks)
+        torch.cuda.synchronize()
 
     @staticmethod
     def _iter_kv_tensors(

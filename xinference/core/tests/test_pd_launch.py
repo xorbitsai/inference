@@ -274,3 +274,60 @@ def test_registration_snapshot_excludes_nixl():
     }
     snapshots = WorkerActor._get_running_replica_states(worker)
     assert [item["replica_model_uid"] for item in snapshots] == ["regular-rep0"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("budget", [0, 8388608])
+async def test_gpu_budget_reaches_each_xavier_replica(launch_runtime, budget):
+    supervisor, workers, actors, destroy = launch_runtime
+    await supervisor.launch_builtin_model(
+        **launch_kwargs(), xavier_gpu_cache_bytes=budget
+    )
+    for worker in workers:
+        kwargs = worker.launch_builtin_model.call_args.kwargs
+        assert kwargs["xavier_config"]["gpu_cache_bytes"] == budget
+        assert "xavier_gpu_cache_bytes" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_gpu_budget_rejects_native_backend_before_actor_creation(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    with pytest.raises(ValueError, match="requires Xavier"):
+        await supervisor.launch_builtin_model(
+            **launch_kwargs(),
+            xavier_gpu_cache_bytes=1,
+            vllm_transfer_backend_type="nixl",
+        )
+    assert not actors
+
+
+@pytest.mark.asyncio
+async def test_gpu_pool_options_reach_actual_subpool(monkeypatch):
+    import importlib.metadata
+    import importlib.util
+    from types import MethodType, SimpleNamespace
+
+    from ...model.llm.vllm.xavier.transport import gpu_pool_options
+    from ..worker import WorkerActor
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.11.1")
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: object())
+    append = AsyncMock(return_value="nixl://10.0.0.1:2345")
+    worker = SimpleNamespace(
+        _main_pool=SimpleNamespace(append_sub_pool=append),
+        _subpool_creation_lock=asyncio.Lock(),
+        _ensure_subpool_monitor=AsyncMock(),
+    )
+    worker._append_sub_pool_protected = MethodType(
+        WorkerActor._append_sub_pool_protected, worker
+    )
+    env = {}
+    address = await WorkerActor._spawn_subpool(
+        worker, "pd", env, [], **gpu_pool_options("10.0.0.1:1234", env)
+    )
+    assert address == "nixl://10.0.0.1:2345"
+    append.assert_awaited_once_with(
+        env=env, start_python=None, external_address="nixl://10.0.0.1:0"
+    )
+    assert env["UCX_MEMTYPE_CACHE"] == "n"
+    worker._ensure_subpool_monitor.assert_awaited_once_with()
