@@ -1,7 +1,17 @@
 'use client';
 
-import { Check, Copy, FileJson, FileText, GitBranch, MinusCircle, PlusCircle } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  FileJson,
+  FileText,
+  GitBranch,
+  MinusCircle,
+  PlusCircle,
+  ShieldCheck,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +30,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn, copyToClipboard } from '@/lib/utils';
 
+import { buildAuditCenterHref } from './audit-link-utils';
 import { getCorrelationId } from './correlation-utils';
 import { CorrelatedDialog } from './correlated-dialog';
 import { RequestBodyDialog } from './request-body-dialog';
@@ -47,6 +58,7 @@ export function LogDetail({
   onViewContext,
 }: LogDetailProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const { clusterAuth, clusterUIConfig } = useGlobal();
   const menuAuth = useMenuAuth();
   const [copied, setCopied] = useState(false);
@@ -126,6 +138,11 @@ export function LogDetail({
     copyRequestIdTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
   };
 
+  const handleViewAuditInitiator = () => {
+    if (!correlationId) return;
+    router.push(buildAuditCenterHref(correlationId, row['@timestamp']));
+  };
+
   return (
     <>
       <div className="px-4 pb-4">
@@ -164,6 +181,17 @@ export function LogDetail({
                 >
                   <GitBranch className="size-4" />
                   {t('logCenter.detail.viewCorrelated')}
+                </Button>
+              )}
+              {correlationId && menuAuth.isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={handleViewAuditInitiator}
+                >
+                  <ShieldCheck className="size-4" />
+                  {t('logCenter.detail.viewAuditInitiator')}
                 </Button>
               )}
               {canReadRequestBody && (

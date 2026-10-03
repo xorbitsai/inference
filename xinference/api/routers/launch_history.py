@@ -60,6 +60,7 @@ async def create_launch_history(
         model_name = body.get("model_name")
         model_uid = body.get("model_uid", "")
         data = body.get("data", {})
+        ui_data = body.get("ui_data")
         if not model_name:
             raise HTTPException(status_code=400, detail="model_name is required")
         username = user.get("username", "") if user else ""
@@ -68,6 +69,7 @@ async def create_launch_history(
             model_uid=model_uid,
             data=data,
             username=username,
+            ui_data=ui_data,
         )
         return JSONResponse(content={"status": "ok"})
     except HTTPException:

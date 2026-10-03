@@ -158,7 +158,7 @@ def test_load_failure_releases_snapshot(connector, connector_module):
         lambda: connector_module.XavierConnectorMetadata(load_requests=[request])
     )
     connector._registered_kv_caches = {"layer": torch.zeros(8, 2, 16, 2, 4)}
-    connector._load_layer_blocks = Mock(side_effect=RuntimeError("failed"))
+    connector._load_request_blocks = Mock(side_effect=RuntimeError("failed"))
     connector._release_load_request = AsyncMock()
     with pytest.raises(RuntimeError):
         connector.start_load_kv(SimpleNamespace())

@@ -229,6 +229,21 @@ XINFERENCE_AUDIT_LOG_RETENTION_DAYS
 Number of days audit log files are retained.
 Default value is 90. See :ref:`user_guide_audit_security`.
 
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Initial delay in seconds between Router Agent bootstrap retries. The delay uses
+exponential backoff with jitter. Default value is 1.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum delay in seconds between Router Agent bootstrap retries. Default value
+is 15 and must not be lower than the initial delay.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total deadline in seconds for Router Agent startup registration and initial
+synchronization retries. Default value is 120.
+
 .. _environments_media:
 
 XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS

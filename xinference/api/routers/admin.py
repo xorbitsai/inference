@@ -1481,6 +1481,19 @@ def _es_substring_clause(field_name: str, value: str) -> dict[str, Any]:
     }
 
 
+def _es_exact_terms_clause(field_name: str, values: list[str]) -> dict[str, Any]:
+    """Build an exact query compatible with direct and dynamic ES mappings."""
+    return {
+        "bool": {
+            "should": [
+                {"terms": {field: values}}
+                for field in (field_name, f"{field_name}.keyword")
+            ],
+            "minimum_should_match": 1,
+        }
+    }
+
+
 _AUDIT_TEXT_FILTER_FIELDS = (
     "user",
     "api_key_name",
@@ -1638,6 +1651,7 @@ async def _search_audit_from_file(
     client_ip: str,
     page_from: int,
     size: int,
+    request_id: str = "",
 ) -> JSONResponse:
     """Fallback: search audit events from local audit.log file."""
     from ...constants import XINFERENCE_LOG_DIR
@@ -1665,6 +1679,11 @@ async def _search_audit_from_file(
     auth_type_set = (
         {v.strip().lower() for v in auth_type.split(",") if v.strip()}
         if auth_type
+        else set()
+    )
+    request_id_candidates = (
+        set(_correlated_request_id_candidates(_validate_request_id(request_id)))
+        if request_id
         else set()
     )
 
@@ -1716,6 +1735,11 @@ async def _search_audit_from_file(
                         ("auth_type", auth_type_set),
                     )
                     if allowed
+                ):
+                    continue
+                if (
+                    request_id_candidates
+                    and entry.get("request_id") not in request_id_candidates
                 ):
                     continue
 
@@ -1879,9 +1903,15 @@ async def search_audit_logs(
     auth_type: str = "",
     status: str = "",
     client_ip: str = "",
+    request_id: str = "",
     page_from: int = 0,
     size: int = 50,
 ) -> JSONResponse:
+    request_id_candidates = (
+        _correlated_request_id_candidates(_validate_request_id(request_id))
+        if request_id
+        else []
+    )
     es_url = os.environ.get("XINFERENCE_ES_URL", "")
     if not es_url:
         return await _search_audit_from_file(
@@ -1898,6 +1928,7 @@ async def search_audit_logs(
             client_ip=client_ip,
             page_from=page_from,
             size=size,
+            request_id=request_id,
         )
 
     from ...constants import XINFERENCE_AUDIT_ES_INDEX
@@ -1913,6 +1944,10 @@ async def search_audit_logs(
     filter_clauses: list[dict[str, Any]] = [
         {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}
     ]
+    if request_id_candidates:
+        filter_clauses.append(
+            _es_exact_terms_clause("request_id", request_id_candidates)
+        )
 
     for field_name, value in [
         ("user", user),

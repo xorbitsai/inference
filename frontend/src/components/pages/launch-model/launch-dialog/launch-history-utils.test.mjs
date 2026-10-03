@@ -134,6 +134,29 @@ test('does not migrate the unscoped legacy cache in authenticated mode', () => {
   assert.deepEqual(migrateLegacyLaunchHistory([item()], true), []);
 });
 
+test('keeps executable launch data separate from UI-only device intent', () => {
+  const [normalized] = normalizeLaunchHistory([
+    item({
+      data: { model_name: 'llama', model_type: 'embedding', n_gpu: 'auto' },
+      ui_data: { n_gpu: 'GPU' },
+    }),
+  ]);
+
+  assert.equal(normalized.data.n_gpu, 'GPU');
+  assert.equal(normalized.launch_data.n_gpu, 'auto');
+  assert.deepEqual(normalized.ui_data, { n_gpu: 'GPU' });
+});
+
+test('keeps legacy history records executable when UI metadata is absent', () => {
+  const [normalized] = normalizeLaunchHistory([
+    item({ data: { model_name: 'llama', model_type: 'embedding', n_gpu: 'auto' } }),
+  ]);
+
+  assert.equal(normalized.data.n_gpu, 'auto');
+  assert.equal(normalized.launch_data.n_gpu, 'auto');
+  assert.deepEqual(normalized.ui_data, {});
+});
+
 test('normalizes backend autostart and ownership flags', () => {
   const [normalized] = normalizeLaunchHistory([
     item({ updated_at: '2026-09-09T00:00:00Z', autostart_enabled: true, is_owner: false }),

@@ -20,6 +20,7 @@ export interface LaunchHistoryResponseItem {
   model_name: string;
   model_uid: string;
   data: FormValues;
+  ui_data?: FormValues;
   created_by?: string;
   updated_by?: string;
   created_at?: string | number;
@@ -30,6 +31,8 @@ export interface LaunchHistoryResponseItem {
 
 export interface LaunchConfigHistoryItem {
   data: FormValues;
+  launch_data?: FormValues;
+  ui_data?: FormValues;
   model_name: string;
   model_uid: string;
   created_by: string;
@@ -181,12 +184,14 @@ const postLaunchHistory = (item: LaunchConfigHistoryItem) =>
   request.post('/v1/launch_history', {
     model_name: item.model_name,
     model_uid: item.model_uid,
-    data: item.data,
+    data: item.launch_data ?? item.data,
+    ui_data: item.ui_data ?? {},
   });
 
 export const saveLaunchConfigHistory = async (
   values: FormValues,
-  authenticated: boolean | undefined
+  authenticated: boolean | undefined,
+  uiData: FormValues = {}
 ): Promise<boolean> => {
   const modelName = toOptionValue(values.model_name);
   const modelUid = toOptionValue(values.model_uid);
@@ -196,6 +201,7 @@ export const saveLaunchConfigHistory = async (
   const pending = normalizeLaunchHistoryItem(
     {
       data: values,
+      ui_data: uiData,
       model_name: modelName,
       model_uid: modelUid,
       created_by: context.username,

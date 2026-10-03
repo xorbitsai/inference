@@ -412,6 +412,68 @@ class TransferActor(xo.StatelessActor, BufferTransferMixin, CollectiveRank):
             )
         return recvbuf
 
+    async def start_send_request_blocks_v1(self, to_rank, reads):
+        from xoscar.collective import xoscar_pygloo as xp
+
+        from .request_transfer import pack_reads
+
+        # Validate and retain the complete payload before acknowledging the send.
+        payload = pack_reads(self._snapshot_store, reads)
+
+        def send():
+            # The thread owns payload even if its asyncio wrapper is cancelled.
+            xp.send(
+                self._context,
+                payload.numpy().ctypes.data,
+                payload.numel(),
+                self.get_gloo_dtype(torch.uint8),
+                to_rank,
+            )
+
+        task = asyncio.create_task(asyncio.to_thread(send))
+        self._layer_send_tasks_v1.add(task)
+
+        def completed(future):
+            self._layer_send_tasks_v1.discard(future)
+            if not future.cancelled() and future.exception() is not None:
+                logger.error(
+                    "Xavier cross-layer send failed", exc_info=future.exception()
+                )
+
+        task.add_done_callback(completed)
+
+    async def read_request_blocks_v1(self, from_rank, reads):
+        from xoscar.collective import xoscar_pygloo as xp
+
+        fields = dict(
+            rank=self._rank,
+            nbytes=sum(read.nbytes for read in reads),
+            blocks=sum(len(read.keys) for read in reads),
+        )
+        payload = torch.empty(fields["nbytes"], dtype=torch.uint8)
+        with profile_stage("actor_control", **fields):
+            sender = await xo.actor_ref(
+                address=self._world_addresses[from_rank],
+                uid=f"{TransferActor.default_uid()}-{from_rank}",
+            )
+            await sender.start_send_request_blocks_v1(self._rank, reads)
+
+        def recv(buffer):
+            # Cancellation stops the await, not the native thread. Keep ownership
+            # in the executor until Gloo has finished writing to the pointer.
+            with profile_stage("gloo_receive", **fields):
+                xp.recv(
+                    self._context,
+                    buffer.numpy().ctypes.data,
+                    buffer.numel(),
+                    self.get_gloo_dtype(torch.uint8),
+                    from_rank,
+                )
+
+        with profile_stage("actor_receive", **fields):
+            await asyncio.to_thread(recv, payload)
+        return payload
+
     @staticmethod
     def _get_swap_block_ids(src_to_dst: Dict[int, int], is_sender: bool) -> List[int]:
         return list(sorted([r if is_sender else l for r, l in src_to_dst.items()]))

@@ -1307,3 +1307,145 @@ async def test_log_async_separates_correlation_and_operation_request_ids(caplog)
     assert records[1].xinference_fields["request_id"] == "http-correlation-id"
     assert records[1].xinference_fields["operation_request_id"] == "operation-id"
     assert records[1].xinference_fields["phase"] == "leave"
+
+
+def test_log_sync_separates_correlation_and_operation_request_ids(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.correlation")
+    received = []
+
+    @log_sync(test_logger)
+    def operation(*, request_id=None):
+        received.append(request_id)
+        return "ok"
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation(
+            request_id="operation-id",
+            __xinf_rpc_metadata__={
+                "version": 1,
+                "correlation_id": "http-correlation-id",
+                "actor_call_id": "actor-call-id",
+                "parent_call_id": "parent-call-id",
+            },
+        )
+
+    assert result == "ok"
+    assert received == ["operation-id"]
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[0].xinference_fields == {
+        "request_id": "http-correlation-id",
+        "correlation_id": "http-correlation-id",
+        "operation_request_id": "operation-id",
+        "actor_call_id": "actor-call-id",
+        "parent_call_id": "parent-call-id",
+        "operation": "operation",
+        "phase": "enter",
+    }
+    assert "elapsed_ms" not in records[0].xinference_fields
+    assert records[1].xinference_fields["request_id"] == "http-correlation-id"
+    assert records[1].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[1].xinference_fields["phase"] == "leave"
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+
+
+@pytest.mark.parametrize("log_exception", [True, False])
+def test_log_sync_error_includes_request_id_and_elapsed_ms(caplog, log_exception):
+    from ..rpc_context import get_current_rpc_metadata
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger(f"xinference.test.log_sync.error.{log_exception}")
+
+    @log_sync(test_logger, log_exception=log_exception)
+    def operation(*, request_id=None):
+        raise RuntimeError("boom")
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        with pytest.raises(RuntimeError, match="boom"):
+            operation(
+                request_id="operation-id",
+                __xinf_rpc_metadata__={
+                    "version": 1,
+                    "correlation_id": "http-correlation-id",
+                },
+            )
+
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[1].xinference_fields["request_id"] == "http-correlation-id"
+    assert records[1].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[1].xinference_fields["phase"] == "error"
+    assert records[1].xinference_fields["error_type"] == "RuntimeError"
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+    assert get_current_rpc_metadata() is None
+
+
+def test_log_sync_uses_operation_request_id_without_correlation_id(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.operation_id")
+
+    @log_sync(test_logger)
+    def operation(*, request_id=None):
+        return request_id
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation(request_id="operation-id")
+
+    assert result == "operation-id"
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert records[0].xinference_fields["request_id"] == "operation-id"
+    assert records[0].xinference_fields["correlation_id"] == ""
+    assert records[0].xinference_fields["operation_request_id"] == "operation-id"
+    assert records[0].getMessage().startswith("[request operation-id] Enter")
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+
+
+def test_log_sync_does_not_generate_request_id_without_context(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.no_context")
+
+    @log_sync(test_logger)
+    def operation():
+        return "ok"
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation()
+
+    assert result == "ok"
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    assert "request_id" not in records[0].xinference_fields
+    assert records[0].xinference_fields["correlation_id"] == ""
+    assert records[0].xinference_fields["operation_request_id"] == ""
+    assert "[request " not in records[0].getMessage()
+    assert "request_id" not in records[1].xinference_fields
+    assert records[1].xinference_fields["elapsed_ms"] >= 0
+
+
+def test_log_sync_sanitizes_and_truncates_request_id(caplog):
+    from ..utils import log_sync
+
+    test_logger = logging.getLogger("xinference.test.log_sync.safe_request_id")
+    unsafe_request_id = "unsafe\n" + "x" * 300
+
+    @log_sync(test_logger)
+    def operation(*, request_id=None):
+        return request_id
+
+    with caplog.at_level(logging.DEBUG, logger=test_logger.name):
+        result = operation(request_id=unsafe_request_id)
+
+    assert result == unsafe_request_id
+    records = [record for record in caplog.records if record.name == test_logger.name]
+    assert len(records) == 2
+    request_id = records[0].xinference_fields["request_id"]
+    assert len(request_id) == 256
+    assert request_id.startswith("unsafe?")
+    assert "\n" not in request_id
+    assert records[0].getMessage().startswith(f"[request {request_id}] Enter")
+    assert records[1].xinference_fields["request_id"] == request_id
