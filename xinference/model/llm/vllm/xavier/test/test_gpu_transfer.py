@@ -21,6 +21,7 @@ def runtime(monkeypatch, gpu_slots=1):
     r.device = torch.device("cpu")
     r.caches = {"K": torch.zeros(8, 2, dtype=torch.bfloat16)}
     r.store = TieredKVSnapshotStore(2, gpu_slots * 4, 4, r.device)
+    r._small_slab_streak = {}
     r.slab_bytes = 16
     r.send_buffer = torch.zeros(16, dtype=torch.uint8)
     r.recv_buffer = torch.zeros_like(r.send_buffer)
@@ -69,11 +70,11 @@ async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch, smal
     assert dest.caches["K"][:3].count_nonzero() == 0
     assert dest.metrics["gpu_batches"] == dest.metrics["cpu_batches"] == 1
     assert source.metrics["useful_bytes"] == 4
-    assert source.metrics["wire_bytes"] == (4 if small_slab else 16)
+    assert source.metrics["wire_bytes"] == 16
 
 
 @pytest.mark.asyncio
-async def test_load_selects_smallest_slab_and_reuses_buffer_objects(monkeypatch):
+async def test_load_switches_after_repeated_small_batches_and_reuses_views(monkeypatch):
     source, dest = runtime(monkeypatch, gpu_slots=2), runtime(monkeypatch)
     stage(source, 1)
     stage(source, 2)
@@ -95,13 +96,14 @@ async def test_load_selects_smallest_slab_and_reuses_buffer_objects(monkeypatch)
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
     await dest.run(dest.load, {0: {"K": {1: 0}}})
     await dest.run(dest.load, {0: {"K": {2: 1}}})
+    await dest.run(dest.load, {0: {"K": {2: 1}}})
     await dest.run(dest.load, {0: {"K": {1: 2, 2: 3}}})
-    assert [b.numel() for b in buffers_seen] == [4, 4, 16]
-    assert buffers_seen[0] is buffers_seen[1] is source.send_buffers[4]
-    assert buffers_seen[2] is source.send_buffer
+    assert [b.numel() for b in buffers_seen] == [16, 4, 4, 16]
+    assert buffers_seen[1] is buffers_seen[2] is source.send_buffers[4]
+    assert buffers_seen[0] is buffers_seen[3] is source.send_buffer
     assert dest.caches["K"][:4].tolist() == [[1, -1], [2, -2], [1, -1], [2, -2]]
-    assert source.metrics["wire_bytes"] == 24
-    assert source.metrics["useful_bytes"] == 16
+    assert source.metrics["wire_bytes"] == 40
+    assert source.metrics["useful_bytes"] == 20
 
 
 @pytest.mark.asyncio
@@ -597,3 +599,70 @@ async def test_skipped_published_layer_then_failure_fences_and_cleans(monkeypatc
     assert r.store.ready == {1}
     assert r.store.read("K", [1]).tolist() == [[1, -1]]
     assert "V" not in r.store.blocks[1]
+
+
+@pytest.mark.parametrize("block_bytes", [1024, 4096, 8192])
+def test_constructor_creates_persistent_slab_views(monkeypatch, block_bytes):
+    from .. import gpu_transfer
+
+    # Keep real torch allocations/views on CPU while exercising the CUDA-only
+    # constructor; only the cache device guard and NIXL reference are substituted.
+    class Cache:
+        is_cuda = True
+        device = torch.device("cpu")
+
+        def __getitem__(self, index):
+            return torch.empty(block_bytes, dtype=torch.uint8)
+
+        def element_size(self):
+            return 1
+
+    monkeypatch.setattr(gpu_transfer, "version", lambda name: "0.11.1")
+    refs = []
+
+    def buffer_ref(address, buffer):
+        ref = SimpleNamespace(address=address, buffer=buffer)
+        refs.append(ref)
+        return ref
+
+    monkeypatch.setattr(xo, "buffer_ref", buffer_ref)
+    actor = SimpleNamespace(
+        address="nixl://127.0.0.1:1234", _snapshot_store=SimpleNamespace(capacity=8)
+    )
+    transfer = GPUTransfer(actor, {"K": Cache()}, block_bytes * 2)
+    expected_slab = block_bytes * 64
+    assert transfer.slab_bytes == expected_slab
+    expected_keys = {expected_slab, min(expected_slab, 262144)}
+    assert set(transfer.send_buffers) == expected_keys
+    assert set(transfer.recv_buffers) == expected_keys
+    assert set(transfer.recv_refs) == expected_keys
+    assert len(refs) == len(expected_keys)
+    assert transfer.send_buffers[expected_slab] is transfer.send_buffer
+    assert transfer.recv_buffers[expected_slab] is transfer.recv_buffer
+    assert transfer.recv_refs[expected_slab] is transfer.recv_ref
+    for size in expected_keys:
+        for buffers, full in (
+            (transfer.send_buffers, transfer.send_buffer),
+            (transfer.recv_buffers, transfer.recv_buffer),
+        ):
+            view = buffers[size]
+            assert view.numel() == size
+            assert view.data_ptr() == full.data_ptr()
+            assert (
+                view.untyped_storage().data_ptr() == full.untyped_storage().data_ptr()
+            )
+            assert view.storage_offset() == 0
+        ref = transfer.recv_refs[size]
+        assert ref.address == actor.address
+        assert ref.buffer is transfer.recv_buffers[size]
+
+
+def test_slab_selection_avoids_alternating_churn_per_peer(monkeypatch):
+    r = runtime(monkeypatch)
+    r.recv_refs[4] = r.recv_buffer[:4]
+    assert [r._select_slab_bytes(0, size) for size in [8, 4] * 5] == [16] * 10
+    assert r._select_slab_bytes(1, 4) == 16
+    assert r._select_slab_bytes(0, 4) == 4
+    assert r._select_slab_bytes(0, 8) == 16
+    assert r._select_slab_bytes(1, 4) == 4
+    assert r._select_slab_bytes(0, 4) == 16
