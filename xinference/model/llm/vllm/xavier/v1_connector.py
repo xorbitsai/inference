@@ -22,6 +22,7 @@ import torch
 import xoscar as xo
 from vllm.distributed.kv_transfer.kv_connector.v1.base import (
     KVConnectorBase_V1,
+    KVConnectorHandshakeMetadata,
     KVConnectorMetadata,
     KVConnectorRole,
     SupportsHMA,
@@ -47,6 +48,12 @@ logger = logging.getLogger(__name__)
 
 _MAX_READ_BYTES = 1024 * 1024
 _MAX_READ_BLOCKS = 64
+
+
+@dataclass
+class XavierKVSchema(KVConnectorHandshakeMetadata):
+    block_size: int
+    layers: Dict[str, Tuple[Tuple[int, ...], torch.dtype]]
 
 
 @dataclass
@@ -114,6 +121,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
         self._gpu_cache_mapped = False
+        self._kv_schema: Optional[XavierKVSchema] = None
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
         self._is_consumer = self._kv_transfer_config.is_kv_consumer
@@ -193,13 +201,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for name, tensor in self._iter_kv_tensors(layer, cache)
         }
 
-        async def register_schema():
-            transfer = await self._get_transfer_ref()
-            await transfer.configure_kv_schema_v1(self._block_size, schema)
-
-        # The scheduler connector shares this actor with the worker connector;
-        # only the worker has the actual resolved cache dtype and physical shape.
-        self._call(register_schema())
+        self._kv_schema = XavierKVSchema(self._block_size, schema)
         cache_groups = {
             layer_name: self._get_layer_group_id(layer_name)
             for layer_name in self._registered_kv_caches
@@ -210,6 +212,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             list(self._registered_kv_caches),
             cache_groups,
         )
+
+    def get_handshake_metadata(self):
+        return self._kv_schema
+
+    def set_xfer_handshake_metadata(self, metadata):
+        if len(metadata) != 1:
+            raise ValueError("Xavier KV schema requires one worker (TP=1)")
+        self._kv_schema = next(iter(metadata.values()))
 
     def save_kv_layer(
         self,
@@ -404,6 +414,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 uid=f"{TransferActor.default_uid()}-{self._rank}",
             )
             await self._transfer_ref.configure_snapshots_v1(self._num_cache_blocks)
+            if self._kv_schema is not None:
+                await self._transfer_ref.configure_kv_schema_v1(
+                    self._kv_schema.block_size, self._kv_schema.layers
+                )
         return self._transfer_ref
 
     async def _reserve_load_request(self, request):

@@ -59,17 +59,26 @@ def test_schema_mismatch_is_a_scheduler_miss(connector, monkeypatch, dtype, mism
     assert bool(connector._leased_requests) == (mismatch is None)
 
 
-def test_worker_registers_normalized_resolved_schema(connector):
+def test_worker_schema_handshake_defers_actor_rpc(connector, monkeypatch):
+    import xoscar as xo
+
     actor = SimpleNamespace()
     ref = SimpleNamespace(
+        configure_snapshots_v1=AsyncMock(),
         configure_kv_schema_v1=AsyncMock(
             side_effect=lambda *args: TransferActor.configure_kv_schema_v1(actor, *args)
-        )
+        ),
     )
-    connector._get_transfer_ref = AsyncMock(return_value=ref)
+    actor_ref = AsyncMock(return_value=ref)
+    monkeypatch.setattr(xo, "actor_ref", actor_ref)
     connector.register_kv_caches(
         {"layer": torch.zeros(2, 8, 16, 2, 4, dtype=torch.bfloat16)}
     )
+    actor_ref.assert_not_awaited()
+    metadata = connector.get_handshake_metadata()
+    connector._kv_schema = None
+    connector.set_xfer_handshake_metadata({0: metadata})
+    connector._call(connector._get_transfer_ref())
     assert actor._kv_schema_v1 == (16, {"layer": ((2, 16, 2, 4), torch.bfloat16)})
     TransferActor.configure_kv_schema_v1(actor, *actor._kv_schema_v1)
     with pytest.raises(ValueError, match="schema changed"):

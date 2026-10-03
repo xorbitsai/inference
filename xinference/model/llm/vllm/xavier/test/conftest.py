@@ -29,6 +29,7 @@ def connector_module(monkeypatch):
         SimpleNamespace(
             KVConnectorBase_V1=Base,
             KVConnectorMetadata=Metadata,
+            KVConnectorHandshakeMetadata=Metadata,
             KVConnectorRole=object,
             SupportsHMA=HMA,
         ),
