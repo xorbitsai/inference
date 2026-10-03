@@ -373,3 +373,11 @@ msgstr ""
 "预算仅包含持久保存的 GPU 快照。请为模型、vLLM KV 缓存、两个持久传输 buffer（通常每个不超过 16 "
 "MiB）、临时张量和分配器开销预留空间。GPU 容量不足时将未持有 lease 的 block 移入现有 CPU 缓存；两层均被 lease "
 "占用时跳过新快照。传输失败或布局不匹配会报错，不会静默转换数据，也不保证本地重算。退出时会记录缓存放置和传输计数。"
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 优先缓存要求使用 Xavier 后端，且副本数必须大于 1。"
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "如果快照暂存失败，Xavier 会等待未完成的 CUDA 工作并丢弃未发布的快照。CUDA 同步失败仍会作为错误向上传播。"

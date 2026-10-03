@@ -714,8 +714,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             entries.append(layers)
         torch.cuda.synchronize()
         await transfer.stage_gpu_requests_v1(entries)
-        for request, layers in zip(requests, entries):
-            self._request_staged_layers[request.request_id] = set(layers)
 
     async def _load_gpu_request(self, request):
         transfer = await self._ensure_gpu_cache_mapping()
@@ -729,6 +727,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         layers[layer] = mapping
             if layers:
                 ranks[rank] = layers
+        # Drain prior EngineCore kernels before another process writes recycled slots.
+        torch.cuda.synchronize()
         await transfer.load_gpu_request_v1(ranks)
         torch.cuda.synchronize()
 

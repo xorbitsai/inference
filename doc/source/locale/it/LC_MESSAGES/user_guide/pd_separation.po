@@ -397,3 +397,11 @@ msgstr ""
 "di trasferimento o layout incompatibili generano errori, senza conversioni "
 "silenziose né garanzie di ricalcolo locale. Alla chiusura vengono registrati"
 " i contatori di posizionamento e trasferimento."
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "La cache con priorità GPU richiede il backend Xavier e più di una replica."
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "Se la preparazione degli snapshot fallisce, Xavier attende il completamento delle operazioni CUDA in sospeso ed elimina gli snapshot non pubblicati. Gli errori di sincronizzazione CUDA continuano a essere propagati."

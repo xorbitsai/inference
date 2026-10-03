@@ -371,3 +371,11 @@ msgstr ""
 "임시 텐서 및 할당기 오버헤드 공간을 확보하세요. GPU 용량이 부족하면 lease가 없는 블록을 기존 CPU 캐시로 이동하며, 두 계층"
 " 모두 lease로 사용 중이면 새 스냅샷을 건너뜁니다. 전송 실패나 레이아웃 불일치는 오류를 발생시키며, 자동 데이터 변환이나 로컬 "
 "재계산을 보장하지 않습니다. 종료 시 캐시 배치 및 전송 카운터를 기록합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 우선 캐시에는 Xavier 백엔드와 2개 이상의 복제본이 필요합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "스냅샷 스테이징이 실패하면 Xavier는 진행 중인 CUDA 작업을 기다린 후 게시되지 않은 스냅샷을 삭제합니다. CUDA 동기화 실패는 계속 오류로 전파됩니다."

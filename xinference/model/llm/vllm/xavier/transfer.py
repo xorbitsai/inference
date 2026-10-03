@@ -172,7 +172,13 @@ class TransferActor(
         )
 
     async def __pre_destroy__(self):
-        await self.close_gpu_caches_v1()
+        try:
+            await self.close_gpu_caches_v1()
+        except Exception:
+            logger.warning(
+                "Failed to close Xavier GPU caches; continuing transfer cleanup",
+                exc_info=True,
+            )
         for task in self._layer_send_tasks_v1:
             task.cancel()
         self._context.closeConnections()

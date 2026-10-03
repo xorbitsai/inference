@@ -212,21 +212,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
         from ..model.rerank.core import RerankModel
 
-        if (
-            isinstance(self._model, LLMVLLMModel)
-            and self._transfer_ref is not None
-            and self._xavier_config is not None
-            and self._xavier_config.get("gpu_cache_bytes") is not None
-        ):
-            # Release imported CUDA IPC handles while EngineCore still owns the
-            # allocations, after any in-flight transfer has completed.
-            try:
-                await self._transfer_ref.close_gpu_caches_v1()
-            except Exception:
-                logger.warning(
-                    "Failed to close Xavier GPU caches; continuing model cleanup",
-                    exc_info=True,
-                )
+        await ModelActor._close_gpu_caches(self)
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
@@ -563,8 +549,26 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # will hold driver information includes dist store etc.
         return self._driver_info
 
+    async def _close_gpu_caches(self):
+        config = getattr(self, "_xavier_config", None)
+        if config is None or config.get("gpu_cache_bytes") is None:
+            return
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+
+        if isinstance(self._model, LLMVLLMModel) and self._transfer_ref is not None:
+            # Release imported CUDA IPC handles while EngineCore still owns the
+            # allocations, after any in-flight transfer has completed.
+            try:
+                await self._transfer_ref.close_gpu_caches_v1()
+            except Exception:
+                logger.warning(
+                    "Failed to close Xavier GPU caches; continuing model cleanup",
+                    exc_info=True,
+                )
+
     async def stop(self):
         self._model_state = "stopping"
+        await ModelActor._close_gpu_caches(self)
         if hasattr(self._model, "stop"):
             await asyncio.to_thread(self._model.stop)
         elif hasattr(self._model, "close"):

@@ -371,4 +371,12 @@ msgstr ""
 "予算は保持する GPU スナップショットのみを対象とします。モデル、vLLM KV キャッシュ、2 つの永続転送バッファー（通常は各 16 MiB "
 "以下）、一時テンソル、アロケーターの領域も確保してください。GPU 容量不足時は lease のないブロックを既存の CPU キャッシュへ移し、両階層が"
 " lease "
-"中なら新しいスナップショットを省略します。転送失敗やレイアウト不一致はエラーとなり、暗黙のデータ変換やローカル再計算は行いません。終了時に配置と転送のカウンターを記録します。"
+"中なら新しいスナップショットを省略します。転送失敗やレイアウト不一致はエラーとなり、暗黙のデータ変換は行わず、ローカル再計算は保証されません。終了時に配置と転送のカウンターを記録します。"
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 優先キャッシュには Xavier バックエンドと 2 つ以上のレプリカが必要です。"
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "スナップショットのステージングに失敗すると、Xavier は未完了の CUDA 処理を待機し、未公開のスナップショットを破棄します。CUDA 同期の失敗は引き続きエラーとして伝播します。"

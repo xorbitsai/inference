@@ -13,7 +13,8 @@
 # limitations under the License.
 import logging
 from typing import List, Optional
-from urllib.parse import urlsplit
+
+from .transport import get_transport_host
 
 logger = logging.getLogger(__name__)
 
@@ -49,13 +50,7 @@ class CollectiveRank:
 
         self._context = xp.rendezvous.Context(rank=self._rank, size=self._world_size)
 
-        attr = xp.transport.tcp.attr(
-            urlsplit(
-                self._rank_address
-                if "://" in self._rank_address
-                else "tcp://" + self._rank_address
-            ).hostname
-        )
+        attr = xp.transport.tcp.attr(get_transport_host(self._rank_address))
         self._device = xp.transport.tcp.CreateDevice(attr)
 
         opt = xp.rendezvous.TCPStoreOptions()

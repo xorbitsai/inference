@@ -488,7 +488,10 @@ async def test_load_retry_log_names_the_model(monkeypatch, caplog):
 
 
 @pytest.mark.asyncio
-async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(monkeypatch):
+@pytest.mark.parametrize("stop_first", [False, True])
+async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(
+    monkeypatch, stop_first
+):
     from unittest.mock import Mock
 
     from ...model.llm.vllm.core import VLLMModel
@@ -514,7 +517,14 @@ async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(monkeypatch):
     monkeypatch.setattr(
         "xinference.core.model.empty_cache", lambda: calls.append("free")
     )
+    if stop_first:
+        await ModelActor.stop(stub)
     await ModelActor.__pre_destroy__(stub)
-    assert calls == ["close", "stop", "destroy", "free"]
+    assert calls == (["close", "stop"] if stop_first else []) + [
+        "close",
+        "stop",
+        "destroy",
+        "free",
+    ]
     destroy.assert_awaited_once_with(ref)
     assert not hasattr(stub, "_model")

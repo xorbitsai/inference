@@ -97,23 +97,48 @@ class GPUTransfer:
     async def _close(self):
         if self.tasks:
             await asyncio.gather(*list(self.tasks), return_exceptions=True)
-        torch.cuda.synchronize(self.device)
-        logger.info(
-            "Xavier GPU cache stats: %s", dict(self.metrics, cache=self.store.stats())
-        )
-        self.recv_ref = None
-        self.caches.clear()
+        try:
+            await asyncio.to_thread(torch.cuda.synchronize, self.device)
+            logger.info(
+                "Xavier GPU cache stats: %s",
+                dict(self.metrics, cache=self.store.stats()),
+            )
+        finally:
+            self.recv_ref = None
+            self.caches.clear()
 
-    def stage(self, entries):
+    async def stage(self, entries):
         if self.closing:
             raise RuntimeError("Xavier GPU transfer is shutting down")
-        for layers in entries:
-            for layer, (keys, ids) in layers.items():
-                cache = self.caches[layer]
-                blocks = cache.index_select(0, torch.tensor(ids, device=cache.device))
-                self.store.stage(layer, keys, blocks)
-        # Publish only after snapshots no longer depend on mutable EngineCore slots.
-        torch.cuda.synchronize(self.device)
+        keys = {key for layers in entries for ids, _ in layers.values() for key in ids}
+        failed = False
+        try:
+            for layers in entries:
+                for layer, (block_keys, ids) in layers.items():
+                    cache = self.caches[layer]
+                    blocks = cache.index_select(
+                        0, torch.tensor(ids, device=cache.device)
+                    )
+                    self.store.stage(layer, block_keys, blocks)
+        except Exception:
+            failed = True
+            logger.warning(
+                "Failed to stage Xavier GPU snapshots; skipping new snapshots",
+                exc_info=True,
+            )
+        finally:
+            # Even a failed gather/copy may have queued reads of EngineCore's
+            # slots. Drain them before returning ownership to EngineCore.
+            try:
+                await asyncio.to_thread(torch.cuda.synchronize, self.device)
+            except BaseException:
+                failed = True
+                raise
+            finally:
+                if failed:
+                    for key in keys:
+                        if key in self.store.blocks and key not in self.store.ready:
+                            self.store._drop(key)
 
     def locations(self, reads):
         result = {}
@@ -156,7 +181,7 @@ class GPUTransfer:
                     out=target,
                 )
                 offset = end
-            torch.cuda.synchronize(self.device)
+            await asyncio.to_thread(torch.cuda.synchronize, self.device)
             await xo.copy_to([self.send_buffer], [remote_ref])
             self.metrics["wire_bytes"] += self.slab_bytes
             self.metrics["useful_bytes"] += size
@@ -218,7 +243,7 @@ class GPUTransfer:
                             ] = blocks.to(cache.device, non_blocking=True)
                         # Both producer's IPC ownership and receiver slab reuse
                         # require the cache writes to finish before acknowledging.
-                        torch.cuda.synchronize(self.device)
+                        await asyncio.to_thread(torch.cuda.synchronize, self.device)
                         self.metrics[tier + "_batches"] += 1
 
 
@@ -235,8 +260,9 @@ class GPUTransferMixin:
         self._gpu_transfer = runtime
         self._snapshot_store = runtime.store
 
-    def stage_gpu_requests_v1(self, entries):
-        self._gpu_transfer.stage(entries)
+    async def stage_gpu_requests_v1(self, entries):
+        runtime = self._gpu_transfer
+        return await runtime.run(runtime.stage, entries)
 
     def gpu_snapshot_locations_v1(self, reads):
         return self._gpu_transfer.locations(reads)
@@ -253,7 +279,3 @@ class GPUTransferMixin:
         runtime = getattr(self, "_gpu_transfer", None)
         if runtime is not None:
             await runtime.close()
-
-    def gpu_cache_stats_v1(self):
-        runtime = self._gpu_transfer
-        return dict(runtime.metrics, cache=runtime.store.stats())

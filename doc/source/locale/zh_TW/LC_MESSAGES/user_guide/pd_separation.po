@@ -365,3 +365,11 @@ msgstr ""
 "預算僅包含持續保存的 GPU 快照。請為模型、vLLM KV 快取、兩個持久傳輸緩衝區（通常每個不超過 16 "
 "MiB）、暫存張量與配置器開銷預留空間。GPU 容量不足時將未持有 lease 的 block 移入既有 CPU 快取；兩層皆被 lease "
 "佔用時略過新快照。傳輸失敗或配置不符會報錯，不會靜默轉換資料，也不保證本機重新計算。結束時會記錄快取配置與傳輸計數。"
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 優先快取要求使用 Xavier 後端，且副本數必須大於 1。"
+
+#: source/user_guide/pd_separation.rst
+msgid "If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors."
+msgstr "如果快照暫存失敗，Xavier 會等待未完成的 CUDA 工作並捨棄尚未發布的快照。CUDA 同步失敗仍會作為錯誤向上傳遞。"

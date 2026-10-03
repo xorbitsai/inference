@@ -353,3 +353,66 @@ def test_snapshot_logical_dtype_tracks_immutable_blocks_and_eviction():
     store.stage("K", [2], carrier)
     assert 1 not in store.logical_dtypes
     assert store.logical_dtypes == {2: {"K": torch.float16}}
+
+
+@pytest.mark.asyncio
+async def test_transfer_cleanup_continues_after_gpu_close_error():
+    close = AsyncMock(side_effect=RuntimeError("sticky CUDA error"))
+    task = Mock()
+    context = Mock()
+    actor = SimpleNamespace(
+        close_gpu_caches_v1=close, _layer_send_tasks_v1={task}, _context=context
+    )
+    await TransferActor.__pre_destroy__(actor)
+    task.cancel.assert_called_once_with()
+    context.closeConnections.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_gpu_connector_mapping_staging_and_load_fences(
+    connector, connector_module, monkeypatch
+):
+    import torch.multiprocessing.reductions as reductions
+
+    calls = []
+    cache = torch.zeros(8, 2, 16, 2, 4)
+    connector._gpu_budget = 64
+    connector._gpu_cache_mapped = False
+    connector._registered_kv_caches = {"layer": cache}
+    transfer = SimpleNamespace(
+        map_gpu_caches_v1=AsyncMock(side_effect=lambda *args: calls.append("map")),
+        stage_gpu_requests_v1=AsyncMock(
+            side_effect=lambda *args: calls.append("stage")
+        ),
+        load_gpu_request_v1=AsyncMock(side_effect=lambda *args: calls.append("load")),
+        close_gpu_caches_v1=AsyncMock(),
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=transfer)
+    monkeypatch.setattr(torch.Tensor, "is_cuda", property(lambda self: True))
+    monkeypatch.setattr(
+        reductions, "reduce_tensor", lambda tensor: (None, ("descriptor",))
+    )
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda: calls.append("fence"))
+    request = connector_module.XavierStoreRequest("r", [2, 5], [111, 222], [[2, 5]])
+    await connector._stage_gpu_requests([request])
+    assert calls == ["fence", "map", "fence", "stage"]
+    transfer.stage_gpu_requests_v1.assert_awaited_once_with(
+        [{"layer": ([111, 222], [2, 5])}]
+    )
+    assert not connector._request_staged_layers
+    calls.clear()
+    load = connector_module.XavierLoadRequest(
+        "r", {1: {111: 0}}, local_transfers_by_group={0: {1: {111: 3}}}
+    )
+    await connector._load_gpu_request(load)
+    assert calls == ["fence", "load", "fence"]
+    transfer.load_gpu_request_v1.assert_awaited_once_with({1: {"layer": {111: 3}}})
+    assert transfer.map_gpu_caches_v1.await_count == 1
+    connector._get_connector_metadata = (
+        lambda: connector_module.XavierConnectorMetadata(store_requests=[request])
+    )
+    connector._stage_kv_layer_for_request = Mock(
+        side_effect=AssertionError("GPU mode stages once in wait_for_save")
+    )
+    connector.save_kv_layer("layer", cache, None)
+    assert connector._pending_store_requests["r"] is request
