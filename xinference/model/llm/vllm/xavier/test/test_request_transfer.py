@@ -136,7 +136,9 @@ def test_connector_writes_correct_destinations(
     values = torch.tensor([[1.0, -2.0, 1e10, 1e-10]], dtype=dtype)
     for name in caches:
         TransferActor.stage_layer_blocks_v1(producer, "r", name, [77], values)
-        assert source.read(name, [77]).dtype == torch.float32
+        assert source.read(name, [77]).dtype == (
+            torch.float16 if dtype == torch.bfloat16 else dtype
+        )
     source.publish([77], set(caches))
     transfer = SimpleNamespace(
         read_request_blocks_v1=AsyncMock(
@@ -156,16 +158,24 @@ def test_connector_writes_correct_destinations(
     ]
     rpc = [e for e in events if e["stage"] == "load_rpc"]
     h2d = [e for e in events if e["stage"] == "load_h2d"]
-    assert len(rpc) == 1 and rpc[0]["nbytes"] == 32 and rpc[0]["blocks"] == 2
+    expected_bytes = values.numel() * values.element_size()
+    assert (
+        len(rpc) == 1
+        and rpc[0]["nbytes"] == 2 * expected_bytes
+        and rpc[0]["blocks"] == 2
+    )
     assert len(h2d) == 2
-    assert all(e["nbytes"] == 16 and e["blocks"] == 1 and e["succeeded"] for e in h2d)
+    assert all(
+        e["nbytes"] == expected_bytes and e["blocks"] == 1 and e["succeeded"]
+        for e in h2d
+    )
     for cache in caches.values():
         assert torch.equal(cache[3], values[0])
         assert cache[:3].count_nonzero() == 0
 
 
 def test_payload_preserves_all_bf16_bit_patterns():
-    # Packing-only invariant; production BF16 staging currently uses float32.
+    # Raw packing preserves the bits independently of the staging carrier.
     bits = torch.arange(65536, dtype=torch.int32).to(torch.int16).reshape(8, 8192)
     store = KVSnapshotStore(8)
     store.stage("K", list(range(8)), bits.view(torch.bfloat16))
@@ -251,3 +261,50 @@ def test_block_limit_with_large_byte_budget(monkeypatch):
     batches = list(batch_reads([read]))
     assert [len(part.keys) for batch in batches for part in batch] == [64, 64, 22]
     assert all(sum(part.nbytes for part in batch) <= 4096 for batch in batches)
+
+
+def test_connector_cross_layer_preserves_all_bf16_bits(connector, connector_module):
+    bits = torch.arange(65536, dtype=torch.int32).to(torch.int16).reshape(1, -1)
+    values = bits.view(torch.bfloat16)
+    cache = torch.zeros(8, 65536, dtype=torch.bfloat16)
+    connector._registered_kv_caches = {"K": cache}
+    source = KVSnapshotStore(1)
+    producer = SimpleNamespace(_snapshot_store=source, _rank=2)
+    TransferActor.stage_layer_blocks_v1(producer, "r", "K", [77], values)
+    source.publish([77], {"K"})
+    transfer = SimpleNamespace(
+        read_request_blocks_v1=AsyncMock(
+            side_effect=lambda rank, reads: pack_reads(source, reads)
+        )
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=transfer)
+    request = connector_module.XavierLoadRequest(
+        "r", {2: {77: 3}}, local_transfers_by_group={0: {2: {77: 3}}}
+    )
+    connector._load_request_blocks(request)
+    assert torch.equal(cache[3].view(torch.int16), bits[0])
+
+
+@pytest.mark.parametrize("source_dtype", [torch.bfloat16, torch.float16])
+def test_cross_layer_rejects_logical_dtype_mismatch_after_split(
+    source_dtype, monkeypatch
+):
+    from .. import request_transfer as module
+
+    monkeypatch.setattr(module, "MAX_REQUEST_BYTES", 2)
+    source = KVSnapshotStore(2)
+    producer = SimpleNamespace(_snapshot_store=source, _rank=2)
+    TransferActor.stage_layer_blocks_v1(
+        producer, "r", "K", [1, 2], torch.ones(2, 1, dtype=source_dtype)
+    )
+    source.publish([1, 2], {"K"})
+    other_dtype = torch.float16 if source_dtype == torch.bfloat16 else torch.bfloat16
+    read = LayerRead("K", [1, 2], [3, 4], (1,), torch.float16, other_dtype)
+    batches = list(batch_reads([read]))
+    assert len(batches) == 2
+    for batch in batches:
+        assert batch[0].logical_dtype == other_dtype
+        with pytest.raises(ValueError, match="logical KV dtype"):
+            pack_reads(source, batch)
+        batch[0].logical_dtype = source_dtype
+        assert pack_reads(source, batch).numel() == 2

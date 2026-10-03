@@ -19,6 +19,7 @@ class LayerRead:
     destinations: List[int]
     block_shape: Tuple[int, ...]
     dtype: torch.dtype
+    logical_dtype: torch.dtype | None = None
 
     @property
     def nbytes(self) -> int:
@@ -49,6 +50,7 @@ def batch_reads(reads):
                 read.destinations[offset : offset + count],
                 read.block_shape,
                 read.dtype,
+                read.logical_dtype,
             )
             batch.append(part)
             size += part.nbytes
@@ -65,6 +67,11 @@ def pack_reads(store, reads):
     for read in reads:
         if not set(read.keys).issubset(store.ready):
             raise KeyError("Requested KV snapshots are not published")
+        if any(
+            store.logical_dtypes[key][read.layer] != (read.logical_dtype or read.dtype)
+            for key in read.keys
+        ):
+            raise ValueError("Xavier logical KV dtype does not match the receiver")
         tensor = store.read(read.layer, read.keys)
         if tensor.dtype != read.dtype or tuple(tensor.shape) != (
             len(read.keys),

@@ -495,6 +495,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                                 list(mapping.values()),
                                 tuple(tensor.shape[1:]),
                                 dtype,
+                                tensor.dtype,
                             )
                         )
                 for batch in batch_reads(reads):
@@ -517,8 +518,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             nbytes=read.nbytes,
                             blocks=len(read.keys),
                         ):
-                            if blocks.dtype != cache.dtype:
-                                blocks = blocks.to(cache.dtype)
+                            if (
+                                cache.dtype == torch.bfloat16
+                                and blocks.dtype == XAVIER_BF16_TRANSPORT_DTYPE
+                            ):
+                                blocks = blocks.view(torch.bfloat16)
+                            elif blocks.dtype != cache.dtype:
+                                raise RuntimeError(
+                                    f"Xavier received {blocks.dtype} for "
+                                    f"{cache.dtype} KV cache"
+                                )
                             cache[
                                 torch.tensor(read.destinations, device=cache.device)
                             ] = blocks.to(cache.device, non_blocking=True)
