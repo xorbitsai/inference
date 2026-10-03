@@ -191,10 +191,10 @@ msgid ""
 "IDs. Readers reserve complete snapshots during transfer; cache pressure or a"
 " missing snapshot falls back to local computation. The number of retained "
 "CPU blocks is bounded by the engine's KV block capacity. CPU memory can "
-"approach the GPU KV cache size (twice that size for BF16 transported as "
-"FP32), in addition to in-flight transfer buffers. Only complete layers are "
+"approach the GPU KV cache size, in addition to in-flight transfer buffers. "
+"Only complete layers are "
 "published for remote reuse."
-msgstr ""
+msgstr "CPU 스냅샷은 재사용 가능한 GPU 블록 ID 대신 프롬프트 내용을 키로 사용합니다. 읽기 측은 전송 중 완전한 스냅샷을 예약하며, 캐시 용량이 부족하거나 스냅샷이 없으면 로컬 계산으로 돌아갑니다. 보관되는 CPU 블록 수는 엔진의 KV 블록 용량으로 제한됩니다. 전송 중인 버퍼 외에도 CPU 메모리 사용량이 GPU KV 캐시 크기에 근접할 수 있습니다. 완전한 레이어만 원격 재사용을 위해 게시됩니다."
 
 #: source/user_guide/pd_separation.rst:156
 msgid ""

@@ -191,8 +191,7 @@ CPU snapshots are keyed by prompt content rather than reusable GPU block IDs.
 Readers reserve complete snapshots during transfer; cache pressure or a missing
 snapshot falls back to local computation. The number of retained CPU blocks is
 bounded by the engine's KV block capacity. CPU memory can approach the GPU KV
-cache size (twice that size for BF16 transported as FP32), in addition to in-flight
-transfer buffers. Only complete layers are published for remote reuse.
+cache size, in addition to in-flight transfer buffers. Only complete layers are published for remote reuse.
 
 The connector handles block-first and K/V-first attention cache layouts. A
 layout whose block axis cannot be identified safely is rejected. V0 prefill

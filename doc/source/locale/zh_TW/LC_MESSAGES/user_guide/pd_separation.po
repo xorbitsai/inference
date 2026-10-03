@@ -191,10 +191,10 @@ msgid ""
 "IDs. Readers reserve complete snapshots during transfer; cache pressure or a"
 " missing snapshot falls back to local computation. The number of retained "
 "CPU blocks is bounded by the engine's KV block capacity. CPU memory can "
-"approach the GPU KV cache size (twice that size for BF16 transported as "
-"FP32), in addition to in-flight transfer buffers. Only complete layers are "
+"approach the GPU KV cache size, in addition to in-flight transfer buffers. "
+"Only complete layers are "
 "published for remote reuse."
-msgstr ""
+msgstr "CPU 快照以提示詞內容為鍵，而不是以可重複使用的 GPU 區塊 ID 為鍵。讀取端在傳輸期間會保留完整快照；快取壓力過大或快照缺失時會回退至本機計算。保留的 CPU 區塊數量受引擎 KV 快取容量限制。除了傳輸中的緩衝區，CPU 記憶體用量可能接近 GPU KV 快取大小。只有完整的層才會發布供遠端重複使用。"
 
 #: source/user_guide/pd_separation.rst:156
 msgid ""
