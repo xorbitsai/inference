@@ -5,6 +5,7 @@ import React, { act } from 'react';
 // @ts-expect-error -- jsdom has no declarations in this dependency tree.
 import { JSDOM } from 'jsdom';
 import type { Root } from 'react-dom/client';
+import { ModelType } from '@/constants';
 import type { FormInstance } from '@/types/form';
 import type { RecommendationResponse } from './recommendation';
 import type { CatalogModel, RequestModelType } from '../types';
@@ -586,12 +587,78 @@ it('shows the audio GPU index field only after selecting GPU', async () => {
   assert.doesNotMatch(document.body.textContent!, /GPU Idx/);
 });
 
-it('restores auto and legacy GPU history without converting either to CPU', () => {
+it('restores explicit GPU and auto history according to model capabilities', () => {
   const { transformFetchToForm } = require('../utils') as typeof import('../utils');
+
   for (const model_type of ['embedding', 'rerank', 'audio']) {
-    for (const n_gpu of ['auto', 'GPU']) {
-      assert.equal(transformFetchToForm({ model_type, n_gpu }).n_gpu, 'auto');
-    }
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 'GPU' }).n_gpu, 'GPU');
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 'auto' }).n_gpu, 'auto');
+    assert.equal(transformFetchToForm({ model_type, n_gpu: null }).n_gpu, 'CPU');
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 'CPU' }).n_gpu, 'CPU');
+  }
+
+  for (const model_type of ['LLM', 'image']) {
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 'auto' }).n_gpu, 'auto');
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 2 }).n_gpu, 2);
+  }
+
+  for (const model_type of ['world', 'video', 'flexible']) {
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 'GPU' }).n_gpu, 'GPU');
+    assert.equal(transformFetchToForm({ model_type, n_gpu: 'auto' }).n_gpu, 'GPU');
     assert.equal(transformFetchToForm({ model_type, n_gpu: null }).n_gpu, 'CPU');
   }
+});
+
+it('does not submit a hidden fixed GPU index in automatic device mode', () => {
+  const { transformFormToFetch } = require('../utils') as typeof import('../utils');
+
+  for (const model_type of ['embedding', 'rerank', 'audio']) {
+    const values = transformFormToFetch({ model_type, n_gpu: 'auto', gpu_idx: '0' });
+
+    assert.equal(values.n_gpu, 'auto');
+    assert.equal(Object.hasOwn(values, 'gpu_idx'), false);
+  }
+
+  assert.deepEqual(
+    transformFormToFetch({ model_type: 'LLM', n_gpu: 'auto', gpu_idx: '0,1' }).gpu_idx,
+    [0, 1]
+  );
+});
+
+it('reconciles Workers without dropping compatible or manually entered addresses', () => {
+  const { reconcileWorkerSelectionForDevice } = require('../utils') as typeof import('../utils');
+  const workerOptions = [
+    { label: 'gpu:9999', value: 'gpu:9999', gpuCount: 2 },
+    { label: 'cpu:9999', value: 'cpu:9999', gpuCount: 0 },
+  ];
+
+  assert.deepEqual(reconcileWorkerSelectionForDevice(['gpu:9999'], 'GPU', workerOptions), [
+    'gpu:9999',
+  ]);
+  assert.deepEqual(reconcileWorkerSelectionForDevice(['gpu:9999'], 'auto', workerOptions), [
+    'gpu:9999',
+  ]);
+  assert.deepEqual(reconcileWorkerSelectionForDevice(['gpu:9999'], 1, workerOptions), ['gpu:9999']);
+  assert.deepEqual(reconcileWorkerSelectionForDevice(['gpu:9999'], 'CPU', workerOptions), [
+    'gpu:9999',
+  ]);
+  assert.deepEqual(
+    reconcileWorkerSelectionForDevice(
+      ['gpu:9999', 'cpu:9999', 'manual:9999'],
+      'GPU',
+      workerOptions
+    ),
+    ['gpu:9999', 'manual:9999']
+  );
+});
+
+it('clears GPU indexes only when the target device makes them incompatible', () => {
+  const { reconcileGpuIndexesForDevice } = require('../utils') as typeof import('../utils');
+
+  assert.equal(reconcileGpuIndexesForDevice('0', 'GPU', 'CPU', ModelType.Embedding), undefined);
+  assert.equal(reconcileGpuIndexesForDevice('0', 'auto', 'GPU', ModelType.Embedding), '0');
+  assert.equal(reconcileGpuIndexesForDevice('0', 'GPU', 'auto', ModelType.Embedding), undefined);
+  assert.equal(reconcileGpuIndexesForDevice('0,1', 2, 1, ModelType.LLM), undefined);
+  assert.equal(reconcileGpuIndexesForDevice('0,1', 2, 2, ModelType.LLM), '0,1');
+  assert.equal(reconcileGpuIndexesForDevice('invalid', 2, 1, ModelType.LLM), 'invalid');
 });
