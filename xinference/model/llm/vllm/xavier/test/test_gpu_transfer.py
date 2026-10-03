@@ -449,3 +449,92 @@ def test_xavier_advertises_reachable_nixl_address(monkeypatch, address, expected
     sock.getsockname.return_value = ("127.0.0.1", 0)
     with pytest.raises(ValueError, match="remotely reachable"):
         gpu_pool_options("0.0.0.0:1234", {})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("gpu_slots", [1, 2])
+async def test_staging_reused_layer_skips_gather_and_preserves_lru(
+    monkeypatch, gpu_slots
+):
+    r = runtime(monkeypatch, gpu_slots=gpu_slots)
+    stage(r, 1)
+    stage(r, 2)
+    before = r.store.blocks[1]["K"]
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+
+    gathers = []
+
+    def unexpected(*args, **kwargs):
+        gathers.append(args)
+        raise AssertionError("immutable cached layer must not be gathered")
+
+    monkeypatch.setattr(torch.Tensor, "index_select", unexpected)
+    await r.stage([{"K": ([1], [7])}])
+    assert list(r.store.blocks) == [2, 1]
+    assert r.store.blocks[1]["K"] is before
+    assert r.store.tiers[1] == ("cpu" if gpu_slots == 1 else "gpu")
+    assert not gathers
+    assert not syncs
+
+
+@pytest.mark.asyncio
+async def test_staging_partial_hit_still_copies_and_synchronizes(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    stage(r, 1)
+    r.caches["K"][3] = torch.tensor([3, -3])
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+    await r.stage([{"K": ([1, 3], [0, 3])}])
+    assert r.store.read("K", [1, 3]).tolist() == [[1, -1], [3, -3]]
+    assert len(syncs) == 1
+    r.caches["K"].zero_()
+    assert r.store.read("K", [3]).tolist() == [[3, -3]]
+
+
+@pytest.mark.asyncio
+async def test_staging_missing_layer_is_not_a_reuse_hit(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    r.store.block_bytes = 8
+    stage(r, 1)
+    r.caches["V"] = torch.ones_like(r.caches["K"])
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+    await r.stage([{"K": ([1], [0]), "V": ([1], [0])}])
+    assert r.store.read("K", [1]).tolist() == [[1, -1]]
+    assert r.store.read("V", [1]).tolist() == [[1, 1]]
+    assert len(syncs) == 1
+
+
+@pytest.mark.asyncio
+async def test_unpublished_snapshot_still_synchronizes(monkeypatch):
+    r = runtime(monkeypatch)
+    r.store.stage("K", [1], torch.ones(1, 2, dtype=torch.bfloat16))
+    syncs = []
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+    await r.stage([{"K": ([1], [0])}])
+    assert len(syncs) == 1
+
+
+@pytest.mark.asyncio
+async def test_skipped_published_layer_then_failure_fences_and_cleans(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=3)
+    r.store.block_bytes = 8
+    stage(r, 1)
+    r.store.stage("K", [2], torch.ones(1, 2, dtype=torch.bfloat16))
+    r.caches["V"] = torch.ones_like(r.caches["K"])
+    gathers, syncs = [], []
+
+    def fail(value, dim, ids):
+        gathers.append(value)
+        raise RuntimeError("V gather failed")
+
+    monkeypatch.setattr(torch.Tensor, "index_select", fail)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda *args: syncs.append(args))
+    await r.stage([{"K": ([1], [0]), "V": ([1, 2], [0, 1])}])
+    assert len(gathers) == 1 and gathers[0] is r.caches["V"]
+    assert len(syncs) == 1
+    assert list(r.store.blocks) == [1]
+    assert r.store.ready == {1}
+    assert r.store.read("K", [1]).tolist() == [[1, -1]]
+    assert "V" not in r.store.blocks[1]
