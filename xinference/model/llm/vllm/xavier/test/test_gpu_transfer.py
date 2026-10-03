@@ -1240,3 +1240,43 @@ def test_sync_load_preserves_error_and_attempts_all_releases(
     ):
         connector.start_load_kv(SimpleNamespace())
     assert connector._release_load_request.await_count == 2
+
+
+@pytest.mark.parametrize("second_keys", [[1, 2], [2, 1]])
+@pytest.mark.asyncio
+async def test_reused_layers_only_refresh_changed_lru_order(monkeypatch, second_keys):
+    r = runtime(monkeypatch, gpu_slots=2)
+    r.store = TieredKVSnapshotStore(2, 16, 8, r.device)
+    for key in [1, 2]:
+        for layer in ["K", "V"]:
+            r.store.stage(layer, [key], torch.ones(1, 2, dtype=torch.bfloat16))
+        r.store.publish([key], {"K", "V"})
+    touched = []
+    touch = r.store.touch
+
+    def track(key):
+        touched.append(key)
+        touch(key)
+
+    monkeypatch.setattr(r.store, "touch", track)
+    await r.stage([{"K": ([1, 2], [0, 1]), "V": (second_keys, [0, 1])}])
+    assert touched == ([1, 2] if second_keys == [1, 2] else [1, 2, 2, 1])
+    assert list(r.store.blocks) == second_keys
+    assert list(r.store._gpu_lru) == second_keys
+
+
+@pytest.mark.asyncio
+async def test_new_snapshot_resets_reused_layer_lru_shortcut(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    stage(r, 1)
+    stage(r, 2)
+    await r.stage(
+        [
+            {"K": ([1, 2], [0, 1])},
+            {"K": ([3], [2])},
+            {"K": ([1, 2], [0, 1])},
+        ]
+    )
+    assert list(r.store.blocks) == [3, 1, 2]
+    assert list(r.store._gpu_lru) == [3, 2]
+    assert r.store.tiers == {1: "cpu", 2: "gpu", 3: "gpu"}
