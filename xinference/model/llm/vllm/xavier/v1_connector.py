@@ -184,6 +184,22 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self, kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]]
     ):
         self._registered_kv_caches = dict(kv_caches)
+        schema = {
+            name: (
+                tuple(block_major_view(tensor, self._num_cache_blocks).shape[1:]),
+                tensor.dtype,
+            )
+            for layer, cache in self._registered_kv_caches.items()
+            for name, tensor in self._iter_kv_tensors(layer, cache)
+        }
+
+        async def register_schema():
+            transfer = await self._get_transfer_ref()
+            await transfer.configure_kv_schema_v1(self._block_size, schema)
+
+        # The scheduler connector shares this actor with the worker connector;
+        # only the worker has the actual resolved cache dtype and physical shape.
+        self._call(register_schema())
         cache_groups = {
             layer_name: self._get_layer_group_id(layer_name)
             for layer_name in self._registered_kv_caches

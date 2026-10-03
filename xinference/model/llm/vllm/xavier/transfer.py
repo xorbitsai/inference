@@ -218,7 +218,17 @@ class TransferActor(
         self._snapshot_store.evicted.clear()
         return available, evicted
 
-    def reserve_blocks_v1(self, lease, keys):
+    def configure_kv_schema_v1(self, block_size: int, layers: dict):
+        schema = (block_size, dict(layers))
+        previous = getattr(self, "_kv_schema_v1", None)
+        if previous is not None and previous != schema:
+            raise ValueError("Xavier registered KV schema changed")
+        self._kv_schema_v1 = schema
+
+    def reserve_blocks_v1(self, lease, keys, expected_schema=None):
+        schema = getattr(self, "_kv_schema_v1", None)
+        if not schema or not schema[1] or schema != expected_schema:
+            return False
         return self._snapshot_store is not None and self._snapshot_store.reserve(
             lease, keys
         )
@@ -232,6 +242,9 @@ class TransferActor(
             self._snapshot_store.release_consumer(rank)
 
     async def reserve_remote_blocks_v1(self, lease, transfers):
+        schema = getattr(self, "_kv_schema_v1", None)
+        if not schema or not schema[1]:
+            return False
         refs = []
         success = False
         try:
@@ -241,7 +254,7 @@ class TransferActor(
                     uid=f"{TransferActor.default_uid()}-{rank}",
                 )
                 refs.append(ref)
-                if not await ref.reserve_blocks_v1(lease, list(mapping)):
+                if not await ref.reserve_blocks_v1(lease, list(mapping), schema):
                     return False
             success = True
             return True
