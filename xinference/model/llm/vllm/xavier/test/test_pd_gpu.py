@@ -174,9 +174,14 @@ def test_pd_gpu(pd_cluster, backend, gpu_cache_bytes):
         # Compare exact text only with fixed zero-prefix computation. Historical
         # prefix reuse can change floating-point shapes and greedy output.
         for stream in (False, True):
+            offset = Path(log_path).stat().st_size
             repeated = chat(str(stream), stream)
             if backend == "nixl" or gpu_cache_bytes == 0:
                 assert repeated == responses[stream]
+            else:
+                assert re.search(
+                    r"Restored Xavier history: blocks=[1-9]\d*", log_since(offset)
+                )
 
         offset = Path(log_path).stat().st_size
         with ThreadPoolExecutor(max_workers=4) as executor:

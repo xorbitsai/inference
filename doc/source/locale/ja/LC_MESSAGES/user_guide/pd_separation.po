@@ -332,3 +332,12 @@ msgid ""
 "Direct transfers and history loads can overlap with response generation for "
 "other requests."
 msgstr "直接転送と履歴の読み込みは、他のリクエストの応答生成と並行して実行できます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"未受理の引き渡しは 120 秒で期限切れになります。受理済みの引き渡しも、スケジュールの再試行や転送の進行が 10 "
+"分間なければ期限切れになります。実行中のコピーは解放前に完了します。期限切れの引き渡しは D がローカルで再計算します。"

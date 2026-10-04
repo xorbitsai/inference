@@ -421,3 +421,28 @@ async def test_completed_direct_request_does_not_send_abandon_rpc(router, monkey
     await actor._infer("chat", [], {}, request_id="r")
     lookup.assert_not_awaited()
     assert not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_completed_direct_stream_clears_handoff_without_abandon(
+    router, monkeypatch
+):
+    actor, prefill, decode = router
+    prefill.chat.return_value = {
+        "_pd_kv_transfer_params": {
+            "do_remote_prefill": True,
+            "xavier_direct": {"ticket": "t", "rank": 0, "address": "127.0.0.1:1234"},
+        }
+    }
+
+    async def chunks():
+        yield b"one"
+        yield b"two"
+
+    decode.chat.return_value = chunks()
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    stream = await actor._infer("chat", [], {"stream": True}, request_id="r")
+    assert [chunk async for chunk in stream] == [b"one", b"two"]
+    assert not actor._direct_transfers and not actor._request_set
+    lookup.assert_not_awaited()

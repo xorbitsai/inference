@@ -128,11 +128,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
         self._direct_handoff = uses_direct_handoff(self._xavier_config)
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
-        if self._direct_handoff and (
-            self._gpu_budget is None
-            or len(kv_cache_config.kv_cache_groups) != 1
-            or self._xavier_config.get("role") not in ("prefill", "decode")
-        ):
+        if self._direct_handoff and len(kv_cache_config.kv_cache_groups) != 1:
             raise ValueError(
                 "Direct handoff requires P/D roles, GPU transport and one KV group"
             )
@@ -151,6 +147,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._leased_requests: Dict[str, XavierLoadRequest] = {}
         self._gpu_load_jobs: Dict[asyncio.Task, List[str]] = {}
         self._direct_sends: set[str] = set()
+        self._invalid_block_ids: set[int] = set()
         self._num_cache_blocks = kv_cache_config.num_blocks
         self._request_staged_layers: Dict[str, set[str]] = {}
         self._registered_kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]] = (
@@ -245,7 +242,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         received = set()
         for task in list(self._gpu_load_jobs):
             if task.done():
-                task.result()  # A failed/partial transfer must never become ready.
+                self._invalid_block_ids.update(task.result() or ())
                 request_ids = self._gpu_load_jobs.pop(task)
                 received.update(request_ids)
                 for request_id in request_ids:
@@ -258,6 +255,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         # may not poll again until new work arrives. Destination reclamation then
         # waits for that step; actor-side writes and lease release still progress.
         return sent, received
+
+    def get_block_ids_with_load_errors(self) -> set[int]:
+        invalid = self._invalid_block_ids
+        self._invalid_block_ids = set()
+        return invalid
 
     def wait_for_layer_load(self, layer_name: str) -> None:
         return
@@ -353,7 +355,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if self._direct_handoff:
             params = getattr(request, "kv_transfer_params", None) or {}
             handoff = params.get("xavier_direct")
-            if self._is_producer and getattr(self, "_history_enabled", False):
+            if self._is_producer and self._history_enabled:
                 previous = self._requests_need_load.get(request.request_id)
                 if previous is not None:
                     if previous.local_transfers_by_group:
@@ -571,7 +573,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     async def register():
                         ref = await self._get_transfer_ref()
                         history_args = ()
-                        if getattr(self, "_history_enabled", False):
+                        if self._history_enabled:
                             hashes = self._build_xavier_hashes(
                                 request.prompt_token_ids[:token_count]
                             )
@@ -1055,7 +1057,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             [requests[i].lease for i in historical],
                         )
                     if direct:
-                        await transfer.load_direct_gpu_v1(
+                        return await transfer.load_direct_gpu_v1(
                             [entries[i] for i in direct],
                             [requests[i].lease for i in direct],
                         )

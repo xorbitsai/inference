@@ -452,7 +452,8 @@ async def test_history_spills_to_cpu_and_restores_mixed_prefix(monkeypatch, devi
     r.release_direct("save")
     await r._history_task
     assert r.poll_direct() == {"p"}
-    assert r.history.tiers == {100: "cpu", 101: "cpu", 102: "gpu", 103: "gpu"}
+    assert r.history.tiers[100] == "gpu"
+    assert r.history.counts == {"gpu": 2, "cpu": 2}
     assert r.history.stats()["demotions"] == 2
     assert r.reserve_history("read", [100, 101, 102, 103, 999]) == [100, 101, 102, 103]
     for cache in r.caches.values():
@@ -539,3 +540,93 @@ async def test_history_batch_failure_releases_all_leases_preserving_error(monkey
     with pytest.raises(ValueError, match="outside lease"):
         await r.load_history([{0: {"K": {999: 4}}}, {0: {"K": {102: 5}}}], ["a", "b"])
     assert not r.history.leases and not r._history_leases
+
+
+@pytest.mark.asyncio
+async def test_prefix_heads_survive_new_admission_and_reservation(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r.store.cpu_capacity = 0
+    r._init_history(12)  # three blocks
+    r.history_retention_seconds = 10
+    r.register_direct("a", "a", [0, 1, 2], [100, 101, 102])
+    r.release_direct("a")
+    await r._history_task
+    assert list(r.history.blocks) == [102, 101, 100]
+    assert r.reserve_history("lease", [100, 101, 102]) == [100, 101, 102]
+    r.release_history("lease")
+    r._history_probation[200] = None
+    r.register_direct("b", "b", [3], [200])
+    r.release_direct("b")
+    await r._history_task
+    assert r.reserve_history("read", [100, 101, 102]) == [100, 101]
+
+
+@pytest.mark.asyncio
+async def test_rejected_head_never_admits_repeated_tail(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r._init_history(8)
+    r.history_retention_seconds = 10
+    r.register_direct("a", "a", [0, 1], [100, 101])
+    r.release_direct("a")
+    await r._history_task
+    r._history_probation[202] = None
+    r.register_direct("b", "b", [2, 3, 4], [200, 201, 202])
+    r.release_direct("b")
+    assert r.history.ready == {100, 101}
+    assert r.metrics["history_admission_rejected_blocks"] == 3
+    # A request longer than probation capacity retains its head, not its tail.
+    r._history_probation_limit = 2
+    r.register_direct("c", "c", [2, 3, 4], [300, 301, 302])
+    r.release_direct("c")
+    assert list(r._history_probation) == [301, 300]
+
+
+@pytest.mark.asyncio
+async def test_history_hit_counts_only_written_keys_once(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r.register_direct("a", "a", [0, 1, 2], [100, 101, 102])
+    r.release_direct("a")
+    await r._history_task
+    for lease in ("retry", "load"):
+        assert r.reserve_history(lease, [100, 101, 102]) == [100, 101, 102]
+        if lease == "retry":
+            r.release_history(lease)
+    assert r.history.metrics["gpu_hits"] == 0
+    await r.load_history([{0: {"K": {101: 5}}}], ["load"])
+    assert r.metrics["history_hit_blocks"] == 1
+    assert r.metrics["history_gpu_hit_blocks"] == 1
+    assert r.history.metrics["gpu_hits"] == 1
+
+
+def test_prefill_retry_releases_previous_history_reservation(connector):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    connector._direct_handoff = connector._history_enabled = True
+    actor = SimpleNamespace(
+        reserve_direct_history_v1=AsyncMock(return_value=[123]),
+        release_direct_history_v1=AsyncMock(),
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=actor)
+    request = SimpleNamespace(
+        request_id="p", prompt_token_ids=list(range(33)), kv_transfer_params={}
+    )
+    assert connector.get_num_new_matched_tokens(request, 0) == (16, True)
+    previous = connector._requests_need_load["p"].lease
+    assert connector.get_num_new_matched_tokens(request, 0) == (16, True)
+    actor.release_direct_history_v1.assert_awaited_once_with(previous)
+    assert connector._requests_need_load["p"].lease != previous
+
+
+@pytest.mark.asyncio
+async def test_rejected_prefix_does_not_count_existing_tail_as_dropped(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r._init_history(8)
+    r.history_retention_seconds = 10
+    r.register_direct("a", "a", [0, 1], [100, 101])
+    r.release_direct("a")
+    await r._history_task
+    r.register_direct("b", "b", [2, 3], [200, 101])
+    r.release_direct("b")
+    assert r.metrics["history_admission_rejected_blocks"] == 1
+    assert r.history.ready == {100, 101}

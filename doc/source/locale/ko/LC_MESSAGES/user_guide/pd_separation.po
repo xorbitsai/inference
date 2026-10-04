@@ -331,3 +331,12 @@ msgid ""
 "Direct transfers and history loads can overlap with response generation for "
 "other requests."
 msgstr "직접 전송과 기록 로드는 다른 요청의 응답 생성과 동시에 실행될 수 있습니다."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"수락되지 않은 전달은 120초 후 만료됩니다. 수락된 전달도 10분 동안 스케줄링 재시도나 전송 진행이 없으면 만료됩니다. 진행 중인 "
+"복사는 해제 전에 완료됩니다. 만료된 전달은 D가 로컬에서 다시 계산합니다."

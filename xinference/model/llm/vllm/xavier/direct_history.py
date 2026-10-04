@@ -23,6 +23,16 @@ class HistoryStore(TieredKVSnapshotStore):
         self.cpu_capacity = cpu_capacity
         self.capacity = self.gpu_capacity + cpu_capacity
 
+    def reserve(self, lease, keys):
+        if not set(keys).issubset(self.ready):
+            return False
+        self.leases.setdefault(lease, set()).update(keys)
+        # Prefix heads outlive their tails. Reservation is not a cache hit:
+        # scheduling can retry or abort without ever restoring any blocks.
+        for key in reversed(keys):
+            self.touch(key)
+        return True
+
     def read(self, layer, keys, device=None):
         # Batch same-tier blocks before H2D instead of synchronizing once per
         # block. load_history partitions reads by tier and holds their leases.
@@ -120,26 +130,41 @@ class DirectHistoryMixin:
         )
         candidates = []
         free = max(0, self.history.capacity - len(self.history.blocks))
+        prefix = []
+        blocked = None
         for block, key in state.hashes.items():
+            if blocked is not None:
+                if key not in self.history.ready:
+                    self.metrics[blocked] += 1
+                continue
+            if len(prefix) >= self.history.capacity or (
+                key not in self.history.ready and len(candidates) >= limit
+            ):
+                blocked = "history_capacity_limited_blocks"
+                if key not in self.history.ready:
+                    self.metrics[blocked] += 1
+            elif key in self.history.ready:
+                prefix.append(key)
+            elif free or key in self._history_probation:
+                candidates.append((key, block))
+                prefix.append(key)
+                free = max(0, free - 1)
+                if key in self._history_probation:
+                    self.metrics["history_admission_reused_blocks"] += 1
+            else:
+                blocked = "history_admission_rejected_blocks"
+                self.metrics[blocked] += 1
+        # Observe the full request, but keep heads newest in both probation and
+        # cache LRU. A rejected head must not admit unreachable suffix blocks.
+        for key in reversed(list(state.hashes.values())):
             if key in self.history.ready:
                 self.history.touch(key)
                 self._history_probation.pop(key, None)
-                continue
-            repeated = key in self._history_probation
-            self._history_probation[key] = None
-            self._history_probation.move_to_end(key)
-            while len(self._history_probation) > self._history_probation_limit:
-                self._history_probation.popitem(last=False)
-            if free or repeated:
-                if len(candidates) < limit:
-                    candidates.append((key, block))
-                    free = max(0, free - 1)
-                    if repeated:
-                        self.metrics["history_admission_reused_blocks"] += 1
-                else:
-                    self.metrics["history_capacity_limited_blocks"] += 1
             else:
-                self.metrics["history_admission_rejected_blocks"] += 1
+                self._history_probation[key] = None
+                self._history_probation.move_to_end(key)
+                while len(self._history_probation) > self._history_probation_limit:
+                    self._history_probation.popitem(last=False)
         if not candidates:
             return False
         # Observe completed requests even when the single writer is busy, but
@@ -168,6 +193,7 @@ class DirectHistoryMixin:
 
     async def _retain_history(self, ticket, state, candidates, deadline):
         pending = []
+        prefix_keys = list(state.hashes.values())[: self.history.capacity]
         try:
             # At most one writer and one bounded chunk. Yield between chunks;
             # never queue the writer ahead of an already active handoff or load.
@@ -191,20 +217,16 @@ class DirectHistoryMixin:
                 if free > 0:
                     count = min(count, free)
                 chunk = candidates[start : start + count]
-                while self.send_lock.locked() or self.recv_lock.locked():
+                while True:
                     if self._history_closing or time.monotonic() >= deadline:
                         reason = "closing" if self._history_closing else "deadline"
                         self.metrics[f"history_{reason}_dropped_blocks"] += (
                             len(candidates) - start
                         )
                         return
+                    if not self.send_lock.locked() and not self.recv_lock.locked():
+                        break
                     await asyncio.sleep(0.001)
-                if self._history_closing or time.monotonic() >= deadline:
-                    reason = "closing" if self._history_closing else "deadline"
-                    self.metrics[f"history_{reason}_dropped_blocks"] += (
-                        len(candidates) - start
-                    )
-                    return
                 start += len(chunk)
                 async with self.send_lock:
                     self._expire_history_leases()
@@ -224,8 +246,20 @@ class DirectHistoryMixin:
                     self.metrics["history_save_chunks"] += 1
                     for key in available:
                         self._history_probation.pop(key, None)
+                    for key in reversed(prefix_keys):
+                        if key in self.history.ready:
+                            self.history.touch(key)
+                    complete = len(available) == len(pending)
+                    if not complete:
+                        self.metrics["history_capacity_limited_blocks"] += (
+                            len(pending) - len(available) + len(candidates) - start
+                        )
                     pending = []
                     del layers, index
+                    if not complete:
+                        # Capacity may be pinned by another reader. Do not
+                        # continue past a prefix we could not publish.
+                        return
                 await asyncio.sleep(0)
         except Exception:
             self.metrics["history_failures"] += 1
@@ -269,6 +303,7 @@ class DirectHistoryMixin:
                         raise RuntimeError("GPU history lease expired")
                     self._history_reading.add(lease)
                     reads = []
+                    written = set()
                     for layers in ranks.values():
                         for name, mapping in layers.items():
                             cache = self.caches[name]
@@ -304,14 +339,22 @@ class DirectHistoryMixin:
                             self.caches[read.layer][
                                 self._index_tensor(indices, read.destinations)
                             ] = blocks
+                            written.update(read.keys)
                         await asyncio.to_thread(torch.cuda.synchronize, self.device)
-                    for key in self.history.leases[lease]:
+                    hits = {"gpu": 0, "cpu": 0}
+                    for key in written:
                         tier = self.history.tiers[key]
+                        hits[tier] += 1
                         self.metrics[f"history_{tier}_hit_blocks"] += 1
-                    self.metrics["history_hit_blocks"] += len(
-                        self.history.leases[lease]
-                    )
+                        self.history.metrics[f"{tier}_hits"] += 1
+                    self.metrics["history_hit_blocks"] += len(written)
                     self.metrics["history_loaded_requests"] += 1
+                    logger.debug(
+                        "Restored Xavier history: blocks=%s gpu=%s cpu=%s",
+                        len(written),
+                        hits["gpu"],
+                        hits["cpu"],
+                    )
                 finally:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
                     indices.clear()

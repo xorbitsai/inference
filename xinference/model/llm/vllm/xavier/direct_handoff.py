@@ -91,18 +91,25 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
         )
         self.metrics["direct_registered"] += 1
 
-    def claim_direct(self, ticket):
+    def _live_direct(self, ticket):
         state = self.direct_requests.get(ticket)
         if state is None or state.released:
-            return False
-        if not state.claimed and time.monotonic() >= state.deadline:
+            return None
+        if not state.reading and time.monotonic() >= state.deadline:
             self.metrics["direct_expired"] += 1
             state.retention_attempted = True
             self.release_direct(ticket)
+            return None
+        return state
+
+    def claim_direct(self, ticket):
+        state = self._live_direct(ticket)
+        if state is None:
             return False
-        # Ownership passes to D. Scheduler abort or load completion releases it;
-        # producer polling must not race queued allocation or a multi-slab read.
+        # Reclaim abandoned claims even when D dies before submitting a load.
+        # A scheduling retry or a completed slab refreshes this idle lease.
         state.claimed = True
+        state.deadline = time.monotonic() + 600
         return True
 
     def abandon_direct(self, ticket):
@@ -124,24 +131,17 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             self.metrics["direct_finished"] += 1
 
     def poll_direct(self):
-        for ticket, state in list(self.direct_requests.items()):
-            if (
-                not state.released
-                and not state.claimed
-                and time.monotonic() >= state.deadline
-            ):
-                self.metrics["direct_expired"] += 1
-                state.retention_attempted = True
-                self.release_direct(ticket)
+        for ticket in list(self.direct_requests):
+            self._live_direct(ticket)
         result = self.finished_sending
         self.finished_sending = set()
         return result
 
     async def send_direct(self, ticket, reads, remote_ref, slab_bytes):
         async with self.send_lock:
-            state = self.direct_requests.get(ticket)
-            if state is None or state.released:
-                raise RuntimeError("Direct KV handoff expired or was released")
+            state = self._live_direct(ticket)
+            if state is None:
+                return False
             if slab_bytes not in self.send_buffers:
                 raise ValueError("Direct peer transfer slab sizes differ")
             if sum(read.nbytes for read in reads) > slab_bytes:
@@ -155,7 +155,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                 ):
                     raise ValueError("Direct KV source layout or block IDs differ")
             state.reading = True
-            state.deadline = time.monotonic() + 120
+            state.deadline = time.monotonic() + 600
             try:
                 offset = 0
                 for read in reads:
@@ -181,30 +181,26 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                 # Even a failed gather may have queued reads of engine slots.
                 await asyncio.to_thread(torch.cuda.synchronize, self.device)
                 state.reading = False
+                state.deadline = time.monotonic() + 600
                 if state.released:
                     self.release_direct(ticket)
+            return True
 
     async def load_direct(self, requests, tickets):
         failed = False
         try:
-            await self._load_direct(requests, tickets)
+            return await self._load_direct(requests, tickets)
         except BaseException:
             failed = True
             raise
         finally:
 
-            async def release(ranks, ticket):
-                for rank in ranks:
-                    from .transfer import TransferActor
-
-                    sender = await xo.actor_ref(
-                        address=self.actor._world_addresses[rank],
-                        uid=f"{TransferActor.default_uid()}-{rank}",
-                    )
-                    await sender.release_direct_gpu_v1(ticket)
-
             results = await asyncio.gather(
-                *(release(ranks, ticket) for ranks, ticket in zip(requests, tickets)),
+                *(
+                    self.actor.release_remote_direct_gpu_v1(rank, ticket)
+                    for ranks, ticket in zip(requests, tickets)
+                    for rank in ranks
+                ),
                 return_exceptions=True,
             )
             for result in results:
@@ -218,6 +214,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
 
         self.metrics["load_calls"] += 1
         self.metrics["load_requests"] += len(requests)
+        invalid_blocks = set()
         async with self.recv_lock:
             for ranks, ticket in zip(requests, tickets):
                 if len(ranks) != 1:
@@ -243,9 +240,18 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                     for batch in batch_reads(reads, max_bytes=self.slab_bytes):
                         size = sum(read.nbytes for read in batch)
                         slab_bytes = min(n for n in self.recv_refs if n >= size)
-                        await sender.send_direct_gpu_v1(
+                        available = await sender.send_direct_gpu_v1(
                             ticket, batch, self.recv_refs[slab_bytes], slab_bytes
                         )
+                        if not available:
+                            # Never expose a partial request as valid KV. vLLM's
+                            # load-error callback recomputes all its destinations.
+                            invalid_blocks.update(
+                                dest
+                                for mapping in layers.values()
+                                for dest in mapping.values()
+                            )
+                            break
                         for read, blocks in unpack_reads(
                             self.recv_buffer[:size], batch
                         ):
@@ -258,3 +264,4 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                 finally:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
                     indices.clear()
+        return invalid_blocks

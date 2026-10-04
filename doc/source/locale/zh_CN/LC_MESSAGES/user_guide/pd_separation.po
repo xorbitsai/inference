@@ -329,3 +329,12 @@ msgid ""
 "Direct transfers and history loads can overlap with response generation for "
 "other requests."
 msgstr "直传和历史缓存加载可以与其他请求的响应生成重叠执行。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"尚未被接收的交接在 120 秒后过期。已被接收的交接如果 10 分钟内没有调度重试或传输进展，也会过期。正在进行的拷贝会在释放前完成。过期的交接由 D "
+"在本地重新计算。"

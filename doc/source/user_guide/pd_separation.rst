@@ -138,7 +138,7 @@ Direct handoff currently requires ``n=1``.
 
 History is restored on P before the handoff to D. Long prompts may retain only a prefix; cache retention is best effort.
 
-Unclaimed handoffs expire after 120 seconds. If a handoff expires before D accepts it, D recomputes locally. Once D accepts it, the source cache stays reserved until the load finishes or the request is cancelled before loading.
+Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after 10 minutes without a scheduling retry or transfer progress. Active copies finish before release. Expired handoffs are recomputed locally on D.
 
 The budget applies only to Xavier's GPU cache. Leave additional GPU memory for the model, vLLM's own KV cache and transfers. When this cache fills, Xavier stores reusable data in CPU memory; if no cache space is available, new data may not be retained for reuse.
 

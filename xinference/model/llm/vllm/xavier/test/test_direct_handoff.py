@@ -9,6 +9,7 @@ import torch
 import xoscar as xo
 
 from ..direct_handoff import DirectGPUTransfer
+from ..gpu_transfer import GPUTransferMixin
 from ..request_transfer import LayerRead
 from .test_gpu_transfer import runtime
 
@@ -19,6 +20,12 @@ def direct_runtime(monkeypatch):
     r.direct_requests, r.finished_sending = {}, set()
     r.metrics.update(
         direct_registered=0, direct_finished=0, direct_expired=0, index_uploads=0
+    )
+    r.actor.default_uid = lambda: "transfer"
+    r.actor.release_remote_direct_gpu_v1 = (
+        lambda rank, ticket: GPUTransferMixin.release_remote_direct_gpu_v1(
+            r.actor, rank, ticket
+        )
     )
     r._init_history(0)
     return r
@@ -109,10 +116,9 @@ async def test_expired_request_cannot_read_reused_engine_blocks(monkeypatch):
     source.register_direct("ticket", "producer", [1])
     source.direct_requests["ticket"].deadline = 0
     assert source.poll_direct() == {"producer"}
-    with pytest.raises(RuntimeError, match="expired"):
-        await source.send_direct(
-            "ticket", [LayerRead("K", [1], [0], (2,), torch.bfloat16)], None, 16
-        )
+    assert not await source.send_direct(
+        "ticket", [LayerRead("K", [1], [0], (2,), torch.bfloat16)], None, 16
+    )
     assert not source.metrics["wire_bytes"]
 
 
@@ -385,7 +391,6 @@ async def test_claim_pins_queued_handoff_until_decoder_release(monkeypatch):
     source.caches["K"].fill_(7)
     source.register_direct("ticket", "producer", [2])
     assert source.claim_direct("ticket")
-    source.direct_requests["ticket"].deadline = 0
     source.abandon_direct("ticket")  # router cancellation cannot release D's read
     assert not source.poll_direct()
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer_for(source)))
@@ -474,3 +479,97 @@ def test_producer_metadata_gates_idle_rpc_and_fence(
     assert connector.get_finished(set()) == (set(), set())
     sync.assert_called_once()
     connector._transfer_ref.poll_direct_gpu_v1.assert_awaited_once()
+
+
+def test_claimed_but_never_read_ticket_expires(monkeypatch):
+    source = direct_runtime(monkeypatch)
+    source.register_direct("t", "p", [1])
+    assert source.claim_direct("t")
+    source.direct_requests["t"].deadline = 0
+    assert source.poll_direct() == {"p"}
+    assert not source.direct_requests
+    assert source.metrics["direct_expired"] == 1
+
+
+@pytest.mark.asyncio
+async def test_active_read_cannot_expire_and_refreshes_idle_lease(monkeypatch):
+    source = direct_runtime(monkeypatch)
+    source.register_direct("t", "p", [1])
+    assert source.claim_direct("t")
+    entered, finish = asyncio.Event(), asyncio.Event()
+
+    async def copy(buffers, refs):
+        entered.set()
+        await finish.wait()
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    task = asyncio.create_task(
+        source.send_direct(
+            "t", [LayerRead("K", [1], [0], (2,), torch.bfloat16)], None, 16
+        )
+    )
+    await entered.wait()
+    source.direct_requests["t"].deadline = 0
+    assert not source.poll_direct()
+    finish.set()
+    assert await task
+    assert source.direct_requests["t"].deadline > 0
+    assert not source.poll_direct()
+
+
+@pytest.mark.asyncio
+async def test_expiry_between_slabs_reports_all_destinations_for_recompute(monkeypatch):
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    for name in ("V", "Q"):
+        source.caches[name] = source.caches["K"].clone()
+        dest.caches[name] = dest.caches["K"].clone()
+    source.register_direct("t", "p", [1, 2])
+    assert source.claim_direct("t")
+    peer = peer_for(source)
+    original_send = peer.send_direct_gpu_v1.side_effect
+
+    async def send(*args):
+        available = await original_send(*args)
+        if "t" in source.direct_requests:
+            source.direct_requests["t"].deadline = 0
+        return available
+
+    peer.send_direct_gpu_v1.side_effect = send
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    invalid = await dest.load_direct(
+        [{0: {name: {1: 5, 2: 3} for name in source.caches}}], ["t"]
+    )
+    assert invalid == {3, 5}
+    assert source.metrics["direct_expired"] == 1
+    assert source.poll_direct() == {"p"}
+
+
+def test_worker_reports_expired_destinations_with_finished_request(connector):
+    async def expired():
+        return {3, 5}
+
+    async def submit():
+        task = asyncio.create_task(expired())
+        connector._gpu_load_jobs[task] = ["decoder"]
+        await asyncio.sleep(0)
+
+    connector._call(submit())
+    assert connector.get_finished(set()) == (set(), {"decoder"})
+    assert connector.get_block_ids_with_load_errors() == {3, 5}
+    assert connector.get_block_ids_with_load_errors() == set()
+
+
+def test_full_local_hit_releases_unused_direct_ticket(connector):
+    connector._direct_handoff = True
+    actor = SimpleNamespace(release_remote_direct_gpu_v1=AsyncMock())
+    connector._get_transfer_ref = AsyncMock(return_value=actor)
+    request = decoder_request()
+    assert connector.get_num_new_matched_tokens(request, 32) == (0, False)
+    actor.release_remote_direct_gpu_v1.assert_awaited_once_with(0, "ticket")
+    assert request.kv_transfer_params["do_remote_prefill"] is False
+    assert not connector._requests_need_load
