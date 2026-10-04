@@ -944,7 +944,9 @@ class SGLANGModel(LLM):
                     meta_info=state["meta_info"],
                 )
                 if prefill:
-                    result["_pd_kv_transfer_params"] = await pd.publish(pending_handoff)
+                    cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = (
+                        await pd.publish(pending_handoff)
+                    )
                     pending_handoff = None
                 return result
             finally:
@@ -1221,8 +1223,9 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 )
             else:
                 result = self._to_chat_completion(c, self.reasoning_parser)
-            if "_pd_kv_transfer_params" in c:
-                result["_pd_kv_transfer_params"] = c["_pd_kv_transfer_params"]
+            transfer = cast(Dict[str, Any], c).get("_pd_kv_transfer_params")
+            if transfer is not None:
+                cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = transfer
             return result
 
 
