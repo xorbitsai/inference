@@ -448,3 +448,29 @@ def test_packed_bf16_preserves_all_bit_patterns(device):
         == s.blocks[1]["V"].untyped_storage().data_ptr()
     )
     assert s.blocks[1]["K"].untyped_storage().nbytes() == 131072
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_packed_same_dtype_layers_with_different_shapes(device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA required")
+    s = TieredKVSnapshotStore(2, 80, 40, torch.device(device))
+    layers = {
+        "K": torch.arange(12, device=device, dtype=torch.float32).reshape(2, 2, 3),
+        "V": torch.arange(8, device=device, dtype=torch.float32).reshape(2, 4, 1),
+    }
+    s.stage_blocks([1, 2], layers)
+    for name, value in layers.items():
+        assert torch.equal(s.read(name, [1, 2]), value.cpu())
+        assert s.blocks[1][name].shape == value.shape[1:]
+    assert (
+        s.blocks[1]["K"].untyped_storage().data_ptr()
+        == s.blocks[1]["V"].untyped_storage().data_ptr()
+    )
+    assert s.blocks[1]["K"].untyped_storage().nbytes() == 40
+    assert (
+        s.blocks[1]["K"].untyped_storage().data_ptr()
+        != s.blocks[2]["K"].untyped_storage().data_ptr()
+    )
+    s.blocks[1]["K"].zero_()
+    assert torch.equal(s.read("V", [1, 2]), layers["V"].cpu())

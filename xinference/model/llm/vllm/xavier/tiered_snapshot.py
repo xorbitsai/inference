@@ -194,8 +194,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
             names = [name for name, _ in group]
             shapes = [value.shape[1:] for _, value in group]
             sizes = [value[0].numel() for _, value in group]
-            uniform = all(shape == shapes[0] for shape in shapes)
-            packed.append((names, shapes, sizes, uniform, values))
+            packed.append((names, shapes, sizes, values))
         dtypes = {name: value.dtype for name, value in layers.items()}
         pinned = set().union(*self.leases.values()) if self.leases else set()
         for index, key in enumerate(keys):
@@ -206,17 +205,14 @@ class TieredKVSnapshotStore(KVSnapshotStore):
                     self.gpu_device if self.tiers[key] == "gpu" else torch.device("cpu")
                 )
                 content: Dict[str, torch.Tensor] = {}
-                for names, shapes, sizes, uniform, values in packed:
+                for names, shapes, sizes, values in packed:
                     # Layers share only this block's allocation. Evicting one
                     # block cannot retain the rest of the staging batch.
                     block = values[index].detach().to(target, copy=True)
-                    if uniform:
-                        parts = block.reshape(len(names), *shapes[0]).unbind(0)
-                    else:
-                        parts = tuple(
-                            value.reshape(shape)
-                            for value, shape in zip(block.split(sizes), shapes)
-                        )
+                    parts = (
+                        value.reshape(shape)
+                        for value, shape in zip(block.split(sizes), shapes)
+                    )
                     content.update(zip(names, parts))
                 self.blocks[key] = content
                 self.logical_dtypes[key] = dtypes.copy()

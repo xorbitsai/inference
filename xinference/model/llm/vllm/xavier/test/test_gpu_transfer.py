@@ -353,7 +353,7 @@ async def test_staging_failure_drains_and_drops_only_unpublished(
     method = "stage_blocks" if packed else "stage"
     original = getattr(r.store, method)
     if not packed:
-        monkeypatch.setattr(r, "_can_stage_blocks", lambda layers: False)
+        monkeypatch.setattr(r, "_can_stage_blocks", lambda layers, staged_keys: False)
     calls = []
 
     def copy(*args):
@@ -1317,14 +1317,25 @@ async def test_cancelled_caller_logs_background_transfer_failure(monkeypatch, ca
 
 
 @pytest.mark.asyncio
-async def test_complete_block_staging_is_bounded_and_preserves_content(monkeypatch):
+@pytest.mark.parametrize(
+    "byte_limit,block_limit,expected_batches",
+    [
+        (16, 64, [[11, 12], [13, 14], [15]]),
+        (1024, 2, [[11, 12], [13, 14], [15]]),
+        (4, 64, [[11], [12], [13], [14], [15]]),
+    ],
+)
+async def test_complete_block_staging_is_bounded_and_preserves_content(
+    monkeypatch, byte_limit, block_limit, expected_batches
+):
     from .. import gpu_transfer
 
     r = runtime(monkeypatch, gpu_slots=8)
     r.store.block_bytes = 8
     r.caches["K"] = torch.arange(16, dtype=torch.bfloat16).reshape(8, 2)
     r.caches["V"] = -r.caches["K"]
-    monkeypatch.setattr(gpu_transfer, "MAX_REQUEST_BYTES", 16)
+    monkeypatch.setattr(gpu_transfer, "MAX_REQUEST_BYTES", byte_limit)
+    monkeypatch.setattr(gpu_transfer, "MAX_REQUEST_BLOCKS", block_limit)
     batches = []
     original = r.store.stage_blocks
 
@@ -1336,7 +1347,7 @@ async def test_complete_block_staging_is_bounded_and_preserves_content(monkeypat
     await r.stage(
         [{name: ([11, 12, 13, 14, 15], [7, 5, 3, 1, 0]) for name in r.caches}]
     )
-    assert batches == [[11, 12], [13, 14], [15]]
+    assert batches == expected_batches
     assert r.store.publish([11, 12, 13, 14, 15], {"K", "V"}) == [11, 12, 13, 14, 15]
     assert r.store.read("K", [11, 12, 13, 14, 15]).tolist() == [
         [14, 15],
@@ -1360,11 +1371,14 @@ async def test_layer_specific_block_indices_use_existing_staging(monkeypatch):
     r.caches["K"][3] = torch.tensor([3, -3])
     r.caches["V"] = torch.ones_like(r.caches["K"])
 
+    packed_calls = []
+
     def unexpected(*args):
-        raise AssertionError("Different layer indices must not use packed staging")
+        packed_calls.append(args)
 
     monkeypatch.setattr(r.store, "stage_blocks", unexpected)
     await r.stage([{"K": ([9], [3]), "V": ([9], [1])}])
+    assert not packed_calls
     assert r.store.read("K", [9]).tolist() == [[3, -3]]
     assert r.store.read("V", [9]).tolist() == [[1, 1]]
 
@@ -1408,3 +1422,71 @@ async def test_packed_hit_evicted_by_preceding_admission_is_copied(monkeypatch):
     assert list(r.store.blocks) == [4, 2]
     assert r.store.publish([3, 4, 2], {"K"}) == [4, 2]
     assert r.store.read("K", [2]).tolist() == [[2, -2]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("same_call", [False, True])
+async def test_unpublished_prefix_reuse_is_scoped_to_staging_call(
+    monkeypatch, same_call
+):
+    r = runtime(monkeypatch, gpu_slots=8)
+    r.caches["K"] = torch.arange(16, dtype=torch.bfloat16).reshape(8, 2)
+    batches, gathered = [], []
+    original_stage, original_gather = r.store.stage_blocks, torch.Tensor.index_select
+
+    def capture(keys, layers):
+        batches.append(list(keys))
+        original_stage(keys, layers)
+
+    def gather(value, dim, index):
+        gathered.extend(index.tolist())
+        return original_gather(value, dim, index)
+
+    monkeypatch.setattr(r.store, "stage_blocks", capture)
+    monkeypatch.setattr(torch.Tensor, "index_select", gather)
+    entries = [{"K": ([1, 2, 3], [1, 2, 3])}, {"K": ([1, 2, 3, 4], [1, 2, 3, 4])}]
+    if same_call:
+        await r.stage(entries)
+    else:
+        for entry in entries:
+            await r.stage([entry])
+    assert not r.store.ready
+    assert batches == ([[1, 2, 3], [4]] if same_call else [[1, 2, 3]])
+    assert gathered == ([1, 2, 3, 4] if same_call else [1, 2, 3, 1, 2, 3, 4])
+    assert torch.equal(r.store.read("K", [1, 2, 3, 4]), r.caches["K"][1:5])
+
+
+@pytest.mark.asyncio
+async def test_call_local_hit_evicted_by_prior_chunk_is_gathered_again(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=1)
+    r.store.cpu_capacity = 1
+    r.caches["K"] = torch.arange(16, dtype=torch.bfloat16).reshape(8, 2)
+    await r.stage([{"K": ([1, 2], [1, 2])}, {"K": ([3, 4, 2], [3, 4, 2])}])
+    assert list(r.store.blocks) == [4, 2]
+    assert r.store.publish([4, 2], {"K"}) == [4, 2]
+    assert torch.equal(r.store.read("K", [2]), r.caches["K"][2:3])
+
+
+@pytest.mark.asyncio
+async def test_later_chunk_failure_drops_all_unpublished_chunks(
+    monkeypatch, assert_gpu_lru_consistent
+):
+    from .. import gpu_transfer
+
+    r = runtime(monkeypatch, gpu_slots=8)
+    stage(r, 7)
+    monkeypatch.setattr(gpu_transfer, "MAX_REQUEST_BLOCKS", 2)
+    original, batches = r.store.stage_blocks, []
+
+    def fail(keys, layers):
+        batches.append(list(keys))
+        original(keys, layers)
+        if len(batches) == 2:
+            raise RuntimeError("second chunk failed")
+
+    monkeypatch.setattr(r.store, "stage_blocks", fail)
+    await r.stage([{"K": ([1, 2, 3, 4], [1, 2, 3, 4])}])
+    assert batches == [[1, 2], [3, 4]]
+    assert set(r.store.blocks) == r.store.ready == {7}
+    assert r.store._block_sizes == {7: 4}
+    assert_gpu_lru_consistent(r.store)
