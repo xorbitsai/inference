@@ -1155,9 +1155,10 @@ class ChatModelMixin:
             reasoning_content, processed_content = (
                 self.reasoning_parser.extract_reasoning_content(text)
             )
-            # Use the processed content (without thinking tags) for tool parsing
-            if processed_content:
-                text = processed_content
+            # Use the processed content (without thinking tags) for tool parsing.
+            # It is empty when the output only contains reasoning, e.g. when
+            # generation stops inside the thinking block.
+            text = processed_content or ""
 
         # Then, extract tool calls from the processed text (without thinking tags)
         tool_calls = []
@@ -1192,7 +1193,11 @@ class ChatModelMixin:
             # For non-tool calls, use the processed content from reasoning parser
             content = text
 
-        finish_reason = "tool_calls" if tool_calls else "stop"
+        finish_reason = (
+            "tool_calls"
+            if tool_calls
+            else c["choices"][0].get("finish_reason") or "stop"
+        )
 
         m = {
             "role": "assistant",
