@@ -42,7 +42,9 @@ def _new_api():
     return api
 
 
-async def _create_streaming_response(monkeypatch, kind, source):
+async def _create_streaming_response(
+    monkeypatch, kind, source, extra_body=None, is_vllm=True
+):
     method = "generate" if kind == "completion" else "chat"
     decrease_completed = asyncio.Event()
 
@@ -54,7 +56,7 @@ async def _create_streaming_response(monkeypatch, kind, source):
         uid=f"{kind}-model".encode(),
         abort_request=AsyncMock(return_value="DONE"),
         decrease_serve_count=AsyncMock(side_effect=decrease_serve_count),
-        is_vllm_backend=AsyncMock(return_value=True),
+        is_vllm_backend=AsyncMock(return_value=is_vllm),
         **{method: AsyncMock(return_value=source)},
     )
 
@@ -72,7 +74,6 @@ async def _create_streaming_response(monkeypatch, kind, source):
             "stream": True,
             "request_id": "completion-request",
         }
-        response = await api.create_completion(_Request(body))
     else:
         supervisor = SimpleNamespace(
             describe_model=AsyncMock(return_value={"model_family": "test-family"})
@@ -84,8 +85,34 @@ async def _create_streaming_response(monkeypatch, kind, source):
             "stream": True,
             "request_id": "chat-request",
         }
-        response = await api.create_chat_completion(_Request(body))
+    body.update(extra_body or {})
+    create = (
+        api.create_completion if kind == "completion" else api.create_chat_completion
+    )
+    response = await create(_Request(body))
     return response, model, decrease_completed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["completion", "chat"])
+@pytest.mark.parametrize("is_vllm", [False, True])
+@pytest.mark.parametrize("ignore_eos", [None, False, True])
+async def test_generation_routes_preserve_explicit_ignore_eos(
+    monkeypatch, kind, is_vllm, ignore_eos
+):
+    source, _, _ = _tracked_stream(wait_after_first=False)
+    extra_body = {} if ignore_eos is None else {"ignore_eos": ignore_eos}
+    response, model, _ = await _create_streaming_response(
+        monkeypatch, kind, source, extra_body=extra_body, is_vllm=is_vllm
+    )
+    async for _ in response.body_iterator:
+        pass
+    call = (model.generate if kind == "completion" else model.chat).await_args
+    config = call.args[1]
+    if ignore_eos is None:
+        assert "ignore_eos" not in config
+    else:
+        assert config["ignore_eos"] is ignore_eos
 
 
 async def _run_asgi_disconnect(response, phase, next_item_started):

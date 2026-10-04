@@ -370,3 +370,7 @@ msgstr "vLLM Xavier 要求与内存用量"
 #: source/user_guide/pd_separation.rst:64
 msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
 msgstr "要对比原生 SGLang，保持相同部署并设置 ``transfer_backend_type=\"nixl\"``。这会通过相同的 Xinference API 和 P/D 路由使用 SGLang 的 NIXL 后端。请在每个模型环境中安装 ``nixl``。初始原生集成要求 TP=PP=DP=1、每个副本使用一个 worker、仅处理文本请求，且不使用 LoRA、推测解码或 HiCache。每个副本都会分配引导端口；两个副本主机必须互相可达。"
+
+#: ../../source/user_guide/pd_separation.rst:66
+msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
+msgstr "进行固定输出长度的性能测试时，补全和聊天请求均支持 ``ignore_eos=true``。请用未使用的 ``stop`` 标记覆盖模型的停止字符串，并核实实际输出的 token 数。"

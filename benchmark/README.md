@@ -64,7 +64,7 @@ Use `--idle-pid` only for a verified idle CUDA context. The native launch select
 `transfer_backend_type="nixl"`; Xavier remains the default.
 
 Both backends use FP16, eager execution, page size 64, identical model weights
-and the same memory fraction. Requests ignore EOS and override chat-family stop
+and the same memory fraction and KV capacity (`--kv-tokens 524288`). Requests ignore EOS and override chat-family stop
 strings with an unused marker; the script requires exactly 64 output tokens for
 throughput/cold arrivals and 1024 for background decode.
 The historical vLLM BF16 numbers are a workload reference, not a direct

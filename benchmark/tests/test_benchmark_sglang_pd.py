@@ -63,7 +63,9 @@ def test_client_readiness_and_failed_launch_always_clean_up_owned_server(
     monkeypatch.setattr(benchmark.time, "sleep", lambda _: None)
     stop = Mock()
     monkeypatch.setattr(benchmark, "stop_server", stop)
-    args = SimpleNamespace(model_path=Path("model"), memory_fraction=0.6)
+    args = SimpleNamespace(
+        model_path=Path("model"), memory_fraction=0.6, kv_tokens=524288
+    )
     with pytest.raises(RuntimeError, match="model launch failed"):
         benchmark.run_backend(args, "nixl", 0, tmp_path, None)
     assert factory.call_count == 2

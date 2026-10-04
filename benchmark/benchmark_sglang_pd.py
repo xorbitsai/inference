@@ -332,6 +332,7 @@ def run_backend(
                 dtype="float16",
                 context_length=8192,
                 mem_fraction_static=args.memory_fraction,
+                max_total_tokens=args.kv_tokens,
                 disable_cuda_graph=True,
                 page_size=64,
                 stream_interval=1,
@@ -386,17 +387,23 @@ def run_backend(
                 for round_index in range(args.overlap_rounds):
                     probe = asyncio.run(overlap(endpoint, uid, round_index))
                     result["overlap"].append(probe)
-                    if any(
-                        row["output_tokens"] != row["expected_output_tokens"]
+                    (root / "results.json").write_text(json.dumps(result, indent=2))
+                    mismatches = [
+                        (
+                            row["index"],
+                            row["output_tokens"],
+                            row["expected_output_tokens"],
+                        )
                         for row in probe["records"]
-                    ):
+                        if row["output_tokens"] != row["expected_output_tokens"]
+                    ]
+                    if mismatches:
                         raise RuntimeError(
-                            "Overlap requests did not produce the fixed output lengths"
+                            f"Overlap output lengths differ (index, actual, expected): {mismatches}"
                         )
                     print(
                         backend, trial, "overlap", round_index, "complete", flush=True
                     )
-                    (root / "results.json").write_text(json.dumps(result, indent=2))
             result["gpu_samples"] = isolation.samples
             result["interference"] = isolation.interference
             if isolation.interference:
@@ -443,6 +450,7 @@ def main():
     parser.add_argument("--requests", type=int, default=300)
     parser.add_argument("--overlap-rounds", type=int, default=2)
     parser.add_argument("--memory-fraction", type=float, default=0.6)
+    parser.add_argument("--kv-tokens", type=int, default=524288)
     parser.add_argument("--idle-pid", type=int, action="append", default=[])
     parser.add_argument("--idle-timeout", type=int, default=1800)
     args = parser.parse_args()
@@ -451,9 +459,11 @@ def main():
         or args.requests % 12
         or args.trials < 1
         or args.overlap_rounds < 0
+        or args.kv_tokens < 8192
     ):
         parser.error(
-            "requests must be a positive multiple of 12; trials positive; overlap-rounds nonnegative"
+            "requests must be a positive multiple of 12; trials positive; "
+            "overlap-rounds nonnegative; kv-tokens at least 8192"
         )
     if args.output_dir.exists():
         parser.error(
@@ -475,6 +485,7 @@ def main():
                 *Path("xinference/model/llm/sglang").rglob("*.py"),
                 Path("xinference/core/pd_model.py"),
                 Path("xinference/core/supervisor.py"),
+                Path("xinference/types.py"),
             ]
         },
         gpu=subprocess.check_output(

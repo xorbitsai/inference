@@ -63,6 +63,8 @@ SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavi
 
 For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type="nixl"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable.
 
+For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts.
+
 Native NIXL backend
 -------------------
 
