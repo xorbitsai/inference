@@ -363,6 +363,7 @@ async def test_staging_failure_drains_and_drops_only_unpublished(
     assert list(r.store.blocks) == [1]
     assert r.store.publish([2], {"K"}) == []
     assert r.store.leases == {"2:live": {1}}
+    assert r.store._block_sizes == {1: 4}  # Published BF16 block survives alone.
     assert r.store.read("K", [1]).tolist() == [[1, -1]]
     assert_gpu_lru_consistent(r.store)
 
@@ -926,6 +927,7 @@ async def test_close_releases_snapshot_storage_and_is_idempotent(
     assert not r.store.blocks and not r.store.ready and not r.store.tiers
     assert not r.store.logical_dtypes and not r.store.leases and not r.store.evicted
     assert not r.store._gpu_lru
+    assert not r.store._block_sizes
     assert r.store.counts == {"gpu": 0, "cpu": 0}
     assert r.send_buffer is None and r.recv_buffer is None
     assert not r.recv_refs and not r.caches
@@ -1284,3 +1286,27 @@ async def test_new_snapshot_resets_reused_layer_lru_shortcut(monkeypatch):
     assert list(r.store.blocks) == [3, 1, 2]
     assert list(r.store._gpu_lru) == [3, 2]
     assert r.store.tiers == {1: "cpu", 2: "gpu", 3: "gpu"}
+
+
+@pytest.mark.asyncio
+async def test_cancelled_caller_logs_background_transfer_failure(monkeypatch, caplog):
+    r = runtime(monkeypatch)
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def fail():
+        started.set()
+        await finish.wait()
+        raise RuntimeError("background write failed")
+
+    job = asyncio.create_task(r.run(fail))
+    await started.wait()
+    job.cancel()
+    await asyncio.sleep(0)
+    assert not job.done()  # Cancellation still drains the protected operation.
+    finish.set()
+    with pytest.raises(asyncio.CancelledError):
+        await job
+    assert "Xavier GPU transfer task failed" in caplog.text
+    assert "background write failed" in caplog.text
+    assert not r.tasks
+    await r.close()
