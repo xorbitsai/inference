@@ -257,7 +257,7 @@ class GPUTransfer:
             nonlocal copied
             if not pending_keys:
                 return
-            index = torch.tensor(pending_ids, device=self.device)
+            index = torch.tensor(pending_ids, dtype=torch.long, device=self.device)
             values = {
                 name: cache.index_select(0, index)
                 for name, cache in self.caches.items()
