@@ -104,10 +104,27 @@ class XavierEngine:
                 VLLM_VERSION,
             )
 
-        # Xavier implements SupportsHMA, but vLLM's default connector allowlist
-        # does not recognize externally registered connectors.
-        if getattr(engine_args, "disable_hybrid_kv_cache_manager", None) is None:
+        # vLLM's is_hybrid means attention plus recurrent state, not a mixture
+        # of sliding-window and full attention. Only recurrent models need this
+        # override: 0.21 disables HMA for every KV connector by default; 0.22+
+        # checks SupportsHMA itself. Preserve an explicit user setting.
+        recurrent = engine_args.create_model_config().is_hybrid
+        if (
+            recurrent
+            and version.parse(VLLM_VERSION) < version.parse("0.22.0")
+            and getattr(engine_args, "disable_hybrid_kv_cache_manager", None) is None
+        ):
             engine_args.disable_hybrid_kv_cache_manager = False
+        if getattr(engine_args, "enable_prefix_caching", None) is None:
+            engine_args.enable_prefix_caching = not recurrent
+        if recurrent:
+            if getattr(engine_args, "async_scheduling", None) is None:
+                engine_args.async_scheduling = False
+            if engine_args.enable_prefix_caching or engine_args.async_scheduling:
+                raise ValueError(
+                    "Xavier recurrent handoff requires enable_prefix_caching=False "
+                    "and async_scheduling=False"
+                )
 
         engine_args.kv_transfer_config = KVTransferConfig(
             kv_connector=XAVIER_CONNECTOR,

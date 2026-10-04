@@ -53,8 +53,9 @@ def test_recurrent_pd_matches_standalone(pd_cluster, backend):
         mamba_cache_mode="none",
         async_scheduling=False,
         disable_hybrid_kv_cache_manager=False,
-        envs={"VLLM_SSM_CONV_STATE_LAYOUT": "DS"},
     )
+    if backend == "nixl":
+        config["envs"] = {"VLLM_SSM_CONV_STATE_LAYOUT": "DS"}
     api = openai.OpenAI(base_url=endpoint + "/v1", api_key="unused", timeout=180)
     prompts = [
         "Write exactly this sentence, with no extra text: The answer is four.",

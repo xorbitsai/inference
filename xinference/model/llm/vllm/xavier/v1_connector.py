@@ -77,6 +77,7 @@ class XavierLoadRequest:
         default_factory=dict
     )
     remote_blocks_by_group: List[List[int]] = field(default_factory=list)
+    local_hit_tokens: int = 0
 
 
 @dataclass
@@ -114,6 +115,17 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         }
         self._has_recurrent_cache = bool(self._recurrent_groups)
         if self._has_recurrent_cache:
+            if getattr(
+                vllm_config.cache_config, "enable_prefix_caching", False
+            ) or getattr(
+                getattr(vllm_config, "scheduler_config", None),
+                "async_scheduling",
+                False,
+            ):
+                raise ValueError(
+                    "Xavier recurrent handoff requires enable_prefix_caching=False "
+                    "and async_scheduling=False"
+                )
             if len(self._recurrent_groups) == len(kv_cache_config.kv_cache_groups):
                 raise ValueError(
                     "Xavier recurrent handoff requires a full-attention group"
@@ -391,7 +403,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             params = getattr(request, "kv_transfer_params", None) or {}
             handoff = params.get("xavier_direct")
             if (
-                getattr(self, "_has_recurrent_cache", False)
+                self._has_recurrent_cache
                 and self._is_producer
                 and params.get("do_remote_decode")
             ):
@@ -463,6 +475,29 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 params["do_remote_prefill"] = False
                 return 0, False
 
+            remote_groups = handoff.get("blocks_by_group", [])
+            if self._has_recurrent_cache or remote_groups:
+                expected_blocks = (tokens + self._block_size - 1) // self._block_size
+                valid_groups = (
+                    isinstance(remote_groups, (list, tuple))
+                    and len(remote_groups) == len(self._kv_cache_config.kv_cache_groups)
+                    and all(
+                        isinstance(group, (list, tuple))
+                        and len(group)
+                        == (1 if i in self._recurrent_groups else expected_blocks)
+                        and all(type(block) is int and block >= 0 for block in group)
+                        for i, group in enumerate(remote_groups)
+                    )
+                )
+                if not valid_groups:
+                    logger.warning(
+                        "Incompatible Xavier cache groups; recomputing request %s",
+                        request.request_id,
+                    )
+                    params["do_remote_prefill"] = False
+                    self._requests_need_load.pop(request.request_id, None)
+                    return 0, False
+
             async def claim():
                 ref = await self._get_transfer_ref()
                 return await ref.claim_remote_direct_gpu_v1(rank, ticket)
@@ -477,7 +512,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 request.request_id,
                 {rank: {block: i for i, block in enumerate(blocks) if i >= start}},
                 lease=ticket,
-                remote_blocks_by_group=handoff.get("blocks_by_group", []),
+                remote_blocks_by_group=remote_groups,
+                local_hit_tokens=num_computed_tokens,
             )
             return tokens - num_computed_tokens, True
         self._requests_need_load.pop(request.request_id, None)
@@ -561,7 +597,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             )
                         updated[from_rank] = {remote[0]: group_block_ids[0]}
                     else:
-                        start = request.num_computed_tokens // self._block_size
+                        start = load_request.local_hit_tokens // self._block_size
                         updated[from_rank] = {
                             block: group_block_ids[i]
                             for i, block in enumerate(remote)
@@ -630,7 +666,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 if request.status == RequestStatus.FINISHED_ABORTED:
                     return False, None
                 token_count = max(len(request.prompt_token_ids) - 1, 0)
-                if getattr(self, "_has_recurrent_cache", False):
+                if self._has_recurrent_cache:
                     if not params.get("_xavier_truncated"):
                         return False, {
                             "do_remote_prefill": True,
@@ -730,7 +766,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request: "Request",
         block_ids: Tuple[List[int], ...],
     ) -> tuple[bool, dict[str, Any] | None]:
-        if getattr(self, "_has_recurrent_cache", False) and block_ids:
+        if self._has_recurrent_cache and block_ids:
             full_group = next(
                 i for i in range(len(block_ids)) if i not in self._recurrent_groups
             )
@@ -1190,19 +1226,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         await asyncio.sleep(0)
 
     def _cache_block_view(self, layer_name: str, tensor: torch.Tensor) -> torch.Tensor:
-        if not getattr(self, "_has_recurrent_cache", False):
+        if not self._has_recurrent_cache:
             return block_major_view(tensor, self._num_cache_blocks)
         if self._get_layer_group_id(layer_name) in self._recurrent_groups:
             return block_major_view(tensor, self._num_cache_blocks)
         # HMA attention kernels may split a logical block into multiple physical
         # blocks. Keep that extra dimension inside the transfer unit, as a view.
-        axis = 1 if tensor.ndim == 5 and tensor.shape[0] == 2 else 0
-        physical = tensor.shape[axis]
-        if physical % self._num_cache_blocks:
-            raise ValueError(
-                "Attention physical blocks must divide into logical blocks"
-            )
-        view = tensor.movedim(axis, 0)
+        view = block_major_view(tensor, self._num_cache_blocks, allow_multiple=True)
+        physical = view.shape[0]
         return view.unflatten(
             0, (self._num_cache_blocks, physical // self._num_cache_blocks)
         )

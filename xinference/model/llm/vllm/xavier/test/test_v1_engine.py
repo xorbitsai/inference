@@ -50,7 +50,11 @@ def engine(monkeypatch):
 )
 def test_v1_connector_configuration(engine, role, kv_role):
     module, factory = engine
-    args = SimpleNamespace(additional_config={"custom": 1}, enforce_eager=False)
+    args = SimpleNamespace(
+        additional_config={"custom": 1},
+        enforce_eager=False,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=False),
+    )
     config = {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
     module.XavierEngine.from_engine_args(args, xavier_config=config)
     assert args.kv_transfer_config.kv_role == kv_role
@@ -58,7 +62,8 @@ def test_v1_connector_configuration(engine, role, kv_role):
     assert args.additional_config["custom"] == 1
     json.dumps(args.additional_config)
     assert args.enforce_eager
-    assert args.disable_hybrid_kv_cache_manager is False
+    assert getattr(args, "disable_hybrid_kv_cache_manager", None) is None
+    assert args.enable_prefix_caching is True
     assert config == {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
     factory.assert_called_once()
 
@@ -97,7 +102,9 @@ def test_v1_defaults_to_spawn_before_engine_creation(engine, monkeypatch, config
         assert os.environ["VLLM_WORKER_MULTIPROC_METHOD"] == (configured or "spawn")
 
     factory.side_effect = create
-    module.XavierEngine.from_engine_args(SimpleNamespace())
+    module.XavierEngine.from_engine_args(
+        SimpleNamespace(create_model_config=lambda: SimpleNamespace(is_hybrid=False))
+    )
     factory.assert_called_once()
 
 
@@ -120,4 +127,42 @@ def test_gpu_path_rejects_legacy_before_engine_start(engine):
         module.XavierEngine.from_engine_args(
             object(), xavier_config={"gpu_cache_bytes": 0}
         )
+    factory.assert_not_called()
+
+
+@pytest.mark.parametrize("recurrent", [False, True])
+@pytest.mark.parametrize("vllm_version", ["0.21.0", "0.22.0"])
+@pytest.mark.parametrize("disable_hma", [None, True, False])
+def test_hma_defaults_only_for_recurrent_models(
+    engine, recurrent, vllm_version, disable_hma
+):
+    module, _ = engine
+    module.VLLM_VERSION = vllm_version
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(is_hybrid=recurrent),
+        disable_hybrid_kv_cache_manager=disable_hma,
+    )
+    module.XavierEngine.from_engine_args(args)
+    expected = (
+        False
+        if recurrent and vllm_version == "0.21.0" and disable_hma is None
+        else disable_hma
+    )
+    assert args.disable_hybrid_kv_cache_manager is expected
+    assert args.enable_prefix_caching is (not recurrent)
+    if recurrent:
+        assert args.async_scheduling is False
+
+
+@pytest.mark.parametrize("setting", ["enable_prefix_caching", "async_scheduling"])
+def test_recurrent_rejects_unsupported_settings_before_start(engine, setting):
+    module, factory = engine
+    args = SimpleNamespace(
+        create_model_config=lambda: SimpleNamespace(is_hybrid=True),
+        **{setting: True},
+    )
+    with pytest.raises(
+        ValueError, match="enable_prefix_caching=False and async_scheduling=False"
+    ):
+        module.XavierEngine.from_engine_args(args)
     factory.assert_not_called()

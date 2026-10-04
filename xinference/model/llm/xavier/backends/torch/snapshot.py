@@ -75,13 +75,21 @@ class KVSnapshotStore:
         return torch.stack([self.blocks[key][layer] for key in keys]).contiguous()
 
 
-def block_major_view(tensor: torch.Tensor, num_blocks: int) -> torch.Tensor:
+def block_major_view(
+    tensor: torch.Tensor, num_blocks: int, *, allow_multiple: bool = False
+) -> torch.Tensor:
     """Normalize supported attention layouts without guessing ambiguous axes."""
-    if tensor.ndim == 5 and tensor.shape[0] == 2:
-        if tensor.shape[1] == num_blocks:
-            if num_blocks == 2:
-                raise ValueError("Ambiguous Xavier KV block axis with only two blocks")
-            return tensor.movedim(1, 0)
-    if tensor.shape[0] != num_blocks:
+
+    def matches(size: int) -> bool:
+        return size == num_blocks or (
+            allow_multiple and num_blocks > 0 and size > 0 and size % num_blocks == 0
+        )
+
+    first_is_blocks = matches(tensor.shape[0])
+    if tensor.ndim == 5 and tensor.shape[0] == 2 and matches(tensor.shape[1]):
+        if first_is_blocks:
+            raise ValueError("Ambiguous Xavier KV block axis with only two blocks")
+        return tensor.movedim(1, 0)
+    if not first_is_blocks:
         raise ValueError(f"Unsupported Xavier KV layout {tuple(tensor.shape)}")
     return tensor

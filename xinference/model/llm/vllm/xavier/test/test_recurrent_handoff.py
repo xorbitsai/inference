@@ -74,7 +74,7 @@ def test_decoder_maps_recurrent_state_separately(recurrent):
     )
     request = SimpleNamespace(
         request_id="d",
-        num_computed_tokens=16,
+        num_computed_tokens=0,
         kv_transfer_params={
             "xavier_direct": {
                 "rank": 0,
@@ -196,3 +196,96 @@ def test_recurrent_abort_before_allocation(recurrent, monkeypatch):
         request_id="p", status="aborted", kv_transfer_params={"do_remote_decode": True}
     )
     assert recurrent.request_finished_all_groups(request, ()) == (False, None)
+
+
+@pytest.mark.parametrize(
+    "groups",
+    [
+        None,
+        [],
+        [[7]],
+        [[7], [2, 3, 4], [8]],
+        [[], [2, 3, 4]],
+        [[7, 8], [2, 3, 4]],
+        [[7], [2]],
+        [[7], [2, 3, "4"]],
+    ],
+)
+def test_mismatched_recurrent_payload_recomputes_before_claim(recurrent, groups):
+    recurrent._is_producer = False
+    claim = AsyncMock(return_value=True)
+    recurrent._get_transfer_ref = AsyncMock(
+        return_value=SimpleNamespace(claim_remote_direct_gpu_v1=claim)
+    )
+    request = SimpleNamespace(
+        request_id="bad",
+        num_computed_tokens=0,
+        kv_transfer_params={
+            "do_remote_prefill": True,
+            "xavier_direct": {
+                "rank": 0,
+                "ticket": "t",
+                "tokens": 33,
+                "blocks": [2, 3, 4],
+                "blocks_by_group": groups,
+            },
+        },
+    )
+    assert recurrent.get_num_new_matched_tokens(request, 0) == (0, False)
+    assert request.kv_transfer_params["do_remote_prefill"] is False
+    assert "bad" not in recurrent._requests_need_load
+    claim.assert_not_awaited()
+    assert recurrent.get_num_new_matched_tokens(request, 0) == (0, False)
+
+
+@pytest.mark.parametrize(
+    "case,match",
+    [
+        ("all_recurrent", "full-attention"),
+        ("speculative", "speculative decoding"),
+        ("no_direct", "prefill/decode GPU handoff"),
+        ("prefix", "enable_prefix_caching=False"),
+        ("async", "async_scheduling=False"),
+    ],
+)
+def test_recurrent_configuration_rejections(
+    connector_module, connector_config, case, match
+):
+    connector_config.kv_transfer_config.get_from_extra_config = lambda *a: {
+        "rank": 0,
+        "role": "hybrid" if case == "no_direct" else "prefill",
+        "gpu_cache_bytes": 1024,
+    }
+    groups = [
+        SimpleNamespace(
+            layer_names=["linear"],
+            kv_cache_spec=SimpleNamespace(mamba_cache_mode="none"),
+        )
+    ]
+    if case != "all_recurrent":
+        groups.append(
+            SimpleNamespace(layer_names=["attention"], kv_cache_spec=SimpleNamespace())
+        )
+    if case == "speculative":
+        connector_config.speculative_config = object()
+    if case == "prefix":
+        connector_config.cache_config.enable_prefix_caching = True
+    if case == "async":
+        connector_config.scheduler_config = SimpleNamespace(async_scheduling=True)
+    with pytest.raises(ValueError, match=match):
+        connector_module.XavierConnector(
+            connector_config,
+            None,
+            SimpleNamespace(num_blocks=8, kv_cache_groups=groups),
+        )
+
+
+@pytest.mark.parametrize("physical_blocks", [2, 4])
+def test_recurrent_attention_rejects_ambiguous_two_block_axis(
+    recurrent, physical_blocks
+):
+    recurrent._num_cache_blocks = 2
+    with pytest.raises(ValueError, match="Ambiguous"):
+        recurrent._cache_block_view(
+            "attention", torch.zeros(2, physical_blocks, 16, 2, 4)
+        )
