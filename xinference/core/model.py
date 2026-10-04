@@ -480,7 +480,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         return isinstance(self._model, SGLANGModel)
 
     def get_sglang_pd_bootstrap(self) -> dict:
-        if not self.is_sglang_backend():
+        from ..model.llm.sglang.core import SGLANGModel
+
+        if not isinstance(self._model, SGLANGModel):
             raise ValueError("SGLang P/D bootstrap requires a SGLang replica")
         return self._model.get_pd_bootstrap()
 
