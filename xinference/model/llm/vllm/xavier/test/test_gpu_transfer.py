@@ -614,7 +614,10 @@ async def test_skipped_published_layer_then_failure_fences_and_cleans(monkeypatc
 
 
 @pytest.mark.parametrize("block_bytes", [1024, 4096, 8192])
-def test_constructor_creates_persistent_slab_views(monkeypatch, block_bytes):
+@pytest.mark.parametrize("slab_bytes", [None, 1024**2])
+def test_constructor_creates_persistent_slab_views(
+    monkeypatch, block_bytes, slab_bytes
+):
     from .. import gpu_transfer
 
     # Keep real torch allocations/views on CPU while exercising the CUDA-only
@@ -641,8 +644,10 @@ def test_constructor_creates_persistent_slab_views(monkeypatch, block_bytes):
     actor = SimpleNamespace(
         address="nixl://127.0.0.1:1234", _snapshot_store=SimpleNamespace(capacity=8)
     )
-    transfer = GPUTransfer(actor, {"K": Cache()}, block_bytes * 2)
-    expected_slab = block_bytes * 64
+    transfer = GPUTransfer(
+        actor, {"K": Cache()}, block_bytes * 2, slab_bytes=slab_bytes
+    )
+    expected_slab = slab_bytes if slab_bytes is not None else block_bytes * 64
     assert transfer.slab_bytes == expected_slab
     expected_keys = {expected_slab, min(expected_slab, 262144)}
     assert set(transfer.send_buffers) == expected_keys

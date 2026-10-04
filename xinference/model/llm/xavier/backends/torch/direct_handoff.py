@@ -32,8 +32,8 @@ class DirectRequest:
 
 
 class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
-    def __init__(self, actor, caches, budget):
-        super().__init__(actor, caches, 0)
+    def __init__(self, actor, caches, budget, *, slab_bytes: int | None = None):
+        super().__init__(actor, caches, 0, slab_bytes=slab_bytes)
         self.direct_requests: dict[str, DirectRequest] = {}
         self.finished_sending: set[str] = set()
         self.metrics.update(
@@ -156,6 +156,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                     raise ValueError("Direct KV source layout or block IDs differ")
             state.reading = True
             state.deadline = time.monotonic() + 600
+            gather_fenced = False
             try:
                 offset = 0
                 for read in reads:
@@ -174,12 +175,16 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                     )
                     offset = end
                 await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                gather_fenced = True
                 await xo.copy_to([self.send_buffers[slab_bytes]], [remote_ref])
                 self.metrics["wire_bytes"] += slab_bytes
                 self.metrics["useful_bytes"] += offset
             finally:
-                # Even a failed gather may have queued reads of engine slots.
-                await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                # Failed/cancelled gathers may still read engine slots. A
+                # completed gather has already drained those reads; copy_to
+                # owns only the slab and drains its transfer before returning.
+                if not gather_fenced:
+                    await asyncio.to_thread(torch.cuda.synchronize, self.device)
                 state.reading = False
                 state.deadline = time.monotonic() + 600
                 if state.released:
@@ -223,6 +228,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                     uid=f"{self.actor.default_uid()}-{rank}",
                 )
                 indices: dict[tuple[int, ...], torch.Tensor] = {}
+                scatter_pending = False
                 try:
                     reads = [
                         LayerRead(
@@ -250,6 +256,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                                 for dest in mapping.values()
                             )
                             break
+                        scatter_pending = True
                         for read, blocks in unpack_reads(
                             self.recv_buffer[:size], batch
                         ):
@@ -258,8 +265,12 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                                 blocks
                             )
                         await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                        scatter_pending = False
                         self.metrics["gpu_batches"] += 1
                 finally:
-                    await asyncio.to_thread(torch.cuda.synchronize, self.device)
+                    # Every successful batch already fenced its writes. Fence
+                    # partial/error batches before releasing destination slots.
+                    if scatter_pending:
+                        await asyncio.to_thread(torch.cuda.synchronize, self.device)
                     indices.clear()
         return invalid_blocks

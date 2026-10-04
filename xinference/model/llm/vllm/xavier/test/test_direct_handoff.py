@@ -43,11 +43,26 @@ def peer_for(source):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("actor_uid", ["vllm-transfer-actor", "adapter-transfer"])
+@pytest.mark.parametrize("medium_slab", [False, True])
 async def test_direct_handoff_preserves_bits_and_uses_no_snapshots(
-    monkeypatch, actor_uid
+    monkeypatch, actor_uid, medium_slab
 ):
     source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
     dest.actor.default_uid = lambda: actor_uid
+    if medium_slab:
+        ref = Mock(side_effect=lambda address, buffer: buffer)
+        monkeypatch.setattr(xo, "buffer_ref", ref)
+        for transfer in (source, dest):
+            transfer.actor.address = "local"
+            transfer.add_slab_views((8,))
+            transfer.add_slab_views((8,))
+            assert (
+                transfer.send_buffers[8].data_ptr() == transfer.send_buffer.data_ptr()
+            )
+            assert (
+                transfer.recv_buffers[8].data_ptr() == transfer.recv_buffer.data_ptr()
+            )
+        assert ref.call_count == 2
     source.caches["K"].view(torch.int16).copy_(
         torch.tensor(
             [
@@ -82,6 +97,8 @@ async def test_direct_handoff_preserves_bits_and_uses_no_snapshots(
         source.caches["K"].view(torch.int16)[[1, 2]],
     )
     assert not source.store.blocks and not dest.store.blocks
+    assert source.metrics["useful_bytes"] == 8
+    assert source.metrics["wire_bytes"] == (8 if medium_slab else 16)
     assert source.poll_direct() == {"producer"}
     assert not source.poll_direct() and not source.direct_requests
 
@@ -114,9 +131,64 @@ async def test_release_during_read_waits_for_copy_and_fence(monkeypatch):
     assert not source.poll_direct()
     release.set()
     await task
-    assert calls == ["fence", "copy", "fence"]
+    assert calls == ["fence", "copy"]
     assert not state.indices
     assert source.poll_direct() == {"producer"}
+
+
+@pytest.mark.asyncio
+async def test_failed_gather_fences_partial_engine_reads(monkeypatch):
+    source = direct_runtime(monkeypatch)
+    source.caches["V"] = source.caches["K"].clone()
+    source.register_direct("t", "p", [1])
+    gather = torch.index_select
+    calls = []
+
+    def fail_second(cache, *args, **kwargs):
+        calls.append("gather")
+        if cache is source.caches["V"]:
+            raise RuntimeError("partial gather failed")
+        return gather(cache, *args, **kwargs)
+
+    monkeypatch.setattr(torch, "index_select", fail_second)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda device: calls.append("fence"))
+    copy = AsyncMock()
+    monkeypatch.setattr(xo, "copy_to", copy)
+    with pytest.raises(RuntimeError, match="partial gather"):
+        await source.send_direct(
+            "t",
+            [LayerRead(name, [1], [0], (2,), torch.bfloat16) for name in ("K", "V")],
+            None,
+            16,
+        )
+    assert calls == ["gather", "gather", "fence"]
+    copy.assert_not_awaited()
+    assert not source.direct_requests["t"].reading
+    source.release_direct("t")
+    assert source.poll_direct() == {"p"}
+
+
+@pytest.mark.asyncio
+async def test_failed_scatter_fences_partial_destination_writes(monkeypatch):
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    for transfer in (source, dest):
+        transfer.caches["V"] = transfer.caches["K"].clone()
+    source.caches["K"].fill_(7)
+    source.register_direct("t", "p", [1])
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer_for(source)))
+    calls = []
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+        calls.append("copy")
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda device: calls.append("fence"))
+    with pytest.raises(IndexError):
+        await dest.load_direct([{0: {"K": {1: 5}, "V": {1: 99}}}], ["t"])
+    assert dest.caches["K"][5].tolist() == [7, 7]
+    assert calls == ["fence", "copy", "fence"]
+    assert source.poll_direct() == {"p"}
 
 
 @pytest.mark.asyncio

@@ -486,6 +486,8 @@ def main():
                 Path("xinference/core/pd_model.py"),
                 Path("xinference/core/supervisor.py"),
                 Path("xinference/types.py"),
+                Path("xinference/model/llm/xavier/backends/torch/gpu_transfer.py"),
+                Path("xinference/model/llm/xavier/backends/torch/direct_handoff.py"),
             ]
         },
         gpu=subprocess.check_output(

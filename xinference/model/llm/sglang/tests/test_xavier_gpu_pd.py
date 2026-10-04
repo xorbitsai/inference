@@ -85,11 +85,13 @@ async def test_gpu_bytes_chunks_and_cancel():
             await directory.prepare(1, "namespace", "prompt", role)
         await p.open(1)
         await p.init(1, 2, 3)
+        source_completion = asyncio.create_task(p.wait_done(1))
         incoming = asyncio.create_task(d.receive(1, [2, 5], 4))
         await p.add_chunk(1, [1])
         assert not await p.done(1)
         await p.add_chunk(1, [3])
         await asyncio.wait_for(incoming, 30)
+        assert await asyncio.wait_for(source_completion, 30)
         assert await p.done(1)
         for source, target in zip(allocations[0][0], allocations[1][0]):
             assert torch.equal(source[[1, 3]].cpu(), target[[2, 5]].cpu())

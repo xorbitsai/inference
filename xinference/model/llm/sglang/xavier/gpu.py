@@ -115,17 +115,34 @@ class XavierGPUActor(xo.StatelessActor):
         self._snapshot_store = SimpleNamespace(
             capacity=len(next(iter(self.caches.values())))
         )
-        self.transfer = DirectGPUTransfer(self, self.caches, 0)
+        self.transfer = DirectGPUTransfer(self, self.caches, 0, slab_bytes=64 * 1024**2)
+        # A 64-token SGLang page can exceed the default 256 KiB view. Avoid
+        # padding small prompts and final chunks to the full slab.
+        self.transfer.add_slab_views(
+            (1024**2, 4 * 1024**2, 8 * 1024**2, 16 * 1024**2, 32 * 1024**2)
+        )
+        self.chunk_capacity = max(
+            1,
+            self.transfer.slab_bytes
+            // sum(cache[0].numel() for cache in self.caches.values()),
+        )
 
     async def __pre_destroy__(self):
-        for room in list(self.tasks):
+        for room in set(self.tasks) | set(self.rooms):
             await self.abort(room)
         await self.transfer.close()
 
     async def open(self, room):
         if room in self.rooms:
             raise ValueError("Duplicate SGLang Xavier GPU room")
-        self.rooms[room] = dict(chunks=[], released=set(), total=None, sent=0)
+        self.rooms[room] = dict(
+            chunks=[],
+            pending=[],
+            released=set(),
+            total=None,
+            sent=0,
+            completed=asyncio.Event(),
+        )
         await self.directory.publish_source(
             room, dict(address=self.address, rank=self.rank)
         )
@@ -136,12 +153,18 @@ class XavierGPUActor(xo.StatelessActor):
 
     async def add_chunk(self, room, pages):
         state = self.rooms[room]
-        ticket = f"{room}:{len(state['chunks'])}"
-        self.transfer.register_direct(ticket, ticket, pages)
         state["sent"] += len(pages)
         final = state["sent"] == state["total"]
         if state["sent"] > state["total"]:
             raise ValueError("SGLang Xavier sent too many KV pages")
+        state["pending"].extend(pages)
+        # SGLang submits cached prefix pages separately from the final prefill
+        # page. Coalesce small chunks, keeping large prefill transfers pipelined.
+        if not final and len(state["pending"]) < self.chunk_capacity:
+            return
+        pages, state["pending"] = state["pending"], []
+        ticket = f"{room}:{len(state['chunks'])}"
+        self.transfer.register_direct(ticket, ticket, pages)
         aux = (
             [bytes(buf[state["aux_index"]].numpy()) for buf in self.aux]
             if final
@@ -167,6 +190,10 @@ class XavierGPUActor(xo.StatelessActor):
         state = self.rooms.get(room)
         if state:
             state["released"].add(ticket)
+            if state["sent"] == state["total"] and len(state["released"]) == len(
+                state["chunks"]
+            ):
+                state["completed"].set()
 
     async def release_remote_direct_gpu_v1(self, rank, ticket):
         ref = await xo.actor_ref(
@@ -180,6 +207,13 @@ class XavierGPUActor(xo.StatelessActor):
         return state["sent"] == state["total"] and len(state["released"]) == len(
             state["chunks"]
         )
+
+    async def wait_done(self, room):
+        state = self.rooms[room]
+        await state["completed"].wait()
+        if state.get("aborted"):
+            raise RuntimeError("SGLang Xavier producer was cancelled")
+        return self.done(room)
 
     def get_stats(self):
         return dict(
@@ -271,6 +305,7 @@ class XavierGPUActor(xo.StatelessActor):
                 state["aborted"] = True
                 for chunk in state["chunks"]:
                     self.transfer.release_direct(chunk["ticket"])
+                state["completed"].set()
 
     def clear(self, room):
         self.rooms.pop(room, None)
@@ -387,10 +422,12 @@ class XavierKVSender(BaseKVSender):
         self.kv_mgr, self.room = mgr, bootstrap_room
         self.inited = False
         self.aborted = False
+        self.future = None
         mgr.call(mgr.actor.open(self.room))
 
     def init(self, num_kv_indices, aux_index=None):
         self.kv_mgr.call(self.kv_mgr.actor.init(self.room, num_kv_indices, aux_index))
+        self.future = self.kv_mgr.submit(self.kv_mgr.actor.wait_done(self.room))
         self.inited = True
 
     def send(self, kv_indices, state_indices=None, num_kv_tokens=None):
@@ -406,19 +443,25 @@ class XavierKVSender(BaseKVSender):
     def poll(self):
         if self.aborted:
             return KVPoll.Failed
-        if self.inited and self.kv_mgr.call(self.kv_mgr.actor.done(self.room)):
-            return KVPoll.Success
-        return KVPoll.WaitingForInput if not self.inited else KVPoll.Transferring
+        if not self.inited:
+            return KVPoll.WaitingForInput
+        if not self.future.done():
+            return KVPoll.Transferring
+        return KVPoll.Failed if self.future.exception() else KVPoll.Success
 
     def get_transfer_metric(self):
         return KVTransferMetric()
 
     def failure_exception(self):
+        if self.future is not None and self.future.done():
+            self.future.result()
         raise RuntimeError("SGLang Xavier producer GPU transfer failed")
 
     def abort(self):
         self.kv_mgr.call(self.kv_mgr.actor.abort(self.room))
         self.aborted = True
+        if self.future is not None:
+            self.future.cancel()
 
     def clear(self):
         self.kv_mgr.call(self.kv_mgr.actor.clear(self.room))
