@@ -178,8 +178,15 @@ class GPUTransfer:
         failed = False
         copied = False
         last_reused_keys = None
+        # These complete snapshots were copied on this call's stream. They may
+        # be reused before our final fence, unlike unpublished work of a peer call.
+        staged_keys: set[int] = set()
         try:
             for layers in entries:
+                if self._can_stage_blocks(layers, staged_keys):
+                    copied = self._stage_blocks(layers, staged_keys) or copied
+                    last_reused_keys = None
+                    continue
                 for layer, (block_keys, ids) in layers.items():
                     # Unpublished layers may still be copying in another stage
                     # awaiting its fence; only published data can skip the copy.
@@ -221,6 +228,64 @@ class GPUTransfer:
                     for key in keys:
                         if key in self.store.blocks and key not in self.store.ready:
                             self.store._drop(key)
+
+    def _can_stage_blocks(self, layers, staged_keys):
+        if not layers or set(layers) != set(self.caches):
+            return False
+        keys, ids = next(iter(layers.values()))
+        return (
+            bool(keys)
+            and len(keys) == len(ids)
+            and len(keys) == len(set(keys))
+            and all(value == (keys, ids) for value in layers.values())
+            and all(
+                key not in self.store.blocks
+                or (
+                    (key in self.store.ready or key in staged_keys)
+                    and self.caches.keys() <= self.store.blocks[key].keys()
+                )
+                for key in keys
+            )
+        )
+
+    def _stage_blocks(self, layers, staged_keys):
+        keys, ids = next(iter(layers.values()))
+        count = max(
+            1, min(MAX_REQUEST_BLOCKS, MAX_REQUEST_BYTES // self.store.block_bytes)
+        )
+        pending_keys, pending_ids = [], []
+        copied = False
+
+        def flush():
+            nonlocal copied
+            if not pending_keys:
+                return
+            index = torch.tensor(pending_ids, dtype=torch.long, device=self.device)
+            values = {
+                name: cache.index_select(0, index)
+                for name, cache in self.caches.items()
+            }
+            self.store.stage_blocks(pending_keys, values)
+            staged_keys.update(key for key in pending_keys if key in self.store.blocks)
+            copied = True
+            pending_keys.clear()
+            pending_ids.clear()
+
+        for key, source in zip(keys, ids):
+            if key in self.store.ready or key in staged_keys:
+                flush()
+                # Admission of preceding blocks may have evicted this hit.
+                if key in self.store.blocks and (
+                    key in self.store.ready or key in staged_keys
+                ):
+                    self.store.touch(key)
+                    continue
+            pending_keys.append(key)
+            pending_ids.append(source)
+            if len(pending_keys) == count:
+                flush()
+        flush()
+        return copied
 
     def locations(self, reads):
         result = {}
