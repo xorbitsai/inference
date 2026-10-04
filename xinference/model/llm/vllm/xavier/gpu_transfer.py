@@ -374,10 +374,6 @@ class GPUTransferMixin:
         runtime = self._gpu_transfer
         return await runtime.run(runtime.send, reads, remote_ref, slab_bytes)
 
-    async def load_gpu_request_v1(self, ranks):
-        runtime = self._gpu_transfer
-        return await runtime.run(runtime.load, ranks)
-
     async def load_gpu_requests_v1(self, requests):
         runtime = self._gpu_transfer
         return await runtime.run(runtime.load_requests, requests)

@@ -336,6 +336,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             return
 
         block_ids_by_group = self._normalize_block_groups(blocks.get_block_ids())
+        # Sliding-window groups use shared null blocks for skipped positions.
+        # They are placeholders, not writable destinations for remote KV.
+        null_positions = {
+            (group_id, index)
+            for group_id, group in enumerate(getattr(blocks, "blocks", ()))
+            for index, block in enumerate(group)
+            if block.is_null
+        }
         local_transfers_by_group: Dict[int, Dict[int, Dict[int, int]]] = {}
         for group_id, group_block_ids in enumerate(block_ids_by_group):
             updated: Dict[int, Dict[int, int]] = {}
@@ -347,6 +355,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 updated[from_rank] = {
                     remote_block_id: group_block_ids[placeholder]
                     for remote_block_id, placeholder in remote_to_placeholder.items()
+                    if (group_id, placeholder) not in null_positions
                 }
             local_transfers_by_group[group_id] = updated
 

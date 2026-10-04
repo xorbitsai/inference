@@ -888,3 +888,65 @@ async def test_close_releases_snapshot_storage_and_is_idempotent(
     assert not r.recv_refs and not r.caches
     with pytest.raises(RuntimeError, match="already registered"):
         GPUTransferMixin.map_gpu_caches_v1(actor, {}, 0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("duplicate_rank", [False, True])
+async def test_batch_large_small_and_cross_rank_duplicates(monkeypatch, duplicate_rank):
+    source, dest = runtime(monkeypatch, gpu_slots=2), runtime(monkeypatch)
+    stage(source, 1)
+    stage(source, 2)
+    source.send_buffers[4] = source.send_buffer[:4]
+    dest.recv_buffers[4] = dest.recv_buffer[:4]
+    dest.recv_refs[4] = dest.recv_buffers[4]
+    dest.actor._world_addresses = ["first", "second"]
+    sent = []
+
+    async def copy(buffers, refs):
+        sent.append(buffers[0].numel())
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    peer = SimpleNamespace(
+        gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
+        send_gpu_request_v1=AsyncMock(side_effect=source.send),
+    )
+    lookup = AsyncMock(return_value=peer)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    if duplicate_rank:
+        requests = [{0: {"K": {1: 3}}}, {1: {"K": {1: 3}}}]
+        await dest.run(dest.load_requests, requests)
+        assert dest.caches["K"][3].tolist() == [1, -1]
+        assert len(sent) == 1
+    else:
+        requests = [{0: {"K": {1: 0, 2: 1}}}]
+        requests += [{0: {"K": {1: 2}}}, {0: {"K": {2: 3}}}]
+        await dest.run(dest.load_requests, requests)
+        assert sent == [16]  # largest request needs full slab; no 4-byte splits
+        assert dest.caches["K"][:4].tolist() == [[1, -1], [2, -2]] * 2
+    lookup.assert_awaited_once()
+    assert lookup.await_args.kwargs["address"] == "first"
+    peer.gpu_snapshot_locations_v1.assert_awaited_once()
+
+
+def test_alloc_filters_only_null_positions_in_hybrid_groups(
+    connector, connector_module
+):
+    for request_id, key, destination in [("a", 11, 4), ("b", 22, 5)]:
+        connector._requests_need_load[request_id] = connector_module.XavierLoadRequest(
+            request_id, {0: {key: 0, key + 1: 1}}, lease=request_id
+        )
+        groups = (
+            [SimpleNamespace(is_null=False), SimpleNamespace(is_null=False)],
+            [SimpleNamespace(is_null=True), SimpleNamespace(is_null=False)],
+        )
+        blocks = SimpleNamespace(
+            blocks=groups,
+            get_block_ids=lambda d=destination: ([d, d + 2], [0, d]),
+        )
+        connector.update_state_after_alloc(
+            SimpleNamespace(request_id=request_id), blocks, 32
+        )
+        mapping = connector._requests_need_load[request_id].local_transfers_by_group
+        assert mapping[0] == {0: {key: destination, key + 1: destination + 2}}
+        assert mapping[1] == {0: {key + 1: destination}}
