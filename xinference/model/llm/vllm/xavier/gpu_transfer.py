@@ -129,6 +129,15 @@ class GPUTransfer:
             self.send_buffers.clear()
             self.recv_ref = None
             self.caches.clear()
+            self.send_buffer = self.recv_buffer = None
+            self.store.blocks.clear()
+            self.store.ready.clear()
+            self.store.tiers.clear()
+            self.store.logical_dtypes.clear()
+            self.store.leases.clear()
+            self.store.evicted.clear()
+            self.store.counts.update(gpu=0, cpu=0)
+            self._small_slab_streak.clear()
 
     async def stage(self, entries):
         if self.closing:
@@ -376,4 +385,6 @@ class GPUTransferMixin:
     async def close_gpu_caches_v1(self):
         runtime = getattr(self, "_gpu_transfer", None)
         if runtime is not None:
+            # Keep the closed runtime as a tombstone: close() reuses its task,
+            # and map_gpu_caches_v1 must not re-register after shutdown/failure.
             await runtime.close()

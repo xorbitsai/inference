@@ -851,3 +851,40 @@ async def test_batch_groups_multiple_source_ranks_without_losing_destinations(
     for peer in peers.values():
         peer.gpu_snapshot_locations_v1.assert_awaited_once()
         peer.send_gpu_request_v1.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_fence", [False, True])
+async def test_close_releases_snapshot_storage_and_is_idempotent(
+    monkeypatch, fail_fence
+):
+    from ..gpu_transfer import GPUTransferMixin
+
+    r = runtime(monkeypatch)
+    stage(r, 1)
+    stage(r, 2)
+    assert r.store.reserve("held", [1, 2])
+    calls = []
+
+    def fence(*args):
+        calls.append(args)
+        if fail_fence:
+            raise RuntimeError("fence failed")
+
+    monkeypatch.setattr(torch.cuda, "synchronize", fence)
+    actor = SimpleNamespace(_gpu_transfer=r, _snapshot_store=r.store)
+    for _ in range(2):
+        if fail_fence:
+            with pytest.raises(RuntimeError, match="fence failed"):
+                await GPUTransferMixin.close_gpu_caches_v1(actor)
+        else:
+            await GPUTransferMixin.close_gpu_caches_v1(actor)
+    assert len(calls) == 1
+    assert actor._gpu_transfer is r
+    assert not r.store.blocks and not r.store.ready and not r.store.tiers
+    assert not r.store.logical_dtypes and not r.store.leases and not r.store.evicted
+    assert r.store.counts == {"gpu": 0, "cpu": 0}
+    assert r.send_buffer is None and r.recv_buffer is None
+    assert not r.recv_refs and not r.caches
+    with pytest.raises(RuntimeError, match="already registered"):
+        GPUTransferMixin.map_gpu_caches_v1(actor, {}, 0)
