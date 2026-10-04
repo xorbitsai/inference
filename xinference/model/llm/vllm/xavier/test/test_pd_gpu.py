@@ -68,8 +68,15 @@ def pd_cluster(monkeypatch, tmp_path, backend):
         cluster.join(timeout=10)
 
 
-@pytest.mark.parametrize("backend", ["xavier", "nixl"])
-def test_pd_gpu(pd_cluster, backend):
+@pytest.mark.parametrize(
+    "backend,gpu_cache_bytes",
+    [
+        pytest.param("xavier", None, id="xavier-cpu"),
+        pytest.param("xavier", 256 * 1024**2, id="xavier-gpu-async"),
+        pytest.param("nixl", None, id="nixl"),
+    ],
+)
+def test_pd_gpu(pd_cluster, backend, gpu_cache_bytes):
     import re
     from concurrent.futures import ThreadPoolExecutor
 
@@ -84,7 +91,13 @@ def test_pd_gpu(pd_cluster, backend):
     worker = client.get_workers_info()[0]["work-ip"]
     uid = "pd-gpu-regression"
     try:
+        cache_options = (
+            {"xavier_gpu_cache_bytes": gpu_cache_bytes}
+            if gpu_cache_bytes is not None
+            else {}
+        )
         client.launch_model(
+            **cache_options,
             model_uid=uid,
             vllm_transfer_backend_type=backend,
             model_name=os.environ.get(
@@ -151,7 +164,9 @@ def test_pd_gpu(pd_cluster, backend):
             responses[stream] = chat(str(stream), stream)
             evidence = log_since(offset)
             # Require actual KV transfer, not merely a successful recomputation.
-            if backend == "xavier":
+            if gpu_cache_bytes is not None:
+                assert "Finished Xavier async KV load: request=" in evidence
+            elif backend == "xavier":
                 assert "Stage Xavier V1 blocks" in evidence
                 assert "Load Xavier V1 blocks" in evidence
             else:
@@ -171,9 +186,13 @@ def test_pd_gpu(pd_cluster, backend):
             for future in futures:
                 future.result(timeout=180)
         pattern = (
-            r"Load Xavier V1 blocks: request=(\S+)"
-            if backend == "xavier"
-            else r"with remote block size \d+ for req (\S+)"
+            r"Finished Xavier async KV load: request=(\S+)"
+            if gpu_cache_bytes is not None
+            else (
+                r"Load Xavier V1 blocks: request=(\S+)"
+                if backend == "xavier"
+                else r"with remote block size \d+ for req (\S+)"
+            )
         )
         loaded_requests = set(re.findall(pattern, log_since(offset)))
         assert len(loaded_requests) == 4

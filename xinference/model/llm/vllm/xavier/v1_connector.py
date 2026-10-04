@@ -133,6 +133,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._requests_need_load: Dict[str, XavierLoadRequest] = {}
         self._pending_store_requests: Dict[str, XavierStoreRequest] = {}
         self._leased_requests: Dict[str, XavierLoadRequest] = {}
+        self._gpu_load_jobs: Dict[asyncio.Task, List[str]] = {}
         self._num_cache_blocks = kv_cache_config.num_blocks
         self._request_staged_layers: Dict[str, set[str]] = {}
         self._registered_kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]] = (
@@ -148,6 +149,17 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if self._loop is None:
             return
         try:
+            if getattr(self, "_gpu_load_jobs", None):
+                results = self._call(
+                    asyncio.gather(*self._gpu_load_jobs, return_exceptions=True)
+                )
+                for result in results:
+                    if isinstance(result, BaseException):
+                        logger.warning(
+                            "Xavier GPU load failed during shutdown",
+                            exc_info=(type(result), result, result.__traceback__),
+                        )
+                self._gpu_load_jobs.clear()
             if getattr(self, "_gpu_cache_mapped", False):
                 try:
                     self._call(self._transfer_ref.close_gpu_caches_v1())
@@ -172,9 +184,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             return
 
         if getattr(self, "_gpu_budget", None) is not None:
-            self._call(self._load_gpu_batch(metadata.load_requests))
+            self._call(self._submit_gpu_requests(metadata.load_requests))
             return
 
+        load_failed = False
         try:
             if self._registered_kv_caches:
                 for request in metadata.load_requests:
@@ -186,10 +199,45 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     if kv_layer is not None:
                         for request in metadata.load_requests:
                             self._load_layer_blocks(layer_name, kv_layer, request)
+        except BaseException:
+            load_failed = True
+            raise
         finally:
+            release_error = None
             for request in metadata.load_requests:
                 if request.lease:
-                    self._call(self._release_load_request(request))
+                    try:
+                        self._call(self._release_load_request(request))
+                    except Exception as error:
+                        release_error = release_error or error
+                        logger.warning(
+                            "Failed to release Xavier snapshot lease", exc_info=True
+                        )
+            if release_error is not None and not load_failed:
+                raise release_error
+
+    def get_finished(self, finished_req_ids: set[str]) -> tuple[set[str], set[str]]:
+        if not self._gpu_load_jobs:
+            return set(), set()
+        # Pump responses on the shared actor loop without waiting for any RPC.
+        # CUDA writes and lease cleanup progress in the independent actor process.
+        self._call(asyncio.sleep(0))
+        received = set()
+        for task in list(self._gpu_load_jobs):
+            if task.done():
+                task.result()  # A failed/partial transfer must never become ready.
+                request_ids = self._gpu_load_jobs.pop(task)
+                received.update(request_ids)
+                for request_id in request_ids:
+                    logger.debug(
+                        "Finished Xavier async KV load: request=%s", request_id
+                    )
+        # Include aborted requests: vLLM retains their destination blocks until
+        # finished_recving arrives. Never cancel writes or report them early.
+        # If the last request aborts while a load is pending, an idle EngineCore
+        # may not poll again until new work arrives. Destination reclamation then
+        # waits for that step; actor-side writes and lease release still progress.
+        return set(), received
 
     def wait_for_layer_load(self, layer_name: str) -> None:
         return
@@ -323,7 +371,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             matched_blocks,
             matched_tokens,
         )
-        return matched_tokens, False
+        return matched_tokens, self._gpu_budget is not None
 
     def update_state_after_alloc(
         self, request: "Request", blocks: "KVCacheBlocks", num_external_tokens: int
@@ -388,6 +436,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         block_ids: List[int],
     ) -> tuple[bool, dict[str, Any] | None]:
         self._chunked_prefill.pop(request.request_id, None)
+        pending = self._requests_need_load.get(request.request_id)
+        if (
+            self._gpu_budget is not None
+            and pending is not None
+            and pending.local_transfers_by_group
+        ):
+            # Allocation already put this request in WAITING_FOR_REMOTE_KVS.
+            # Submit even if aborted before metadata is emitted; completion is
+            # needed to release the scheduler's retained destination blocks.
+            return False, None
         self._requests_need_load.pop(request.request_id, None)
         load = self._leased_requests.pop(request.request_id, None)
         if load is not None:
@@ -768,42 +826,46 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         torch.cuda.synchronize()
         await transfer.stage_gpu_requests_v1(entries)
 
-    async def _load_gpu_batch(self, requests):
-        from .gpu_transfer import finish_before_cancel
-
-        async def load_and_release():
-            try:
-                await self._load_gpu_requests(requests)
-            finally:
-                results = await asyncio.gather(
-                    *(self._release_load_request(r) for r in requests if r.lease),
-                    return_exceptions=True,
+    async def _submit_gpu_requests(self, requests):
+        try:
+            transfer = await self._ensure_gpu_cache_mapping()
+            entries = []
+            for request in requests:
+                ranks = {}
+                for rank in request.transfers:
+                    layers = {}
+                    for name, cache in self._registered_kv_caches.items():
+                        for layer, _ in self._iter_kv_tensors(name, cache):
+                            mapping = self._get_local_transfer_map(request, layer, rank)
+                            if mapping:
+                                layers[layer] = mapping
+                    if layers:
+                        ranks[rank] = layers
+                entries.append(ranks)
+            torch.cuda.synchronize()
+            task = asyncio.create_task(
+                transfer.load_gpu_requests_v1(
+                    entries, [(r.lease, r.transfers) for r in requests]
                 )
-                for result in results:
-                    if isinstance(result, BaseException):
-                        raise result
-
-        # A cancelled caller must not release leases while the peer is writing.
-        await finish_before_cancel(asyncio.create_task(load_and_release()))
-
-    async def _load_gpu_requests(self, requests):
-        transfer = await self._ensure_gpu_cache_mapping()
-        entries = []
-        for request in requests:
-            ranks = {}
-            for rank in request.transfers:
-                layers = {}
-                for name, cache in self._registered_kv_caches.items():
-                    for layer, _ in self._iter_kv_tensors(name, cache):
-                        mapping = self._get_local_transfer_map(request, layer, rank)
-                        if mapping:
-                            layers[layer] = mapping
-                if layers:
-                    ranks[rank] = layers
-            entries.append(ranks)
-        torch.cuda.synchronize()
-        await transfer.load_gpu_requests_v1(entries)
-        torch.cuda.synchronize()
+            )
+        except BaseException:
+            # Worker metadata already owns these leases. Until task creation
+            # succeeds, the TransferActor has no operation that can release them.
+            results = await asyncio.gather(
+                *(self._release_load_request(r) for r in requests if r.lease),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    logger.warning(
+                        "Failed to release Xavier lease after submission failure",
+                        exc_info=(type(result), result, result.__traceback__),
+                    )
+            raise
+        self._gpu_load_jobs[task] = [r.request_id for r in requests]
+        # Dispatch before returning to forward execution, without waiting for
+        # transfer completion or introducing another polling RPC per engine step.
+        await asyncio.sleep(0)
 
     @staticmethod
     def _iter_kv_tensors(
@@ -879,6 +941,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     def _build_load_meta(
         self, scheduler_output: SchedulerOutput, meta: XavierConnectorMetadata
     ) -> None:
+        if self._gpu_budget is not None:
+            # Async loads are waiting for KV, not scheduled for a forward pass.
+            # Transfer lease ownership only after destination allocation.
+            for req_id, load in list(self._requests_need_load.items()):
+                if load.local_transfers_by_group:
+                    meta.load_requests.append(load)
+                    del self._requests_need_load[req_id]
+                    self._leased_requests.pop(req_id, None)
+            return
         for new_req in scheduler_output.scheduled_new_reqs:
             load_request = self._requests_need_load.pop(new_req.req_id, None)
             if load_request is not None:

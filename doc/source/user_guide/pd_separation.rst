@@ -11,10 +11,7 @@ No enterprise package or License is required.
 Launch
 ------
 
-For Xavier, use NVIDIA GPUs and a reachable host address (not ``0.0.0.0``). The V1 connector
-requires vLLM 0.21.0 or newer. The existing V0 Xavier adapter is retained for
-vLLM versions below 0.11.0; versions 0.11 through 0.20 are not supported by this
-V1 connector. GPU integration CI pins vLLM 0.21.0.
+Xavier requires NVIDIA GPUs, a reachable host address (not ``0.0.0.0``), and vLLM 0.21.0 or newer. Older deployments can use the legacy Xavier integration with vLLM below 0.11.0; versions 0.11 through 0.20 are not supported.
 
 The example starts one prefill replica on GPU 0 and one decode replica on GPU 1.
 Replace the worker address with the full ``ip:port`` reported by
@@ -53,9 +50,6 @@ client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM
 enable per-replica placement, and choose Prefill or Decode for each replica.
 The community launch path defaults to Xavier when P/D roles appear.
 
-
-For Xavier diagnostics, set ``XINFERENCE_XAVIER_PROFILE=1`` in the model process environment and collect server logs. Run ``python benchmark/analyze_pd_profile.py server.log --output profile.json`` to summarize GPU copy, actor RPC and Gloo receive timings. Profiling synchronizes CUDA and adds logging overhead; run it separately from throughput benchmarks. Timings are nested: ``load_rpc`` includes actor timings, and ``actor_receive`` includes ``gloo_receive``. Do not add nested totals or interpret Gloo receive wait as isolated network time.
-
 Native NIXL backend
 -------------------
 
@@ -65,31 +59,9 @@ vLLM 0.21.0 or newer. The initial integration supports text-only models without
 LoRA and requires TP=1, PP=1 and DP=1 per replica. Multiple P and D replicas are
 supported. Xavier remains the default backend.
 
-Native PD currently requires ``n=1`` per request. Parallel sampling is rejected
-because its child requests cannot safely share one producer transfer lease.
-
-For vLLM 0.21.0, GPU CI pins NIXL 1.1.0. Match the vLLM, Torch and NIXL versions; importing vLLM alone does not validate engine startup.
-
-Xinference allocates a separate NIXL side-channel port for each replica and
-passes the producer's KV handoff metadata to the selected decoder. NIXL manages
-transfer completion and cache release; failed handoffs fail the request instead
-of silently recomputing. If a decoder never consumes a completed prefill,
-vLLM's ``VLLM_NIXL_ABORT_REQUEST_TIMEOUT`` bounds producer cache retention.
-Worker addresses must be reachable between replicas, and the network must allow
-the allocated side-channel ports. This path does not create Xavier collective
-actors or force eager execution.
+Native NIXL PD requires ``n=1`` per request; parallel sampling is not supported.
 
 For NIXL, wildcard worker binds are supported through automatic host discovery. Set ``VLLM_NIXL_SIDE_CHANNEL_HOST`` in launch ``envs`` or the worker environment to select a reachable interface; launch ``envs`` take precedence. If discovery fails or returns loopback, configure this variable explicitly. Xinference always replaces ``VLLM_NIXL_SIDE_CHANNEL_PORT`` with a dynamically allocated port per replica, including on recovery. A fixed side-channel port is not supported; firewalls must allow dynamic ports between replica hosts.
-
-For a reproducible comparison, run ``python benchmark/benchmark_pd.py --help``
-from the repository root. Supply a launch JSON containing model settings and
-P/D replica placement, and a JSONL workload of chat request bodies. The runner
-compares ordinary hybrid replicas, Xavier and NIXL sequentially using the same
-GPU allocation and workload. It saves per-request results, TTFT, average time
-per output token after the first token (TPOT), latency percentiles and throughput
-under the specified latency limits. Repeated workload entries measure warm
-prefix reuse; use distinct prefixes for cold-cache measurements. Two GPUs cover
-1P1D versus two hybrid replicas; 2P2D requires four independent replica GPUs.
 
 CLI launch
 ----------
@@ -141,73 +113,35 @@ Configuration rules
 Inference and lifecycle
 -----------------------
 
-Send ordinary OpenAI-compatible chat/completion requests to the base model UID.
-Streaming and non-streaming requests use the same PD route. The prefill subrequest
-uses one output token without changing the decode request's generation settings.
-Routing becomes available only after all replicas and transfer components are
-ready. Aborting a request reaches both roles. Terminating a deployment also
-removes its router, rank-zero coordinator, collective manager, and block tracker.
+Send OpenAI-compatible chat/completion requests to the model UID used at launch. Both streaming and non-streaming responses are supported. Wait for all replicas to be ready before sending requests. Aborting a request stops work on both roles; terminating the model releases the deployment resources.
 
-Native NIXL replicas are not replayed automatically after a worker restart because their routing state belongs to the supervisor. Relaunch the deployment after a worker restart. Recovery of a model subprocess on a live worker re-registers its PD route.
-
-Verification
-------------
-
-On a machine with two free NVIDIA GPUs and the pinned vLLM environment, run:
-
-.. code-block:: bash
-
-   XINFERENCE_TEST_PD_GPU=1 python -m pytest -v \
-     xinference/model/llm/vllm/xavier/test/test_pd_gpu.py
-
-This test launches a community deployment in real subprocesses with one GPU per
-role. It checks streaming and non-streaming responses, repeated prompts, and four
-concurrent requests, requires both producer staging and decoder KV-load log
-evidence, and terminates the deployment. To use locally cached weights, set
-``XINFERENCE_TEST_PD_MODEL_PATH``, ``XINFERENCE_TEST_PD_MODEL_NAME``, and
-``XINFERENCE_TEST_PD_MODEL_SIZE`` to the model path and its registered model name
-and size. The manually triggered ``PD GPU integration`` GitHub
-Actions workflow runs the same test on a selected runner with two GPUs.
-
-The GPU test runs both Xavier and NIXL; install ``nixl`` alongside the pinned vLLM version. Xavier verification requires producer staging and decoder load logs. NIXL verification requires ``calling _read_blocks`` and completed receive logs, including all four concurrent requests.
+After a worker restart, relaunch the native NIXL PD deployment.
 
 Hybrid/recurrent attention limitation
 -------------------------------------
 
-Xavier PD currently rejects hybrid/recurrent attention caches, including Qwen3.5.
-The transferred implementation does not yet reliably preserve their recurrent
-state across prefix-cache reuse and concurrent requests. Use ordinary single
-instances for these models, or a full-attention model such as Qwen3 for PD.
-Successful launch alone is not evidence of correct hybrid-state transfer.
+Xavier PD does not support hybrid/recurrent attention models such as Qwen3.5. Deploy these models without PD, or choose a full-attention model such as Qwen3 for PD.
 
-Xavier V1 supported configurations and cache safety
----------------------------------------------------
+Xavier requirements and memory
+------------------------------
 
-The V1 connector currently requires one GPU per replica (TP=1, PP=1), text-only
-models, and no LoRA adapters. Multimodal models, prompt embeddings and salted
-prompts are rejected until their cache identities and partitioning are supported.
+Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models without LoRA. Multimodal models, prompt embeddings and salted prompts are not supported.
 
-CPU snapshots are keyed by prompt content rather than reusable GPU block IDs.
-Readers reserve complete snapshots during transfer; cache pressure or a missing
-snapshot falls back to local computation. The number of retained CPU blocks is
-bounded by the engine's KV block capacity. CPU memory can approach the GPU KV
-cache size, in addition to in-flight transfer buffers. Only complete layers are published for remote reuse.
-
-The connector handles block-first and K/V-first attention cache layouts. A
-layout whose block axis cannot be identified safely is rejected. V0 prefill
-replicas release only the requested completed sequence; ordinary hybrid and
-decode replicas retain normal automatic cleanup.
-
+Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. Allow additional host memory for transfers when sizing your deployment.
 
 GPU-first Xavier cache (experimental)
 -------------------------------------
 
 GPU-first caching requires the Xavier backend and more than one replica.
 
-With ``vllm_transfer_backend_type="xavier"``, set the additional launch parameter ``xavier_gpu_cache_bytes`` to a non-negative integer, for example ``268435456`` (256 MiB per replica). Omitting it keeps the existing CPU path; ``0`` enables the new transfer path with CPU-only snapshots. GPU snapshots use xoscar NIXL; CPU snapshots use batched Gloo transfers. This setting does not select the native vLLM NIXL connector.
+For the Xavier backend, set ``xavier_gpu_cache_bytes`` to a non-negative integer, such as ``268435456`` for 256 MiB per replica. Omit it to use the existing CPU cache, or set it to ``0`` to use GPU-first caching with no GPU storage budget. This option does not select the native vLLM NIXL backend.
 
-Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. This path requires Linux, NVIDIA CUDA, vLLM >= 0.21, registered full-attention KV caches, TP=1 and PP=1. Replicas must use matching KV layouts and dtypes. Local EngineCore caches are shared with their TransferActor through CUDA IPC. The worker sets ``UCX_MEMTYPE_CACHE=n`` and defaults ``UCX_TLS`` to ``tcp,cuda_copy,cuda_ipc``; an explicitly configured ``UCX_TLS`` is preserved.
+Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. GPU-first caching requires Linux, NVIDIA CUDA, vLLM 0.21.0 or newer, a full-attention model and one GPU per replica (TP=1, PP=1). Use the same model, cache dtype and engine configuration on all replicas.
 
-The budget covers retained GPU snapshots only. Leave headroom for the model, vLLM KV cache, two persistent transfer buffers (normally up to 16 MiB each), temporary tensors and allocator overhead. GPU overflow moves unleased blocks to the existing CPU cache; when both tiers are leased, new snapshots are skipped. Transfer failures or layout mismatches raise errors rather than silently converting data or promising local recomputation. Shutdown logs cache placement and transfer counters.
+The budget applies only to Xavier's GPU cache. Leave additional GPU memory for the model, vLLM's own KV cache and transfers. When this cache fills, Xavier stores reusable data in CPU memory; if no cache space is available, new data may not be retained for reuse.
 
-If snapshot staging fails, Xavier waits for outstanding CUDA work and discards unpublished snapshots. CUDA synchronization failures still propagate as errors.
+With GPU-first caching, cache transfers can overlap with response generation for other requests.
+
+Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request.
+
+For implementation details, profiling and contributor tests, see the `Xavier developer README <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_.

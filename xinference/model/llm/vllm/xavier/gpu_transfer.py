@@ -107,6 +107,31 @@ class GPUTransfer:
         task.add_done_callback(completed)
         return await finish_before_cancel(task)
 
+    async def load_requests_with_leases(self, requests, leases):
+        load_failed = False
+        try:
+            await self.load_requests(requests)
+        except BaseException:
+            load_failed = True
+            raise
+        finally:
+            results = await asyncio.gather(
+                *(
+                    self.actor.release_remote_blocks_v1(lease, ranks)
+                    for lease, ranks in leases
+                    if lease
+                ),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    if not load_failed:
+                        raise result
+                    logger.warning(
+                        "Failed to release Xavier snapshot lease after load failure",
+                        exc_info=(type(result), result, result.__traceback__),
+                    )
+
     async def close(self):
         task = getattr(self, "_close_task", None)
         if task is None:
@@ -374,9 +399,11 @@ class GPUTransferMixin:
         runtime = self._gpu_transfer
         return await runtime.run(runtime.send, reads, remote_ref, slab_bytes)
 
-    async def load_gpu_requests_v1(self, requests):
+    async def load_gpu_requests_v1(self, requests, leases):
         runtime = self._gpu_transfer
-        return await runtime.run(runtime.load_requests, requests)
+        # The actor loop advances independently of EngineCore. Keep both writes
+        # and lease cleanup inside the protected task before returning readiness.
+        return await runtime.run(runtime.load_requests_with_leases, requests, leases)
 
     async def close_gpu_caches_v1(self):
         runtime = getattr(self, "_gpu_transfer", None)
