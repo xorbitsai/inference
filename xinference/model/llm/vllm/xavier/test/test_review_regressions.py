@@ -439,7 +439,8 @@ async def test_gpu_mapping_serializes_callers_and_retries(
     release = asyncio.Event()
     calls = []
 
-    async def register(descriptors, budget):
+    async def register(descriptors, budget, *, direct_handoff):
+        assert direct_handoff == connector._direct_handoff
         calls.append((descriptors, budget))
         if len(calls) == 1:
             entered.set()

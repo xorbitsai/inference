@@ -286,3 +286,31 @@ def test_direct_handoff_selection_is_per_model(role, budget, monkeypatch):
         role != "hybrid" and budget is not None
     )
     assert not uses_direct_handoff(None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("lease", ["ticket", "history:ticket"])
+async def test_direct_submission_failure_releases_correct_lease(
+    connector, connector_module, lease
+):
+    connector._direct_handoff = True
+    connector._ensure_gpu_cache_mapping = AsyncMock(
+        side_effect=RuntimeError("map failed")
+    )
+    transfer = SimpleNamespace(
+        release_direct_history_v1=AsyncMock(),
+        release_remote_direct_gpu_v1=AsyncMock(),
+        release_remote_blocks_v1=AsyncMock(),
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=transfer)
+    request = connector_module.XavierLoadRequest("r", {2: {1: 0}}, lease=lease)
+    with pytest.raises(RuntimeError, match="map failed"):
+        await connector._submit_gpu_requests([request])
+    if lease.startswith("history:"):
+        transfer.release_direct_history_v1.assert_awaited_once_with(lease)
+        transfer.release_remote_direct_gpu_v1.assert_not_awaited()
+    else:
+        transfer.release_remote_direct_gpu_v1.assert_awaited_once_with(2, lease)
+        transfer.release_direct_history_v1.assert_not_awaited()
+    transfer.release_remote_blocks_v1.assert_not_awaited()
+    assert not connector._gpu_load_jobs

@@ -660,7 +660,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
     async def _release_load_request(self, request):
         transfer = await self._get_transfer_ref()
-        await transfer.release_remote_blocks_v1(request.lease, request.transfers)
+        if self._direct_handoff:
+            if request.lease.startswith("history:"):
+                await transfer.release_direct_history_v1(request.lease)
+            else:
+                await transfer.release_remote_direct_gpu_v1(
+                    next(iter(request.transfers)), request.lease
+                )
+        else:
+            await transfer.release_remote_blocks_v1(request.lease, request.transfers)
 
     async def _query_remote_blocks(
         self,
@@ -1003,10 +1011,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         ranks[rank] = layers
                 entries.append(ranks)
             torch.cuda.synchronize()
+
             async def load():
                 if self._direct_handoff:
                     historical = [
-                        i for i, r in enumerate(requests) if r.lease.startswith("history:")
+                        i
+                        for i, r in enumerate(requests)
+                        if r.lease.startswith("history:")
                     ]
                     direct = [
                         i
@@ -1027,6 +1038,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     await transfer.load_gpu_requests_v1(
                         entries, [(r.lease, r.transfers) for r in requests]
                     )
+
             task = asyncio.create_task(load())
         except BaseException:
             # Worker metadata already owns these leases. Until task creation
