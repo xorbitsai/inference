@@ -309,3 +309,23 @@ msgstr "直传与分层历史缓存"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "直传目前要求 ``n=1``。"
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr "历史缓存在 P 上恢复，然后交接给 D。长提示词可能只保留前缀；不保证保留所有缓存。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"尚未被接收的交接在 120 秒后过期。如果交接在 D 接收前过期，D 会在本地重新计算。D 接收后，源缓存会保留到加载完成，或请求在加载前被取消。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直传和历史缓存加载可以与其他请求的响应生成重叠执行。"

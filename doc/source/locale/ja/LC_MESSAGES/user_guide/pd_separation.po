@@ -310,3 +310,25 @@ msgstr "直接転送と階層型履歴"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "直接転送は現在 ``n=1`` を必要とします。"
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"履歴は D への引き渡し前に P で復元されます。長いプロンプトではプレフィックスのみが保持される場合があり、すべてのキャッシュの保持は保証されません。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"未受理の引き渡しは 120 秒で期限切れになります。D が受理する前に期限切れになると、D "
+"がローカルで再計算します。受理後は、読み込みが完了するか、読み込み前にリクエストがキャンセルされるまで、転送元のキャッシュが予約されます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直接転送と履歴の読み込みは、他のリクエストの応答生成と並行して実行できます。"

@@ -341,3 +341,31 @@ msgstr "Direkte Übertragung und gestufter Verlauf"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "Die direkte Übertragung erfordert derzeit ``n=1``."
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"Der Verlauf wird vor der Übergabe an D auf P wiederhergestellt. Bei langen "
+"Prompts wird möglicherweise nur ein Präfix behalten; die Aufbewahrung aller "
+"Cache-Daten ist nicht garantiert."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"Nicht angenommene Übergaben verfallen nach 120 Sekunden. Verfällt eine "
+"Übergabe, bevor D sie annimmt, berechnet D lokal neu. Nach der Annahme "
+"bleibt der Quellcache reserviert, bis das Laden abgeschlossen ist oder die "
+"Anfrage vor dem Laden abgebrochen wird."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr ""
+"Direkte Übertragungen und das Laden des Verlaufs können parallel zur "
+"Antwortgenerierung anderer Anfragen erfolgen."

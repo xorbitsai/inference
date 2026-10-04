@@ -304,3 +304,23 @@ msgstr "直傳與分層歷史快取"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "直傳目前要求 ``n=1``。"
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr "歷史快取在 P 上還原，然後交接給 D。長提示詞可能只保留前綴；不保證保留所有快取。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"尚未被接收的交接在 120 秒後過期。如果交接在 D 接收前過期，D 會在本機重新計算。D 接收後，來源快取會保留到載入完成，或請求在載入前被取消。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直接傳輸和歷史快取載入可以與其他請求的回應生成重疊執行。"

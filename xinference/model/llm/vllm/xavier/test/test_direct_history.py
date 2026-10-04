@@ -12,7 +12,8 @@ from .test_direct_handoff import direct_runtime
 
 def history_runtime(monkeypatch):
     r = direct_runtime(monkeypatch)
-    r._init_history(32, cpu_capacity=0)
+    r.store.cpu_capacity = 0
+    r._init_history(32)
     r.history_retention_seconds = 10
     r.caches["K"].copy_(torch.arange(16).reshape(8, 2))
     return r
@@ -67,12 +68,10 @@ async def test_busy_writer_skips_next_request_without_backlog(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("reason", ["held_budget", "deadline", "expired"])
+@pytest.mark.parametrize("reason", ["deadline", "expired"])
 async def test_optional_retention_releases_engine_when_skipped(monkeypatch, reason):
     r = history_runtime(monkeypatch)
-    r.register_direct(
-        "t", "p", [1], [101], held_blocks=9 if reason == "held_budget" else 1
-    )
+    r.register_direct("t", "p", [1], [101])
     if reason == "deadline":
         r.history_retention_seconds = 0
     if reason == "expired":
@@ -248,7 +247,8 @@ async def test_full_history_preserves_hot_content_until_new_content_repeats(
     monkeypatch,
 ):
     r = history_runtime(monkeypatch)
-    r._init_history(8, cpu_capacity=0)
+    r.store.cpu_capacity = 0
+    r._init_history(8)
     r.history_retention_seconds = 10
 
     async def finish(ticket, blocks, hashes):
@@ -274,7 +274,8 @@ async def test_full_history_preserves_hot_content_until_new_content_repeats(
 @pytest.mark.asyncio
 async def test_probation_is_bounded_and_forgets_old_cold_content(monkeypatch):
     r = history_runtime(monkeypatch)
-    r._init_history(4, cpu_capacity=0)
+    r.store.cpu_capacity = 0
+    r._init_history(4)
     r.history_retention_seconds = 10
     for key in (100, 101, 102, 103, 101):
         r.register_direct(str(key), str(key), [1], [key])
@@ -312,7 +313,8 @@ async def test_snapshot_chunks_respect_byte_budget(monkeypatch):
 @pytest.mark.asyncio
 async def test_fill_batches_grow_but_replacement_batches_stay_small(monkeypatch):
     r = history_runtime(monkeypatch)
-    r._init_history(20, cpu_capacity=0)
+    r.store.cpu_capacity = 0
+    r._init_history(20)
     r.history_retention_seconds = 10
     r.history_fill_chunk_bytes = 16
     r.history_chunk_bytes = 8
@@ -397,8 +399,8 @@ async def test_fixed_prefix_restore_preserves_raw_bits(
     block_bytes = sum(
         cache[0].numel() * cache.element_size() for cache in r.caches.values()
     )
-    r._init_history(gpu_blocks * block_bytes, cpu_capacity=278)
-    r.history_pending_bytes = 278 * block_bytes
+    r.store.cpu_capacity = 278
+    r._init_history(gpu_blocks * block_bytes)
     r.history_retention_seconds = 30
     r.slab_bytes = 8 * 1024 * 1024
     keys = list(range(1000, 1000 + prefix_blocks))
@@ -442,7 +444,8 @@ async def test_history_spills_to_cpu_and_restores_mixed_prefix(monkeypatch, devi
         for name, shift in [("K", 32620), ("V", -32768)]
     }
     block_bytes = 32
-    r._init_history(2 * block_bytes, cpu_capacity=2)
+    r.store.cpu_capacity = 2
+    r._init_history(2 * block_bytes)
     r.history_retention_seconds = 10
     original = {name: cache[:4].clone() for name, cache in r.caches.items()}
     r.register_direct("save", "p", [0, 1, 2, 3], [100, 101, 102, 103])
@@ -487,3 +490,52 @@ def test_history_eviction_only_after_both_tiers_full_and_preserves_leases():
     assert store.reserve("all", list(store.ready))
     save(6)
     assert store.ready == {1, 3, 4, 5}
+
+
+@pytest.mark.asyncio
+async def test_long_request_retains_bounded_leading_prefix(monkeypatch):
+    r = history_runtime(monkeypatch)
+    # Simulate a request larger than the retention cap, without allocating 8B KV.
+    r.history_pending_bytes = 2 * r.history.block_bytes
+    r.register_direct("t", "p", [0, 1, 2, 3], [100, 101, 102, 103])
+    r.release_direct("t")
+    await r._history_task
+    assert r.history.ready == {100, 101}
+    assert r.metrics["history_capacity_limited_blocks"] == 2
+    assert not r.metrics["history_skipped_requests"]
+    assert r.poll_direct() == {"p"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("closing", [False, True])
+async def test_abandoned_retention_counts_remaining_candidates(monkeypatch, closing):
+    r = history_runtime(monkeypatch)
+    r.register_direct("t", "p", [1, 2], [101, 102])
+    r.history_retention_seconds = 0
+    r.release_direct("t")
+    r._history_closing = closing
+    await r._history_task
+    reason = "closing" if closing else "deadline"
+    assert r.metrics[f"history_{reason}_dropped_blocks"] == 2
+    assert r.poll_direct() == {"p"}
+
+
+@pytest.mark.asyncio
+async def test_history_batch_failure_releases_all_leases_preserving_error(monkeypatch):
+    r = history_runtime(monkeypatch)
+    r.register_direct("t", "p", [1, 2], [101, 102])
+    r.release_direct("t")
+    await r._history_task
+    assert r.reserve_history("a", [101]) == [101]
+    assert r.reserve_history("b", [102]) == [102]
+    original = r.release_history
+
+    def release(lease):
+        original(lease)
+        if lease == "a":
+            raise RuntimeError("cleanup error")
+
+    monkeypatch.setattr(r, "release_history", release)
+    with pytest.raises(ValueError, match="outside lease"):
+        await r.load_history([{0: {"K": {999: 4}}}, {0: {"K": {102: 5}}}], ["a", "b"])
+    assert not r.history.leases and not r._history_leases

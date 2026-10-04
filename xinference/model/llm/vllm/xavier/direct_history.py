@@ -34,10 +34,9 @@ class HistoryStore(TieredKVSnapshotStore):
 
 
 class DirectHistoryMixin:
-    def _init_history(self, budget, cpu_capacity=None):
+    def _init_history(self, budget):
         block_bytes = sum(c[0].numel() * c.element_size() for c in self.caches.values())
-        if cpu_capacity is None:
-            cpu_capacity = self.store.cpu_capacity
+        cpu_capacity = self.store.cpu_capacity
         self.history = (
             HistoryStore(budget, block_bytes, self.device, cpu_capacity)
             if budget
@@ -73,6 +72,9 @@ class DirectHistoryMixin:
             history_admission_rejected_blocks=0,
             history_admission_reused_blocks=0,
             history_save_chunks=0,
+            history_capacity_limited_blocks=0,
+            history_deadline_dropped_blocks=0,
+            history_closing_dropped_blocks=0,
         )
 
     def _expire_history_leases(self):
@@ -93,7 +95,8 @@ class DirectHistoryMixin:
                 break
             matched.append(key)
         if matched:
-            assert self.history.reserve(lease, matched)
+            if not self.history.reserve(lease, matched):
+                return []
             self._history_leases[lease] = time.monotonic() + 120
         return matched
 
@@ -110,9 +113,6 @@ class DirectHistoryMixin:
             return False
         state.retention_attempted = True
         if self._history_closing or self.history is None or not state.hashes:
-            return False
-        if state.held_blocks * self.history.block_bytes > self.history_pending_bytes:
-            self.metrics["history_skipped_requests"] += 1
             return False
         limit = min(
             self.history.capacity,
@@ -136,6 +136,8 @@ class DirectHistoryMixin:
                     free = max(0, free - 1)
                     if repeated:
                         self.metrics["history_admission_reused_blocks"] += 1
+                else:
+                    self.metrics["history_capacity_limited_blocks"] += 1
             else:
                 self.metrics["history_admission_rejected_blocks"] += 1
         if not candidates:
@@ -158,7 +160,7 @@ class DirectHistoryMixin:
                 exc = future.exception()
                 logger.error(
                     "GPU history retention failed",
-                    exc_info=(type(exc), exc, exc.__traceback__),
+                    exc_info=exc,
                 )
 
         task.add_done_callback(done)
@@ -189,13 +191,21 @@ class DirectHistoryMixin:
                 if free > 0:
                     count = min(count, free)
                 chunk = candidates[start : start + count]
-                start += count
                 while self.send_lock.locked() or self.recv_lock.locked():
                     if self._history_closing or time.monotonic() >= deadline:
+                        reason = "closing" if self._history_closing else "deadline"
+                        self.metrics[f"history_{reason}_dropped_blocks"] += (
+                            len(candidates) - start
+                        )
                         return
                     await asyncio.sleep(0.001)
                 if self._history_closing or time.monotonic() >= deadline:
+                    reason = "closing" if self._history_closing else "deadline"
+                    self.metrics[f"history_{reason}_dropped_blocks"] += (
+                        len(candidates) - start
+                    )
                     return
+                start += len(chunk)
                 async with self.send_lock:
                     self._expire_history_leases()
                     pairs = [(k, b) for k, b in chunk if k not in self.history.ready]
@@ -232,6 +242,25 @@ class DirectHistoryMixin:
             self.release_direct(ticket)
 
     async def load_history(self, requests, leases):
+        failed = False
+        try:
+            await self._load_history(requests, leases)
+        except BaseException:
+            failed = True
+            raise
+        finally:
+            errors = []
+            for lease in leases:
+                try:
+                    self.release_history(lease)
+                except BaseException as error:
+                    errors.append(error)
+            if errors and not failed:
+                raise errors[0]
+            for cleanup_error in errors:
+                logger.warning("History lease cleanup failed", exc_info=cleanup_error)
+
+    async def _load_history(self, requests, leases):
         async with self.recv_lock:
             for ranks, lease in zip(requests, leases):
                 indices = {}
@@ -287,4 +316,3 @@ class DirectHistoryMixin:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
                     indices.clear()
                     self._history_reading.discard(lease)
-                    self.release_history(lease)

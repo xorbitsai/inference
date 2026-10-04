@@ -309,3 +309,25 @@ msgstr "직접 전송 및 계층형 이력"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "직접 전송은 현재 ``n=1`` 을 요구합니다."
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"기록은 D로 전달하기 전에 P에서 복원됩니다. 긴 프롬프트는 접두사만 보관될 수 있으며, 모든 캐시의 보관이 보장되지는 않습니다."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"수락되지 않은 전달은 120초 후 만료됩니다. D가 수락하기 전에 만료되면 D가 로컬에서 다시 계산합니다. D가 수락한 후에는 로드가 "
+"완료되거나 로드 전에 요청이 취소될 때까지 원본 캐시가 예약됩니다."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "직접 전송과 기록 로드는 다른 요청의 응답 생성과 동시에 실행될 수 있습니다."

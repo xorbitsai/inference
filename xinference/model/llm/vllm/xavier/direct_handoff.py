@@ -3,6 +3,7 @@
 """Request-scoped GPU handoff with independent tiered history."""
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass, field
 
@@ -13,19 +14,21 @@ from .direct_history import DirectHistoryMixin
 from .gpu_transfer import GPUTransfer
 from .request_transfer import LayerRead, batch_reads, unpack_reads
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DirectRequest:
     request_id: str
     blocks: set[int]
     deadline: float
+    claimed: bool = False
     reading: bool = False
     released: bool = False
     indices: dict[tuple[int, ...], torch.Tensor] = field(default_factory=dict)
     hashes: dict[int, int] = field(default_factory=dict)
     retaining: bool = False
     retention_attempted: bool = False
-    held_blocks: int = 0
 
 
 class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
@@ -69,9 +72,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
         self.direct_requests.clear()
         self.finished_sending.clear()
 
-    def register_direct(
-        self, ticket, request_id, blocks, hashes=None, held_blocks=None
-    ):
+    def register_direct(self, ticket, request_id, blocks, hashes=None):
         if self.closing or ticket in self.direct_requests:
             raise ValueError("Invalid direct handoff registration")
         if not blocks or any(
@@ -87,9 +88,27 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             set(blocks),
             time.monotonic() + 120,
             hashes=dict(zip(blocks, hashes or [])),
-            held_blocks=len(blocks) if held_blocks is None else held_blocks,
         )
         self.metrics["direct_registered"] += 1
+
+    def claim_direct(self, ticket):
+        state = self.direct_requests.get(ticket)
+        if state is None or state.released:
+            return False
+        if not state.claimed and time.monotonic() >= state.deadline:
+            self.metrics["direct_expired"] += 1
+            state.retention_attempted = True
+            self.release_direct(ticket)
+            return False
+        # Ownership passes to D. Scheduler abort or load completion releases it;
+        # producer polling must not race queued allocation or a multi-slab read.
+        state.claimed = True
+        return True
+
+    def abandon_direct(self, ticket):
+        state = self.direct_requests.get(ticket)
+        if state is not None and not state.claimed:
+            self.release_direct(ticket)
 
     def release_direct(self, ticket):
         state = self.direct_requests.get(ticket)
@@ -106,7 +125,11 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
 
     def poll_direct(self):
         for ticket, state in list(self.direct_requests.items()):
-            if not state.released and time.monotonic() >= state.deadline:
+            if (
+                not state.released
+                and not state.claimed
+                and time.monotonic() >= state.deadline
+            ):
                 self.metrics["direct_expired"] += 1
                 state.retention_attempted = True
                 self.release_direct(ticket)
@@ -162,6 +185,35 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                     self.release_direct(ticket)
 
     async def load_direct(self, requests, tickets):
+        failed = False
+        try:
+            await self._load_direct(requests, tickets)
+        except BaseException:
+            failed = True
+            raise
+        finally:
+
+            async def release(ranks, ticket):
+                for rank in ranks:
+                    from .transfer import TransferActor
+
+                    sender = await xo.actor_ref(
+                        address=self.actor._world_addresses[rank],
+                        uid=f"{TransferActor.default_uid()}-{rank}",
+                    )
+                    await sender.release_direct_gpu_v1(ticket)
+
+            results = await asyncio.gather(
+                *(release(ranks, ticket) for ranks, ticket in zip(requests, tickets)),
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, BaseException):
+                    if not failed:
+                        raise result
+                    logger.warning("Direct ticket cleanup failed", exc_info=result)
+
+    async def _load_direct(self, requests, tickets):
         from .transfer import TransferActor
 
         self.metrics["load_calls"] += 1
@@ -206,4 +258,3 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
                 finally:
                     await asyncio.to_thread(torch.cuda.synchronize, self.device)
                     indices.clear()
-                    await sender.release_direct_gpu_v1(ticket)

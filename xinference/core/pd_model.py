@@ -84,15 +84,15 @@ class PDModelActor(xo.StatelessActor):
             [List[xo.ActorRefType["ModelActor"]]], SchedulingPolicy
         ] = RoundRobinSchedulingPolicy,
         transport_backend: str = "xavier",
-        direct_handoff: bool = False,
     ):
         super().__init__()
         # Prefill request map, used to skip the timeout task for specific request id.
         self._request_set: Set[str] = set()
+        self._direct_transfers: dict[str, dict] = {}
 
         self._model_uid = model_uid
         self._transport_backend = transport_backend
-        self._direct_handoff = transport_backend == "xavier" and direct_handoff
+        self._direct_handoff = transport_backend == "xavier"
 
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -246,25 +246,22 @@ class PDModelActor(xo.StatelessActor):
         logger.debug(
             f"[PDModelActor] Free prefill model cache for request {request_id}"
         )
+        handoff = self._direct_transfers.pop(request_id, None)
+        if handoff and handoff.get("ticket"):
+            try:
+                from ..model.llm.vllm.xavier.transfer import TransferActor
+
+                ref = await xo.actor_ref(
+                    address=handoff["address"],
+                    uid=f"{TransferActor.default_uid()}-{handoff['rank']}",
+                )
+                # D owns claimed tickets until its writes drain. Only reclaim
+                # a handoff that was never accepted by D (router failure/abort).
+                await ref.abandon_direct_gpu_v1(handoff["ticket"])
+            except Exception:
+                logger.warning("Failed to abandon Xavier handoff", exc_info=True)
         if request_id in self._request_set:
             self._request_set.remove(request_id)
-            if (
-                self._prefill_replicas
-                and self._transport_backend == "xavier"
-                and not self._direct_handoff
-            ):
-                await asyncio.gather(
-                    *[
-                        actor_call(
-                            model,
-                            "free_model_cache",
-                            request_id,
-                            _rpc_operation_request_id=request_id,
-                        )
-                        for model in self._prefill_replicas.values()
-                    ],
-                    return_exceptions=True,
-                )
         else:
             logger.warning(
                 f"[request {request_id}] Prefill model cache has been freed already"
@@ -292,12 +289,7 @@ class PDModelActor(xo.StatelessActor):
             args = (kwargs.pop("generate_config"),)
         if args and args[0] is not None and not isinstance(args[0], dict):
             raise TypeError("Generation config must be a dict or None")
-        if (
-            (self._transport_backend == "nixl" or self._direct_handoff)
-            and args
-            and args[0]
-            and args[0].get("n", 1) != 1
-        ):
+        if args and args[0] and args[0].get("n", 1) != 1:
             # Handoff leases cover one decoder, not parallel sampling children.
             raise ValueError("PD KV handoff currently requires n=1")
         prefill = self._prefill_policy.schedule()
@@ -307,12 +299,11 @@ class PDModelActor(xo.StatelessActor):
             prefill_args = [{}] + prefill_args[1:]
         prefill_args[0]["max_tokens"] = 1
         prefill_args[0]["stream"] = False
-        if self._transport_backend == "nixl" or self._direct_handoff:
-            prefill_args[0]["n"] = 1
-            prefill_args[0]["_pd_kv_transfer_params"] = {
-                "do_remote_decode": True,
-                "do_remote_prefill": False,
-            }
+        prefill_args[0]["n"] = 1
+        prefill_args[0]["_pd_kv_transfer_params"] = {
+            "do_remote_decode": True,
+            "do_remote_prefill": False,
+        }
         prefill_kwargs = copy.deepcopy(kwargs)
         if isinstance(prefill_kwargs.get("raw_params"), dict):
             prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)
@@ -325,41 +316,31 @@ class PDModelActor(xo.StatelessActor):
             if hasattr(result, "__aiter__"):
                 async for _ in result:
                     pass
-            if request_id not in self._request_set:
-                raise asyncio.CancelledError(f"PD request {request_id} was aborted")
             logger.debug(
                 "PD prefill complete: request=%s backend=%s elapsed_s=%.6f",
                 request_id,
                 self._transport_backend,
                 time.perf_counter() - prefill_start,
             )
-            if self._transport_backend == "nixl" or self._direct_handoff:
-                payload = (
-                    json.loads(result) if isinstance(result, (bytes, str)) else result
-                )
-                transfer = (
-                    payload.get("_pd_kv_transfer_params")
-                    if isinstance(payload, dict)
-                    else None
-                )
-                if not isinstance(transfer, dict) or not transfer.get(
-                    "do_remote_prefill"
-                ):
-                    raise RuntimeError("PD prefill did not return KV transfer metadata")
-                decode_args = list(copy.deepcopy(args))
-                if not decode_args or decode_args[0] is None:
-                    decode_args = [{}] + decode_args[1:]
-                decode_args[0]["_pd_kv_transfer_params"] = transfer
-                args = tuple(decode_args)
-            else:
-                await actor_call(
-                    decode,
-                    "set_unpin_handler",
-                    self._model_uid,
-                    request_id,
-                    self.address,
-                    _rpc_operation_request_id=request_id,
-                )
+            payload = json.loads(result) if isinstance(result, (bytes, str)) else result
+            transfer = (
+                payload.get("_pd_kv_transfer_params")
+                if isinstance(payload, dict)
+                else None
+            )
+            if self._direct_handoff and isinstance(transfer, dict):
+                handoff = transfer.get("xavier_direct")
+                if handoff:
+                    self._direct_transfers[request_id] = handoff
+            if not isinstance(transfer, dict) or not transfer.get("do_remote_prefill"):
+                raise RuntimeError("PD prefill did not return KV transfer metadata")
+            decode_args = list(copy.deepcopy(args))
+            if not decode_args or decode_args[0] is None:
+                decode_args = [{}] + decode_args[1:]
+            decode_args[0]["_pd_kv_transfer_params"] = transfer
+            args = tuple(decode_args)
+            if request_id not in self._request_set:
+                raise asyncio.CancelledError(f"PD request {request_id} was aborted")
             result = await actor_call(
                 decode,
                 method,
@@ -372,6 +353,8 @@ class PDModelActor(xo.StatelessActor):
             await self.free_prefill_model_cache(request_id)
             raise
         if not hasattr(result, "__aiter__"):
+            # A successful D response has already completed its handoff.
+            self._direct_transfers.pop(request_id, None)
             await self.free_prefill_model_cache(request_id)
             return result
 
@@ -379,6 +362,7 @@ class PDModelActor(xo.StatelessActor):
             try:
                 async for chunk in result:
                     yield chunk
+                self._direct_transfers.pop(request_id, None)
             finally:
                 try:
                     if hasattr(result, "aclose"):

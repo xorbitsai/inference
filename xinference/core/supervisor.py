@@ -3526,7 +3526,6 @@ class SupervisorActor(xo.StatelessActor):
                         PDModelActor,
                         model_uid,
                         transport_backend=transport_backend,
-                        direct_handoff=enable_xavier and gpu_cache_bytes is not None,
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )

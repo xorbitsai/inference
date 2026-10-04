@@ -136,9 +136,13 @@ Direct handoff and tiered history
 
 Direct handoff currently requires ``n=1``.
 
+History is restored on P before the handoff to D. Long prompts may retain only a prefix; cache retention is best effort.
+
+Unclaimed handoffs expire after 120 seconds. If a handoff expires before D accepts it, D recomputes locally. Once D accepts it, the source cache stays reserved until the load finishes or the request is cancelled before loading.
+
 The budget applies only to Xavier's GPU cache. Leave additional GPU memory for the model, vLLM's own KV cache and transfers. When this cache fills, Xavier stores reusable data in CPU memory; if no cache space is available, new data may not be retained for reuse.
 
-With GPU-first caching, cache transfers can overlap with response generation for other requests.
+Direct transfers and history loads can overlap with response generation for other requests.
 
 Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request.
 

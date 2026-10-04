@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import torch
@@ -157,6 +157,11 @@ def test_direct_metadata_preserves_local_prefix_offset(connector):
             }
         },
     )
+    connector._get_transfer_ref = AsyncMock(
+        return_value=SimpleNamespace(
+            claim_remote_direct_gpu_v1=AsyncMock(return_value=True)
+        )
+    )
     assert connector.get_num_new_matched_tokens(request, 16) == (16, True)
     blocks = SimpleNamespace(get_block_ids=lambda: [[4, 5]])
     connector.update_state_after_alloc(request, blocks, 16)
@@ -164,9 +169,10 @@ def test_direct_metadata_preserves_local_prefix_offset(connector):
     assert load.local_transfers_by_group == {0: {0: {3: 5}}}
 
 
+@pytest.mark.parametrize("history", [False, True])
 @pytest.mark.parametrize("prompt_tokens", [33, 30])
 def test_direct_producer_retains_original_engine_blocks(
-    connector, monkeypatch, prompt_tokens
+    connector, monkeypatch, prompt_tokens, history
 ):
     import sys
 
@@ -176,6 +182,8 @@ def test_direct_producer_retains_original_engine_blocks(
         SimpleNamespace(RequestStatus=SimpleNamespace(FINISHED_ABORTED="aborted")),
     )
     connector._direct_handoff = True
+    connector._history_enabled = history
+    connector._gpu_budget = 32 if history else 0
     actor = SimpleNamespace(register_direct_gpu_v1=AsyncMock())
     connector._get_transfer_ref = AsyncMock(return_value=actor)
     request = SimpleNamespace(
@@ -188,9 +196,16 @@ def test_direct_producer_retains_original_engine_blocks(
     assert retained
     handoff = metadata["xavier_direct"]
     assert handoff["blocks"] == [4, 5] and handoff["tokens"] == prompt_tokens - 1
+    history_args = ()
+    if history:
+        hashes = connector._build_xavier_hashes(request.prompt_token_ids[:-1])
+        history_args = ([key for key, _ in hashes[:2]],)
     actor.register_direct_gpu_v1.assert_awaited_once_with(
-        handoff["ticket"], "producer", [4, 5]
+        handoff["ticket"], "producer", [4, 5], *history_args
     )
+    metadata = connector.build_connector_meta(SimpleNamespace(num_scheduled_tokens={}))
+    assert metadata.direct_sends == {"producer"}
+    assert not metadata.direct_store and not connector._direct_sends
 
 
 @pytest.mark.asyncio
@@ -277,11 +292,9 @@ async def test_failed_later_slab_releases_both_index_sets(monkeypatch):
 
 @pytest.mark.parametrize("role", ["prefill", "decode", "hybrid"])
 @pytest.mark.parametrize("budget", [None, 0, 268435456])
-def test_direct_handoff_selection_is_per_model(role, budget, monkeypatch):
+def test_direct_handoff_selection_is_per_model(role, budget):
     from ..transport import uses_direct_handoff
 
-    # No environment setting is consulted, including the old prototype flag.
-    monkeypatch.setenv("XINFERENCE_XAVIER_DIRECT_TEST", "1")
     assert uses_direct_handoff({"role": role, "gpu_cache_bytes": budget}) is (
         role != "hybrid" and budget is not None
     )
@@ -314,3 +327,150 @@ async def test_direct_submission_failure_releases_correct_lease(
         transfer.release_direct_history_v1.assert_not_awaited()
     transfer.release_remote_blocks_v1.assert_not_awaited()
     assert not connector._gpu_load_jobs
+
+
+def decoder_request():
+    return SimpleNamespace(
+        request_id="decoder",
+        kv_transfer_params={
+            "do_remote_prefill": True,
+            "xavier_direct": {
+                "rank": 0,
+                "ticket": "ticket",
+                "tokens": 32,
+                "blocks": [2, 3],
+            },
+        },
+    )
+
+
+def test_preempted_decoder_does_not_reload_consumed_ticket(connector):
+    connector._direct_handoff = True
+    connector._is_producer = False
+    actor = SimpleNamespace(claim_remote_direct_gpu_v1=AsyncMock(return_value=True))
+    connector._get_transfer_ref = AsyncMock(return_value=actor)
+    request = decoder_request()
+    assert connector.get_num_new_matched_tokens(request, 0) == (32, True)
+    connector.update_state_after_alloc(
+        request, SimpleNamespace(get_block_ids=lambda: [[4, 5]]), 32
+    )
+    connector._requests_need_load.clear()  # worker consumed the scheduled metadata
+    assert connector.get_num_new_matched_tokens(request, 0) == (0, False)
+    actor.claim_remote_direct_gpu_v1.assert_awaited_once_with(0, "ticket")
+    assert not connector._requests_need_load
+
+
+def test_expired_handoff_is_scheduler_miss(connector, monkeypatch):
+    source = direct_runtime(monkeypatch)
+    source.register_direct("ticket", "producer", [2, 3])
+    source.direct_requests["ticket"].deadline = 0
+    connector._direct_handoff = True
+    connector._is_producer = False
+    actor = SimpleNamespace(
+        claim_remote_direct_gpu_v1=AsyncMock(
+            side_effect=lambda rank, ticket: source.claim_direct(ticket)
+        )
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=actor)
+    request = decoder_request()
+    assert connector.get_num_new_matched_tokens(request, 0) == (0, False)
+    assert not connector._requests_need_load
+    assert request.kv_transfer_params["do_remote_prefill"] is False
+    assert source.poll_direct() == {"producer"}
+
+
+@pytest.mark.asyncio
+async def test_claim_pins_queued_handoff_until_decoder_release(monkeypatch):
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    source.caches["K"].fill_(7)
+    source.register_direct("ticket", "producer", [2])
+    assert source.claim_direct("ticket")
+    source.direct_requests["ticket"].deadline = 0
+    source.abandon_direct("ticket")  # router cancellation cannot release D's read
+    assert not source.poll_direct()
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer_for(source)))
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr(xo, "copy_to", copy)
+    await dest.load_direct([{0: {"K": {2: 5}}}], ["ticket"])
+    assert dest.caches["K"][5].tolist() == [7, 7]
+    assert source.poll_direct() == {"producer"}
+
+
+@pytest.mark.parametrize("stage", ["unqueried", "claimed", "allocated"])
+def test_abort_before_load_releases_only_unallocated_ticket(connector, stage):
+    connector._direct_handoff = True
+    connector._is_producer = False
+    actor = SimpleNamespace(
+        claim_remote_direct_gpu_v1=AsyncMock(return_value=True),
+        release_remote_direct_gpu_v1=AsyncMock(),
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=actor)
+    request = decoder_request()
+    if stage != "unqueried":
+        assert connector.get_num_new_matched_tokens(request, 0) == (32, True)
+    if stage == "allocated":
+        connector.update_state_after_alloc(
+            request, SimpleNamespace(get_block_ids=lambda: [[4, 5]]), 32
+        )
+    assert connector.request_finished(request, []) == (False, None)
+    if stage == "allocated":
+        actor.release_remote_direct_gpu_v1.assert_not_awaited()
+        assert "decoder" in connector._requests_need_load
+    else:
+        actor.release_remote_direct_gpu_v1.assert_awaited_once_with(0, "ticket")
+
+
+@pytest.mark.asyncio
+async def test_direct_batch_failure_releases_later_tickets_and_preserves_error(
+    monkeypatch,
+):
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    for ticket in ("a", "b"):
+        source.register_direct(ticket, ticket, [1])
+    peer = peer_for(source)
+
+    async def release(ticket):
+        source.release_direct(ticket)
+        if ticket == "a":
+            raise RuntimeError("cleanup error")
+
+    peer.release_direct_gpu_v1.side_effect = release
+    peer.send_direct_gpu_v1.side_effect = ValueError("original read error")
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    with pytest.raises(ValueError, match="original read error"):
+        await dest.load_direct([{0: {"K": {1: 5}}}] * 2, ["a", "b"])
+    assert source.poll_direct() == {"a", "b"}
+    assert peer.release_direct_gpu_v1.await_count == 2
+
+
+def test_producer_metadata_gates_idle_rpc_and_fence(
+    connector, connector_module, monkeypatch
+):
+    connector._direct_handoff = True
+    connector._is_consumer = False
+    metadata = connector_module.XavierConnectorMetadata()
+    monkeypatch.setattr(
+        connector, "_get_connector_metadata", lambda: metadata, raising=False
+    )
+    sync = Mock()
+    monkeypatch.setattr(torch.cuda, "synchronize", sync)
+    connector._ensure_gpu_cache_mapping = AsyncMock()
+    connector._transfer_ref = SimpleNamespace(
+        poll_direct_gpu_v1=AsyncMock(return_value={"p"})
+    )
+    connector.start_load_kv(None)
+    connector.wait_for_save()
+    assert connector.get_finished(set()) == (set(), set())
+    sync.assert_not_called()
+    connector._transfer_ref.poll_direct_gpu_v1.assert_not_awaited()
+    metadata.direct_sends = {"p"}
+    metadata.direct_store = True
+    connector.start_load_kv(None)
+    connector.wait_for_save()
+    assert connector.get_finished(set()) == ({"p"}, set())
+    assert connector.get_finished(set()) == (set(), set())
+    sync.assert_called_once()
+    connector._transfer_ref.poll_direct_gpu_v1.assert_awaited_once()

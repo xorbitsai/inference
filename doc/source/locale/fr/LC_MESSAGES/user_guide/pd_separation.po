@@ -342,3 +342,31 @@ msgstr "Transfert direct et historique hiérarchisé"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "Le transfert direct nécessite actuellement ``n=1``."
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"L’historique est restauré sur P avant le transfert vers D. Pour les longs "
+"prompts, seul un préfixe peut être conservé ; la conservation de tout le "
+"cache n’est pas garantie."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"Les transferts non acceptés expirent après 120 secondes. Si un transfert "
+"expire avant que D ne l’accepte, D recalcule localement. Après acceptation, "
+"le cache source reste réservé jusqu’à la fin du chargement ou à l’annulation"
+" de la requête avant le chargement."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr ""
+"Les transferts directs et le chargement de l’historique peuvent se dérouler "
+"en parallèle de la génération des réponses à d’autres requêtes."

@@ -338,3 +338,31 @@ msgstr "Transferencia directa e historial por niveles"
 msgid "Direct handoff currently requires ``n=1``."
 msgstr "La transferencia directa requiere actualmente ``n=1``."
 
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"El historial se restaura en P antes de transferirlo a D. Los prompts largos "
+"pueden conservar solo un prefijo; no se garantiza la retención de toda la "
+"caché."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"Las transferencias no aceptadas caducan tras 120 segundos. Si caducan antes "
+"de que D las acepte, D vuelve a calcular localmente. Tras la aceptación, la "
+"caché de origen permanece reservada hasta que termine la carga o se cancele "
+"la solicitud antes de cargar."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr ""
+"Las transferencias directas y las cargas del historial pueden solaparse con "
+"la generación de respuestas de otras solicitudes."

@@ -340,7 +340,7 @@ async def test_gpu_pd_defaults_to_direct_handoff(launch_runtime, budget):
     await supervisor.launch_builtin_model(
         **launch_kwargs(), xavier_gpu_cache_bytes=budget
     )
-    assert actors["PDModelActor"].constructor_kwargs["direct_handoff"] is True
+    assert actors["PDModelActor"].constructor_kwargs["transport_backend"] == "xavier"
     for worker in workers:
         config = worker.launch_builtin_model.call_args.kwargs
         assert config["xavier_config"]["gpu_cache_bytes"] == (

@@ -493,12 +493,20 @@ class GPUTransferMixin:
             # and map_gpu_caches_v1 must not re-register after shutdown/failure.
             await runtime.close()
 
-    def register_direct_gpu_v1(
-        self, ticket, request_id, blocks, hashes=None, held_blocks=None
-    ):
-        self._gpu_transfer.register_direct(
-            ticket, request_id, blocks, hashes, held_blocks
+    def register_direct_gpu_v1(self, ticket, request_id, blocks, hashes=None):
+        self._gpu_transfer.register_direct(ticket, request_id, blocks, hashes)
+
+    def claim_direct_gpu_v1(self, ticket):
+        return self._gpu_transfer.claim_direct(ticket)
+
+    def abandon_direct_gpu_v1(self, ticket):
+        self._gpu_transfer.abandon_direct(ticket)
+
+    async def claim_remote_direct_gpu_v1(self, rank, ticket):
+        ref = await xo.actor_ref(
+            address=self._world_addresses[rank], uid=f"{self.default_uid()}-{rank}"
         )
+        return await ref.claim_direct_gpu_v1(ticket)
 
     def release_direct_gpu_v1(self, ticket):
         self._gpu_transfer.release_direct(ticket)
