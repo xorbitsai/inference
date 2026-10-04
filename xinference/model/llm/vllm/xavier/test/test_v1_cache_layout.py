@@ -61,7 +61,7 @@ async def test_read_large_cache_blocks_incrementally(monkeypatch):
     )
 
 
-def test_hybrid_cache_is_rejected_before_serving(monkeypatch):
+def test_recurrent_prefix_cache_is_rejected_before_serving(monkeypatch):
     pytest.importorskip("vllm")
     from ..v1_connector import KVConnectorBase_V1, XavierConnector
 
@@ -76,8 +76,9 @@ def test_hybrid_cache_is_rejected_before_serving(monkeypatch):
     )
     caches = SimpleNamespace(
         kv_cache_groups=[
-            SimpleNamespace(kv_cache_spec=SimpleNamespace(mamba_cache_mode="all"))
+            SimpleNamespace(kv_cache_spec=SimpleNamespace(mamba_cache_mode="all")),
+            SimpleNamespace(kv_cache_spec=SimpleNamespace()),
         ]
     )
-    with pytest.raises(ValueError, match="does not yet support hybrid/recurrent"):
+    with pytest.raises(ValueError, match="requires mamba_cache_mode=none"):
         XavierConnector(config, None, caches)

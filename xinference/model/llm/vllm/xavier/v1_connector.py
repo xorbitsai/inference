@@ -76,6 +76,8 @@ class XavierLoadRequest:
     local_transfers_by_group: Dict[int, Dict[int, Dict[int, int]]] = field(
         default_factory=dict
     )
+    remote_blocks_by_group: List[List[int]] = field(default_factory=list)
+    local_hit_tokens: int = 0
 
 
 @dataclass
@@ -106,31 +108,67 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         )
         self._block_size = vllm_config.cache_config.block_size
         self._cache_dtype = vllm_config.cache_config.cache_dtype
-        has_recurrent_cache = any(
-            hasattr(group.kv_cache_spec, "mamba_cache_mode")
-            for group in kv_cache_config.kv_cache_groups
-        )
-        if has_recurrent_cache:
-            raise ValueError(
-                "Xavier PD does not yet support hybrid/recurrent attention caches "
-                "(for example Qwen3.5). Launch this model without PD/Xavier, "
-                "or use a full-attention model such as Qwen3 for PD."
-            )
+        self._recurrent_groups = {
+            i
+            for i, group in enumerate(kv_cache_config.kv_cache_groups)
+            if hasattr(group.kv_cache_spec, "mamba_cache_mode")
+        }
+        self._has_recurrent_cache = bool(self._recurrent_groups)
+        if self._has_recurrent_cache:
+            if getattr(
+                vllm_config.cache_config, "enable_prefix_caching", False
+            ) or getattr(
+                getattr(vllm_config, "scheduler_config", None),
+                "async_scheduling",
+                False,
+            ):
+                raise ValueError(
+                    "Xavier recurrent handoff requires enable_prefix_caching=False "
+                    "and async_scheduling=False"
+                )
+            if len(self._recurrent_groups) == len(kv_cache_config.kv_cache_groups):
+                raise ValueError(
+                    "Xavier recurrent handoff requires a full-attention group"
+                )
+            if getattr(vllm_config, "speculative_config", None) is not None:
+                raise ValueError(
+                    "Xavier recurrent handoff does not support speculative decoding"
+                )
+            for i in self._recurrent_groups:
+                if (
+                    kv_cache_config.kv_cache_groups[i].kv_cache_spec.mamba_cache_mode
+                    != "none"
+                ):
+                    raise ValueError(
+                        "Xavier recurrent handoff requires mamba_cache_mode=none"
+                    )
         parallel = vllm_config.parallel_config
         if parallel.tensor_parallel_size != 1 or parallel.pipeline_parallel_size != 1:
             raise ValueError("Xavier V1 currently requires TP=1 and PP=1")
-        if (
-            vllm_config.lora_config is not None
-            or vllm_config.model_config.is_multimodal_model
+        if vllm_config.lora_config is not None or (
+            vllm_config.model_config.is_multimodal_model
+            and not getattr(
+                getattr(vllm_config.model_config, "multimodal_config", None),
+                "language_model_only",
+                False,
+            )
         ):
             raise ValueError(
-                "Xavier V1 currently supports text-only models without LoRA"
+                "Xavier V1 requires text-only models or language_model_only=True, without LoRA"
             )
         self._direct_handoff = uses_direct_handoff(self._xavier_config)
         self._gpu_budget = self._xavier_config.get("gpu_cache_bytes")
-        if self._direct_handoff and len(kv_cache_config.kv_cache_groups) != 1:
+        if (
+            self._direct_handoff
+            and len(kv_cache_config.kv_cache_groups) != 1
+            and not self._has_recurrent_cache
+        ):
             raise ValueError(
                 "Direct handoff requires P/D roles, GPU transport and one KV group"
+            )
+        if self._has_recurrent_cache and not self._direct_handoff:
+            raise ValueError(
+                "Xavier recurrent caches require prefill/decode GPU handoff"
             )
         self._gpu_cache_mapped = False
         self._gpu_mapping_lock = asyncio.Lock()
@@ -138,7 +176,16 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._rank = int(self._xavier_config.get("rank", 0))
         self._is_producer = self._kv_transfer_config.is_kv_producer
         self._is_consumer = self._kv_transfer_config.is_kv_consumer
-        self._history_enabled = self._direct_handoff and bool(self._gpu_budget)
+        self._history_enabled = (
+            self._direct_handoff
+            and bool(self._gpu_budget)
+            and not self._has_recurrent_cache
+        )
+        if self._has_recurrent_cache and self._gpu_budget:
+            logger.info(
+                "Xavier recurrent handoff uses engine GPU states; historical prefix "
+                "reuse is unavailable, so no history cache budget is allocated."
+            )
         if self._history_enabled and self._is_producer:
             # P may restore its own independent history before computing a suffix.
             self._is_consumer = True
@@ -270,7 +317,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._registered_kv_caches = dict(kv_caches)
         schema = {
             name: (
-                tuple(block_major_view(tensor, self._num_cache_blocks).shape[1:]),
+                tuple(self._cache_block_view(layer, tensor).shape[1:]),
                 tensor.dtype,
             )
             for layer, cache in self._registered_kv_caches.items()
@@ -355,6 +402,21 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if self._direct_handoff:
             params = getattr(request, "kv_transfer_params", None) or {}
             handoff = params.get("xavier_direct")
+            if (
+                self._has_recurrent_cache
+                and self._is_producer
+                and params.get("do_remote_decode")
+            ):
+                if (
+                    not params.get("_xavier_truncated")
+                    and request.num_prompt_tokens > 1
+                ):
+                    request.prompt_token_ids.pop()
+                    request._all_token_ids.pop()
+                    request.num_prompt_tokens -= 1
+                    request.max_tokens = 1
+                    params["_xavier_truncated"] = True
+                return 0, False
             if self._is_producer and self._history_enabled:
                 previous = self._requests_need_load.get(request.request_id)
                 if previous is not None:
@@ -413,6 +475,29 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 params["do_remote_prefill"] = False
                 return 0, False
 
+            remote_groups = handoff.get("blocks_by_group", [])
+            if self._has_recurrent_cache or remote_groups:
+                expected_blocks = (tokens + self._block_size - 1) // self._block_size
+                valid_groups = (
+                    isinstance(remote_groups, (list, tuple))
+                    and len(remote_groups) == len(self._kv_cache_config.kv_cache_groups)
+                    and all(
+                        isinstance(group, (list, tuple))
+                        and len(group)
+                        == (1 if i in self._recurrent_groups else expected_blocks)
+                        and all(type(block) is int and block >= 0 for block in group)
+                        for i, group in enumerate(remote_groups)
+                    )
+                )
+                if not valid_groups:
+                    logger.warning(
+                        "Incompatible Xavier cache groups; recomputing request %s",
+                        request.request_id,
+                    )
+                    params["do_remote_prefill"] = False
+                    self._requests_need_load.pop(request.request_id, None)
+                    return 0, False
+
             async def claim():
                 ref = await self._get_transfer_ref()
                 return await ref.claim_remote_direct_gpu_v1(rank, ticket)
@@ -427,6 +512,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 request.request_id,
                 {rank: {block: i for i, block in enumerate(blocks) if i >= start}},
                 lease=ticket,
+                remote_blocks_by_group=remote_groups,
+                local_hit_tokens=num_computed_tokens,
             )
             return tokens - num_computed_tokens, True
         self._requests_need_load.pop(request.request_id, None)
@@ -501,6 +588,22 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         for group_id, group_block_ids in enumerate(block_ids_by_group):
             updated: Dict[int, Dict[int, int]] = {}
             for from_rank, remote_to_placeholder in load_request.transfers.items():
+                if load_request.remote_blocks_by_group:
+                    remote = load_request.remote_blocks_by_group[group_id]
+                    if group_id in self._recurrent_groups:
+                        if len(remote) != 1 or len(group_block_ids) != 1:
+                            raise ValueError(
+                                "Expected one recurrent state block per request"
+                            )
+                        updated[from_rank] = {remote[0]: group_block_ids[0]}
+                    else:
+                        start = load_request.local_hit_tokens // self._block_size
+                        updated[from_rank] = {
+                            block: group_block_ids[i]
+                            for i, block in enumerate(remote)
+                            if i >= start and (group_id, i) not in null_positions
+                        }
+                    continue
                 # Placeholder indices are absolute positions in the prompt.
                 # Allocation includes locally cached prefix blocks: remote
                 # suffix blocks must not overwrite that prefix. Indexing by
@@ -545,6 +648,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self,
         request: "Request",
         block_ids: List[int],
+        block_ids_by_group: Optional[Tuple[List[int], ...]] = None,
     ) -> tuple[bool, dict[str, Any] | None]:
         if self._direct_handoff:
             pending = self._requests_need_load.get(request.request_id)
@@ -562,11 +666,34 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 if request.status == RequestStatus.FINISHED_ABORTED:
                     return False, None
                 token_count = max(len(request.prompt_token_ids) - 1, 0)
+                if self._has_recurrent_cache:
+                    if not params.get("_xavier_truncated"):
+                        return False, {
+                            "do_remote_prefill": True,
+                            "xavier_direct": {
+                                "rank": self._rank,
+                                "ticket": "",
+                                "blocks": [],
+                                "tokens": 0,
+                            },
+                        }
+                    token_count = len(request.prompt_token_ids)
                 count = min(
                     len(block_ids),
                     (token_count + self._block_size - 1) // self._block_size,
                 )
                 blocks = block_ids[:count]
+                grouped = None
+                registered: List[int] | Dict[str, List[int]] = blocks
+                if block_ids_by_group is not None:
+                    grouped = [
+                        list(ids) if i in self._recurrent_groups else list(ids[:count])
+                        for i, ids in enumerate(block_ids_by_group)
+                    ]
+                    registered = {
+                        name: grouped[group_id]
+                        for name, group_id in self._layer_group_ids.items()
+                    }
                 ticket = uuid.uuid4().hex if blocks else ""
                 if blocks:
 
@@ -579,7 +706,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             )
                             history_args = ([key for key, _ in hashes[:count]],)
                         await ref.register_direct_gpu_v1(
-                            ticket, request.request_id, blocks, *history_args
+                            ticket, request.request_id, registered, *history_args
                         )
 
                     self._call(register())
@@ -596,6 +723,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         "address": self._xavier_config.get("rank_address"),
                         "ticket": ticket,
                         "blocks": blocks,
+                        **({"blocks_by_group": grouped} if grouped is not None else {}),
                         "tokens": min(token_count, count * self._block_size),
                     },
                 }
@@ -638,6 +766,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request: "Request",
         block_ids: Tuple[List[int], ...],
     ) -> tuple[bool, dict[str, Any] | None]:
+        if self._has_recurrent_cache and block_ids:
+            full_group = next(
+                i for i in range(len(block_ids)) if i not in self._recurrent_groups
+            )
+            return self.request_finished(request, block_ids[full_group], block_ids)
         return self.request_finished(request, block_ids[0] if block_ids else [])
 
     def take_events(self) -> Iterable:
@@ -993,7 +1126,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 descriptors = {}
                 for name, cache in self._registered_kv_caches.items():
                     for layer, tensor in self._iter_kv_tensors(name, cache):
-                        tensor = block_major_view(tensor, self._num_cache_blocks)
+                        tensor = self._cache_block_view(name, tensor)
                         if not tensor.is_cuda:
                             raise ValueError(
                                 "Xavier GPU transfer requires CUDA KV caches"
@@ -1005,7 +1138,9 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     )
                 torch.cuda.synchronize()
                 await transfer.map_gpu_caches_v1(
-                    descriptors, self._gpu_budget, direct_handoff=self._direct_handoff
+                    descriptors,
+                    0 if self._has_recurrent_cache else self._gpu_budget,
+                    direct_handoff=self._direct_handoff,
                 )
                 self._gpu_cache_mapped = True
         return transfer
@@ -1089,6 +1224,19 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         # Dispatch before returning to forward execution, without waiting for
         # transfer completion or introducing another polling RPC per engine step.
         await asyncio.sleep(0)
+
+    def _cache_block_view(self, layer_name: str, tensor: torch.Tensor) -> torch.Tensor:
+        if not self._has_recurrent_cache:
+            return block_major_view(tensor, self._num_cache_blocks)
+        if self._get_layer_group_id(layer_name) in self._recurrent_groups:
+            return block_major_view(tensor, self._num_cache_blocks)
+        # HMA attention kernels may split a logical block into multiple physical
+        # blocks. Keep that extra dimension inside the transfer unit, as a view.
+        view = block_major_view(tensor, self._num_cache_blocks, allow_multiple=True)
+        physical = view.shape[0]
+        return view.unflatten(
+            0, (self._num_cache_blocks, physical // self._num_cache_blocks)
+        )
 
     @staticmethod
     def _iter_kv_tensors(

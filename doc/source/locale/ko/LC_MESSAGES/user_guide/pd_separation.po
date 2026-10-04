@@ -143,13 +143,8 @@ msgid "Hybrid/recurrent attention limitation"
 msgstr ""
 
 #: source/user_guide/pd_separation.rst:136
-msgid ""
-"Xavier PD does not support hybrid/recurrent attention models such as "
-"Qwen3.5. Deploy these models without PD, or choose a full-attention model "
-"such as Qwen3 for PD."
-msgstr ""
-"Xavier PD는 Qwen3.5 같은 하이브리드/순환 어텐션 모델을 지원하지 않습니다. 이러한 모델은 PD 없이 배포하거나, PD에는 "
-"Qwen3 같은 전체 어텐션 모델을 선택하세요."
+msgid "Qwen3.5 text requests are supported with Xavier and native NIXL. Set ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode=\"none\"``, ``disable_hybrid_kv_cache_manager=False`` and ``async_scheduling=False`` on both replicas. Use TP=1 and PP=1. Xavier history caching is not available for these hybrid/recurrent attention models; their configured history budget is not allocated. Image/video inputs and speculative decoding are not supported in this configuration. Native NIXL requires vLLM >= 0.22.0 for this mode."
+msgstr "Xavier와 네이티브 NIXL은 Qwen3.5 텍스트 요청을 지원합니다. 두 복제본 모두에서 ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode=\"none\"``, ``disable_hybrid_kv_cache_manager=False`` 및 ``async_scheduling=False`` 를 설정하고 TP=1, PP=1을 사용하세요. 이러한 하이브리드/순환 어텐션 모델에서는 Xavier 기록 캐시를 사용할 수 없으므로 설정된 기록 캐시 용량은 할당되지 않습니다. 이 구성은 이미지·동영상 입력과 추측 디코딩을 지원하지 않습니다. 이 모드에서 네이티브 NIXL을 사용하려면 vLLM >= 0.22.0이 필요합니다."
 
 #: source/user_guide/pd_separation.rst:143
 msgid "Xavier requirements and memory"
