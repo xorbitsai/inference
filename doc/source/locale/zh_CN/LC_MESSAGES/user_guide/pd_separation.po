@@ -374,3 +374,7 @@ msgstr "要对比原生 SGLang，保持相同部署并设置 ``transfer_backend_
 #: ../../source/user_guide/pd_separation.rst:66
 msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
 msgstr "进行固定输出长度的性能测试时，补全和聊天请求均支持 ``ignore_eos=true``。请用未使用的 ``stop`` 标记覆盖模型的停止字符串，并核实实际输出的 token 数。"
+
+#: ../../source/user_guide/pd_separation.rst:64
+msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch."
+msgstr "SGLang Xavier P/D 要求 ``disaggregation_decode_enable_radix_cache=false``；每个请求都会传输完整 prompt 的 KV。Prefill 端仍可使用本地 radix cache。若启用 decode 端 radix cache，启动时会拒绝该配置。"

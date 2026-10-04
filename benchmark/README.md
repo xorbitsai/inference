@@ -67,6 +67,10 @@ Both backends use FP16, eager execution, page size 64, identical model weights
 and the same memory fraction and KV capacity (`--kv-tokens 524288`). Requests ignore EOS and override chat-family stop
 strings with an unused marker; the script requires exactly 64 output tokens for
 throughput/cold arrivals and 1024 for background decode.
+The warm set primes prefill's local radix cache. SGLang decode radix caching is
+disabled for both transports, so requests still transfer their full prompt KV.
+Historical vLLM controls enabled prefix caching in both replicas; their warm
+cache behavior differs from this SGLang workload.
 The historical vLLM BF16 numbers are a workload reference, not a direct
 cross-engine performance baseline. SGLang Xavier GPU P/D currently retains no
 history, so this test does not measure the vLLM tiered-history benefit.

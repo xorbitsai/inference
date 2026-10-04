@@ -135,6 +135,9 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             raise ValueError("SGLang Xavier GPU PD cannot be combined with CPU HiCache")
         if cache_config["role"] not in ("prefill", "decode"):
             raise ValueError("SGLang Xavier GPU PD requires a prefill or decode role")
+        if model_config.get("disaggregation_decode_enable_radix_cache"):
+            raise ValueError("SGLang Xavier GPU PD does not support decode radix cache")
+        model_config["disaggregation_decode_enable_radix_cache"] = False
         cache_config["contract"] = contract.to_dict()
         model_config["disaggregation_mode"] = cache_config["role"]
         model_config["disaggregation_transfer_backend"] = "xavier"

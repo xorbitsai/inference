@@ -230,8 +230,19 @@ def test_pd_uses_gpu_slots_and_rejects_cpu_hicache(model_path):
     assert config["disaggregation_transfer_backend"] == "xavier"
     assert "enable_hierarchical_cache" not in config
     assert "hicache_storage_backend" not in config
+    assert config["disaggregation_decode_enable_radix_cache"] is False
     with pytest.raises(ValueError, match="CPU HiCache"):
         configure_xavier(model_path, {"hicache_host_memory_mode": "cache"}, cache)
+
+
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+def test_pd_rejects_decode_radix_cache_at_launch(model_path, role):
+    with pytest.raises(ValueError, match="decode radix cache"):
+        configure_xavier(
+            model_path,
+            {"disaggregation_decode_enable_radix_cache": True},
+            {"address": "worker:1234", "uid": "cache", "role": role},
+        )
 
 
 @pytest.mark.parametrize(
