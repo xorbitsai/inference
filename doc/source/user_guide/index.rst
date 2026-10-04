@@ -15,6 +15,12 @@ User Guide
 
 .. toctree::
    :maxdepth: 2
+   :caption: Deployment
+
+   using_docker_swarm
+
+.. toctree::
+   :maxdepth: 2
    :caption: Operations and security
 
    Metrics <metrics>

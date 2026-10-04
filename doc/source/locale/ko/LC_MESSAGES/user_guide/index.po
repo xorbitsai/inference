@@ -28,6 +28,10 @@ msgid "Model usage"
 msgstr "모델 사용"
 
 #: ../../source/user_guide/index.rst
+msgid "Deployment"
+msgstr "배포"
+
+#: ../../source/user_guide/index.rst
 msgid "Operations and security"
 msgstr "운영 및 보안"
 

@@ -27,6 +27,10 @@ msgid "Model usage"
 msgstr "Modellnutzung"
 
 #: ../../source/user_guide/index.rst
+msgid "Deployment"
+msgstr "Bereitstellung"
+
+#: ../../source/user_guide/index.rst
 msgid "Operations and security"
 msgstr "Betrieb und Sicherheit"
 
