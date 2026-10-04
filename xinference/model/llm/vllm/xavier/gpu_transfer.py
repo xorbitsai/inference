@@ -102,7 +102,12 @@ class GPUTransfer:
         def completed(future):
             self.tasks.discard(future)
             if not future.cancelled():
-                future.exception()  # Observe failures even after repeated cancellation.
+                error = future.exception()
+                if error is not None:
+                    logger.warning(
+                        "Xavier GPU transfer task failed",
+                        exc_info=(type(error), error, error.__traceback__),
+                    )
 
         task.add_done_callback(completed)
         return await finish_before_cancel(task)
@@ -156,6 +161,7 @@ class GPUTransfer:
             self.caches.clear()
             self.send_buffer = self.recv_buffer = None
             self.store._gpu_lru.clear()
+            self.store._block_sizes.clear()
             self.store.blocks.clear()
             self.store.ready.clear()
             self.store.tiers.clear()
