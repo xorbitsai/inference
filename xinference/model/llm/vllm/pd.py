@@ -2,40 +2,14 @@
 # Licensed under the Apache License, Version 2.0.
 """Native vLLM PD configuration, without importing optional GPU libraries."""
 
-import ipaddress
 import os
-import socket
+import socket as socket
 from typing import Any, Dict
 from uuid import uuid4
 
 from packaging.version import Version
 
-
-def resolve_nixl_host(host: str, host_key: str = "VLLM_NIXL_SIDE_CHANNEL_HOST") -> str:
-    if host not in ("0.0.0.0", "::"):
-        return host
-    # A UDP connect selects the default-route interface without
-    # sending traffic; hostname resolution covers offline hosts.
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect(("8.8.8.8", 80))
-            host = sock.getsockname()[0]
-    except OSError:
-        try:
-            host = socket.gethostbyname(socket.gethostname())
-        except OSError as exc:
-            raise ValueError(
-                f"Cannot discover a reachable NIXL host; set {host_key} explicitly"
-            ) from exc
-    if (
-        ipaddress.ip_address(host).is_loopback
-        or ipaddress.ip_address(host).is_unspecified
-    ):
-        raise ValueError(
-            f"Discovered NIXL host {host!r} is not remotely reachable; "
-            f"set {host_key} explicitly"
-        )
-    return host
+from ..xavier.transport import resolve_nixl_host as resolve_nixl_host
 
 
 def configure_nixl_environment(env: Dict[str, str], worker_address: str) -> None:

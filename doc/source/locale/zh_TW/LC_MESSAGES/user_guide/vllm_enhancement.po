@@ -90,5 +90,5 @@ msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (def
 msgstr "``xavier_cache_bytes`` 設定部署的共用 CPU 快取預算（預設 ``536870912``，即 512 MiB）。每個 SGLang 副本也會配置自己的 GPU 和 HiCache 主機記憶體集區。對一般副本而言，快取淘汰或儲存不可用會視為快取未命中。快取命名空間包含實際權重、分詞器、模型設定、KV 幾何形狀和引擎格式；目前無法在 vLLM 與 SGLang 之間交換快取。"
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "For explicit prefill/decode roles, see :ref:`user_guide_pd_separation`. The SGLang adapter currently transfers through CPU memory; measure transfer time and request latency before expecting a performance benefit."
-msgstr "明確的 prefill/decode 角色設定請參閱 :ref:`user_guide_pd_separation`。SGLang 介面卡目前透過 CPU 記憶體傳輸；期待效能收益之前，請測量傳輸時間和請求延遲。"
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "一般 SGLang 副本共用 CPU HiCache 頁面。明確的 prefill/decode 角色使用 Xavier GPU 直接傳輸，見 :ref:`user_guide_pd_separation`。尚不支援跨引擎 P/D。"

@@ -84,6 +84,56 @@ async def test_infer_preserves_decode_config(router, method):
 
 
 @pytest.mark.asyncio
+async def test_sglang_starts_decode_while_prefill_holds_source_slots(router):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    decode_started = asyncio.Event()
+
+    async def p(*args, **kwargs):
+        await asyncio.wait_for(decode_started.wait(), timeout=1)
+        return {}
+
+    async def d(*args, **kwargs):
+        decode_started.set()
+        await asyncio.sleep(0)
+        return {"choices": []}
+
+    prefill.generate.side_effect = p
+    decode.generate.side_effect = d
+    await actor._infer("generate", "prompt", {"max_tokens": 32}, request_id="r")
+    p_config = prefill.generate.call_args.args[1]
+    d_config = decode.generate.call_args.args[1]
+    assert p_config["max_tokens"] == 1 and d_config["max_tokens"] == 32
+    assert (
+        p_config["_pd_kv_transfer_params"]["sglang_xavier"]
+        == d_config["_pd_kv_transfer_params"]["sglang_xavier"]
+    )
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_sglang_stream_disconnect_aborts_both_roles(router, monkeypatch):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    directory = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=directory))
+
+    async def chunks():
+        yield b"first"
+        await asyncio.Event().wait()
+
+    decode.generate.return_value = chunks()
+    stream = await actor._infer("generate", "prompt", {"stream": True}, request_id="r")
+    assert await anext(stream) == b"first"
+    await stream.aclose()
+    prefill.abort_request.assert_awaited_once()
+    decode.abort_request.assert_awaited_once()
+    decode.decrease_serve_count.assert_awaited_once()
+    directory.release.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
 async def test_stream_cleanup_on_disconnect(router):
     actor, prefill, decode = router
     closed = []

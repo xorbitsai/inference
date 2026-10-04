@@ -84,6 +84,7 @@ class PDModelActor(xo.StatelessActor):
             [List[xo.ActorRefType["ModelActor"]]], SchedulingPolicy
         ] = RoundRobinSchedulingPolicy,
         transport_backend: str = "xavier",
+        model_engine: str = "vllm",
     ):
         super().__init__()
         # Prefill request map, used to skip the timeout task for specific request id.
@@ -92,6 +93,7 @@ class PDModelActor(xo.StatelessActor):
 
         self._model_uid = model_uid
         self._transport_backend = transport_backend
+        self._model_engine = (model_engine or "vllm").lower()
         self._direct_handoff = transport_backend == "xavier"
 
         # 使用字典存储副本：{replica_uid: actor_ref}
@@ -247,13 +249,16 @@ class PDModelActor(xo.StatelessActor):
             f"[PDModelActor] Free prefill model cache for request {request_id}"
         )
         handoff = self._direct_transfers.pop(request_id, None)
-        if handoff and handoff.get("ticket"):
+        if handoff:
             try:
                 if handoff.get("engine") == "sglang":
                     ref = await xo.actor_ref(
                         address=handoff["address"], uid=handoff["uid"]
                     )
-                    await ref.release_handoff(handoff["ticket"])
+                    if handoff.get("mode") == "gpu":
+                        await ref.release(handoff["room"])
+                    else:
+                        await ref.release_handoff(handoff["ticket"])
                 else:
                     await self._abandon_vllm_handoff(handoff)
             except Exception:
@@ -302,6 +307,8 @@ class PDModelActor(xo.StatelessActor):
         if args and args[0] and args[0].get("n", 1) != 1:
             # Handoff leases cover one decoder, not parallel sampling children.
             raise ValueError("PD KV handoff currently requires n=1")
+        if self._model_engine == "sglang":
+            return await self._infer_sglang(method, inputs, args, kwargs, request_id)
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
         prefill_args = list(copy.deepcopy(args))
@@ -388,6 +395,131 @@ class PDModelActor(xo.StatelessActor):
                         )
                     finally:
                         await self.free_prefill_model_cache(request_id)
+
+        return stream()
+
+    async def _infer_sglang(self, method, inputs, args, kwargs, request_id):
+        """Native SGLang owns live P/D slots until the Xavier transfer drains."""
+        prefill = self._prefill_policy.schedule()
+        decode = self._decode_policy.schedule()
+        handoff = dict(
+            engine="sglang",
+            mode="gpu",
+            room=uuid.uuid4().int % (2**63 - 1) + 1,
+            address=self.address,
+            uid=f"xavier-cache-{self._model_uid}",
+        )
+        self._request_set.add(request_id)
+        self._direct_transfers[request_id] = handoff
+        prefill_args = list(copy.deepcopy(args)) or [{}]
+        prefill_args[0] = dict(prefill_args[0] or {})
+        prefill_args[0].update(
+            max_tokens=1,
+            stream=False,
+            n=1,
+            _pd_kv_transfer_params=dict(do_remote_decode=True, sglang_xavier=handoff),
+        )
+        decode_args = list(copy.deepcopy(args)) or [{}]
+        decode_args[0] = dict(decode_args[0] or {})
+        decode_args[0]["_pd_kv_transfer_params"] = dict(
+            do_remote_prefill=True, sglang_xavier=handoff
+        )
+        prefill_kwargs = copy.deepcopy(kwargs)
+        if isinstance(prefill_kwargs.get("raw_params"), dict):
+            prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)
+        p_task = asyncio.create_task(
+            actor_call(prefill, method, inputs, *prefill_args, **prefill_kwargs)
+        )
+        d_task = asyncio.create_task(
+            actor_call(
+                decode,
+                method,
+                inputs,
+                *decode_args,
+                _rpc_operation_request_id=request_id,
+                **kwargs,
+            )
+        )
+        result = None
+
+        async def stop():
+            # Abort both native requests before cancellation so their schedulers
+            # drain GPU work before reclaiming source or destination slots.
+            await asyncio.gather(
+                *(
+                    actor_call(
+                        replica,
+                        "abort_request",
+                        request_id,
+                        30,
+                        _rpc_operation_request_id=request_id,
+                    )
+                    for replica in (prefill, decode)
+                ),
+                return_exceptions=True,
+            )
+            p_task.cancel()
+            d_task.cancel()
+            await asyncio.gather(p_task, d_task, return_exceptions=True)
+            await self.free_prefill_model_cache(request_id)
+
+        try:
+            await asyncio.wait({p_task, d_task}, return_when=asyncio.FIRST_COMPLETED)
+            if p_task.done():
+                await p_task
+            result = await d_task
+            if not hasattr(result, "__aiter__"):
+                await p_task
+                self._direct_transfers.pop(request_id, None)
+                await self.free_prefill_model_cache(request_id)
+                return result
+        except BaseException:
+            await stop()
+            raise
+
+        async def stream():
+            completed = False
+            next_chunk = None
+            try:
+                iterator = result.__aiter__()
+                while True:
+                    next_chunk = asyncio.create_task(anext(iterator))
+                    if not p_task.done():
+                        await asyncio.wait(
+                            {p_task, next_chunk}, return_when=asyncio.FIRST_COMPLETED
+                        )
+                    if p_task.done():
+                        await p_task
+                    try:
+                        chunk = await next_chunk
+                    except StopAsyncIteration:
+                        break
+                    # Native D output follows GPU transfer completion.
+                    await p_task
+                    yield chunk
+                completed = True
+                self._direct_transfers.pop(request_id, None)
+            finally:
+                if next_chunk is not None:
+                    next_chunk.cancel()
+                    await asyncio.gather(next_chunk, return_exceptions=True)
+                try:
+                    if hasattr(result, "aclose"):
+                        await result.aclose()
+                    elif hasattr(result, "destroy"):
+                        await result.destroy()
+                finally:
+                    try:
+                        await actor_call(
+                            decode,
+                            "decrease_serve_count",
+                            _rpc_operation_request_id=request_id,
+                        )
+                    finally:
+                        if completed:
+                            await self.free_prefill_model_cache(request_id)
+                        else:
+                            await stop()
 
         return stream()
 

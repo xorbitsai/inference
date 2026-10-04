@@ -48,7 +48,10 @@ python benchmark_serving.py --dataset-name random \
 and a JSONL workload of OpenAI chat or completion request bodies. Use completion
 prompts when comparing the transfer paths without differences in chat templates.
 Run ordinary replicas and
-Xavier PD sequentially against an otherwise idle server:
+Xavier PD sequentially against an otherwise idle server. SGLang Xavier P/D uses
+GPU-to-GPU NIXL transfer and the native SGLang P/D lifecycle; omit CPU HiCache
+settings and `xavier_cache_bytes` from the launch JSON. Install
+`xoscar[nixl]>=0.11.1` in worker and model environments:
 
 ```bash
 python benchmark/benchmark_pd.py --endpoint http://localhost:9997 \

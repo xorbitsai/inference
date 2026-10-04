@@ -350,16 +350,16 @@ msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` t
 msgstr "SGLang >= ``0.5.21`` 은 Python 클라이언트, REST API, CLI 및 Web UI에서 동일한 prefill/decode ``replica_config`` 를 사용할 수 있습니다. 예제의 ``model_engine`` 을 ``\"SGLang\"`` 으로 변경하세요. 명시적 역할은 Xavier를 자동으로 활성화하며 여러 prefill 및 decode 복제본을 지원합니다."
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
-msgstr "SGLang Xavier P/D는 공유 CPU HiCache 페이지를 사용하며 decode 시작 전에 게시 완료를 확인하고 임대를 유지합니다. Decode는 완전한 프롬프트 페이지를 복원하고 남은 꼬리 부분(최대 한 페이지)을 로컬에서 계산합니다. 스트리밍 및 비스트리밍 응답을 지원합니다. 인계가 불가능하거나 만료되거나 일치하지 않는 경우, 또는 decode 캐시가 적중하지 않는 경우 오류가 발생합니다. Prefill은 요청별 캐시 네임스페이스에서 각 PD 프롬프트를 다시 계산합니다. 초기 경로는 prefill 이력을 재사용하지 않습니다."
+msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors."
+msgstr "SGLang Xavier P/D는 Xavier의 NIXL 전송으로 GPU 간에 KV를 직접 전달합니다. Prefill과 decode는 SGLang 네이티브 P/D 수명 주기로 동시에 실행됩니다. 전송이 완료될 때까지 소스와 대상 GPU 슬롯의 소유권을 유지하며, decode는 prefill이 샘플링한 첫 토큰도 받습니다. 스트리밍 및 비스트리밍 응답을 지원하며 전송 실패는 오류가 됩니다."
 
 #: source/user_guide/pd_separation.rst
-msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
-msgstr "SGLang 모델 제한과 공유 메모리 용량은 :ref:`user_guide_vllm_enhancement` 를 참조하세요. ``xavier`` 전송을 사용하세요. SGLang 네이티브 분리, vLLM NIXL 및 엔진 간 P/D는 지원하지 않습니다."
+msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake/NIXL backend and cross-engine P/D are not exposed by this integration."
+msgstr "모델 제한은 :ref:`user_guide_vllm_enhancement` 를 참조하세요. worker와 모델 환경에 ``xoscar[nixl]>=0.11.1`` 을 설치하고 접근 가능한 worker 주소를 사용하세요. NIXL이 없으면 CPU로 대체하지 않고 시작에 실패합니다. ``xavier`` 전송을 사용하세요. 이 통합에서는 SGLang 자체 Mooncake/NIXL 백엔드와 엔진 간 P/D를 제공하지 않습니다."
 
 #: source/user_guide/pd_separation.rst
-msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
-msgstr "전송 가능한 프롬프트의 전체 접두부는 ``xavier_cache_bytes`` 에 들어가야 합니다. 각 복제본의 HiCache 호스트 풀은 추가 메모리를 사용합니다. 버려진 인계 임대는 5분 후 만료됩니다. Worker를 재시작한 후에는 배포를 다시 시작하세요. 성능을 위해 이 CPU 경로를 선택하기 전에 전송 시간, TTFT 및 처리량을 벤치마크하세요."
+msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "SGLang GPU P/D는 ``xavier_cache_bytes`` 나 CPU HiCache를 사용하지 않습니다. Xavier GPU 이력 캐시 보존은 아직 지원하지 않으며 ``xavier_gpu_cache_bytes`` 는 생략하거나 ``0`` 으로 설정하세요. worker 재시작 후 배포를 다시 시작하세요. 실제 워크로드에서 일반 복제본 및 네이티브 SGLang P/D와 TTFT 및 처리량을 비교하세요."
 
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."

@@ -222,12 +222,15 @@ def test_launch_configuration_consumes_adapter_options(model_path):
     assert KVCacheContract.from_dict(extra["contract"]).block_size == 4
 
 
-def test_pd_requires_transient_host_staging_without_partial_hit_fallback(model_path):
+def test_pd_uses_gpu_slots_and_rejects_cpu_hicache(model_path):
     cache = {"address": "worker:1234", "uid": "cache", "role": "decode"}
     config = {}
     configure_xavier(model_path, config, cache)
-    assert config["hicache_host_memory_mode"] == "buffer_only"
-    with pytest.raises(ValueError, match="buffer_only"):
+    assert config["disaggregation_mode"] == "decode"
+    assert config["disaggregation_transfer_backend"] == "xavier"
+    assert "enable_hierarchical_cache" not in config
+    assert "hicache_storage_backend" not in config
+    with pytest.raises(ValueError, match="CPU HiCache"):
         configure_xavier(model_path, {"hicache_host_memory_mode": "cache"}, cache)
 
 

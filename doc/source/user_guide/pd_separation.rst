@@ -55,11 +55,11 @@ SGLang with Xavier
 
 SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``"SGLang"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported.
 
-SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history.
+SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors.
 
-The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported.
+The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake/NIXL backend and cross-engine P/D are not exposed by this integration.
 
-The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance.
+SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload.
 
 Native NIXL backend
 -------------------

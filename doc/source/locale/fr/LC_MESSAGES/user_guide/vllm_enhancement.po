@@ -101,5 +101,5 @@ msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (def
 msgstr "``xavier_cache_bytes`` définit le budget de cache CPU partagé du déploiement (par défaut : ``536870912``, 512 MiB). Chaque réplique SGLang alloue aussi ses propres pools GPU et hôte HiCache. Pour les répliques ordinaires, l'éviction ou l'indisponibilité du stockage est traitée comme une absence dans le cache. Les espaces de noms incluent les poids réels, le tokenizer, la configuration du modèle, la géométrie KV et le format du moteur ; les caches ne peuvent pas encore être échangés entre vLLM et SGLang."
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "For explicit prefill/decode roles, see :ref:`user_guide_pd_separation`. The SGLang adapter currently transfers through CPU memory; measure transfer time and request latency before expecting a performance benefit."
-msgstr "Pour les rôles prefill/decode explicites, consultez :ref:`user_guide_pd_separation`. L'adaptateur SGLang transfère actuellement via la mémoire CPU ; mesurez le temps de transfert et la latence des requêtes avant d'attendre un gain de performances."
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "Les répliques SGLang ordinaires partagent des pages CPU HiCache. Les rôles prefill/decode explicites utilisent le transfert GPU direct de Xavier ; voir :ref:`user_guide_pd_separation`. Le P/D entre moteurs n'est pas encore pris en charge."

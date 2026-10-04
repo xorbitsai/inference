@@ -348,16 +348,16 @@ msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` t
 msgstr "SGLang >= ``0.5.21`` 可通过 Python 客户端、REST API、CLI 和 Web UI 使用相同的 prefill/decode ``replica_config``。将示例中的 ``model_engine`` 改为 ``\"SGLang\"``。显式角色会自动启用 Xavier；支持多个 prefill 和 decode 副本。"
 
 #: source/user_guide/pd_separation.rst
-msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
-msgstr "SGLang Xavier P/D 使用共享的 CPU HiCache 页，在 decode 开始前确认发布并保留租约。Decode 恢复完整的提示词页，并在本地计算剩余尾部（最多一页）。支持流式和非流式响应；交接不可用、已过期、不匹配，或 decode 缓存未命中时会报错。 Prefill 为每个 PD 提示词使用独立的请求缓存命名空间并重新计算；初始路径不复用 prefill 历史。"
+msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors."
+msgstr "SGLang Xavier P/D 通过 Xavier 的 NIXL 传输在 GPU 之间直接传递 KV。Prefill 和 decode 使用 SGLang 原生 P/D 生命周期并行运行。源和目标 GPU 槽位保留所有权，直到传输完成；decode 还会接收 prefill 采样的第一个 token。支持流式和非流式响应。传输失败会报错。"
 
 #: source/user_guide/pd_separation.rst
-msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
-msgstr "SGLang 的模型限制和共享内存预算参见 :ref:`user_guide_vllm_enhancement`。请使用 ``xavier`` 传输后端；不支持原生 SGLang 分离、vLLM NIXL 和跨引擎 P/D。"
+msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake/NIXL backend and cross-engine P/D are not exposed by this integration."
+msgstr "模型限制见 :ref:`user_guide_vllm_enhancement`。在 worker 和模型环境中安装 ``xoscar[nixl]>=0.11.1``，并使用可访问的 worker 地址。缺少 NIXL 时启动失败，不会回退到 CPU。使用 ``xavier`` 传输；此集成尚未暴露 SGLang 自身的 Mooncake/NIXL 后端和跨引擎 P/D。"
 
 #: source/user_guide/pd_separation.rst
-msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
-msgstr "可传输的完整提示词前缀必须能放入 ``xavier_cache_bytes``；每个副本的 HiCache 主机内存池还会占用额外内存。被遗弃的交接租约在五分钟后过期。Worker 重启后需重新启动部署。选择这条 CPU 路径以提升性能之前，请测量传输时间、TTFT 和吞吐量。"
+msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "SGLang GPU P/D 不使用 ``xavier_cache_bytes`` 或 CPU HiCache。尚不支持保留 Xavier GPU 历史缓存；可以省略 ``xavier_gpu_cache_bytes`` 或将其设为 ``0``。Worker 重启后需重新启动部署。请针对实际负载，对比普通副本和原生 SGLang P/D 的 TTFT 与吞吐量。"
 
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."

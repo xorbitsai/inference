@@ -31,4 +31,4 @@ SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage 
 
 ``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang.
 
-For explicit prefill/decode roles, see :ref:`user_guide_pd_separation`. The SGLang adapter currently transfers through CPU memory; measure transfer time and request latency before expecting a performance benefit.
+Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported.

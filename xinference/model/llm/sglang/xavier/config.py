@@ -1,6 +1,6 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Translate Xinference's Xavier option into SGLang's dynamic HiCache backend."""
+"""Configure SGLang's Xavier HiCache sharing or native GPU P/D adapter."""
 
 import json
 from pathlib import Path
@@ -128,22 +128,23 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         logical_dtype="float16",
     )
     model_config["dtype"] = "float16"
+    if cache_config.get("role"):
+        if model_config.get("enable_hierarchical_cache") or any(
+            name.startswith("hicache_") for name in model_config
+        ):
+            raise ValueError("SGLang Xavier GPU PD cannot be combined with CPU HiCache")
+        if cache_config["role"] not in ("prefill", "decode"):
+            raise ValueError("SGLang Xavier GPU PD requires a prefill or decode role")
+        cache_config["contract"] = contract.to_dict()
+        model_config["disaggregation_mode"] = cache_config["role"]
+        model_config["disaggregation_transfer_backend"] = "xavier"
+        model_config["enable_cache_report"] = True
+        return
     model_config["enable_hierarchical_cache"] = True
     model_config["hicache_mem_layout"] = "layer_first"
     model_config.setdefault("hicache_write_policy", "write_through")
     model_config.setdefault("hicache_io_backend", "kernel")
     model_config.setdefault("hicache_storage_prefetch_policy", "wait_complete")
-    if cache_config.get("role"):
-        model_config.setdefault("hicache_host_memory_mode", "buffer_only")
-        if (
-            model_config["hicache_write_policy"] != "write_through"
-            or model_config["hicache_storage_prefetch_policy"] != "wait_complete"
-            or model_config["hicache_host_memory_mode"] != "buffer_only"
-        ):
-            raise ValueError(
-                "SGLang Xavier PD requires write_through, wait_complete and buffer_only"
-            )
-        model_config["enable_cache_report"] = True
     model_config["hicache_storage_backend"] = "dynamic"
     model_config["hicache_storage_backend_extra_config"] = json.dumps(
         {

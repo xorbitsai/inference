@@ -234,6 +234,24 @@ class SGLANGModel(LLM):
             if self._n_worker != 1:
                 raise ValueError("SGLang Xavier requires one worker per replica")
             configure_xavier(self.model_path, self._model_config, cache_config)
+            if cache_config.get("role"):
+                from sglang.srt.plugins.hook_registry import HookRegistry
+
+                from ...llm.xavier.transport import get_transport_host
+                from .xavier.gpu import GPU_CONFIG_ENV
+                from .xavier.plugin import register
+
+                cache_config["host"] = get_transport_host(
+                    cache_config.get("host") or self._address
+                )
+                os.environ[GPU_CONFIG_ENV] = json.dumps(cache_config)
+                plugins = os.environ.get("SGLANG_PLUGINS")
+                if plugins:
+                    os.environ["SGLANG_PLUGINS"] = plugins + ",xinference_xavier"
+                # Also install in the Runtime parent, including when another
+                # engine already loaded SGLang's general plugins in this process.
+                register()
+                HookRegistry.apply_hooks()
         reasoning_content = self._model_config.pop("reasoning_content")
         enable_thinking = self._model_config.pop("enable_thinking", False)
         self.prepare_parse_reasoning_content(
@@ -743,6 +761,9 @@ class SGLANGModel(LLM):
             "top_logprobs_num",
             "return_text_in_logprobs",
             "cache_salt",
+            "bootstrap_host",
+            "bootstrap_port",
+            "bootstrap_room",
         ):
             if k in sampling_params:
                 top[k] = sampling_params.pop(k)
@@ -917,11 +938,16 @@ class SGLANGModel(LLM):
         # Validate generation options before reserving any shared KV capacity.
         if transfer is not None:
             if prefill:
-                pending_handoff = await pd.prepare(prompt)
-                sanitized_generate_config["cache_salt"] = pending_handoff["cache_salt"]
+                pending_handoff = await pd.prepare(prompt, transfer)
             else:
                 handoff = await pd.accept(prompt, transfer)
-                sanitized_generate_config["cache_salt"] = handoff["cache_salt"]
+            active_handoff = pending_handoff if prefill else handoff
+            assert active_handoff is not None
+            cast(Dict[str, Any], sanitized_generate_config).update(
+                bootstrap_host="xavier",
+                bootstrap_port=1,
+                bootstrap_room=active_handoff["room"],
+            )
         if not request_id:
             request_id = str(uuid.uuid1())
         self._active_request_ids.add(request_id)
@@ -934,9 +960,8 @@ class SGLANGModel(LLM):
                     request_id=request_id,
                     **sanitized_generate_config,
                 )
-                completed = True
                 if handoff is not None:
-                    pd.check_hit(state["meta_info"], handoff)
+                    await pd.check_hit(state["meta_info"], handoff)
                 result = self._convert_state_to_completion(
                     request_id,
                     model=self.model_uid,
@@ -948,6 +973,7 @@ class SGLANGModel(LLM):
                         await pd.publish(pending_handoff)
                     )
                     pending_handoff = None
+                completed = True
                 return result
             finally:
                 if not completed:
@@ -961,9 +987,9 @@ class SGLANGModel(LLM):
                         )
                 self._active_request_ids.discard(request_id)
                 if handoff is not None:
-                    await pd.release(handoff)
+                    await pd.release(handoff, failed=not completed)
                 if pending_handoff is not None:
-                    await pd.release(pending_handoff)
+                    await pd.release(pending_handoff, failed=True)
         else:
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
@@ -980,7 +1006,7 @@ class SGLANGModel(LLM):
                     **sanitized_generate_config,
                 ):
                     if handoff is not None:
-                        pd.check_hit(meta_info, handoff)
+                        await pd.check_hit(meta_info, handoff)
                     chunk = self._convert_state_to_completion_chunk(
                         request_id,
                         self.model_uid,
@@ -1097,7 +1123,7 @@ class SGLANGModel(LLM):
                             )
                     self._active_request_ids.discard(request_id)
                     if handoff is not None:
-                        await pd.release(handoff)
+                        await pd.release(handoff, failed=not completed)
 
             return pd_stream()
 

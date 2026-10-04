@@ -110,10 +110,12 @@ async def test_sglang_pd_routes_roles_and_cleans_cache(launch_runtime):
     kwargs = launch_kwargs()
     kwargs["model_engine"] = "SGLang"
     await supervisor.launch_builtin_model(**kwargs)
-    assert set(actors) == {"XavierCacheActor", "PDModelActor"}
-    for role, worker in zip(("prefill", "decode"), workers):
+    assert set(actors) == {"XavierPDDirectory", "PDModelActor"}
+    for rank, (role, worker) in enumerate(zip(("prefill", "decode"), workers), 1):
         launch = worker.launch_builtin_model.call_args.kwargs
         assert launch["_xavier_cache_config"]["role"] == role
+        assert launch["_xavier_cache_config"]["rank"] == rank
+        assert launch["_xavier_cache_config"]["host"] == f"worker-{rank - 1}"
         assert launch["xavier_config"] is None
         worker.launch_rank0_model.assert_not_awaited()
     assert await supervisor.get_model("pd") is actors["PDModelActor"]
@@ -121,6 +123,19 @@ async def test_sglang_pd_routes_roles_and_cleans_cache(launch_runtime):
     assert not supervisor._xavier_cache_mapping
     assert not supervisor._pd_model_mapping
     assert destroy.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("option", ["xavier_cache_bytes", "xavier_gpu_cache_bytes"])
+async def test_sglang_gpu_pd_rejects_cpu_cache_and_retained_history(
+    launch_runtime, option
+):
+    supervisor, _, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="SGLang", **{option: 1024})
+    with pytest.raises(ValueError):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
 
 
 @pytest.mark.asyncio

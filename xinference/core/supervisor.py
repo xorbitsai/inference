@@ -3102,10 +3102,13 @@ class SupervisorActor(xo.StatelessActor):
         )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
         if cache_bytes is not None and (
-            not sglang_xavier or type(cache_bytes) is not int or cache_bytes <= 0
+            not sglang_xavier
+            or pd_enabled
+            or type(cache_bytes) is not int
+            or cache_bytes <= 0
         ):
             raise ValueError(
-                "xavier_cache_bytes requires SGLang Xavier and a positive integer"
+                "xavier_cache_bytes requires SGLang shared CPU caching and a positive integer"
             )
         if sglang_xavier:
             if transport_backend != "xavier" or n_worker != 1:
@@ -3133,8 +3136,14 @@ class SupervisorActor(xo.StatelessActor):
         from ..model.llm.xavier.transport import validate_gpu_cache_budget
 
         gpu_cache_bytes = validate_gpu_cache_budget(
-            kwargs.pop("xavier_gpu_cache_bytes", None), enable_xavier, replica
+            kwargs.pop("xavier_gpu_cache_bytes", None),
+            enable_xavier or sglang_xavier and pd_enabled,
+            replica,
         )
+        if sglang_xavier and gpu_cache_bytes not in (None, 0):
+            raise ValueError(
+                "SGLang Xavier GPU PD does not yet support retained GPU history"
+            )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
         store_address = None
@@ -3242,9 +3251,13 @@ class SupervisorActor(xo.StatelessActor):
             replica_kwargs = dict(kwargs)
             if sglang_xavier and pd_enabled:
                 assert replica_config is not None
+                from ..model.llm.xavier.transport import get_transport_host
+
                 replica_kwargs["_xavier_cache_config"] = {
                     **kwargs["_xavier_cache_config"],
                     "role": replica_config[rank - 1].role,
+                    "rank": rank,
+                    "host": get_transport_host(worker_ref.address),
                 }
             if pd_enabled and transport_backend == "nixl":
                 assert replica_config is not None
@@ -3303,16 +3316,27 @@ class SupervisorActor(xo.StatelessActor):
             nonlocal download_hub
             try:
                 if sglang_xavier:
-                    from ..model.llm.xavier.backends.torch.storage import (
-                        XavierCacheActor,
-                    )
+                    if pd_enabled:
+                        from ..model.llm.sglang.xavier.directory import (
+                            XavierPDDirectory,
+                        )
 
-                    cache_ref = await xo.create_actor(
-                        XavierCacheActor,
-                        capacity_bytes=cache_bytes or 512 * 1024 * 1024,
-                        address=self.address,
-                        uid=kwargs["_xavier_cache_config"]["uid"],
-                    )
+                        cache_ref = await xo.create_actor(
+                            XavierPDDirectory,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    else:
+                        from ..model.llm.xavier.backends.torch.storage import (
+                            XavierCacheActor,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierCacheActor,
+                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
                     if not hasattr(self, "_xavier_cache_mapping"):
                         self._xavier_cache_mapping = {}
                     self._xavier_cache_mapping[model_uid] = cache_ref
@@ -3574,6 +3598,7 @@ class SupervisorActor(xo.StatelessActor):
                         PDModelActor,
                         model_uid,
                         transport_backend=transport_backend,
+                        model_engine=model_engine,
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
