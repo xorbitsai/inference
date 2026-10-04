@@ -21,11 +21,7 @@ def pd_cluster(monkeypatch, tmp_path, backend):
     import xoscar as xo
 
     from xinference.api.restful_api import run_in_subprocess as start_api
-    from xinference.conftest import (
-        TEST_FILE_LOGGING_CONF,
-        TEST_LOG_FILE_PATH,
-        api_health_check,
-    )
+    from xinference.conftest import TEST_FILE_LOGGING_CONF, api_health_check
     from xinference.deploy.local import health_check, run_in_subprocess
 
     # Real subprocesses are required for per-replica CUDA_VISIBLE_DEVICES.
@@ -34,10 +30,17 @@ def pd_cluster(monkeypatch, tmp_path, backend):
     monkeypatch.setenv("XINFERENCE_AUTH_ADVANCED", "false")
     # vLLM spawns its own engine process, outside xoscar's logging setup.
     # Capture connector logs there as well, including the GPU cache write.
-    logging_config = deepcopy(TEST_FILE_LOGGING_CONF)
+    # Each deployment needs an isolated, non-rotating evidence log. Shared
+    # rotating logs can lose phase offsets or mix concurrent test sessions.
+    cluster_logging = deepcopy(TEST_FILE_LOGGING_CONF)
+    log_path = str(tmp_path / "pd-cluster.log")
+    cluster_logging["handlers"]["file_handler"].update(
+        filename=log_path, maxBytes=0, backupCount=0
+    )
+    logging_config = deepcopy(cluster_logging)
     logging_config["loggers"]["vllm"] = {
         "handlers": ["stream_handler", "file_handler"],
-        "level": "DEBUG",
+        "level": os.environ.get("XINFERENCE_TEST_PD_VLLM_LOG_LEVEL", "DEBUG"),
         "propagate": False,
     }
     # Per-op tensor debug messages synchronize CUDA and overwhelm these logs.
@@ -52,7 +55,7 @@ def pd_cluster(monkeypatch, tmp_path, backend):
     # Exercise NIXL host discovery without changing Xavier's Gloo interface.
     host = "0.0.0.0" if backend == "nixl" else "127.0.0.1"
     address = f"{host}:{xo.utils.get_next_port()}"
-    cluster = run_in_subprocess(address, None, None, deepcopy(TEST_FILE_LOGGING_CONF))
+    cluster = run_in_subprocess(address, None, None, deepcopy(cluster_logging))
     api = None
     try:
         assert health_check(address=address, max_attempts=20, sleep_interval=1)
@@ -62,10 +65,10 @@ def pd_cluster(monkeypatch, tmp_path, backend):
             address,
             host="127.0.0.1",
             port=port,
-            logging_conf=deepcopy(TEST_FILE_LOGGING_CONF),
+            logging_conf=deepcopy(cluster_logging),
         )
         assert api_health_check(endpoint, max_attempts=20, sleep_interval=1)
-        yield endpoint, TEST_LOG_FILE_PATH
+        yield endpoint, log_path
     finally:
         if api is not None:
             api.kill()
