@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 """Budgeted hot snapshots with CPU overflow and shared publication/read leases."""
 
-from typing import Dict, List
+from collections import OrderedDict
+from typing import Dict, List, Tuple
 
 import torch
 
@@ -34,11 +35,20 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         self.gpu_capacity = gpu_budget_bytes // block_bytes
         self.gpu_device = gpu_device
         self.tiers: Dict[int, str] = {}
+        # GPU victim lookup must not walk an arbitrarily large CPU history.
+        # Keep the GPU subsequence in the same order as the global block LRU.
+        self._gpu_lru: OrderedDict[int, None] = OrderedDict()
         self.counts = {"gpu": 0, "cpu": 0}
         self.metrics = dict(demotions=0, gpu_hits=0, cpu_hits=0, skipped=0)
         self.block_bytes = block_bytes
 
+    def touch(self, key: int) -> None:
+        self.blocks.move_to_end(key)
+        if key in self._gpu_lru:
+            self._gpu_lru.move_to_end(key)
+
     def _drop(self, key: int) -> None:
+        self._gpu_lru.pop(key, None)
         self.counts[self.tiers.pop(key)] -= 1
         del self.blocks[key]
         del self.logical_dtypes[key]
@@ -57,10 +67,34 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         self._drop(victim)
         return True
 
+    @staticmethod
+    def _copy_to_cpu(layers: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        # A synchronous D2H copy per layer stalls the producer for every layer
+        # of every evicted block. Pack compatible layers and synchronize once
+        # per group. Each host allocation belongs to one block, so evicting a
+        # block releases its storage without retaining unrelated snapshots.
+        groups: Dict[
+            Tuple[torch.device, torch.dtype], List[Tuple[str, torch.Tensor]]
+        ] = {}
+        host = {}
+        for layer, value in layers.items():
+            if value.device.type != "cuda":
+                host[layer] = value.to("cpu", copy=True)
+            else:
+                groups.setdefault((value.device, value.dtype), []).append(
+                    (layer, value)
+                )
+        for group in groups.values():
+            packed = torch.cat([value.reshape(-1) for _, value in group]).to("cpu")
+            values = packed.split([value.numel() for _, value in group])
+            for (layer, original), value in zip(group, values):
+                host[layer] = value.reshape(original.shape)
+        return host
+
     def _admit(self, key: int, pinned: set) -> bool:
         if self.gpu_capacity and self.counts["gpu"] >= self.gpu_capacity:
             victim = next(
-                (k for k in self.blocks if self.tiers[k] == "gpu" and k not in pinned),
+                (k for k in self._gpu_lru if k not in pinned),
                 None,
             )
             if victim is not None:
@@ -69,13 +103,11 @@ class TieredKVSnapshotStore(KVSnapshotStore):
                 )
                 if cpu_available:
                     # Copy before evicting CPU content or publishing the new tier.
-                    host = {
-                        layer: value.to("cpu", copy=True)
-                        for layer, value in self.blocks[victim].items()
-                    }
+                    host = self._copy_to_cpu(self.blocks[victim])
                     self._cpu_room(pinned)
                     self.blocks[victim] = host
                     self.tiers[victim] = "cpu"
+                    del self._gpu_lru[victim]
                     self.counts["gpu"] -= 1
                     self.counts["cpu"] += 1
                     self.metrics["demotions"] += 1
@@ -89,6 +121,8 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         self.blocks[key] = {}
         self.logical_dtypes[key] = {}
         self.tiers[key] = tier
+        if tier == "gpu":
+            self._gpu_lru[key] = None
         self.counts[tier] += 1
         return True
 
@@ -111,7 +145,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         for key, tensor in zip(keys, tensors):
             if key not in self.blocks and not self._admit(key, pinned):
                 continue
-            self.blocks.move_to_end(key)
+            self.touch(key)
             if layer not in self.blocks[key]:
                 device = (
                     self.gpu_device if self.tiers[key] == "gpu" else torch.device("cpu")
@@ -131,6 +165,8 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         if not super().reserve(lease, keys):
             return False
         for key in keys:
+            if key in self._gpu_lru:
+                self._gpu_lru.move_to_end(key)
             self.metrics[self.tiers[key] + "_hits"] += 1
         return True
 

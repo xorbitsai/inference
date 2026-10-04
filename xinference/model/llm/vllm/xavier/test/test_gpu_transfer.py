@@ -343,7 +343,9 @@ async def test_gpu_packing_preserves_all_bf16_bits(monkeypatch, device):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [torch.cuda.OutOfMemoryError, RuntimeError])
-async def test_staging_failure_drains_and_drops_only_unpublished(monkeypatch, failure):
+async def test_staging_failure_drains_and_drops_only_unpublished(
+    monkeypatch, failure, assert_gpu_lru_consistent
+):
     r = runtime(monkeypatch, gpu_slots=3)
     stage(r, 1)
     assert r.store.reserve("2:live", [1])
@@ -362,6 +364,7 @@ async def test_staging_failure_drains_and_drops_only_unpublished(monkeypatch, fa
     assert r.store.publish([2], {"K"}) == []
     assert r.store.leases == {"2:live": {1}}
     assert r.store.read("K", [1]).tolist() == [[1, -1]]
+    assert_gpu_lru_consistent(r.store)
 
 
 @pytest.mark.asyncio
@@ -531,6 +534,8 @@ async def test_staging_reused_layer_skips_gather_and_preserves_lru(
     assert r.store.tiers[1] == ("cpu" if gpu_slots == 1 else "gpu")
     assert not gathers
     assert not syncs
+    stage(r, 3)
+    assert r.store.tiers == {1: "cpu" if gpu_slots == 1 else "gpu", 2: "cpu", 3: "gpu"}
 
 
 @pytest.mark.asyncio
@@ -920,6 +925,7 @@ async def test_close_releases_snapshot_storage_and_is_idempotent(
     assert actor._gpu_transfer is r
     assert not r.store.blocks and not r.store.ready and not r.store.tiers
     assert not r.store.logical_dtypes and not r.store.leases and not r.store.evicted
+    assert not r.store._gpu_lru
     assert r.store.counts == {"gpu": 0, "cpu": 0}
     assert r.send_buffer is None and r.recv_buffer is None
     assert not r.recv_refs and not r.caches
@@ -1238,3 +1244,43 @@ def test_sync_load_preserves_error_and_attempts_all_releases(
     ):
         connector.start_load_kv(SimpleNamespace())
     assert connector._release_load_request.await_count == 2
+
+
+@pytest.mark.parametrize("second_keys", [[1, 2], [2, 1]])
+@pytest.mark.asyncio
+async def test_reused_layers_only_refresh_changed_lru_order(monkeypatch, second_keys):
+    r = runtime(monkeypatch, gpu_slots=2)
+    r.store = TieredKVSnapshotStore(2, 16, 8, r.device)
+    for key in [1, 2]:
+        for layer in ["K", "V"]:
+            r.store.stage(layer, [key], torch.ones(1, 2, dtype=torch.bfloat16))
+        r.store.publish([key], {"K", "V"})
+    touched = []
+    touch = r.store.touch
+
+    def track(key):
+        touched.append(key)
+        touch(key)
+
+    monkeypatch.setattr(r.store, "touch", track)
+    await r.stage([{"K": ([1, 2], [0, 1]), "V": (second_keys, [0, 1])}])
+    assert touched == ([1, 2] if second_keys == [1, 2] else [1, 2, 2, 1])
+    assert list(r.store.blocks) == second_keys
+    assert list(r.store._gpu_lru) == second_keys
+
+
+@pytest.mark.asyncio
+async def test_new_snapshot_resets_reused_layer_lru_shortcut(monkeypatch):
+    r = runtime(monkeypatch, gpu_slots=2)
+    stage(r, 1)
+    stage(r, 2)
+    await r.stage(
+        [
+            {"K": ([1, 2], [0, 1])},
+            {"K": ([3], [2])},
+            {"K": ([1, 2], [0, 1])},
+        ]
+    )
+    assert list(r.store.blocks) == [3, 1, 2]
+    assert list(r.store._gpu_lru) == [3, 2]
+    assert r.store.tiers == {1: "cpu", 2: "gpu", 3: "gpu"}

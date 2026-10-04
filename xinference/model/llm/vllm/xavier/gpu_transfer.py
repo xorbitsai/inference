@@ -155,6 +155,7 @@ class GPUTransfer:
             self.recv_ref = None
             self.caches.clear()
             self.send_buffer = self.recv_buffer = None
+            self.store._gpu_lru.clear()
             self.store.blocks.clear()
             self.store.ready.clear()
             self.store.tiers.clear()
@@ -170,6 +171,7 @@ class GPUTransfer:
         keys = {key for layers in entries for ids, _ in layers.values() for key in ids}
         failed = False
         copied = False
+        last_reused_keys = None
         try:
             for layers in entries:
                 for layer, (block_keys, ids) in layers.items():
@@ -180,9 +182,12 @@ class GPUTransfer:
                         and layer in self.store.blocks.get(key, {})
                         for key in block_keys
                     ):
-                        for key in block_keys:
-                            self.store.blocks.move_to_end(key)
+                        if block_keys != last_reused_keys:
+                            for key in block_keys:
+                                self.store.touch(key)
+                        last_reused_keys = block_keys
                         continue
+                    last_reused_keys = None
                     cache = self.caches[layer]
                     blocks = cache.index_select(
                         0, torch.tensor(ids, dtype=torch.long, device=cache.device)

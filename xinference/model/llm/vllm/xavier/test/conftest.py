@@ -80,3 +80,15 @@ def connector(connector_module, connector_config):
     instance = connector_module.XavierConnector(connector_config, None, caches)
     yield instance
     instance.shutdown()
+
+
+@pytest.fixture
+def assert_gpu_lru_consistent():
+    def check(store):
+        assert set(store.blocks) == set(store.tiers)
+        gpu_keys = [key for key in store.blocks if store.tiers[key] == "gpu"]
+        assert list(store._gpu_lru) == gpu_keys
+        assert store.counts["gpu"] == len(gpu_keys)
+        assert store.counts["cpu"] == len(store.blocks) - len(gpu_keys)
+
+    return check
