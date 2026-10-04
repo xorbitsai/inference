@@ -13,6 +13,7 @@ Getting Started
    logging
    using_docker_image
    using_docker_compose
+   using_docker_swarm
    using_kubernetes
    troubleshooting
    environments
