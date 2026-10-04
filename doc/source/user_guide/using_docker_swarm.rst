@@ -38,4 +38,4 @@ Swarm can replace failed containers, but that does not establish Xinference mode
 Further reading
 ---------------
 
-See `Swarm concepts <https://docs.docker.com/engine/swarm/key-concepts/>`_ for the orchestration model, :ref:`using_docker_compose` for the existing Compose setup, and :doc:`migration_3_0` for Xinference 3.x changes. A complete Swarm configuration and current-version cluster validation are outside the scope of this report.
+See `Swarm concepts <https://docs.docker.com/engine/swarm/key-concepts/>`_ for the orchestration model, :ref:`using_docker_compose` for the existing Compose setup, and :doc:`/getting_started/migration_3_0` for Xinference 3.x changes. A complete Swarm configuration and current-version cluster validation are outside the scope of this report.
