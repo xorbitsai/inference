@@ -15,10 +15,10 @@ from vllm.sequence import (
 from vllm.utils import Device, is_pin_memory_available
 from vllm.worker.cache_engine import CacheEngine
 
+from ...xavier.utils import hash_block_tokens
 from .executor import XavierExecutor
 from .scheduler import XavierScheduler
 from .scheduler_hook import EngineHook
-from .utils import hash_block_tokens
 from .xavier_remote_kvcache_manager import XavierRemoteKVCacheManager
 
 logger = logging.getLogger(__name__)

@@ -42,8 +42,12 @@ def peer_for(source):
 
 
 @pytest.mark.asyncio
-async def test_direct_handoff_preserves_bits_and_uses_no_snapshots(monkeypatch):
+@pytest.mark.parametrize("actor_uid", ["vllm-transfer-actor", "adapter-transfer"])
+async def test_direct_handoff_preserves_bits_and_uses_no_snapshots(
+    monkeypatch, actor_uid
+):
     source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    dest.actor.default_uid = lambda: actor_uid
     source.caches["K"].view(torch.int16).copy_(
         torch.tensor(
             [
@@ -61,13 +65,18 @@ async def test_direct_handoff_preserves_bits_and_uses_no_snapshots(monkeypatch):
     )
     source.register_direct("ticket", "producer", [1, 2])
     peer = peer_for(source)
-    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    actor_ref = AsyncMock(return_value=peer)
+    monkeypatch.setattr(xo, "actor_ref", actor_ref)
 
     async def copy(buffers, refs):
         refs[0].copy_(buffers[0])
 
     monkeypatch.setattr(xo, "copy_to", copy)
     await dest.run(dest.load_direct, [{0: {"K": {1: 5, 2: 3}}}], ["ticket"])
+    assert actor_ref.await_args_list[0].kwargs == {
+        "address": "source",
+        "uid": f"{actor_uid}-0",
+    }
     assert torch.equal(
         dest.caches["K"].view(torch.int16)[[5, 3]],
         source.caches["K"].view(torch.int16)[[1, 2]],

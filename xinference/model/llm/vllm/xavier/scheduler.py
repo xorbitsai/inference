@@ -31,9 +31,9 @@ from vllm.sequence import (
     SequenceStatus,
 )
 
+from ...xavier.utils import hash_block_tokens
 from .block_manager import XavierBlockManager
 from .cache_lifecycle import PDCacheLifecycleMixin
-from .utils import hash_block_tokens
 from .xavier_remote_kvcache_manager import XavierRemoteKVCacheManager
 
 try:

@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import torch
 import xoscar as xo
 
-from .block_tracker import VLLMBlockTracker
+from ...xavier.block_tracker import VLLMBlockTracker
 from .remote_kvcache_manager import RemoteKVCacheManager
 from .transfer import TransferActor
 

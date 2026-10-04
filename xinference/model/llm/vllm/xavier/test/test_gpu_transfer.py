@@ -39,7 +39,9 @@ def runtime(monkeypatch, gpu_slots=1):
         load_calls=0,
         load_requests=0,
     )
-    r.actor = SimpleNamespace(_world_addresses=["source"])
+    r.actor = SimpleNamespace(
+        _world_addresses=["source"], default_uid=lambda: "vllm-transfer-actor"
+    )
     return r
 
 
@@ -50,8 +52,12 @@ def stage(r, key):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("small_slab", [False, True])
-async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch, small_slab):
+@pytest.mark.parametrize("actor_uid", ["vllm-transfer-actor", "adapter-transfer"])
+async def test_mixed_tier_load_preserves_bits_and_destinations(
+    monkeypatch, small_slab, actor_uid
+):
     source, dest = runtime(monkeypatch), runtime(monkeypatch)
+    dest.actor.default_uid = lambda: actor_uid
     if small_slab:
         source.send_buffers[4] = source.send_buffer[:4]
         dest.recv_buffers[4] = dest.recv_buffer[:4]
@@ -68,11 +74,13 @@ async def test_mixed_tier_load_preserves_bits_and_destinations(monkeypatch, smal
         gpu_snapshot_locations_v1=AsyncMock(side_effect=source.locations),
         send_gpu_request_v1=AsyncMock(side_effect=source.send),
     )
-    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    actor_ref = AsyncMock(return_value=peer)
+    monkeypatch.setattr(xo, "actor_ref", actor_ref)
     dest.actor.read_request_blocks_v1 = AsyncMock(
         side_effect=lambda rank, reads: pack_reads(source.store, reads)
     )
     await dest.run(dest.load, {0: {"K": {1: 5, 2: 3}}})
+    actor_ref.assert_awaited_once_with(address="source", uid=f"{actor_uid}-0")
     assert dest.caches["K"][[5, 3]].tolist() == [[1, -1], [2, -2]]
     assert dest.caches["K"][:3].count_nonzero() == 0
     assert dest.metrics["gpu_batches"] == dest.metrics["cpu_batches"] == 1
