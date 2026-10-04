@@ -14,6 +14,7 @@ from xoscar.backends.allocate_strategy import ProcessIndex
 
 from ..block_tracker import BlockTracker
 from ..collective_manager import CollectiveManager
+from ..constants import DEFAULT_TRANSFER_ACTOR_UID
 
 
 class AdapterPeerActor(xo.StatelessActor):
@@ -109,7 +110,7 @@ def test_shared_coordination_imports_without_engine_or_device_dependencies():
 
         builtins.__import__ = guarded_import
         for name in (
-            "actor_loop", "block_tracker", "collective", "collective_manager",
+            "actor_loop", "block_tracker", "collective", "collective_manager", "constants",
             "profiling", "transport", "utils",
         ):
             importlib.import_module(prefix + "." + name)
@@ -119,6 +120,32 @@ def test_shared_coordination_imports_without_engine_or_device_dependencies():
         [sys.executable, "-c", script], capture_output=True, text=True, timeout=60
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rank", [0, 1])
+async def test_default_coordinator_uid_matches_vllm_transfer_actors(monkeypatch, rank):
+    pytest.importorskip("torch")
+    from ...vllm.xavier.transfer import Rank0TransferActor, TransferActor
+
+    manager = CollectiveManager("model")
+    assert DEFAULT_TRANSFER_ACTOR_UID == "vllm-transfer-actor"
+    assert (
+        manager._transfer_actor_uid
+        == TransferActor.default_uid()
+        == Rank0TransferActor.default_uid()
+        == DEFAULT_TRANSFER_ACTOR_UID
+    )
+    peer = SimpleNamespace(address="peer")
+    actor_ref = AsyncMock(return_value=peer)
+    monkeypatch.setattr(xo, "actor_ref", actor_ref)
+
+    await manager.register_rank(rank, "peer")
+    actor_class = Rank0TransferActor if rank == 0 else TransferActor
+    actor_ref.assert_awaited_once_with(
+        address="peer", uid=f"{actor_class.default_uid()}-{rank}"
+    )
+    assert manager._rank_to_ref[rank] is peer
 
 
 @pytest.mark.asyncio

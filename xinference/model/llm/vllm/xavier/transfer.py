@@ -23,6 +23,7 @@ import xoscar as xo
 
 from ...xavier.backends.torch.snapshot import KVSnapshotStore
 from ...xavier.collective import CollectiveRank
+from ...xavier.constants import DEFAULT_TRANSFER_ACTOR_UID
 from ...xavier.profiling import profile_stage
 
 try:
@@ -125,7 +126,7 @@ class TransferActor(
 ):
     @classmethod
     def default_uid(cls):
-        return f"vllm-transfer-actor"
+        return DEFAULT_TRANSFER_ACTOR_UID
 
     def __init__(
         self,
@@ -722,7 +723,7 @@ class Rank0TransferActor(xo.StatelessActor, CollectiveRank):
 
     @classmethod
     def default_uid(cls):
-        return f"vllm-transfer-actor"
+        return DEFAULT_TRANSFER_ACTOR_UID
 
     def __init__(
         self,

@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 import xoscar as xo
 
 from .block_tracker import BlockTracker
+from .constants import DEFAULT_TRANSFER_ACTOR_UID
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,9 @@ class CollectiveManager(xo.StatelessActor):
     def default_uid(cls):
         return f"xavier-collective-manager"
 
-    def __init__(self, model_uid: str, transfer_actor_uid: str = "vllm-transfer-actor"):
+    def __init__(
+        self, model_uid: str, transfer_actor_uid: str = DEFAULT_TRANSFER_ACTOR_UID
+    ):
         super().__init__()
         self._model_uid = model_uid
         self._transfer_actor_uid = transfer_actor_uid
