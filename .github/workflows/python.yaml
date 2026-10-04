@@ -371,9 +371,12 @@ jobs:
               xinference
             run_pytest \
               benchmark/tests/test_benchmark_pd.py \
+              benchmark/tests/test_benchmark_sglang_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \
               xinference/model/llm/sglang/tests/test_xavier.py \
               xinference/model/llm/sglang/tests/test_xavier_pd.py \
+              xinference/model/llm/sglang/tests/test_pd.py \
+              xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py \
               xinference/model/llm/vllm/xavier/test/test_profiling.py \
               xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
               xinference/model/llm/vllm/tests/test_pd.py \
