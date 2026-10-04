@@ -343,7 +343,9 @@ async def test_gpu_packing_preserves_all_bf16_bits(monkeypatch, device):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [torch.cuda.OutOfMemoryError, RuntimeError])
-async def test_staging_failure_drains_and_drops_only_unpublished(monkeypatch, failure):
+async def test_staging_failure_drains_and_drops_only_unpublished(
+    monkeypatch, failure, assert_gpu_lru_consistent
+):
     r = runtime(monkeypatch, gpu_slots=3)
     stage(r, 1)
     assert r.store.reserve("2:live", [1])
@@ -362,6 +364,7 @@ async def test_staging_failure_drains_and_drops_only_unpublished(monkeypatch, fa
     assert r.store.publish([2], {"K"}) == []
     assert r.store.leases == {"2:live": {1}}
     assert r.store.read("K", [1]).tolist() == [[1, -1]]
+    assert_gpu_lru_consistent(r.store)
 
 
 @pytest.mark.asyncio
