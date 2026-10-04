@@ -28,6 +28,8 @@ jobs:
     env:
       NO_WEB_UI: '1'
       XINFERENCE_TEST_PD_GPU: '1'
+      XINFERENCE_TEST_PD_MULTI_GPU: '1'
+      XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU: '1'
       XINFERENCE_AUTH_ADVANCED: 'false'
       XINFERENCE_ENABLE_VIRTUAL_ENV: '0'
       VLLM_VERSION: ${{ inputs.vllm_version }}
@@ -45,10 +47,12 @@ jobs:
       - name: Verify PD with actual KV transfer
         run: |
           source .venv-pd/bin/activate
-          python -m pytest --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py xinference/model/llm/vllm/xavier/test/test_direct_history.py
+          python -m pytest --basetemp=pd-test-logs --timeout=1800 -vv xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_pd_multi_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py xinference/model/llm/vllm/xavier/test/test_direct_history.py
       - name: Upload runtime logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pd-runtime-logs
-          path: ~/.xinference/logs/
+          path: |
+            ~/.xinference/logs/
+            pd-test-logs/
