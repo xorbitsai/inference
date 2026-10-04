@@ -300,3 +300,84 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "Les échecs de transfert et les dispositions incompatibles du cache KV provoquent des erreurs au lieu de recalculer silencieusement la requête."
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D utilise par défaut le transfert direct entre GPU. Il nécessite "
+"Linux, des GPU NVIDIA, vLLM >= 0.21.0 et ``xoscar[nixl]>=0.11.1`` dans les "
+"environnements du worker et du modèle. Utilisez une adresse hôte accessible "
+"(pas ``0.0.0.0``). Sans NIXL, le démarrage échoue ; aucun repli CPU n’est "
+"prévu."
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"Pour P/D, ``xavier_gpu_cache_bytes`` vaut par défaut ``268435456`` (256 MiB "
+"par réplique). L’historique utilise d’abord le GPU puis déborde vers le CPU "
+"lorsque sa capacité est épuisée. L’historique CPU est limité par la capacité"
+" en blocs KV du moteur et peut approcher cette taille de cache en mémoire "
+"hôte. Les accès CPU restaurent les KV sur le GPU ; les défauts sont calculés"
+" localement. ``0`` désactive l’historique tout en conservant le transfert "
+"direct. Les échecs de transfert produisent des erreurs."
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "Transfert direct et historique hiérarchisé"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "Le transfert direct nécessite actuellement ``n=1``."
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"L’historique est restauré sur P avant le transfert vers D. Pour les longs "
+"prompts, seul un préfixe peut être conservé ; la conservation de tout le "
+"cache n’est pas garantie."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"Les transferts non acceptés expirent après 120 secondes. Si un transfert "
+"expire avant que D ne l’accepte, D recalcule localement. Après acceptation, "
+"le cache source reste réservé jusqu’à la fin du chargement ou à l’annulation"
+" de la requête avant le chargement."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr ""
+"Les transferts directs et le chargement de l’historique peuvent se dérouler "
+"en parallèle de la génération des réponses à d’autres requêtes."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"Les transferts non acceptés expirent après 120 secondes. Les transferts "
+"acceptés expirent après 10 minutes sans nouvelle tentative de planification "
+"ni progression du transfert. Les copies en cours se terminent avant la "
+"libération. Les transferts expirés sont recalculés localement sur D."

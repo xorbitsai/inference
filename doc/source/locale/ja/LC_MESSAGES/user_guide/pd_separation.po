@@ -272,3 +272,72 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "転送の失敗や互換性のない KV キャッシュレイアウトは、リクエストを暗黙的に再計算するのではなく、エラーになります。"
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D はデフォルトで GPU 間の直接転送を使用します。Linux、NVIDIA GPU、vLLM >= "
+"0.21.0、およびワーカーとモデルの両環境に ``xoscar[nixl]>=0.11.1`` "
+"が必要です。到達可能なホストアドレスを使用してください（``0.0.0.0`` は不可）。NIXL がなければ起動に失敗し、CPU "
+"へフォールバックしません。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"P/D の ``xavier_gpu_cache_bytes`` はデフォルトで ``268435456`` （レプリカ当たり 256 "
+"MiB）です。履歴は GPU を優先し、容量不足時に CPU に退避します。CPU 履歴のブロック数はエンジン KV "
+"ブロック容量が上限で、ホストメモリ使用量はそのキャッシュサイズに近づく場合があります。CPU ヒットでは KV を GPU "
+"に復元し、ミスではローカル計算します。 ``0`` は履歴を無効にし、直接転送は維持します。転送失敗はエラーになります。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "直接転送と階層型履歴"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "直接転送は現在 ``n=1`` を必要とします。"
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"履歴は D への引き渡し前に P で復元されます。長いプロンプトではプレフィックスのみが保持される場合があり、すべてのキャッシュの保持は保証されません。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"未受理の引き渡しは 120 秒で期限切れになります。D が受理する前に期限切れになると、D "
+"がローカルで再計算します。受理後は、読み込みが完了するか、読み込み前にリクエストがキャンセルされるまで、転送元のキャッシュが予約されます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直接転送と履歴の読み込みは、他のリクエストの応答生成と並行して実行できます。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"未受理の引き渡しは 120 秒で期限切れになります。受理済みの引き渡しも、スケジュールの再試行や転送の進行が 10 "
+"分間なければ期限切れになります。実行中のコピーは解放前に完了します。期限切れの引き渡しは D がローカルで再計算します。"

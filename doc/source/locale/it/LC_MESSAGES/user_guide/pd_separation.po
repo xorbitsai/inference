@@ -297,3 +297,84 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "Gli errori di trasferimento e i layout incompatibili della cache KV generano errori anziché ricalcolare silenziosamente la richiesta."
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D usa per impostazione predefinita il trasferimento diretto tra "
+"GPU. Richiede Linux, GPU NVIDIA, vLLM >= 0.21.0 e ``xoscar[nixl]>=0.11.1`` "
+"negli ambienti del worker e del modello. Usare un indirizzo host "
+"raggiungibile (non ``0.0.0.0``). Senza NIXL, l’avvio fallisce; non è "
+"previsto il ripiego sulla CPU."
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"Per P/D, ``xavier_gpu_cache_bytes`` vale per impostazione predefinita "
+"``268435456`` (256 MiB per replica). La cronologia usa prima la GPU e passa "
+"alla CPU quando la capacità GPU è esaurita. La cronologia CPU è limitata "
+"dalla capacità dei blocchi KV del motore e può avvicinarsi a tale dimensione"
+" della cache nella memoria host. Gli hit CPU ripristinano KV sulla GPU; i "
+"miss vengono calcolati localmente. ``0`` disabilita la cronologia mantenendo"
+" il trasferimento diretto. I guasti di trasferimento generano errori."
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "Trasferimento diretto e cronologia a livelli"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "Il trasferimento diretto richiede attualmente ``n=1``."
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"La cronologia viene ripristinata su P prima del trasferimento a D. Per i "
+"prompt lunghi può essere conservato solo un prefisso; la conservazione di "
+"tutta la cache non è garantita."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"I trasferimenti non accettati scadono dopo 120 secondi. Se un trasferimento "
+"scade prima che D lo accetti, D ricalcola localmente. Dopo l’accettazione, "
+"la cache di origine rimane riservata fino al completamento del caricamento o"
+" all’annullamento della richiesta prima del caricamento."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr ""
+"I trasferimenti diretti e il caricamento della cronologia possono avvenire "
+"in parallelo alla generazione delle risposte ad altre richieste."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"I trasferimenti non accettati scadono dopo 120 secondi. Quelli accettati "
+"scadono dopo 10 minuti senza nuovi tentativi di pianificazione o avanzamento"
+" del trasferimento. Le copie in corso terminano prima del rilascio. I "
+"trasferimenti scaduti vengono ricalcolati localmente su D."

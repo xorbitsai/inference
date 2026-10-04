@@ -297,3 +297,83 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "Los fallos de transferencia y los formatos de caché KV incompatibles generan errores en lugar de volver a calcular la solicitud silenciosamente."
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D utiliza por defecto transferencia directa entre GPU. Requiere "
+"Linux, GPU NVIDIA, vLLM >= 0.21.0 y ``xoscar[nixl]>=0.11.1`` en los entornos"
+" del worker y del modelo. Use una dirección de host accesible (no "
+"``0.0.0.0``). Sin NIXL, el inicio falla; no hay alternativa por CPU."
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"Para P/D, ``xavier_gpu_cache_bytes`` vale por defecto ``268435456`` (256 MiB"
+" por réplica). El historial usa primero GPU y pasa a CPU cuando se agota su "
+"capacidad. El historial CPU está limitado por la capacidad de bloques KV del"
+" motor y puede ocupar un tamaño similar en memoria del host. Los aciertos "
+"CPU restauran KV en GPU; los fallos se calculan localmente. ``0`` desactiva "
+"el historial y mantiene la transferencia directa. Los fallos de "
+"transferencia generan errores."
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "Transferencia directa e historial por niveles"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "La transferencia directa requiere actualmente ``n=1``."
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr ""
+"El historial se restaura en P antes de transferirlo a D. Los prompts largos "
+"pueden conservar solo un prefijo; no se garantiza la retención de toda la "
+"caché."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"Las transferencias no aceptadas caducan tras 120 segundos. Si caducan antes "
+"de que D las acepte, D vuelve a calcular localmente. Tras la aceptación, la "
+"caché de origen permanece reservada hasta que termine la carga o se cancele "
+"la solicitud antes de cargar."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr ""
+"Las transferencias directas y las cargas del historial pueden solaparse con "
+"la generación de respuestas de otras solicitudes."
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"Las transferencias no aceptadas caducan tras 120 segundos. Las aceptadas "
+"caducan tras 10 minutos sin reintentos de planificación ni progreso de "
+"transferencia. Las copias en curso terminan antes de liberar los recursos. D"
+" vuelve a calcular localmente las transferencias caducadas."

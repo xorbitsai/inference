@@ -452,7 +452,7 @@ class GPUTransfer:
 
 
 class GPUTransferMixin:
-    def map_gpu_caches_v1(self, descriptors, budget):
+    def map_gpu_caches_v1(self, descriptors, budget, direct_handoff=False):
         from torch.multiprocessing.reductions import rebuild_cuda_tensor
 
         if getattr(self, "_gpu_transfer", None) is not None:
@@ -460,7 +460,12 @@ class GPUTransferMixin:
         caches = {
             name: rebuild_cuda_tensor(*desc) for name, desc in descriptors.items()
         }
-        runtime = GPUTransfer(self, caches, budget)
+        runtime_type = GPUTransfer
+        if direct_handoff:
+            from .direct_handoff import DirectGPUTransfer
+
+            runtime_type = DirectGPUTransfer
+        runtime = runtime_type(self, caches, budget)
         self._gpu_transfer = runtime
         self._snapshot_store = runtime.store
 
@@ -487,3 +492,53 @@ class GPUTransferMixin:
             # Keep the closed runtime as a tombstone: close() reuses its task,
             # and map_gpu_caches_v1 must not re-register after shutdown/failure.
             await runtime.close()
+
+    def register_direct_gpu_v1(self, ticket, request_id, blocks, hashes=None):
+        self._gpu_transfer.register_direct(ticket, request_id, blocks, hashes)
+
+    def claim_direct_gpu_v1(self, ticket):
+        return self._gpu_transfer.claim_direct(ticket)
+
+    def abandon_direct_gpu_v1(self, ticket):
+        self._gpu_transfer.abandon_direct(ticket)
+
+    async def claim_remote_direct_gpu_v1(self, rank, ticket):
+        ref = await xo.actor_ref(
+            address=self._world_addresses[rank], uid=f"{self.default_uid()}-{rank}"
+        )
+        return await ref.claim_direct_gpu_v1(ticket)
+
+    def release_direct_gpu_v1(self, ticket):
+        self._gpu_transfer.release_direct(ticket)
+
+    def poll_direct_gpu_v1(self):
+        return self._gpu_transfer.poll_direct()
+
+    async def send_direct_gpu_v1(self, ticket, reads, remote_ref, slab_bytes):
+        runtime = self._gpu_transfer
+        return await runtime.run(
+            runtime.send_direct, ticket, reads, remote_ref, slab_bytes
+        )
+
+    async def load_direct_gpu_v1(self, requests, tickets):
+        runtime = self._gpu_transfer
+        return await runtime.run(runtime.load_direct, requests, tickets)
+
+    async def release_remote_direct_gpu_v1(self, rank, ticket):
+        ref = await xo.actor_ref(
+            address=self._world_addresses[rank], uid=f"{self.default_uid()}-{rank}"
+        )
+        await ref.release_direct_gpu_v1(ticket)
+
+    def reserve_direct_history_v1(self, lease, keys):
+        runtime = getattr(self, "_gpu_transfer", None)
+        return runtime.reserve_history(lease, keys) if runtime is not None else []
+
+    def release_direct_history_v1(self, lease):
+        runtime = getattr(self, "_gpu_transfer", None)
+        if runtime is not None:
+            runtime.release_history(lease)
+
+    async def load_direct_history_v1(self, requests, leases):
+        runtime = self._gpu_transfer
+        return await runtime.run(runtime.load_history, requests, leases)

@@ -71,8 +71,8 @@ def pd_cluster(monkeypatch, tmp_path, backend):
 @pytest.mark.parametrize(
     "backend,gpu_cache_bytes",
     [
-        pytest.param("xavier", None, id="xavier-cpu"),
-        pytest.param("xavier", 256 * 1024**2, id="xavier-gpu-async"),
+        pytest.param("xavier", None, id="xavier-default-history"),
+        pytest.param("xavier", 0, id="xavier-no-history"),
         pytest.param("nixl", None, id="nixl"),
     ],
 )
@@ -115,6 +115,7 @@ def test_pd_gpu(pd_cluster, backend, gpu_cache_bytes):
             max_model_len=2048,
             gpu_memory_utilization=0.5,
             dtype="float16",
+            enable_prefix_caching=False,
             replica_config=[
                 {
                     "role": role,
@@ -164,18 +165,23 @@ def test_pd_gpu(pd_cluster, backend, gpu_cache_bytes):
             responses[stream] = chat(str(stream), stream)
             evidence = log_since(offset)
             # Require actual KV transfer, not merely a successful recomputation.
-            if gpu_cache_bytes is not None:
-                assert "Finished Xavier async KV load: request=" in evidence
-            elif backend == "xavier":
-                assert "Stage Xavier V1 blocks" in evidence
-                assert "Load Xavier V1 blocks" in evidence
+            if backend == "xavier":
+                assert "Register Xavier direct handoff" in evidence
+                assert "Finished Xavier async KV load" in evidence
             else:
                 assert "calling _read_blocks" in evidence
                 assert re.search(r"and [1-9]\d* requests done recving", evidence)
-        # Repeated prompts may hit decode's local prefix cache, but must still
-        # yield the same deterministic answer without stale or corrupted KV.
+        # Compare exact text only with fixed zero-prefix computation. Historical
+        # prefix reuse can change floating-point shapes and greedy output.
         for stream in (False, True):
-            assert chat(str(stream), stream) == responses[stream]
+            offset = Path(log_path).stat().st_size
+            repeated = chat(str(stream), stream)
+            if backend == "nixl" or gpu_cache_bytes == 0:
+                assert repeated == responses[stream]
+            else:
+                assert re.search(
+                    r"Restored Xavier history: blocks=[1-9]\d*", log_since(offset)
+                )
 
         offset = Path(log_path).stat().st_size
         with ThreadPoolExecutor(max_workers=4) as executor:
@@ -187,14 +193,19 @@ def test_pd_gpu(pd_cluster, backend, gpu_cache_bytes):
                 future.result(timeout=180)
         pattern = (
             r"Finished Xavier async KV load: request=(\S+)"
-            if gpu_cache_bytes is not None
-            else (
-                r"Load Xavier V1 blocks: request=(\S+)"
-                if backend == "xavier"
-                else r"with remote block size \d+ for req (\S+)"
-            )
+            if backend == "xavier"
+            else r"with remote block size \d+ for req (\S+)"
         )
-        loaded_requests = set(re.findall(pattern, log_since(offset)))
+        evidence = log_since(offset)
+        loaded_requests = set(re.findall(pattern, evidence))
+        if backend == "xavier":
+            # P-side history restoration also logs async completion. Exclude
+            # producer IDs so all four completions must come from D handoffs.
+            producer_requests = set(
+                re.findall(r"Register Xavier direct handoff: request=(\S+)", evidence)
+            )
+            assert len(producer_requests) == 4
+            loaded_requests -= producer_requests
         assert len(loaded_requests) == 4
         print("PD concurrent requests: 4 completed with remote KV loads", flush=True)
         client.terminate_model(uid)

@@ -3104,6 +3104,8 @@ class SupervisorActor(xo.StatelessActor):
         gpu_cache_bytes = validate_gpu_cache_budget(
             kwargs.pop("xavier_gpu_cache_bytes", None), enable_xavier, replica
         )
+        if pd_enabled and enable_xavier and gpu_cache_bytes is None:
+            gpu_cache_bytes = 256 * 1024 * 1024
         store_address = None
         store_port = None
         world_size = None

@@ -385,7 +385,9 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
     connector._gpu_cache_mapped = False
     connector._registered_kv_caches = {"layer": cache}
     transfer = SimpleNamespace(
-        map_gpu_caches_v1=AsyncMock(side_effect=lambda *args: calls.append("map")),
+        map_gpu_caches_v1=AsyncMock(
+            side_effect=lambda *args, **kwargs: calls.append("map")
+        ),
         stage_gpu_requests_v1=AsyncMock(
             side_effect=lambda *args: calls.append("stage")
         ),
@@ -437,7 +439,8 @@ async def test_gpu_mapping_serializes_callers_and_retries(
     release = asyncio.Event()
     calls = []
 
-    async def register(descriptors, budget):
+    async def register(descriptors, budget, *, direct_handoff):
+        assert direct_handoff == connector._direct_handoff
         calls.append((descriptors, budget))
         if len(calls) == 1:
             entered.set()

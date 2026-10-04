@@ -1490,3 +1490,20 @@ async def test_later_chunk_failure_drops_all_unpublished_chunks(
     assert set(r.store.blocks) == r.store.ready == {7}
     assert r.store._block_sizes == {7: 4}
     assert_gpu_lru_consistent(r.store)
+
+
+@pytest.mark.parametrize("version,nixl", [("0.11.0", True), ("0.11.1", False)])
+def test_gpu_transfer_missing_dependency_fails_without_cpu_fallback(
+    monkeypatch, version, nixl
+):
+    import importlib.metadata
+    import importlib.util
+
+    from ..transport import gpu_pool_options
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: version)
+    monkeypatch.setattr(
+        importlib.util, "find_spec", lambda name: object() if nixl else None
+    )
+    with pytest.raises(RuntimeError, match=r"xoscar\[nixl\]>=0.11.1"):
+        gpu_pool_options("10.0.0.1:1234", {})

@@ -1995,8 +1995,12 @@ class VLLMModel(LLM):
             sampling_params = SamplingParams(**sanitized_generate_config)
 
         if generate_config and "_pd_kv_transfer_params" in generate_config:
-            if self._nixl_config is None:
-                raise ValueError("KV handoff requires the NIXL PD backend")
+            from .xavier.transport import uses_direct_handoff
+
+            if self._nixl_config is None and not uses_direct_handoff(
+                self._xavier_config
+            ):
+                raise ValueError("KV handoff requires NIXL or Xavier direct PD")
             sampling_params.extra_args = {
                 **(sampling_params.extra_args or {}),
                 "kv_transfer_params": generate_config["_pd_kv_transfer_params"],
@@ -2178,7 +2182,14 @@ class VLLMModel(LLM):
             completion = self._convert_request_output_to_completion(
                 request_id, model=self.model_uid, request_output=final_output
             )
-            if self._nixl_config is not None and self._nixl_config["role"] == "prefill":
+            from .xavier.transport import uses_direct_handoff
+
+            if (
+                self._nixl_config is not None and self._nixl_config["role"] == "prefill"
+            ) or (
+                uses_direct_handoff(self._xavier_config)
+                and self._xavier_config.get("role") == "prefill"
+            ):
                 completion["_pd_kv_transfer_params"] = getattr(
                     final_output, "kv_transfer_params", None
                 )

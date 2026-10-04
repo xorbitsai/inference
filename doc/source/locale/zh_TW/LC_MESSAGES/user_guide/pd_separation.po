@@ -268,3 +268,68 @@ msgstr ""
 #: ../../source/user_guide/pd_separation.rst:145
 msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
 msgstr "傳輸失敗或 KV 快取佈局不相容時會報錯，而不會默默地重新計算請求。"
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D 預設使用 GPU 到 GPU 直傳。需要 Linux、NVIDIA GPU、vLLM >= 0.21.0，並在 worker "
+"和模型環境中都安裝 ``xoscar[nixl]>=0.11.1``。請使用可連線的主機位址（不能是 ``0.0.0.0``）。缺少 NIXL "
+"時啟動失敗，不退回 CPU。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"P/D 的 ``xavier_gpu_cache_bytes`` 預設為 ``268435456`` （每個副本 256 MiB）。歷史快取優先使用 "
+"GPU，GPU 容量不足時移至 CPU。CPU 歷史區塊數受引擎 KV 區塊容量限制，主機記憶體用量可能接近該快取大小。CPU 命中時將 KV 還原至 "
+"GPU，未命中時在本機計算。 ``0`` 停用歷史快取，仍保留直傳。傳輸失敗時回報錯誤。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "直傳與分層歷史快取"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "直傳目前要求 ``n=1``。"
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr "歷史快取在 P 上還原，然後交接給 D。長提示詞可能只保留前綴；不保證保留所有快取。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"尚未被接收的交接在 120 秒後過期。如果交接在 D 接收前過期，D 會在本機重新計算。D 接收後，來源快取會保留到載入完成，或請求在載入前被取消。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直接傳輸和歷史快取載入可以與其他請求的回應生成重疊執行。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"尚未被接收的交接在 120 秒後過期。已被接收的交接如果 10 分鐘內沒有排程重試或傳輸進展，也會過期。正在進行的複製會在釋放前完成。過期的交接由 D "
+"在本機重新計算。"

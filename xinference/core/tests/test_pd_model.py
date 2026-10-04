@@ -8,7 +8,7 @@ import xoscar as xo
 
 from ..pd_model import PDModelActor, RoundRobinSchedulingPolicy
 from ..replica_config import ReplicaConfig, validate_pd_replica_configs
-from ..rpc_context import RPC_METADATA_KEY, get_current_rpc_metadata, rpc_context
+from ..rpc_context import rpc_context
 
 
 def test_round_robin_updates():
@@ -56,14 +56,10 @@ async def router():
         model.abort_request = AsyncMock(return_value="DONE")
     await actor.add_prefill_actor("p", prefill)
     await actor.add_decode_actor("d", decode)
+    prefill.chat.return_value = prefill.generate.return_value = {
+        "_pd_kv_transfer_params": {"do_remote_prefill": True}
+    }
     return actor, prefill, decode
-
-
-def _assert_free_model_cache_called(model, request_id):
-    model.free_model_cache.assert_awaited_once()
-    call = model.free_model_cache.await_args
-    assert call.args == (request_id,)
-    assert call.kwargs[RPC_METADATA_KEY]["operation_request_id"] == request_id
 
 
 @pytest.mark.asyncio
@@ -83,7 +79,7 @@ async def test_infer_preserves_decode_config(router, method):
     assert d_call.args[1]["max_tokens"] == 32
     assert p_call.kwargs["request_id"] == d_call.kwargs["request_id"] == "r"
     assert not actor._request_set
-    _assert_free_model_cache_called(prefill, "r")
+    prefill.free_model_cache.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -105,54 +101,20 @@ async def test_stream_cleanup_on_disconnect(router):
     assert await anext(stream) == b"first"
     await stream.aclose()
     assert closed and not actor._request_set
-    _assert_free_model_cache_called(prefill, "r")
+    prefill.free_model_cache.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["prefill", "decode", "handler", "cancel"])
+@pytest.mark.parametrize("failure", ["prefill", "decode", "cancel"])
 async def test_failure_releases_cache(router, failure):
     actor, prefill, decode = router
     error = asyncio.CancelledError() if failure == "cancel" else RuntimeError("failed")
     target = prefill.chat if failure == "prefill" else decode.chat
-    if failure == "handler":
-        target = decode.set_unpin_handler
     target.side_effect = error
     with pytest.raises(type(error)):
         await actor._infer("chat", [], {"max_tokens": 32}, request_id="r")
     assert not actor._request_set
-    _assert_free_model_cache_called(prefill, "r")
-
-
-@pytest.mark.asyncio
-async def test_free_prefill_model_cache_propagates_operation_metadata():
-    calls = []
-
-    class Prefill:
-        @rpc_context
-        async def free_model_cache(self, request_id, **kwargs):
-            calls.append((request_id, get_current_rpc_metadata(), kwargs))
-
-    actor = PDModelActor("pd")
-    actor._request_set.add("operation-id")
-    actor._prefill_replicas = {"p": Prefill()}
-
-    await actor.free_prefill_model_cache(
-        "operation-id",
-        **{
-            RPC_METADATA_KEY: {
-                "version": 1,
-                "correlation_id": "http-id",
-                "actor_call_id": "router-call",
-            }
-        },
-    )
-
-    request_id, metadata, kwargs = calls[0]
-    assert request_id == "operation-id"
-    assert kwargs == {}
-    assert metadata.correlation_id == "http-id"
-    assert metadata.operation_request_id == "operation-id"
-    assert metadata.parent_call_id == "router-call"
+    prefill.free_model_cache.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -181,6 +143,8 @@ class FakeStage(xo.StatelessActor):
     @xo.generator
     @rpc_context
     async def chat(self, messages, config, **kwargs):
+        if config.get("_pd_kv_transfer_params", {}).get("do_remote_decode"):
+            return {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
         if not config.get("stream"):
             return b"non-stream"
 
@@ -215,7 +179,7 @@ async def test_aborted_prefill_does_not_start_decode(router):
     async def wait(*args, **kwargs):
         started.set()
         await finish.wait()
-        return b"ok"
+        return {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
 
     prefill.chat.side_effect = wait
     task = asyncio.create_task(actor._infer("chat", [], {}, request_id="r"))
@@ -274,16 +238,20 @@ async def test_abort_failure_still_cleans_request(router):
     with pytest.raises(RuntimeError, match="replica offline"):
         await actor.abort_request("r")
     assert not actor._request_set
-    _assert_free_model_cache_called(prefill, "r")
+    prefill.free_model_cache.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("method", ["chat", "generate"])
-async def test_nixl_handoff_preserves_metadata_and_decode_settings(router, method):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_handoff_preserves_metadata_and_decode_settings(
+    router, backend, method
+):
     import json
 
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     transfer = {
         "do_remote_prefill": True,
         "remote_engine_id": "engine-p",
@@ -309,9 +277,11 @@ async def test_nixl_handoff_preserves_metadata_and_decode_settings(router, metho
 
 
 @pytest.mark.asyncio
-async def test_nixl_parallel_sampling_rejected_before_prefill(router):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_parallel_sampling_rejected_before_prefill(router, backend):
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     with pytest.raises(ValueError, match="n=1"):
         await actor._infer("chat", [], {"n": 2})
     prefill.chat.assert_not_awaited()
@@ -321,9 +291,13 @@ async def test_nixl_parallel_sampling_rejected_before_prefill(router):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("payload", [{}, None, b"null", b"[]", b"{}", b"42"])
-async def test_nixl_missing_metadata_does_not_silently_recompute(router, payload):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_missing_metadata_does_not_silently_recompute(
+    router, backend, payload
+):
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     prefill.chat.return_value = payload
     with pytest.raises(RuntimeError, match="KV transfer metadata"):
         await actor._infer("chat", [], {})
@@ -365,9 +339,11 @@ async def test_nixl_multiple_prefillers_and_decoders():
 
 
 @pytest.mark.asyncio
-async def test_nixl_stream_close_releases_decode_slot(router):
+@pytest.mark.parametrize("backend", ["nixl", "xavier"])
+async def test_nixl_stream_close_releases_decode_slot(router, backend):
     actor, prefill, decode = router
-    actor._transport_backend = "nixl"
+    actor._transport_backend = backend
+    actor._direct_handoff = backend == "xavier"
     prefill.chat.return_value = {"_pd_kv_transfer_params": {"do_remote_prefill": True}}
     closed = []
 
@@ -398,3 +374,75 @@ async def test_duplicate_generation_config_rejected_before_dispatch(router):
     prefill.chat.assert_not_awaited()
     decode.chat.assert_not_awaited()
     assert not actor._request_set
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["decode", "cancel", "abort_before_decode"])
+async def test_direct_router_releases_unclaimed_handoff(router, monkeypatch, failure):
+    actor, prefill, decode = router
+    actor._direct_handoff = True
+    transfer = {
+        "do_remote_prefill": True,
+        "xavier_direct": {"ticket": "t", "rank": 0, "address": "127.0.0.1:1234"},
+    }
+
+    async def finish_prefill(*args, **kwargs):
+        if failure == "abort_before_decode":
+            actor._request_set.discard("r")
+        return {"_pd_kv_transfer_params": transfer}
+
+    prefill.chat.side_effect = finish_prefill
+    decode.chat.side_effect = (
+        RuntimeError("decode failed")
+        if failure == "decode"
+        else asyncio.CancelledError()
+    )
+    peer = MagicMock(abandon_direct_gpu_v1=AsyncMock())
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
+    with pytest.raises(RuntimeError if failure == "decode" else asyncio.CancelledError):
+        await actor._infer("chat", [], {}, request_id="r")
+    peer.abandon_direct_gpu_v1.assert_awaited_once_with("t")
+    assert not actor._direct_transfers and not actor._request_set
+    if failure == "abort_before_decode":
+        decode.chat.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_completed_direct_request_does_not_send_abandon_rpc(router, monkeypatch):
+    actor, prefill, decode = router
+    prefill.chat.return_value = {
+        "_pd_kv_transfer_params": {
+            "do_remote_prefill": True,
+            "xavier_direct": {"ticket": "t", "rank": 0, "address": "127.0.0.1:1234"},
+        }
+    }
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    await actor._infer("chat", [], {}, request_id="r")
+    lookup.assert_not_awaited()
+    assert not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_completed_direct_stream_clears_handoff_without_abandon(
+    router, monkeypatch
+):
+    actor, prefill, decode = router
+    prefill.chat.return_value = {
+        "_pd_kv_transfer_params": {
+            "do_remote_prefill": True,
+            "xavier_direct": {"ticket": "t", "rank": 0, "address": "127.0.0.1:1234"},
+        }
+    }
+
+    async def chunks():
+        yield b"one"
+        yield b"two"
+
+    decode.chat.return_value = chunks()
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    stream = await actor._infer("chat", [], {"stream": True}, request_id="r")
+    assert [chunk async for chunk in stream] == [b"one", b"two"]
+    assert not actor._direct_transfers and not actor._request_set
+    lookup.assert_not_awaited()
