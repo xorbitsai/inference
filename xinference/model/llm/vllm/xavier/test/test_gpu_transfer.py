@@ -363,6 +363,7 @@ async def test_staging_failure_drains_and_drops_only_unpublished(
     assert list(r.store.blocks) == [1]
     assert r.store.publish([2], {"K"}) == []
     assert r.store.leases == {"2:live": {1}}
+    assert r.store._block_sizes == {1: 4}  # Published BF16 block survives alone.
     assert r.store.read("K", [1]).tolist() == [[1, -1]]
     assert_gpu_lru_consistent(r.store)
 

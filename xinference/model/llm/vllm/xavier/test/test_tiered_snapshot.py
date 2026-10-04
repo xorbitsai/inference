@@ -326,13 +326,22 @@ def test_incremental_size_uses_physical_dtype_and_cleans_failed_slots(monkeypatc
     with pytest.raises(ValueError, match="full-block"):
         s.stage("V", [1], torch.ones(1, 3))
     assert s._block_sizes == {1: 8}
-    s._drop(1)
-    assert not s._block_sizes
 
     def fail(*args, **kwargs):
         raise RuntimeError("copy failed")
 
     monkeypatch.setattr(torch.Tensor, "to", fail)
+    # A later-layer failure keeps the existing layer and its physical byte count.
+    with pytest.raises(RuntimeError, match="copy failed"):
+        s.stage("V", [1], torch.ones(1, 2))
+    assert set(s.blocks[1]) == {"K"}
+    assert s._block_sizes == {1: 8}
+    assert s._block_sizes[1] == sum(
+        value.numel() * value.element_size() for value in s.blocks[1].values()
+    )
+    s._drop(1)
+    assert not s._block_sizes
+
     with pytest.raises(RuntimeError, match="copy failed"):
         stage(s, 2)
     assert not s._block_sizes
