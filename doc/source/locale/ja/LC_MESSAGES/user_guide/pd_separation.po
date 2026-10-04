@@ -341,3 +341,31 @@ msgid ""
 msgstr ""
 "未受理の引き渡しは 120 秒で期限切れになります。受理済みの引き渡しも、スケジュールの再試行や転送の進行が 10 "
 "分間なければ期限切れになります。実行中のコピーは解放前に完了します。期限切れの引き渡しは D がローカルで再計算します。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang と Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` では、Python クライアント、REST API、CLI、Web UI から同じ prefill/decode ``replica_config`` を使用できます。例の ``model_engine`` を ``\"SGLang\"`` に変更してください。明示的なロールは Xavier を自動的に有効にし、複数の prefill および decode レプリカに対応します。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
+msgstr "SGLang Xavier P/D は共有 CPU HiCache ページを使用し、decode 開始前に公開完了を確認してリースを保持します。Decode は完全なプロンプトページを復元し、残りの末尾（最大 1 ページ）をローカルで計算します。ストリーミングと非ストリーミングに対応し、引き継ぎが利用不可、期限切れ、不一致の場合や decode キャッシュがヒットしない場合はエラーになります。 Prefill はリクエスト専用のキャッシュ名前空間で各 PD プロンプトを再計算します。初期パスは prefill 履歴を再利用しません。"
+
+#: source/user_guide/pd_separation.rst
+msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
+msgstr "SGLang のモデル制限と共有メモリ容量については :ref:`user_guide_vllm_enhancement` を参照してください。転送には ``xavier`` を使用してください。SGLang ネイティブの分離、vLLM NIXL、エンジン間 P/D には対応しません。"
+
+#: source/user_guide/pd_separation.rst
+msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
+msgstr "転送可能なプロンプトの完全なプレフィックスは ``xavier_cache_bytes`` 内に収まる必要があります。各レプリカの HiCache ホストプールは追加のメモリを使用します。放棄された引き継ぎリースは 5 分後に期限切れになります。Worker の再起動後はデプロイを再起動してください。性能のためにこの CPU 経路を選ぶ前に、転送時間、TTFT、スループットを測定してください。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D はデフォルトで GPU 間の直接転送を使用します。Linux、NVIDIA GPU、vLLM >= 0.21.0、およびワーカーとモデルの両環境に ``xoscar[nixl]>=0.11.1`` が必要です。到達可能なホストアドレスを使用してください（``0.0.0.0`` は不可）。NIXL がなければ起動に失敗し、CPU へフォールバックしません。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Xavier の要件とメモリ"

@@ -104,3 +104,93 @@ async def test_gpu_sampler_records_failure_and_continues(monkeypatch, error):
     assert str(error) == samples[0]["error"]
     assert samples[1]["gpu_csv"] == "gpu data"
     assert samples[1]["error"] == ""
+
+
+def test_native_sglang_benchmark_does_not_launch_or_terminate_models(
+    monkeypatch, tmp_path
+):
+    import json
+    import sys
+    from unittest.mock import AsyncMock
+
+    launch = tmp_path / "launch.json"
+    launch.write_text(json.dumps({"replica_config": [{}, {}]}))
+    workload = tmp_path / "workload.jsonl"
+    workload.write_text(json.dumps({"messages": [{"role": "user", "content": "test"}]}))
+    output = tmp_path / "report.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "benchmark_pd.py",
+            "--endpoint",
+            "http://xinference",
+            "--launch",
+            str(launch),
+            "--workload",
+            str(workload),
+            "--output",
+            str(output),
+            "--modes",
+            "sglang-native",
+            "--native-sglang-endpoint",
+            "http://native",
+            "--native-sglang-model",
+            "native-model",
+            "--concurrency",
+            "1",
+        ],
+    )
+    client = Mock()
+    monkeypatch.setattr(module, "Client", lambda endpoint: client)
+    record = {"ttft_s": 0.1, "tpot_s": 0.01, "latency_s": 0.2, "output_tokens": 2}
+    measure = AsyncMock(return_value=([record], 0.2, []))
+    monkeypatch.setattr(module, "measure", measure)
+    module.main()
+    assert not client.mock_calls
+    assert all(
+        call.args[:2] == ("http://native", "native-model")
+        for call in measure.call_args_list
+    )
+    report = json.loads(output.read_text())
+    assert report["runs"][0]["model_uid"] == "native-model"
+    assert report["runs"][0]["summary"]["successful"] == 1
+
+
+@pytest.mark.asyncio
+async def test_completion_workload_uses_completion_stream_and_token_usage(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    class Stream:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def __aiter__(self):
+            yield SimpleNamespace(usage=None, choices=[SimpleNamespace(text="first")])
+            yield SimpleNamespace(usage=None, choices=[SimpleNamespace(text="second")])
+            yield SimpleNamespace(
+                usage=SimpleNamespace(prompt_tokens=4, completion_tokens=2), choices=[]
+            )
+
+    class Client:
+        completions = SimpleNamespace(create=AsyncMock(return_value=Stream()))
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+    client = Client()
+    monkeypatch.setattr(module, "AsyncOpenAI", lambda **kwargs: client)
+    records, _, _ = await module.measure(
+        "http://unused", "model", [{"prompt": "exact prompt"}], 1, 1
+    )
+    assert client.completions.create.call_args.kwargs["prompt"] == "exact prompt"
+    assert records[0]["text"] == "firstsecond"
+    assert records[0]["input_tokens"] == 4 and records[0]["output_tokens"] == 2
+    assert records[0]["ttft_s"] >= 0 and records[0]["tpot_s"] >= 0

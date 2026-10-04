@@ -42,6 +42,38 @@ python benchmark_serving.py --dataset-name random \
                             --stream --ignore-eos
 ```
 
+## Comparing SGLang PD paths
+
+`benchmark_pd.py` accepts a Xinference launch JSON with explicit P/D placements
+and a JSONL workload of OpenAI chat or completion request bodies. Use completion
+prompts when comparing the transfer paths without differences in chat templates.
+Run ordinary replicas and
+Xavier PD sequentially against an otherwise idle server:
+
+```bash
+python benchmark/benchmark_pd.py --endpoint http://localhost:9997 \
+    --launch sglang-launch.json --workload workload.jsonl --output xavier.json \
+    --modes hybrid xavier --concurrency 1 4 --repeats 1
+```
+
+Then launch SGLang's native prefill/decode workers and router separately, using
+the same weights, tokenizer, dtype, GPU placement and token/memory limits.
+With no Xinference model replicas running, measure that existing router:
+
+```bash
+python benchmark/benchmark_pd.py --endpoint http://localhost:9997 \
+    --launch sglang-launch.json --workload workload.jsonl --output native.json \
+    --modes sglang-native --native-sglang-endpoint http://localhost:8000 \
+    --native-sglang-model /path/to/model --concurrency 1 4 --repeats 1
+```
+
+The native mode never launches or terminates external models. Record the native
+server arguments and transport version alongside the results. The runner
+reports TTFT, TPOT, latency, output throughput and errors using the same
+measurement code for both endpoints. Use disjoint prompts or flush caches
+between independent cold runs; repeated prompts and later concurrency runs may
+reuse cache. Kernel warmup uses a separate prompt.
+
 ## Benchmarking embeddings
 
 Launch an embedding model first, then use its model UID:

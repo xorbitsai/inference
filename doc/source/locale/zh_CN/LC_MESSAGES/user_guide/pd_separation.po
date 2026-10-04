@@ -338,3 +338,31 @@ msgid ""
 msgstr ""
 "尚未被接收的交接在 120 秒后过期。已被接收的交接如果 10 分钟内没有调度重试或传输进展，也会过期。正在进行的拷贝会在释放前完成。过期的交接由 D "
 "在本地重新计算。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang 与 Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` 可通过 Python 客户端、REST API、CLI 和 Web UI 使用相同的 prefill/decode ``replica_config``。将示例中的 ``model_engine`` 改为 ``\"SGLang\"``。显式角色会自动启用 Xavier；支持多个 prefill 和 decode 副本。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
+msgstr "SGLang Xavier P/D 使用共享的 CPU HiCache 页，在 decode 开始前确认发布并保留租约。Decode 恢复完整的提示词页，并在本地计算剩余尾部（最多一页）。支持流式和非流式响应；交接不可用、已过期、不匹配，或 decode 缓存未命中时会报错。 Prefill 为每个 PD 提示词使用独立的请求缓存命名空间并重新计算；初始路径不复用 prefill 历史。"
+
+#: source/user_guide/pd_separation.rst
+msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
+msgstr "SGLang 的模型限制和共享内存预算参见 :ref:`user_guide_vllm_enhancement`。请使用 ``xavier`` 传输后端；不支持原生 SGLang 分离、vLLM NIXL 和跨引擎 P/D。"
+
+#: source/user_guide/pd_separation.rst
+msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
+msgstr "可传输的完整提示词前缀必须能放入 ``xavier_cache_bytes``；每个副本的 HiCache 主机内存池还会占用额外内存。被遗弃的交接租约在五分钟后过期。Worker 重启后需重新启动部署。选择这条 CPU 路径以提升性能之前，请测量传输时间、TTFT 和吞吐量。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D 默认使用 GPU 到 GPU 直传。要求 Linux、NVIDIA GPU、vLLM >= 0.21.0，并在 worker 和模型环境中都安装 ``xoscar[nixl]>=0.11.1``。请使用可达的主机地址（不能是 ``0.0.0.0``）。缺少 NIXL 时启动失败，不回退 CPU。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Xavier 要求与内存用量"

@@ -249,15 +249,13 @@ class PDModelActor(xo.StatelessActor):
         handoff = self._direct_transfers.pop(request_id, None)
         if handoff and handoff.get("ticket"):
             try:
-                from ..model.llm.vllm.xavier.transfer import TransferActor
-
-                ref = await xo.actor_ref(
-                    address=handoff["address"],
-                    uid=f"{TransferActor.default_uid()}-{handoff['rank']}",
-                )
-                # D owns claimed tickets until its writes drain. Only reclaim
-                # a handoff that was never accepted by D (router failure/abort).
-                await ref.abandon_direct_gpu_v1(handoff["ticket"])
+                if handoff.get("engine") == "sglang":
+                    ref = await xo.actor_ref(
+                        address=handoff["address"], uid=handoff["uid"]
+                    )
+                    await ref.release_handoff(handoff["ticket"])
+                else:
+                    await self._abandon_vllm_handoff(handoff)
             except Exception:
                 logger.warning("Failed to abandon Xavier handoff", exc_info=True)
         if request_id in self._request_set:
@@ -267,6 +265,18 @@ class PDModelActor(xo.StatelessActor):
                 f"[request {request_id}] Prefill model cache has been freed already"
             )
             return
+
+    @staticmethod
+    async def _abandon_vllm_handoff(handoff):
+        from ..model.llm.vllm.xavier.transfer import TransferActor
+
+        ref = await xo.actor_ref(
+            address=handoff["address"],
+            uid=f"{TransferActor.default_uid()}-{handoff['rank']}",
+        )
+        # D owns claimed tickets until its writes drain. Only reclaim
+        # a handoff that was never accepted by D (router failure/abort).
+        await ref.abandon_direct_gpu_v1(handoff["ticket"])
 
     async def is_vllm_backend(self):
         return True
@@ -329,7 +339,7 @@ class PDModelActor(xo.StatelessActor):
                 else None
             )
             if self._direct_handoff and isinstance(transfer, dict):
-                handoff = transfer.get("xavier_direct")
+                handoff = transfer.get("xavier_direct") or transfer.get("sglang_xavier")
                 if handoff:
                     self._direct_transfers[request_id] = handoff
             if not isinstance(transfer, dict) or not transfer.get("do_remote_prefill"):

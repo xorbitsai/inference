@@ -46,7 +46,7 @@ msgstr "사용"
 msgid ""
 "Simply add the parameter ``enable_xavier=True`` when starting the vllm "
 "model."
-msgstr "vllm 모델을 시작할 때 옵션 ``enable_xavier=True``를 설정하면 됩니다."
+msgstr "vllm 모델을 시작할 때 옵션 ``enable_xavier=True`` 를 설정하면 됩니다."
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
@@ -79,3 +79,19 @@ msgid ""
 " connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
 "for community Prefill/Decode deployment."
 msgstr ""
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "SGLang 복제본"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` 은 Xavier의 HiCache 스토리지 백엔드를 통해 접두부 KV 캐시를 공유할 수 있습니다. 여러 복제본을 시작할 때 ``model_engine=\"SGLang\"`` 과 ``enable_xavier=True`` 를 지정하세요. 초기 어댑터는 전체 어텐션, 양자화하지 않은 FP16 가중치, TP=PP=DP=1을 사용하는 Qwen2, Qwen3, Llama 텍스트 모델을 지원합니다. LoRA, 추측 디코딩, 하이브리드 어텐션, 멀티모달 입력은 지원하지 않습니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` 는 배포 전체의 공유 CPU 캐시 용량을 설정합니다(기본값 ``536870912``, 512 MiB). 각 SGLang 복제본은 자체 GPU 및 HiCache 호스트 메모리 풀도 할당합니다. 일반 복제본에서는 캐시 축출이나 스토리지 사용 불가를 캐시 미스로 처리합니다. 캐시 네임스페이스에는 실제 가중치, 토크나이저, 모델 구성, KV 구조 및 엔진 형식이 포함됩니다. vLLM과 SGLang 간 캐시 교환은 아직 지원하지 않습니다."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "For explicit prefill/decode roles, see :ref:`user_guide_pd_separation`. The SGLang adapter currently transfers through CPU memory; measure transfer time and request latency before expecting a performance benefit."
+msgstr "명시적인 prefill/decode 역할은 :ref:`user_guide_pd_separation` 을 참조하세요. SGLang 어댑터는 현재 CPU 메모리를 통해 전송합니다. 성능 향상을 기대하기 전에 전송 시간과 요청 지연 시간을 측정하세요."

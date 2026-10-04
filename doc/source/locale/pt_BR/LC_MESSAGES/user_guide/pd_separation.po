@@ -375,3 +375,31 @@ msgstr ""
 "após 10 minutos sem nova tentativa de agendamento ou progresso na "
 "transferência. Cópias em andamento terminam antes da liberação. "
 "Transferências expiradas são recalculadas localmente em D."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang com Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` aceita o mesmo ``replica_config`` prefill/decode pelos clientes Python, API REST, CLI e Web UI. Altere ``model_engine`` para ``\"SGLang\"`` no exemplo. Os papéis explícitos ativam Xavier automaticamente; várias réplicas prefill e decode são suportadas."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
+msgstr "SGLang Xavier P/D usa páginas CPU HiCache compartilhadas, com confirmação da publicação e concessões antes do início de decode. Decode restaura páginas completas do prompt e calcula localmente a parte restante (no máximo uma página). Respostas com e sem streaming são suportadas; transferências indisponíveis, expiradas ou incompatíveis e a falta de acertos no cache de decode geram erros. Prefill recalcula cada prompt PD em um namespace de cache específico da solicitação; este caminho inicial não reutiliza o histórico de prefill."
+
+#: source/user_guide/pd_separation.rst
+msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
+msgstr "As limitações dos modelos SGLang e o orçamento de memória compartilhada são descritos em :ref:`user_guide_vllm_enhancement`. Use o transporte ``xavier``; desagregação nativa SGLang, vLLM NIXL e P/D entre mecanismos não são suportados."
+
+#: source/user_guide/pd_separation.rst
+msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
+msgstr "O prefixo completo transferível do prompt deve caber em ``xavier_cache_bytes``; o pool do host HiCache de cada réplica usa memória adicional. Concessões de transferências abandonadas expiram após cinco minutos. Reinicie a implantação após reiniciar um worker. Meça o tempo de transferência, TTFT e a taxa de processamento antes de escolher este caminho CPU pelo desempenho."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D usa transferência direta entre GPUs por padrão. Requer Linux, GPUs NVIDIA, vLLM >= 0.21.0 e ``xoscar[nixl]>=0.11.1`` nos ambientes do worker e do modelo. Use um endereço de host acessível (não ``0.0.0.0``). Sem NIXL, a inicialização falha; não há alternativa por CPU."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Requisitos e memória do Xavier"

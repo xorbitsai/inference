@@ -378,3 +378,31 @@ msgstr ""
 "scadono dopo 10 minuti senza nuovi tentativi di pianificazione o avanzamento"
 " del trasferimento. Le copie in corso terminano prima del rilascio. I "
 "trasferimenti scaduti vengono ricalcolati localmente su D."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang con Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` accetta lo stesso ``replica_config`` prefill/decode tramite client Python, API REST, CLI e Web UI. Cambiare ``model_engine`` in ``\"SGLang\"`` nell'esempio. I ruoli espliciti abilitano Xavier automaticamente; sono supportate più repliche prefill e decode."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
+msgstr "SGLang Xavier P/D usa pagine CPU HiCache condivise, con conferma della pubblicazione e lease prima dell'inizio di decode. Decode ripristina le pagine complete del prompt e calcola localmente la parte rimanente (al massimo una pagina). Sono supportate risposte in streaming e senza streaming; i trasferimenti non disponibili, scaduti o incompatibili e i mancati riscontri nella cache di decode producono errori. Prefill ricalcola ogni prompt PD in uno spazio dei nomi della cache specifico della richiesta; questo percorso iniziale non riutilizza la cronologia di prefill."
+
+#: source/user_guide/pd_separation.rst
+msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
+msgstr "Le limitazioni dei modelli SGLang e il budget di memoria condivisa sono descritti in :ref:`user_guide_vllm_enhancement`. Usare il trasporto ``xavier``; la disaggregazione nativa SGLang, vLLM NIXL e il P/D tra motori non sono supportati."
+
+#: source/user_guide/pd_separation.rst
+msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
+msgstr "Il prefisso completo trasferibile del prompt deve rientrare in ``xavier_cache_bytes``; il pool host HiCache di ogni replica usa memoria aggiuntiva. I lease dei trasferimenti abbandonati scadono dopo cinque minuti. Riavviare il deployment dopo il riavvio di un worker. Misurare tempo di trasferimento, TTFT e throughput prima di scegliere questo percorso CPU per le prestazioni."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D usa per impostazione predefinita il trasferimento diretto tra GPU. Richiede Linux, GPU NVIDIA, vLLM >= 0.21.0 e ``xoscar[nixl]>=0.11.1`` negli ambienti del worker e del modello. Usare un indirizzo host raggiungibile (non ``0.0.0.0``). Senza NIXL, l’avvio fallisce; non è previsto il ripiego sulla CPU."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Requisiti e memoria di Xavier"

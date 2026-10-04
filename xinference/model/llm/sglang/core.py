@@ -20,7 +20,17 @@ import sys
 import threading
 import time
 import uuid
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+    cast,
+)
 
 from xoscar.utils import get_next_port
 
@@ -89,6 +99,7 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     max_new_tokens: int
     stop: Optional[Union[str, List[str]]]
     ignore_eos: bool
+    cache_salt: str
     stream: bool
     stream_options: Optional[Union[dict, None]]
     json_schema: Optional[dict]
@@ -183,6 +194,8 @@ class SGLANGModel(LLM):
         self._driver_info = model_config.pop("driver_info", None)  # type: ignore
         self._loading_thread = None
         self._loading_error = None
+        self._xavier_handoff = None
+        self._active_request_ids: set[str] = set()
 
     @property
     def driver_info(self) -> Optional[dict]:
@@ -207,7 +220,20 @@ class SGLANGModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
+        if cache_config is not None:
+            self._model_config.setdefault("dtype", "float16")
         self._model_config = self._sanitize_model_config(self._model_config)
+        if cache_config is not None:
+            from packaging.version import Version
+
+            from .xavier.config import configure_xavier
+
+            if Version(sgl.__version__) < Version("0.5.21"):
+                raise ValueError("SGLang Xavier requires SGLang >= 0.5.21")
+            if self._n_worker != 1:
+                raise ValueError("SGLang Xavier requires one worker per replica")
+            configure_xavier(self.model_path, self._model_config, cache_config)
         reasoning_content = self._model_config.pop("reasoning_content")
         enable_thinking = self._model_config.pop("enable_thinking", False)
         self.prepare_parse_reasoning_content(
@@ -290,6 +316,12 @@ class SGLANGModel(LLM):
                 port=sgl_port,
                 **self._model_config,
             )
+            if cache_config is not None and cache_config.get("role"):
+                from .xavier.pd import SGLangXavierHandoff
+
+                self._xavier_handoff = SGLangXavierHandoff(
+                    cache_config, self._model_config["page_size"], self._get_tokenizer()
+                )
 
     def _get_launch_timeout(self) -> float:
         if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
@@ -706,7 +738,12 @@ class SGLANGModel(LLM):
         SamplingParams with unknown kwargs (#3553).
         """
         top: Dict = {}
-        for k in ("return_logprob", "top_logprobs_num", "return_text_in_logprobs"):
+        for k in (
+            "return_logprob",
+            "top_logprobs_num",
+            "return_text_in_logprobs",
+            "cache_salt",
+        ):
             if k in sampling_params:
                 top[k] = sampling_params.pop(k)
         return top
@@ -748,6 +785,7 @@ class SGLANGModel(LLM):
         self,
         prompt: str,
         image_data: Optional[Union[List[str], str]] = None,
+        request_id: Optional[str] = None,
         **sampling_params,
     ):
         import aiohttp
@@ -755,6 +793,7 @@ class SGLANGModel(LLM):
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
             "stream": True,
@@ -783,10 +822,11 @@ class SGLANGModel(LLM):
                             data = json.loads(chunk[5:].strip("\n"))
                             cur = data["text"][pos:]
                             if cur:
-                                meta_info, logprob_consumed = (
-                                    SGLANGModel._slice_stream_logprobs(
-                                        data["meta_info"], logprob_consumed
-                                    )
+                                (
+                                    meta_info,
+                                    logprob_consumed,
+                                ) = SGLANGModel._slice_stream_logprobs(
+                                    data["meta_info"], logprob_consumed
                                 )
                                 yield meta_info, cur
                             pos += len(cur)
@@ -797,6 +837,7 @@ class SGLANGModel(LLM):
         self,
         prompt: str,
         image_data: Optional[Union[List[str], str]] = None,
+        request_id: Optional[str] = None,
         **sampling_params,
     ) -> dict:
         import aiohttp
@@ -804,6 +845,7 @@ class SGLANGModel(LLM):
         sampling_params = self._filter_sampling_params(sampling_params)
         json_data = {
             "text": prompt,
+            "rid": request_id,
             "image_data": image_data,
             "sampling_params": sampling_params,
             **self._lift_logprob_request_params(sampling_params),
@@ -812,18 +854,55 @@ class SGLANGModel(LLM):
             async with session.post(
                 self._engine.generate_url, json=json_data  # type: ignore
             ) as response:
+                response.raise_for_status()
                 return await response.json()
+
+    async def abort_request(self, request_id: str) -> str:
+        import aiohttp
+
+        if request_id not in self._active_request_ids:
+            return "NO_OP"
+        assert self._engine is not None
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=5), trust_env=True
+        ) as session:
+            async with session.post(
+                self._engine.url + "/abort_request", json={"rid": request_id}
+            ) as response:
+                response.raise_for_status()
+        return "DONE"
 
     async def async_generate(
         self,
         prompt: str,
+        generate_config: Optional[SGLANGGenerateConfig] = None,
         *,
         image_data: Optional[Union[List[str], str]] = None,
-        generate_config: Optional[SGLANGGenerateConfig] = None,
         tools: Optional[List[Dict]] = None,
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
-        sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        config = dict(generate_config or {})
+        transfer = config.pop("_pd_kv_transfer_params", None)
+        pd: Any = getattr(self, "_xavier_handoff", None)
+        handoff = None
+        pending_handoff = None
+        prefill = isinstance(transfer, dict) and transfer.get("do_remote_decode")
+        if transfer is not None:
+            if pd is None or image_data is not None:
+                raise ValueError("KV handoff requires a SGLang Xavier text PD replica")
+            if config.pop("n", 1) != 1:
+                raise ValueError("SGLang Xavier PD requires n=1")
+            if prefill:
+                if pd.role != "prefill":
+                    raise ValueError("Remote decode requires a SGLang prefill replica")
+                config.update(
+                    max_tokens=1,
+                    max_new_tokens=1,
+                    stream=False,
+                )
+        sanitized_generate_config = self._sanitize_generate_config(
+            cast(SGLANGGenerateConfig, config)
+        )
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -835,18 +914,54 @@ class SGLANGModel(LLM):
             if isinstance(stream_options, dict)
             else False
         )
+        # Validate generation options before reserving any shared KV capacity.
+        if transfer is not None:
+            if prefill:
+                pending_handoff = await pd.prepare(prompt)
+                sanitized_generate_config["cache_salt"] = pending_handoff["cache_salt"]
+            else:
+                handoff = await pd.accept(prompt, transfer)
+                sanitized_generate_config["cache_salt"] = handoff["cache_salt"]
         if not request_id:
             request_id = str(uuid.uuid1())
+        self._active_request_ids.add(request_id)
         if not stream:
-            state = await self._non_stream_generate(
-                prompt, image_data, **sanitized_generate_config
-            )
-            return self._convert_state_to_completion(
-                request_id,
-                model=self.model_uid,
-                output_text=state["text"],
-                meta_info=state["meta_info"],
-            )
+            completed = False
+            try:
+                state = await self._non_stream_generate(
+                    prompt,
+                    image_data,
+                    request_id=request_id,
+                    **sanitized_generate_config,
+                )
+                completed = True
+                if handoff is not None:
+                    pd.check_hit(state["meta_info"], handoff)
+                result = self._convert_state_to_completion(
+                    request_id,
+                    model=self.model_uid,
+                    output_text=state["text"],
+                    meta_info=state["meta_info"],
+                )
+                if prefill:
+                    result["_pd_kv_transfer_params"] = await pd.publish(pending_handoff)
+                    pending_handoff = None
+                return result
+            finally:
+                if not completed:
+                    try:
+                        await self.abort_request(request_id)
+                    except Exception:
+                        logger.warning(
+                            "Failed to abort SGLang request %s",
+                            request_id,
+                            exc_info=True,
+                        )
+                self._active_request_ids.discard(request_id)
+                if handoff is not None:
+                    await pd.release(handoff)
+                if pending_handoff is not None:
+                    await pd.release(pending_handoff)
         else:
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
@@ -857,8 +972,13 @@ class SGLANGModel(LLM):
                 chunk = None
                 finish_reason = None
                 async for meta_info, out in self._stream_generate(
-                    prompt, image_data, **sanitized_generate_config
+                    prompt,
+                    image_data,
+                    request_id=request_id,
+                    **sanitized_generate_config,
                 ):
+                    if handoff is not None:
+                        pd.check_hit(meta_info, handoff)
                     chunk = self._convert_state_to_completion_chunk(
                         request_id,
                         self.model_uid,
@@ -921,6 +1041,8 @@ class SGLANGModel(LLM):
                     assert chunk is not None
                     yield chunk
 
+                if isinstance(finish_reason, dict):
+                    finish_reason = finish_reason.get("type")
                 finish_reason = (
                     "stop"
                     if finish_reason is None
@@ -955,7 +1077,27 @@ class SGLANGModel(LLM):
                     )
                     yield chunk
 
-            return stream_results()
+            async def pd_stream():
+                completed = False
+                try:
+                    async for chunk in stream_results():
+                        yield chunk
+                    completed = True
+                finally:
+                    if not completed:
+                        try:
+                            await self.abort_request(request_id)
+                        except Exception:
+                            logger.warning(
+                                "Failed to abort SGLang request %s",
+                                request_id,
+                                exc_info=True,
+                            )
+                    self._active_request_ids.discard(request_id)
+                    if handoff is not None:
+                        await pd.release(handoff)
+
+            return pd_stream()
 
 
 class SGLANGChatModel(SGLANGModel, ChatModelMixin):
@@ -1063,7 +1205,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
         if stream:
-            agen = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools)  # type: ignore
+            agen = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools, request_id=request_id)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 return self._async_to_tool_completion_chunks(agen)
@@ -1071,13 +1213,17 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 agen, self.reasoning_parser, chat_template_kwargs
             )
         else:
-            c = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools)  # type: ignore
+            c = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools, request_id=request_id)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._post_process_completion(
+                result = self._post_process_completion(
                     self.model_family, self.model_uid, c
                 )
-            return self._to_chat_completion(c, self.reasoning_parser)
+            else:
+                result = self._to_chat_completion(c, self.reasoning_parser)
+            if "_pd_kv_transfer_params" in c:
+                result["_pd_kv_transfer_params"] = c["_pd_kv_transfer_params"]
+            return result
 
 
 class SGLANGVisionModel(SGLANGModel, ChatModelMixin):

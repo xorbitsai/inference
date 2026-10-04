@@ -381,3 +381,31 @@ msgstr ""
 "acceptés expirent après 10 minutes sans nouvelle tentative de planification "
 "ni progression du transfert. Les copies en cours se terminent avant la "
 "libération. Les transferts expirés sont recalculés localement sur D."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang avec Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` accepte le même ``replica_config`` prefill/decode via les clients Python, l'API REST, la CLI et la Web UI. Remplacez ``model_engine`` par ``\"SGLang\"`` dans l'exemple. Les rôles explicites activent automatiquement Xavier ; plusieurs répliques prefill et decode sont prises en charge."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D uses shared CPU HiCache pages, with publication confirmation and leases before decode begins. Decode restores complete prompt pages and computes the remaining tail (at most one page) locally. Streaming and non-streaming responses are supported; unavailable, expired or mismatched handoffs and missing decode cache hits raise errors. Prefill recomputes each PD prompt in a request-specific cache namespace; this initial path does not reuse prefill history."
+msgstr "SGLang Xavier P/D utilise des pages CPU HiCache partagées, avec confirmation de publication et baux avant le début de decode. Decode restaure les pages complètes du prompt et calcule localement la partie restante (au maximum une page). Les réponses en streaming et sans streaming sont prises en charge ; les transferts indisponibles, expirés ou incompatibles et l'absence de cache utilisé par decode provoquent des erreurs. Prefill recalcule chaque prompt PD dans un espace de noms de cache propre à la requête ; ce chemin initial ne réutilise pas l’historique de prefill."
+
+#: source/user_guide/pd_separation.rst
+msgid "The SGLang model limitations and shared memory budget are described in :ref:`user_guide_vllm_enhancement`. Use the ``xavier`` transport; native SGLang disaggregation, vLLM NIXL and cross-engine P/D are unsupported."
+msgstr "Les limites des modèles SGLang et le budget de mémoire partagée sont décrits dans :ref:`user_guide_vllm_enhancement`. Utilisez le transport ``xavier`` ; la désagrégation native SGLang, vLLM NIXL et le P/D entre moteurs ne sont pas pris en charge."
+
+#: source/user_guide/pd_separation.rst
+msgid "The complete transferable prompt prefix must fit in ``xavier_cache_bytes``; each replica's HiCache host pool uses additional memory. Abandoned handoff leases expire after five minutes. Relaunch the deployment after a worker restart. Benchmark transfer time, TTFT and throughput before choosing this CPU path for performance."
+msgstr "Le préfixe complet transférable du prompt doit tenir dans ``xavier_cache_bytes`` ; le pool hôte HiCache de chaque réplique utilise de la mémoire supplémentaire. Les baux de transfert abandonnés expirent après cinq minutes. Relancez le déploiement après le redémarrage d'un worker. Mesurez le temps de transfert, le TTFT et le débit avant de choisir ce chemin CPU pour ses performances."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D utilise par défaut le transfert direct entre GPU. Il nécessite Linux, des GPU NVIDIA, vLLM >= 0.21.0 et ``xoscar[nixl]>=0.11.1`` dans les environnements du worker et du modèle. Utilisez une adresse hôte accessible (pas ``0.0.0.0``). Sans NIXL, le démarrage échoue ; aucun repli CPU n’est prévu."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Prérequis et mémoire de Xavier"

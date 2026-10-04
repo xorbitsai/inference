@@ -68,6 +68,72 @@ def launch_kwargs():
 
 
 @pytest.mark.asyncio
+async def test_sglang_xavier_uses_hicache_without_vllm_collective(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="SGLang", enable_xavier=True, xavier_cache_bytes=1024)
+    for replica in kwargs["replica_config"]:
+        replica.role = None
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierCacheActor"}
+    for worker in workers:
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["xavier_config"] is None
+        assert launch["_xavier_cache_config"] == {
+            "address": supervisor.address,
+            "uid": "xavier-cache-pd",
+        }
+        worker.start_transfer_for_vllm.assert_not_awaited()
+        worker.launch_rank0_model.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_cache_mapping
+    destroy.assert_awaited_once_with(actors["XavierCacheActor"])
+
+
+@pytest.mark.asyncio
+async def test_sglang_xavier_failed_launch_cleans_cache_actor(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="SGLang", enable_xavier=True)
+    for replica in kwargs["replica_config"]:
+        replica.role = None
+    workers[1].wait_for_load.side_effect = RuntimeError("bad model")
+    with pytest.raises(RuntimeError, match="bad model"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not supervisor._xavier_cache_mapping
+    destroy.assert_awaited_once_with(actors["XavierCacheActor"])
+
+
+@pytest.mark.asyncio
+async def test_sglang_pd_routes_roles_and_cleans_cache(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = "SGLang"
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierCacheActor", "PDModelActor"}
+    for role, worker in zip(("prefill", "decode"), workers):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["_xavier_cache_config"]["role"] == role
+        assert launch["xavier_config"] is None
+        worker.launch_rank0_model.assert_not_awaited()
+    assert await supervisor.get_model("pd") is actors["PDModelActor"]
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_cache_mapping
+    assert not supervisor._pd_model_mapping
+    assert destroy.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_sglang_pd_rejects_native_vllm_transport(launch_runtime):
+    supervisor, _, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="SGLang", transfer_backend_type="nixl")
+    with pytest.raises(ValueError, match="xavier transport"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+
+
+@pytest.mark.asyncio
 async def test_pd_launch_routes_and_terminates(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     assert await supervisor.launch_builtin_model(**launch_kwargs()) == "pd"

@@ -26,6 +26,7 @@ def test_round_robin_updates():
     [
         (["prefill", "decode"], "vLLM", True),
         (["prefill", "prefill", "decode"], "vLLM", True),
+        (["prefill", "decode"], "SGLang", True),
         (["hybrid"], "transformers", False),
         (["prefill"], "vLLM", None),
         (["decode"], "vLLM", None),
@@ -378,13 +379,26 @@ async def test_duplicate_generation_config_rejected_before_dispatch(router):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["decode", "cancel", "abort_before_decode"])
-async def test_direct_router_releases_unclaimed_handoff(router, monkeypatch, failure):
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
+async def test_direct_router_releases_unclaimed_handoff(
+    router, monkeypatch, failure, engine
+):
     actor, prefill, decode = router
     actor._direct_handoff = True
     transfer = {
         "do_remote_prefill": True,
         "xavier_direct": {"ticket": "t", "rank": 0, "address": "127.0.0.1:1234"},
     }
+    if engine == "sglang":
+        transfer = {
+            "do_remote_prefill": True,
+            "sglang_xavier": {
+                "engine": "sglang",
+                "ticket": "t",
+                "uid": "cache",
+                "address": "127.0.0.1:1234",
+            },
+        }
 
     async def finish_prefill(*args, **kwargs):
         if failure == "abort_before_decode":
@@ -397,11 +411,15 @@ async def test_direct_router_releases_unclaimed_handoff(router, monkeypatch, fai
         if failure == "decode"
         else asyncio.CancelledError()
     )
-    peer = MagicMock(abandon_direct_gpu_v1=AsyncMock())
+    peer = MagicMock(abandon_direct_gpu_v1=AsyncMock(), release_handoff=AsyncMock())
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
     with pytest.raises(RuntimeError if failure == "decode" else asyncio.CancelledError):
         await actor._infer("chat", [], {}, request_id="r")
-    peer.abandon_direct_gpu_v1.assert_awaited_once_with("t")
+    if engine == "sglang":
+        peer.release_handoff.assert_awaited_once_with("t")
+        peer.abandon_direct_gpu_v1.assert_not_awaited()
+    else:
+        peer.abandon_direct_gpu_v1.assert_awaited_once_with("t")
     assert not actor._direct_transfers and not actor._request_set
     if failure == "abort_before_decode":
         decode.chat.assert_not_awaited()

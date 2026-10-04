@@ -84,3 +84,19 @@ msgid ""
 " connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
 "for community Prefill/Decode deployment."
 msgstr ""
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "Réplicas SGLang"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` puede compartir la caché KV de prefijos mediante el backend de almacenamiento HiCache de Xavier. Inicie varias réplicas con ``model_engine=\"SGLang\"`` y ``enable_xavier=True``. El adaptador inicial admite modelos de texto Qwen2, Qwen3 y Llama FP16 sin cuantizar, con atención completa y TP=PP=DP=1; no admite LoRA, decodificación especulativa, atención híbrida ni entradas multimodales."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` establece el presupuesto de caché CPU compartida del despliegue (predeterminado: ``536870912``, 512 MiB). Cada réplica SGLang también asigna sus propios pools GPU y de memoria del host HiCache. Para las réplicas normales, la expulsión o la indisponibilidad del almacenamiento se trata como un fallo de caché. Los espacios de nombres incluyen los pesos reales, el tokenizador, la configuración del modelo, la geometría KV y el formato del motor; aún no se pueden intercambiar cachés entre vLLM y SGLang."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "For explicit prefill/decode roles, see :ref:`user_guide_pd_separation`. The SGLang adapter currently transfers through CPU memory; measure transfer time and request latency before expecting a performance benefit."
+msgstr "Para los roles prefill/decode explícitos, consulte :ref:`user_guide_pd_separation`. El adaptador SGLang transfiere actualmente mediante memoria CPU; mida el tiempo de transferencia y la latencia de las solicitudes antes de esperar una mejora de rendimiento."
