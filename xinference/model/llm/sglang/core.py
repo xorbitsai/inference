@@ -1019,14 +1019,19 @@ class SGLANGModel(LLM):
                 is_match_tool_call = False
                 chunk = None
                 finish_reason = None
+                handoff_checked = False
                 async for meta_info, out in self._stream_generate(
                     prompt,
                     image_data,
                     request_id=request_id,
                     **sanitized_generate_config,
                 ):
-                    if handoff is not None:
+                    if handoff is not None and not handoff_checked:
                         await pd.check_hit(meta_info, handoff)
+                        # Native decode starts only after the full KV handoff.
+                        # Completion is immutable; check before exposing output
+                        # without a supervisor RPC for each decoded token.
+                        handoff_checked = True
                     chunk = self._convert_state_to_completion_chunk(
                         request_id,
                         self.model_uid,

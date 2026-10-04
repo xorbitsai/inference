@@ -174,6 +174,44 @@ async def test_stream_disconnect_aborts_and_releases_metadata(deployment):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("completed", [False, True])
+async def test_stream_checks_gpu_completion_before_first_output(deployment, completed):
+    actor, prefill, decode = deployment
+    await prefill._xavier_handoff.prepare(
+        "prompt", config("prefill")["_pd_kv_transfer_params"]
+    )
+    check = AsyncMock(wraps=decode._xavier_handoff.check_hit)
+    decode._xavier_handoff.check_hit = check
+
+    async def chunks(*args, **kwargs):
+        if completed:
+            await actor.complete(123, 4096)
+        for i in range(3):
+            yield dict(
+                prompt_tokens=7,
+                completion_tokens=i + 1,
+                finish_reason={"type": "length"} if i == 2 else None,
+            ), str(i)
+
+    decode._stream_generate = chunks
+    stream = await decode.async_generate(
+        "prompt", config("decode", stream=True), request_id="r"
+    )
+    if completed:
+        outputs = [chunk async for chunk in stream]
+        assert "".join(chunk["choices"][0]["text"] for chunk in outputs) == "012"
+        decode.abort_request.assert_not_awaited()
+        await actor.release(123, "prefill")
+    else:
+        with pytest.raises(RuntimeError, match="GPU KV transfer"):
+            await anext(stream)
+        decode.abort_request.assert_awaited_once_with("r")
+    check.assert_awaited_once()
+    assert not decode._active_request_ids
+    assert (await actor.get_stats())["active_handoffs"] == 0
+
+
+@pytest.mark.asyncio
 async def test_directory_rejects_duplicates_mismatches_and_expiry(deployment):
     actor, _, _ = deployment
     await actor.prepare(123, "gpu-namespace", "prompt", "prefill")
