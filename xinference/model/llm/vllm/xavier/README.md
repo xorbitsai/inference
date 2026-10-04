@@ -68,6 +68,31 @@ Repeated workload entries exercise warm prefix reuse; distinct prefixes exercise
 
 ## Two-GPU integration test
 
+### Multiple P/D replicas sharing GPUs
+
+Run the opt-in multi-replica test with a small full-attention model:
+
+```bash
+XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU=1 XINFERENCE_TEST_PD_MULTI_GPU=1 \
+  python -m pytest -v xinference/model/llm/vllm/xavier/test/test_pd_multi_gpu.py
+```
+
+The test covers 2P1D, 1P2D and 2P2D for Xavier and native NIXL. All producers
+share GPU 0 and all decoders share GPU 1, with a 0.35 engine memory budget per
+replica. The existing `XINFERENCE_TEST_PD_MODEL_PATH`, model name and size
+overrides apply. It checks request-specific answers, streaming, eight concurrent
+requests, actual KV loads and Xavier history restoration with engine prefix
+caching disabled. For 2P2D it also removes and re-registers one decoder route:
+equal-length round robins otherwise cover only two of the four P/D pairs.
+This changes route registration, not the decoder process, and is not a crash
+recovery test. `MULTI_PD_RESULT` records observed pairs and request counts.
+
+This setup validates multi-replica behavior on two GPUs. The colocated engines
+share compute and memory bandwidth, so its performance does not establish
+four-GPU scaling.
+
+### One producer and one decoder
+
 Use two free NVIDIA GPUs and the pinned vLLM environment, with NIXL installed. Run from the repository root:
 
 ```bash

@@ -294,6 +294,13 @@ class PDModelActor(xo.StatelessActor):
             raise ValueError("PD KV handoff currently requires n=1")
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
+        logger.debug(
+            "PD route: request=%s prefill=%s decode=%s backend=%s",
+            request_id,
+            prefill.uid,
+            decode.uid,
+            self._transport_backend,
+        )
         prefill_args = list(copy.deepcopy(args))
         if not prefill_args or prefill_args[0] is None:
             prefill_args = [{}] + prefill_args[1:]
