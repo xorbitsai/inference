@@ -44,6 +44,33 @@ python benchmark_serving.py --dataset-name random \
 
 ## Comparing SGLang PD paths
 
+For a comparison through the same Xinference API and P/D router, run the
+controlled benchmark on an idle two-GPU host:
+
+```bash
+python benchmark/benchmark_sglang_pd.py --model-path /path/to/Qwen2.5-0.5B-Instruct \
+    --source-commit "$(git rev-parse HEAD)" --output-dir /tmp/sglang-pd-controls \
+    --trials 2 --requests 300 --overlap-rounds 2
+```
+
+Install SGLang >=0.5.21, `nixl` and `xoscar[nixl]>=0.11.1` in worker and model
+environments. The script starts a fresh server for each backend and trial,
+reverses backend order on alternate trials, primes twelve mixed short/long
+chat requests, measures C16/C32 throughput, and injects 32 cold long prompts
+after eight 1024-token background decodes start. It records actual output
+lengths, transfer counters, source hashes, runtime versions and GPU-process
+snapshots; any unrelated GPU workload during sampling rejects the trial.
+Use `--idle-pid` only for a verified idle CUDA context. The native launch selects
+`transfer_backend_type="nixl"`; Xavier remains the default.
+
+Both backends use FP16, eager execution, page size 64, identical model weights
+and the same memory fraction. Requests ignore EOS and override chat-family stop
+strings with an unused marker; the script requires exactly 64 output tokens for
+throughput/cold arrivals and 1024 for background decode.
+The historical vLLM BF16 numbers are a workload reference, not a direct
+cross-engine performance baseline. SGLang Xavier GPU P/D currently retains no
+history, so this test does not measure the vLLM tiered-history benefit.
+
 `benchmark_pd.py` accepts a Xinference launch JSON with explicit P/D placements
 and a JSONL workload of OpenAI chat or completion request bodies. Use completion
 prompts when comparing the transfer paths without differences in chat templates.
@@ -59,7 +86,7 @@ python benchmark/benchmark_pd.py --endpoint http://localhost:9997 \
     --modes hybrid xavier --concurrency 1 4 --repeats 1
 ```
 
-Then launch SGLang's native prefill/decode workers and router separately, using
+For a standalone native baseline, launch SGLang's prefill/decode workers and router separately, using
 the same weights, tokenizer, dtype, GPU placement and token/memory limits.
 With no Xinference model replicas running, measure that existing router:
 

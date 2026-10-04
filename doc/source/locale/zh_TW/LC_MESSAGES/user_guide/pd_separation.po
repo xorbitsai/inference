@@ -347,8 +347,8 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D 透過 Xavier 的 NIXL 傳輸在 GPU 之間直接傳遞 KV。Prefill 和 decode 使用 SGLang 原生 P/D 生命週期並行執行。來源和目的 GPU 槽位保留所有權，直到傳輸完成；decode 也會接收 prefill 取樣的第一個 token。支援串流和非串流回應。傳輸失敗會報錯。"
 
 #: source/user_guide/pd_separation.rst
-msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake/NIXL backend and cross-engine P/D are not exposed by this integration."
-msgstr "模型限制見 :ref:`user_guide_vllm_enhancement`。在 worker 和模型環境中安裝 ``xoscar[nixl]>=0.11.1``，並使用可連線的 worker 位址。缺少 NIXL 時啟動失敗，不會回退到 CPU。使用 ``xavier`` 傳輸；此整合尚未提供 SGLang 自身的 Mooncake/NIXL 後端與跨引擎 P/D。"
+msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration."
+msgstr "模型限制見 :ref:`user_guide_vllm_enhancement`。在 worker 和模型環境中安裝 ``xoscar[nixl]>=0.11.1``，並使用可連線的 worker 位址。缺少 NIXL 時啟動失敗，不會回退到 CPU。使用 ``xavier`` 傳輸；此整合尚未提供 SGLang 自身的 Mooncake 後端與跨引擎 P/D。"
 
 #: source/user_guide/pd_separation.rst
 msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
@@ -361,3 +361,7 @@ msgstr "vLLM Xavier P/D 預設使用 GPU 到 GPU 直傳。需要 Linux、NVIDIA 
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier requirements and memory"
 msgstr "vLLM Xavier 需求與記憶體用量"
+
+#: source/user_guide/pd_separation.rst:64
+msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "要比較原生 SGLang，保持相同部署並設定 ``transfer_backend_type=\"nixl\"``。這會透過相同的 Xinference API 和 P/D 路由使用 SGLang 的 NIXL 後端。請在每個模型環境中安裝 ``nixl``。初始原生整合要求 TP=PP=DP=1、每個副本使用一個 worker、僅處理文字請求，且不使用 LoRA、推測解碼或 HiCache。每個副本都會配置引導連接埠；兩個副本主機必須互相可達。"

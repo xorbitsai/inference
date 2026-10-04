@@ -3097,9 +3097,20 @@ class SupervisorActor(xo.StatelessActor):
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
         sglang_xavier = (
             (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
             and model_engine is not None
             and model_engine.lower() == "sglang"
         )
+        sglang_nixl = (
+            pd_enabled
+            and transport_backend == "nixl"
+            and model_engine is not None
+            and model_engine.lower() == "sglang"
+        )
+        if sglang_nixl and (requested_xavier or n_worker != 1):
+            raise ValueError(
+                "SGLang native NIXL requires one worker per replica without enable_xavier"
+            )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
         if cache_bytes is not None and (
             not sglang_xavier
@@ -3264,6 +3275,12 @@ class SupervisorActor(xo.StatelessActor):
                 replica_kwargs["_nixl_config"] = {
                     "role": replica_config[rank - 1].role,
                 }
+                if sglang_nixl:
+                    from ..model.llm.xavier.transport import get_transport_host
+
+                    replica_kwargs["_nixl_config"]["host"] = get_transport_host(
+                        worker_ref.address
+                    )
             try:
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,

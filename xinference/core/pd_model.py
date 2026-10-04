@@ -99,6 +99,7 @@ class PDModelActor(xo.StatelessActor):
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._decode_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
+        self._sglang_bootstrap: dict[str, dict] = {}
 
         self._prefill_policy: Optional[SchedulingPolicy] = None
         self._decode_policy: Optional[SchedulingPolicy] = None
@@ -130,6 +131,10 @@ class PDModelActor(xo.StatelessActor):
     ):
         """添加 Prefill Actor"""
         if self._prefill_replicas.get(replica_uid) != actor:
+            if self._model_engine == "sglang" and self._transport_backend == "nixl":
+                self._sglang_bootstrap[replica_uid] = await actor_call(
+                    actor, "get_sglang_pd_bootstrap"
+                )
             self._prefill_replicas[replica_uid] = actor
             # 更新调度策略的副本列表
             if self._prefill_policy:
@@ -173,6 +178,7 @@ class PDModelActor(xo.StatelessActor):
         """移除 Prefill Actor"""
         if replica_uid in self._prefill_replicas:
             del self._prefill_replicas[replica_uid]
+            self._sglang_bootstrap.pop(replica_uid, None)
             # 更新调度策略的副本列表
             if self._prefill_replicas and self._prefill_policy:
                 self._prefill_policy.update_replicas(
@@ -399,31 +405,43 @@ class PDModelActor(xo.StatelessActor):
         return stream()
 
     async def _infer_sglang(self, method, inputs, args, kwargs, request_id):
-        """Native SGLang owns live P/D slots until the Xavier transfer drains."""
+        """Native SGLang owns live P/D slots until the selected transport drains."""
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
+        native = self._transport_backend == "nixl"
+        bootstrap = (
+            self._sglang_bootstrap[
+                next(
+                    uid for uid, ref in self._prefill_replicas.items() if ref == prefill
+                )
+            ]
+            if native
+            else dict(address=self.address, uid=f"xavier-cache-{self._model_uid}")
+        )
         handoff = dict(
             engine="sglang",
-            mode="gpu",
+            mode="nixl" if native else "gpu",
             room=uuid.uuid4().int % (2**63 - 1) + 1,
-            address=self.address,
-            uid=f"xavier-cache-{self._model_uid}",
+            **bootstrap,
         )
+        transfer_key = "sglang_nixl" if native else "sglang_xavier"
         self._request_set.add(request_id)
-        self._direct_transfers[request_id] = handoff
+        if not native:
+            self._direct_transfers[request_id] = handoff
         prefill_args = list(copy.deepcopy(args)) or [{}]
         prefill_args[0] = dict(prefill_args[0] or {})
         prefill_args[0].update(
             max_tokens=1,
             stream=False,
             n=1,
-            _pd_kv_transfer_params=dict(do_remote_decode=True, sglang_xavier=handoff),
+            _pd_kv_transfer_params={"do_remote_decode": True, transfer_key: handoff},
         )
         decode_args = list(copy.deepcopy(args)) or [{}]
         decode_args[0] = dict(decode_args[0] or {})
-        decode_args[0]["_pd_kv_transfer_params"] = dict(
-            do_remote_prefill=True, sglang_xavier=handoff
-        )
+        decode_args[0]["_pd_kv_transfer_params"] = {
+            "do_remote_prefill": True,
+            transfer_key: handoff,
+        }
         prefill_kwargs = copy.deepcopy(kwargs)
         if isinstance(prefill_kwargs.get("raw_params"), dict):
             prefill_kwargs["raw_params"].update(max_tokens=1, stream=False)

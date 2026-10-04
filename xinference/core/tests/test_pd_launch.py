@@ -139,13 +139,21 @@ async def test_sglang_gpu_pd_rejects_cpu_cache_and_retained_history(
 
 
 @pytest.mark.asyncio
-async def test_sglang_pd_rejects_native_vllm_transport(launch_runtime):
-    supervisor, _, actors, _ = launch_runtime
+async def test_sglang_native_nixl_launch_uses_same_pd_route(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
     kwargs.update(model_engine="SGLang", transfer_backend_type="nixl")
-    with pytest.raises(ValueError, match="xavier transport"):
-        await supervisor.launch_builtin_model(**kwargs)
-    assert not actors
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["model_engine"] == "SGLang"
+    for index, (role, worker) in enumerate(zip(("prefill", "decode"), workers)):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["_nixl_config"] == {"role": role, "host": f"worker-{index}"}
+        assert "_xavier_cache_config" not in launch
+        assert launch["xavier_config"] is None
+        worker.launch_rank0_model.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    destroy.assert_awaited_once_with(actors["PDModelActor"])
 
 
 @pytest.mark.asyncio

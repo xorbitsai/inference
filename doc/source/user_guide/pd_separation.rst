@@ -57,9 +57,11 @@ SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through 
 
 SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors.
 
-The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake/NIXL backend and cross-engine P/D are not exposed by this integration.
+The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration.
 
 SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload.
+
+For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type="nixl"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable.
 
 Native NIXL backend
 -------------------

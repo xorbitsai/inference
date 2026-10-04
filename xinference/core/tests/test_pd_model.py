@@ -84,9 +84,13 @@ async def test_infer_preserves_decode_config(router, method):
 
 
 @pytest.mark.asyncio
-async def test_sglang_starts_decode_while_prefill_holds_source_slots(router):
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+async def test_sglang_starts_decode_while_prefill_holds_source_slots(router, backend):
     actor, prefill, decode = router
     actor._model_engine = "sglang"
+    actor._transport_backend = backend
+    if backend == "nixl":
+        actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
     decode_started = asyncio.Event()
 
     async def p(*args, **kwargs):
@@ -104,17 +108,22 @@ async def test_sglang_starts_decode_while_prefill_holds_source_slots(router):
     p_config = prefill.generate.call_args.args[1]
     d_config = decode.generate.call_args.args[1]
     assert p_config["max_tokens"] == 1 and d_config["max_tokens"] == 32
-    assert (
-        p_config["_pd_kv_transfer_params"]["sglang_xavier"]
-        == d_config["_pd_kv_transfer_params"]["sglang_xavier"]
-    )
+    key = "sglang_nixl" if backend == "nixl" else "sglang_xavier"
+    handoff = p_config["_pd_kv_transfer_params"][key]
+    assert handoff == d_config["_pd_kv_transfer_params"][key]
+    if backend == "nixl":
+        assert handoff["host"] == "producer" and handoff["port"] == 12345
     assert not actor._request_set and not actor._direct_transfers
 
 
 @pytest.mark.asyncio
-async def test_sglang_stream_disconnect_aborts_both_roles(router, monkeypatch):
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+async def test_sglang_stream_disconnect_aborts_both_roles(router, monkeypatch, backend):
     actor, prefill, decode = router
     actor._model_engine = "sglang"
+    actor._transport_backend = backend
+    if backend == "nixl":
+        actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
     directory = AsyncMock()
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=directory))
 
@@ -129,8 +138,27 @@ async def test_sglang_stream_disconnect_aborts_both_roles(router, monkeypatch):
     prefill.abort_request.assert_awaited_once()
     decode.abort_request.assert_awaited_once()
     decode.decrease_serve_count.assert_awaited_once()
-    directory.release.assert_awaited_once()
+    if backend == "nixl":
+        directory.release.assert_not_awaited()
+    else:
+        directory.release.assert_awaited_once()
     assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_native_sglang_bootstrap_refreshed_on_replica_replacement():
+    actor = PDModelActor("pd", transport_backend="nixl", model_engine="sglang")
+    prefill = MagicMock()
+    prefill.get_sglang_pd_bootstrap = AsyncMock(
+        return_value=dict(host="producer", port=12345)
+    )
+    await actor.add_prefill_actor("p", prefill)
+    assert actor._sglang_bootstrap["p"]["port"] == 12345
+    await actor.remove_prefill_actor("p")
+    assert not actor._sglang_bootstrap
+    prefill.get_sglang_pd_bootstrap.return_value["port"] = 23456
+    await actor.add_prefill_actor("p", prefill)
+    assert actor._sglang_bootstrap["p"]["port"] == 23456
 
 
 @pytest.mark.asyncio

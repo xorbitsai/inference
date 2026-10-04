@@ -195,6 +195,7 @@ class SGLANGModel(LLM):
         self._loading_thread = None
         self._loading_error = None
         self._xavier_handoff = None
+        self._nixl_handoff = None
         self._active_request_ids: set[str] = set()
 
     @property
@@ -221,9 +222,16 @@ class SGLANGModel(LLM):
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
         cache_config = self._model_config.pop("_xavier_cache_config", None)  # type: ignore[typeddict-item]
+        nixl_config = self._model_config.pop("_nixl_config", None)  # type: ignore[typeddict-item]
         if cache_config is not None:
             self._model_config.setdefault("dtype", "float16")
         self._model_config = self._sanitize_model_config(self._model_config)
+        if nixl_config is not None:
+            from .pd import configure_nixl
+
+            configure_nixl(
+                self._model_config, nixl_config, sgl.__version__, self._n_worker
+            )
         if cache_config is not None:
             from packaging.version import Version
 
@@ -340,6 +348,16 @@ class SGLANGModel(LLM):
                 self._xavier_handoff = SGLangXavierHandoff(
                     cache_config, self._model_config["page_size"], self._get_tokenizer()
                 )
+            elif nixl_config is not None:
+                from .pd import SGLangNixlHandoff
+
+                self._nixl_handoff = SGLangNixlHandoff(nixl_config)
+
+    def get_pd_bootstrap(self) -> dict:
+        handoff = getattr(self, "_nixl_handoff", None)
+        if handoff is None or handoff.role != "prefill":
+            raise ValueError("SGLang bootstrap requires a native NIXL prefill replica")
+        return dict(host=handoff.config["host"], port=handoff.config["port"])
 
     def _get_launch_timeout(self) -> float:
         if self.model_family.has_architecture("BailingMoeV3ForCausalLM"):
@@ -904,15 +922,17 @@ class SGLANGModel(LLM):
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
         transfer = config.pop("_pd_kv_transfer_params", None)
-        pd: Any = getattr(self, "_xavier_handoff", None)
+        pd: Any = getattr(self, "_xavier_handoff", None) or getattr(
+            self, "_nixl_handoff", None
+        )
         handoff = None
         pending_handoff = None
         prefill = isinstance(transfer, dict) and transfer.get("do_remote_decode")
         if transfer is not None:
             if pd is None or image_data is not None:
-                raise ValueError("KV handoff requires a SGLang Xavier text PD replica")
+                raise ValueError("KV handoff requires a SGLang text PD replica")
             if config.pop("n", 1) != 1:
-                raise ValueError("SGLang Xavier PD requires n=1")
+                raise ValueError("SGLang PD requires n=1")
             if prefill:
                 if pd.role != "prefill":
                     raise ValueError("Remote decode requires a SGLang prefill replica")
@@ -944,8 +964,8 @@ class SGLANGModel(LLM):
             active_handoff = pending_handoff if prefill else handoff
             assert active_handoff is not None
             cast(Dict[str, Any], sanitized_generate_config).update(
-                bootstrap_host="xavier",
-                bootstrap_port=1,
+                bootstrap_host=active_handoff.get("host", "xavier"),
+                bootstrap_port=active_handoff.get("port", 1),
                 bootstrap_room=active_handoff["room"],
             )
         if not request_id:

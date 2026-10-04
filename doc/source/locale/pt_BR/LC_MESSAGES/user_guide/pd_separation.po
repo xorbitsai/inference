@@ -389,8 +389,8 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D transfere KV diretamente entre GPUs pelo transporte NIXL do Xavier. Prefill e decode executam simultaneamente usando o ciclo P/D nativo do SGLang. Os slots GPU de origem e destino permanecem reservados até o fim da transferência; decode também recebe o primeiro token amostrado pelo prefill. Respostas com e sem streaming são suportadas. Falhas de transferência geram erros."
 
 #: source/user_guide/pd_separation.rst
-msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake/NIXL backend and cross-engine P/D are not exposed by this integration."
-msgstr "As limitações dos modelos estão em :ref:`user_guide_vllm_enhancement`. Instale ``xoscar[nixl]>=0.11.1`` nos ambientes worker e modelo e use endereços worker acessíveis. Sem NIXL, o lançamento falha sem alternativa CPU. Use o transporte ``xavier``; esta integração não expõe o backend Mooncake/NIXL próprio do SGLang nem P/D entre mecanismos."
+msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration."
+msgstr "As limitações dos modelos estão em :ref:`user_guide_vllm_enhancement`. Instale ``xoscar[nixl]>=0.11.1`` nos ambientes worker e modelo e use endereços worker acessíveis. Sem NIXL, o lançamento falha sem alternativa CPU. Use o transporte ``xavier``; esta integração não expõe o backend Mooncake próprio do SGLang nem P/D entre mecanismos."
 
 #: source/user_guide/pd_separation.rst
 msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
@@ -403,3 +403,7 @@ msgstr "vLLM Xavier P/D usa transferência direta entre GPUs por padrão. Requer
 #: source/user_guide/pd_separation.rst
 msgid "vLLM Xavier requirements and memory"
 msgstr "vLLM Requisitos e memória do Xavier"
+
+#: source/user_guide/pd_separation.rst:64
+msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "Para comparar com o SGLang nativo, mantenha a mesma implantação e defina ``transfer_backend_type=\"nixl\"``. Isso utiliza o backend NIXL do SGLang pela mesma API do Xinference e pelo mesmo roteador P/D. Instale ``nixl`` em cada ambiente de modelo. A integração nativa inicial exige TP=PP=DP=1, um worker por réplica e solicitações de texto, sem LoRA, decodificação especulativa ou HiCache. As portas de bootstrap são alocadas por réplica; os dois hosts devem ser acessíveis entre si."
