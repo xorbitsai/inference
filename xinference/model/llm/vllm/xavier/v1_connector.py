@@ -29,13 +29,13 @@ from vllm.distributed.kv_transfer.kv_connector.v1.base import (
 )
 from vllm.v1.core.sched.output import SchedulerOutput
 
-from .actor_loop import acquire_actor_loop, release_actor_loop
-from .block_tracker import VLLMBlockTracker
-from .profiling import profile_stage
-from .snapshot import block_major_view
+from ...xavier.actor_loop import acquire_actor_loop, release_actor_loop
+from ...xavier.backends.torch.snapshot import block_major_view
+from ...xavier.block_tracker import VLLMBlockTracker
+from ...xavier.profiling import profile_stage
+from ...xavier.utils import hash_block_tokens
 from .transfer import XAVIER_BF16_TRANSPORT_DTYPE, TransferActor
 from .transport import uses_direct_handoff
-from .utils import hash_block_tokens
 
 if TYPE_CHECKING:
     from vllm.config import VllmConfig
@@ -783,7 +783,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return torch.cat(blocks, dim=0)
 
     def _load_request_blocks(self, request):
-        from .request_transfer import LayerRead, batch_reads, unpack_reads
+        from ...xavier.backends.torch.request_transfer import (
+            LayerRead,
+            batch_reads,
+            unpack_reads,
+        )
 
         caches = {
             name: block_major_view(tensor, self._num_cache_blocks)

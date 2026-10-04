@@ -21,9 +21,9 @@ import numpy as np
 import torch
 import xoscar as xo
 
-from .collective import CollectiveRank
-from .profiling import profile_stage
-from .snapshot import KVSnapshotStore
+from ...xavier.backends.torch.snapshot import KVSnapshotStore
+from ...xavier.collective import CollectiveRank
+from ...xavier.profiling import profile_stage
 
 try:
     from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
@@ -117,7 +117,7 @@ class BufferTransferMixin:
         return TypeMappingGloo[TORCH_DTYPE_TO_NUMPY_DTYPE[input_dtype]]
 
 
-from .gpu_transfer import GPUTransferMixin
+from ...xavier.backends.torch.gpu_transfer import GPUTransferMixin
 
 
 class TransferActor(
@@ -189,7 +189,7 @@ class TransferActor(
         return self._cache_engine[virtual_engine]  # type: ignore
 
     def configure_snapshots_v1(self, capacity: int):
-        from .snapshot import KVSnapshotStore
+        from ...xavier.backends.torch.snapshot import KVSnapshotStore
 
         if capacity <= 0:
             raise ValueError("Xavier snapshot capacity must be positive")
@@ -482,7 +482,7 @@ class TransferActor(
     async def start_send_request_blocks_v1(self, to_rank, reads):
         from xoscar.collective import xoscar_pygloo as xp
 
-        from .request_transfer import pack_reads
+        from ...xavier.backends.torch.request_transfer import pack_reads
 
         # Validate and retain the complete payload before acknowledging the send.
         payload = pack_reads(self._snapshot_store, reads)

@@ -1059,10 +1059,10 @@ class SupervisorActor(xo.StatelessActor):
                 signal.SIGTERM, lambda: asyncio.create_task(signal_handler())
             )
 
-        from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
-        from ..model.llm.vllm.xavier.collective_manager import CollectiveManager
+        from ..model.llm.xavier.block_tracker import BlockTracker
+        from ..model.llm.xavier.collective_manager import CollectiveManager
 
-        self._block_tracker_mapping: Dict[str, xo.ActorRefType[VLLMBlockTracker]] = {}  # type: ignore
+        self._block_tracker_mapping: Dict[str, xo.ActorRefType[BlockTracker]] = {}  # type: ignore
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
@@ -3099,7 +3099,7 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "vllm"
         )
-        from ..model.llm.vllm.xavier.transport import validate_gpu_cache_budget
+        from ..model.llm.xavier.transport import validate_gpu_cache_budget
 
         gpu_cache_bytes = validate_gpu_cache_budget(
             kwargs.pop("xavier_gpu_cache_bytes", None), enable_xavier, replica
@@ -3266,15 +3266,13 @@ class SupervisorActor(xo.StatelessActor):
             nonlocal download_hub
             try:
                 if enable_xavier:
-                    from ..model.llm.vllm.xavier.block_tracker import VLLMBlockTracker
-                    from ..model.llm.vllm.xavier.collective_manager import (
-                        CollectiveManager,
-                    )
+                    from ..model.llm.xavier.block_tracker import BlockTracker
+                    from ..model.llm.xavier.collective_manager import CollectiveManager
 
                     self._block_tracker_mapping[model_uid] = await xo.create_actor(
-                        VLLMBlockTracker,
+                        BlockTracker,
                         address=self.address,
-                        uid=f"{VLLMBlockTracker.default_uid()}-{model_uid}",
+                        uid=f"{BlockTracker.default_uid()}-{model_uid}",
                     )
                     self._collective_manager_mapping[model_uid] = await xo.create_actor(
                         CollectiveManager,
