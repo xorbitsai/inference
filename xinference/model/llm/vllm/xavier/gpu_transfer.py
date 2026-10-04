@@ -399,7 +399,7 @@ class GPUTransferMixin:
         runtime = self._gpu_transfer
         return await runtime.run(runtime.send, reads, remote_ref, slab_bytes)
 
-    async def load_gpu_requests_v1(self, requests, leases=()):
+    async def load_gpu_requests_v1(self, requests, leases):
         runtime = self._gpu_transfer
         # The actor loop advances independently of EngineCore. Keep both writes
         # and lease cleanup inside the protected task before returning readiness.

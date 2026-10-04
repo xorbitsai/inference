@@ -142,4 +142,6 @@ The budget applies only to Xavier's GPU cache. Leave additional GPU memory for t
 
 With GPU-first caching, cache transfers can overlap with response generation for other requests.
 
+Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request.
+
 For implementation details, profiling and contributor tests, see the `Xavier developer README <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_.

@@ -264,3 +264,7 @@ msgid ""
 msgstr ""
 "實作細節、效能診斷和開發者測試請參閱 `Xavier developer README "
 "<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+
+#: ../../source/user_guide/pd_separation.rst:145
+msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
+msgstr "傳輸失敗或 KV 快取佈局不相容時會報錯，而不會默默地重新計算請求。"

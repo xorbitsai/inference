@@ -268,3 +268,7 @@ msgid ""
 msgstr ""
 "구현 세부 사항, 프로파일링 및 개발자 테스트는 다음 문서를 참고하세요: `Xavier developer README "
 "<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+
+#: ../../source/user_guide/pd_separation.rst:145
+msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
+msgstr "전송 실패와 호환되지 않는 KV 캐시 레이아웃은 요청을 조용히 다시 계산하는 대신 오류를 발생시킵니다."

@@ -20,7 +20,9 @@ The snapshot budget excludes the model, engine KV cache, persistent transfer buf
 
 GPU overflow demotes unleased snapshots to CPU. If both tiers have no evictable space, new snapshots are skipped. Layout mismatches and transfer failures propagate instead of silently converting data or promising recomputation. If staging fails, outstanding CUDA work is fenced before unpublished snapshots are discarded; synchronization errors still propagate.
 
-KV loads execute asynchronously in the TransferActor so ready requests can continue decoding. Cancellation holds destination blocks and source leases until writes complete. Cleanup attempts every lease release and preserves the original load exception if cleanup also fails. Shutdown drains outstanding operations before releasing buffers and snapshot storage, and logs cache placement and transfer counters. Repeated close calls share one close task; the closed runtime remains a guard against remapping.
+When `xavier_gpu_cache_bytes` is set (including zero), KV loads execute asynchronously in the TransferActor so ready requests can continue decoding. Omitting the setting retains synchronous CPU loading. Cancellation holds destination blocks and source leases until writes complete. Cleanup attempts every lease release and preserves the original load exception if cleanup also fails. Shutdown drains outstanding operations before releasing buffers and snapshot storage, and logs cache placement and transfer counters. Repeated close calls share one close task; the closed runtime remains a guard against remapping.
+
+If the last request is aborted while an async load is pending, an idle vLLM EngineCore may not poll completion again until the next request arrives. Actor-side writes and source lease release continue independently, but destination block reclamation and connector-side completion cleanup wait for that next engine step or shutdown.
 
 The connector accepts supported block-first and K/V-first layouts and rejects an ambiguous block axis. Shared null-block positions in allocated cache groups are omitted from destination mappings; conflicting writes to real destinations remain errors. This is not a claim of support for recurrent state: hybrid/recurrent attention models such as Qwen3.5 are rejected. Successful model launch alone does not demonstrate correct recurrent-state transfer.
 
@@ -63,6 +65,6 @@ XINFERENCE_TEST_PD_GPU=1 python -m pytest -v \
   xinference/model/llm/vllm/xavier/test/test_pd_gpu.py
 ```
 
-The test runs both Xavier and native NIXL in real subprocesses, with one GPU per role. It checks streaming and non-streaming responses, repeated prompts and four concurrent requests, then terminates the deployment. Xavier requires producer staging and decoder KV-load log evidence; native NIXL requires `calling _read_blocks` and completed receive logs, including the concurrent requests.
+The test runs synchronous CPU Xavier, GPU-first asynchronous Xavier and native NIXL in real subprocesses, with one GPU per role. It checks streaming and non-streaming responses, repeated prompts and four concurrent requests, then terminates the deployment. CPU Xavier requires producer staging and decoder KV-load log evidence; GPU-first Xavier requires successful async completion logs from `get_finished` after writes and lease cleanup; native NIXL requires `calling _read_blocks` and completed receive logs, including the concurrent requests.
 
 For locally cached weights, set `XINFERENCE_TEST_PD_MODEL_PATH`, `XINFERENCE_TEST_PD_MODEL_NAME` and `XINFERENCE_TEST_PD_MODEL_SIZE` to the path and registered model name/size. The manually triggered **PD GPU integration** GitHub Actions workflow runs the same test on a selected two-GPU runner.

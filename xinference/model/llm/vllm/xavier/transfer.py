@@ -309,9 +309,20 @@ class TransferActor(
             )
             await ref.release_blocks_v1(lease)
 
-        await asyncio.gather(
+        results = await asyncio.gather(
             *(release(rank) for rank in transfers), return_exceptions=True
         )
+        for rank, result in zip(transfers, results):
+            if isinstance(result, BaseException):
+                logger.warning(
+                    "Failed to release Xavier snapshot lease %s on rank %s",
+                    lease,
+                    rank,
+                    exc_info=(type(result), result, result.__traceback__),
+                )
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
 
     def _get_staged_layer_blocks_v1(self, layer_name, remote_block_ids):
         return self._snapshot_store.read(layer_name, remote_block_ids)

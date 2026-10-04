@@ -296,3 +296,7 @@ msgstr ""
 "Pour les détails d’implémentation, le profilage et les tests de "
 "développement, consultez `Xavier developer README "
 "<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+
+#: ../../source/user_guide/pd_separation.rst:145
+msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
+msgstr "Les échecs de transfert et les dispositions incompatibles du cache KV provoquent des erreurs au lieu de recalculer silencieusement la requête."

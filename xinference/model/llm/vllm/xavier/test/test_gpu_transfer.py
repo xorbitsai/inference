@@ -1076,3 +1076,165 @@ async def test_async_load_preserves_write_error_when_release_also_fails(
     assert r.actor.release_remote_blocks_v1.await_count == 2
     assert "release failed" in caplog.text
     await r.close()
+
+
+@pytest.mark.parametrize("fail_load", [False, True])
+def test_start_load_through_async_completion(
+    connector, connector_module, monkeypatch, fail_load
+):
+    from ..gpu_transfer import GPUTransferMixin
+
+    runtime_ = runtime(monkeypatch)
+    writes_done, release_done = asyncio.Event(), asyncio.Event()
+
+    async def load(entries):
+        assert entries == [{2: {"layer": {1: 3}}}]
+        await writes_done.wait()
+        if fail_load:
+            raise RuntimeError("write failed")
+
+    async def release(lease, ranks):
+        assert (lease, ranks) == ("lease", {2: {1: 0}})
+        await release_done.wait()
+
+    runtime_.load_requests = AsyncMock(side_effect=load)
+    runtime_.actor.release_remote_blocks_v1 = AsyncMock(side_effect=release)
+    actor = SimpleNamespace(_gpu_transfer=runtime_)
+    transfer = SimpleNamespace(
+        load_gpu_requests_v1=lambda entries, leases: GPUTransferMixin.load_gpu_requests_v1(
+            actor, entries, leases
+        )
+    )
+    connector._gpu_budget = 256
+    connector._registered_kv_caches = {"layer": torch.zeros(8, 2)}
+    connector._ensure_gpu_cache_mapping = AsyncMock(return_value=transfer)
+    request = connector_module.XavierLoadRequest("r", {2: {1: 0}}, lease="lease")
+    connector._requests_need_load["r"] = request
+    connector._leased_requests["r"] = request
+    connector.update_state_after_alloc(
+        SimpleNamespace(request_id="r"),
+        SimpleNamespace(get_block_ids=lambda: ([3],)),
+        16,
+    )
+    metadata = connector_module.XavierConnectorMetadata()
+    connector._build_load_meta(SimpleNamespace(), metadata)
+    assert not connector._leased_requests
+    connector._get_connector_metadata = lambda: metadata
+    connector.start_load_kv(SimpleNamespace())
+    assert connector.get_finished({"r"}) == (set(), set())
+    runtime_.actor.release_remote_blocks_v1.assert_not_awaited()
+    writes_done.set()
+    for _ in range(5):
+        assert connector.get_finished({"r"}) == (set(), set())
+    runtime_.actor.release_remote_blocks_v1.assert_awaited_once()
+    release_done.set()
+    if fail_load:
+        with pytest.raises(RuntimeError, match="write failed"):
+            for _ in range(20):
+                assert connector.get_finished(set()) == (set(), set())
+    else:
+        received = set()
+        for _ in range(20):
+            _, ready = connector.get_finished(set())
+            received.update(ready)
+        assert received == {"r"}  # Aborted destinations become reclaimable only now.
+        assert not connector._gpu_load_jobs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["mapping", "entries", "synchronize"])
+async def test_submission_failure_releases_every_lease(
+    connector, connector_module, monkeypatch, caplog, failure
+):
+    requests = [
+        connector_module.XavierLoadRequest(str(i), {2: {1: i}}, lease=str(i))
+        for i in range(2)
+    ]
+    connector._registered_kv_caches = {"layer": torch.zeros(8, 2)}
+    transfer = SimpleNamespace(load_gpu_requests_v1=AsyncMock())
+    connector._ensure_gpu_cache_mapping = AsyncMock(return_value=transfer)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda: None)
+
+    def fail(*args):
+        raise RuntimeError("prepare failed")
+
+    if failure == "mapping":
+        connector._ensure_gpu_cache_mapping.side_effect = fail
+    elif failure == "entries":
+        connector._get_local_transfer_map = fail
+    else:
+        monkeypatch.setattr(torch.cuda, "synchronize", fail)
+    connector._release_load_request = AsyncMock(
+        side_effect=[ValueError("release failed"), None]
+    )
+    with pytest.raises(RuntimeError, match="prepare failed"):
+        await connector._submit_gpu_requests(requests)
+    assert connector._release_load_request.await_count == 2
+    assert "release failed" in caplog.text
+    transfer.load_gpu_requests_v1.assert_not_awaited()
+    assert not connector._gpu_load_jobs
+
+
+@pytest.mark.asyncio
+async def test_remote_release_reports_failures_after_attempting_all_ranks(
+    monkeypatch, caplog
+):
+    from ..transfer import TransferActor
+
+    peers = [
+        SimpleNamespace(
+            release_blocks_v1=AsyncMock(side_effect=RuntimeError("lost peer"))
+        ),
+        SimpleNamespace(release_blocks_v1=AsyncMock()),
+    ]
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(side_effect=peers))
+    actor = SimpleNamespace(_world_addresses=["a", "b"])
+    with pytest.raises(RuntimeError, match="lost peer"):
+        await TransferActor.release_remote_blocks_v1(actor, "lease", {0: {}, 1: {}})
+    for peer in peers:
+        peer.release_blocks_v1.assert_awaited_once_with("lease")
+    assert "lease lease on rank 0" in caplog.text
+    assert "lost peer" in caplog.text
+
+
+def test_shutdown_logs_failed_load_and_still_closes(connector, caplog):
+    async def fail():
+        raise RuntimeError("load failed at shutdown")
+
+    async def submit():
+        connector._gpu_load_jobs[asyncio.create_task(fail())] = ["r"]
+
+    connector._call(submit())
+    connector._gpu_cache_mapped = True
+    connector._transfer_ref = SimpleNamespace(close_gpu_caches_v1=AsyncMock())
+    connector.shutdown()
+    assert "load failed at shutdown" in caplog.text
+    connector._transfer_ref.close_gpu_caches_v1.assert_awaited_once()
+    assert not connector._gpu_load_jobs and connector._loop is None
+
+
+@pytest.mark.parametrize("fail_load", [False, True])
+def test_sync_load_preserves_error_and_attempts_all_releases(
+    connector, connector_module, fail_load
+):
+    connector._registered_kv_caches = {"layer": torch.zeros(8, 2)}
+    metadata = connector_module.XavierConnectorMetadata()
+    metadata.load_requests = [
+        connector_module.XavierLoadRequest(str(i), {2: {1: i}}, lease=str(i))
+        for i in range(2)
+    ]
+    connector._get_connector_metadata = lambda: metadata
+
+    def load(request):
+        if fail_load:
+            raise RuntimeError("write failed")
+
+    connector._load_request_blocks = load
+    connector._release_load_request = AsyncMock(
+        side_effect=[RuntimeError("release failed"), None]
+    )
+    with pytest.raises(
+        RuntimeError, match="write failed" if fail_load else "release failed"
+    ):
+        connector.start_load_kv(SimpleNamespace())
+    assert connector._release_load_request.await_count == 2
