@@ -58,6 +58,7 @@ def test_v1_connector_configuration(engine, role, kv_role):
     assert args.additional_config["custom"] == 1
     json.dumps(args.additional_config)
     assert args.enforce_eager
+    assert args.disable_hybrid_kv_cache_manager is False
     assert config == {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
     factory.assert_called_once()
 

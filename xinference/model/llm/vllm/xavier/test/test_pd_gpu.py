@@ -40,6 +40,12 @@ def pd_cluster(monkeypatch, tmp_path, backend):
         "level": "DEBUG",
         "propagate": False,
     }
+    # Per-op tensor debug messages synchronize CUDA and overwhelm these logs.
+    logging_config["loggers"]["vllm.ir.op"] = {
+        "handlers": ["stream_handler", "file_handler"],
+        "level": "WARNING",
+        "propagate": False,
+    }
     config_path = tmp_path / "vllm-logging.json"
     config_path.write_text(json.dumps(logging_config))
     monkeypatch.setenv("VLLM_LOGGING_CONFIG_PATH", str(config_path))

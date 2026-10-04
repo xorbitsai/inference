@@ -30,7 +30,11 @@ P/D always uses asynchronous loads. In the hybrid snapshot path, when `xavier_gp
 
 If the last request is aborted while an async load is pending, an idle vLLM EngineCore may not poll completion again until the next request arrives. Actor-side writes and source lease release continue independently, but destination block reclamation and connector-side completion cleanup wait for that next engine step or shutdown.
 
-The connector accepts supported block-first and K/V-first layouts and rejects an ambiguous block axis. Shared null-block positions in allocated cache groups are omitted from destination mappings; conflicting writes to real destinations remain errors. This is not a claim of support for recurrent state: hybrid/recurrent attention models such as Qwen3.5 are rejected. Successful model launch alone does not demonstrate correct recurrent-state transfer.
+The connector accepts supported block-first and K/V-first layouts and rejects an ambiguous block axis. Shared null-block positions in allocated cache groups are omitted from destination mappings; conflicting writes to real destinations remain errors. Qwen3.5 text-only P/D additionally transfers each Gated DeltaNet cache group independently. Launch with `language_model_only=True`, `enable_prefix_caching=False`, `mamba_cache_mode="none"`, and `async_scheduling=False`. Xavier enables the hybrid KV cache manager by default; do not disable it. TP/PP remain 1 and speculative decoding is rejected.
+
+For recurrent models, P computes the first N-1 prompt tokens; D loads that exact recurrent state and computes the last token. P truncation is idempotent across scheduling retries. Attention tensors may contain several physical kernel blocks per logical block; zero-copy views keep those physical blocks within a single logical transfer unit. Tickets authorize source blocks separately for each layer, including both convolution and SSM state tensors. The engine retains all cache groups until transfer completion. One-token prompts recompute on D without transferring state.
+
+Recurrent history reuse is currently disabled, even when a history budget is configured. Ordinary attention-block hashes cannot identify a reusable recurrent state at an arbitrary prefix boundary. Supporting historical reuse requires atomic snapshots of attention KV plus the recurrent state at the same token position. Full-attention history caching remains unchanged.
 
 In the legacy V0 path, prefill replicas release only the requested completed sequence; ordinary hybrid and decode replicas retain automatic cleanup.
 
@@ -74,3 +78,18 @@ XINFERENCE_TEST_PD_GPU=1 python -m pytest -v \
 The test runs default Xavier direct handoff with tiered history, Xavier with history disabled, and native NIXL in real subprocesses, with one GPU per role. It checks streaming and non-streaming responses, repeated prompts and four concurrent requests, then terminates the deployment. Local prefix caching is disabled. Exact repeated-text checks are restricted to native NIXL and Xavier with history disabled; fixed-prefix and raw-bit history tests cover history reuse separately. Xavier requires producer registration and successful async completion logs from `get_finished`, and the default-history case requires a positive P-side history restore for each repeated prompt; native NIXL requires `calling _read_blocks` and completed receive logs, including the concurrent requests.
 
 For locally cached weights, set `XINFERENCE_TEST_PD_MODEL_PATH`, `XINFERENCE_TEST_PD_MODEL_NAME` and `XINFERENCE_TEST_PD_MODEL_SIZE` to the path and registered model name/size. The manually triggered **PD GPU integration** GitHub Actions workflow runs the same test on a selected two-GPU runner.
+
+### Qwen3.5 recurrent-state regression
+
+Set `XINFERENCE_TEST_PD_RECURRENT_GPU=1` and
+`XINFERENCE_TEST_PD_RECURRENT_MODEL_PATH` to a local Qwen3.5-0.8B checkpoint,
+then run `test/test_pd_recurrent_gpu.py`. This opt-in test compares Xavier and
+native NIXL P/D against standalone greedy outputs for short and long prompts,
+including repeated and concurrent requests. It requires actual transfer logs.
+The test uses BF16, TP=PP=1, text-only mode and no prefix caching; it does not
+establish recurrent history-cache support or a throughput advantage.
+
+Native NIXL's GDN support landed in vLLM PR #41869 and is included in
+vLLM 0.22.0. Stock vLLM 0.21.0 rejects GDN in its convolution-state transfer
+setup. The native leg of the regression requires 0.22.0 or newer; Xavier's
+custom handoff continues to support 0.21.0.

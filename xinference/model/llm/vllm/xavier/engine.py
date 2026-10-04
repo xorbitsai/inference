@@ -104,6 +104,11 @@ class XavierEngine:
                 VLLM_VERSION,
             )
 
+        # Xavier implements SupportsHMA, but vLLM's default connector allowlist
+        # does not recognize externally registered connectors.
+        if getattr(engine_args, "disable_hybrid_kv_cache_manager", None) is None:
+            engine_args.disable_hybrid_kv_cache_manager = False
+
         engine_args.kv_transfer_config = KVTransferConfig(
             kv_connector=XAVIER_CONNECTOR,
             kv_connector_module_path=XAVIER_CONNECTOR_MODULE,

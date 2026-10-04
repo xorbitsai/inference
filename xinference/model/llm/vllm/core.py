@@ -796,8 +796,18 @@ class VLLMModel(LLM):
         if self._nixl_config is not None:
             from .pd import configure_nixl_engine
 
-            if isinstance(self, VLLMMultiModel):
-                raise ValueError("Native NIXL PD currently supports text-only models")
+            if isinstance(self, VLLMMultiModel) and not self._model_config.get(
+                "language_model_only", False
+            ):
+                raise ValueError(
+                    "Native NIXL PD requires text-only models or language_model_only=True"
+                )
+            if isinstance(self, VLLMMultiModel) and VLLM_VERSION < version.parse(
+                "0.22.0"
+            ):
+                raise ValueError(
+                    "Native NIXL PD for language_model_only models requires vLLM >= 0.22.0"
+                )
             configure_nixl_engine(self._model_config, VLLM_VERSION, enable_lora)
         use_native_mp, native_mp_reason = self._native_mp_route()
         if self._xavier_config is not None:
@@ -2951,7 +2961,13 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:
-                return self._post_process_completion(
+                result = self._post_process_completion(
                     self.model_family, self.model_uid, c
                 )
-            return self._to_chat_completion(c, self.reasoning_parser)
+            else:
+                result = self._to_chat_completion(c, self.reasoning_parser)
+            if "_pd_kv_transfer_params" in c:
+                result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
+                    "_pd_kv_transfer_params"
+                ]
+            return result

@@ -323,9 +323,12 @@ async def test_native_decode_failure_propagates_before_conversion(monkeypatch, s
     model._engine.abort.assert_awaited_once_with("failed")
 
 
-@pytest.mark.parametrize("multimodal", [False, True])
+@pytest.mark.parametrize(
+    "multimodal,language_only", [(False, False), (True, False), (True, True)]
+)
+@pytest.mark.parametrize("engine_version", ["0.21.0", "0.22.0"])
 def test_nixl_load_configures_engine_args_or_rejects_multimodal(
-    monkeypatch, multimodal
+    monkeypatch, multimodal, language_only, engine_version
 ):
     from .. import core
 
@@ -338,7 +341,7 @@ def test_nixl_load_configures_engine_args_or_rejects_multimodal(
 
     args_factory = Mock(side_effect=engine_args)
     for name, module in {
-        "vllm": SimpleNamespace(__version__="0.21.0"),
+        "vllm": SimpleNamespace(__version__=engine_version),
         "vllm.engine.arg_utils": SimpleNamespace(AsyncEngineArgs=args_factory),
         "vllm.engine.async_llm_engine": SimpleNamespace(AsyncLLMEngine=object),
         "vllm.lora.request": SimpleNamespace(LoRARequest=object),
@@ -360,15 +363,61 @@ def test_nixl_load_configures_engine_args_or_rejects_multimodal(
     model._xavier_config = None
     model.lora_modules = None
     model._get_cuda_count = lambda: 1
-    model._sanitize_model_config = lambda config: {"reasoning_content": False}
+    model._sanitize_model_config = lambda config: {
+        "reasoning_content": False,
+        "language_model_only": language_only,
+    }
     model.prepare_parse_reasoning_content = Mock()
     model.prepare_parse_tool_calls = Mock()
     model._native_mp_route = lambda: (False, "test")
-    if multimodal:
+    if multimodal and not language_only:
         with pytest.raises(ValueError, match="text-only"):
+            model.load()
+        args_factory.assert_not_called()
+    elif multimodal and Version(engine_version) < Version("0.22.0"):
+        with pytest.raises(ValueError, match="requires vLLM >= 0.22.0"):
             model.load()
         args_factory.assert_not_called()
     else:
         with pytest.raises(ReachedEngineArgs):
             model.load()
         args_factory.assert_called_once()
+
+
+@pytest.mark.parametrize("tools", [[], [{"type": "function"}]])
+@pytest.mark.asyncio
+async def test_multimodal_text_chat_preserves_pd_handoff(monkeypatch, tools):
+    from .. import core
+
+    model = object.__new__(core.VLLMMultiModel)
+    model.model_family = SimpleNamespace(
+        model_family="internvl", model_name="internvl", model_ability=["vision"]
+    )
+    model.model_uid = "p"
+    model.reasoning_parser = None
+    model.get_specific_prompt = Mock(return_value=("prompt", None))
+    model._sanitize_chat_config = lambda config: config
+    model._to_chat_completion = Mock(return_value={"choices": []})
+    model._post_process_completion = Mock(return_value={"choices": []})
+    transfer = {"do_remote_prefill": True, "xavier_direct": {"ticket": "t"}}
+    model.async_generate = AsyncMock(return_value={"_pd_kv_transfer_params": transfer})
+    monkeypatch.setattr(core, "validate_messages_media", Mock())
+    result = await core.VLLMMultiModel.async_chat.__wrapped__(
+        model, [{"role": "user", "content": "hello"}], {"tools": tools}
+    )
+    assert result["_pd_kv_transfer_params"] == transfer
+
+
+@pytest.mark.parametrize(
+    "worker_layout,launch_layout,expected",
+    [(None, None, "DS"), ("SD", None, "SD"), ("SD", "DS", "DS")],
+)
+def test_nixl_conv_layout_default_and_overrides(
+    monkeypatch, worker_layout, launch_layout, expected
+):
+    monkeypatch.delenv("VLLM_SSM_CONV_STATE_LAYOUT", raising=False)
+    if worker_layout:
+        monkeypatch.setenv("VLLM_SSM_CONV_STATE_LAYOUT", worker_layout)
+    env = {"VLLM_SSM_CONV_STATE_LAYOUT": launch_layout} if launch_layout else {}
+    configure_nixl_environment(env, "10.0.0.1:9997")
+    assert env["VLLM_SSM_CONV_STATE_LAYOUT"] == expected
