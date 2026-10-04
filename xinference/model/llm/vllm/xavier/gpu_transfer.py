@@ -155,6 +155,7 @@ class GPUTransfer:
             self.recv_ref = None
             self.caches.clear()
             self.send_buffer = self.recv_buffer = None
+            self.store._gpu_lru.clear()
             self.store.blocks.clear()
             self.store.ready.clear()
             self.store.tiers.clear()

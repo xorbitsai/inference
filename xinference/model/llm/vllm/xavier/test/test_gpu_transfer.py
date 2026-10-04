@@ -532,7 +532,7 @@ async def test_staging_reused_layer_skips_gather_and_preserves_lru(
     assert not gathers
     assert not syncs
     stage(r, 3)
-    assert r.store.tiers == {1: "gpu", 2: "cpu", 3: "gpu"}
+    assert r.store.tiers == {1: "cpu" if gpu_slots == 1 else "gpu", 2: "cpu", 3: "gpu"}
 
 
 @pytest.mark.asyncio
@@ -922,6 +922,7 @@ async def test_close_releases_snapshot_storage_and_is_idempotent(
     assert actor._gpu_transfer is r
     assert not r.store.blocks and not r.store.ready and not r.store.tiers
     assert not r.store.logical_dtypes and not r.store.leases and not r.store.evicted
+    assert not r.store._gpu_lru
     assert r.store.counts == {"gpu": 0, "cpu": 0}
     assert r.send_buffer is None and r.recv_buffer is None
     assert not r.recv_refs and not r.caches
