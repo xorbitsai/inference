@@ -191,7 +191,16 @@ def test_pd_gpu(pd_cluster, backend, gpu_cache_bytes):
             if backend == "xavier"
             else r"with remote block size \d+ for req (\S+)"
         )
-        loaded_requests = set(re.findall(pattern, log_since(offset)))
+        evidence = log_since(offset)
+        loaded_requests = set(re.findall(pattern, evidence))
+        if backend == "xavier":
+            # P-side history restoration also logs async completion. Exclude
+            # producer IDs so all four completions must come from D handoffs.
+            producer_requests = set(
+                re.findall(r"Register Xavier direct handoff: request=(\S+)", evidence)
+            )
+            assert len(producer_requests) == 4
+            loaded_requests -= producer_requests
         assert len(loaded_requests) == 4
         print("PD concurrent requests: 4 completed with remote KV loads", flush=True)
         client.terminate_model(uid)
