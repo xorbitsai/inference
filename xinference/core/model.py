@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
     from ..model.llm.core import LLM
+    from ..model.llm.weight_cache import WeightCachedModel
     import PIL
 
 import logging
@@ -524,17 +525,21 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             await asyncio.to_thread(self._model.wait_for_load)
         self._model_state = "ready"
 
-    def get_reload_config(self) -> Dict[str, Any]:
+    def _get_weight_cached_model(self) -> "WeightCachedModel":
         from ..model.llm.weight_cache import WeightCachedModel
 
         if not isinstance(self._model, WeightCachedModel):
             raise ValueError("Reload with retained weights requires vLLM or SGLang")
-        return self._model.get_reload_config()
+        return self._model
+
+    def get_reload_config(self) -> Dict[str, Any]:
+        return self._get_weight_cached_model().get_reload_config()
 
     async def validate_reload(self, model_config: Dict[str, Any]) -> None:
         self._require_ready()
-        self.get_reload_config()
-        await asyncio.to_thread(self._model.validate_reload, model_config)
+        await asyncio.to_thread(
+            self._get_weight_cached_model().validate_reload, model_config
+        )
         self._reload_status: Dict[str, Any] = {}
 
     def get_reload_status(self) -> Dict[str, Any]:
@@ -544,6 +549,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.weight_cache import ModelReloadError
 
         await self.validate_reload(model_config)
+        model = self._get_weight_cached_model()
         self._model_state = "reloading"
         self._reload_status = {"stage": "draining"}
         try:
@@ -556,7 +562,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     )
                 await asyncio.sleep(0.05)
             await asyncio.to_thread(
-                self._model.reload,
+                model.reload,
                 model_config,
                 lambda stage: self._reload_status.update(stage=stage),
             )
