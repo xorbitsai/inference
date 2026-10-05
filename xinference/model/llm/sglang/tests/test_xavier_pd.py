@@ -1,6 +1,7 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 import asyncio
+from functools import partial
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -222,3 +223,84 @@ async def test_directory_rejects_duplicates_mismatches_and_expiry(deployment):
     await actor.release(123)
     with pytest.raises(RuntimeError, match="expired"):
         await actor.source(123)
+
+
+@pytest.mark.asyncio
+async def test_cached_directory_still_validates_each_request(deployment, monkeypatch):
+    actor, prefill, decode = deployment
+    directory = directory_spy(actor)
+    lookup = AsyncMock(return_value=directory)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    p, d = prefill._xavier_handoff, decode._xavier_handoff
+    transfer = config("prefill")["_pd_kv_transfer_params"]
+    for room in (123, 124):
+        transfer["sglang_xavier"]["room"] = room
+        await p.prepare("prompt", transfer)
+        await d.accept("prompt", transfer)
+        with pytest.raises(ValueError, match="duplicate"):
+            await p.prepare("prompt", transfer)
+        with pytest.raises(RuntimeError, match="GPU KV transfer"):
+            await d.check_hit({}, transfer["sglang_xavier"])
+        await actor.complete(room, 4096)
+        await d.check_hit({}, transfer["sglang_xavier"])
+        await p.publish(transfer["sglang_xavier"])
+        await d.release(transfer["sglang_xavier"])
+    assert lookup.await_count == directory.get_stats.await_count == 2
+    assert directory.prepare.await_count == 6
+    stats = await actor.get_stats()
+    assert stats["completed_requests"] == 2 and stats["active_handoffs"] == 0
+
+    # Both replicas now have caches. A different paired prompt must still fail.
+    await p.prepare("next prompt", transfer)
+    with pytest.raises(ValueError, match="prompt mismatch"):
+        await d.accept("wrong prompt", transfer)
+    with pytest.raises(ValueError, match="namespaces differ"):
+        await actor.configure("different-namespace")
+    await p.release(transfer["sglang_xavier"], failed=True)
+    assert (await actor.get_stats())["active_handoffs"] == 0
+    assert lookup.await_count == directory.get_stats.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["lookup", "stats", "unregistered", "cancel"])
+async def test_directory_initialization_failure_can_retry(
+    deployment, monkeypatch, failure
+):
+    actor, prefill, _ = deployment
+    error = asyncio.CancelledError() if failure == "cancel" else RuntimeError("lookup")
+    directory = directory_spy(actor)
+    lookup = AsyncMock(return_value=directory)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    if failure == "lookup":
+        lookup.side_effect = [error, directory]
+    elif failure == "unregistered":
+        directory.get_stats.side_effect = [
+            {"namespace": None},
+            {"namespace": "gpu-namespace"},
+        ]
+    else:
+        directory.get_stats.side_effect = [error, {"namespace": "gpu-namespace"}]
+    expected = (
+        asyncio.CancelledError
+        if failure == "cancel"
+        else ValueError if failure == "unregistered" else RuntimeError
+    )
+    transfer = config("prefill")["_pd_kv_transfer_params"]
+    with pytest.raises(expected):
+        await prefill._xavier_handoff.prepare("prompt", transfer)
+    assert (await actor.get_stats())["active_handoffs"] == 0
+    await prefill._xavier_handoff.prepare("prompt", transfer)
+    await prefill._xavier_handoff.release(transfer["sglang_xavier"], failed=True)
+    assert (await actor.get_stats())["active_handoffs"] == 0
+
+
+def directory_spy(actor):
+    async def call(method, *args):
+        return await getattr(actor, method)(*args)
+
+    return SimpleNamespace(
+        **{
+            method: AsyncMock(side_effect=partial(call, method))
+            for method in ("get_stats", "prepare", "check", "release")
+        }
+    )

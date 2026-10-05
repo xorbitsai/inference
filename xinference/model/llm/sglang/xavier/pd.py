@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import time
+from typing import Optional
 
 import xoscar as xo
 
@@ -14,13 +15,18 @@ class SGLangXavierHandoff:
     def __init__(self, cache_config: dict, page_size: int, tokenizer):
         self.config, self.tokenizer = cache_config, tokenizer
         self.role = cache_config["role"]
+        # The directory and namespace live for this model's deployment. Keep
+        # request validation/completion as RPCs, without resolving them again.
+        self._directory_actor: Optional[xo.ActorRef] = None
+        self._namespace: Optional[str] = None
 
     async def _call(self, method, *args):
         async def invoke():
-            actor = await xo.actor_ref(
-                address=self.config["address"], uid=self.config["uid"]
-            )
-            return await getattr(actor, method)(*args)
+            if self._directory_actor is None:
+                self._directory_actor = await xo.actor_ref(
+                    address=self.config["address"], uid=self.config["uid"]
+                )
+            return await getattr(self._directory_actor, method)(*args)
 
         return await asyncio.wait_for(invoke(), timeout=10)
 
@@ -30,9 +36,12 @@ class SGLangXavierHandoff:
             raise ValueError("Missing SGLang Xavier GPU bootstrap metadata")
         tokens = self.tokenizer.encode(prompt)
         prompt_hash = hashlib.sha256(json.dumps(tokens).encode()).hexdigest()
-        namespace = (await self._call("get_stats"))["namespace"]
+        if self._namespace is None:
+            self._namespace = (await self._call("get_stats"))["namespace"]
+            if self._namespace is None:
+                raise ValueError("Unregistered SGLang Xavier PD namespace")
         await self._call(
-            "prepare", handoff.get("room"), namespace, prompt_hash, self.role
+            "prepare", handoff.get("room"), self._namespace, prompt_hash, self.role
         )
         return handoff
 
