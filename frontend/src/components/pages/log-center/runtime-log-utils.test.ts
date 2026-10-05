@@ -352,7 +352,7 @@ test('runtime historical search uses the structured message without a request ID
   });
 });
 
-test('runtime historical search keeps request IDs and plain-text message fallbacks', () => {
+test('runtime historical search keeps request IDs and strips text-log metadata', () => {
   const structured = JSON.stringify({
     '@timestamp': '2026-10-05T08:00:00.000Z',
     level: 'INFO',
@@ -361,10 +361,20 @@ test('runtime historical search keeps request IDs and plain-text message fallbac
   });
   const [structuredEntry] = parseRuntimeLogEntries(`${structured}\n`, 'worker-a');
   const [plainEntry] = parseRuntimeLogEntries(
-    '2026-10-05T08:00:00.000Z INFO Model ready on worker\ncontinuation\n',
+    '2026-10-05T08:00:00.000Z INFO xinference.core.worker pid:123 role:worker ' +
+      'address:10.0.0.1:30001 node:worker-host Model ready on worker\ncontinuation\n',
     'worker-a'
   );
 
   assert.deepEqual(getRuntimeHistoricalSearch(structuredEntry), { requestId: 'xinf-456' });
   assert.deepEqual(getRuntimeHistoricalSearch(plainEntry), { query: 'Model ready on worker' });
+});
+
+test('runtime historical search omits unreliable plain-text queries', () => {
+  const [entry] = parseRuntimeLogEntries(
+    '2026-10-05T08:00:00.000Z INFO Model ready on worker\n',
+    'worker-a'
+  );
+
+  assert.deepEqual(getRuntimeHistoricalSearch(entry), {});
 });

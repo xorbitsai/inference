@@ -88,6 +88,7 @@ export function buildHistoricalHandoffQueryState(
 
 const TEXT_LOG_START =
   /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\s+([A-Z]+)\s+(.*)$/;
+const TEXT_FILE_MESSAGE = /^\S+\s+pid:\d+\s+role:\S*\s+address:\S*\s+node:\S+(?:\s+(.*))?$/;
 const ENTRY_BOUNDARY = /(?:^|\n)(?=(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}|\{"@timestamp"\s*:))/;
 
 interface ParsedLogStart {
@@ -154,15 +155,19 @@ export function getRuntimeHistoricalSearch(entry: RuntimeLogEntry): {
 
   if (payload) {
     const message = typeof payload.message === 'string' ? payload.message.trim() : '';
-    return { query: message ? message.slice(0, 160) : undefined };
+    return message ? { query: message.slice(0, 160) } : {};
   }
 
   // An incomplete structured record is not a reliable Elasticsearch message
   // query. Let the node and time window locate it instead.
   if (entry.raw.trimStart().startsWith('{')) return {};
 
-  const message = entry.message.split('\n', 1)[0].trim();
-  return { query: message ? message.slice(0, 160) : undefined };
+  const firstLine = entry.raw.split('\n', 1)[0];
+  const logStart = TEXT_LOG_START.exec(firstLine);
+  const textMessage = logStart ? TEXT_FILE_MESSAGE.exec(logStart[3])?.[1]?.trim() : undefined;
+  // Only build a query when the TextFileFormatter metadata prefix can be
+  // removed reliably. Filebeat stores the remaining text as `message`.
+  return textMessage ? { query: textMessage.slice(0, 160) } : {};
 }
 
 export function parseRuntimeLogEntries(logs: string, source: string): RuntimeLogEntry[] {
