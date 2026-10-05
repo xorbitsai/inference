@@ -59,6 +59,7 @@ from ..utils import (
     ChatModelMixin,
     generate_completion_chunk,
 )
+from .gc_lifecycle import InitializationGCFreeze
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,7 @@ class SGLANGModel(LLM):
         self._xavier_handoff = None
         self._nixl_handoff = None
         self._active_request_ids: set[str] = set()
+        self._gc_freeze = InitializationGCFreeze()
 
     @property
     def driver_info(self) -> Optional[dict]:
@@ -352,6 +354,11 @@ class SGLANGModel(LLM):
                 from .pd import SGLangNixlHandoff
 
                 self._nixl_handoff = SGLangNixlHandoff(nixl_config)
+            if self._xavier_handoff is not None or self._nixl_handoff is not None:
+                # Freeze the initialized wrapper in its dedicated model process.
+                # New request cycles remain collectible. Apply the same policy
+                # to both transports so their P/D comparison stays equivalent.
+                self._gc_freeze.start()
 
     def get_pd_bootstrap(self) -> dict:
         handoff = getattr(self, "_nixl_handoff", None)
@@ -377,7 +384,10 @@ class SGLANGModel(LLM):
 
     def stop(self):
         logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
-        self._engine.shutdown()
+        try:
+            self._engine.shutdown()
+        finally:
+            self._gc_freeze.close()
 
     # Generic fallback for NEXTN families without a model-specific recipe.
     DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS = 6

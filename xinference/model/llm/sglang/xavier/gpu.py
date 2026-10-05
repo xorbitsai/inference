@@ -27,6 +27,7 @@ from sglang.srt.disaggregation.base.conn import (
 from ...xavier.backends.torch.direct_handoff import DirectGPUTransfer
 from ...xavier.backends.torch.gpu_transfer import finish_before_cancel
 from ...xavier.contract import KVCacheContract, fingerprint_metadata
+from ..gc_lifecycle import InitializationGCFreeze
 
 GPU_CONFIG_ENV = "XINFERENCE_SGLANG_XAVIER_GPU_CONFIG"
 
@@ -119,6 +120,7 @@ class XavierGPUActor(xo.StatelessActor):
         self._world_addresses: dict[int, str] = {}
         self.rooms: dict[int, dict[str, Any]] = {}
         self.tasks: dict[int, asyncio.Task] = {}
+        self._gc_freeze = InitializationGCFreeze()
 
     async def __post_create__(self):
         if self.ipc_descriptors is None:
@@ -148,11 +150,19 @@ class XavierGPUActor(xo.StatelessActor):
             self.transfer.slab_bytes
             // sum(cache[0].numel() for cache in self.caches.values()),
         )
+        if self.ipc_descriptors is not None:
+            # Only the independent importer process owns this lifetime. A full
+            # scan of the imported Torch graph otherwise stalls every queued
+            # transfer, even when the KV payload itself takes a few milliseconds.
+            self._gc_freeze.start()
 
     async def __pre_destroy__(self):
-        for room in set(self.tasks) | set(self.rooms):
-            await self.abort(room)
-        await self.transfer.close()
+        try:
+            for room in set(self.tasks) | set(self.rooms):
+                await self.abort(room)
+            await self.transfer.close()
+        finally:
+            self._gc_freeze.close()
 
     async def open(self, room):
         if room in self.rooms:

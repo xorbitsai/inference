@@ -327,9 +327,35 @@ async def test_ipc_actor_never_borrows_engine_addresses(gpu_module, monkeypatch)
         0,
         ipc_descriptors={"0": ("descriptor",)},
     )
+    actor._gc_freeze = SimpleNamespace(start=Mock(), close=Mock())
     await actor.__post_create__()
     rebuild.assert_called_once_with("descriptor")
     assert actor.caches["0"] is cache and actor.aux is None
+    actor._gc_freeze.start.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_transfer_shutdown_restores_gc_after_drain_failure(gpu_module):
+    actor = gpu_module.XavierGPUActor(None, None, None, "ns", 0)
+    actor._gc_freeze = SimpleNamespace(start=Mock(), close=Mock())
+    actor.transfer = SimpleNamespace(close=AsyncMock(side_effect=RuntimeError("drain")))
+    with pytest.raises(RuntimeError, match="drain"):
+        await actor.__pre_destroy__()
+    actor._gc_freeze.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_borrowed_actor_does_not_freeze_engine_process(gpu_module, monkeypatch):
+    import torch
+
+    cache = torch.zeros((8, 4), dtype=torch.uint8)
+    monkeypatch.setattr(gpu_module, "_buffers", Mock(return_value=({"0": cache}, [])))
+    transfer = SimpleNamespace(slab_bytes=64 * 1024**2, add_slab_views=Mock())
+    monkeypatch.setattr(gpu_module, "DirectGPUTransfer", Mock(return_value=transfer))
+    actor = gpu_module.XavierGPUActor(None, None, None, "ns", 0)
+    actor._gc_freeze = SimpleNamespace(start=Mock(), close=Mock())
+    await actor.__post_create__()
+    actor._gc_freeze.start.assert_not_called()
 
 
 @pytest.mark.asyncio
