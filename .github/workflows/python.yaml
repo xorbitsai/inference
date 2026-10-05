@@ -153,7 +153,7 @@ jobs:
                 xinference/model/*) full=true; break ;;
                 # The rest of the package (deploy/, docs, examples, other
                 # top-level modules) is not exercised by any GPU test.
-                .github/workflows/python.yaml|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
+                .github/workflows/python.yaml|.github/ci-huggingface-constraints.txt|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
               esac
             done < changed-files.txt
           fi
@@ -237,6 +237,9 @@ jobs:
           # backend would otherwise run on editable installs.
           NO_WEB_UI: 1
         run: |
+          if [ "$MODULE" != "metal" ]; then
+            export PIP_CONSTRAINT="$GITHUB_WORKSPACE/.github/ci-huggingface-constraints.txt"
+          fi
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
             sudo rm -rf /opt/ghc
@@ -278,9 +281,8 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
-            # Later installs can upgrade Transformers independently of Hub.
-            # Keep the CPU stack compatible with FlagEmbedding's 4.x imports.
-            pip install "transformers==4.53.3" "peft==0.18.0" "huggingface_hub<1.0"
+            pip install -r .github/ci-huggingface-constraints.txt
+            python -c "from datasets import Dataset; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; import diffusers, peft"
           fi
         working-directory: .
 
@@ -439,7 +441,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'pyproject.toml') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/ci-huggingface-constraints.txt', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
@@ -462,6 +464,8 @@ jobs:
           python -m pip install -U pip "setuptools<82"
 
       - name: Install dependencies
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/.github/ci-huggingface-constraints.txt
         run: |
           pip install -U -e ".[audio,dev]"
           pip install -U "openai>1"
@@ -474,7 +478,7 @@ jobs:
           pip install -U "passlib[bcrypt]"
           pip install -U "aioprometheus[starlette]"
           pip install -U "pynvml"
-          pip install "transformers==4.53.2"
+          pip install "transformers==4.53.3"
           pip install "funasr==1.2.7"
           conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
           pip install -U "nemo_text_processing<1.1.0"
@@ -519,12 +523,10 @@ jobs:
           # install it from apt.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
-          # Final guard pins. The serial `pip install -U` calls above ignore
-          # the upper bounds of already-installed packages, letting shared
-          # deps drift past what the stack supports at runtime. Resolve
-          # Transformers, PEFT and Hub together: Transformers 5.x needs Hub
-          # 1.x, while diffusers 0.35 / tensorizer need Hub's legacy helpers.
-          pip install "numpy>=2,<2.5" "transformers==4.53.3" "peft==0.18.0" "huggingface_hub<1.0"
+          # Resolve the entire shared stack together, including transitive
+          # dependencies such as datasets, before the model tests start.
+          pip install "numpy>=2,<2.5" -r .github/ci-huggingface-constraints.txt
+          python -c "from datasets import Dataset; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; import diffusers, peft"
         working-directory: .
 
       - name: Test with pytest
