@@ -1,9 +1,11 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
+import asyncio
 import json
 import struct
 from dataclasses import replace
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import torch
@@ -132,3 +134,16 @@ async def test_aborted_source_cannot_register_late_gpu_chunks():
     with pytest.raises(RuntimeError, match="cancelled"):
         await actor.add_chunk(123, [1, 2, 3])
     assert actor.rooms[123] == {"aborted": True}
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_abort_clears_room_and_wakes_existing_waiter():
+    actor = CrossEngineGPUActor(None, None, None, "namespace", 1)
+    actor.transfer = SimpleNamespace(send_lock=asyncio.Lock(), release_direct=Mock())
+    state = actor.rooms[123] = {"completed": asyncio.Event(), "chunks": []}
+    waiter = asyncio.create_task(actor.wait_done(123))
+    await asyncio.sleep(0)
+    await actor.abort(123)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        await waiter
+    assert not actor.rooms and state["aborted"]

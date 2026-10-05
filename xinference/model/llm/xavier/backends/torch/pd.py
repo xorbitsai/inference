@@ -255,6 +255,7 @@ class CrossEngineGPUActor(xo.StatelessActor):
             transfer_pid=os.getpid(),
             active_rooms=len(self.rooms),
             active_transfers=len(self.transfer.direct_requests),
+            active_receives=len(self.tasks),
         )
 
     async def _receive(self, room, destinations, aux_index):
@@ -356,6 +357,9 @@ class CrossEngineGPUActor(xo.StatelessActor):
                 for chunk in state["chunks"]:
                     self.transfer.release_direct(chunk["ticket"])
                 state["completed"].set()
+                # Native bootstrap aborts need not call sender.clear(). Waiters
+                # already hold the state and will observe its aborted marker.
+                self.rooms.pop(room, None)
 
     def clear(self, room):
         self.rooms.pop(room, None)

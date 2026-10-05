@@ -164,7 +164,10 @@ async def requests_and_measure(endpoint, uid, root, worker, mode, args):
                 for peer in results["transfers"]["peers"].values()
             )
             assert all(
-                peer["active_transfers"] == 0
+                all(
+                    peer[key] == 0
+                    for key in ("active_rooms", "active_transfers", "active_receives")
+                )
                 for peer in results["transfers"]["peers"].values()
             )
             # Disconnect after the first streaming token, then verify fresh work.
@@ -181,7 +184,10 @@ async def requests_and_measure(endpoint, uid, root, worker, mode, args):
             results["after_cancel"] = await snapshot(worker, uid, True)
             assert results["after_cancel"]["directory"]["active_handoffs"] == 0
             assert all(
-                peer["active_transfers"] == 0
+                all(
+                    peer[key] == 0
+                    for key in ("active_rooms", "active_transfers", "active_receives")
+                )
                 for peer in results["after_cancel"]["peers"].values()
             )
             results["early_cancels"] = []
@@ -226,7 +232,14 @@ async def requests_and_measure(endpoint, uid, root, worker, mode, args):
                     results["after_early_cancel"]["directory"]["active_handoffs"] == 0
                 )
                 assert all(
-                    peer["active_transfers"] == 0
+                    all(
+                        peer[key] == 0
+                        for key in (
+                            "active_rooms",
+                            "active_transfers",
+                            "active_receives",
+                        )
+                    )
                     for peer in results["after_early_cancel"]["peers"].values()
                 )
                 results["early_cancels"].append(results["after_early_cancel"])
