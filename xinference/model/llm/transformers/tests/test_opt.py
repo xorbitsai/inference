@@ -18,6 +18,8 @@ import pytest
 
 from .....client import Client
 from .....client.restful.restful_client import RESTfulGenerateModelHandle
+from ...llm_family import match_llm
+from ..core import PytorchModel
 
 
 @pytest.mark.asyncio
@@ -72,25 +74,54 @@ async def test_opt_pytorch_model(setup, quantization):
         assert len(client.list_models()) == 0
 
 
+@pytest.fixture
+def opt_fp4_family():
+    family = match_llm("opt", "pytorch", 1, "none").copy(deep=True)
+    family.model_name = "test-opt-fp4"
+    family.model_family = "opt"
+    family.virtualenv = None
+    family.model_specs[0].model_format = "fp4"
+    family.model_specs[0].quantization = "mxfp4"
+    return family
+
+
+def test_opt_fp4_quantization_config(opt_fp4_family):
+    transformers = pytest.importorskip("transformers")
+    if not hasattr(transformers, "FPQuantConfig"):
+        pytest.skip("FPQuantConfig is not available in transformers.")
+    model = PytorchModel("test-opt-fp4", opt_fp4_family, "/unused")
+    config = model.apply_quantization_config({})["quantization_config"]
+    assert isinstance(config, transformers.FPQuantConfig)
+    assert config.pseudoquantization is True
+    assert config.forward_dtype == "mxfp4"
+
+
 @pytest.mark.asyncio
-async def test_opt_fp4_model(request):
+async def test_opt_fp4_model(request, opt_fp4_family):
     try:
         from transformers import FPQuantConfig  # noqa: F401
     except Exception:
         pytest.skip("FPQuantConfig is not available in transformers.")
 
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("FPQuant requires a CUDA GPU, including pseudoquantization.")
+    pytest.importorskip("fp_quant")
+
     # Check optional support before starting the cluster/API subprocesses.
     endpoint, _ = request.getfixturevalue("setup")
     client = Client(endpoint)
     assert len(client.list_models()) == 0
+    client.register_model("LLM", opt_fp4_family.json(), persist=False)
 
     model_uid = client.launch_model(
-        model_name="opt",
+        model_name=opt_fp4_family.model_name,
         model_engine="transformers",
         model_size_in_billions=1,
         model_format="fp4",
         quantization="mxfp4",
-        device="cpu",
+        device="cuda",
         quantization_config={
             "pseudoquantization": True,
             "forward_dtype": "mxfp4",
@@ -111,3 +142,4 @@ async def test_opt_fp4_model(request):
 
     client.terminate_model(model_uid=model_uid)
     assert len(client.list_models()) == 0
+    client.unregister_model("LLM", opt_fp4_family.model_name)
