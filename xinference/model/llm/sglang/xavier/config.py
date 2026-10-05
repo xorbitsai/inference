@@ -144,6 +144,12 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         logger.warning(
             "SGLang Xavier casts this BF16 checkpoint to FP16; weights and KV use FP16"
         )
+    if cache_config.get("heterogeneous"):
+        from ...xavier.pd_contract import build_pd_contract
+
+        if model_config["page_size"] != 64:
+            raise ValueError("Cross-engine Xavier PD requires 64-token pages")
+        contract = build_pd_contract(model_path, model_config.get("context_length"))
     model_config["dtype"] = "float16"
     if cache_config.get("role"):
         if model_config.get("enable_hierarchical_cache") or any(

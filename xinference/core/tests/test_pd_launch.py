@@ -745,3 +745,40 @@ async def test_failed_cache_actor_cleanup_emits_warning(launch_runtime, caplog):
     with caplog.at_level(logging.WARNING):
         await supervisor.terminate_model("pd")
     assert "Destroy Xavier cache failed for pd" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engines", [("vLLM", "SGLang"), ("SGLang", "vLLM")])
+async def test_cross_engine_pd_launches_one_adapter_per_replica(
+    launch_runtime, engines
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    for index, (cfg, engine) in enumerate(zip(kwargs["replica_config"], engines)):
+        cfg.model_engine = engine
+        cfg.engine_config = {"engine_option": index}
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierPDDirectory", "PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["model_engine"] == "heterogeneous"
+    for index, worker in enumerate(workers):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["model_engine"] == engines[index]
+        assert launch["engine_option"] == index
+        assert launch["xavier_config"] is None
+        assert launch["_xavier_cache_config"]["heterogeneous"] is True
+        assert launch["_xavier_cache_config"]["role"] == ("prefill", "decode")[index]
+        worker.launch_rank0_model.assert_not_awaited()
+        worker.start_transfer_for_vllm.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cross_engine_rejects_native_transport_before_launch(launch_runtime):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][1].model_engine = "SGLang"
+    kwargs["transfer_backend_type"] = "nixl"
+    with pytest.raises(ValueError, match="Xavier GPU transport"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()

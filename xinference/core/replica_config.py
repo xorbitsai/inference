@@ -24,7 +24,7 @@ cross-replica GPU conflicts) live in the supervisor, which has access to the
 cluster topology.
 """
 
-from typing import List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from .._compat import BaseModel, Field, validator
 from .utils import parse_replica_model_uid
@@ -81,6 +81,8 @@ class ReplicaConfig(_PlacementConfigBase):
     replica_uid: Optional[str] = None
     role: Literal["hybrid", "prefill", "decode"] = "hybrid"
     devices: List[DeviceConfig] = Field(default_factory=list)
+    model_engine: Optional[str] = None
+    engine_config: Dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict) -> "ReplicaConfig":
@@ -182,13 +184,18 @@ def validate_pd_replica_configs(
     """Validate a complete P/D topology before allocating any runtime resources."""
     roles = {cfg.role for cfg in configs or []}
     if not roles.intersection({"prefill", "decode"}):
+        if any(cfg.model_engine or cfg.engine_config for cfg in configs or []):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
         return False
-    if (model_engine or "").lower() not in ("vllm", "sglang", "mlx") or (
-        model_type or "LLM"
-    ).lower() != "llm":
+    engines = {
+        (cfg.model_engine or model_engine or "").lower() for cfg in configs or []
+    }
+    if not engines <= {"vllm", "sglang", "mlx"} or (model_type or "LLM").lower() != "llm":
         raise ValueError(
             "PD separation requires model_type=LLM and model_engine=vLLM, SGLang or MLX"
         )
+    if "mlx" in engines and len(engines) > 1:
+        raise ValueError("Cross-engine PD requires vLLM and SGLang replicas")
     if roles != {"prefill", "decode"}:
         raise ValueError(
             "PD separation requires both prefill and decode replicas, without hybrid replicas"

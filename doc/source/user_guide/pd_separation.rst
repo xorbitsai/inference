@@ -57,7 +57,7 @@ SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through 
 
 SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors.
 
-The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration.
+The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend is not exposed by this integration. For cross-engine P/D, use the per-replica engine settings below.
 
 SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload.
 
@@ -101,7 +101,44 @@ MLX Xavier stores immutable CPU pages in a shared actor on the supervisor and tr
 
 Each 64-token FP16 page uses ``2 * 64 * num_layers * num_kv_heads * head_dim * 2`` bytes (K and V, with two bytes per value). For example, 36 layers, 8 KV heads and a head dimension of 128 require 9 MiB per page; 512 MiB holds 56 pages, or 3584 prefix tokens. Round each prefix up to a whole page and size ``xavier_cache_bytes`` for the distinct pages reserved by all concurrent P/D requests. Ordinary shared-cache requests skip publication when their prefix exceeds the cache capacity or the 4096-page protocol limit.
 
-Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All workers must reach the supervisor's actor address. Relaunch after a worker restart. Two replicas on one Mac share its Metal GPU; measure your workload before expecting a throughput benefit. Cross-engine P/D, including NVIDIA-to-Mac handoff, is not yet supported.
+Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All workers must reach the supervisor's actor address. Relaunch after a worker restart. Two replicas on one Mac share its Metal GPU; measure your workload before expecting a throughput benefit. Cross-engine P/D involving MLX, including NVIDIA-to-Mac handoff, is not yet supported.
+
+Cross-engine vLLM/SGLang P/D
+--------------------------------------------------------------------------------
+
+Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry to select vLLM or SGLang independently for each role. Cross-engine P/D requires Xavier GPU transport. Engine options inherit launch arguments; ``engine_config`` overrides them per replica.
+
+.. code-block:: python
+
+   client.launch_model(
+       model_uid="qwen-cross-pd",
+       model_name="qwen2.5-instruct",
+       model_size_in_billions="0_5",
+       model_format="pytorch",
+       quantization="none",
+       model_engine="vLLM",
+       replica=2,
+       replica_config=[
+           {
+               "role": "prefill", "model_engine": "vLLM",
+               "engine_config": {"max_model_len": 8192},
+               "devices": [{"worker_ip": "WORKER_ADDRESS",
+                            "n_gpu": 1, "gpu_idx": [0]}],
+           },
+           {
+               "role": "decode", "model_engine": "SGLang",
+               "engine_config": {"context_length": 8192},
+               "devices": [{"worker_ip": "WORKER_ADDRESS",
+                            "n_gpu": 1, "gpu_idx": [1]}],
+           },
+       ],
+   )
+
+Both workers require identical local weights, tokenizer assets and context limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang >=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt token IDs, converts 64-token KV pages on GPU and raises errors on incompatibility or transfer failure.
+
+Streaming and non-streaming requests require ``n=1``. SGLang decode uses the first output token sampled by prefill. vLLM decode imports all but the final prompt token, computes that token and samples the output. Engine kernels can produce small numerical differences. vLLM decode requires at least two prompt tokens.
+
+Cross-engine P/D supports no CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles. MLX is unsupported.
 
 Native NIXL backend
 -------------------

@@ -17,6 +17,7 @@ class XavierPDDirectory(xo.StatelessActor):
         self.rooms = {}
         self.completed_requests = 0
         self.gpu_bytes = 0
+        self.imported_tokens = 0
         self.peers = {}
 
     async def __pre_destroy__(self):
@@ -61,7 +62,7 @@ class XavierPDDirectory(xo.StatelessActor):
             state["source_ready"].set()
             state["complete_ready"].set()
 
-    def prepare(self, room, namespace, prompt_hash, role, rank=None, timeout=None):
+    def prepare(self, room, namespace, prompt_hash, role, rank=None, timeout=None, prompt_tokens=None):
         self._expire()
         if namespace != self.namespace or role not in ("prefill", "decode"):
             raise ValueError("Unregistered SGLang Xavier PD namespace or role")
@@ -74,6 +75,7 @@ class XavierPDDirectory(xo.StatelessActor):
                 raise RuntimeError("Too many active SGLang Xavier PD requests")
             state = self.rooms[room] = dict(
                 prompt_hash=prompt_hash,
+                prompt_tokens=prompt_tokens,
                 roles=[],
                 source=None,
                 completed=False,
@@ -88,6 +90,10 @@ class XavierPDDirectory(xo.StatelessActor):
             raise ValueError("SGLang Xavier PD prompt mismatch or duplicate role")
         state["deadline"] = max(state["deadline"], time.monotonic() + timeout)
         state["timeout"] = max(state["timeout"], timeout)
+        if prompt_tokens is not None:
+            if state["prompt_tokens"] not in (None, prompt_tokens):
+                raise ValueError("Cross-engine Xavier prompt length differs")
+            state["prompt_tokens"] = prompt_tokens
         state["roles"].append(role)
         if rank is not None:
             state["ranks"][role] = rank
@@ -124,7 +130,7 @@ class XavierPDDirectory(xo.StatelessActor):
             raise RuntimeError("SGLang Xavier PD handoff expired or was cancelled")
         return state["source"]
 
-    def complete(self, room, gpu_bytes):
+    def complete(self, room, gpu_bytes, imported_tokens=None):
         state = self.rooms.get(room)
         if state is None or set(state["roles"]) != {"prefill", "decode"}:
             raise RuntimeError("SGLang Xavier PD request is unavailable")
@@ -132,6 +138,11 @@ class XavierPDDirectory(xo.StatelessActor):
             self.completed_requests += 1
             self.gpu_bytes += gpu_bytes
             state["deadline"] = time.monotonic() + state["timeout"]
+            self.imported_tokens += (
+                imported_tokens
+                if imported_tokens is not None
+                else (state["prompt_tokens"] or 0)
+            )
         state["completed"] = True
         state["complete_ready"].set()
 
@@ -143,6 +154,13 @@ class XavierPDDirectory(xo.StatelessActor):
         if state["completed"]:
             state["deadline"] = time.monotonic() + state["timeout"]
         return True
+
+    def request_info(self, room):
+        self._expire()
+        state = self.rooms.get(room)
+        if state is None:
+            raise RuntimeError("Cross-engine Xavier handoff is unavailable")
+        return dict(prompt_tokens=state["prompt_tokens"])
 
     def check(self, room):
         self._expire()
@@ -167,5 +185,6 @@ class XavierPDDirectory(xo.StatelessActor):
             active_handoffs=len(self.rooms),
             completed_requests=self.completed_requests,
             gpu_bytes=self.gpu_bytes,
+            imported_tokens=self.imported_tokens,
             peers=self.peers,
         )

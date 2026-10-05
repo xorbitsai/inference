@@ -353,10 +353,6 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D는 Xavier의 NIXL 전송으로 GPU 간에 KV를 직접 전달합니다. Prefill과 decode는 SGLang 네이티브 P/D 수명 주기로 동시에 실행됩니다. 전송이 완료될 때까지 소스와 대상 GPU 슬롯의 소유권을 유지하며, decode는 prefill이 샘플링한 첫 토큰도 받습니다. 스트리밍 및 비스트리밍 응답을 지원하며 전송 실패는 오류가 됩니다."
 
 #: source/user_guide/pd_separation.rst
-msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration."
-msgstr "모델 제한은 :ref:`user_guide_vllm_enhancement` 를 참조하세요. worker와 모델 환경에 ``xoscar[nixl]>=0.11.1`` 을 설치하고 접근 가능한 worker 주소를 사용하세요. NIXL이 없으면 CPU로 대체하지 않고 시작에 실패합니다. ``xavier`` 전송을 사용하세요. 이 통합에서는 SGLang 자체 Mooncake 백엔드와 엔진 간 P/D를 제공하지 않습니다."
-
-#: source/user_guide/pd_separation.rst
 msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
 msgstr "SGLang GPU P/D는 ``xavier_cache_bytes`` 나 CPU HiCache를 사용하지 않습니다. Xavier GPU 이력 캐시 보존은 아직 지원하지 않으며 ``xavier_gpu_cache_bytes`` 는 생략하거나 ``0`` 으로 설정하세요. worker 재시작 후 배포를 다시 시작하세요. 실제 워크로드에서 일반 복제본 및 네이티브 SGLang P/D와 TTFT 및 처리량을 비교하세요."
 
@@ -451,13 +447,13 @@ msgid ""
 "Use the default ``xavier`` transport for MLX; native NIXL is unsupported. "
 "All workers must reach the supervisor's actor address. Relaunch after a "
 "worker restart. Two replicas on one Mac share its Metal GPU; measure your "
-"workload before expecting a throughput benefit. Cross-engine P/D, including "
-"NVIDIA-to-Mac handoff, is not yet supported."
+"workload before expecting a throughput benefit. Cross-engine P/D involving "
+"MLX, including NVIDIA-to-Mac handoff, is not yet supported."
 msgstr ""
 "MLX에는 기본 ``xavier`` 전송을 사용하세요. 네이티브 NIXL은 지원하지 않습니다. 모든 worker는 supervisor의 "
 "actor 주소에 접근할 수 있어야 합니다. Worker 재시작 후 배포를 다시 시작하세요. 같은 Mac의 두 복제본은 Metal "
-"GPU를 공유하므로 처리량 향상을 기대하기 전에 워크로드를 측정하세요. NVIDIA에서 Mac으로의 인계를 포함한 엔진 간 P/D는 아직"
-" 지원하지 않습니다."
+"GPU를 공유하므로 처리량 향상을 기대하기 전에 워크로드를 측정하세요. NVIDIA에서 Mac으로의 인계를 포함한 MLX 관련 엔진 간 "
+"P/D는 아직 지원하지 않습니다."
 
 #: user_guide/pd_separation.rst:102
 msgid ""
@@ -475,3 +471,73 @@ msgstr ""
 " 512 MiB는 56페이지, 즉 접두사 3584토큰을 저장합니다. 각 접두사를 전체 페이지 단위로 올림하고 모든 동시 P/D 요청이 "
 "예약하는 서로 다른 페이지에 맞게 ``xavier_cache_bytes`` 를 설정하십시오. 일반 공유 캐시 요청은 접두사가 캐시 용량 "
 "또는 프로토콜의 4096페이지 한도를 초과하면 게시를 건너뜁니다."
+
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"The model limitations are described in :ref:`user_guide_vllm_enhancement`. "
+"Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use "
+"reachable worker addresses. Missing NIXL fails launch without CPU fallback. "
+"Use the ``xavier`` transport; SGLang's own Mooncake backend is not exposed "
+"by this integration. For cross-engine P/D, use the per-replica engine "
+"settings below."
+msgstr ""
+"모델 제한은 :ref:`user_guide_vllm_enhancement` 를 참조하세요. 워커와 모델 환경에 "
+"``xoscar[nixl]>=0.11.1`` 을 설치하고 접근 가능한 주소를 사용하세요. NIXL이 없으면 CPU 폴백 없이 실행이 "
+"실패합니다. ``xavier`` 를 사용하세요. SGLang의 Mooncake 백엔드는 제공되지 않습니다. 엔진 간 P/D는 아래의 "
+"복제본별 설정을 사용하세요."
+
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine vLLM/SGLang P/D"
+msgstr "엔진 간 vLLM/SGLang P/D"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM or SGLang independently for each role. Cross-engine P/D "
+"requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"각 ``replica_config`` 항목에 ``model_engine`` 과 ``engine_config`` 를 설정하여 역할별로 "
+"vLLM 또는 SGLang을 선택합니다. 엔진 간 P/D에는 Xavier GPU 전송이 필요합니다. 엔진 옵션은 실행 인수를 상속하며 "
+"``engine_config`` 가 복제본별로 재정의합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Both workers require identical local weights, tokenizer assets and context "
+"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
+"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
+">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
+"token IDs, converts 64-token KV pages on GPU and raises errors on "
+"incompatibility or transfer failure."
+msgstr ""
+"두 워커는 동일한 로컬 가중치, tokenizer 파일 및 컨텍스트 한도를 사용해야 합니다. TP=PP=DP=1인 비양자화 FP16 전체"
+" 어텐션 Qwen2, Qwen3 및 Llama 텍스트 모델을 지원합니다. vLLM >=0.21.0, SGLang >=0.5.21 및 "
+"``xoscar[nixl]>=0.11.1`` 이 필요합니다. Xavier는 계약과 실제 prompt token ID를 확인하고 GPU에서"
+" 64-token KV 페이지를 변환합니다. 비호환 또는 전송 실패 시 오류가 발생합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
+" first output token sampled by prefill. vLLM decode imports all but the "
+"final prompt token, computes that token and samples the output. Engine "
+"kernels can produce small numerical differences. vLLM decode requires at "
+"least two prompt tokens."
+msgstr ""
+"스트리밍 및 비스트리밍 요청은 ``n=1`` 이 필요합니다. SGLang decode는 prefill이 샘플링한 첫 출력 token을 "
+"사용합니다. vLLM decode는 마지막 prompt token을 제외한 KV를 가져오고 해당 token을 계산한 다음 출력을 "
+"샘플링합니다. 엔진 커널에 따라 작은 수치 차이가 발생할 수 있습니다. vLLM decode에는 최소 두 개의 prompt token이 "
+"필요합니다."
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Cross-engine P/D supports no CPU fallback, retained Xavier history, "
+"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
+" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
+" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
+"NIXL comparisons use the same engine on both roles. MLX is unsupported."
+msgstr ""
+"엔진 간 P/D는 CPU 폴백, Xavier 기록 캐시, logprobs, 구조화 샘플링, LoRA, 추측 디코딩, 멀티모달 입력 또는 "
+"하이브리드 어텐션을 지원하지 않습니다. ``xavier_gpu_cache_bytes`` 를 생략하거나 ``0`` 으로 설정하고 "
+"``xavier_cache_bytes`` 는 설정하지 마세요. 워커 재시작 후 다시 배포하세요. 네이티브 NIXL 비교는 두 역할에 같은"
+" 엔진을 사용합니다. MLX는 지원하지 않습니다."

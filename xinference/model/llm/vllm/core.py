@@ -520,7 +520,9 @@ class VLLMModel(WeightCachedModel, LLM):
         self._active_request_ids: Set[str] = set()
         self.lora_modules = peft_model
         self.lora_requests: List[Any] = []
-        self._xavier_config = None
+        self._xavier_config = cast(Dict[str, Any], model_config or {}).pop(
+            "_xavier_cache_config", None
+        )
         self._nixl_config = cast(Dict[str, Any], model_config or {}).pop(
             "_nixl_config", None
         )
@@ -546,6 +548,12 @@ class VLLMModel(WeightCachedModel, LLM):
         self._init_weight_cache(model_config or {})
 
     def set_xavier_config(self, value: Optional[Dict]):
+        if (
+            value is None
+            and self._xavier_config
+            and self._xavier_config.get("heterogeneous")
+        ):
+            return
         self._xavier_config = value  # type: ignore
 
     def set_worker_addresses(self, shard: int, worker_addresses: List[str]):
@@ -757,6 +765,12 @@ class VLLMModel(WeightCachedModel, LLM):
             multiprocessing.set_start_method("fork", force=True)
 
         self._device_count = self._get_cuda_count()
+        if self._xavier_config and self._xavier_config.get("heterogeneous"):
+            from .xavier.cross_engine import configure_cross_engine
+
+            configure_cross_engine(
+                self.model_path, self._model_config, self._xavier_config
+            )
         self._model_config = self._sanitize_model_config(self._model_config)
         reasoning_content = self._model_config.pop("reasoning_content")
         enable_thinking = self._model_config.pop("enable_thinking", False)

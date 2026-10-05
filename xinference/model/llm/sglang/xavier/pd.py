@@ -22,7 +22,7 @@ class SGLangXavierHandoff:
         self._directory_actor: Optional[xo.ActorRef] = None
         self._namespace: Optional[str] = None
         # Keep fixed-size digests only, scoped to this deployment/tokenizer.
-        self._prompt_hashes: OrderedDict[bytes, str] = OrderedDict()
+        self._prompt_hashes: OrderedDict[bytes, tuple[str, int]] = OrderedDict()
         self._lease_tasks: dict[int, asyncio.Task] = {}
 
     async def _call(self, method, *args, timeout=10):
@@ -40,26 +40,31 @@ class SGLangXavierHandoff:
         if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
             raise ValueError("Missing SGLang Xavier GPU bootstrap metadata")
         key = hashlib.sha256(prompt.encode()).digest()
-        prompt_hash = self._prompt_hashes.pop(key, None)
-        if prompt_hash is None:
+        cached = self._prompt_hashes.pop(key, None)
+        if cached is None:
             tokens = self.tokenizer.encode(prompt)
             prompt_hash = hashlib.sha256(json.dumps(tokens).encode()).hexdigest()
-        self._prompt_hashes[key] = prompt_hash
+            prompt_tokens = len(tokens)
+        else:
+            prompt_hash, prompt_tokens = cached
+        self._prompt_hashes[key] = (prompt_hash, prompt_tokens)
         if len(self._prompt_hashes) > 256:
             self._prompt_hashes.popitem(last=False)
         if self._namespace is None:
             self._namespace = (await self._call("get_stats"))["namespace"]
             if self._namespace is None:
                 raise ValueError("Unregistered SGLang Xavier PD namespace")
-        await self._call(
-            "prepare",
+        arguments = [
             handoff.get("room"),
             self._namespace,
             prompt_hash,
             self.role,
             self.config.get("rank"),
             transfer_timeout(),
-        )
+        ]
+        if self.config.get("heterogeneous"):
+            arguments.append(prompt_tokens)
+        await self._call("prepare", *arguments)
         return handoff
 
     async def accept(self, prompt: str, transfer: dict) -> dict:

@@ -418,6 +418,12 @@ class XavierKVManager(BaseKVManager):
                 aux_bytes=args.aux_item_lens,
             )
         )
+        actor_class = XavierGPUActor
+        if self.config.get("heterogeneous"):
+            from ...xavier.backends.torch.pd import CrossEngineGPUActor
+
+            actor_class = CrossEngineGPUActor
+            namespace = contract.fingerprint
         directory = await xo.actor_ref(
             address=self.config["address"], uid=self.config["uid"]
         )
@@ -428,6 +434,16 @@ class XavierKVManager(BaseKVManager):
         # Preserve the exporting wrappers until the importing process stops.
         # Export the engine allocations once, as the vLLM connector does.
         self._ipc_caches, self.aux = _buffers(args, contract)
+        if self.config.get("heterogeneous"):
+            self._ipc_caches = {
+                name: cache.view(torch.float16).reshape(
+                    len(cache),
+                    contract.block_size,
+                    contract.num_kv_heads,
+                    contract.head_dim,
+                )
+                for name, cache in self._ipc_caches.items()
+            }
         descriptors = {
             name: reduce_tensor(cache)[1] for name, cache in self._ipc_caches.items()
         }
@@ -445,7 +461,7 @@ class XavierKVManager(BaseKVManager):
         )
         await self.pool.start()
         self.actor = await xo.create_actor(
-            XavierGPUActor,
+            actor_class,
             SimpleNamespace(gpu_id=args.gpu_id, aux_item_lens=args.aux_item_lens),
             contract,
             directory,
@@ -454,7 +470,7 @@ class XavierKVManager(BaseKVManager):
             ipc_descriptors=descriptors,
             allocate_strategy=ProcessIndex(1),
             address=self.pool.external_address,
-            uid=f"{XavierGPUActor.default_uid()}-{self.config['rank']}",
+            uid=f"{actor_class.default_uid()}-{self.config['rank']}",
         )
         await directory.register_peer(self.config["rank"], self.actor.address)
 

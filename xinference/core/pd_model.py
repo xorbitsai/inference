@@ -262,6 +262,21 @@ class PDModelActor(xo.StatelessActor):
                         address=handoff["address"], uid=handoff["uid"]
                     )
                     if handoff.get("mode") == "gpu":
+                        if handoff.get("heterogeneous"):
+                            from ..model.llm.xavier.backends.torch.pd import (
+                                CrossEngineGPUActor,
+                            )
+
+                            try:
+                                source = await ref.source(handoff["room"])
+                            except RuntimeError:
+                                source = None
+                            if source:
+                                sender = await xo.actor_ref(
+                                    address=source["address"],
+                                    uid=f"{CrossEngineGPUActor.default_uid()}-{source['rank']}",
+                                )
+                                await sender.abort(handoff["room"])
                         await ref.release(handoff["room"])
                     else:
                         await ref.release_handoff(handoff["ticket"])
@@ -313,7 +328,33 @@ class PDModelActor(xo.StatelessActor):
         if args and args[0] and args[0].get("n", 1) != 1:
             # Handoff leases cover one decoder, not parallel sampling children.
             raise ValueError("PD KV handoff currently requires n=1")
-        if self._model_engine == "sglang":
+        if self._model_engine == "heterogeneous":
+            config = (args[0] if args else {}) or {}
+            if any(
+                config.get(key) is not None and config.get(key) is not False
+                for key in ("logprobs", "prompt_logprobs")
+            ) or any(
+                config.get(key)
+                for key in (
+                    "top_logprobs",
+                    "return_logprob",
+                    "top_logprobs_num",
+                    "guided_json",
+                    "guided_regex",
+                    "guided_choice",
+                    "guided_grammar",
+                    "guided_json_object",
+                    "structured_outputs",
+                    "json_schema",
+                    "regex",
+                    "ebnf",
+                    "response_format",
+                )
+            ):
+                raise ValueError(
+                    "Cross-engine PD does not yet transfer structured sampling or logprobs"
+                )
+        if self._model_engine in ("sglang", "heterogeneous"):
             return await self._infer_sglang(method, inputs, args, kwargs, request_id)
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
@@ -435,6 +476,8 @@ class PDModelActor(xo.StatelessActor):
             room=uuid.uuid4().int % (2**63 - 1) + 1,
             **bootstrap,
         )
+        if self._model_engine == "heterogeneous":
+            handoff["heterogeneous"] = True
         transfer_key = "sglang_nixl" if native else "sglang_xavier"
         self._request_set.add(request_id)
         if not native:
