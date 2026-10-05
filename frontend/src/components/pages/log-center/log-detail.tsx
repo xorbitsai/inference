@@ -9,6 +9,8 @@ import {
   MinusCircle,
   PlusCircle,
   ShieldCheck,
+  Radio,
+  History,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -35,9 +37,18 @@ import { getCorrelationId } from './correlation-utils';
 import { CorrelatedDialog } from './correlated-dialog';
 import { RequestBodyDialog } from './request-body-dialog';
 import type { FieldFilter, FieldFilterOp, LogRow } from './types';
-import { FieldTypeIcon, formatFieldValue, HighlightText } from './utils';
+import {
+  FieldTypeIcon,
+  formatFieldValue,
+  getLogNodeName,
+  getLogNodeRole,
+  HighlightText,
+  LogLevelBadge,
+  NodeRoleBadge,
+} from './utils';
 
 interface LogDetailProps {
+  mode?: 'runtime' | 'historical';
   row: LogRow;
   onFilter: (key: string, value: unknown, op: FieldFilterOp) => void;
   fieldFilters: FieldFilter[];
@@ -45,17 +56,23 @@ interface LogDetailProps {
   selectedLevels: string[];
   selectedLogType: string;
   nodeField: string;
-  onViewContext: (row: LogRow) => void;
+  onViewContext?: (row: LogRow) => void;
+  onViewHistorical?: () => void;
+  onViewRuntimeNode?: (nodeName: string) => void;
 }
 
 export function LogDetail({
+  mode = 'historical',
   row,
   onFilter,
   fieldFilters,
   appliedSearch,
   selectedLevels,
   selectedLogType,
+  nodeField,
   onViewContext,
+  onViewHistorical,
+  onViewRuntimeNode,
 }: LogDetailProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -116,11 +133,12 @@ export function LogDetail({
   };
 
   const handleViewContext = () => {
-    onViewContext(row);
+    onViewContext?.(row);
   };
 
   const requestId = typeof row.request_id === 'string' ? row.request_id.trim() : '';
   const correlationId = getCorrelationId(row);
+  const nodeName = getLogNodeName(row, nodeField);
   const eventType = String(row.event_type || row.event || '');
   const canReadRequestBody = Boolean(
     requestId &&
@@ -157,22 +175,46 @@ export function LogDetail({
               </TabsTrigger>
             </TabsList>
             <div className="flex flex-wrap items-center justify-end gap-1">
-              {correlationId && (
+              {mode === 'historical' && correlationId && (
                 <Button variant="ghost" size="sm" className="text-xs" onClick={handleCopyRequestId}>
                   {requestIdCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
                   {t('logCenter.detail.copyRequestId')}
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-primary hover:text-primary"
-                onClick={handleViewContext}
-              >
-                <FileText className="size-4" />
-                {t('logCenter.detail.viewContext')}
-              </Button>
-              {correlationId && (
+              {mode === 'runtime' && onViewHistorical && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={onViewHistorical}
+                >
+                  <History className="size-4" />
+                  {t('logCenter.detail.searchHistorical')}
+                </Button>
+              )}
+              {mode === 'historical' && onViewRuntimeNode && nodeName !== '-' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={() => onViewRuntimeNode(nodeName)}
+                >
+                  <Radio className="size-4" />
+                  {t('logCenter.detail.viewRuntime')}
+                </Button>
+              )}
+              {mode === 'historical' && onViewContext && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={handleViewContext}
+                >
+                  <FileText className="size-4" />
+                  {t('logCenter.detail.viewContext')}
+                </Button>
+              )}
+              {mode === 'historical' && correlationId && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -183,7 +225,7 @@ export function LogDetail({
                   {t('logCenter.detail.viewCorrelated')}
                 </Button>
               )}
-              {correlationId && menuAuth.isAdmin && (
+              {mode === 'historical' && correlationId && menuAuth.isAdmin && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -194,7 +236,7 @@ export function LogDetail({
                   {t('logCenter.detail.viewAuditInitiator')}
                 </Button>
               )}
-              {canReadRequestBody && (
+              {mode === 'historical' && canReadRequestBody && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -231,40 +273,44 @@ export function LogDetail({
                       className={cn(isFilterMatch && 'bg-amber-50 dark:bg-amber-950/20')}
                     >
                       <TableCell className="whitespace-nowrap">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  onFilter(key, value, '+');
-                                }}
-                              >
-                                <PlusCircle className="size-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{t('logCenter.detail.filterFor')}</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-7"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  onFilter(key, value, '-');
-                                }}
-                              >
-                                <MinusCircle className="size-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{t('logCenter.detail.filterOut')}</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        {mode === 'historical' ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onFilter(key, value, '+');
+                                  }}
+                                >
+                                  <PlusCircle className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t('logCenter.detail.filterFor')}</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onFilter(key, value, '-');
+                                  }}
+                                >
+                                  <MinusCircle className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t('logCenter.detail.filterOut')}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className={LOG_FONT_SIZE_CLASS}>
                         <span className="flex items-center gap-1.5">
@@ -273,7 +319,24 @@ export function LogDetail({
                         </span>
                       </TableCell>
                       <TableCell className={cn('break-all font-mono', LOG_FONT_SIZE_CLASS)}>
-                        <HighlightText text={formatFieldValue(value)} keywords={valueKeywords} />
+                        {key === 'level' ? (
+                          <LogLevelBadge level={String(value)}>
+                            <HighlightText
+                              text={formatFieldValue(value)}
+                              keywords={valueKeywords}
+                            />
+                          </LogLevelBadge>
+                        ) : ['node_role', 'role', 'log_type'].includes(key) &&
+                          getLogNodeRole({ [key]: value }) ? (
+                          <NodeRoleBadge role={getLogNodeRole({ [key]: value })}>
+                            <HighlightText
+                              text={formatFieldValue(value)}
+                              keywords={valueKeywords}
+                            />
+                          </NodeRoleBadge>
+                        ) : (
+                          <HighlightText text={formatFieldValue(value)} keywords={valueKeywords} />
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -307,17 +370,21 @@ export function LogDetail({
           </TabsContent>
         </Tabs>
       </div>
-      <CorrelatedDialog
-        requestId={correlationId}
-        anchorTimestamp={row['@timestamp']}
-        open={correlatedOpen}
-        onOpenChange={setCorrelatedOpen}
-      />
-      <RequestBodyDialog
-        requestId={requestId}
-        open={requestBodyOpen}
-        onOpenChange={setRequestBodyOpen}
-      />
+      {mode === 'historical' && (
+        <>
+          <CorrelatedDialog
+            requestId={correlationId}
+            anchorTimestamp={row['@timestamp']}
+            open={correlatedOpen}
+            onOpenChange={setCorrelatedOpen}
+          />
+          <RequestBodyDialog
+            requestId={requestId}
+            open={requestBodyOpen}
+            onOpenChange={setRequestBodyOpen}
+          />
+        </>
+      )}
     </>
   );
 }

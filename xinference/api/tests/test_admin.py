@@ -857,6 +857,283 @@ async def test_list_audit_filter_options_returns_502_when_group_search_fails(
     assert captured_urls[1] == "http://elasticsearch:9200/audit-direct/_search"
 
 
+@pytest.mark.asyncio
+async def test_list_log_nodes_prefers_address_and_returns_structured_roles(monkeypatch):
+    captured = []
+    buckets = [
+        {
+            "key": "supervisor-a",
+            "latest_identity": {
+                "hits": {
+                    "hits": [
+                        {"_source": {"node_role": "supervisor"}},
+                    ]
+                }
+            },
+        },
+        {
+            "key": "worker-a",
+            "latest_identity": {
+                "hits": {
+                    "hits": [
+                        {"_source": {"message": "no role in latest log"}},
+                        {"_source": {"role": "WORKER"}},
+                    ]
+                }
+            },
+        },
+        {
+            "key": "local-a",
+            "latest_identity": {
+                "hits": {"hits": [{"_source": {"log_type": "local_log"}}]}
+            },
+        },
+        {
+            "key": "unclassified-a",
+            "latest_identity": {"hits": {"hits": [{"_source": {"role": "scheduler"}}]}},
+        },
+    ]
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return {"aggregations": {"nodes": {"buckets": buckets}}}
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, headers, json=None):
+            captured.append({"url": url, "body": json})
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_log_nodes()
+
+    assert _json_body(response) == {
+        "nodes": ["supervisor-a", "worker-a", "local-a", "unclassified-a"],
+        "node_field": "address",
+        "node_roles": {
+            "supervisor-a": "supervisor",
+            "worker-a": "worker",
+            "local-a": "local",
+        },
+    }
+    assert captured[0]["body"]["aggs"]["nodes"] == {
+        "terms": {"field": "address", "size": 200},
+        "aggs": {
+            "latest_identity": {
+                "top_hits": {
+                    "size": 5,
+                    "sort": [{"@timestamp": {"order": "desc"}}],
+                    "_source": {"includes": ["node_role", "role", "log_type"]},
+                }
+            }
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_log_nodes_falls_back_to_address_keyword_field(monkeypatch):
+    captured = []
+    responses = [
+        (400, {}),
+        (
+            200,
+            {
+                "aggregations": {
+                    "nodes": {
+                        "buckets": [
+                            {
+                                "key": "worker-b",
+                                "latest_identity": {
+                                    "hits": {
+                                        "hits": [{"_source": {"node_role": "worker"}}]
+                                    }
+                                },
+                            }
+                        ]
+                    }
+                }
+            },
+        ),
+    ]
+
+    class FakeResponse:
+        def __init__(self, status, data):
+            self.status = status
+            self._data = data
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return self._data
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, headers, json=None):
+            captured.append(json)
+            return FakeResponse(*responses.pop(0))
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_log_nodes()
+
+    assert _json_body(response) == {
+        "nodes": ["worker-b"],
+        "node_field": "address.keyword",
+        "node_roles": {"worker-b": "worker"},
+    }
+    assert [body["aggs"]["nodes"]["terms"]["field"] for body in captured] == [
+        "address",
+        "address.keyword",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_log_nodes_falls_back_to_legacy_node_when_address_is_empty(
+    monkeypatch,
+):
+    captured = []
+    responses = [
+        (200, {"aggregations": {"nodes": {"buckets": []}}}),
+        (400, {}),
+        (
+            200,
+            {
+                "aggregations": {
+                    "nodes": {
+                        "buckets": [
+                            {
+                                "key": "legacy-worker",
+                                "latest_identity": {
+                                    "hits": {"hits": [{"_source": {"role": "worker"}}]}
+                                },
+                            }
+                        ]
+                    }
+                }
+            },
+        ),
+    ]
+
+    class FakeResponse:
+        def __init__(self, status, data):
+            self.status = status
+            self._data = data
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return self._data
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, headers, json=None):
+            captured.append(json)
+            return FakeResponse(*responses.pop(0))
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_log_nodes()
+
+    assert _json_body(response) == {
+        "nodes": ["legacy-worker"],
+        "node_field": "node",
+        "node_roles": {"legacy-worker": "worker"},
+    }
+    assert [body["aggs"]["nodes"]["terms"]["field"] for body in captured] == [
+        "address",
+        "address.keyword",
+        "node",
+    ]
+
+
+def test_normalize_log_node_field_accepts_only_supported_fields():
+    for field in ("address", "address.keyword", "node", "node.keyword"):
+        assert admin._normalize_log_node_field(field) == field
+    assert admin._normalize_log_node_field("host.name") == "node"
+
+
+@pytest.mark.asyncio
+async def test_search_logs_keeps_physical_node_filters_with_address_aggregation(
+    monkeypatch,
+):
+    search_page = AsyncMock(return_value=([], 0))
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin, "_search_es_page", search_page)
+
+    await admin.search_logs(
+        node="xinference-worker:30001",
+        node_field="address",
+        filters=["+node:worker-host", "-node:excluded-host"],
+    )
+
+    query = search_page.await_args.kwargs["query"]["bool"]
+    assert {"terms": {"address": ["xinference-worker:30001"]}} in query["filter"]
+    assert {
+        "bool": {
+            "should": [
+                {"terms": {"node": ["worker-host"]}},
+                {"terms": {"node.keyword": ["worker-host"]}},
+            ],
+            "minimum_should_match": 1,
+        }
+    } in query["filter"]
+    assert query["must_not"] == [
+        {
+            "bool": {
+                "should": [
+                    {"term": {"node": "excluded-host"}},
+                    {"term": {"node.keyword": "excluded-host"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+    ]
+
+
 def test_log_search_uses_prefix_queries_for_high_cardinality_ids():
     clause = admin._build_log_search_clause("xinf-123")
     should = clause["bool"]["should"]

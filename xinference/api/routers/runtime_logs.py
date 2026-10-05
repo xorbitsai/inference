@@ -47,11 +47,30 @@ async def list_runtime_log_sources(
         workers = []
 
     if api._supervisor_address in workers:
-        sources = [{"id": "local", "label": "Local"}]
+        sources = [
+            {
+                "id": "local",
+                "label": "Local",
+                "role": "local",
+                "node_name": api._supervisor_address,
+            }
+        ]
     else:
-        sources = [{"id": "supervisor", "label": "Supervisor"}]
+        sources = [
+            {
+                "id": "supervisor",
+                "label": "Supervisor",
+                "role": "supervisor",
+                "node_name": api._supervisor_address,
+            }
+        ]
     sources.extend(
-        {"id": address, "label": f"Worker {address}"}
+        {
+            "id": address,
+            "label": f"Worker {address}",
+            "role": "worker",
+            "node_name": address,
+        }
         for address in workers
         if address != api._supervisor_address
     )

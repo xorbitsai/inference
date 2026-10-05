@@ -17,6 +17,7 @@ declare module 'axios' {
     skipAuthRefresh?: boolean;
     _retry?: boolean;
     errorMessages?: Record<number, string>;
+    suppressGlobalError?: boolean;
   }
 }
 
@@ -106,13 +107,15 @@ requestInstance.interceptors.response.use(
   },
   async (error) => {
     const response = error.response;
+    const originalRequest = error.config as AxiosRequestConfig | undefined;
     if (!response) {
-      eventBus.emit(RequestEvents.SERVER_ERROR, error.message || 'Network Error');
+      if (!originalRequest?.suppressGlobalError) {
+        eventBus.emit(RequestEvents.SERVER_ERROR, error.message || 'Network Error');
+      }
 
       return Promise.reject(error);
     }
     const status = response.status;
-    const originalRequest = error.config as AxiosRequestConfig | undefined;
 
     if (shouldRefreshToken(status, originalRequest)) {
       try {
@@ -156,7 +159,9 @@ requestInstance.interceptors.response.use(
         break;
       }
       default: {
-        eventBus.emit(RequestEvents.SERVER_ERROR, `Server error: ${status} - ${errorMessage}`);
+        if (!originalRequest?.suppressGlobalError) {
+          eventBus.emit(RequestEvents.SERVER_ERROR, `Server error: ${status} - ${errorMessage}`);
+        }
       }
     }
     return Promise.reject(error);

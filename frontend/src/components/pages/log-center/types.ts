@@ -1,6 +1,32 @@
 export type LogLevel = 'ERROR' | 'WARNING' | 'INFO' | 'DEBUG';
 export type LogType = 'worker' | 'supervisor' | 'model_request';
 export type FieldFilterOp = '+' | '-';
+export type LogCenterMode = 'runtime' | 'historical';
+export type LogNodeRole = 'supervisor' | 'worker' | 'local' | 'unknown';
+
+export interface HistoricalLogHandoff {
+  token: number;
+  nodeName: string;
+  timestamp?: string;
+  level?: string;
+  requestId?: string;
+  query?: string;
+}
+
+export interface RuntimeNodeHandoff {
+  token: number;
+  nodeName: string;
+}
+
+export interface LogNodeOption {
+  value: string;
+  label: string;
+  role: LogNodeRole;
+  roleLabel: string;
+  description?: string;
+  searchText?: string;
+  fullAddress?: string;
+}
 
 export interface FieldFilter {
   key: string;
@@ -16,8 +42,12 @@ export interface TimeRangeValue {
 export type LogRow = Record<string, unknown> & {
   '@timestamp'?: string;
   level?: string;
+  address?: string;
   node?: string;
+  source_address?: string;
   role?: string;
+  node_role?: string;
+  node_name?: string;
   message?: string;
   log_type?: string;
   request_id?: string;
@@ -45,6 +75,7 @@ export interface LogsResponse {
 export interface LogNodesResponse {
   nodes?: string[];
   node_field?: string;
+  node_roles?: Record<string, LogNodeRole>;
 }
 
 export interface LogContextResponse {

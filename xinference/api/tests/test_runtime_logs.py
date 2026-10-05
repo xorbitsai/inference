@@ -128,8 +128,18 @@ async def test_runtime_log_sources_include_remote_workers_with_local_node():
     response = await runtime_logs.list_runtime_log_sources(api=api)
     assert _body(response) == {
         "sources": [
-            {"id": "local", "label": "Local"},
-            {"id": "10.0.0.2:9999", "label": "Worker 10.0.0.2:9999"},
+            {
+                "id": "local",
+                "label": "Local",
+                "role": "local",
+                "node_name": "127.0.0.1:9999",
+            },
+            {
+                "id": "10.0.0.2:9999",
+                "label": "Worker 10.0.0.2:9999",
+                "role": "worker",
+                "node_name": "10.0.0.2:9999",
+            },
         ]
     }
 
@@ -138,6 +148,37 @@ async def test_runtime_log_sources_include_remote_workers_with_local_node():
             source="unregistered:1234", cursor="", api=api
         )
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_runtime_log_sources_include_supervisor_node_name():
+    api = MagicMock()
+    api._supervisor_address = "xinference-supervisor:9999"
+    supervisor = AsyncMock()
+    supervisor.get_status.return_value = {
+        "workers": {
+            "xinference-worker-4090-2:30001": {},
+        }
+    }
+    api._get_supervisor_ref = AsyncMock(return_value=supervisor)
+
+    response = await runtime_logs.list_runtime_log_sources(api=api)
+    assert _body(response) == {
+        "sources": [
+            {
+                "id": "supervisor",
+                "label": "Supervisor",
+                "role": "supervisor",
+                "node_name": "xinference-supervisor:9999",
+            },
+            {
+                "id": "xinference-worker-4090-2:30001",
+                "label": "Worker xinference-worker-4090-2:30001",
+                "role": "worker",
+                "node_name": "xinference-worker-4090-2:30001",
+            },
+        ]
+    }
 
 
 @pytest.mark.asyncio
