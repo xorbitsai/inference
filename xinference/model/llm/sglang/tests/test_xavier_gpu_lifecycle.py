@@ -330,3 +330,59 @@ async def test_ipc_actor_never_borrows_engine_addresses(gpu_module, monkeypatch)
     await actor.__post_create__()
     rebuild.assert_called_once_with("descriptor")
     assert actor.caches["0"] is cache and actor.aux is None
+
+
+@pytest.mark.asyncio
+async def test_manager_exports_once_and_disables_descriptor_replay(
+    gpu_module, monkeypatch
+):
+    from torch.multiprocessing import reductions
+    from xoscar.backends.allocate_strategy import ProcessIndex
+
+    from ...xavier import transport
+    from ...xavier.contract import KVCacheContract
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "float16"
+    )
+    manager = object.__new__(gpu_module.XavierKVManager)
+    manager.config = dict(
+        host="127.0.0.1", address="directory", uid="directory", rank=0
+    )
+    args = SimpleNamespace(gpu_id=0, kv_item_lens=[64] * 4, aux_item_lens=[2])
+    cache = object()
+    aux = object()
+    monkeypatch.setattr(
+        gpu_module, "_buffers", Mock(return_value=({"0": cache}, [aux]))
+    )
+    reduce = Mock(return_value=(None, ("descriptor",)))
+    monkeypatch.setattr(reductions, "reduce_tensor", reduce)
+    monkeypatch.setattr(gpu_module.torch.cuda, "set_device", Mock())
+    monkeypatch.setattr(gpu_module.torch.cuda, "synchronize", Mock())
+    monkeypatch.setattr(
+        transport,
+        "gpu_pool_options",
+        Mock(return_value={"external_address": "nixl://127.0.0.1:0"}),
+    )
+    monkeypatch.setattr("importlib.metadata.version", lambda name: "0.5.21")
+    directory = SimpleNamespace(configure=AsyncMock(), register_peer=AsyncMock())
+    pool = SimpleNamespace(external_address="nixl://127.0.0.1:1", start=AsyncMock())
+    actor = SimpleNamespace(address="nixl://127.0.0.1:2")
+    create_pool = AsyncMock(return_value=pool)
+    create_actor = AsyncMock(return_value=actor)
+    monkeypatch.setattr(gpu_module.xo, "actor_ref", AsyncMock(return_value=directory))
+    monkeypatch.setattr(gpu_module.xo, "create_actor_pool", create_pool)
+    monkeypatch.setattr(gpu_module.xo, "create_actor", create_actor)
+
+    await manager._start(args, contract)
+    reduce.assert_called_once_with(cache)
+    assert manager._ipc_caches["0"] is cache and manager.aux == [aux]
+    assert create_pool.await_args.kwargs == dict(
+        n_process=1, subprocess_start_method="spawn", auto_recover=False
+    )
+    created_args, created_kwargs = create_actor.await_args
+    assert not hasattr(created_args[1], "kv_data_ptrs")
+    assert not hasattr(created_args[1], "aux_data_ptrs")
+    assert created_kwargs["ipc_descriptors"] == {"0": ("descriptor",)}
+    assert isinstance(created_kwargs["allocate_strategy"], ProcessIndex)
+    directory.register_peer.assert_awaited_once_with(0, actor.address)

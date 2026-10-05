@@ -406,7 +406,12 @@ class XavierKVManager(BaseKVManager):
         # Device-wide NIXL fences and Python GPU-copy dispatch must not run in
         # the scheduler's CUDA context or compete with its forward-pass thread.
         self.pool = await xo.create_actor_pool(
-            options["external_address"], n_process=1, subprocess_start_method="spawn"
+            options["external_address"],
+            n_process=1,
+            subprocess_start_method="spawn",
+            # Exported IPC counters and request-owned slots cannot be replayed
+            # by actor-pool recovery. A failed process requires a model relaunch.
+            auto_recover=False,
         )
         await self.pool.start()
         self.actor = await xo.create_actor(
