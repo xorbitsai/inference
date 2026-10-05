@@ -629,6 +629,7 @@ async def reset_monitor_config(request: Request) -> JSONResponse:
 
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
 _TEXT_FIELDS = {"message", "error.message"}
+_LOG_NODE_FIELDS = ("address", "address.keyword", "node", "node.keyword")
 _LOG_SOURCE_EXCLUDES = ["@version", "request_body", "request_body_raw"]
 _LOG_SEARCH_TEXT_FIELDS = ["message", "error.message"]
 _LOG_SEARCH_PREFIX_FIELDS = ["request_id", "correlation_id"]
@@ -878,8 +879,7 @@ async def search_logs(
     size = max(1, min(size, 500))
     page_from = max(0, page_from)
     time_from, time_to = _freeze_es_time_bounds(time_from, time_to)
-    if node_field not in ("node", "node.keyword"):
-        node_field = "node"
+    node_field = _normalize_log_node_field(node_field)
 
     must = []
     filter_clauses: list[dict[str, Any]] = [
@@ -974,6 +974,31 @@ async def search_logs(
     return JSONResponse(content={"hits": hits, "total": total})
 
 
+def _normalize_log_node_field(value: str) -> str:
+    return value if value in _LOG_NODE_FIELDS else "node"
+
+
+def _normalize_log_node_role(value: Any) -> Optional[str]:
+    normalized = str(value or "").lower()
+    for role in ("supervisor", "worker", "local", "unknown"):
+        if role in normalized:
+            return role
+    return None
+
+
+def _get_log_node_role(bucket: dict[str, Any]) -> Optional[str]:
+    hits = bucket.get("latest_identity", {}).get("hits", {}).get("hits", [])
+    for hit in hits:
+        source = hit.get("_source", {})
+        if not isinstance(source, dict):
+            continue
+        for field in ("node_role", "role", "log_type"):
+            role = _normalize_log_node_role(source.get(field))
+            if role:
+                return role
+    return None
+
+
 async def list_log_nodes() -> JSONResponse:
     es_url = os.environ.get("XINFERENCE_ES_URL", "")
     if not es_url:
@@ -995,7 +1020,25 @@ async def list_log_nodes() -> JSONResponse:
     url = f"{es_url.rstrip('/')}/{es_index}/_search"
 
     async def _aggregate(field: str) -> Optional[list[dict[str, Any]]]:
-        body = {"size": 0, "aggs": {"nodes": {"terms": {"field": field, "size": 200}}}}
+        body = {
+            "size": 0,
+            "aggs": {
+                "nodes": {
+                    "terms": {"field": field, "size": 200},
+                    "aggs": {
+                        "latest_identity": {
+                            "top_hits": {
+                                "size": 5,
+                                "sort": [{"@timestamp": {"order": "desc"}}],
+                                "_source": {
+                                    "includes": ["node_role", "role", "log_type"]
+                                },
+                            }
+                        }
+                    },
+                }
+            },
+        }
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
             async with session.post(url, json=body, headers=headers) as resp:
@@ -1005,13 +1048,22 @@ async def list_log_nodes() -> JSONResponse:
         return data.get("aggregations", {}).get("nodes", {}).get("buckets", [])
 
     try:
-        # "node" is usually a keyword field; fall back to "node.keyword" if the
-        # mapping is text (terms aggregation requires a keyword/fielddata field).
-        buckets = await _aggregate("node")
-        node_field = "node"
-        if buckets is None:
-            buckets = await _aggregate("node.keyword")
-            node_field = "node.keyword"
+        # Prefer the Xinference role address used by cluster information and
+        # runtime logs. Older indices may only contain the physical node name.
+        first_success: Optional[tuple[str, list[dict[str, Any]]]] = None
+        selected: Optional[tuple[str, list[dict[str, Any]]]] = None
+        for field in _LOG_NODE_FIELDS:
+            field_buckets = await _aggregate(field)
+            if field_buckets is None:
+                continue
+            if first_success is None:
+                first_success = (field, field_buckets)
+            if field_buckets:
+                selected = (field, field_buckets)
+                break
+
+        if selected is None:
+            selected = first_success
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(
@@ -1019,12 +1071,31 @@ async def list_log_nodes() -> JSONResponse:
             detail="Failed to connect to Elasticsearch or query timed out",
         )
 
-    if buckets is None:
-        logger.error("ES node aggregation failed for both 'node' and 'node.keyword'")
+    if selected is None:
+        logger.error(
+            "ES node aggregation failed for fields: %s", ", ".join(_LOG_NODE_FIELDS)
+        )
         raise HTTPException(status_code=502, detail="Elasticsearch query failed")
 
-    nodes = [b["key"] for b in buckets if b.get("key")]
-    return JSONResponse(content={"nodes": nodes, "node_field": node_field})
+    node_field, buckets = selected
+
+    nodes = [bucket["key"] for bucket in buckets if bucket.get("key")]
+    node_roles = {}
+    for bucket in buckets:
+        node = bucket.get("key")
+        if not node:
+            continue
+        role = _get_log_node_role(bucket)
+        if role:
+            node_roles[node] = role
+
+    return JSONResponse(
+        content={
+            "nodes": nodes,
+            "node_field": node_field,
+            "node_roles": node_roles,
+        }
+    )
 
 
 async def search_logs_context(
@@ -1044,8 +1115,7 @@ async def search_logs_context(
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
 
     size = max(1, min(size, 50))
-    if node_field not in ("node", "node.keyword"):
-        node_field = "node"
+    node_field = _normalize_log_node_field(node_field)
 
     node_filter: list[dict[str, Any]] = []
     if node:

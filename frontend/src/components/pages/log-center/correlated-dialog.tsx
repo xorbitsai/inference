@@ -16,7 +16,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 
 import type { CorrelatedLogsResponse, LogRow } from './types';
-import { formatLogTime, getLogSummary } from './utils';
+import { formatLogTime, formatLogTimeTitle, getLogNodeName, getLogSummary } from './utils';
 
 export function CorrelatedDialog({
   requestId,
@@ -81,10 +81,15 @@ export function CorrelatedDialog({
                 {t('logCenter.detail.correlatedTruncated')}
               </div>
             )}
-            <Table size="small">
+            <Table size="small" className="min-w-[760px] table-auto">
+              <colgroup>
+                <col className="w-px" />
+                <col className="w-[24%]" />
+                <col />
+              </colgroup>
               <TableHeader className="sticky top-0 z-10">
                 <TableRow>
-                  <TableHead>{t('logCenter.time')}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('logCenter.time')}</TableHead>
                   <TableHead>{t('logCenter.node')}</TableHead>
                   <TableHead>{t('logCenter.message')}</TableHead>
                 </TableRow>
@@ -92,11 +97,21 @@ export function CorrelatedDialog({
               <TableBody>
                 {rows.map((row, index) => (
                   <TableRow key={`${row['@timestamp'] || ''}-${index}`}>
-                    <TableCell className="whitespace-nowrap text-xs">
+                    <TableCell
+                      className="whitespace-nowrap font-mono text-xs text-muted-foreground"
+                      title={formatLogTimeTitle(row['@timestamp'])}
+                    >
                       {formatLogTime(row['@timestamp'])}
                     </TableCell>
-                    <TableCell className="text-xs">{String(row.node || '')}</TableCell>
-                    <TableCell className="text-xs">{getLogSummary(row)}</TableCell>
+                    <TableCell
+                      className="min-w-[140px] max-w-[220px] whitespace-normal break-words [overflow-wrap:anywhere] font-mono text-xs"
+                      title={getLogNodeName(row)}
+                    >
+                      {getLogNodeName(row)}
+                    </TableCell>
+                    <TableCell className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs">
+                      {getLogSummary(row)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
