@@ -95,6 +95,11 @@ class LlamaCppLLMSpecV2(BaseModel):
     draft_quantizations: Optional[List[str]]
     draft_model_revision: Optional[str]
 
+    class Config:
+        # Optional Union ordering may be cached as int first by Python.
+        # Keep radix strings intact until the validator normalizes sizes.
+        smart_union = True
+
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
         if isinstance(v, str):
@@ -123,6 +128,9 @@ class PytorchLLMSpecV2(BaseModel):
     draft_model_id: Optional[str]
     draft_quantizations: Optional[List[str]]
     draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -157,6 +165,9 @@ class MLXLLMSpecV2(BaseModel):
     draft_model_id: Optional[str]
     draft_quantizations: Optional[List[str]]
     draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
