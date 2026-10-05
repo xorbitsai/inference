@@ -66,8 +66,8 @@ msgstr ""
 "を起動する際には実際のIPアドレスを設定する必要があります。例：`xinference-local -H 192.168.xx.xx`。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "XavierはNvidiaのグラフィックカードのみをサポートしています。"
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "vLLM の GPU 転送には NVIDIA GPU が必要です。"
 
 #: source/user_guide/vllm_enhancement.rst:21
 msgid ""
@@ -94,3 +94,27 @@ msgstr "通常の SGLang レプリカは CPU HiCache ページを共有します
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
 msgstr "Xavier は BF16 チェックポイントを FP16 として読み込み、警告を表示します。重みと KV キャッシュの両方に FP16 を使用します。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "MLX レプリカ"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"MLX レプリカは ``model_engine=\"MLX\"`` と ``enable_xavier=True`` でプレフィックス KV "
+"キャッシュを共有できます。対応モデルと FP16 の要件は :ref:`user_guide_pd_separation` "
+"を参照してください。``xavier_cache_bytes`` は共有 CPU キャッシュを制限します（既定値 512 MiB）。各レプリカはモデルと"
+" Metal KV "
+"キャッシュも保持します。通常レプリカはミスやストレージ利用不可時にローカル計算し、互換性のないデプロイ間ではページを共有できません。使用量の "
+"``prompt_tokens_details.cached_tokens`` に再利用トークン数を返します。明示的な prefill/decode "
+"ロールは MLX Xavier P/D を自動で有効にします。異なるエンジン間のキャッシュ共有は未対応です。"

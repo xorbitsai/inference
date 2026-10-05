@@ -22,7 +22,7 @@ Limitations
   The V1 connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation`
   for community Prefill/Decode deployment.
 * Due to the underlying communication not recognizing ``0.0.0.0``, the actual IP address needs to be passed when starting Xinference, for example: ``xinference-local -H 192.168.xx.xx``.
-* Xavier only works for Nvidia product.
+* The vLLM GPU transfer path requires NVIDIA GPUs.
 
 SGLang replicas
 ===============
@@ -34,3 +34,8 @@ Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV c
 ``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang.
 
 Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported.
+
+MLX replicas
+============
+
+MLX replicas can share prefix KV cache with ``model_engine="MLX"`` and ``enable_xavier=True``. The supported models and FP16 requirements are described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds the shared CPU cache (default: 512 MiB). Each replica also owns its model and Metal KV cache. Ordinary replicas compute locally on a miss or unavailable storage; incompatible deployments cannot share pages. Returned usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-engine cache sharing is not yet supported.

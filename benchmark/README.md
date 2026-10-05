@@ -138,7 +138,27 @@ python benchmark/benchmark_long.py --context-length ${context_length} --tokenize
 							--num-prompts 32 -c 16
 ```
 
+## MLX Xavier cache and P/D
+
+On Apple silicon with `mlx-lm>=0.31.2`, compare ordinary MLX replicas, shared
+Xavier, and Xavier P/D through the same OpenAI API:
+
+```bash
+python benchmark/benchmark_mlx_xavier.py \
+  --model-path /path/to/fp16/Qwen2.5-0.5B-Instruct \
+  --output artifacts/mlx-xavier --requests 8
+```
+
+Use unquantized **FP16** safetensors for all modes. Xavier converts weights to
+FP16; using BF16 for ordinary replicas would change the comparison. Each mode
+starts a private server with two independent model processes and keeps the
+default local prompt cache enabled. The script records cold and repeated-prompt
+TTFT, latency, output throughput, actual cached tokens, greedy output equality,
+and shared-cache reads/leases. These are sequential requests on one shared Metal
+GPU, not a multi-host or NVIDIA-to-Mac network benchmark.
+
 ## Common Options for Benchmarking Tools
+
 - `--stream`. You can enable streaming responses by using the option, which is useful for real-time data processing and receiving incremental data without waiting for the entire dataset to be processed. 
 
 - `--print-error`. For troubleshooting and more detailed output, the option can be used to print detailed error messages if any errors are encountered during the execution. 

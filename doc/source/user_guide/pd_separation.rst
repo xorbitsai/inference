@@ -71,6 +71,36 @@ Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use
 
 For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts.
 
+MLX with Xavier
+---------------
+
+MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports unquantized, full-attention Qwen2, Qwen3 and Llama text models with one worker per replica. Weights and KV cache use FP16. Quantized weights or KV cache, rotating caches, hybrid attention, multimodal inputs, LoRA and speculative decoding are unsupported.
+
+Use ``model_engine="MLX"``, ``model_format="mlx"`` and ``quantization="none"`` with the same prefill/decode roles. The example places one replica on each of two Mac workers. Replace the registered worker addresses with those reported by ``client.get_workers_info()``.
+
+.. code-block:: python
+
+   client.launch_model(
+       model_uid="qwen-mlx-pd",
+       model_name="qwen2.5-instruct",
+       model_size_in_billions="0_5",
+       model_engine="MLX",
+       model_format="mlx",
+       quantization="none",
+       replica=2,
+       xavier_cache_bytes=536870912,
+       replica_config=[
+           {"role": "prefill", "devices": [{"worker_ip": "MAC_P_WORKER:PORT",
+                                          "n_gpu": "auto"}]},
+           {"role": "decode", "devices": [{"worker_ip": "MAC_D_WORKER:PORT",
+                                         "n_gpu": "auto"}]},
+       ],
+   )
+
+MLX Xavier stores immutable CPU pages in a shared actor on the supervisor and transfers them through actor RPC. ``xavier_cache_bytes`` bounds this deployment cache (default: 512 MiB); model weights and per-replica Metal KV allocations consume additional memory. The prefill replica evaluates all but the last prompt token. Decode imports the prefix, evaluates that last token and samples the first response token. Streaming and non-streaming requests are supported. Active handoffs reserve cache capacity; insufficient capacity, incompatible metadata or transfer failure raises an error. Unclaimed handoffs expire after five minutes.
+
+Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All workers must reach the supervisor's actor address. Relaunch after a worker restart. Two replicas on one Mac share its Metal GPU; measure your workload before expecting a throughput benefit. Cross-engine P/D, including NVIDIA-to-Mac handoff, is not yet supported.
+
 Native NIXL backend
 -------------------
 

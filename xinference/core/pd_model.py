@@ -257,7 +257,7 @@ class PDModelActor(xo.StatelessActor):
         handoff = self._direct_transfers.pop(request_id, None)
         if handoff:
             try:
-                if handoff.get("engine") == "sglang":
+                if handoff.get("engine") in ("sglang", "mlx"):
                     ref = await xo.actor_ref(
                         address=handoff["address"], uid=handoff["uid"]
                     )
@@ -359,7 +359,11 @@ class PDModelActor(xo.StatelessActor):
                 else None
             )
             if self._direct_handoff and isinstance(transfer, dict):
-                handoff = transfer.get("xavier_direct") or transfer.get("sglang_xavier")
+                handoff = (
+                    transfer.get("xavier_direct")
+                    or transfer.get("sglang_xavier")
+                    or transfer.get("mlx_xavier")
+                )
                 if handoff:
                     self._direct_transfers[request_id] = handoff
             if not isinstance(transfer, dict) or not transfer.get("do_remote_prefill"):

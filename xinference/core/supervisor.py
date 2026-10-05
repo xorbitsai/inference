@@ -3112,6 +3112,26 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError("NIXL requires explicit prefill and decode replica roles")
         # Xavier-related
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
+        mlx_xavier = (
+            (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
+            and (model_engine or "").lower() == "mlx"
+        )
+        if (requested_xavier or pd_enabled) and (model_engine or "").lower() == "mlx":
+            if transport_backend != "xavier" or n_worker != 1:
+                raise ValueError(
+                    "MLX Xavier requires the xavier transport and one worker per replica"
+                )
+            if (
+                model_type not in (None, "LLM")
+                or model_format != "mlx"
+                or quantization not in (None, "none")
+            ):
+                raise ValueError("MLX Xavier requires unquantized MLX text weights")
+            kwargs["_xavier_cache_config"] = {
+                "address": self.address,
+                "uid": f"xavier-cache-{model_uid}",
+            }
         sglang_xavier = (
             (requested_xavier or pd_enabled)
             and transport_backend == "xavier"
@@ -3133,13 +3153,12 @@ class SupervisorActor(xo.StatelessActor):
             )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
         if cache_bytes is not None and (
-            not sglang_xavier
-            or pd_enabled
+            not (mlx_xavier or sglang_xavier and not pd_enabled)
             or type(cache_bytes) is not int
             or cache_bytes <= 0
         ):
             raise ValueError(
-                "xavier_cache_bytes requires SGLang shared CPU caching and a positive integer"
+                "xavier_cache_bytes requires MLX Xavier or SGLang shared CPU caching and a positive integer"
             )
         if sglang_xavier:
             if n_worker != 1:
@@ -3290,6 +3309,12 @@ class SupervisorActor(xo.StatelessActor):
                     "rank": rank,
                     "host": get_transport_host(worker_ref.address),
                 }
+            elif mlx_xavier and pd_enabled:
+                assert replica_config is not None
+                replica_kwargs["_xavier_cache_config"] = {
+                    **kwargs["_xavier_cache_config"],
+                    "role": replica_config[rank - 1].role,
+                }
             if pd_enabled and transport_backend == "nixl":
                 assert replica_config is not None
                 replica_kwargs["_nixl_config"] = {
@@ -3352,8 +3377,19 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             nonlocal download_hub
             try:
-                if sglang_xavier:
-                    if pd_enabled:
+                if sglang_xavier or mlx_xavier:
+                    if mlx_xavier:
+                        from ..model.llm.xavier.backends.bytes.storage import (
+                            XavierBytesCacheActor,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierBytesCacheActor,
+                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    elif pd_enabled:
                         from ..model.llm.sglang.xavier.directory import (
                             XavierPDDirectory,
                         )

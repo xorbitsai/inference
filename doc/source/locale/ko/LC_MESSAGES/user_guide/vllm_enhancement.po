@@ -70,8 +70,8 @@ msgstr ""
 "``xinference-local -H 192.168.xx.xx``."
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "Xavier는 Nvidia 그래픽 카드만 지원합니다."
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "vLLM GPU 전송 경로는 NVIDIA GPU가 필요합니다."
 
 #: source/user_guide/vllm_enhancement.rst:21
 msgid ""
@@ -98,3 +98,27 @@ msgstr "일반 SGLang 복제본은 CPU HiCache 페이지를 공유합니다. 명
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
 msgstr "Xavier는 BF16 체크포인트를 FP16으로 로드하고 경고를 표시합니다. 가중치와 KV 캐시 모두 FP16을 사용합니다."
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "MLX 복제본"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"MLX 복제본은 ``model_engine=\"MLX\"`` 과 ``enable_xavier=True`` 로 접두사 KV 캐시를 공유할 "
+"수 있습니다. 지원 모델과 FP16 요구 사항은 :ref:`user_guide_pd_separation` 에 설명되어 있습니다. "
+"``xavier_cache_bytes`` 는 공유 CPU 캐시 용량을 제한합니다(기본 512 MiB). 각 복제본은 자체 모델과 "
+"Metal KV 캐시도 보유합니다. 일반 복제본은 캐시 미스 또는 저장소 이용 불가 시 로컬 계산을 수행하며, 호환되지 않는 배포는 "
+"페이지를 공유할 수 없습니다. 사용량의 ``prompt_tokens_details.cached_tokens`` 는 재사용된 토큰 수를 "
+"보고합니다. 명시적인 prefill/decode 역할은 MLX Xavier P/D를 자동 활성화합니다. 엔진 간 캐시 공유는 아직 "
+"지원하지 않습니다."

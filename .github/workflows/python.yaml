@@ -347,6 +347,7 @@ jobs:
             python -m pip freeze > test-results/metal-host-packages.txt
             for test_file in \
               xinference/model/llm/mlx/tests/test_mlx.py \
+              xinference/model/llm/mlx/tests/test_xavier.py \
               xinference/model/audio/tests/test_whisper_mlx.py \
               xinference/model/audio/tests/test_f5tts_mlx.py \
               xinference/model/llm/mlx/tests/test_distributed_model.py; do
