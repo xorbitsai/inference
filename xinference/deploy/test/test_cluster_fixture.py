@@ -20,7 +20,9 @@ from ...api import restful_api
 from .. import utils as deploy_utils
 
 
-@pytest.mark.parametrize("fixture_name", ["setup", "setup_with_file_logging"])
+@pytest.mark.parametrize(
+    "fixture_name", ["setup", "setup_with_file_logging", "setup_real_actor_pool"]
+)
 @pytest.mark.parametrize("failure", ["cluster", "api", "api_start", None])
 def test_cluster_fixture_reaps_children_on_setup_failure(
     monkeypatch, fixture_name, failure
@@ -28,9 +30,8 @@ def test_cluster_fixture_reaps_children_on_setup_failure(
     cluster = Mock()
     api = Mock()
     monkeypatch.setattr(fixtures.logging.config, "dictConfig", lambda config: None)
-    monkeypatch.setattr(
-        fixtures, "run_test_cluster_in_subprocess", lambda *args: cluster
-    )
+    start_cluster = Mock(return_value=cluster)
+    monkeypatch.setattr(fixtures, "run_test_cluster_in_subprocess", start_cluster)
     monkeypatch.setattr(
         deploy_utils, "health_check", lambda *args, **kwargs: failure != "cluster"
     )
@@ -52,6 +53,12 @@ def test_cluster_fixture_reaps_children_on_setup_failure(
         next(generator)
         generator.close()
 
+    if fixture_name != "setup_with_file_logging":
+        start_cluster.assert_called_once_with(
+            "127.0.0.1:12345",
+            fixtures.TEST_LOGGING_CONF,
+            fixture_name == "setup",
+        )
     cluster.kill.assert_called_once()
     cluster.join.assert_called_once_with(timeout=10)
     if failure not in ("cluster", "api_start"):
