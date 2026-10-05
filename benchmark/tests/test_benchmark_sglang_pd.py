@@ -70,3 +70,48 @@ def test_client_readiness_and_failed_launch_always_clean_up_owned_server(
         benchmark.run_backend(args, "nixl", 0, tmp_path, None)
     assert factory.call_count == 2
     stop.assert_called_once_with(proc)
+
+
+def test_completed_trial_keeps_telemetry_when_next_trial_resets_guard(
+    benchmark, monkeypatch, tmp_path
+):
+    proc = Mock()
+    proc.poll.return_value = None
+    monkeypatch.setattr(benchmark, "get_next_port", lambda: 12345)
+    monkeypatch.setattr(benchmark.subprocess, "Popen", Mock(return_value=proc))
+    client = Mock()
+    client.get_workers_info.return_value = [{"work-ip": "127.0.0.1:12345"}]
+    monkeypatch.setattr(benchmark, "Client", Mock(return_value=client))
+    monkeypatch.setattr(benchmark, "stop_server", Mock())
+    monkeypatch.setattr(benchmark, "workload", lambda: [{}])
+    monkeypatch.setattr(benchmark, "summarize", lambda *args: {})
+
+    async def measure(*args):
+        return [dict(output_tokens=64)], 1.0, None
+
+    monkeypatch.setattr(benchmark, "measure", measure)
+
+    class Guard:
+        samples = [dict(processes=[dict(pid=1)], external=[])]
+        interference = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    guard = Guard()
+    args = SimpleNamespace(
+        model_path=Path("model"),
+        memory_fraction=0.6,
+        kv_tokens=524288,
+        requests=1,
+        overlap_rounds=0,
+    )
+    result = benchmark.run_backend(args, "nixl", 0, tmp_path, guard)
+    guard.samples.clear()
+    guard.samples.append(dict(processes=[dict(pid=2)], external=[dict(pid=2)]))
+    guard.interference.append(guard.samples[-1])
+    assert result["gpu_samples"] == [dict(processes=[dict(pid=1)], external=[])]
+    assert result["interference"] == []

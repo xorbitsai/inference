@@ -404,8 +404,8 @@ def run_backend(
                     print(
                         backend, trial, "overlap", round_index, "complete", flush=True
                     )
-            result["gpu_samples"] = isolation.samples
-            result["interference"] = isolation.interference
+            result["gpu_samples"] = list(isolation.samples)
+            result["interference"] = list(isolation.interference)
             if isolation.interference:
                 (root / "rejected.json").write_text(json.dumps(result, indent=2))
                 raise GPUInterference(
