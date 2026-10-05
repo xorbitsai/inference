@@ -1427,7 +1427,7 @@ class MLXModel(LLM, ChatModelMixin):
                 metadata = await xavier.prefill(
                     self._model, tokens, generate_config.get("prompt_cache_prefix_len")
                 )
-                return Completion(
+                prefill_completion = Completion(
                     id=str(uuid.uuid4()),
                     object="text_completion",
                     created=int(time.time()),
@@ -1440,8 +1440,11 @@ class MLXModel(LLM, ChatModelMixin):
                         completion_tokens=0,
                         total_tokens=len(tokens),
                     ),
-                    _pd_kv_transfer_params=metadata,
                 )
+                cast(Dict[str, Any], prefill_completion)[
+                    "_pd_kv_transfer_params"
+                ] = metadata
+                return prefill_completion
             if xavier.role == "decode" and (
                 not isinstance(transfer, dict) or not transfer.get("do_remote_prefill")
             ):
@@ -1734,9 +1737,10 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                 c, "__aiter__"
             ), "async_generate should return Completion for non-streaming"
             c = cast(Completion, c)
-            if c.get("_pd_kv_transfer_params"):
+            transfer = cast(Dict[str, Any], c).get("_pd_kv_transfer_params")
+            if transfer:
                 result = self._to_chat_completion(c, self.reasoning_parser)
-                result["_pd_kv_transfer_params"] = c["_pd_kv_transfer_params"]
+                cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = transfer
                 return result
             if tools:
                 return self._post_process_completion(
