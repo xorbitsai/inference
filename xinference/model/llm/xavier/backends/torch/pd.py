@@ -143,9 +143,13 @@ class CrossEngineGPUActor(xo.StatelessActor):
             sent=0,
             completed=asyncio.Event(),
         )
-        await self.directory.publish_source(
-            room, dict(address=self.address, rank=self.rank)
-        )
+        try:
+            await self.directory.publish_source(
+                room, dict(address=self.address, rank=self.rank)
+            )
+        except BaseException:
+            self.rooms.pop(room, None)
+            raise
 
     async def register_prefill(
         self, room, request_id, pages, first_token, prompt_tokens
@@ -175,10 +179,14 @@ class CrossEngineGPUActor(xo.StatelessActor):
 
     def init(self, room, count, aux_index):
         state = self.rooms[room]
+        if state.get("aborted"):
+            raise RuntimeError("Cross-engine producer was cancelled")
         state.update(total=count, aux_index=aux_index)
 
     async def add_chunk(self, room, pages, aux_payload: list[bytes] | None = None):
         state = self.rooms[room]
+        if state.get("aborted"):
+            raise RuntimeError("Cross-engine producer was cancelled")
         state["sent"] += len(pages)
         final = state["sent"] == state["total"]
         if state["sent"] > state["total"]:

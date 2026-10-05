@@ -3,12 +3,17 @@
 import json
 import struct
 from dataclasses import replace
+from unittest.mock import AsyncMock
 
 import pytest
 import torch
 
 from ...sglang.xavier.directory import XavierPDDirectory
-from ..backends.torch.pd import canonical_vllm_views, sglang_first_token_payload
+from ..backends.torch.pd import (
+    CrossEngineGPUActor,
+    canonical_vllm_views,
+    sglang_first_token_payload,
+)
 from ..pd_contract import build_pd_contract, prompt_digest
 
 
@@ -106,3 +111,24 @@ def test_contract_fingerprints_actual_assets_and_context(tmp_path):
     (tmp_path / "model.safetensors").write_bytes(b"changed weights")
     with pytest.raises(ValueError, match="weights_fingerprint"):
         initial.require_match(build_pd_contract(str(tmp_path)))
+
+
+@pytest.mark.asyncio
+async def test_late_source_publication_does_not_leak_a_room():
+    directory = AsyncMock()
+    directory.publish_source.side_effect = ValueError("cancelled room")
+    actor = CrossEngineGPUActor(None, None, directory, "namespace", 1)
+    with pytest.raises(ValueError, match="cancelled room"):
+        await actor.open(123)
+    assert not actor.rooms
+
+
+@pytest.mark.asyncio
+async def test_aborted_source_cannot_register_late_gpu_chunks():
+    actor = CrossEngineGPUActor(None, None, None, "namespace", 1)
+    actor.rooms[123] = {"aborted": True}
+    with pytest.raises(RuntimeError, match="cancelled"):
+        actor.init(123, 3, 0)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        await actor.add_chunk(123, [1, 2, 3])
+    assert actor.rooms[123] == {"aborted": True}

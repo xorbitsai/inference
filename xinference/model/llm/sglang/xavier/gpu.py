@@ -584,6 +584,8 @@ class XavierKVSender(BaseKVSender):
         return self._operation
 
     def init(self, num_kv_indices, aux_index=None):
+        if self.aborted:
+            return
         self.total, self.sent, self.aux_index = num_kv_indices, 0, aux_index
         initialized = self._enqueue("init", self.room, num_kv_indices, aux_index)
 
@@ -601,6 +603,8 @@ class XavierKVSender(BaseKVSender):
         self.inited = True
 
     def send(self, kv_indices, state_indices=None, num_kv_tokens=None):
+        if self.aborted:
+            return
         if state_indices:
             raise ValueError(
                 "SGLang Xavier does not transfer auxiliary attention state"
