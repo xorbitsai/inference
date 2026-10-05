@@ -1,3 +1,5 @@
+import type { FieldFilter, HistoricalLogHandoff } from './types';
+
 export type RuntimeLogSourceRole = 'supervisor' | 'local' | 'worker';
 
 export interface RuntimeLogSource {
@@ -59,6 +61,31 @@ export interface RuntimeLogEntry {
   sourceSequence: number;
 }
 
+export interface HistoricalHandoffQueryState {
+  searchText: string;
+  appliedSearch: string;
+  selectedLevels: string[];
+  selectedLogType: string;
+  selectedNodes: string[];
+  pageFrom: number;
+  fieldFilters: FieldFilter[];
+}
+
+export function buildHistoricalHandoffQueryState(
+  handoff: HistoricalLogHandoff
+): HistoricalHandoffQueryState {
+  const query = handoff.requestId || handoff.query || '';
+  return {
+    searchText: query,
+    appliedSearch: query,
+    selectedLevels: handoff.level ? [handoff.level === 'WARN' ? 'WARNING' : handoff.level] : [],
+    selectedLogType: '',
+    selectedNodes: [],
+    pageFrom: 0,
+    fieldFilters: [],
+  };
+}
+
 const TEXT_LOG_START =
   /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}))\s+([A-Z]+)\s+(.*)$/;
 const ENTRY_BOUNDARY = /(?:^|\n)(?=(?:\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}|\{"@timestamp"\s*:))/;
@@ -115,6 +142,27 @@ export function parseRuntimeLogPayload(raw: string): Record<string, unknown> | u
     // Runtime logs are commonly plain text; an invalid JSON payload is expected.
   }
   return undefined;
+}
+
+export function getRuntimeHistoricalSearch(entry: RuntimeLogEntry): {
+  requestId?: string;
+  query?: string;
+} {
+  const payload = parseRuntimeLogPayload(entry.raw);
+  const requestId = typeof payload?.request_id === 'string' ? payload.request_id.trim() : undefined;
+  if (requestId) return { requestId };
+
+  if (payload) {
+    const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+    return { query: message ? message.slice(0, 160) : undefined };
+  }
+
+  // An incomplete structured record is not a reliable Elasticsearch message
+  // query. Let the node and time window locate it instead.
+  if (entry.raw.trimStart().startsWith('{')) return {};
+
+  const message = entry.message.split('\n', 1)[0].trim();
+  return { query: message ? message.slice(0, 160) : undefined };
 }
 
 export function parseRuntimeLogEntries(logs: string, source: string): RuntimeLogEntry[] {

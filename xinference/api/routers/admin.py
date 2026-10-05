@@ -854,6 +854,23 @@ def _build_log_search_clause(query: str) -> dict[str, Any]:
     }
 
 
+def _build_log_exact_filter_clause(
+    field_name: str, values: list[str], *, multiple: bool
+) -> dict[str, Any]:
+    # ``node`` is the physical hostname stored in the log record. It must stay
+    # independent of the address-based field selected for node aggregation.
+    # Query both mappings so this filter also works with legacy indices where
+    # the exact value is exposed only through ``node.keyword``.
+    fields = ("node", "node.keyword") if field_name == "node" else (field_name,)
+    query_type = "terms" if multiple else "term"
+    clauses = [
+        {query_type: {field: values if multiple else values[0]}} for field in fields
+    ]
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"bool": {"should": clauses, "minimum_should_match": 1}}
+
+
 async def search_logs(
     q: str = "",
     level: str = "",
@@ -912,8 +929,6 @@ async def search_logs(
         op = token[0]
         field_name = token[1:sep]
         field_value = token[sep + 1 :]
-        if field_name == "node":
-            field_name = node_field
         if not _FIELD_NAME_RE.match(field_name) or not field_value:
             continue
         if op == "+":
@@ -922,7 +937,11 @@ async def search_logs(
             if field_name in _TEXT_FIELDS:
                 must_not.append({"match_phrase": {field_name: field_value}})
             else:
-                must_not.append({"term": {field_name: field_value}})
+                must_not.append(
+                    _build_log_exact_filter_clause(
+                        field_name, [field_value], multiple=False
+                    )
+                )
 
     for field_name, values in plus_filters.items():
         if field_name in _TEXT_FIELDS:
@@ -934,7 +953,9 @@ async def search_logs(
                 }
             )
         else:
-            filter_clauses.append({"terms": {field_name: values}})
+            filter_clauses.append(
+                _build_log_exact_filter_clause(field_name, values, multiple=True)
+            )
 
     query: dict[str, Any] = {
         "bool": {"must": must, "filter": filter_clauses, "must_not": must_not}

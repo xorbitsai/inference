@@ -1096,6 +1096,44 @@ def test_normalize_log_node_field_accepts_only_supported_fields():
     assert admin._normalize_log_node_field("host.name") == "node"
 
 
+@pytest.mark.asyncio
+async def test_search_logs_keeps_physical_node_filters_with_address_aggregation(
+    monkeypatch,
+):
+    search_page = AsyncMock(return_value=([], 0))
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin, "_search_es_page", search_page)
+
+    await admin.search_logs(
+        node="xinference-worker:30001",
+        node_field="address",
+        filters=["+node:worker-host", "-node:excluded-host"],
+    )
+
+    query = search_page.await_args.kwargs["query"]["bool"]
+    assert {"terms": {"address": ["xinference-worker:30001"]}} in query["filter"]
+    assert {
+        "bool": {
+            "should": [
+                {"terms": {"node": ["worker-host"]}},
+                {"terms": {"node.keyword": ["worker-host"]}},
+            ],
+            "minimum_should_match": 1,
+        }
+    } in query["filter"]
+    assert query["must_not"] == [
+        {
+            "bool": {
+                "should": [
+                    {"term": {"node": "excluded-host"}},
+                    {"term": {"node.keyword": "excluded-host"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+    ]
+
+
 def test_log_search_uses_prefix_queries_for_high_cardinality_ids():
     clause = admin._build_log_search_clause("xinf-123")
     should = clause["bool"]["should"]

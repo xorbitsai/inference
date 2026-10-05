@@ -22,7 +22,11 @@ import type {
   LogsResponse,
   TimeRangeValue,
 } from './types';
-import { normalizeRuntimeLogSource, type RuntimeLogSource } from './runtime-log-utils';
+import {
+  buildHistoricalHandoffQueryState,
+  normalizeRuntimeLogSource,
+  type RuntimeLogSource,
+} from './runtime-log-utils';
 import {
   buildLogQueryParams,
   getLogNodeFilterValue,
@@ -205,12 +209,18 @@ export default function ElasticLogs({
         }
     );
 
-    const query = handoff.requestId || handoff.query || '';
-    setSearchText(query);
-    setAppliedSearch(query);
-    setSelectedLevels(handoff.level ? [handoff.level === 'WARN' ? 'WARNING' : handoff.level] : []);
-    setSelectedNodes([]);
-    setPageFrom(0);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    const linkedQuery = buildHistoricalHandoffQueryState(handoff);
+    setSearchText(linkedQuery.searchText);
+    setAppliedSearch(linkedQuery.appliedSearch);
+    setSelectedLevels(linkedQuery.selectedLevels);
+    setSelectedLogType(linkedQuery.selectedLogType);
+    setSelectedNodes(linkedQuery.selectedNodes);
+    setPageFrom(linkedQuery.pageFrom);
+    setFieldFilters(linkedQuery.fieldFilters);
 
     if (handoff.timestamp) {
       const timestamp = new Date(handoff.timestamp).getTime();

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildHistoricalHandoffQueryState,
   filterRuntimeLogEntries,
   getNodeDisplayName,
+  getRuntimeHistoricalSearch,
   getRuntimeLogSourceColorIndex,
   mergeRuntimeLogEntries,
   normalizeRuntimeLogSource,
@@ -300,4 +302,69 @@ test('parseRuntimeLogPayload exposes structured request metadata when available'
   });
   assert.equal(parseRuntimeLogPayload('plain text log'), undefined);
   assert.equal(parseRuntimeLogPayload('["not", "an", "object"]'), undefined);
+});
+
+test('historical handoff replaces filters that are unrelated to the runtime record', () => {
+  const previous = {
+    searchText: 'old query',
+    appliedSearch: 'old query',
+    selectedLevels: ['ERROR'],
+    selectedLogType: 'worker',
+    selectedNodes: ['old-worker'],
+    pageFrom: 200,
+    fieldFilters: [{ key: 'module', value: 'old.module', op: '+' as const }],
+  };
+
+  const next = {
+    ...previous,
+    ...buildHistoricalHandoffQueryState({
+      token: 1,
+      nodeName: 'xinference-supervisor:9999',
+      level: 'WARN',
+      requestId: 'xinf-123',
+    }),
+  };
+
+  assert.deepEqual(next, {
+    searchText: 'xinf-123',
+    appliedSearch: 'xinf-123',
+    selectedLevels: ['WARNING'],
+    selectedLogType: '',
+    selectedNodes: [],
+    pageFrom: 0,
+    fieldFilters: [],
+  });
+});
+
+test('runtime historical search uses the structured message without a request ID', () => {
+  const raw = JSON.stringify({
+    '@timestamp': '2026-10-05T08:00:00.000Z',
+    level: 'INFO',
+    module: 'xinference.core.worker',
+    pid: 123,
+    node: 'worker-host',
+    message: 'Model loaded successfully',
+  });
+  const [entry] = parseRuntimeLogEntries(`${raw}\n`, 'worker-a');
+
+  assert.deepEqual(getRuntimeHistoricalSearch(entry), {
+    query: 'Model loaded successfully',
+  });
+});
+
+test('runtime historical search keeps request IDs and plain-text message fallbacks', () => {
+  const structured = JSON.stringify({
+    '@timestamp': '2026-10-05T08:00:00.000Z',
+    level: 'INFO',
+    request_id: ' xinf-456 ',
+    message: 'ignored when request ID is available',
+  });
+  const [structuredEntry] = parseRuntimeLogEntries(`${structured}\n`, 'worker-a');
+  const [plainEntry] = parseRuntimeLogEntries(
+    '2026-10-05T08:00:00.000Z INFO Model ready on worker\ncontinuation\n',
+    'worker-a'
+  );
+
+  assert.deepEqual(getRuntimeHistoricalSearch(structuredEntry), { requestId: 'xinf-456' });
+  assert.deepEqual(getRuntimeHistoricalSearch(plainEntry), { query: 'Model ready on worker' });
 });

@@ -20,6 +20,7 @@ import { LogDetail } from './log-detail';
 import { LogToolbar } from './log-toolbar';
 import {
   filterRuntimeLogEntries,
+  getRuntimeHistoricalSearch,
   mergeRuntimeLogEntries,
   normalizeRuntimeLogSource,
   parseRuntimeLogEntries,
@@ -438,15 +439,12 @@ export default function RuntimeLogs({
 
   const viewHistorical = (entry: RuntimeLogEntry) => {
     const metadata = sourceMetadata(entry.source);
-    const payload = parseRuntimeLogPayload(entry.raw);
-    const requestId =
-      typeof payload?.request_id === 'string' ? payload.request_id.trim() : undefined;
+    const search = getRuntimeHistoricalSearch(entry);
     onViewHistorical({
       nodeName: metadata.nodeName,
       timestamp: entry.timestamp,
       level: normalizedLevel(entry.level),
-      requestId: requestId || undefined,
-      query: requestId ? undefined : entry.message.split('\n', 1)[0].slice(0, 160),
+      ...search,
     });
   };
 
