@@ -8,15 +8,21 @@ import gc
 class InitializationGCFreeze:
     def __init__(self) -> None:
         self._owned = False
+        self._started = False
 
     def start(self) -> None:
-        if self._owned or gc.get_freeze_count():
+        if self._started:
             return
+        # Some runtimes start with a small frozen graph. That does not cover
+        # the libraries loaded for this model. Extend it once, preserving the
+        # external owner's right to unfreeze it when its own lifetime ends.
+        self._owned = gc.get_freeze_count() == 0
         gc.collect()
         gc.freeze()
-        self._owned = True
+        self._started = True
 
     def close(self) -> None:
         if self._owned:
             gc.unfreeze()
             self._owned = False
+        self._started = False

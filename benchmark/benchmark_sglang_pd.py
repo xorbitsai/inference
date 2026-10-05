@@ -484,6 +484,7 @@ def main():
                 Path(__file__),
                 *Path("xinference/model/llm/sglang").rglob("*.py"),
                 Path("xinference/core/pd_model.py"),
+                Path("xinference/api/restful_api.py"),
                 Path("xinference/core/supervisor.py"),
                 Path("xinference/types.py"),
                 Path("xinference/model/llm/xavier/backends/torch/gpu_transfer.py"),

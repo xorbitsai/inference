@@ -24,10 +24,18 @@ if mode == "already-frozen":
     gc.freeze()
 was_enabled, was_frozen = gc.isenabled(), bool(gc.get_freeze_count())
 guard = InitializationGCFreeze()
+class Library:
+    pass
+library = Library()
+library.cycle = library
+library_ref = weakref.ref(library)
 try:
     guard.start()
     assert gc.get_freeze_count() > 0
     assert gc.isenabled() == was_enabled
+    del library
+    gc.collect()
+    assert library_ref() is not None, "new library graph must be frozen"
     class Request:
         pass
     request = Request()
@@ -43,6 +51,10 @@ finally:
     guard.close()
 assert gc.isenabled() == was_enabled
 assert bool(gc.get_freeze_count()) == was_frozen
+if was_frozen:
+    gc.unfreeze()  # The external owner ends its own lifetime.
+gc.collect()
+assert library_ref() is None
 """
     result = subprocess.run(
         [sys.executable, "-c", script, mode], capture_output=True, text=True, timeout=60

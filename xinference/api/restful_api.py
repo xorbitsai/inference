@@ -568,9 +568,11 @@ class RESTfulAPI(CancelMixin):
         # to collect cycles created by requests. Respect an existing freeze
         # owned by the host application.
         owns_gc_freeze = gc.get_freeze_count() == 0
-        if owns_gc_freeze:
-            gc.collect()
-            gc.freeze()
+        # A runtime may already have frozen a small startup graph. Include the
+        # libraries initialized for this API even then; only undo a freeze that
+        # this lifespan owns, keeping the pre-existing owner's policy intact.
+        gc.collect()
+        gc.freeze()
         try:
             if not is_metrics_disabled():
                 self._cluster_metrics_task = asyncio.create_task(
