@@ -984,8 +984,9 @@ class VLLMModel(LLM):
                                 pool_addresses=worker_addresses,
                                 n_worker=self._n_worker,
                             )
+                            executor_cls.supports_pp = True  # type: ignore
                             if VLLM_VERSION >= version.parse("0.19.0"):
-                                executor_cls.supports_async_scheduling = lambda: True  # type: ignore
+                                executor_cls.supports_async_scheduling = XinferenceDistributedExecutorV1.supports_async_scheduling  # type: ignore
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)

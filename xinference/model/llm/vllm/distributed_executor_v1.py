@@ -15,6 +15,7 @@
 import asyncio
 import logging
 import os
+import time
 from concurrent.futures import Future
 from typing import (
     TYPE_CHECKING,
@@ -29,6 +30,7 @@ from typing import (
 )
 
 import xoscar as xo
+from vllm import envs
 from vllm.v1.executor.abstract import Executor
 from xoscar.utils import get_next_port
 
@@ -68,6 +70,8 @@ class WorkerWrapper:
 class XinferenceDistributedExecutorV1(Executor):
     """Xoscar based distributed executor"""
 
+    supports_pp: bool = True
+
     _loop: asyncio.AbstractEventLoop
     _pool_addresses: List[str]
     _n_worker: int
@@ -81,30 +85,56 @@ class XinferenceDistributedExecutorV1(Executor):
         **kwargs,
     ):
         # XinferenceDistributedExecutorV1
-        isolation = Isolation(asyncio.new_event_loop())
-        isolation.start()
-        loop = isolation.loop
+        self._isolation = Isolation(asyncio.new_event_loop())
+        self._isolation.start()
+        loop = self._isolation.loop
 
         # XinferenceDistributedExecutor
         self._pool_addresses = pool_addresses
         self._loop = loop
         self._n_worker = n_worker
         self._is_shutdown = False
+        self.workers: List[WorkerWrapper] = []
 
         # DistributedExecutorBase
         self.parallel_worker_tasks: Optional[Union[Any, Awaitable[Any]]] = None
 
         # Executor
-        Executor.__init__(self, vllm_config, *args, **kwargs)
+        try:
+            Executor.__init__(self, vllm_config, *args, **kwargs)
+        except Exception:
+            self.shutdown()
+            raise
+
+    @classmethod
+    def supports_async_scheduling(cls) -> bool:
+        return True
+
+    @property
+    def max_concurrent_batches(self) -> int:
+        # Newer vLLM versions own this setting in VllmConfig. Older V1
+        # engines read it from the executor to fill all PP stages.
+        configured = getattr(self.vllm_config, "max_concurrent_batches", None)
+        if configured is not None:
+            return configured
+        pp_size = self.parallel_config.pipeline_parallel_size
+        if pp_size == 1 and self.scheduler_config.async_scheduling:
+            return 2
+        return pp_size
 
     def _init_executor(self) -> None:
         # Create the parallel GPU workers.
         world_size = self.parallel_config.world_size
         tensor_parallel_size = self.parallel_config.tensor_parallel_size
 
-        assert (
-            self._pool_addresses and len(self._pool_addresses) == world_size
-        ), f"Pool addresses(#{len(self._pool_addresses or [])} must be equal to worldsize(#{world_size})"
+        if len(self._pool_addresses) != world_size:
+            raise ValueError(
+                f"Allocated GPU count ({len(self._pool_addresses)}) must equal "
+                f"the vLLM world size ({world_size}); set TP * PP to the "
+                "total allocated GPU count"
+            )
+        if self._n_worker <= 0 or world_size % self._n_worker != 0:
+            raise ValueError("vLLM world size must be divisible by n_worker")
 
         futures = []
         for rank in range(world_size):
@@ -115,10 +145,19 @@ class XinferenceDistributedExecutorV1(Executor):
                 uid=WorkerActor.gen_uid(rank),
             )
             futures.append(asyncio.run_coroutine_threadsafe(coro, self._loop))
-        refs: List[xo.ActorRefType[WorkerActor]] = [fut.result() for fut in futures]
+        refs: List[xo.ActorRefType[WorkerActor]] = []
+        creation_error = None
+        for fut in futures:
+            try:
+                refs.append(fut.result())
+            except Exception as exc:
+                if creation_error is None:
+                    creation_error = exc
 
         # create workers
         self._create_workers(refs)
+        if creation_error is not None:
+            raise creation_error
 
         # Set environment variables for the driver and workers.
         all_args_to_update_environment_variables: List[Dict[str, str]] = [
@@ -177,8 +216,9 @@ class XinferenceDistributedExecutorV1(Executor):
 
         # Enforce rank order for correct rank to return final output.
         for index, worker in enumerate(self.workers):
-            # The driver worker is rank 0 and not in self.workers.
-            rank = index + 1
+            rank = index
+            if rank == 0:
+                continue
             if rank % self.parallel_config.tensor_parallel_size == 0:
                 self.tp_driver_workers.append(worker)
             else:
@@ -194,7 +234,9 @@ class XinferenceDistributedExecutorV1(Executor):
         of the last PP stage.
         """
         return (
-            self.parallel_config.world_size - self.parallel_config.tensor_parallel_size
+            self.parallel_config.world_size
+            - self.parallel_config.tensor_parallel_size
+            * getattr(self.parallel_config, "prefill_context_parallel_size", 1)
         )
 
     def collective_rpc(
@@ -204,48 +246,66 @@ class XinferenceDistributedExecutorV1(Executor):
         args: Tuple = (),
         kwargs: Optional[Dict] = None,
         non_block: bool = False,
-    ) -> List[Any]:
-        return self._run_workers(method, *args, **(kwargs or {}))
+    ) -> Union[List[Any], Future]:
+        return self._run_workers(
+            method, *args, timeout=timeout, non_block=non_block, **(kwargs or {})
+        )
 
     def execute_model(
         self, scheduler_output: "SchedulerOutput", non_block: bool = False
     ) -> Union["ModelRunnerOutput", None, Future[Union["ModelRunnerOutput", None]]]:
-        outputs = self._run_workers(
-            "execute_model", scheduler_output, non_block=non_block
+        return self._run_workers(
+            "execute_model",
+            scheduler_output,
+            non_block=non_block,
+            output_rank=self._get_output_rank(),
+            timeout=envs.VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
+            aggregate_output=True,
         )
-        # In pipeline parallelism, only the last PP stage returns output.
-        return outputs[self._get_output_rank()]
 
     def sample_tokens(
         self, grammar_output: Optional[Any] = None, non_block: bool = False
     ) -> Any:
-        outputs = self._run_workers(
-            "sample_tokens", grammar_output, non_block=non_block
+        return self._run_workers(
+            "sample_tokens",
+            grammar_output,
+            non_block=non_block,
+            output_rank=self._get_output_rank(),
+            timeout=envs.VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
+            aggregate_output=True,
         )
-        # In pipeline parallelism, only the last PP stage produces
-        # sampled tokens. The output_rank is the first TP worker of
-        # the last PP stage.
-        return outputs[self._get_output_rank()]
+
+    def take_draft_token_ids(self) -> Any:
+        return self._run_workers(
+            "take_draft_token_ids", output_rank=self._get_output_rank()
+        )
 
     def check_health(self) -> None:
-        # Assume that the workers are healthy.
-        # TODO: check the health by checking if the workers all alive
-        return
+        self.collective_rpc("check_health", timeout=10)
 
     def shutdown(self) -> None:
         if self._is_shutdown:
             return
 
+        self._is_shutdown = True
+        deadline = time.monotonic() + 10
+        futs = []
+        for worker in self.workers:
+            try:
+                futs.append(worker.kill())
+            except Exception:
+                logger.debug("Failed to destroy vLLM worker", exc_info=True)
         try:
-            self._is_shutdown = True
-            futs = [worker.kill() for worker in self.workers]
-            _ = [fut.result() for fut in futs]
-        except (RuntimeError, ConnectionError, xo.ActorNotExist):
-            # event loop closed already, ignore
-            # or actor already removed
-            pass
+            for fut in futs:
+                try:
+                    fut.result(timeout=max(0, deadline - time.monotonic()))
+                except Exception:
+                    logger.debug("Failed to destroy vLLM worker", exc_info=True)
+        finally:
+            self._isolation.stop()
+            self._loop.close()
 
-    def _create_workers(self, refs: xo.ActorRefType[WorkerActor]) -> None:
+    def _create_workers(self, refs: List[xo.ActorRefType[WorkerActor]]) -> None:
         self.workers = [WorkerWrapper(self._loop, ref) for ref in refs]
 
     def _run_workers(
@@ -255,6 +315,9 @@ class XinferenceDistributedExecutorV1(Executor):
         async_run_tensor_parallel_workers_only: bool = False,
         max_concurrent_workers: Optional[int] = None,
         non_block: bool = False,
+        output_rank: Optional[int] = None,
+        timeout: Optional[float] = None,
+        aggregate_output: bool = False,
         **kwargs,
     ) -> Any:
         if max_concurrent_workers:
@@ -267,7 +330,30 @@ class XinferenceDistributedExecutorV1(Executor):
             worker.execute_method(method, *args, **kwargs) for worker in workers
         ]
 
-        if async_run_tensor_parallel_workers_only or non_block:
-            return worker_outputs
+        async def collect_outputs():
+            # Observe every rank: a failed early PP stage can leave the final
+            # stage waiting indefinitely for activation tensors.
+            try:
+                outputs = await asyncio.wait_for(
+                    asyncio.gather(
+                        *(asyncio.wrap_future(output) for output in worker_outputs)
+                    ),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError as exc:
+                raise TimeoutError(f"RPC call to {method} timed out") from exc
 
-        return [output.result() for output in worker_outputs]
+            if output_rank is None:
+                return outputs
+            result = outputs[output_rank]
+            if aggregate_output:
+                for name in ("kv_output_aggregator", "ec_output_aggregator"):
+                    aggregator = getattr(self, name, None)
+                    if aggregator is not None:
+                        result = aggregator.aggregate(outputs, output_rank=output_rank)
+            return result
+
+        result = asyncio.run_coroutine_threadsafe(collect_outputs(), self._loop)
+        if async_run_tensor_parallel_workers_only or non_block:
+            return result
+        return result.result()

@@ -372,6 +372,9 @@ jobs:
             run_pytest \
               benchmark/tests/test_benchmark_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \
+              xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
+              xinference/model/llm/vllm/tests/test_executor_routing.py \
+              xinference/model/llm/vllm/tests/test_speculative_config.py \
               xinference/model/llm/vllm/xavier/test/test_profiling.py \
               xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
               xinference/model/llm/vllm/tests/test_pd.py \
