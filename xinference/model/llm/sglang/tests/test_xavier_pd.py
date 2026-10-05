@@ -1,9 +1,11 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 import asyncio
+import hashlib
+import json
 from functools import partial
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import xoscar as xo
@@ -304,3 +306,88 @@ def directory_spy(actor):
             for method in ("get_stats", "prepare", "check", "release")
         }
     )
+
+
+def fingerprint_handoff():
+    tokenizer = SimpleNamespace(
+        encode=Mock(side_effect=lambda text: list(text.encode()))
+    )
+    h = SGLangXavierHandoff(dict(role="decode"), 64, tokenizer)
+    h._namespace = "namespace"
+    h._directory_actor = SimpleNamespace(prepare=AsyncMock())
+    return h
+
+
+async def prepare(h, prompt, room=1):
+    return await h.prepare(prompt, dict(sglang_xavier=dict(mode="gpu", room=room)))
+
+
+@pytest.mark.asyncio
+async def test_repeated_prompt_reuses_fingerprint_and_validates_every_room():
+    h = fingerprint_handoff()
+    for room in range(1, 4):
+        await prepare(h, "prompt", room)
+    h.tokenizer.encode.assert_called_once_with("prompt")
+    assert h._directory_actor.prepare.await_count == 3
+    expected = hashlib.sha256(json.dumps(list(b"prompt")).encode()).hexdigest()
+    assert h._directory_actor.prepare.call_args.args == (
+        3,
+        "namespace",
+        expected,
+        "decode",
+    )
+    assert list(h._prompt_hashes) == [hashlib.sha256(b"prompt").digest()]
+    assert list(h._prompt_hashes.values()) == [expected]
+
+
+@pytest.mark.asyncio
+async def test_fingerprints_are_bounded_and_recently_used_entry_survives():
+    h = fingerprint_handoff()
+    for n in range(256):
+        await prepare(h, str(n))
+    await prepare(h, "0")
+    await prepare(h, "new")
+    assert len(h._prompt_hashes) == 256
+    assert hashlib.sha256(b"0").digest() in h._prompt_hashes
+    assert hashlib.sha256(b"1").digest() not in h._prompt_hashes
+    await prepare(h, "1")
+    assert h.tokenizer.encode.call_count == 258
+
+
+@pytest.mark.asyncio
+async def test_changed_prompt_and_new_deployment_recompute_tokens():
+    first, second = fingerprint_handoff(), fingerprint_handoff()
+    await prepare(first, "one")
+    await prepare(first, "two")
+    await prepare(second, "one")
+    assert (
+        first.tokenizer.encode.call_count == 2
+        and second.tokenizer.encode.call_count == 1
+    )
+    assert len(first._prompt_hashes) == 2 and len(second._prompt_hashes) == 1
+
+
+@pytest.mark.asyncio
+async def test_cached_prompt_does_not_bypass_pairing_failure():
+    h = fingerprint_handoff()
+    await prepare(h, "one")
+    h._directory_actor.prepare.side_effect = ValueError(
+        "duplicate room or mismatched prompt"
+    )
+    with pytest.raises(ValueError, match="duplicate room"):
+        await prepare(h, "one")
+    assert (
+        h.tokenizer.encode.call_count == 1
+        and h._directory_actor.prepare.await_count == 2
+    )
+
+
+@pytest.mark.asyncio
+async def test_encoding_failure_is_never_cached():
+    h = fingerprint_handoff()
+    h.tokenizer.encode.side_effect = ValueError("tokenizer failure")
+    for _ in range(2):
+        with pytest.raises(ValueError, match="tokenizer failure"):
+            await prepare(h, "one")
+    assert not h._prompt_hashes
+    h._directory_actor.prepare.assert_not_awaited()

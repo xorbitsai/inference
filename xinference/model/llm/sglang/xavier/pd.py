@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import time
+from collections import OrderedDict
 from typing import Optional
 
 import xoscar as xo
@@ -19,6 +20,8 @@ class SGLangXavierHandoff:
         # request validation/completion as RPCs, without resolving them again.
         self._directory_actor: Optional[xo.ActorRef] = None
         self._namespace: Optional[str] = None
+        # Keep fixed-size digests only, scoped to this deployment/tokenizer.
+        self._prompt_hashes: OrderedDict[bytes, str] = OrderedDict()
 
     async def _call(self, method, *args):
         async def invoke():
@@ -34,8 +37,14 @@ class SGLangXavierHandoff:
         handoff = transfer.get("sglang_xavier")
         if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
             raise ValueError("Missing SGLang Xavier GPU bootstrap metadata")
-        tokens = self.tokenizer.encode(prompt)
-        prompt_hash = hashlib.sha256(json.dumps(tokens).encode()).hexdigest()
+        key = hashlib.sha256(prompt.encode()).digest()
+        prompt_hash = self._prompt_hashes.pop(key, None)
+        if prompt_hash is None:
+            tokens = self.tokenizer.encode(prompt)
+            prompt_hash = hashlib.sha256(json.dumps(tokens).encode()).hexdigest()
+        self._prompt_hashes[key] = prompt_hash
+        if len(self._prompt_hashes) > 256:
+            self._prompt_hashes.popitem(last=False)
         if self._namespace is None:
             self._namespace = (await self._call("get_stats"))["namespace"]
             if self._namespace is None:
