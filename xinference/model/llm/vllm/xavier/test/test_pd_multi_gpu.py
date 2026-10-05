@@ -57,6 +57,7 @@ def test_multi_pd_gpu(pd_cluster, backend, num_p, num_d):  # noqa: F811
             max_tokens=16,
             temperature=0,
             stream=stream,
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
         if stream:
             chunks = list(result)

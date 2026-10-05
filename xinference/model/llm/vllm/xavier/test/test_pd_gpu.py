@@ -40,7 +40,8 @@ def pd_cluster(monkeypatch, tmp_path, backend):
     logging_config = deepcopy(cluster_logging)
     logging_config["loggers"]["vllm"] = {
         "handlers": ["stream_handler", "file_handler"],
-        "level": os.environ.get("XINFERENCE_TEST_PD_VLLM_LOG_LEVEL", "DEBUG"),
+        # KV transfer evidence assertions require vLLM DEBUG records.
+        "level": "DEBUG",
         "propagate": False,
     }
     # Per-op tensor debug messages synchronize CUDA and overwhelm these logs.
