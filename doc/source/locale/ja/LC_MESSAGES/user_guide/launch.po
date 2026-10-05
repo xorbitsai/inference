@@ -342,3 +342,31 @@ msgid ""
 msgstr ""
 "画像・動画モデルのバッチ処理は、選択したネイティブエンジンとモデルに依存します。Diffusers は Xinference "
 "独自のステップ単位スケジューラを使用しません。:ref:`image` と :ref:`video` を参照してください。"
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "重みを再読み込みせずに設定を変更"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "モデル起動時に ``enable_weight_cache=true`` を指定するか、デプロイ画面で **再読み込み用に GPU の重みを保持** を選択します。vLLM 0.31.0+ または SGLang 0.5.21+、Linux CUDA または ROCm、単一ワーカー、単一レプリカ、固定のテンソル並列度が必要です。対応バージョンでも既定では無効です。"
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "Xinference は上流のキャッシュプロセスで GPU の重みを保持し、エンジン、KV キャッシュ、CUDA グラフを再構築します。ストリームを含む現在のリクエスト完了を待ち、新規リクエストを一時的に HTTP 503 で拒否します。待機タイムアウトでは元のエンジンを維持します。再構築に失敗した場合は以前の設定の復元を試みます。モデル終了で重みを解放します。ワーカープロセスの障害時には重みの再読み込みが必要です。"
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` は部分的な ``model_config`` と任意の ``drain_timeout``（秒、既定 300、最大 3600）を受け取り、HTTP 202 と ``operation_id`` を返します。``status`` が ``ready`` または ``error`` になるまで ``GET /v1/models/{model_uid}/reload`` をポーリングします。エラー時の ``restored=true`` は元のエンジンが復旧したことを示します。対応パラメータと現在の明示的な値は ``GET /v1/models/{model_uid}/reload/config`` で取得します。無効な変更は HTTP 400、再読み込みが進行中の場合は HTTP 409 です。モデル UID と GPU の割り当てを維持します。"
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "vLLM では ``max_num_seqs``、``max_num_batched_tokens``、``max_model_len``、``gpu_memory_utilization``、``enforce_eager`` を変更できます。"
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "SGLang では ``max_running_requests``、``max_prefill_tokens``、``context_length``、``chunked_prefill_size``、``mem_fraction_static``、``disable_cuda_graph``、``cuda_graph_max_bs_decode``、``cuda_graph_max_bs_prefill``、``schedule_conservativeness`` を変更できます。"
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "並列度、GPU 配置、モデルパス、精度、量子化、重みの配置設定は変更できません。パイプライン・データ並列、複数ワーカー、LoRA、投機的デコード、重みのオフロード、PD デプロイには未対応です。量子化モデルは上流の IPC 互換性チェックに合格する必要があります。vLLM の複数 GPU キャッシュでは標準のマルチプロセス実行を使用します。実行中のモデル詳細で **パラメータを再読み込み** を選択すると値の編集と進行状況の確認ができます。"

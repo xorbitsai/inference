@@ -94,6 +94,8 @@ def request_limit(fn):
     """
 
     async def wrapped_func(self, *args, **kwargs):
+        if self._model_state == "reloading":
+            raise ModelNotReadyError("Model is reloading")
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
@@ -358,7 +360,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def _require_ready(self):
         """Guard for all inference methods: reject if not in ready state."""
         if self._model_state != "ready":
-            if self._model_state in ("registering", "loading"):
+            if self._model_state in ("registering", "loading", "reloading"):
                 raise ModelNotReadyError(
                     f"Model is {self._model_state}, not ready for inference"
                 )
@@ -521,6 +523,55 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         if hasattr(self._model, "wait_for_load"):
             await asyncio.to_thread(self._model.wait_for_load)
         self._model_state = "ready"
+
+    def get_reload_config(self) -> Dict[str, Any]:
+        from ..model.llm.weight_cache import WeightCachedModel
+
+        if not isinstance(self._model, WeightCachedModel):
+            raise ValueError("Reload with retained weights requires vLLM or SGLang")
+        return self._model.get_reload_config()
+
+    async def validate_reload(self, model_config: Dict[str, Any]) -> None:
+        self._require_ready()
+        self.get_reload_config()
+        await asyncio.to_thread(self._model.validate_reload, model_config)
+        self._reload_status: Dict[str, Any] = {}
+
+    def get_reload_status(self) -> Dict[str, Any]:
+        return dict(getattr(self, "_reload_status", {}))
+
+    async def reload(self, model_config: Dict[str, Any], drain_timeout: float) -> None:
+        from ..model.llm.weight_cache import ModelReloadError
+
+        await self.validate_reload(model_config)
+        self._model_state = "reloading"
+        self._reload_status = {"stage": "draining"}
+        try:
+            deadline = time.monotonic() + drain_timeout
+            while self._serve_count:
+                if time.monotonic() >= deadline:
+                    raise ModelReloadError(
+                        "Timed out draining requests; the original engine is still running",
+                        restored=True,
+                    )
+                await asyncio.sleep(0.05)
+            await asyncio.to_thread(
+                self._model.reload,
+                model_config,
+                lambda stage: self._reload_status.update(stage=stage),
+            )
+        except ModelReloadError as exc:
+            self._model_state = "ready" if exc.restored else "error"
+            self._reload_status.update(stage="error", restored=exc.restored)
+            raise
+        except Exception:
+            # Validation inside reload happens before engine teardown.
+            self._model_state = "ready"
+            self._reload_status.update(stage="error", restored=True)
+            raise
+        else:
+            self._model_state = "ready"
+            self._reload_status.update(stage="ready")
 
     def need_create_pools(self):
         return getattr(self._model, "need_create_pools", False)

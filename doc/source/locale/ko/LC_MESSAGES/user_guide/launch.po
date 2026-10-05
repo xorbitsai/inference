@@ -348,3 +348,31 @@ msgid ""
 msgstr ""
 "이미지 및 비디오 모델의 배치 처리는 선택한 네이티브 엔진과 모델에 따라 달라집니다. Diffusers는 Xinference 자체 단계별"
 " 스케줄러를 사용하지 않습니다. :ref:`image` 및 :ref:`video` 를 참조하세요."
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "가중치를 다시 로드하지 않고 설정 변경"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "모델 시작 시 ``enable_weight_cache=true`` 를 지정하거나 배포 창에서 **재로드를 위해 GPU 가중치 유지** 를 선택합니다. vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux CUDA 또는 ROCm, 단일 워커, 단일 복제본 및 고정된 텐서 병렬도가 필요합니다. 지원 버전에서도 기본적으로 비활성화됩니다."
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "Xinference는 상위 엔진의 캐시 프로세스에 GPU 가중치를 유지하고 엔진, KV 캐시 및 CUDA 그래프를 다시 구성합니다. 스트림을 포함한 현재 요청이 완료되기를 기다리며 새 요청은 일시적으로 HTTP 503으로 거부합니다. 대기 시간이 초과되면 기존 엔진이 계속 실행됩니다. 재구성 실패 시 이전 설정 복원을 시도합니다. 모델을 종료하면 가중치가 해제됩니다. 워커 프로세스 장애 후에는 가중치를 다시 로드해야 합니다."
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` 는 일부 ``model_config`` 와 선택적인 ``drain_timeout`` (초, 기본값 300, 최대 3600)을 받고 HTTP 202와 ``operation_id`` 를 반환합니다. ``status`` 가 ``ready`` 또는 ``error`` 가 될 때까지 ``GET /v1/models/{model_uid}/reload`` 를 조회합니다. 오류 시 ``restored=true`` 는 기존 엔진이 복구되었음을 의미합니다. 지원 매개변수와 현재 명시적 값은 ``GET /v1/models/{model_uid}/reload/config`` 로 조회합니다. 잘못된 변경은 HTTP 400, 이미 재로드 중이면 HTTP 409를 반환합니다. 모델 UID와 GPU 예약은 유지됩니다."
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "vLLM은 ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization``, ``enforce_eager`` 변경을 지원합니다."
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "SGLang은 ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill``, ``schedule_conservativeness`` 변경을 지원합니다."
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "병렬도, GPU 배치, 모델 경로, 정밀도, 양자화 및 가중치 배치 옵션은 재로드로 변경할 수 없습니다. 파이프라인/데이터 병렬, 다중 워커, LoRA, 추측 디코딩, 가중치 오프로딩 및 PD 배포는 아직 지원하지 않습니다. 양자화 모델은 상위 엔진의 IPC 호환성 검사를 통과해야 합니다. vLLM 다중 GPU 캐시는 기본 멀티프로세스 실행기를 사용합니다. 실행 중인 모델 상세 페이지에서 **매개변수 재로드** 를 선택해 값을 편집하고 진행 상황을 확인합니다."

@@ -491,6 +491,9 @@ const ja = {
     emptyFile: '空のファイルはアップロードできません。',
   },
   launchModel: {
+    enableWeightCache: '再読み込み用に GPU の重みを保持',
+    enableWeightCacheTip:
+      'vLLM 0.31.0+ または SGLang 0.5.21+、Linux GPU、単一ワーカーと単一レプリカが必要です。エンジンの再読み込み中も重みを GPU メモリに保持します。',
     recommendSetup: '実行環境の準備が必要な場合があります。',
     recommendMemory: '利用可能なメモリは未検証です。',
     recommendConfiguration: '構成を推奨',
@@ -751,6 +754,19 @@ const ja = {
     downloadCompleted: '完了',
   },
   runningModels: {
+    reload: {
+      title: 'パラメータを再読み込み',
+      description:
+        'GPU の重みを保持してエンジンを再構築します。現在のリクエスト完了後にサービスを一時停止します。並列度、精度、量子化は変更できません。',
+      disabled: 'モデル起動時に GPU の重みの保持を有効にしてください。',
+      default: 'エンジンの既定値',
+      apply: '適用して再読み込み',
+      queued: '再読み込み待機中',
+      draining: '現在のリクエストの完了を待機中',
+      loading: 'エンジンを再構築中',
+      restoring: '以前の設定を復元中',
+      restored: '以前の設定を復元しました。',
+    },
     searchPlaceholder: 'モデル名またはモデルUIDを検索...',
     loadingModels: 'モデルを読み込み中...',
     fetchingModelList: '最新の実行中モデル一覧を取得しています。',

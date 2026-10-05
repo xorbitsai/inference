@@ -5780,6 +5780,7 @@ class WorkerActor(xo.StatelessActor):
         status_map = {
             "registering": LaunchStatus.CREATING.name,
             "loading": LaunchStatus.LOADING.name,
+            "reloading": LaunchStatus.UPDATING.name,
             "ready": LaunchStatus.READY.name,
             "error": LaunchStatus.ERROR.name,
             "stopping": LaunchStatus.TERMINATING.name,
@@ -5804,11 +5805,43 @@ class WorkerActor(xo.StatelessActor):
                     exc_info=True,
                 )
 
+    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        return await self._model_uid_to_model[model_uid].get_reload_config()
+
+    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        return await self._model_uid_to_model[model_uid].get_reload_status()
+
+    async def validate_model_reload(self, model_uid: str, config: Dict[str, Any]):
+        await self._model_uid_to_model[model_uid].validate_reload(config)
+
+    async def reload_model(
+        self, model_uid: str, config: Dict[str, Any], drain_timeout: float
+    ) -> None:
+        from ..model.llm.weight_cache import ModelReloadError
+
+        await self._update_model_state(model_uid, "reloading")
+        try:
+            await self._model_uid_to_model[model_uid].reload(config, drain_timeout)
+        except ModelReloadError as exc:
+            await self._update_model_state(
+                model_uid, "ready" if exc.restored else "error"
+            )
+            raise
+        except Exception:
+            await self._update_model_state(model_uid, "ready")
+            raise
+        else:
+            # Persist only committed changes. Recovery must use the new limits,
+            # while the original launch identity and GPU placement stay intact.
+            self._model_uid_to_launch_args[model_uid].update(config)
+            self._persist_launch_args()
+            await self._update_model_state(model_uid, "ready")
+
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
         if model_status:
-            if model_status.model_state in ("registering", "loading"):
+            if model_status.model_state in ("registering", "loading", "reloading"):
                 raise ModelNotReadyError(
                     f"Model {model_uid} is {model_status.model_state}"
                 )

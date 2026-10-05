@@ -146,6 +146,17 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
       </ConfigSection>
 
       <ConfigSection title={t('launchModel.engineParameters')}>
+        {modelType === ModelType.LLM && ['vllm', 'sglang'].includes(engineKey) && (
+          <div className="flex items-center justify-between gap-4 px-2 py-3.5">
+            <FieldLabel
+              label={t('launchModel.enableWeightCache')}
+              tip={t('launchModel.enableWeightCacheTip')}
+            />
+            <FormField name="enable_weight_cache" valuePropName="checked">
+              <Switch />
+            </FormField>
+          </div>
+        )}
         {modelEngineValue === 'Transformers' && (
           <div className="p-2">
             <CommonFormList

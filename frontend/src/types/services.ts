@@ -235,6 +235,7 @@ export interface RunningModelItem {
 }
 
 export interface RunningModelDetail {
+  n_worker?: number;
   model_type: string;
   address: string;
   accelerators: string[];

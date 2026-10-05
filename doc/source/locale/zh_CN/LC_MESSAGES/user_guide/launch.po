@@ -387,3 +387,31 @@ msgid ""
 msgstr ""
 "图像和视频模型的批处理能力取决于所选原生引擎和模型。Diffusers 不使用 Xinference 自研的逐步调度器。请参阅 :ref:`image`"
 " 和 :ref:`video`。"
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "重配参数而无需重新加载权重"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "启动模型时启用 ``enable_weight_cache=true``，或在部署对话框中选择 **保留 GPU 权重以支持重载**。此功能需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux CUDA 或 ROCm、单 worker、单副本以及固定的张量并行度。即使引擎版本满足要求，默认也不开启。"
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "Xinference 使用上游缓存进程保留 GPU 权重，同时重建引擎、KV 缓存和 CUDA 图。重载会等待当前请求（包括流式请求）完成，并暂时以 HTTP 503 拒绝新请求。排空超时会保留原引擎运行。如果重建失败，Xinference 会尝试恢复原配置。终止模型会释放权重；worker 进程故障后仍需要重新加载权重。"
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` 接收部分 ``model_config`` 参数和可选的 ``drain_timeout``（单位为秒，默认 300，最大 3600）。它返回 HTTP 202 和 ``operation_id``。轮询 ``GET /v1/models/{model_uid}/reload``，直到 ``status`` 为 ``ready`` 或 ``error``。出错时，``restored=true`` 表示原引擎已恢复服务。通过 ``GET /v1/models/{model_uid}/reload/config`` 查询支持的参数及当前显式值。无效修改返回 HTTP 400；已有重载操作时返回 HTTP 409。模型 UID 和 GPU 预留保持不变。"
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "vLLM 支持修改 ``max_num_seqs``、``max_num_batched_tokens``、``max_model_len``、``gpu_memory_utilization`` 和 ``enforce_eager``。"
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "SGLang 支持修改 ``max_running_requests``、``max_prefill_tokens``、``context_length``、``chunked_prefill_size``、``mem_fraction_static``、``disable_cuda_graph``、``cuda_graph_max_bs_decode``、``cuda_graph_max_bs_prefill`` 和 ``schedule_conservativeness``。"
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "不能通过重载修改并行度、GPU 分配、模型路径、精度、量化方式和权重布局选项。此集成暂不支持流水线或数据并行、多 worker 部署、LoRA、推测解码、权重卸载和 PD 部署。量化模型必须通过上游的 IPC 兼容性检查。vLLM 的多 GPU 缓存使用原生多进程执行器。在运行中模型详情页选择 **重载参数**，可以编辑支持的值并查看进度。"

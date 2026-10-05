@@ -1333,6 +1333,42 @@ def model_terminate(
     client.terminate_model(model_uid=model_uid)
 
 
+@cli.command("reload", help="Reload engine parameters while retaining GPU weights.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option("--model-uid", required=True, type=str)
+@click.option(
+    "--model-config",
+    required=True,
+    type=str,
+    help="JSON object of changed engine parameters.",
+)
+@click.option(
+    "--drain-timeout",
+    default=300.0,
+    type=click.FloatRange(min=0, min_open=True, max=3600),
+)
+@click.option("--api-key", "-ak", default=None, type=str)
+def model_reload(
+    endpoint: Optional[str],
+    model_uid: str,
+    model_config: str,
+    drain_timeout: float,
+    api_key: Optional[str],
+):
+    try:
+        config = json.loads(model_config)
+        if not isinstance(config, dict) or not config:
+            raise ValueError("Expected a non-empty JSON object")
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--model-config") from exc
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+    result = client.reload_model(model_uid, config, drain_timeout)
+    click.echo(json.dumps(result))
+
+
 @cli.command("generate", help="Generate text using a running LLM.")
 @click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
 @click.option(

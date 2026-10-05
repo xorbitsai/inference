@@ -39,7 +39,7 @@ class ReplicaStatus(BaseModel):
     replica_model_uid: str
     worker_address: str
     status: str  # CREATING, LOADING, READY, ERROR, TERMINATING, TERMINATED
-    model_state: str = ""  # registering/loading/ready/error/stopping/stopped
+    model_state: str = ""  # registering/loading/reloading/ready/error/stopping/stopped
     created_ts: int
     error_message: Optional[str] = None
     # User-facing replica label (from replica_config.replica_uid). Purely

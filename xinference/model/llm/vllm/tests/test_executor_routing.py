@@ -273,3 +273,17 @@ def test_native_mp_parallelism_rejects_zero_values(
 
     with pytest.raises(ValueError, match="must both be positive integers"):
         model._get_native_mp_parallelism()
+
+
+def test_weight_cache_uses_native_mp_for_other_architectures():
+    model = _model(architecture="LlamaForCausalLM")
+    model._enable_weight_cache = True
+    assert model._native_mp_route() == (True, "persistent GPU weight cache")
+    assert model.need_create_pools is False
+
+
+def test_weight_cache_rejects_explicit_xoscar_executor():
+    model = _model(backend="xoscar")
+    model._enable_weight_cache = True
+    with pytest.raises(ValueError, match="native vLLM executor"):
+        model._native_mp_route()

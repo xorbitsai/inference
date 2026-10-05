@@ -410,3 +410,37 @@ other model names. These records are never applied automatically. After the
 user confirms **Use as Template**, Xinference keeps the current model name,
 removes the previous model UID and history or automatic-startup metadata, and
 copies the remaining launch options into the form without starting a model.
+
+Reconfigure without reloading weights
+=====================================
+
+Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions.
+
+Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again.
+
+``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same.
+
+vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``.
+
+SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``.
+
+Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress.
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://127.0.0.1:9997")
+    uid = client.launch_model(
+        model_name="qwen2.5-instruct", model_engine="vLLM",
+        model_size_in_billions="0_5", model_format="pytorch",
+        quantization="none", n_gpu=1, enable_weight_cache=True,
+    )
+    job = client.reload_model(uid, {"max_num_seqs": 32})
+    print(job["operation_id"])
+    print(client.get_model_reload_status(uid))
+
+.. code-block:: bash
+
+    xinference reload --model-uid MODEL_UID --model-config '{"max_num_seqs": 32}'
+    curl http://127.0.0.1:9997/v1/models/MODEL_UID/reload

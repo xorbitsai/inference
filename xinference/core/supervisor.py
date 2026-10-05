@@ -254,6 +254,8 @@ class SupervisorActor(xo.StatelessActor):
             ],
         ] = {}
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}  # type: ignore
+        self._model_reload_status: Dict[str, Dict[str, Any]] = {}
+        self._model_reload_tasks: Dict[str, asyncio.Task] = {}
         self._uptime = None
         self._lock = asyncio.Lock()
         # Scale operations may interleave because SupervisorActor is stateless.
@@ -2969,6 +2971,19 @@ class SupervisorActor(xo.StatelessActor):
         **kwargs,
     ) -> str:
         n_worker = normalize_n_worker(n_worker)
+        from ..model.llm.weight_cache import parse_weight_cache_option
+
+        if parse_weight_cache_option(kwargs.get("enable_weight_cache", False)):
+            if (model_engine or "").lower() not in ("vllm", "sglang"):
+                raise ValueError("enable_weight_cache requires vLLM or SGLang")
+            if (
+                n_worker != 1
+                or replica != 1
+                or (replica_config is not None and len(replica_config) != 1)
+            ):
+                raise ValueError(
+                    "enable_weight_cache currently requires one worker and one replica"
+                )
         if (model_type or "").lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 
@@ -4559,6 +4574,82 @@ class SupervisorActor(xo.StatelessActor):
                 logger.exception("Failed to monitor Router Agent lifecycle")
             await asyncio.sleep(XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS)
 
+    def _get_reload_target(self, model_uid: str):
+        if model_uid not in self._model_uid_to_replica_info:
+            raise ValueError(f"Model not found: {model_uid}")
+        replicas = list(self._iter_active_replica_model_uids(model_uid))
+        if len(replicas) != 1:
+            raise ValueError("Weight-preserving reload currently requires one replica")
+        replica_uid = replicas[0]
+        workers = self._replica_model_uid_to_worker.get(replica_uid)
+        if not isinstance(workers, (list, tuple)):
+            workers = [workers]
+        if len(workers) != 1 or workers[0] is None:
+            raise ValueError("Weight-preserving reload currently requires one worker")
+        return replica_uid, workers[0]
+
+    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        replica_uid, worker = self._get_reload_target(model_uid)
+        return await worker.get_model_reload_config(replica_uid)
+
+    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        replica_uid, worker = self._get_reload_target(model_uid)
+        status = dict(self._model_reload_status.get(model_uid, {"status": "idle"}))
+        if status["status"] == "reloading":
+            status.update(await worker.get_model_reload_status(replica_uid))
+        return status
+
+    async def reload_model(
+        self, model_uid: str, config: Dict[str, Any], drain_timeout: float = 300
+    ) -> Dict[str, Any]:
+        import uuid
+
+        if model_uid in self._model_reload_tasks:
+            raise RuntimeError("This model already has a reload in progress")
+        async with self._get_model_replica_lock(model_uid):
+            if model_uid in self._model_reload_tasks:
+                raise RuntimeError("This model already has a reload in progress")
+            replica_uid, worker = self._get_reload_target(model_uid)
+            # Preflight runs before scheduling any operation that stops serving.
+            await worker.validate_model_reload(replica_uid, config)
+            status = {
+                "operation_id": str(uuid.uuid4()),
+                "model_uid": model_uid,
+                "status": "reloading",
+                "stage": "queued",
+                "started_at": time.time(),
+                "weights_reused": False,
+            }
+            self._model_reload_status[model_uid] = status
+
+            async def run() -> None:
+                async with self._get_model_replica_lock(model_uid):
+                    try:
+                        if self._get_reload_target(model_uid) != (replica_uid, worker):
+                            raise ValueError("Model placement changed before reload")
+                        status["stage"] = "draining"
+                        await worker.reload_model(replica_uid, config, drain_timeout)
+                    except Exception as exc:
+                        status.update(status="error", stage="error", error=str(exc))
+                        try:
+                            status.update(
+                                await worker.get_model_reload_status(replica_uid)
+                            )
+                        except Exception:
+                            pass
+                        logger.exception("Reload of %s failed", model_uid)
+                    else:
+                        status.update(
+                            status="ready", stage="ready", weights_reused=True
+                        )
+                    finally:
+                        status["finished_at"] = time.time()
+                        self._model_reload_tasks.pop(model_uid, None)
+                        self._invalidate_list_models_debounce_cache()
+
+            self._model_reload_tasks[model_uid] = asyncio.create_task(run())
+            return dict(status)
+
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async with self._get_model_replica_lock(model_uid):
@@ -4595,6 +4686,7 @@ class SupervisorActor(xo.StatelessActor):
         if errors and not suppress_exception:
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._model_reload_status.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
         for replica_model_uid in rep_model_uids:
             self._clear_replica_model_gpu_memory(replica_model_uid)
@@ -5746,6 +5838,11 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     async def __pre_destroy__(self) -> None:
+        # Finish retained-weight operations before tearing down actor state.
+        if self._model_reload_tasks:
+            await asyncio.gather(
+                *list(self._model_reload_tasks.values()), return_exceptions=True
+            )
         tasks = list(self._worker_metadata_refresh_tasks.values())
         self._worker_metadata_refresh_tasks.clear()
         self._worker_metadata_generation.clear()

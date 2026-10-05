@@ -49,6 +49,7 @@ from ..utils import (
     ChatModelMixin,
     generate_completion_chunk,
 )
+from ..weight_cache import WeightCachedModel
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,8 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 
 
-class SGLANGModel(LLM):
+class SGLANGModel(WeightCachedModel, LLM):
+    _weight_cache_engine = "sglang"
     allow_batch = True
     support_draft_model = True
 
@@ -183,6 +185,7 @@ class SGLANGModel(LLM):
         self._driver_info = model_config.pop("driver_info", None)  # type: ignore
         self._loading_thread = None
         self._loading_error = None
+        self._init_weight_cache(model_config or {})
 
     @property
     def driver_info(self) -> Optional[dict]:
@@ -236,7 +239,9 @@ class SGLANGModel(LLM):
             raise ValueError("Failed to find a port for sglang")
 
         # fork may cause sglang stuck, force set to spawn
-        multiprocessing.set_start_method("spawn")
+        multiprocessing.set_start_method("spawn", force=True)
+
+        self._prepare_weight_cache()
 
         if self._n_worker > 1:
             # distributed inference
@@ -308,8 +313,18 @@ class SGLANGModel(LLM):
                 raise err.with_traceback(tb)
 
     def stop(self):
-        logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
-        self._engine.shutdown()
+        try:
+            self._stop_engine()
+        finally:
+            if self._weight_cache is not None:
+                self._weight_cache.stop()
+                self._weight_cache = None
+
+    def _stop_engine(self):
+        if self._engine is not None:
+            logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
+            self._engine.shutdown()
+            self._engine = None
 
     # Generic fallback for NEXTN families without a model-specific recipe.
     DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS = 6
