@@ -70,14 +70,33 @@ def test_stop_test_process_reaps_an_already_exited_child():
 
 
 @pytest.mark.asyncio
-async def test_unsupported_fp4_skips_before_starting_cluster(monkeypatch):
+@pytest.mark.parametrize(
+    "missing_support,reason",
+    [
+        ("config", "FPQuantConfig is not available"),
+        ("cuda", "FPQuant requires a CUDA GPU"),
+        ("fp_quant", "fp_quant"),
+    ],
+)
+async def test_unsupported_fp4_skips_before_starting_cluster(
+    monkeypatch, missing_support, reason
+):
     import sys
     from types import ModuleType
 
+    import torch
+
     from ...model.llm.transformers.tests.test_opt import test_opt_fp4_model
 
-    monkeypatch.setitem(sys.modules, "transformers", ModuleType("transformers"))
+    transformers = ModuleType("transformers")
+    if missing_support != "config":
+        transformers.FPQuantConfig = object
+    monkeypatch.setitem(sys.modules, "transformers", transformers)
+    monkeypatch.setattr(
+        torch.cuda, "is_available", lambda: missing_support == "fp_quant"
+    )
+    monkeypatch.setitem(sys.modules, "fp_quant", None)
     request = Mock()
-    with pytest.raises(pytest.skip.Exception, match="FPQuantConfig is not available"):
+    with pytest.raises(pytest.skip.Exception, match=reason):
         await test_opt_fp4_model(request)
     request.getfixturevalue.assert_not_called()

@@ -97,7 +97,7 @@ def test_opt_fp4_quantization_config(opt_fp4_family):
 
 
 @pytest.mark.asyncio
-async def test_opt_fp4_model(request, opt_fp4_family):
+async def test_opt_fp4_model(request):
     try:
         from transformers import FPQuantConfig  # noqa: F401
     except Exception:
@@ -110,6 +110,7 @@ async def test_opt_fp4_model(request, opt_fp4_family):
     pytest.importorskip("fp_quant")
 
     # Check optional support before starting the cluster/API subprocesses.
+    opt_fp4_family = request.getfixturevalue("opt_fp4_family")
     endpoint, _ = request.getfixturevalue("setup")
     client = Client(endpoint)
     assert len(client.list_models()) == 0
