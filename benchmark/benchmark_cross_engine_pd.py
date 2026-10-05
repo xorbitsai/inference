@@ -184,43 +184,55 @@ async def requests_and_measure(endpoint, uid, root, worker, mode, args):
                 peer["active_transfers"] == 0
                 for peer in results["after_cancel"]["peers"].values()
             )
-            # Cancel a prepared room while its long prefill is still running.
-            request_id = uuid.uuid4().hex
-            body = bodies()[3]
-            body["messages"][0]["content"] = (
-                "A new uncached prefill. " * 1000 + "Explain evaporation."
-            )
-            body["max_tokens"] = 1024
-            body["extra_body"]["request_id"] = request_id
-            pending = asyncio.create_task(
-                api.chat.completions.create(model=uid, **body)
-            )
-            directory = await xo.actor_ref(address=worker, uid="xavier-cache-" + uid)
-            for _ in range(1000):
-                if (await directory.get_stats())["active_handoffs"]:
-                    break
+            results["early_cancels"] = []
+            for attempt in range(3):
+                # Cancel a prepared room while its long prefill is still running.
+                request_id = uuid.uuid4().hex
+                body = bodies()[3]
+                body["messages"][0]["content"] = (
+                    f"Trial {attempt}. "
+                    + "A new uncached prefill. " * 1000
+                    + "Explain evaporation."
+                )
+                body["max_tokens"] = 1024
+                body["extra_body"]["request_id"] = request_id
+                pending = asyncio.create_task(
+                    api.chat.completions.create(model=uid, **body)
+                )
+                directory = await xo.actor_ref(
+                    address=worker, uid="xavier-cache-" + uid
+                )
+                for _ in range(1000):
+                    if (await directory.get_stats())["active_handoffs"]:
+                        break
+                    assert (
+                        not pending.done()
+                    ), "Request finished before the cancellation probe"
+                    await asyncio.sleep(0.001)
+                else:
+                    raise AssertionError(
+                        "Cancellation probe did not reach a prepared room"
+                    )
+                results["early_cancel"] = await asyncio.to_thread(
+                    Client(endpoint).abort_request, uid, request_id
+                )
+                pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)
+                await asyncio.sleep(1)
+                await api.chat.completions.create(model=uid, **bodies()[0])
+                await asyncio.sleep(0.1)
+                results["after_early_cancel"] = await snapshot(worker, uid, True)
                 assert (
-                    not pending.done()
-                ), "Request finished before the cancellation probe"
-                await asyncio.sleep(0.001)
-            else:
-                raise AssertionError("Cancellation probe did not reach a prepared room")
-            results["early_cancel"] = await asyncio.to_thread(
-                Client(endpoint).abort_request, uid, request_id
-            )
-            pending.cancel()
-            await asyncio.gather(pending, return_exceptions=True)
-            await asyncio.sleep(1)
-            await api.chat.completions.create(model=uid, **bodies()[0])
-            await asyncio.sleep(0.1)
-            results["after_early_cancel"] = await snapshot(worker, uid, True)
-            assert results["after_early_cancel"]["directory"]["active_handoffs"] == 0
-            assert all(
-                peer["active_transfers"] == 0
-                for peer in results["after_early_cancel"]["peers"].values()
-            )
+                    results["after_early_cancel"]["directory"]["active_handoffs"] == 0
+                )
+                assert all(
+                    peer["active_transfers"] == 0
+                    for peer in results["after_early_cancel"]["peers"].values()
+                )
+                results["early_cancels"].append(results["after_early_cancel"])
     finally:
         await api.close()
+        (root / "partial-results.json").write_text(json.dumps(results, indent=2))
     (root / "results.json").write_text(json.dumps(results, indent=2))
     return results
 
@@ -350,6 +362,14 @@ def run(args):
                 flush=True,
             )
         finally:
+            (root / "isolation.json").write_text(
+                json.dumps(
+                    dict(
+                        samples=isolation.samples, interference=isolation.interference
+                    ),
+                    indent=2,
+                )
+            )
             stop_server(proc)
 
 

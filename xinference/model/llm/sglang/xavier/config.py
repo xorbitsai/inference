@@ -147,6 +147,10 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
     if cache_config.get("heterogeneous"):
         from ...xavier.pd_contract import build_pd_contract
 
+        if model_config.get("load_format", "auto") not in ("auto", "safetensors"):
+            raise ValueError(
+                "Cross-engine Xavier requires standard automatic or safetensors loading"
+            )
         if model_config["page_size"] != 64:
             raise ValueError("Cross-engine Xavier PD requires 64-token pages")
         contract = build_pd_contract(model_path, model_config.get("context_length"))

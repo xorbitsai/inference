@@ -3,6 +3,7 @@
 """vLLM V1 adapter for canonical Xavier GPU pages shared with SGLang."""
 
 import asyncio
+import logging
 import math
 import os
 from dataclasses import dataclass, field
@@ -18,6 +19,8 @@ from ...xavier.contract import KVCacheContract
 from ...xavier.pd_contract import build_pd_contract, prompt_digest
 from ...xavier.transport import gpu_pool_options
 from .v1_connector import XavierConnector
+
+logger = logging.getLogger(__name__)
 
 
 def configure_cross_engine(model_path, model_config, cache_config):
@@ -36,7 +39,7 @@ def configure_cross_engine(model_path, model_config, cache_config):
             "tokenizer_revision",
             "model_loader_extra_config",
         )
-    ) or model_config.get("load_format", "auto") not in ("auto", "safetensors", "pt"):
+    ) or model_config.get("load_format", "auto") not in ("auto", "safetensors"):
         raise ValueError(
             "Cross-engine Xavier requires local weights without semantic overrides"
         )
@@ -208,10 +211,25 @@ class CrossEngineConnector(XavierConnector):
                 room=room, destinations=destinations, request_id=request_id
             ):
                 actor = await self._ensure_gpu_cache_mapping()
-                task = asyncio.create_task(actor.receive(room, destinations, 0))
+                task = asyncio.create_task(
+                    self._receive_pages(actor, room, destinations)
+                )
                 self._gpu_load_jobs[task] = [request_id]
 
             self._call(submit())
+
+    async def _receive_pages(self, actor, room, destinations):
+        try:
+            return await actor.receive(room, destinations, 0)
+        except Exception:
+            # The transfer actor fences writes before reporting an error. Return
+            # load errors through vLLM's per-request callback, including after an
+            # abort removes the room. Raising from get_finished kills EngineCore.
+            # kv_load_failure_policy=fail prevents fallback to local prefill.
+            logger.warning(
+                "Cross-engine KV load failed for room %s", room, exc_info=True
+            )
+            return set(destinations)
 
     def save_kv_layer(self, layer_name, kv_layer, attn_metadata, **kwargs):
         pass
