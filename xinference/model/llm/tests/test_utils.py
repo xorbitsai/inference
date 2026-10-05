@@ -2830,6 +2830,46 @@ def test_post_process_completion_with_parser():
     ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
 
 
+def test_post_process_completion_stopped_while_thinking():
+    # Generation hits max_tokens inside the thinking block, so the output has
+    # no tool call and no content. Like the request without tools, the
+    # response must keep "length" and must not repeat the reasoning as content.
+    mixin = ChatModelMixin()
+    mixin.tool_parser = QwenToolParser()
+    mixin.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    test_case = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "qwen3",
+        "choices": [
+            {
+                "text": "The user asks for the weather in Shanghai, so I should call",
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = mixin._post_process_completion(None, model_uid="qwen3", c=test_case)
+
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "length"
+    assert choice["message"]["content"] == ""
+    assert choice["message"]["tool_calls"] == []
+    assert (
+        choice["message"]["reasoning_content"]
+        == "The user asks for the weather in Shanghai, so I should call"
+    )
+
+
 # ── Security tests for Llama3ToolParser ────────────────────
 
 
