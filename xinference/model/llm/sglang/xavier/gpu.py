@@ -10,6 +10,7 @@ import os
 import threading
 import time
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import torch
@@ -102,16 +103,37 @@ class XavierGPUActor(xo.StatelessActor):
     def default_uid(cls):
         return "sglang-xavier-transfer"
 
-    def __init__(self, args, contract, directory, namespace, rank):
+    def __init__(
+        self,
+        args,
+        contract,
+        directory,
+        namespace,
+        rank,
+        ipc_descriptors: dict[str, tuple] | None = None,
+    ):
         super().__init__()
         self.args, self.contract = args, contract
+        self.ipc_descriptors = ipc_descriptors
         self.directory, self.namespace, self.rank = directory, namespace, rank
-        self._world_addresses = {}
-        self.rooms = {}
-        self.tasks = {}
+        self._world_addresses: dict[int, str] = {}
+        self.rooms: dict[int, dict[str, Any]] = {}
+        self.tasks: dict[int, asyncio.Task] = {}
 
     async def __post_create__(self):
-        self.caches, self.aux = _buffers(self.args, self.contract)
+        if self.ipc_descriptors is None:
+            self.caches, self.aux = _buffers(self.args, self.contract)
+        else:
+            from torch.multiprocessing.reductions import rebuild_cuda_tensor
+
+            torch.cuda.set_device(self.args.gpu_id)
+            self.caches = {
+                name: rebuild_cuda_tensor(*desc)
+                for name, desc in self.ipc_descriptors.items()
+            }
+            # Raw CPU addresses are meaningful only in the engine process.
+            # The manager commits metadata there after these GPU writes drain.
+            self.aux = None
         self._snapshot_store = SimpleNamespace(
             capacity=len(next(iter(self.caches.values())))
         )
@@ -151,7 +173,7 @@ class XavierGPUActor(xo.StatelessActor):
         state = self.rooms[room]
         state.update(total=count, aux_index=aux_index)
 
-    async def add_chunk(self, room, pages):
+    async def add_chunk(self, room, pages, aux_payload: list[bytes] | None = None):
         state = self.rooms[room]
         state["sent"] += len(pages)
         final = state["sent"] == state["total"]
@@ -164,12 +186,16 @@ class XavierGPUActor(xo.StatelessActor):
             return
         pages, state["pending"] = state["pending"], []
         ticket = f"{room}:{len(state['chunks'])}"
+        aux = None
+        if final:
+            aux = (
+                aux_payload
+                if self.aux is None
+                else [bytes(buf[state["aux_index"]].numpy()) for buf in self.aux]
+            )
+            if aux is None:
+                raise ValueError("Missing SGLang Xavier first-token metadata")
         self.transfer.register_direct(ticket, ticket, pages)
-        aux = (
-            [bytes(buf[state["aux_index"]].numpy()) for buf in self.aux]
-            if final
-            else None
-        )
         # Scheduler-owned source slots remain pinned until every chunk is read.
         state["chunks"].append(dict(ticket=ticket, pages=pages, final=final, aux=aux))
 
@@ -218,6 +244,7 @@ class XavierGPUActor(xo.StatelessActor):
     def get_stats(self):
         return dict(
             self.transfer.metrics,
+            transfer_pid=os.getpid(),
             active_rooms=len(self.rooms),
             active_transfers=len(self.transfer.direct_requests),
         )
@@ -266,15 +293,19 @@ class XavierGPUActor(xo.StatelessActor):
             )
             index += 1
             if chunk["final"]:
-                if offset != len(destinations) or len(chunk["aux"]) != len(self.aux):
+                if offset != len(destinations) or len(chunk["aux"]) != len(
+                    self.args.aux_item_lens
+                ):
                     raise ValueError(
                         "SGLang Xavier KV or auxiliary metadata geometry differs"
                     )
-                for buf, payload in zip(self.aux, chunk["aux"]):
-                    if len(payload) != buf.shape[1]:
+                for size, payload in zip(self.args.aux_item_lens, chunk["aux"]):
+                    if len(payload) != size:
                         raise ValueError(
                             "SGLang Xavier auxiliary metadata size differs"
                         )
+                if self.aux is None:
+                    return nbytes, chunk["aux"]
                 # KV writes have drained. Copy first-token metadata and publish
                 # the room marker last, before native decode can commit the slots.
                 for buf, payload in zip(self.aux, chunk["aux"]):
@@ -289,7 +320,7 @@ class XavierGPUActor(xo.StatelessActor):
             self._receive(room, destinations, aux_index)
         )
         try:
-            await finish_before_cancel(task)
+            return await finish_before_cancel(task)
         finally:
             self.tasks.pop(room, None)
 
@@ -329,6 +360,10 @@ class XavierKVManager(BaseKVManager):
         self.config = config
         self._closed = False
         self.pool = self.actor = None
+        self.directory = None
+        self._ipc_caches: dict[str, torch.Tensor] = {}
+        self.aux: list[torch.Tensor] = []
+        self._receive_tasks: dict[int, asyncio.Task] = {}
         try:
             self.call(self._start(args, contract))
         except BaseException:
@@ -357,19 +392,64 @@ class XavierKVManager(BaseKVManager):
             address=self.config["address"], uid=self.config["uid"]
         )
         await directory.configure(namespace)
-        self.pool = await xo.create_actor_pool(options["external_address"], n_process=0)
+        from torch.multiprocessing.reductions import reduce_tensor
+        from xoscar.backends.allocate_strategy import ProcessIndex
+
+        # Preserve the exporting wrappers until the importing process stops.
+        # Export the engine allocations once, as the vLLM connector does.
+        self._ipc_caches, self.aux = _buffers(args, contract)
+        descriptors = {
+            name: reduce_tensor(cache)[1] for name, cache in self._ipc_caches.items()
+        }
+        torch.cuda.synchronize(args.gpu_id)
+        self.directory = directory
+        # Device-wide NIXL fences and Python GPU-copy dispatch must not run in
+        # the scheduler's CUDA context or compete with its forward-pass thread.
+        self.pool = await xo.create_actor_pool(
+            options["external_address"], n_process=1, subprocess_start_method="spawn"
+        )
         await self.pool.start()
         self.actor = await xo.create_actor(
             XavierGPUActor,
-            args,
+            SimpleNamespace(gpu_id=args.gpu_id, aux_item_lens=args.aux_item_lens),
             contract,
             directory,
             namespace,
             self.config["rank"],
+            ipc_descriptors=descriptors,
+            allocate_strategy=ProcessIndex(1),
             address=self.pool.external_address,
             uid=f"{XavierGPUActor.default_uid()}-{self.config['rank']}",
         )
         await directory.register_peer(self.config["rank"], self.actor.address)
+
+    async def receive(self, room, destinations, aux_index):
+        task = self._receive_tasks[room] = asyncio.create_task(
+            self._receive(room, destinations, aux_index)
+        )
+        try:
+            return await finish_before_cancel(task)
+        finally:
+            self._receive_tasks.pop(room, None)
+
+    async def _receive(self, room, destinations, aux_index):
+        nbytes, payloads = await self.actor.receive(room, destinations, aux_index)
+        # The transfer actor validates all payload lengths before returning.
+        # Publish completion only after the engine's actual CPU buffers update.
+        for buf, payload in zip(self.aux, payloads):
+            buf[aux_index].copy_(
+                torch.from_numpy(np.frombuffer(payload, dtype=np.uint8).copy())
+            )
+        await self.directory.complete(room, nbytes)
+
+    async def abort(self, room):
+        await self.actor.abort(room)
+        # Also drain the local metadata commit. The GPU actor can finish just
+        # before abort(), while its reply has yet to reach this event loop.
+        task = self._receive_tasks.get(room)
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     def call(self, coroutine):
         return asyncio.run_coroutine_threadsafe(coroutine, self._loop).result(
@@ -393,11 +473,15 @@ class XavierKVManager(BaseKVManager):
 
         async def stop():
             try:
+                for room in list(self._receive_tasks):
+                    await self.abort(room)
                 if self.actor is not None:
                     await xo.destroy_actor(self.actor)
             finally:
                 if self.pool is not None:
                     await self.pool.stop()
+            self._ipc_caches.clear()
+            self.aux.clear()
 
         try:
             self.call(stop())
@@ -423,9 +507,11 @@ class XavierKVSender(BaseKVSender):
         self.inited = False
         self.aborted = False
         self.future = None
+        self.total, self.sent, self.aux_index = 0, 0, None
         mgr.call(mgr.actor.open(self.room))
 
     def init(self, num_kv_indices, aux_index=None):
+        self.total, self.sent, self.aux_index = num_kv_indices, 0, aux_index
         self.kv_mgr.call(self.kv_mgr.actor.init(self.room, num_kv_indices, aux_index))
         self.future = self.kv_mgr.submit(self.kv_mgr.actor.wait_done(self.room))
         self.inited = True
@@ -436,9 +522,16 @@ class XavierKVSender(BaseKVSender):
                 "SGLang Xavier does not transfer auxiliary attention state"
             )
         # The native scheduler has completed the forward pass before send().
-        # Fence the producer stream before another thread gathers its slots.
+        # Fence the producer stream before the transfer process reads its slots.
         torch.cuda.synchronize(self.kv_mgr.kv_args.gpu_id)
-        self.kv_mgr.call(self.kv_mgr.actor.add_chunk(self.room, kv_indices.tolist()))
+        pages = kv_indices.tolist()
+        self.sent += len(pages)
+        aux = (
+            [bytes(buf[self.aux_index].numpy()) for buf in self.kv_mgr.aux]
+            if self.sent == self.total
+            else None
+        )
+        self.kv_mgr.call(self.kv_mgr.actor.add_chunk(self.room, pages, aux))
 
     def poll(self):
         if self.aborted:
@@ -458,7 +551,7 @@ class XavierKVSender(BaseKVSender):
         raise RuntimeError("SGLang Xavier producer GPU transfer failed")
 
     def abort(self):
-        self.kv_mgr.call(self.kv_mgr.actor.abort(self.room))
+        self.kv_mgr.call(self.kv_mgr.abort(self.room))
         self.aborted = True
         if self.future is not None:
             self.future.cancel()
@@ -494,7 +587,7 @@ class XavierKVReceiver(BaseKVReceiver):
         ):
             raise ValueError("SGLang Xavier requires a complete GPU destination")
         self.future = self.kv_mgr.submit(
-            self.kv_mgr.actor.receive(self.room, kv_indices.tolist(), aux_index)
+            self.kv_mgr.receive(self.room, kv_indices.tolist(), aux_index)
         )
 
     def poll(self):
@@ -514,7 +607,7 @@ class XavierKVReceiver(BaseKVReceiver):
         raise RuntimeError("SGLang Xavier decode GPU transfer failed")
 
     def abort(self):
-        self.kv_mgr.call(self.kv_mgr.actor.abort(self.room))
+        self.kv_mgr.call(self.kv_mgr.abort(self.room))
         self.aborted = True
 
     def clear(self):

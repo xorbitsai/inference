@@ -189,3 +189,144 @@ def test_sender_poll_never_blocks_scheduler_on_actor(gpu_module, failed):
         sender.future.set_result(True)
         assert sender.poll() == "success"
     sender.kv_mgr.call.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_manager_commits_engine_metadata_before_completion(gpu_module):
+    import numpy as np
+    import torch
+
+    backing = np.zeros((3, 2), dtype=np.uint8)
+    manager = object.__new__(gpu_module.XavierKVManager)
+    manager._receive_tasks = {}
+    manager.aux = [torch.from_numpy(backing)]
+    manager.actor = SimpleNamespace(
+        receive=AsyncMock(return_value=(1024, [b"\x07\x09"]))
+    )
+
+    async def complete(room, nbytes):
+        assert room == 1 and nbytes == 1024
+        assert backing.tolist() == [[0, 0], [7, 9], [0, 0]]
+
+    manager.directory = SimpleNamespace(complete=AsyncMock(side_effect=complete))
+    await manager.receive(1, [2], 1)
+    manager.directory.complete.assert_awaited_once()
+    assert not manager._receive_tasks
+
+
+@pytest.mark.asyncio
+async def test_manager_abort_drains_delayed_metadata_reply(gpu_module):
+    import torch
+
+    started, reply = asyncio.Event(), asyncio.Event()
+
+    async def receive(*args):
+        started.set()
+        await reply.wait()
+        return 1024, [b"\x07"]
+
+    manager = object.__new__(gpu_module.XavierKVManager)
+    manager._receive_tasks = {}
+    manager.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
+    manager.actor = SimpleNamespace(receive=receive, abort=AsyncMock())
+    manager.directory = SimpleNamespace(complete=AsyncMock())
+    incoming = asyncio.create_task(manager.receive(1, [2], 0))
+    await started.wait()
+    # GPU work may have finished, but its reply has not reached the manager.
+    await manager.abort(1)
+    with pytest.raises(asyncio.CancelledError):
+        await incoming
+    reply.set()
+    await asyncio.sleep(0)
+    manager.actor.abort.assert_awaited_once_with(1)
+    assert not manager.aux[0].count_nonzero()
+    manager.directory.complete.assert_not_awaited()
+    assert not manager._receive_tasks
+
+
+@pytest.mark.asyncio
+async def test_manager_cancel_keeps_metadata_commit_owned(gpu_module):
+    import torch
+
+    started, drained = asyncio.Event(), asyncio.Event()
+
+    async def receive(*args):
+        started.set()
+        await drained.wait()
+        return 1024, [b"\x07"]
+
+    manager = object.__new__(gpu_module.XavierKVManager)
+    manager._receive_tasks = {}
+    manager.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
+    manager.actor = SimpleNamespace(receive=receive)
+    manager.directory = SimpleNamespace(complete=AsyncMock())
+    incoming = asyncio.create_task(manager.receive(1, [2], 0))
+    await started.wait()
+    for _ in range(2):
+        incoming.cancel()
+        await asyncio.sleep(0)
+        assert not incoming.done()
+        assert manager._receive_tasks[1] is not None
+    drained.set()
+    with pytest.raises(asyncio.CancelledError):
+        await incoming
+    assert manager.aux[0].item() == 7
+    manager.directory.complete.assert_awaited_once_with(1, 1024)
+    assert not manager._receive_tasks
+
+
+def test_manager_close_retains_exports_until_importer_stops(gpu_module, monkeypatch):
+    manager = object.__new__(gpu_module.XavierKVManager)
+    manager._closed = False
+    manager._receive_tasks = {}
+    manager._ipc_caches = {"0": object()}
+    manager.aux = [object()]
+    manager.actor = object()
+    order = []
+
+    async def destroy(actor):
+        assert actor is manager.actor and manager._ipc_caches
+        order.append("destroy")
+
+    async def stop():
+        assert manager._ipc_caches and manager.aux
+        order.append("stop")
+
+    manager.pool = SimpleNamespace(stop=stop)
+    manager.call = asyncio.run
+    manager._loop = SimpleNamespace(
+        call_soon_threadsafe=Mock(), stop=Mock(), close=Mock()
+    )
+    manager._thread = SimpleNamespace(join=Mock(), is_alive=lambda: False)
+    monkeypatch.setattr(gpu_module.xo, "destroy_actor", destroy)
+    manager.close()
+    assert order == ["destroy", "stop"]
+    assert not manager._ipc_caches and not manager.aux
+    manager._loop.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_ipc_actor_never_borrows_engine_addresses(gpu_module, monkeypatch):
+    import torch
+    from torch.multiprocessing import reductions
+
+    cache = torch.zeros((8, 4), dtype=torch.uint8)
+    rebuild = Mock(return_value=cache)
+    monkeypatch.setattr(reductions, "rebuild_cuda_tensor", rebuild)
+    monkeypatch.setattr(torch.cuda, "set_device", Mock())
+    monkeypatch.setattr(
+        gpu_module, "_buffers", Mock(side_effect=AssertionError("raw engine pointer"))
+    )
+    transfer = SimpleNamespace(slab_bytes=64 * 1024**2, add_slab_views=Mock())
+    monkeypatch.setattr(gpu_module, "DirectGPUTransfer", Mock(return_value=transfer))
+    actor = gpu_module.XavierGPUActor(
+        SimpleNamespace(gpu_id=0, aux_item_lens=[2]),
+        None,
+        None,
+        "ns",
+        0,
+        ipc_descriptors={"0": ("descriptor",)},
+    )
+    await actor.__post_create__()
+    rebuild.assert_called_once_with("descriptor")
+    assert actor.caches["0"] is cache and actor.aux is None

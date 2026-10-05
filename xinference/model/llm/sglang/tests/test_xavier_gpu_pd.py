@@ -19,14 +19,13 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.asyncio
-async def test_gpu_bytes_chunks_and_cancel():
+async def test_gpu_bytes_chunks_and_cancel(monkeypatch):
     import torch
     import xoscar as xo
 
     from ...xavier.contract import KVCacheContract
-    from ...xavier.transport import gpu_pool_options
     from ..xavier.directory import XavierPDDirectory
-    from ..xavier.gpu import XavierGPUActor
+    from ..xavier.gpu import GPU_CONFIG_ENV, XavierKVManager
 
     contract = KVCacheContract(
         "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "float16"
@@ -39,8 +38,7 @@ async def test_gpu_bytes_chunks_and_cancel():
         directory = await xo.create_actor(
             XavierPDDirectory, address=directory_pool.external_address, uid="directory"
         )
-        await directory.configure("namespace")
-        actors = []
+        managers = []
         for rank in range(2):
             torch.cuda.set_device(rank)
             caches = [
@@ -65,31 +63,36 @@ async def test_gpu_bytes_chunks_and_cancel():
                 aux_data_lens=[buf.numel() for buf in aux],
                 aux_item_lens=[6],
             )
-            options = gpu_pool_options("127.0.0.1", os.environ)
-            pool = await xo.create_actor_pool(options["external_address"], n_process=0)
-            await stack.enter_async_context(pool)
-            actors.append(
-                await xo.create_actor(
-                    XavierGPUActor,
-                    args,
-                    contract,
-                    directory,
-                    "namespace",
-                    rank,
-                    address=pool.external_address,
-                    uid=f"{XavierGPUActor.default_uid()}-{rank}",
-                )
+            monkeypatch.setenv(
+                GPU_CONFIG_ENV,
+                json.dumps(
+                    dict(
+                        contract=contract.to_dict(),
+                        address=directory.address,
+                        uid="directory",
+                        host="127.0.0.1",
+                        rank=rank,
+                    )
+                ),
             )
-        p, d = actors
+            manager = await asyncio.to_thread(XavierKVManager, args, None, None)
+            managers.append(manager)
+            stack.push_async_callback(asyncio.to_thread, manager.close)
+        p, d = [manager.actor for manager in managers]
+        namespace = (await directory.get_stats())["namespace"]
+        assert (await p.get_stats())["transfer_pid"] != os.getpid()
+        assert (await d.get_stats())["transfer_pid"] != os.getpid()
         for role in ("prefill", "decode"):
-            await directory.prepare(1, "namespace", "prompt", role)
+            await directory.prepare(1, namespace, "prompt", role)
         await p.open(1)
         await p.init(1, 2, 3)
         source_completion = asyncio.create_task(p.wait_done(1))
-        incoming = asyncio.create_task(d.receive(1, [2, 5], 4))
+        incoming = asyncio.wrap_future(
+            managers[1].submit(managers[1].receive(1, [2, 5], 4))
+        )
         await p.add_chunk(1, [1])
         assert not await p.done(1)
-        await p.add_chunk(1, [3])
+        await p.add_chunk(1, [3], [bytes(allocations[0][1][0][3].numpy())])
         await asyncio.wait_for(incoming, 30)
         assert await asyncio.wait_for(source_completion, 30)
         assert await p.done(1)
@@ -107,10 +110,12 @@ async def test_gpu_bytes_chunks_and_cancel():
         # Aborting while waiting for a source must drain the receiver before
         # native SGLang can return destination slots to its allocator.
         for role in ("prefill", "decode"):
-            await directory.prepare(2, "namespace", "cancel", role)
-        incoming = asyncio.create_task(d.receive(2, [1], 0))
+            await directory.prepare(2, namespace, "cancel", role)
+        incoming = asyncio.wrap_future(
+            managers[1].submit(managers[1].receive(2, [1], 0))
+        )
         await asyncio.sleep(0.02)
-        await d.abort(2)
+        await asyncio.wrap_future(managers[1].submit(managers[1].abort(2)))
         with pytest.raises(asyncio.CancelledError):
             await incoming
         await directory.release(2)
