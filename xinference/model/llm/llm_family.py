@@ -72,6 +72,11 @@ def is_strict_system_first_template(chat_template: Optional[str]) -> bool:
 
 
 class LlamaCppLLMSpecV2(BaseModel):
+    class Config:
+        # Optional Union ordering can be cached by an unrelated annotation.
+        # Preserve strings such as "5_1" before integer coercion strips "_".
+        smart_union = True
+
     model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
@@ -108,6 +113,9 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
+    class Config:
+        smart_union = True
+
     model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
@@ -137,6 +145,9 @@ class PytorchLLMSpecV2(BaseModel):
 
 
 class MLXLLMSpecV2(BaseModel):
+    class Config:
+        smart_union = True
+
     model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["mlx"]
     # Must in order that `str` first, then `int`

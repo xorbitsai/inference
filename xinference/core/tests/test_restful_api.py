@@ -370,6 +370,7 @@ def test_restful_api_for_embedding(setup):
         "model_uid": "test_embedding",
         "model_name": model_name,
         "model_type": "embedding",
+        "device": "cpu",
     }
 
     response = requests.post(url, json=payload)

@@ -257,7 +257,7 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install tomli
           else
-            pip install "transformers<4.49"
+            pip install "transformers==4.53.3"
             pip install attrdict
             pip install "timm>=0.9.16"
             if [ "${{ matrix.python-version }}" != "3.13" ] && [ "${{ matrix.python-version }}" != "3.14" ]; then
@@ -278,6 +278,9 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
+            # Later installs can upgrade Transformers independently of Hub.
+            # Keep the CPU stack compatible with FlagEmbedding's 4.x imports.
+            pip install "transformers==4.53.3" "peft==0.18.0" "huggingface_hub<1.0"
           fi
         working-directory: .
 
@@ -518,11 +521,10 @@ jobs:
           sudo apt-get install -y -qq espeak-ng
           # Final guard pins. The serial `pip install -U` calls above ignore
           # the upper bounds of already-installed packages, letting shared
-          # deps drift past what the stack supports at runtime: numba needs
-          # numpy<2.5, and diffusers 0.35 / tensorizer still import
-          # is_offline_mode, which huggingface_hub 1.0 removed
-          # (transformers==4.53.2 declares the same <1.0 cap).
-          pip install "numpy>=2,<2.5" "huggingface_hub<1.0"
+          # deps drift past what the stack supports at runtime. Resolve
+          # Transformers, PEFT and Hub together: Transformers 5.x needs Hub
+          # 1.x, while diffusers 0.35 / tensorizer need Hub's legacy helpers.
+          pip install "numpy>=2,<2.5" "transformers==4.53.3" "peft==0.18.0" "huggingface_hub<1.0"
         working-directory: .
 
       - name: Test with pytest
