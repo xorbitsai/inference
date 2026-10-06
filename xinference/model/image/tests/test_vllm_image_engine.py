@@ -16,6 +16,7 @@ import asyncio
 import dataclasses
 import queue
 import sys
+import threading
 import types
 from typing import Any, Optional
 from unittest.mock import patch
@@ -414,9 +415,11 @@ async def test_fatal_engine_error_closes_model(fake_vllm_omni_messages):
         def __init__(self):
             super().__init__()
             self.closed = False
+            self.close_complete = threading.Event()
 
         def close(self):
             self.closed = True
+            self.close_complete.set()
 
     model = VLLMDiffusionModel("uid", "/path", model_spec=_get_spec("Z-Image"))
     omni = model._model = _ClosableOmni()
@@ -428,6 +431,8 @@ async def test_fatal_engine_error_closes_model(fake_vllm_omni_messages):
     with pytest.raises(RuntimeError, match="engine died"):
         await asyncio.wait_for(task, timeout=5.0)
 
+    # Fatal errors reach request futures before background engine cleanup ends.
+    assert await asyncio.to_thread(omni.close_complete.wait, 5.0)
     # the model is in a terminal state: the dead engine has been shut down
     # and subsequent requests fail immediately instead of hanging
     assert omni.closed is True
