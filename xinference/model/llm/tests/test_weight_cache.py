@@ -77,17 +77,20 @@ def test_cached_memory_rocm_records(monkeypatch):
     smi.amdsmi_shut_down.assert_called_once()
 
 
-def test_engine_budget_reserves_retained_memory_without_mutating_config(monkeypatch):
+@pytest.mark.parametrize("requested", [0.9, "0.9"])
+def test_engine_budget_reserves_retained_memory_without_mutating_config(
+    monkeypatch, requested
+):
     daemon = WeightCacheDaemon("vllm", "/models/test", {})
     daemon.process = SimpleNamespace(pid=10)
     monkeypatch.setattr(
         "xinference.model.llm.weight_cache._cached_memory_fraction", lambda pid: 0.4
     )
-    config = {"gpu_memory_utilization": 0.9}
+    config = {"gpu_memory_utilization": requested}
     try:
         assert daemon.engine_config(config)["gpu_memory_utilization"] == 0.5
         assert daemon.engine_config(config)["gpu_memory_utilization"] == 0.5
-        assert config == {"gpu_memory_utilization": 0.9}
+        assert config == {"gpu_memory_utilization": requested}
         with pytest.raises(ValueError, match="retained weights"):
             daemon.engine_config({"gpu_memory_utilization": 0.3})
         explicit = {"gpu_memory_utilization": 0.3, "kv_cache_memory_bytes": 100}
@@ -149,6 +152,9 @@ def test_reload_error_survives_actor_serialization():
 @pytest.mark.parametrize(
     "engine,tp", [("vllm", "tensor_parallel_size"), ("sglang", "tp_size")]
 )
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
 def test_daemon_lifecycle(monkeypatch, engine, tp):
     daemon = WeightCacheDaemon(
         engine, "/models/test", {tp: 2, "launch_timeout": 300, "unused": None}
@@ -207,6 +213,7 @@ def test_daemon_failure_restores_environment(monkeypatch):
     assert not daemon.directory.exists()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux AF_UNIX path limit")
 def test_daemon_uses_short_socket_namespace_for_long_tmpdir(monkeypatch, tmp_path):
     import os
     import tempfile
@@ -224,6 +231,9 @@ def test_daemon_uses_short_socket_namespace_for_long_tmpdir(monkeypatch, tmp_pat
 
 
 @pytest.mark.parametrize("disabled", [False, True])
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Daemon process groups require POSIX"
+)
 def test_sglang_daemon_normalizes_legacy_graph_flag(monkeypatch, disabled):
     daemon = WeightCacheDaemon(
         "sglang", "/models/test", {"disable_cuda_graph": disabled}

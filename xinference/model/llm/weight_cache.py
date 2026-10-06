@@ -172,7 +172,7 @@ class WeightCacheDaemon:
         self._directory = tempfile.TemporaryDirectory(prefix="xinfw-")
         # Linux AF_UNIX paths allow 107 bytes plus the terminator. Reserve room
         # for vLLM's socket name, including a possible 64-character UUID hash.
-        if len(os.fsencode(self._directory.name)) > 20:
+        if sys.platform == "linux" and len(os.fsencode(self._directory.name)) > 20:
             self._directory.cleanup()
             self._directory = tempfile.TemporaryDirectory(prefix="xinfw-", dir="/tmp")
         self.directory = Path(self._directory.name)
@@ -285,7 +285,7 @@ class WeightCacheDaemon:
         if self.engine != "vllm":
             return config
         assert self.process is not None
-        requested = config.get("gpu_memory_utilization", 0.9)
+        requested = float(config.get("gpu_memory_utilization", 0.9))
         if config.get("kv_cache_memory_bytes"):
             # vLLM ignores this fraction for an explicit KV allocation, but
             # still checks it against free memory before loading IPC weights.
