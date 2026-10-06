@@ -40,7 +40,7 @@ def pp_cluster(request, tmp_path):
         XINFERENCE_ENABLE_VIRTUAL_ENV="0",
         XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT="0",
         XINFERENCE_LOG_MAX_BYTES="0",
-        VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS="15",
+        VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS="120",
     )
 
     def start(name, command, devices):
@@ -118,9 +118,11 @@ def pp_cluster(request, tmp_path):
             log.close()
 
 
-def test_pipeline_parallel_serving_and_rank_failure(pp_cluster):
+@pytest.mark.parametrize("failure_timing", ["idle", "mid-stream"])
+def test_pipeline_parallel_serving_and_rank_failure(pp_cluster, failure_timing):
     import asyncio
 
+    import httpx
     import openai
     import xoscar as xo
 
@@ -217,15 +219,48 @@ def test_pipeline_parallel_serving_and_rank_failure(pp_cluster):
         # Kill only this test's first GPU rank. The final stage must not leave
         # the API hanging while waiting for tensors from the failed rank.
         pid = asyncio.run(first_rank_pid())
-        os.kill(pid, signal.SIGKILL)
-        started = time.monotonic()
-        with pytest.raises(openai.APIError):
-            chat()
+        if failure_timing == "idle":
+            os.kill(pid, signal.SIGKILL)
+            started = time.monotonic()
+            with pytest.raises(openai.APIError) as exc_info:
+                chat()
+        else:
+            response = api.chat.completions.create(
+                model=uid,
+                messages=[
+                    {"role": "user", "content": "Explain the water cycle in detail."}
+                ],
+                max_tokens=768,
+                stream=True,
+                extra_body={"ignore_eos": True},
+            )
+            with response:
+                for chunk in response:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        assert chunk.choices[0].finish_reason is None
+                        break
+                else:
+                    pytest.fail("The stream finished before a rank could be killed")
+                os.kill(pid, signal.SIGKILL)
+                started = time.monotonic()
+                with pytest.raises((openai.APIError, httpx.HTTPError)) as exc_info:
+                    list(response)
         assert time.monotonic() - started < 45
+        assert not isinstance(
+            exc_info.value, (openai.APITimeoutError, httpx.TimeoutException)
+        )
+        error = str(exc_info.value).lower()
+        assert "timeout" not in error and "timed out" not in error
         print(
-            f"TP={tp}, PP={pp}, workers={n_worker}: serving and rank failure passed; {log_dir}"
+            f"TP={tp}, PP={pp}, workers={n_worker}, {failure_timing}: serving and rank failure passed; {log_dir}"
         )
     finally:
         api.close()
         if uid in client.list_models():
-            client.terminate_model(uid)
+            pool = ThreadPoolExecutor(max_workers=1)
+            started = time.monotonic()
+            try:
+                pool.submit(client.terminate_model, uid).result(timeout=20)
+                assert time.monotonic() - started < 20
+            finally:
+                pool.shutdown(wait=False, cancel_futures=True)

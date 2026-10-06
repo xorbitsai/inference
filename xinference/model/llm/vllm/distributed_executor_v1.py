@@ -44,6 +44,27 @@ if TYPE_CHECKING:
     from vllm.v1.outputs import ModelRunnerOutput
 
 logger = logging.getLogger(__name__)
+_SHUTDOWN_TIMEOUT_SECONDS = 10.0
+
+
+class _ExecutorIsolation(Isolation):
+    def _run(self):
+        asyncio.set_event_loop(self._loop)
+        try:
+            self._loop.run_forever()
+        finally:
+            for task in asyncio.all_tasks(self._loop):
+                task.cancel()
+            # Let cancellation callbacks run without waiting for remote cancel
+            # acknowledgements from a rank that may be stuck in NCCL.
+            self._loop.run_until_complete(asyncio.sleep(0))
+            self._loop.close()
+
+    def stop(self, timeout: float = _SHUTDOWN_TIMEOUT_SECONDS) -> bool:
+        if not self._loop.is_closed():
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        self._thread.join(timeout=timeout)
+        return not self._thread.is_alive()
 
 
 class WorkerWrapper:
@@ -85,7 +106,7 @@ class XinferenceDistributedExecutorV1(Executor):
         **kwargs,
     ):
         # XinferenceDistributedExecutorV1
-        self._isolation = Isolation(asyncio.new_event_loop())
+        self._isolation = _ExecutorIsolation(asyncio.new_event_loop())
         self._isolation.start()
         loop = self._isolation.loop
 
@@ -130,11 +151,14 @@ class XinferenceDistributedExecutorV1(Executor):
         if len(self._pool_addresses) != world_size:
             raise ValueError(
                 f"Allocated GPU count ({len(self._pool_addresses)}) must equal "
-                f"the vLLM world size ({world_size}); set TP * PP to the "
-                "total allocated GPU count"
+                f"the vLLM world size ({world_size}); set the vLLM world size "
+                "to the total allocated GPU count"
             )
         if self._n_worker <= 0 or world_size % self._n_worker != 0:
-            raise ValueError("vLLM world size must be divisible by n_worker")
+            raise ValueError(
+                f"vLLM world size ({world_size}) must be divisible by "
+                f"a positive n_worker ({self._n_worker})"
+            )
 
         futures = []
         for rank in range(world_size):
@@ -180,7 +204,7 @@ class XinferenceDistributedExecutorV1(Executor):
         self._env_vars_for_all_workers = all_args_to_update_environment_variables
 
         self._run_workers(
-            "update_environment_variables", self._env_vars_for_all_workers
+            "update_environment_variables", args=(self._env_vars_for_all_workers,)
         )
 
         all_kwargs = []
@@ -198,7 +222,7 @@ class XinferenceDistributedExecutorV1(Executor):
                 or (rank % tensor_parallel_size == 0),
             )
             all_kwargs.append(kwargs)
-        self._run_workers("init_worker", all_kwargs)
+        self._run_workers("init_worker", args=(all_kwargs,))
         self._run_workers("init_device")
         self._run_workers(
             "load_model",
@@ -248,7 +272,7 @@ class XinferenceDistributedExecutorV1(Executor):
         non_block: bool = False,
     ) -> Union[List[Any], Future]:
         return self._run_workers(
-            method, *args, timeout=timeout, non_block=non_block, **(kwargs or {})
+            method, args=args, kwargs=kwargs, timeout=timeout, non_block=non_block
         )
 
     def execute_model(
@@ -256,7 +280,7 @@ class XinferenceDistributedExecutorV1(Executor):
     ) -> Union["ModelRunnerOutput", None, Future[Union["ModelRunnerOutput", None]]]:
         return self._run_workers(
             "execute_model",
-            scheduler_output,
+            args=(scheduler_output,),
             non_block=non_block,
             output_rank=self._get_output_rank(),
             timeout=envs.VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
@@ -268,7 +292,7 @@ class XinferenceDistributedExecutorV1(Executor):
     ) -> Any:
         return self._run_workers(
             "sample_tokens",
-            grammar_output,
+            args=(grammar_output,),
             non_block=non_block,
             output_rank=self._get_output_rank(),
             timeout=envs.VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
@@ -288,7 +312,7 @@ class XinferenceDistributedExecutorV1(Executor):
             return
 
         self._is_shutdown = True
-        deadline = time.monotonic() + 10
+        deadline = time.monotonic() + _SHUTDOWN_TIMEOUT_SECONDS
         futs = []
         for worker in self.workers:
             try:
@@ -302,8 +326,8 @@ class XinferenceDistributedExecutorV1(Executor):
                 except Exception:
                     logger.debug("Failed to destroy vLLM worker", exc_info=True)
         finally:
-            self._isolation.stop()
-            self._loop.close()
+            if not self._isolation.stop(timeout=max(0, deadline - time.monotonic())):
+                logger.warning("vLLM executor loop exceeded the shutdown deadline")
 
     def _create_workers(self, refs: List[xo.ActorRefType[WorkerActor]]) -> None:
         self.workers = [WorkerWrapper(self._loop, ref) for ref in refs]
@@ -311,14 +335,15 @@ class XinferenceDistributedExecutorV1(Executor):
     def _run_workers(
         self,
         method: Union[str, Callable],
-        *args,
+        args: Tuple = (),
+        kwargs: Optional[Dict] = None,
+        *,
         async_run_tensor_parallel_workers_only: bool = False,
         max_concurrent_workers: Optional[int] = None,
         non_block: bool = False,
         output_rank: Optional[int] = None,
         timeout: Optional[float] = None,
         aggregate_output: bool = False,
-        **kwargs,
     ) -> Any:
         if max_concurrent_workers:
             raise NotImplementedError("max_concurrent_workers is not supported yet.")
@@ -327,7 +352,7 @@ class XinferenceDistributedExecutorV1(Executor):
         if async_run_tensor_parallel_workers_only:
             workers = self.non_driver_workers
         worker_outputs = [
-            worker.execute_method(method, *args, **kwargs) for worker in workers
+            worker.execute_method(method, *args, **(kwargs or {})) for worker in workers
         ]
 
         async def collect_outputs():
