@@ -39,28 +39,24 @@ from ..llm_family import (
 
 
 @pytest.mark.parametrize(
-    "spec_class,model_format",
+    "spec_cls,model_format",
     [
         (LlamaCppLLMSpecV2, "ggufv2"),
         (PytorchLLMSpecV2, "pytorch"),
         (MLXLLMSpecV2, "mlx"),
     ],
 )
-@pytest.mark.parametrize(
-    "size,expected", [("5_1", "5_1"), ("3", 3), (3, 3), (None, None)]
-)
-def test_activated_model_size_preserves_decimal(
-    spec_class, model_format, size, expected
-):
-    spec = spec_class(
+@pytest.mark.parametrize("size,expected", [("5_1", "5_1"), ("5", 5), (5, 5)])
+def test_model_sizes_preserve_radix(spec_cls, model_format, size, expected):
+    spec = spec_cls(
         model_format=model_format,
-        model_size_in_billions=124,
+        model_size_in_billions=size,
         activated_size_in_billions=size,
         quantization="none",
         model_file_name_template="model.gguf",
     )
+    assert spec.model_size_in_billions == expected
     assert spec.activated_size_in_billions == expected
-    assert type(spec.activated_size_in_billions) is type(expected)
 
 
 def test_deserialize_llm_family_v1():

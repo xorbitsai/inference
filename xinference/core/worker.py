@@ -5579,8 +5579,11 @@ class WorkerActor(xo.StatelessActor):
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
 
-        pool_addresses = None
-        if model_ref is not None:
+        # Keep rank pools reachable for cleanup after the ModelActor has died.
+        # Removing only its primary pool would sync config to a surviving rank
+        # that may be blocked in NCCL and cannot acknowledge the update.
+        pool_addresses = list(self._model_uid_to_subpool_addresses.get(model_uid, ()))
+        if not pool_addresses and model_ref is not None:
             try:
                 # pool addresses if model.need_create_pools()
                 pool_addresses = await model_ref.get_pool_addresses()
@@ -5636,6 +5639,7 @@ class WorkerActor(xo.StatelessActor):
             to_remove_addresses.append(subpool_address)
             if pool_addresses:
                 to_remove_addresses.extend(pool_addresses)
+            to_remove_addresses = list(dict.fromkeys(to_remove_addresses))
             logger.debug("Remove sub pools: %s", to_remove_addresses)
             coros = []
             for to_remove_addr in to_remove_addresses:

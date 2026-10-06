@@ -34,8 +34,8 @@ def test_voice_seed_hashes_utf8_bytes(monkeypatch):
     assert inputs == [b"", "测试音色".encode("utf-8")]
 
 
-def test_chattts(setup):
-    endpoint, _ = setup
+def test_chattts(setup_real_actor_pool):
+    endpoint, _ = setup_real_actor_pool
     from ....client import Client
 
     client = Client(endpoint)

@@ -237,14 +237,14 @@ jobs:
           # backend would otherwise run on editable installs.
           NO_WEB_UI: 1
         run: |
-          if [ "$MODULE" != "metal" ]; then
-            export PIP_CONSTRAINT="$GITHUB_WORKSPACE/.github/constraints/model-tests.txt"
-          fi
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
             sudo rm -rf /opt/ghc
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          fi
+          if [ "$MODULE" != "metal" ]; then
+            export PIP_CONSTRAINT="$PWD/.github/requirements/model-ci-constraints.txt"
           fi
           pip install -e ".[dev]"
           pip install "xllamacpp>=0.2.0"
@@ -270,7 +270,7 @@ jobs:
             pip install sentencepiece
             pip install transformers_stream_generator
             pip install bitsandbytes
-            pip install sentence-transformers
+            pip install "sentence-transformers>=5.1.1,<6"
             pip install modelscope
             pip install diffusers
             pip install protobuf
@@ -281,6 +281,7 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
+            python -c "from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer; from FlagEmbedding import BGEM3FlagModel"
           fi
         working-directory: .
 
@@ -375,6 +376,9 @@ jobs:
             run_pytest \
               benchmark/tests/test_benchmark_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \
+              xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
+              xinference/model/llm/vllm/tests/test_executor_routing.py \
+              xinference/model/llm/vllm/tests/test_speculative_config.py \
               xinference/model/llm/vllm/xavier/test/test_profiling.py \
               xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
               xinference/model/llm/vllm/tests/test_pd.py \
@@ -434,7 +438,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/constraints/model-tests.txt', 'pyproject.toml') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
@@ -457,9 +461,8 @@ jobs:
           python -m pip install -U pip "setuptools<82"
 
       - name: Install dependencies
-        env:
-          PIP_CONSTRAINT: ${{ github.workspace }}/.github/constraints/model-tests.txt
         run: |
+          export PIP_CONSTRAINT="$PWD/.github/requirements/model-ci-constraints.txt"
           pip install -U -e ".[audio,dev]"
           pip install -U "openai>1"
           pip install -U modelscope
@@ -516,9 +519,8 @@ jobs:
           # install it from apt.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
-          # The constraints above keep all serial upgrades compatible. GPU
-          # tests additionally need NumPy 2 for compiled audio dependencies.
-          pip install "numpy>=2,<2.5" "huggingface_hub<1.0"
+          pip install "numpy>=2"
+          python -c "from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
         working-directory: .
 
       - name: Test with pytest

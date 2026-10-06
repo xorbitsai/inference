@@ -28,6 +28,7 @@ jobs:
     env:
       NO_WEB_UI: '1'
       XINFERENCE_TEST_PD_GPU: '1'
+      XINFERENCE_TEST_VLLM_PP_GPU: '1'
       XINFERENCE_TEST_PD_MULTI_GPU: '1'
       XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU: '1'
       XINFERENCE_AUTH_ADVANCED: 'false'
@@ -48,6 +49,8 @@ jobs:
         run: |
           source .venv-pd/bin/activate
           python -m pytest --basetemp=pd-test-logs --timeout=1800 -vv -rP xinference/model/llm/vllm/xavier/test/test_pd_gpu.py xinference/model/llm/vllm/xavier/test/test_pd_multi_gpu.py xinference/model/llm/vllm/xavier/test/test_v1_cache_layout.py xinference/model/llm/vllm/xavier/test/test_direct_history.py
+      - name: Verify V1 pipeline parallel serving and rank failure
+        run: .venv-pd/bin/python -m pytest --basetemp=pp-test-logs --timeout=1800 -vv -rP xinference/model/llm/vllm/tests/test_pipeline_parallel_gpu.py
       - name: Upload runtime logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,3 +59,4 @@ jobs:
           path: |
             ~/.xinference/logs/
             pd-test-logs/
+            pp-test-logs/

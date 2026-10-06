@@ -72,11 +72,6 @@ def is_strict_system_first_template(chat_template: Optional[str]) -> bool:
 
 
 class LlamaCppLLMSpecV2(BaseModel):
-    class Config:
-        # Optional unions can inherit a cached int-first order from typing.
-        # Preserve underscore decimal sizes before Pydantic coerces them.
-        smart_union = True
-
     model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["ggufv2"]
     # Must in order that `str` first, then `int`
@@ -100,6 +95,11 @@ class LlamaCppLLMSpecV2(BaseModel):
     draft_quantizations: Optional[List[str]]
     draft_model_revision: Optional[str]
 
+    class Config:
+        # Optional Union ordering may be cached as int first by Python.
+        # Keep radix strings intact until the validator normalizes sizes.
+        smart_union = True
+
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
         if isinstance(v, str):
@@ -113,9 +113,6 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
-    class Config:
-        smart_union = True
-
     model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
@@ -132,6 +129,9 @@ class PytorchLLMSpecV2(BaseModel):
     draft_quantizations: Optional[List[str]]
     draft_model_revision: Optional[str]
 
+    class Config:
+        smart_union = True
+
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
         if isinstance(v, str):
@@ -145,9 +145,6 @@ class PytorchLLMSpecV2(BaseModel):
 
 
 class MLXLLMSpecV2(BaseModel):
-    class Config:
-        smart_union = True
-
     model_metadata: Optional[ModelMetadata] = None
     model_format: Literal["mlx"]
     # Must in order that `str` first, then `int`
@@ -168,6 +165,9 @@ class MLXLLMSpecV2(BaseModel):
     draft_model_id: Optional[str]
     draft_quantizations: Optional[List[str]]
     draft_model_revision: Optional[str]
+
+    class Config:
+        smart_union = True
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
