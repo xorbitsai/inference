@@ -617,6 +617,52 @@ async def _wait_pids_dead(pids: set, timeout: float = 5.0):
             await asyncio.sleep(0.2)
 
 
+def _stop_reload_children(processes: List[Any]) -> None:
+    """Reap retained process identities after force-removing their actor pool."""
+    import psutil
+
+    def live(process: Any) -> bool:
+        try:
+            return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return False
+
+    def wait(processes: List[Any], timeout: float) -> List[Any]:
+        deadline = time.monotonic() + timeout
+        while processes and time.monotonic() < deadline:
+            processes = [process for process in processes if live(process)]
+            if processes:
+                time.sleep(0.05)
+        return processes
+
+    owned = {process.pid: process for process in processes if live(process)}
+    for process in list(owned.values()):
+        try:
+            # A loading engine may have spawned more ranks since capture.
+            owned.update(
+                (child.pid, child) for child in process.children(recursive=True)
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    for process in owned.values():
+        try:
+            process.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    alive = wait(list(owned.values()), 3)
+    for process in alive:
+        try:
+            # psutil retains creation time and checks PID reuse before kill.
+            process.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    alive = wait(alive, 5)
+    if alive:
+        logger.warning(
+            "Reload engine children did not exit: %s", [p.pid for p in alive]
+        )
+
+
 def _process_or_ancestor_has_uid(proc: Any, uid_lower: str) -> bool:
     """Return True if proc or any of its ancestors has uid_lower in cmdline."""
     current = proc
@@ -5595,6 +5641,25 @@ class WorkerActor(xo.StatelessActor):
                 # process may disappear, we just ignore it.
                 logger.debug("Fail to get pool addresses, error: %s", e)
 
+        reload_children = []
+        reload_parent = None
+        if was_reloading:
+            import psutil
+
+            # Capture before killing the pool: reparented SGLang/native-MP
+            # children cannot reliably be found by model UID in their cmdline.
+            address = self._model_uid_to_addr.get(model_uid)
+            process = self._main_pool.sub_processes.get(address)
+            if process is not None and process.pid is not None:
+                try:
+                    reload_parent = psutil.Process(process.pid)
+                    # Freeze the loading thread before capturing direct
+                    # children, so it cannot fork another engine before kill.
+                    reload_parent.suspend()
+                    reload_children = reload_parent.children(recursive=True)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+
         # Resolve GPU indices for terminate-path orphan cleanup.
         # Prefer launch_args["gpu_idx"] (user-specified), but fall back to
         # model_spec["accelerators"] (allocated devices when gpu_idx=None
@@ -5656,6 +5721,13 @@ class WorkerActor(xo.StatelessActor):
                 "Remove sub pool failed, model uid: %s, error: %s", model_uid, e
             )
         finally:
+            if reload_parent is not None:
+                try:
+                    reload_parent.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            if reload_children:
+                await asyncio.to_thread(_stop_reload_children, reload_children)
             self._release_virtual_env_usage(model_uid)
 
             self._model_uid_to_model.pop(model_uid, None)

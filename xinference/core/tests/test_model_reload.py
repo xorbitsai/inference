@@ -308,7 +308,7 @@ def test_description_exposes_sharded_worker_count():
 
 @pytest.mark.asyncio
 async def test_worker_forces_pool_removal_during_engine_rebuild():
-    pool = SimpleNamespace(remove_sub_pool=AsyncMock())
+    pool = SimpleNamespace(remove_sub_pool=AsyncMock(), sub_processes={})
     worker = WorkerActor("supervisor", None, pool, [])
     worker.get_supervisor_ref = AsyncMock()
     worker._status_guard_ref = SimpleNamespace(
@@ -361,3 +361,63 @@ async def test_late_cancelled_reload_cannot_remove_relaunched_model_job():
         new_task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await new_task
+
+
+@pytest.mark.asyncio
+async def test_force_termination_reaps_native_children_after_parent_dies(tmp_path):
+    import subprocess
+    import sys
+    import time
+
+    import psutil
+
+    pid_file = tmp_path / "native.pid"
+    child_code = (
+        "import os, time\nfrom pathlib import Path\n"
+        f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\n"
+        "while True: time.sleep(0.1)\n"
+    )
+    parent_code = (
+        "import subprocess, sys, time\n"
+        f"subprocess.Popen([sys.executable, '-c', {child_code!r}])\n"
+        "while True: time.sleep(0.1)\n"
+    )
+    parent = subprocess.Popen([sys.executable, "-c", parent_code])
+    child = None
+    try:
+        deadline = time.monotonic() + 10
+        while not pid_file.exists():
+            assert time.monotonic() < deadline
+            await asyncio.sleep(0.05)
+        child = psutil.Process(int(pid_file.read_text()))
+
+        async def remove_pool(address, force):
+            assert address == "model-pool" and force
+            parent.kill()
+            parent.wait(timeout=5)
+            # The pool's parent is now gone; its native child is still alive.
+            assert child.is_running()
+
+        pool = SimpleNamespace(
+            remove_sub_pool=AsyncMock(side_effect=remove_pool),
+            sub_processes={"model-pool": SimpleNamespace(pid=parent.pid)},
+        )
+        worker = WorkerActor("supervisor", None, pool, [])
+        worker.get_supervisor_ref = AsyncMock()
+        worker._status_guard_ref = SimpleNamespace(
+            update_instance_info=AsyncMock(), update_replica_status=AsyncMock()
+        )
+        worker._model_uid_to_model_status["test-0"] = ModelStatus(
+            model_state="reloading"
+        )
+        worker._model_uid_to_model["test-0"] = SimpleNamespace(stop=AsyncMock())
+        worker._model_uid_to_addr["test-0"] = "model-pool"
+        worker._remove_persisted_launch_args = MagicMock()
+        await asyncio.wait_for(worker.terminate_model("test-0"), timeout=10)
+        assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+    finally:
+        if parent.poll() is None:
+            parent.kill()
+        parent.wait(timeout=5)
+        if child is not None and child.is_running():
+            child.kill()
