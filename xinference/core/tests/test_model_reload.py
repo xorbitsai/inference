@@ -15,6 +15,7 @@ from ...model.llm.weight_cache import ModelReloadError
 from ..exceptions import ModelNotReadyError
 from ..launch_history_store import LaunchHistoryStore
 from ..model import ModelActor, request_limit
+from ..rpc_context import actor_call, rpc_context
 from ..supervisor import SupervisorActor
 from ..worker import ModelStatus, WorkerActor
 
@@ -251,6 +252,7 @@ async def test_abort_request_can_finish_draining_reload(monkeypatch):
     supervisor._pd_model_mapping = {}
     actor._serve_count = 1
 
+    @rpc_context
     async def abort(request_id, block_duration):
         actor._serve_count = 0
         return "DONE"
@@ -258,8 +260,8 @@ async def test_abort_request_can_finish_draining_reload(monkeypatch):
     worker._model_uid_to_model["test-replica"].abort_request = abort
 
     async def call(ref, method, *args, **kwargs):
-        kwargs.pop("_rpc_operation_request_id", None)
-        value = getattr(ref, method)(*args, **kwargs)
+        # Use the real metadata envelope; only the transport await is local.
+        value = actor_call(ref, method, *args, **kwargs)
         return await value if asyncio.iscoroutine(value) else value
 
     monkeypatch.setattr("xinference.core.supervisor.actor_call", call)

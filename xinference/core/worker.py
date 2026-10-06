@@ -5870,6 +5870,7 @@ class WorkerActor(xo.StatelessActor):
             self._persist_launch_args()
             await self._update_model_state(model_uid, "ready")
 
+    @log_sync(logger=logger)
     def get_model_for_abort(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         status = self._model_uid_to_model_status.get(model_uid)
         if status is not None and status.model_state == "reloading":
