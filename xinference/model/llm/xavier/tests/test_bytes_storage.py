@@ -28,8 +28,9 @@ def store(capacity=2):
 def test_capacity_geometry_and_contract():
     actor, namespace, page = store()
     keys = [str(i) * 64 for i in range(1, 4)]
-    assert actor.put(namespace, keys, [page] * 3) == [True] * 3
+    assert actor.put(namespace, keys, [page] * 3) == [False] * 3
     assert actor.get(namespace, keys) == []
+    assert actor.put(namespace, keys[:2], [page] * 2) == [True] * 2
     assert actor.get_stats()["pages"] == 2
     with pytest.raises(ValueError, match="geometry"):
         actor.put(namespace, [keys[0]], [page[:-1]])
@@ -41,6 +42,41 @@ def test_capacity_geometry_and_contract():
         actor.configure(metadata)
     with pytest.raises(ValueError, match="budget"):
         XavierBytesCacheActor(1).configure(contract().to_dict())
+
+
+@pytest.mark.parametrize("touch", [False, True])
+def test_eviction_preserves_chain_head_and_oversized_put_preserves_cache(touch):
+    actor, namespace, page = store(3)
+    keys = [str(i) * 64 for i in range(1, 5)]
+    actor.put(namespace, keys[:3], [page] * 3)
+    if touch:
+        assert actor.get(namespace, keys[:3]) == [page] * 3
+    actor.put(namespace, keys[3:], [page])
+    assert actor.get(namespace, keys[:3]) == [page] * 2
+    assert actor.get(namespace, keys[3:]) == [page]
+    assert actor.put(namespace, keys, [page] * 4) == [False] * 4
+    assert actor.get(namespace, keys[:3]) == [page] * 2
+
+
+def test_put_reports_pages_that_survive_pinned_capacity_pressure():
+    actor, namespace, page = store(3)
+    keys = [str(i) * 64 for i in range(1, 5)]
+    ticket = actor.prepare_handoff(namespace, keys[3:])
+    actor.put(namespace, keys[3:], [page])
+    assert actor.put(namespace, keys[:3], [page] * 3) == [True, True, False]
+    assert actor.get(namespace, keys[:3]) == [page] * 2
+    assert actor.get_handoff(namespace, keys[3:], ticket) == [page]
+
+
+def test_suffix_publication_keeps_existing_chain_heads_newer_than_tails():
+    actor, namespace, page = store(4)
+    keys = [str(i) * 64 for i in range(1, 6)]
+    actor.put(namespace, keys[:2], [page] * 2)
+    assert actor.put(namespace, keys[:4], [page] * 2, start=2) == [True] * 4
+    actor.put(namespace, keys[4:], [page])
+    assert actor.get(namespace, keys[:4]) == [page] * 3
+    with pytest.raises(ValueError, match="geometry"):
+        actor.put(namespace, keys[:4], [page], start=2)
 
 
 def test_leases_pin_absent_pages_and_handoff_is_consumed_once():

@@ -226,6 +226,7 @@ class MLXBatchModel:
                 "active": set(),  # active uids
                 "cache_boundaries": {},  # uid -> stable prefix token count
                 "xavier_prompts": {},
+                "xavier_writes": {},
                 "task": None,
             }
 
@@ -345,11 +346,16 @@ class MLXBatchModel:
         for result in prompt_results:
             if not result.end_of_prompt or result.uid not in prompts:
                 continue
-            extracted = batch_generator.extract_cache([result.uid]).get(result.uid)
-            if extracted is not None:
-                cache, _ = extracted
-                tokens = prompts.pop(result.uid)
-                self._xavier.publish(cache, tokens[:-1])
+            tokens, cached_tokens = prompts.pop(result.uid)
+            try:
+                extracted = batch_generator.extract_cache([result.uid]).get(result.uid)
+                if extracted is not None:
+                    cache, _ = extracted
+                    gen_dict["xavier_writes"][result.uid] = self._xavier.publish(
+                        cache, tokens[:-1], cached_tokens
+                    )
+            except Exception:
+                logger.warning("MLX Xavier prefix publication failed", exc_info=True)
 
     async def _background_worker(self, gen_dict):
         """Background worker that continuously calls next() and distributes results."""
@@ -425,7 +431,6 @@ class MLXBatchModel:
         request_id: Optional[str] = None,
         skip_special_tokens: bool = True,
         prompt_cache_prefix_len: Optional[int] = None,
-        kv_transfer_params: Optional[dict] = None,
         prepared_cache=None,
         prompt_token_ids: Optional[List[int]] = None,
     ) -> AsyncGenerator[CompletionChunk, None]:
@@ -450,8 +455,6 @@ class MLXBatchModel:
         queue: asyncio.Queue = asyncio.Queue()
 
         external_cache = prepared_cache
-        if external_cache is None and getattr(self, "_xavier", None) is not None:
-            external_cache = await self._xavier.fetch(prompt_tokens, kv_transfer_params)
         insert_args = (
             batch_generator,
             prompt_tokens,
@@ -463,11 +466,15 @@ class MLXBatchModel:
             if external_cache is not None
             else self._insert_request(*insert_args)
         )
+        remote_cached_tokens = external_cache[1] if external_cache is not None else 0
         if (
             getattr(self, "_xavier", None) is not None
-            and cached_prompt_tokens < input_echo_len - 1
+            and remote_cached_tokens < input_echo_len - 1
         ):
-            gen_dict["xavier_prompts"][inserted_uid] = prompt_tokens
+            gen_dict["xavier_prompts"][inserted_uid] = (
+                prompt_tokens,
+                remote_cached_tokens,
+            )
         if cache_boundary is not None:
             gen_dict["cache_boundaries"][inserted_uid] = cache_boundary
 
@@ -606,7 +613,8 @@ class MLXBatchModel:
                     gen_dict["xavier_prompts"].pop(inserted_uid, None)
                     batch_generator.remove([inserted_uid])
             if getattr(self, "_xavier", None) is not None:
-                await self._xavier.flush()
+                write = gen_dict["xavier_writes"].pop(inserted_uid, None)
+                await self._xavier.flush([write] if write is not None else [])
 
     async def generate(
         self,
@@ -618,7 +626,6 @@ class MLXBatchModel:
         stream: bool = False,
         skip_special_tokens: bool = True,
         prompt_cache_prefix_len: Optional[int] = None,
-        kv_transfer_params: Optional[dict] = None,
         prepared_cache=None,
         prompt_token_ids: Optional[List[int]] = None,
     ) -> Tuple[str, CompletionUsage]:
@@ -640,7 +647,6 @@ class MLXBatchModel:
             request_id=None,
             skip_special_tokens=skip_special_tokens,
             prompt_cache_prefix_len=prompt_cache_prefix_len,
-            kv_transfer_params=kv_transfer_params,
             prepared_cache=prepared_cache,
             prompt_token_ids=prompt_token_ids,
         ):
@@ -1119,6 +1125,10 @@ class MLXModel(LLM, ChatModelMixin):
                 raise ValueError(
                     "MLX Xavier requires the continuous batching text engine"
                 )
+            assert self._loop is not None, "Service not started correctly"
+            asyncio.run_coroutine_threadsafe(
+                self._xavier.initialize(), self._loop
+            ).result()
 
         # Update allow_batch based on distributed inference
         # Only enable continuous batching for non-distributed inference (single worker)

@@ -69,10 +69,16 @@ def launch_kwargs():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("pd", [False, True])
-async def test_mlx_xavier_launch_and_cleanup(launch_runtime, pd):
+@pytest.mark.parametrize("quantization", [None, "none", "fp16", "bf16"])
+async def test_mlx_xavier_launch_and_cleanup(launch_runtime, pd, quantization):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
-    kwargs.update(model_engine="MLX", model_format="mlx", xavier_cache_bytes=123456)
+    kwargs.update(
+        model_engine="MLX",
+        model_format="mlx",
+        quantization=quantization,
+        xavier_cache_bytes=123456,
+    )
     if not pd:
         kwargs["enable_xavier"] = True
         for replica in kwargs["replica_config"]:
@@ -97,6 +103,59 @@ async def test_mlx_xavier_launch_and_cleanup(launch_runtime, pd):
     await supervisor.terminate_model("pd")
     assert not supervisor._xavier_cache_mapping and not supervisor._pd_model_mapping
     assert destroy.await_count == (2 if pd else 1)
+
+
+@pytest.mark.asyncio
+async def test_single_mlx_replica_disables_shared_xavier(launch_runtime, caplog):
+    supervisor, workers, actors, _ = launch_runtime
+    supervisor._resolve_replica_config.return_value = ([(workers[0], [0], 1)], {0: "p"})
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="MLX", model_format="mlx", enable_xavier=True, replica=1)
+    kwargs["replica_config"] = kwargs["replica_config"][:1]
+    kwargs["replica_config"][0].role = None
+    await supervisor.launch_builtin_model(**kwargs)
+    assert "replica<=1" in caplog.text
+    assert not actors and not supervisor._xavier_cache_mapping
+    assert (
+        "_xavier_cache_config" not in workers[0].launch_builtin_model.call_args.kwargs
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+async def test_mlx_pd_recovery_keeps_bytes_cache_and_registers_replacement(role):
+    import xoscar as xo
+
+    from ...model.llm.xavier.backends.bytes.storage import XavierBytesCacheActor
+    from ...model.llm.xavier.tests.test_bytes_storage import contract
+    from ..worker import WorkerActor
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        cache = await xo.create_actor(
+            XavierBytesCacheActor, address=pool.external_address, uid="bytes-cache"
+        )
+        namespace = await cache.configure(contract().to_dict())
+        worker = MagicMock()
+        supervisor = AsyncMock()
+        worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
+        worker.launch_builtin_model = AsyncMock(return_value="replacement:1234")
+        worker.wait_for_load = AsyncMock()
+        replacement = MagicMock()
+        worker._model_uid_to_model = {"pd-rep0": replacement}
+        config = dict(role=role, address=cache.address, uid=cache.uid)
+        await WorkerActor.recover_model(
+            worker, dict(model_uid="pd-rep0", _xavier_cache_config=config)
+        )
+        worker.launch_builtin_model.assert_awaited_once_with(
+            model_uid="pd-rep0", _xavier_cache_config=config
+        )
+        worker.wait_for_load.assert_awaited_once_with("pd-rep0")
+        supervisor.unregister_pd_replica.assert_awaited_once_with("pd", "pd-rep0")
+        supervisor.register_pd_replica.assert_awaited_once_with(
+            "pd", "pd-rep0", replacement
+        )
+        assert (await cache.get_stats())["namespace"] == namespace
 
 
 @pytest.mark.asyncio

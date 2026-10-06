@@ -3112,6 +3112,14 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError("NIXL requires explicit prefill and decode replica roles")
         # Xavier-related
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
+        if (
+            requested_xavier
+            and not pd_enabled
+            and replica <= 1
+            and (model_engine or "").lower() in ("mlx", "sglang")
+        ):
+            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+            requested_xavier = False
         mlx_xavier = (
             (requested_xavier or pd_enabled)
             and transport_backend == "xavier"
@@ -3125,7 +3133,7 @@ class SupervisorActor(xo.StatelessActor):
             if (
                 model_type not in (None, "LLM")
                 or model_format != "mlx"
-                or quantization not in (None, "none")
+                or quantization not in (None, "none", "fp16", "bf16")
             ):
                 raise ValueError("MLX Xavier requires unquantized MLX text weights")
             kwargs["_xavier_cache_config"] = {
@@ -3138,9 +3146,6 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "sglang"
         )
-        if sglang_xavier and not pd_enabled and replica <= 1:
-            logger.warning("Enabling xavier when replica<=1 is meaningless.")
-            sglang_xavier = False
         sglang_nixl = (
             pd_enabled
             and transport_backend == "nixl"

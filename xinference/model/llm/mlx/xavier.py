@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import xoscar as xo
 
+from ....constants import XINFERENCE_CACHE_DIR
 from ..xavier.contract import (
     KVCacheContract,
     build_prefix_keys,
@@ -20,6 +21,17 @@ from ..xavier.contract import (
 )
 
 logger = logging.getLogger(__name__)
+_TOKENIZER_FILES = (
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "special_tokens_map.json",
+    "added_tokens.json",
+    "vocab.json",
+    "merges.txt",
+    "tokenizer.model",
+    "spiece.model",
+)
+_TOKENIZER_ASSETS = ("tokenizer.json", "tokenizer.model", "spiece.model", "vocab.json")
 
 
 def configure_xavier(model, model_path, model_config, cache_config, n_worker):
@@ -58,25 +70,9 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
     if not all(type(c) is KVCache for c in make_prompt_cache(model)):
         raise ValueError("MLX Xavier requires ordinary full-attention KVCache layers")
     tokenizer_files = {
-        p.name: p
-        for p in path.iterdir()
-        if p.name
-        in (
-            "tokenizer.json",
-            "tokenizer_config.json",
-            "special_tokens_map.json",
-            "added_tokens.json",
-            "vocab.json",
-            "merges.txt",
-            "tokenizer.model",
-            "spiece.model",
-        )
-        and p.is_file()
+        p.name: p for p in path.iterdir() if p.name in _TOKENIZER_FILES and p.is_file()
     }
-    if not tokenizer_files or not any(
-        n in tokenizer_files
-        for n in ("tokenizer.json", "tokenizer.model", "spiece.model", "vocab.json")
-    ):
+    if not any(n in tokenizer_files for n in _TOKENIZER_ASSETS):
         raise ValueError("MLX Xavier requires local tokenizer assets")
     tokenizer_config = (
         json.loads(tokenizer_files["tokenizer_config.json"].read_text())
@@ -91,7 +87,9 @@ def configure_xavier(model, model_path, model_config, cache_config, n_worker):
     model.set_dtype(mx.float16)
     args = asdict(model.args)
     contract = KVCacheContract(
-        weights_fingerprint=fingerprint_files(weights),
+        weights_fingerprint=fingerprint_files(
+            weights, cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints"
+        ),
         tokenizer_fingerprint=fingerprint_files(tokenizer_files),
         attention_fingerprint=fingerprint_metadata(
             {"config": config, "effective_args": args, "dtype": "float16"}
@@ -118,15 +116,21 @@ class MLXXavierCache:
         self._writes: set = set()
         self.imported_tokens = 0
 
+    async def _ensure_configured(self):
+        if self._ref is None:
+            self._ref = await xo.actor_ref(
+                address=self.config["address"], uid=self.config["uid"]
+            )
+        if not self._configured:
+            await self._ref.configure(self.contract.to_dict())
+            self._configured = True
+
+    async def initialize(self):
+        await asyncio.wait_for(self._ensure_configured(), timeout=30)
+
     async def _call(self, method, *args):
         async def invoke():
-            if self._ref is None:
-                self._ref = await xo.actor_ref(
-                    address=self.config["address"], uid=self.config["uid"]
-                )
-            if not self._configured:
-                await self._ref.configure(self.contract.to_dict())
-                self._configured = True
+            await self._ensure_configured()
             return await getattr(self._ref, method)(*args)
 
         return await asyncio.wait_for(invoke(), timeout=30)
@@ -148,7 +152,7 @@ class MLXXavierCache:
             )
         return keys
 
-    def encode(self, cache, tokens):
+    def encode(self, cache, tokens, start=0):
         import mlx.core as mx
         from mlx_lm.models.cache import KVCache
 
@@ -156,9 +160,11 @@ class MLXXavierCache:
         if len(cache) != c.num_layers:
             raise ValueError("MLX cache layer count differs from its contract")
         length = len(tokens)
-        if not length:
+        if start % c.block_size or not 0 <= start <= length:
+            raise ValueError("MLX page publication must start at a block boundary")
+        if start == length:
             return []
-        pages = (length + c.block_size - 1) // c.block_size
+        pages = (length - start + c.block_size - 1) // c.block_size
         data = np.zeros(
             (pages, c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim),
             dtype="<f2",
@@ -178,8 +184,8 @@ class MLXXavierCache:
                 flat = data[:, layer, kv].reshape(
                     pages * c.block_size, c.num_kv_heads, c.head_dim
                 )
-                flat[:length] = np.array(
-                    value[0, :, :length, :].transpose(1, 0, 2), copy=True
+                flat[: length - start] = np.array(
+                    value[0, :, start:length, :].transpose(1, 0, 2), copy=True
                 )
                 data[:, layer, kv] = flat.reshape(
                     pages, c.block_size, c.num_kv_heads, c.head_dim
@@ -244,7 +250,7 @@ class MLXXavierCache:
                 )
                 return self.decode(pages, len(prefix)), len(prefix)
             finally:
-                await self._call("release_handoff", handoff["ticket"])
+                await self._release_handoff(handoff["ticket"])
         try:
             pages = await self._call("get", self.contract.fingerprint, keys)
             length = min(len(prefix), len(pages) * self.contract.block_size)
@@ -255,22 +261,40 @@ class MLXXavierCache:
             )
             return None, 0
 
-    def publish(self, cache, tokens):
-        keys, pages = self.keys(tokens), self.encode(cache, tokens)
+    async def _release_handoff(self, ticket):
+        try:
+            await asyncio.shield(self._call("release_handoff", ticket))
+        except Exception:
+            logger.warning("MLX Xavier handoff release failed", exc_info=True)
+
+    def publish(self, cache, tokens, cached_tokens=0):
+        start = cached_tokens // self.contract.block_size * self.contract.block_size
+        keys = self.keys(tokens)
+        pages = self.encode(cache, tokens, start)
 
         async def write():
             try:
-                await self._call("put", self.contract.fingerprint, keys, pages)
+                await self._call(
+                    "put",
+                    self.contract.fingerprint,
+                    keys,
+                    pages,
+                    start // self.contract.block_size,
+                )
             except Exception:
                 logger.warning("MLX Xavier prefix publication failed", exc_info=True)
 
         task = asyncio.create_task(write())
         self._writes.add(task)
         task.add_done_callback(self._writes.discard)
+        return task
 
-    async def flush(self):
-        if self._writes:
-            await asyncio.gather(*list(self._writes))
+    async def flush(self, writes=None):
+        tasks = list(self._writes) if writes is None else writes
+        if tasks:
+            await asyncio.gather(
+                *(asyncio.shield(task) for task in tasks), return_exceptions=True
+            )
 
     async def prefill(self, model, tokens, prefix_length=None):
         from mlx_lm.generate import PromptProcessingBatch
@@ -320,9 +344,14 @@ class MLXXavierCache:
                 start = end
                 await asyncio.sleep(0)
             cache = batch.extract_cache(0)
+            start = cached // self.contract.block_size * self.contract.block_size
             if not all(
                 await self._call(
-                    "put", self.contract.fingerprint, keys, self.encode(cache, prefix)
+                    "put",
+                    self.contract.fingerprint,
+                    keys,
+                    self.encode(cache, prefix, start),
+                    start // self.contract.block_size,
                 )
             ):
                 raise RuntimeError(
@@ -330,5 +359,5 @@ class MLXXavierCache:
                 )
             return metadata
         except BaseException:
-            await asyncio.shield(self._call("release_handoff", ticket))
+            await self._release_handoff(ticket)
             raise
