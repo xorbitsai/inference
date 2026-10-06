@@ -874,3 +874,92 @@ async def test_cross_engine_invalid_launch_has_no_side_effects(
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
         worker.wait_for_load.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX"])
+async def test_nvidia_mlx_launch_uses_worker_local_assets(
+    launch_runtime, engine, default_engine
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = default_engine
+    kwargs["model_format"] = "mlx" if default_engine == "MLX" else "pytorch"
+    kwargs["replica_config"][0].model_engine = engine
+    kwargs["replica_config"][0].engine_config = {
+        "model_path": "/gpu/model", "model_format": "pytorch"
+    }
+    kwargs["replica_config"][1].model_engine = "MLX"
+    kwargs["replica_config"][1].engine_config = {
+        "model_path": "/mac/model",
+        "model_format": "mlx",
+    }
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierPDDirectory", "PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["handoff_mode"] == "host"
+    for worker, path, fmt in zip(
+        workers, ["/gpu/model", "/mac/model"], ["pytorch", "mlx"]
+    ):
+        options = worker.launch_builtin_model.call_args.kwargs
+        assert options["model_path"] == path and options["model_format"] == fmt
+        assert options["_xavier_cache_config"]["host_handoff"] is True
+        assert options["xavier_config"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+async def test_mlx_prefill_to_nvidia_owns_worker_local_source(launch_runtime, engine):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = engine
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {
+        "model_path": "/mac/model",
+        "model_format": "mlx",
+    }
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierPDDirectory", "XavierHostPDSource", "PDModelActor"}
+    source = actors["XavierHostPDSource"]
+    assert source.address == workers[0].address
+    config = workers[0].launch_builtin_model.call_args.kwargs["_xavier_cache_config"]
+    assert config["source_address"] == source.address
+    assert config["source_uid"] == source.uid
+    assert actors["PDModelActor"].constructor_kwargs["handoff_mode"] == "host"
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_source_mapping
+    assert source in [call.args[0] for call in destroy.await_args_list]
+
+
+@pytest.mark.asyncio
+async def test_failed_mlx_prefill_launch_destroys_host_source(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {"model_format": "mlx"}
+    workers[0].wait_for_load.side_effect = RuntimeError("Metal load failed")
+    with pytest.raises(RuntimeError, match="Metal load failed"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not supervisor._xavier_source_mapping
+    assert actors["XavierHostPDSource"] in [c.args[0] for c in destroy.await_args_list]
+    assert not supervisor._workers_launching
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("index,fmt", [(0, "mlx"), (0, "ggufv2"), (1, "pytorch"), (1, None)])
+async def test_nvidia_mlx_invalid_replica_format_has_no_side_effects(
+    launch_runtime, index, fmt
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][1].model_engine = "MLX"
+    kwargs["replica_config"][1].engine_config = {"model_format": "mlx"}
+    kwargs["replica_config"][index].engine_config["model_format"] = fmt
+    with pytest.raises(ValueError, match="PyTorch NVIDIA and MLX Metal weights"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    assert not supervisor._xavier_source_mapping and not supervisor._xavier_cache_mapping
+    supervisor._status_guard_ref.update_replica_status.assert_not_awaited()
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.wait_for_load.assert_not_awaited()

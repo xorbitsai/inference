@@ -182,15 +182,25 @@ async def test_native_sglang_bootstrap_refreshed_on_replica_replacement():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("source_published", [False, True])
+@pytest.mark.parametrize(
+    "mode,host_source", [("gpu", False), ("host", False), ("host", True)]
+)
 async def test_cross_engine_cancel_drains_source_before_directory_release(
-    router, monkeypatch, source_published
+    router, monkeypatch, source_published, mode, host_source
 ):
     actor, prefill, decode = router
     actor._model_engine = "heterogeneous"
+    actor._handoff_mode = mode
     calls = []
     directory, sender = AsyncMock(), AsyncMock()
     directory.source.return_value = (
-        dict(address="gpu-host", rank=1) if source_published else None
+        dict(
+            address="gpu-host",
+            rank=1,
+            **({"uid": "host-source"} if host_source else {}),
+        )
+        if source_published
+        else None
     )
 
     async def drain(room):
@@ -201,7 +211,8 @@ async def test_cross_engine_cancel_drains_source_before_directory_release(
 
     sender.abort.side_effect = drain
     directory.release.side_effect = release
-    monkeypatch.setattr(xo, "actor_ref", AsyncMock(side_effect=[directory, sender]))
+    actor_ref = AsyncMock(side_effect=[directory, sender])
+    monkeypatch.setattr(xo, "actor_ref", actor_ref)
     started = asyncio.Event()
 
     async def pending(*args, **kwargs):
@@ -213,11 +224,16 @@ async def test_cross_engine_cancel_drains_source_before_directory_release(
     task = asyncio.create_task(actor._infer("generate", "prompt", {}, request_id="r"))
     await started.wait()
     handoff = actor._direct_transfers["r"]
+    assert handoff["mode"] == mode
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
     expected = [("drain", handoff["room"])] if source_published else []
     assert calls == expected + [("release", handoff["room"])]
+    if source_published:
+        assert actor_ref.await_args_list[-1].kwargs["uid"] == (
+            "host-source" if host_source else "xavier-cross-engine-transfer-1"
+        )
     prefill.abort_request.assert_awaited_once()
     decode.abort_request.assert_awaited_once()
     assert not actor._request_set and not actor._direct_transfers

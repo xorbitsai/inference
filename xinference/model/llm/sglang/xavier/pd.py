@@ -37,7 +37,8 @@ class SGLangXavierHandoff:
 
     async def prepare(self, prompt: str, transfer: dict) -> dict:
         handoff = transfer.get("sglang_xavier")
-        if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
+        mode = "host" if self.config.get("host_handoff") else "gpu"
+        if not isinstance(handoff, dict) or handoff.get("mode") != mode:
             raise ValueError("Missing SGLang Xavier GPU bootstrap metadata")
         key = hashlib.sha256(prompt.encode()).digest()
         cached = self._prompt_hashes.pop(key, None)

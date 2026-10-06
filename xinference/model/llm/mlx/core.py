@@ -1111,6 +1111,10 @@ class MLXModel(LLM, ChatModelMixin):
         config.update(self._model_config)
         self._update_model_generation_config(config)
         self._context_length = get_context_length_from_config(config)
+        if self._xavier_config and self._xavier_config.get("heterogeneous"):
+            self._context_length = (
+                self._model_config.get("context_length") or self._context_length
+            )
         if self._xavier_config is not None:
             from .xavier import configure_xavier
 
@@ -1434,8 +1438,16 @@ class MLXModel(LLM, ChatModelMixin):
                 if not isinstance(prompt, str):
                     raise ValueError("MLX Xavier requires a text prompt")
                 tokens = self._tokenizer.encode(prompt)
+                prefill_options = (
+                    dict(transfer=transfer, generate_config=generate_config)
+                    if getattr(xavier, "config", {}).get("heterogeneous")
+                    else {}
+                )
                 metadata = await xavier.prefill(
-                    self._model, tokens, generate_config.get("prompt_cache_prefix_len")
+                    self._model,
+                    tokens,
+                    generate_config.get("prompt_cache_prefix_len"),
+                    **prefill_options,
                 )
                 prefill_completion = Completion(
                     id=str(uuid.uuid4()),

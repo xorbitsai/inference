@@ -494,7 +494,10 @@ class XavierKVManager(BaseKVManager):
             buf[aux_index].copy_(
                 torch.from_numpy(np.frombuffer(payload, dtype=np.uint8).copy())
             )
-        await self.directory.complete(room, nbytes)
+        if self.config.get("host_handoff"):
+            await self.directory.complete(room, 0, host_bytes=nbytes)
+        else:
+            await self.directory.complete(room, nbytes)
 
     async def abort(self, room):
         await self.actor.abort(room)

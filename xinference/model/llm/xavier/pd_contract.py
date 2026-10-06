@@ -24,6 +24,7 @@ def build_pd_contract(
         or config.get("use_sliding_window")
         or config.get("vision_config")
         or config.get("quantization_config")
+        or config.get("quantization")
         or config.get("auto_map")
         or any(kind != "full_attention" for kind in (config.get("layer_types") or []))
     ):

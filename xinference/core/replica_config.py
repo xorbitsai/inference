@@ -182,6 +182,9 @@ def validate_pd_replica_configs(
     model_type: Optional[str],
 ) -> bool:
     """Validate a complete P/D topology before allocating any runtime resources."""
+    engines = {
+        (cfg.model_engine or model_engine or "").lower() for cfg in configs or []
+    }
     reserved = {
         "model_uid",
         "model_name",
@@ -214,6 +217,9 @@ def validate_pd_replica_configs(
         "xavier_cache_bytes",
         "xavier_gpu_cache_bytes",
     }
+    if "mlx" in engines and len(engines) > 1:
+        # CUDA and Metal replicas need their own local checkpoint paths/formats.
+        reserved -= {"model_path", "model_format"}
     for cfg in configs or []:
         invalid = {
             key for key in cfg.engine_config if key in reserved or key.startswith("_")
@@ -227,9 +233,6 @@ def validate_pd_replica_configs(
         if any(cfg.model_engine or cfg.engine_config for cfg in configs or []):
             raise ValueError("Per-replica engine settings require explicit PD roles")
         return False
-    engines = {
-        (cfg.model_engine or model_engine or "").lower() for cfg in configs or []
-    }
     if (
         not engines <= {"vllm", "sglang", "mlx"}
         or (model_type or "LLM").lower() != "llm"
@@ -243,4 +246,20 @@ def validate_pd_replica_configs(
         raise ValueError(
             "PD separation requires both prefill and decode replicas, without hybrid replicas"
         )
+    if "mlx" in engines and len(engines) > 1:
+        role_engines = {
+            role: {
+                (cfg.model_engine or model_engine or "").lower()
+                for cfg in configs or []
+                if cfg.role == role
+            }
+            for role in ("prefill", "decode")
+        }
+        if not any(
+            role_engines[role] == {"mlx"} and role_engines[other] <= {"vllm", "sglang"}
+            for role, other in (("prefill", "decode"), ("decode", "prefill"))
+        ):
+            raise ValueError(
+                "Cross-engine MLX PD requires MLX on one role and NVIDIA on the other"
+            )
     return True

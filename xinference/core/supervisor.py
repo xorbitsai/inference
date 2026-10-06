@@ -236,6 +236,7 @@ class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         self._pd_model_mapping: Dict[str, Any] = {}
         self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
+        self._xavier_source_mapping: Dict[str, List[xo.ActorRefType]] = {}
         self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
@@ -3115,6 +3116,7 @@ class SupervisorActor(xo.StatelessActor):
             for cfg in replica_config or []
         ]
         heterogeneous_pd = pd_enabled and len(set(replica_engines)) > 1
+        host_handoff = heterogeneous_pd and "mlx" in replica_engines
         if (
             pd_enabled
             and not heterogeneous_pd
@@ -3124,7 +3126,11 @@ class SupervisorActor(xo.StatelessActor):
                 cfg.model_engine for cfg in replica_config or [] if cfg.model_engine
             )
         if heterogeneous_pd and transport_backend != "xavier":
-            raise ValueError("Cross-engine PD requires Xavier GPU transport")
+            raise ValueError(
+                "Cross-engine PD requires Xavier transport"
+                if host_handoff
+                else "Cross-engine PD requires Xavier GPU transport"
+            )
         # Xavier-related
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
         if (
@@ -3191,7 +3197,7 @@ class SupervisorActor(xo.StatelessActor):
         if sglang_xavier or heterogeneous_pd:
             if (
                 model_type not in (None, "LLM")
-                or model_format not in (None, "pytorch")
+                or (not host_handoff and model_format not in (None, "pytorch"))
                 or quantization not in (None, "none")
             ):
                 raise ValueError(
@@ -3199,6 +3205,14 @@ class SupervisorActor(xo.StatelessActor):
                     if heterogeneous_pd
                     else "SGLang Xavier requires unquantized PyTorch LLM weights"
                 )
+            if host_handoff:
+                for cfg, engine in zip(replica_config or [], replica_engines):
+                    replica_format = cfg.engine_config.get("model_format", model_format)
+                    allowed_formats = ("mlx",) if engine == "mlx" else (None, "pytorch")
+                    if replica_format not in allowed_formats:
+                        raise ValueError(
+                            "NVIDIA/MLX PD requires PyTorch NVIDIA and MLX Metal weights"
+                        )
         if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
                 "address": self.address,
@@ -3330,11 +3344,15 @@ class SupervisorActor(xo.StatelessActor):
 
             replica_kwargs = dict(kwargs)
             replica_engine = model_engine
+            replica_path = model_path
+            replica_format = model_format
             if pd_enabled:
                 assert replica_config is not None
                 cfg = replica_config[rank - 1]
                 replica_engine = cfg.model_engine or model_engine
                 replica_kwargs.update(cfg.engine_config)
+                replica_path = replica_kwargs.pop("model_path", model_path)
+                replica_format = replica_kwargs.pop("model_format", model_format)
             if heterogeneous_pd:
                 assert replica_config is not None
                 from ..model.llm.xavier.transport import get_transport_host
@@ -3347,6 +3365,7 @@ class SupervisorActor(xo.StatelessActor):
                     "host": get_transport_host(worker_ref.address),
                     "heterogeneous": True,
                     "gpu_cache_bytes": 0,
+                    "host_handoff": host_handoff,
                 }
             if sglang_xavier and pd_enabled:
                 assert replica_config is not None
@@ -3376,11 +3395,32 @@ class SupervisorActor(xo.StatelessActor):
                         worker_ref.address
                     )
             try:
+                if (
+                    heterogeneous_pd
+                    and (replica_engine or "").lower() == "mlx"
+                    and cfg.role == "prefill"
+                ):
+                    from ..model.llm.xavier.backends.bytes.pd import XavierHostPDSource
+
+                    source_uid = f"xavier-host-pd-{model_uid}-{rank}"
+                    source = await xo.create_actor(
+                        XavierHostPDSource,
+                        self._xavier_cache_mapping[model_uid],
+                        rank,
+                        address=worker_ref.address,
+                        uid=source_uid,
+                    )
+                    if not hasattr(self, "_xavier_source_mapping"):
+                        self._xavier_source_mapping = {}
+                    self._xavier_source_mapping.setdefault(model_uid, []).append(source)
+                    replica_kwargs["_xavier_cache_config"].update(
+                        source_address=source.address, source_uid=source_uid
+                    )
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
                     model_name=model_name,
                     model_size_in_billions=model_size_in_billions,
-                    model_format=model_format,
+                    model_format=replica_format,
                     quantization=quantization,
                     model_engine=replica_engine,
                     model_type=model_type,
@@ -3389,7 +3429,7 @@ class SupervisorActor(xo.StatelessActor):
                     peft_model_config=peft_model_config,
                     gpu_idx=replica_gpu_idx,
                     download_hub=download_hub,
-                    model_path=model_path,
+                    model_path=replica_path,
                     enable_virtual_env=enable_virtual_env,
                     virtual_env_packages=virtual_env_packages,
                     virtual_env_find_links=virtual_env_find_links,
@@ -3732,6 +3772,7 @@ class SupervisorActor(xo.StatelessActor):
                         model_engine=(
                             "heterogeneous" if heterogeneous_pd else model_engine
                         ),
+                        handoff_mode="host" if host_handoff else "gpu",
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
@@ -5470,6 +5511,13 @@ class SupervisorActor(xo.StatelessActor):
             except Exception:
                 logger.debug(
                     "Failed to destroy PD router for %s", model_uid, exc_info=True
+                )
+        for source in getattr(self, "_xavier_source_mapping", {}).pop(model_uid, []):
+            try:
+                await xo.destroy_actor(source)
+            except Exception:
+                logger.warning(
+                    "Destroy Xavier host source failed for %s", model_uid, exc_info=True
                 )
         if cache_ref is not None:
             try:

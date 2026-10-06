@@ -155,7 +155,8 @@ class CrossEngineConnector(XavierConnector):
     async def _prepare(self, request):
         params = request.kv_transfer_params or {}
         handoff = params.get("sglang_xavier")
-        if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
+        mode = "host" if self._xavier_config.get("host_handoff") else "gpu"
+        if not isinstance(handoff, dict) or handoff.get("mode") != mode:
             raise ValueError("Missing cross-engine Xavier GPU room")
         room = handoff["room"]
         if params.get("xavier_prompt_digest") != prompt_digest(
