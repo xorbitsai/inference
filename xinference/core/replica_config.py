@@ -190,7 +190,10 @@ def validate_pd_replica_configs(
     engines = {
         (cfg.model_engine or model_engine or "").lower() for cfg in configs or []
     }
-    if not engines <= {"vllm", "sglang", "mlx"} or (model_type or "LLM").lower() != "llm":
+    if (
+        not engines <= {"vllm", "sglang", "mlx"}
+        or (model_type or "LLM").lower() != "llm"
+    ):
         raise ValueError(
             "PD separation requires model_type=LLM and model_engine=vLLM, SGLang or MLX"
         )

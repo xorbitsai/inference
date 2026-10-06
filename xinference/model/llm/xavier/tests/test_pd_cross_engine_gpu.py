@@ -85,9 +85,14 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(kv_contract, produ
             )
             actors.append(actor)
         room, source, destination = 123, [5, 1, 3], [2, 6, 4]
-        for role in ("prefill", "decode"):
+        for rank, role in enumerate(("prefill", "decode"), 1):
             await directory.prepare(
-                room, contract.fingerprint, prompt_digest(list(range(129))), role, 129
+                room,
+                contract.fingerprint,
+                prompt_digest(list(range(129))),
+                role,
+                rank=rank,
+                prompt_tokens=129,
             )
         if producer == "vllm":
             await actors[0].register_prefill(room, "request", source, 42, 129)

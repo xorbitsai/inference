@@ -72,7 +72,7 @@ async def test_cross_prepare_checks_actual_token_ids_once(cross_module):
     )
     instance._prepared = set()
     instance.contract = SimpleNamespace(fingerprint="a" * 64)
-    instance._xavier_config = dict(role="decode")
+    instance._xavier_config = dict(role="decode", rank=1)
     directory = AsyncMock()
     instance.directory = AsyncMock(return_value=directory)
     request = SimpleNamespace(
@@ -84,7 +84,8 @@ async def test_cross_prepare_checks_actual_token_ids_once(cross_module):
     assert await instance._prepare(request) == 9
     directory.prepare.assert_awaited_once()
     args = directory.prepare.call_args.args
-    assert args == (9, "a" * 64, cross_module.prompt_digest([1, 2, 3]), "decode", 3)
+    assert args == (9, "a" * 64, cross_module.prompt_digest([1, 2, 3]), "decode")
+    assert directory.prepare.call_args.kwargs == dict(rank=1, prompt_tokens=3)
 
 
 @pytest.mark.parametrize(

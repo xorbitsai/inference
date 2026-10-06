@@ -62,7 +62,16 @@ class XavierPDDirectory(xo.StatelessActor):
             state["source_ready"].set()
             state["complete_ready"].set()
 
-    def prepare(self, room, namespace, prompt_hash, role, rank=None, timeout=None, prompt_tokens=None):
+    def prepare(
+        self,
+        room,
+        namespace,
+        prompt_hash,
+        role,
+        rank=None,
+        timeout=None,
+        prompt_tokens=None,
+    ):
         self._expire()
         if namespace != self.namespace or role not in ("prefill", "decode"):
             raise ValueError("Unregistered SGLang Xavier PD namespace or role")

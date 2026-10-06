@@ -80,8 +80,19 @@ def test_first_token_metadata_and_room_marker():
 def test_directory_proves_imported_tokens_and_single_completion(kv_contract):
     directory = XavierPDDirectory()
     directory.configure(kv_contract.fingerprint)
-    for role in ("prefill", "decode"):
-        directory.prepare(1, kv_contract.fingerprint, prompt_digest([1, 2]), role, prompt_tokens=2)
+    for rank, role in enumerate(("prefill", "decode")):
+        directory.prepare(
+            1,
+            kv_contract.fingerprint,
+            prompt_digest([1, 2]),
+            role,
+            rank=rank,
+            timeout=45,
+            prompt_tokens=2,
+        )
+    assert directory.rooms[1]["ranks"] == {"prefill": 0, "decode": 1}
+    assert directory.rooms[1]["timeout"] == 45
+    assert directory.request_info(1) == dict(prompt_tokens=2)
     directory.complete(1, 4096, 1)
     directory.complete(1, 4096, 1)
     stats = directory.get_stats()
