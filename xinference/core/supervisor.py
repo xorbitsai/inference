@@ -4651,7 +4651,11 @@ class SupervisorActor(xo.StatelessActor):
                     status.update(status="ready", stage="ready", weights_reused=True)
                 finally:
                     status["finished_at"] = time.time()
-                    self._model_reload_tasks.pop(model_uid, None)
+                    if (
+                        self._model_reload_tasks.get(model_uid)
+                        is asyncio.current_task()
+                    ):
+                        self._model_reload_tasks.pop(model_uid, None)
                     self._invalidate_list_models_debounce_cache()
 
             self._model_reload_tasks[model_uid] = asyncio.create_task(run())
@@ -4660,7 +4664,7 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async with self._get_model_replica_lock(model_uid):
-            task = self._model_reload_tasks.get(model_uid)
+            task = self._model_reload_tasks.pop(model_uid, None)
             if task is not None:
                 # Do not await an actor RPC cancellation: a hung engine cannot
                 # acknowledge it. Worker termination forcibly removes the pool.

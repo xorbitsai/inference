@@ -322,3 +322,40 @@ async def test_worker_forces_pool_removal_during_engine_rebuild():
     ref.get_pool_addresses.assert_not_called()
     pool.remove_sub_pool.assert_awaited_once_with("model-pool", force=True)
     assert not worker._model_uid_to_model_status and not worker._model_uid_to_model
+
+
+@pytest.mark.asyncio
+async def test_late_cancelled_reload_cannot_remove_relaunched_model_job():
+    supervisor, worker = make_pipeline(make_actor())
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def delayed_rpc(*args):
+        entered.set()
+        try:
+            await release.wait()
+        except asyncio.CancelledError:
+            # Simulate an actor RPC that cannot promptly acknowledge cancel.
+            await release.wait()
+
+    worker._model_uid_to_model["test-replica"].reload = delayed_rpc
+
+    async def terminate(*args):
+        worker._model_uid_to_model.clear()
+        worker._model_uid_to_model_status.clear()
+
+    supervisor._terminate_model = terminate
+    await supervisor.reload_model("test", {"max_num_seqs": 32})
+    old_task = supervisor._model_reload_tasks["test"]
+    await entered.wait()
+    await supervisor.terminate_model("test")
+    assert "test" not in supervisor._model_reload_tasks
+    new_task = asyncio.create_task(asyncio.Event().wait())
+    supervisor._model_reload_tasks["test"] = new_task
+    try:
+        release.set()
+        await old_task
+        assert supervisor._model_reload_tasks["test"] is new_task
+    finally:
+        new_task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await new_task
