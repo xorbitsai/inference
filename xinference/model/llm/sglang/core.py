@@ -356,7 +356,7 @@ class SGLANGModel(LLM):
                 from .xavier.pd import SGLangXavierHandoff
 
                 self._xavier_handoff = SGLangXavierHandoff(
-                    cache_config, self._model_config["page_size"], self._get_tokenizer()
+                    cache_config, self._get_tokenizer()
                 )
             elif nixl_config is not None:
                 from .pd import SGLangNixlHandoff
@@ -863,10 +863,13 @@ class SGLANGModel(LLM):
         logprob_consumed = 0
 
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
+        pd_decode = self._is_pd_decode()
+        finished = False
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.post(
                 self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
+                response.raise_for_status()
                 async for chunk, _ in response.content.iter_chunks():
                     chunk = chunk.decode("utf-8")
                     if chunk and chunk.startswith("data:"):
@@ -877,6 +880,10 @@ class SGLANGModel(LLM):
                             need_stop = True
                         if chunk:
                             data = json.loads(chunk[5:].strip("\n"))
+                            if pd_decode:
+                                finished = (
+                                    self._check_pd_finish(data["meta_info"]) or finished
+                                )
                             cur = data["text"][pos:]
                             if cur:
                                 (
@@ -889,6 +896,8 @@ class SGLANGModel(LLM):
                             pos += len(cur)
                             if need_stop:
                                 break
+        if pd_decode and not finished:
+            raise RuntimeError("SGLang PD decode stream ended without a finish reason")
 
     async def _non_stream_generate(
         self,
@@ -907,12 +916,39 @@ class SGLANGModel(LLM):
             "sampling_params": sampling_params,
             **self._lift_logprob_request_params(sampling_params),
         }
-        async with aiohttp.ClientSession(trust_env=True) as session:
+        session_options: Dict[str, Any] = {"trust_env": True}
+        if getattr(self, "_xavier_handoff", None) is not None:
+            # The handoff has its own configurable progress/lease deadlines.
+            # aiohttp's default total=300 must not shorten that wait.
+            session_options["timeout"] = aiohttp.ClientTimeout(total=None)
+        async with aiohttp.ClientSession(**session_options) as session:
             async with session.post(
                 self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
                 response.raise_for_status()
-                return await response.json()
+                state = await response.json()
+                if self._is_pd_decode():
+                    self._check_pd_finish(state["meta_info"])
+                return state
+
+    def _is_pd_decode(self) -> bool:
+        handoff = getattr(self, "_xavier_handoff", None) or getattr(
+            self, "_nixl_handoff", None
+        )
+        return handoff is not None and handoff.role == "decode"
+
+    @staticmethod
+    def _check_pd_finish(meta_info: dict) -> bool:
+        reason = meta_info.get("finish_reason")
+        if isinstance(reason, dict):
+            if reason.get("type") == "abort":
+                raise RuntimeError(
+                    f"SGLang PD decode aborted: {reason.get('message', 'KV transfer failed')}"
+                )
+            reason = reason.get("type")
+        elif reason == "abort":
+            raise RuntimeError("SGLang PD decode aborted")
+        return reason is not None and str(reason).lower() != "none"
 
     def _engine_headers(self) -> dict:
         api_key = getattr(self, "_model_config", {}).get("api_key")
@@ -951,6 +987,17 @@ class SGLANGModel(LLM):
         )
         handoff = None
         pending_handoff = None
+
+        async def release_handoff(active_handoff, failed):
+            try:
+                await pd.release(active_handoff, failed=failed)
+            except Exception:
+                logger.warning(
+                    "Failed to release SGLang handoff for request %s",
+                    request_id,
+                    exc_info=True,
+                )
+
         prefill = isinstance(transfer, dict) and transfer.get("do_remote_decode")
         if transfer is not None:
             if pd is None or image_data is not None:
@@ -1037,9 +1084,9 @@ class SGLANGModel(LLM):
                         )
                 self._active_request_ids.discard(request_id)
                 if handoff is not None:
-                    await pd.release(handoff, failed=not completed)
+                    await release_handoff(handoff, failed=not completed)
                 if pending_handoff is not None:
-                    await pd.release(pending_handoff, failed=True)
+                    await release_handoff(pending_handoff, failed=True)
         else:
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
@@ -1180,7 +1227,7 @@ class SGLANGModel(LLM):
                             )
                     self._active_request_ids.discard(request_id)
                     if handoff is not None:
-                        await pd.release(handoff, failed=not completed)
+                        await release_handoff(handoff, failed=not completed)
 
             return pd_stream()
 

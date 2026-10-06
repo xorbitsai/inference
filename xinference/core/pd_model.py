@@ -460,6 +460,19 @@ class PDModelActor(xo.StatelessActor):
         )
         result = None
 
+        async def close_decode_stream():
+            try:
+                if hasattr(result, "aclose"):
+                    await result.aclose()
+                elif hasattr(result, "destroy"):
+                    await result.destroy()
+            finally:
+                await actor_call(
+                    decode,
+                    "decrease_serve_count",
+                    _rpc_operation_request_id=request_id,
+                )
+
         async def stop():
             # Abort both native requests before cancellation so their schedulers
             # drain GPU work before reclaiming source or destination slots.
@@ -493,6 +506,17 @@ class PDModelActor(xo.StatelessActor):
                 return result
         except BaseException:
             await stop()
+            # The decode RPC can transfer stream ownership before the prefill
+            # task fails, including when both tasks finish in the same turn.
+            if d_task.done() and not d_task.cancelled() and d_task.exception() is None:
+                result = d_task.result()
+                if hasattr(result, "__aiter__"):
+                    try:
+                        await close_decode_stream()
+                    except Exception:
+                        logger.warning(
+                            "Failed to close SGLang decode stream", exc_info=True
+                        )
             raise
 
         async def stream():
@@ -523,22 +547,12 @@ class PDModelActor(xo.StatelessActor):
                     next_chunk.cancel()
                     await asyncio.gather(next_chunk, return_exceptions=True)
                 try:
-                    if hasattr(result, "aclose"):
-                        await result.aclose()
-                    elif hasattr(result, "destroy"):
-                        await result.destroy()
+                    await close_decode_stream()
                 finally:
-                    try:
-                        await actor_call(
-                            decode,
-                            "decrease_serve_count",
-                            _rpc_operation_request_id=request_id,
-                        )
-                    finally:
-                        if completed:
-                            await self.free_prefill_model_cache(request_id)
-                        else:
-                            await stop()
+                    if completed:
+                        await self.free_prefill_model_cache(request_id)
+                    else:
+                        await stop()
 
         return stream()
 

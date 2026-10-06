@@ -208,7 +208,9 @@ class XavierGPUActor(xo.StatelessActor):
             )
             if aux is None:
                 raise ValueError("Missing SGLang Xavier first-token metadata")
-        self.transfer.register_direct(ticket, ticket, pages)
+        self.transfer.register_direct(
+            ticket, ticket, pages, lease_timeout=transfer_timeout()
+        )
         # Scheduler-owned source slots remain pinned until every chunk is read.
         state["chunks"].append(dict(ticket=ticket, pages=pages, final=final, aux=aux))
 
@@ -614,6 +616,10 @@ class XavierKVSender(BaseKVSender):
         raise RuntimeError("SGLang Xavier producer GPU transfer failed")
 
     def abort(self):
+        # SGLang reclaims source pages as soon as abort() returns. Mark failure
+        # locally, but retain the drain fence before allowing that reclamation.
+        self.aborted = True
+
         async def drain_and_abort():
             if self._operation is not None:
                 await asyncio.gather(
@@ -622,7 +628,6 @@ class XavierKVSender(BaseKVSender):
             await self.kv_mgr.abort(self.room)
 
         self.kv_mgr.call(drain_and_abort())
-        self.aborted = True
         if self.future is not None:
             self.future.cancel()
 
@@ -634,7 +639,7 @@ class XavierKVSender(BaseKVSender):
                 )
             await self.kv_mgr.actor.clear(self.room)
 
-        self.kv_mgr.call(drain_and_clear())
+        self.kv_mgr.submit(drain_and_clear())
 
 
 class XavierKVReceiver(BaseKVReceiver):
@@ -684,11 +689,13 @@ class XavierKVReceiver(BaseKVReceiver):
         raise RuntimeError("SGLang Xavier decode GPU transfer failed")
 
     def abort(self):
-        self.kv_mgr.call(self.kv_mgr.abort(self.room))
         self.aborted = True
+        # Decode can immediately free destinations after abort/failed poll.
+        # Its GPU writes and local metadata commit must drain before returning.
+        self.kv_mgr.call(self.kv_mgr.abort(self.room))
 
     def clear(self):
-        self.kv_mgr.call(self.kv_mgr.actor.clear(self.room))
+        self.kv_mgr.submit(self.kv_mgr.actor.clear(self.room))
 
     def ensure_abort_notified(self, *, force_arm=False):
         self.abort()

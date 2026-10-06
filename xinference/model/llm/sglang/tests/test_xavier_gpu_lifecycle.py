@@ -12,6 +12,111 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 
+@pytest.mark.asyncio
+async def test_sglang_chunk_uses_configured_lease_for_delayed_gpu_pull(
+    gpu_module, monkeypatch
+):
+    import torch
+
+    from ...vllm.xavier.test.test_direct_handoff import direct_runtime, peer_for
+    from ...xavier.backends.torch import direct_handoff
+    from ..xavier.settings import TRANSFER_TIMEOUT_ENV
+
+    clock = [0.0]
+    monkeypatch.setattr(
+        direct_handoff, "time", SimpleNamespace(monotonic=lambda: clock[0])
+    )
+    monkeypatch.setenv(TRANSFER_TIMEOUT_ENV, "600")
+    source, dest = direct_runtime(monkeypatch), direct_runtime(monkeypatch)
+    source.caches["K"].fill_(7)
+    source.register_direct("legacy", "vllm-default", [2])
+    assert source.direct_requests["legacy"].deadline == 120
+    actor = gpu_module.XavierGPUActor(
+        None, None, SimpleNamespace(publish_source=AsyncMock()), "ns", 0
+    )
+    actor.transfer = source
+    actor.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
+    actor.chunk_capacity = 1
+    await actor.open(1)
+    actor.init(1, 1, 0)
+    await actor.add_chunk(1, [1])
+    assert source.direct_requests["1:0"].deadline == 600
+    clock[0] = 121
+    assert source.poll_direct() == {"vllm-default"}
+    monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=peer_for(source)))
+
+    async def copy(buffers, refs):
+        refs[0].copy_(buffers[0])
+
+    monkeypatch.setattr("xoscar.copy_to", copy)
+    assert not await dest.run(dest.load_direct, [{0: {"K": {1: 5}}}], ["1:0"])
+    assert torch.equal(source.caches["K"][1], dest.caches["K"][5])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", ["sender", "receiver"])
+async def test_abort_marks_failure_but_retains_slot_drain_fence(gpu_module, role):
+    loop = asyncio.get_running_loop()
+    entered, drained = asyncio.Event(), asyncio.Event()
+
+    async def abort(room):
+        entered.set()
+        await drained.wait()
+
+    manager = SimpleNamespace(
+        actor=SimpleNamespace(open=AsyncMock()),
+        abort=abort,
+        submit=lambda coroutine: asyncio.run_coroutine_threadsafe(coroutine, loop),
+        call=lambda coroutine: asyncio.run_coroutine_threadsafe(coroutine, loop).result(
+            timeout=2
+        ),
+    )
+    adapter = (
+        gpu_module.XavierKVSender(manager, "unused", 1, [], 0)
+        if role == "sender"
+        else gpu_module.XavierKVReceiver(manager, "unused", 1)
+    )
+    task = asyncio.create_task(asyncio.to_thread(adapter.abort))
+    await entered.wait()
+    assert adapter.aborted
+    # Native SGLang can reuse engine slots on return, so abort must not finish
+    # until the actor's actual GPU/metadata writes and source reads drain.
+    assert not task.done()
+    drained.set()
+    await task
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", ["sender", "receiver"])
+async def test_clear_submits_cleanup_without_scheduler_rpc_wait(gpu_module, role):
+    futures = []
+
+    def submit(coroutine):
+        task = asyncio.create_task(coroutine)
+        futures.append(task)
+        return task
+
+    manager = SimpleNamespace(
+        actor=SimpleNamespace(clear=AsyncMock()),
+        submit=submit,
+        call=Mock(side_effect=AssertionError("clear must not block scheduler")),
+    )
+    if role == "sender":
+        adapter = object.__new__(gpu_module.XavierKVSender)
+        adapter.kv_mgr, adapter.room = manager, 1
+        adapter._operation = concurrent.futures.Future()
+    else:
+        adapter = gpu_module.XavierKVReceiver(manager, "unused", 1)
+    adapter.clear()
+    manager.call.assert_not_called()
+    if role == "sender":
+        await asyncio.sleep(0)
+        manager.actor.clear.assert_not_awaited()
+        adapter._operation.set_result(None)
+    await asyncio.gather(*futures)
+    manager.actor.clear.assert_awaited_once_with(1)
+
+
 @pytest.fixture
 def gpu_module(monkeypatch):
     # Exercise adapter lifetime without installing the optional CUDA engine.

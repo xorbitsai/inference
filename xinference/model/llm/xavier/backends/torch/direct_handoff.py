@@ -72,7 +72,9 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
         self.direct_requests.clear()
         self.finished_sending.clear()
 
-    def register_direct(self, ticket, request_id, blocks, hashes=None):
+    def register_direct(
+        self, ticket, request_id, blocks, hashes=None, *, lease_timeout: float = 120
+    ):
         if self.closing or ticket in self.direct_requests:
             raise ValueError("Invalid direct handoff registration")
         if not blocks or any(
@@ -86,7 +88,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
         self.direct_requests[ticket] = DirectRequest(
             request_id,
             set(blocks),
-            time.monotonic() + 120,
+            time.monotonic() + lease_timeout,
             hashes=dict(zip(blocks, hashes or [])),
         )
         self.metrics["direct_registered"] += 1

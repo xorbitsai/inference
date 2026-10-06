@@ -15,7 +15,7 @@ from .settings import transfer_timeout
 
 
 class SGLangXavierHandoff:
-    def __init__(self, cache_config: dict, page_size: int, tokenizer):
+    def __init__(self, cache_config: dict, tokenizer):
         self.config, self.tokenizer = cache_config, tokenizer
         self.role = cache_config["role"]
         # The directory and namespace live for this model's deployment. Keep

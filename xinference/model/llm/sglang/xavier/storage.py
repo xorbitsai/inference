@@ -5,6 +5,7 @@
 import asyncio
 import importlib.metadata
 import logging
+import threading
 
 import torch
 import xoscar as xo
@@ -30,22 +31,51 @@ class XavierHiCacheStorage(HiCacheStorage):
         self._contract = KVCacheContract.from_dict(self._config["contract"])
         self._namespace = None
         self._closed = False
+        self._rpc_loop = None
+        self._rpc_thread = None
+        self._rpc_ref = None
+        self._rpc_lock = threading.Lock()
 
     def _rpc(self, method, *args):
         if self._closed:
             raise RuntimeError("Xavier storage is closed")
-        loop = acquire_actor_loop()
+        with self._rpc_lock:
+            if self._closed:
+                raise RuntimeError("Xavier storage is closed")
+            if self._rpc_thread is None:
+                ready = threading.Event()
+
+                def run():
+                    loop = self._rpc_loop = acquire_actor_loop()
+                    ready.set()
+                    try:
+                        loop.run_forever()
+                    finally:
+                        release_actor_loop(loop)
+
+                self._rpc_thread = threading.Thread(target=run, daemon=True)
+                self._rpc_thread.start()
+                ready.wait()
+            loop = self._rpc_loop
 
         async def invoke():
-            ref = await xo.actor_ref(
-                address=self._config["address"], uid=self._config["uid"]
-            )
-            return await getattr(ref, method)(*args)
+            if self._rpc_ref is None:
+                self._rpc_ref = await xo.actor_ref(
+                    address=self._config["address"], uid=self._config["uid"]
+                )
+            return await getattr(self._rpc_ref, method)(*args)
 
+        with self._rpc_lock:
+            if self._closed:
+                raise RuntimeError("Xavier storage is closed")
+            future = asyncio.run_coroutine_threadsafe(
+                asyncio.wait_for(invoke(), timeout=10), loop
+            )
         try:
-            return loop.run_until_complete(asyncio.wait_for(invoke(), timeout=10))
-        finally:
-            release_actor_loop(loop)
+            return future.result(timeout=11)
+        except BaseException:
+            future.cancel()
+            raise
 
     def register_mem_pool_host(self, pool):
         super().register_mem_pool_host(pool)
@@ -175,4 +205,13 @@ class XavierHiCacheStorage(HiCacheStorage):
         return self._rpc("get_stats")
 
     def close(self):
-        self._closed = True
+        with self._rpc_lock:
+            if self._closed:
+                return
+            self._closed = True
+            if self._rpc_thread is None:
+                return
+            self._rpc_loop.call_soon_threadsafe(self._rpc_loop.stop)
+        self._rpc_thread.join(timeout=6)
+        if self._rpc_thread.is_alive():
+            logger.warning("Timed out stopping Xavier HiCache RPC thread")

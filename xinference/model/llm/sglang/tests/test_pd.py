@@ -9,6 +9,123 @@ from ..core import SGLANGModel
 from ..pd import SGLangNixlHandoff, configure_nixl
 
 
+@pytest.mark.parametrize("host", ["0.0.0.0", "::"])
+def test_native_wildcard_worker_bind_and_bootstrap_use_resolved_interface(
+    monkeypatch, host
+):
+    from unittest.mock import Mock
+
+    resolve = Mock(return_value="10.0.0.8")
+    monkeypatch.setattr("xinference.model.llm.sglang.pd.resolve_nixl_host", resolve)
+    config, replica = {}, dict(role="prefill", host=host)
+    configure_nixl(config, replica, "0.5.21", 1)
+    resolve.assert_called_once_with(host, "a reachable worker address")
+    assert config["host"] == replica["host"] == "10.0.0.8"
+    model = object.__new__(SGLANGModel)
+    model._nixl_handoff = SGLangNixlHandoff(replica)
+    assert model.get_pd_bootstrap() == dict(host="10.0.0.8", port=replica["port"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", ["http_error", "abort", "truncated", "finished"])
+async def test_pd_decode_stream_rejects_transport_errors_and_missing_finish(result):
+    import json
+    from types import SimpleNamespace
+
+    import aiohttp
+    from aiohttp import web
+
+    model = object.__new__(SGLANGModel)
+    model._model_config = {}
+    model._nixl_handoff = SGLangNixlHandoff(dict(role="decode"))
+
+    async def handle(request):
+        if result == "http_error":
+            return web.Response(status=500, text="transfer unavailable")
+        response = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
+        await response.prepare(request)
+        states = [dict(text="ok", meta_info=dict(finish_reason=None))]
+        if result != "truncated":
+            states.append(
+                dict(
+                    text="ok",
+                    meta_info=dict(
+                        finish_reason={
+                            "type": "abort" if result == "abort" else "length"
+                        }
+                    ),
+                )
+            )
+        for state in states:
+            await response.write(("data: " + json.dumps(state) + "\n\n").encode())
+        await response.write(b"data: [DONE]\n\n")
+        return response
+
+    app = web.Application()
+    app.router.add_post("/generate", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
+    model._engine = SimpleNamespace(generate_url=url + "/generate")
+    try:
+        if result == "finished":
+            assert [text async for _, text in model._stream_generate("prompt")] == [
+                "ok"
+            ]
+        else:
+            error = (
+                aiohttp.ClientResponseError if result == "http_error" else RuntimeError
+            )
+            with pytest.raises(error):
+                async for _ in model._stream_generate("prompt"):
+                    pass
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("xavier", [False, True])
+async def test_xavier_wait_is_not_shortened_by_default_aiohttp_total_timeout(
+    monkeypatch, xavier
+):
+    import asyncio
+    from types import SimpleNamespace
+
+    import aiohttp
+    from aiohttp import web
+
+    monkeypatch.setattr(
+        aiohttp.client, "DEFAULT_TIMEOUT", aiohttp.ClientTimeout(total=0.01)
+    )
+    model = object.__new__(SGLANGModel)
+    model._model_config = {}
+    if xavier:
+        model._xavier_handoff = SimpleNamespace(role="prefill")
+
+    async def handle(request):
+        await asyncio.sleep(0.03)
+        return web.json_response(dict(text="ok", meta_info={}))
+
+    app = web.Application()
+    app.router.add_post("/generate", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
+    model._engine = SimpleNamespace(generate_url=url + "/generate")
+    try:
+        if xavier:
+            assert (await model._non_stream_generate("prompt"))["text"] == "ok"
+        else:
+            with pytest.raises(asyncio.TimeoutError):
+                await model._non_stream_generate("prompt")
+    finally:
+        await runner.cleanup()
+
+
 def test_native_sglang_configuration_uses_unique_bootstrap_ports():
     ports, credentials = [], []
     for role in ("prefill", "decode"):

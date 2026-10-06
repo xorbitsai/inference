@@ -182,7 +182,7 @@ async def test_native_sglang_gpu_pd(tmp_path, monkeypatch):
                 model.model_uid = role
                 model._active_request_ids = set()
                 model._engine = engine
-                model._xavier_handoff = SGLangXavierHandoff(cache, 64, tokenizer)
+                model._xavier_handoff = SGLangXavierHandoff(cache, tokenizer)
                 models.append(model)
 
             async def request(room, text, stream=False):

@@ -30,7 +30,6 @@ async def deployment():
             model._active_request_ids = set()
             model._xavier_handoff = SGLangXavierHandoff(
                 dict(address=actor.address, uid="cache", role=role),
-                4,
                 SimpleNamespace(encode=lambda text: list(text.encode())),
             )
             model._non_stream_generate = AsyncMock(
@@ -62,6 +61,47 @@ def config(role, **kwargs):
         ),
         **kwargs,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("failed", [False, True])
+async def test_release_failure_preserves_generation_result_or_original_error(
+    deployment, stream, failed, caplog
+):
+    _, _, decode = deployment
+    decode._xavier_handoff = SimpleNamespace(
+        role="decode",
+        accept=AsyncMock(return_value={"room": 1}),
+        check_hit=AsyncMock(),
+        release=AsyncMock(side_effect=RuntimeError("directory unavailable")),
+    )
+    if failed:
+        decode._non_stream_generate.side_effect = RuntimeError(
+            "original engine failure"
+        )
+
+    async def chunks(*args, **kwargs):
+        if failed:
+            raise RuntimeError("original engine failure")
+        yield decode._non_stream_generate.return_value["meta_info"], "output"
+
+    decode._stream_generate = chunks
+
+    async def consume():
+        result = await decode.async_generate(
+            "prompt", config("decode", stream=stream), request_id="r"
+        )
+        return [chunk async for chunk in result] if stream else result
+
+    if failed:
+        with pytest.raises(RuntimeError, match="original engine failure"):
+            await consume()
+    else:
+        assert await consume()
+    assert "Failed to release SGLang handoff" in caplog.text
+    decode._xavier_handoff.release.assert_awaited_once()
+    assert not decode._active_request_ids
 
 
 @pytest.mark.asyncio
@@ -314,7 +354,7 @@ def fingerprint_handoff():
     tokenizer = SimpleNamespace(
         encode=Mock(side_effect=lambda text: list(text.encode()))
     )
-    h = SGLangXavierHandoff(dict(role="decode"), 64, tokenizer)
+    h = SGLangXavierHandoff(dict(role="decode"), tokenizer)
     h._namespace = "namespace"
     h._directory_actor = SimpleNamespace(prepare=AsyncMock())
     return h
@@ -456,7 +496,6 @@ async def test_launch_timeout_reaches_directory_with_a_different_environment(
     directory.configure("ns")
     handoff = SGLangXavierHandoff(
         dict(role="prefill", rank=0),
-        4,
         SimpleNamespace(encode=lambda text: [1]),
     )
 

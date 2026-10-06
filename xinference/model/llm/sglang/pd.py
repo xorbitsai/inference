@@ -7,6 +7,8 @@ import secrets
 from packaging.version import Version
 from xoscar.utils import get_next_port
 
+from ..xavier.transport import resolve_nixl_host
+
 
 def configure_nixl(config: dict, replica: dict, version: str, n_worker: int) -> None:
     if Version(version) < Version("0.5.21"):
@@ -44,6 +46,9 @@ def configure_nixl(config: dict, replica: dict, version: str, n_worker: int) -> 
         raise ValueError(
             "SGLang native NIXL requires one tokenizer worker for API authentication"
         )
+    # Resolve on the replica's worker, whose network routes determine the
+    # advertised interface. Keep bind and returned bootstrap metadata aligned.
+    replica["host"] = resolve_nixl_host(replica["host"], "a reachable worker address")
     # Native bootstrap shares the routable host with Runtime's HTTP listener.
     # Protect that internal listener with a per-replica credential.
     config["api_key"] = config.get("api_key") or secrets.token_urlsafe(32)

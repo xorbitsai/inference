@@ -121,6 +121,10 @@ async def test_two_adapters_restore_remote_pages_and_fail_closed(
         ]
         source.close()
         target.close()
+        for storage in (source, target):
+            assert not storage._rpc_thread.is_alive()
+            assert storage._rpc_loop.is_closed()
+            storage.close()
         assert await asyncio.to_thread(target.batch_exists, ["b"]) == 0
 
 
@@ -208,6 +212,67 @@ def model_path(tmp_path):
     (tmp_path / "model.safetensors").write_bytes(b"weights")
     (tmp_path / "tokenizer.json").write_text("{}")
     return str(tmp_path)
+
+
+@pytest.mark.parametrize("field", ["layer_types", "head_dim", "num_key_value_heads"])
+def test_null_optional_model_geometry_uses_defaults(model_path, field):
+    path = Path(model_path) / "config.json"
+    config = json.loads(path.read_text())
+    config[field] = None
+    path.write_text(json.dumps(config))
+    cache = dict(role="decode")
+    configure_xavier(model_path, {}, cache)
+    contract = KVCacheContract.from_dict(cache["contract"])
+    assert contract.head_dim == 4
+    assert contract.num_kv_heads == (4 if field == "num_key_value_heads" else 2)
+
+
+@pytest.mark.parametrize("field", ["head_dim", "num_key_value_heads"])
+def test_zero_model_geometry_is_rejected(model_path, field):
+    path = Path(model_path) / "config.json"
+    config = json.loads(path.read_text())
+    config[field] = 0
+    path.write_text(json.dumps(config))
+    with pytest.raises(ValueError, match="Invalid"):
+        configure_xavier(model_path, {}, dict(role="decode"))
+
+
+@pytest.mark.asyncio
+async def test_storage_reuses_one_thread_affine_loop_across_calling_threads(
+    contract, storage_class, monkeypatch
+):
+    import concurrent.futures
+    import threading
+
+    config = SimpleNamespace(
+        tp_size=1,
+        pp_size=1,
+        attn_cp_size=1,
+        is_mla_model=False,
+        extra_config=dict(address="unused", uid="unused", contract=contract.to_dict()),
+    )
+    from unittest.mock import AsyncMock
+
+    calls = []
+
+    async def stats():
+        calls.append((threading.get_ident(), asyncio.get_running_loop()))
+        return {"pages": 0}
+
+    ref = SimpleNamespace(get_stats=stats)
+    lookup = AsyncMock(return_value=ref)
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    storage = storage_class(config)
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            assert executor.submit(storage.get_stats).result() == {"pages": 0}
+            assert executor.submit(storage.get_stats).result() == {"pages": 0}
+        assert calls[0] == calls[1]
+        assert calls[0][0] == storage._rpc_thread.ident
+        lookup.assert_awaited_once()
+    finally:
+        storage.close()
+    assert storage._rpc_loop.is_closed()
 
 
 def test_launch_configuration_consumes_adapter_options(model_path):

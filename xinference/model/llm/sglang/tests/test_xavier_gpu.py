@@ -16,6 +16,57 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def test_salted_sglang_storage_hashes_cannot_reuse_other_salts(monkeypatch):
+    from array import array
+    from types import SimpleNamespace
+
+    import torch
+    from sglang.srt.mem_cache.radix_cache import RadixKey
+    from sglang.srt.mem_cache.utils import get_storage_hash_str
+
+    from ...xavier.backends.torch.storage import XavierCacheActor
+    from ...xavier.contract import KVCacheContract
+    from ..xavier.storage import XavierHiCacheStorage
+
+    contract = KVCacheContract(
+        "a" * 64, "b" * 64, "c" * 64, "d" * 64, 2, 2, 4, 4, "float16"
+    )
+    actor = XavierCacheActor(4 * contract.num_layers * contract.layer_nbytes)
+    namespace = actor.configure(
+        contract.to_dict(), {"engine": "sglang", "layout": "layer_first"}
+    )
+    storage = XavierHiCacheStorage(
+        SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config={"contract": contract.to_dict()},
+        )
+    )
+    storage._namespace = namespace
+    monkeypatch.setattr(
+        storage, "_rpc", lambda method, *args: getattr(actor, method)(*args)
+    )
+    keys = [
+        get_storage_hash_str(
+            RadixKey(array("q", range(8)), cache_salt=salt), page_size=4
+        )
+        for salt in (None, "tenant-a", "tenant-b")
+    ]
+    page = torch.zeros(
+        contract.num_layers * contract.layer_nbytes // 2, dtype=torch.float16
+    )
+    assert storage.batch_set(keys[1], [page, page])
+    assert storage.batch_exists(keys[1]) == 2
+    assert storage.batch_exists(keys[0]) == storage.batch_exists(keys[2]) == 0
+    assert storage.batch_get(keys[2]) == [None, None]
+    assert storage.batch_set(keys[2], [page + 1, page + 1])
+    assert all(torch.equal(value, page) for value in storage.batch_get(keys[1]))
+    assert all(torch.equal(value, page + 1) for value in storage.batch_get(keys[2]))
+    storage.close()
+
+
 @pytest.mark.asyncio
 async def test_real_sglang_remote_prefix_restore(tmp_path):
     import requests

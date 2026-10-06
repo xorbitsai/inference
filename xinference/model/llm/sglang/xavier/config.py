@@ -84,7 +84,7 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         or config.get("use_sliding_window", False)
         or config.get("vision_config")
         or config.get("quantization_config")
-        or any(layer != "full_attention" for layer in config.get("layer_types", []))
+        or any(layer != "full_attention" for layer in (config.get("layer_types") or []))
     ):
         raise ValueError(
             "SGLang Xavier supports full-attention Qwen2, Qwen3 and Llama text models"
@@ -114,6 +114,8 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             "SGLang Xavier requires local model weights and tokenizer assets"
         )
     model_config.setdefault("page_size", 64)
+    num_kv_heads = config.get("num_key_value_heads")
+    head_dim = config.get("head_dim")
     contract = KVCacheContract(
         weights_fingerprint=fingerprint_files(
             {file.name: file for file in weights},
@@ -127,9 +129,13 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             {"config": config, "context_length": model_config.get("context_length")}
         ),
         num_layers=config["num_hidden_layers"],
-        num_kv_heads=config.get("num_key_value_heads", config["num_attention_heads"]),
-        head_dim=config.get(
-            "head_dim", config["hidden_size"] // config["num_attention_heads"]
+        num_kv_heads=(
+            config["num_attention_heads"] if num_kv_heads is None else num_kv_heads
+        ),
+        head_dim=(
+            config["hidden_size"] // config["num_attention_heads"]
+            if head_dim is None
+            else head_dim
         ),
         block_size=model_config["page_size"],
         logical_dtype="float16",

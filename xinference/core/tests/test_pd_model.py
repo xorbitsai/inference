@@ -1,6 +1,7 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -581,3 +582,59 @@ async def test_empty_decode_stream_waits_for_prefill_and_propagates_failure(
     if failure:
         prefill.abort_request.assert_awaited_once()
         decode.abort_request.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+@pytest.mark.parametrize("finish_together", [False, True])
+async def test_prefill_failure_closes_already_returned_decode_stream(
+    router, monkeypatch, backend, finish_together
+):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    actor._transport_backend = backend
+    actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    directory = SimpleNamespace(release=AsyncMock())
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=directory))
+    decoded, release_prefill = asyncio.Event(), asyncio.Event()
+    stream = MagicMock()
+    stream.aclose = AsyncMock()
+    serve_count = 0
+
+    async def decrease(**kwargs):
+        nonlocal serve_count
+        serve_count -= 1
+
+    async def produce(*args, **kwargs):
+        await decoded.wait()
+        if not finish_together:
+            await release_prefill.wait()
+        raise RuntimeError("prefill failed after decode stream return")
+
+    async def decode_stream(*args, **kwargs):
+        nonlocal serve_count
+        serve_count += 1
+        decoded.set()
+        return stream
+
+    prefill.generate.side_effect = produce
+    decode.generate.side_effect = decode_stream
+    decode.decrease_serve_count.side_effect = decrease
+    task = asyncio.create_task(
+        actor._infer("generate", "prompt", {"stream": True}, request_id="r")
+    )
+    await decoded.wait()
+    if not finish_together:
+        # Let the router acquire the returned stream and then fail prefill on
+        # the first iteration, covering both ownership handoff windows.
+        returned = await task
+        task = asyncio.create_task(anext(returned))
+        release_prefill.set()
+    with pytest.raises(RuntimeError, match="prefill failed"):
+        await task
+    assert serve_count == 0
+    stream.aclose.assert_awaited_once()
+    decode.decrease_serve_count.assert_awaited_once()
+    prefill.abort_request.assert_awaited_once()
+    decode.abort_request.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers
