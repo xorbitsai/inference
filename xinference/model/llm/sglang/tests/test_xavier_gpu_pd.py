@@ -278,3 +278,49 @@ async def test_native_sglang_gpu_pd(tmp_path, monkeypatch):
                     "XINFERENCE_SGLANG_XAVIER_RESULT", str(tmp_path / "gpu-pd.json")
                 )
             ).write_text(json.dumps(results, indent=2))
+
+
+@pytest.mark.asyncio
+async def test_authenticated_native_runtime_startup_and_internal_endpoints():
+    import requests
+    import sglang as sgl
+
+    from ..pd import configure_nixl
+    from ..runtime import create_runtime
+
+    config = dict(
+        dtype="float16",
+        tp_size=1,
+        mem_fraction_static=0.2,
+        max_total_tokens=4096,
+        context_length=4096,
+        disable_cuda_graph=True,
+    )
+    configure_nixl(config, dict(role="prefill", host="127.0.0.1"), "0.5.21", 1)
+    engine = await asyncio.to_thread(
+        create_runtime,
+        sgl.Runtime,
+        model_path=os.environ["XINFERENCE_TEST_PD_MODEL_PATH"],
+        base_gpu_id=1,
+        **config,
+    )
+    try:
+        for path, method, body in (
+            ("/get_model_info", requests.get, None),
+            ("/abort_request", requests.post, {"rid": "absent"}),
+        ):
+            response = await asyncio.to_thread(
+                method, engine.url + path, json=body, timeout=30
+            )
+            assert response.status_code == 401
+            response = await asyncio.to_thread(
+                method,
+                engine.url + path,
+                json=body,
+                timeout=30,
+                headers={"Authorization": f"Bearer {config['api_key']}"},
+            )
+            response.raise_for_status()
+        assert engine.endpoint.api_key == config["api_key"]
+    finally:
+        await asyncio.to_thread(engine.shutdown)

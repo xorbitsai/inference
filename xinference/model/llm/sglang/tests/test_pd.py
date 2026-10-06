@@ -171,3 +171,42 @@ async def test_native_http_requests_forward_auth_bootstrap_rid_and_abort():
         assert received[2] == ("/abort_request", {"rid": "r"})
     finally:
         await runner.cleanup()
+
+
+@pytest.mark.parametrize("failure", [False, True])
+def test_runtime_startup_authentication_is_scoped_and_restored(monkeypatch, failure):
+    import sys
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from ..runtime import create_runtime
+
+    endpoint = Mock(return_value="authenticated endpoint")
+    module = SimpleNamespace(RuntimeEndpoint=endpoint)
+    monkeypatch.setitem(
+        sys.modules, "sglang.lang.backend", SimpleNamespace(runtime_endpoint=module)
+    )
+
+    def runtime(**config):
+        assert module.RuntimeEndpoint("http://replica") == "authenticated endpoint"
+        if failure:
+            raise RuntimeError("startup failed")
+        return "runtime"
+
+    if failure:
+        with pytest.raises(RuntimeError, match="startup failed"):
+            create_runtime(runtime, api_key="replica credential")
+    else:
+        assert create_runtime(runtime, api_key="replica credential") == "runtime"
+    endpoint.assert_called_once_with("http://replica", api_key="replica credential")
+    assert module.RuntimeEndpoint is endpoint
+
+
+def test_runtime_without_api_key_needs_no_optional_sdk_import():
+    from unittest.mock import Mock
+
+    from ..runtime import create_runtime
+
+    runtime = Mock(return_value="runtime")
+    assert create_runtime(runtime, dtype="float16") == "runtime"
+    runtime.assert_called_once_with(dtype="float16")

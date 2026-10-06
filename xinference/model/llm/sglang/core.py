@@ -292,6 +292,12 @@ class SGLANGModel(LLM):
         # fork may cause sglang stuck, force set to spawn
         multiprocessing.set_start_method("spawn")
 
+        from .runtime import create_runtime
+
+        logged_config = {
+            key: "***" if key in ("api_key", "admin_api_key") else value
+            for key, value in self._model_config.items()
+        }
         if self._n_worker > 1:
             # distributed inference
             self._model_config["nnodes"] = self._n_worker
@@ -313,12 +319,13 @@ class SGLANGModel(LLM):
                 ]
 
             logger.info(
-                f"Loading {self.model_uid}, shard({self._shard} of {self._n_worker}) with following model config: {self._model_config}"
+                f"Loading {self.model_uid}, shard({self._shard} of {self._n_worker}) with following model config: {logged_config}"
             )
 
             def _load():
                 try:
-                    self._engine = sgl.Runtime(
+                    self._engine = create_runtime(
+                        sgl.Runtime,
                         model_path=self.model_path,
                         tokenizer_path=self.model_path,
                         port=sgl_port,
@@ -335,10 +342,11 @@ class SGLANGModel(LLM):
                 self._loading_thread.join(3)
         else:
             logger.info(
-                f"Loading {self.model_uid} with following model config: {self._model_config}"
+                f"Loading {self.model_uid} with following model config: {logged_config}"
             )
 
-            self._engine = sgl.Runtime(
+            self._engine = create_runtime(
+                sgl.Runtime,
                 model_path=self.model_path,
                 tokenizer_path=self.model_path,
                 port=sgl_port,
