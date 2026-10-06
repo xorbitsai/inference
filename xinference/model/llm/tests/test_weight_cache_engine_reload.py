@@ -10,6 +10,7 @@ These tests live outside the GPU engine directories to run in default CI.
 """
 
 import asyncio
+import os
 import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -23,7 +24,9 @@ from ..vllm import core as vllm_core
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("backend", ["vllm", "sglang"])
-async def test_real_model_class_reloads_on_same_instance(monkeypatch, backend):
+async def test_real_model_class_reloads_on_same_instance(
+    monkeypatch, tmp_path, backend
+):
     family = match_llm("qwen2.5-instruct", "pytorch", "0_5", "none", "huggingface")
     engines = []
     constructors = []
@@ -124,6 +127,16 @@ async def test_real_model_class_reloads_on_same_instance(monkeypatch, backend):
         client_config=lambda: {}, engine_config=lambda config: config, stop=MagicMock()
     )
     model._weight_cache = cache
+    if backend == "sglang":
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("SGLANG_JIT_CACHE_DIR", "jit-cache")
+        prepare_weight_cache = model._prepare_weight_cache
+
+        def prepare():
+            assert os.environ["SGLANG_JIT_CACHE_DIR"] == str(tmp_path / "jit-cache")
+            prepare_weight_cache()
+
+        monkeypatch.setattr(model, "_prepare_weight_cache", prepare)
     try:
         await asyncio.to_thread(model.load)
         await asyncio.to_thread(model.wait_for_load)

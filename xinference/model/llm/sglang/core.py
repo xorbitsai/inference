@@ -295,9 +295,11 @@ class SGLANGModel(WeightCachedModel, LLM):
         # fork may cause sglang stuck, force set to spawn
         multiprocessing.set_start_method("spawn", force=True)
 
-        self._prepare_weight_cache()
+        from .runtime import create_runtime, prepare_jit_cache
 
-        from .runtime import create_runtime
+        # The weight daemon compiles JIT kernels before Runtime starts.
+        prepare_jit_cache()
+        self._prepare_weight_cache()
 
         logged_config = {
             key: "***" if key in ("api_key", "admin_api_key") else value
