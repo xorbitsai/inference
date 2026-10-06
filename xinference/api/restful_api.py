@@ -1649,6 +1649,65 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def get_model_reload_config(self, model_uid: str) -> JSONResponse:
+        try:
+            result = await (await self._get_supervisor_ref()).get_model_reload_config(
+                model_uid
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return JSONResponse(content=result)
+
+    async def get_model_reload_status(self, model_uid: str) -> JSONResponse:
+        try:
+            result = await (await self._get_supervisor_ref()).get_model_reload_status(
+                model_uid
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return JSONResponse(content=result)
+
+    async def reload_model(self, model_uid: str, request: Request) -> JSONResponse:
+        import math
+
+        from ..model.llm.weight_cache import validate_reload_patch
+
+        try:
+            payload = await request.json()
+            if not isinstance(payload, dict) or set(payload) - {
+                "model_config",
+                "drain_timeout",
+            }:
+                raise ValueError("Expected model_config and optional drain_timeout")
+            config = payload.get("model_config")
+            metadata = await (await self._get_supervisor_ref()).get_model_reload_config(
+                model_uid
+            )
+            # Validate the request's shape and types before crossing the actor boundary.
+            if not isinstance(config, dict) or not config:
+                raise ValueError("model_config must be a non-empty object")
+            if set(config) - set(metadata["parameters"]):
+                raise ValueError("Unsupported reload parameters")
+            engine = metadata["engine"]
+            validate_reload_patch(engine, config)
+            timeout = payload.get("drain_timeout", 300)
+            if (
+                type(timeout) not in (int, float)
+                or not math.isfinite(timeout)
+                or not 0 < timeout <= 3600
+            ):
+                raise ValueError("drain_timeout must be between 0 and 3600 seconds")
+            result = await (await self._get_supervisor_ref()).reload_model(
+                model_uid, config, timeout
+            )
+        except ModelNotReadyError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return JSONResponse(content=result, status_code=202)
+
     async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
         try:
             progress_details = await (

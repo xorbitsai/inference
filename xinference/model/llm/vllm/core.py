@@ -78,6 +78,7 @@ from ..utils import (
     ChatModelMixin,
     generate_completion_chunk,
 )
+from ..weight_cache import WeightCachedModel
 from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
@@ -500,7 +501,8 @@ def _update_vllm_supported_lists() -> None:
 _update_vllm_supported_lists()
 
 
-class VLLMModel(LLM):
+class VLLMModel(WeightCachedModel, LLM):
+    _weight_cache_engine = "vllm"
     allow_batch = True
     support_draft_model = True
 
@@ -541,6 +543,7 @@ class VLLMModel(LLM):
         self._all_worker_ready: Optional[threading.Event] = None
         # used to call async
         self._loop = None
+        self._init_weight_cache(model_config or {})
 
     def set_xavier_config(self, value: Optional[Dict]):
         self._xavier_config = value  # type: ignore
@@ -592,6 +595,8 @@ class VLLMModel(LLM):
     def _native_mp_route(self) -> Tuple[bool, str]:
         backend = self._get_xinference_executor_backend()
         if backend == "xoscar":
+            if self._enable_weight_cache:
+                raise ValueError("Weight caching requires the native vLLM executor")
             return False, "explicit xoscar backend"
 
         if self._n_worker != 1:
@@ -635,6 +640,9 @@ class VLLMModel(LLM):
         if backend == "native_mp":
             self._get_native_mp_parallelism()
             return True, "explicit native_mp backend"
+        if self._enable_weight_cache:
+            self._get_native_mp_parallelism()
+            return True, "persistent GPU weight cache"
         if self._is_qwen4_exp():
             self._get_native_mp_parallelism()
             return True, "Qwen4Exp single-worker multi-GPU auto route"
@@ -756,6 +764,7 @@ class VLLMModel(LLM):
             reasoning_content, enable_thinking=enable_thinking
         )
         self.prepare_parse_tool_calls()
+        self._prepare_weight_cache()
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV2)
@@ -847,7 +856,7 @@ class VLLMModel(LLM):
                 model=self.model_path,
                 enable_lora=enable_lora,
                 max_loras=max_loras,
-                **self._model_config,
+                **self._weight_cache_engine_config(self._model_config),
             )
             self._enable_v1_if_supported(engine_args)
 
@@ -1003,7 +1012,7 @@ class VLLMModel(LLM):
                 model=self.model_path,
                 enable_lora=enable_lora,
                 max_loras=max_loras,
-                **self._model_config,
+                **self._weight_cache_engine_config(self._model_config),
             )
             self._enable_v1_if_supported(engine_args)
 
@@ -1162,12 +1171,24 @@ class VLLMModel(LLM):
             )
 
     def stop(self):
+        try:
+            self._stop_engine()
+        finally:
+            if self._weight_cache is not None:
+                self._weight_cache.stop()
+                self._weight_cache = None
+
+    def _stop_engine(self):
         # though the vLLM engine will shutdown when deleted,
         # but some issue e.g. GH#1682 reported
         # when deleting, the engine exists still
         logger.info("Stopping vLLM engine")
         if self._check_health_task:
-            self._check_health_task.cancel()
+            if self._loop is not None:
+                self._loop.call_soon_threadsafe(self._check_health_task.cancel)
+            else:
+                self._check_health_task.cancel()
+            self._check_health_task = None
         # Wait for loading thread to finish so EngineCore subprocess
         # can be properly shut down below.
         if self._loading_thread and self._loading_thread.is_alive():

@@ -218,6 +218,17 @@ async def test_scale_up_cpu_placement_normalizes_zero_gpu_count():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [True, "true"])
+async def test_weight_cached_model_rejects_scale_up_before_allocation(enabled):
+    launch_args = {"n_worker": 1, "enable_weight_cache": enabled}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    with pytest.raises(ValueError, match="weight-cached"):
+        await supervisor.add_model_replica("demo")
+    assert worker.launches == []
+
+
+@pytest.mark.asyncio
 async def test_scale_up_multiple_replicas_rolls_back_partial_failure():
     launch_args = {"n_gpu": None, "gpu_idx": None, "n_worker": 1}
     worker = _FakeScaleWorker("worker-0:9978", launch_args)

@@ -490,6 +490,9 @@ const ko = {
     emptyFile: '빈 파일은 업로드할 수 없습니다.',
   },
   launchModel: {
+    enableWeightCache: '재로드를 위해 GPU 가중치 유지',
+    enableWeightCacheTip:
+      'vLLM 0.31.0+ 또는 SGLang 0.5.21+, Linux GPU, 단일 워커 및 단일 복제본이 필요합니다. 엔진 재로드 중에도 가중치를 GPU 메모리에 유지합니다.',
     recommendSetup: '실행 환경 준비가 필요할 수 있습니다.',
     recommendMemory: '사용 가능한 메모리가 확인되지 않았습니다.',
     recommendConfiguration: '구성 추천',
@@ -747,6 +750,19 @@ const ko = {
     downloadCompleted: '완료',
   },
   runningModels: {
+    reload: {
+      title: '매개변수 재로드',
+      description:
+        'GPU 가중치를 유지하며 엔진을 다시 구성합니다. 현재 요청이 끝나면 서비스를 일시 중지합니다. 병렬도, 정밀도 및 양자화는 변경할 수 없습니다.',
+      disabled: '모델 시작 시 GPU 가중치 유지를 활성화해야 재로드할 수 있습니다.',
+      default: '엔진 기본값',
+      apply: '적용 및 재로드',
+      queued: '재로드 대기 중',
+      draining: '현재 요청이 끝날 때까지 대기 중',
+      loading: '엔진 재구성 중',
+      restoring: '이전 설정 복원 중',
+      restored: '이전 설정이 복원되었습니다.',
+    },
     searchPlaceholder: '모델 이름 또는 모델 UID 검색...',
     loadingModels: '모델을 불러오는 중...',
     fetchingModelList: '최신 실행 중인 모델 목록을 가져오는 중입니다.',

@@ -17,6 +17,7 @@ import CapabilityTaskPanel, { CapabilityTaskPanelMethod } from './panels/capabil
 import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
+import { ReloadDialog } from './components/reload-dialog';
 import { TryApiDrawer } from './components/try-api-drawer';
 import { RouterStatusBadge } from '@/components/pages/token-router/router-status-badge';
 import { getPrimaryModelAbilities, isTokenRouterModel, transformRunningModelDetail } from './utils';
@@ -156,6 +157,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     !tokenRouterModel || ['ready', 'degraded'].includes(model?.router_status || '');
   const [selectAbility, setSelectAbility] = useState<ModelAbility | undefined>(undefined);
   const [tryApiOpen, setTryApiOpen] = useState(false);
+  const [reloadOpen, setReloadOpen] = useState(false);
   const capabilityTaskPanelRef = useRef<CapabilityTaskPanelMethod>(null);
   const tryApiAbility = isChat ? ModelAbility.Chat : selectAbility;
 
@@ -249,6 +251,13 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
               onChange={handleAbility}
             />
           )}
+          {['vllm', 'sglang'].includes((model?.model_engine || '').toLowerCase()) &&
+            model?.replica === 1 &&
+            (model?.n_worker || 1) === 1 && (
+              <Button variant="outline" onClick={() => setReloadOpen(true)}>
+                {t('runningModels.reload.title')}
+              </Button>
+            )}
           <Button type="button" className="shrink-0" onClick={() => setTryApiOpen(true)}>
             <Code />
             {t('runningModels.tryApi')}
@@ -269,6 +278,12 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
           {renderCapability()}
         </div>
       )}
+      <ReloadDialog
+        open={reloadOpen}
+        onOpenChange={setReloadOpen}
+        modelUid={modelUid}
+        onReady={fetchModel}
+      />
       <TryApiDrawer
         open={tryApiOpen}
         onOpenChange={setTryApiOpen}

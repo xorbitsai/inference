@@ -162,6 +162,24 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
+        "/v1/models/{model_uid}/reload",
+        api.reload_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/models/{model_uid}/reload",
+        api.get_model_reload_status,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/models/{model_uid}/reload/config",
+        api.get_model_reload_config,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/models/{model_uid}/events",
         api.get_model_events,
         methods=["GET"],

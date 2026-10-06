@@ -70,6 +70,9 @@ def test_engine_shutdown_restores_gc_after_failure():
         pid=1, shutdown=Mock(side_effect=RuntimeError("stop"))
     )
     model._gc_freeze = SimpleNamespace(close=Mock())
+    cache = model._weight_cache = SimpleNamespace(stop=Mock())
     with pytest.raises(RuntimeError, match="stop"):
         model.stop()
     model._gc_freeze.close.assert_called_once()
+    cache.stop.assert_called_once()
+    assert model._weight_cache is None

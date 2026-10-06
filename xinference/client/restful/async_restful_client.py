@@ -1590,6 +1590,52 @@ class AsyncClient:
         await _release_response(response)
         return response_data
 
+    async def reload_model(
+        self, model_uid: str, model_config: Dict[str, Any], drain_timeout: float = 300
+    ) -> Dict[str, Any]:
+        """Start an asynchronous reload, retaining GPU weights and model UID.
+
+        Launch with ``enable_weight_cache=True`` first. Use
+        ``get_model_reload_status`` to wait for ready/error after HTTP 202.
+        """
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        response = await self.session.post(
+            url,
+            json={"model_config": model_config, "drain_timeout": drain_timeout},
+            headers=self._headers,
+        )
+        if response.status != 202:
+            raise RuntimeError(
+                f"Failed to reload model, detail: {await _get_error_string(response)}"
+            )
+        data = await response.json()
+        await _release_response(response)
+        return data
+
+    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        """Return the latest reload operation, including its stage and error."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get reload status, detail: {await _get_error_string(response)}"
+            )
+        data = await response.json()
+        await _release_response(response)
+        return data
+
+    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        """Return editable parameters, their types and current explicit values."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload/config"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get reload config, detail: {await _get_error_string(response)}"
+            )
+        data = await response.json()
+        await _release_response(response)
+        return data
+
     async def terminate_model(self, model_uid: str):
         """
         Terminate the specific model running on the server.

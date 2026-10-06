@@ -454,6 +454,9 @@ function transformWorkerIpToForm(value: unknown) {
 export function transformFormToFetch(values: FormValues) {
   const nextValues = { ...values };
 
+  if (!['vllm', 'sglang'].includes(toOptionValue(values.model_engine).toLowerCase())) {
+    delete nextValues.enable_weight_cache;
+  }
   applyFormListObject(nextValues, 'quantization_config');
   applyFormListObject(nextValues, 'envs', false);
   mergeFormListObject(nextValues, 'kwargs');

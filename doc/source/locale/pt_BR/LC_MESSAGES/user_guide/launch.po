@@ -379,3 +379,31 @@ msgstr ""
 "Para modelos de imagem e vídeo, o processamento em lote depende do motor "
 "nativo e do modelo selecionados. O Diffusers não usa um escalonador por "
 "etapa do Xinference. Consulte :ref:`image` e :ref:`video`."
+
+#: ../../user_guide/launch.rst:414
+msgid "Reconfigure without reloading weights"
+msgstr "Reconfigurar sem recarregar os pesos"
+
+#: ../../user_guide/launch.rst:417
+msgid "Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions."
+msgstr "Ative ``enable_weight_cache=true`` ao iniciar o modelo ou selecione **Keep GPU weights for reload** no diálogo de implantação. Requer vLLM 0.31.0+ ou SGLang 0.5.21+, Linux com CUDA ou ROCm, um worker, uma réplica e paralelismo tensorial fixo. O recurso fica desativado por padrão mesmo nas versões compatíveis."
+
+#: ../../user_guide/launch.rst:419
+msgid "Xinference keeps GPU weights in an upstream cache daemon while rebuilding the engine, KV cache and CUDA graphs. Reload waits for current requests, including streams, to finish and temporarily rejects new requests with HTTP 503. A drain timeout leaves the original engine running. If rebuilding fails, Xinference attempts to restore the previous configuration. Terminating the model releases the weights; a worker process failure requires loading them again."
+msgstr "O Xinference mantém os pesos GPU em um processo de cache do mecanismo enquanto reconstrói o mecanismo, o cache KV e os grafos CUDA. Aguarda as solicitações atuais, incluindo fluxos, e rejeita temporariamente novas solicitações com HTTP 503. Se o prazo expirar, o mecanismo original continua funcionando. Se a reconstrução falhar, tenta restaurar a configuração anterior. Encerrar o modelo libera os pesos; uma falha no processo worker exige carregá-los novamente."
+
+#: ../../user_guide/launch.rst:421
+msgid "``POST /v1/models/{model_uid}/reload`` accepts a partial ``model_config`` object and optional ``drain_timeout`` in seconds (default 300, maximum 3600). It returns HTTP 202 with an ``operation_id``. Poll ``GET /v1/models/{model_uid}/reload`` until ``status`` is ``ready`` or ``error``. On error, ``restored=true`` means the previous engine is serving again. Query ``GET /v1/models/{model_uid}/reload/config`` for supported parameters and current explicit values. Invalid patches return HTTP 400; a reload already in progress returns HTTP 409. The model UID and GPU reservation stay the same."
+msgstr "``POST /v1/models/{model_uid}/reload`` aceita um ``model_config`` parcial e um ``drain_timeout`` opcional em segundos (padrão 300, máximo 3600). Retorna HTTP 202 com ``operation_id``. Consulte ``GET /v1/models/{model_uid}/reload`` até ``status`` ser ``ready`` ou ``error``. Em caso de erro, ``restored=true`` indica que o mecanismo anterior voltou a servir. ``GET /v1/models/{model_uid}/reload/config`` mostra parâmetros compatíveis e valores explícitos atuais. Alterações inválidas retornam HTTP 400; uma recarga em andamento retorna HTTP 409. O UID e a reserva GPU são mantidos."
+
+#: ../../user_guide/launch.rst:423
+msgid "vLLM supports changing ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` and ``enforce_eager``."
+msgstr "O vLLM permite alterar ``max_num_seqs``, ``max_num_batched_tokens``, ``max_model_len``, ``gpu_memory_utilization`` e ``enforce_eager``."
+
+#: ../../user_guide/launch.rst:425
+msgid "SGLang supports changing ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` and ``schedule_conservativeness``."
+msgstr "O SGLang permite alterar ``max_running_requests``, ``max_prefill_tokens``, ``context_length``, ``chunked_prefill_size``, ``mem_fraction_static``, ``disable_cuda_graph``, ``cuda_graph_max_bs_decode``, ``cuda_graph_max_bs_prefill`` e ``schedule_conservativeness``."
+
+#: ../../user_guide/launch.rst:427
+msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
+msgstr "Não é possível alterar paralelismo, alocação GPU, caminho do modelo, precisão, quantização ou formato dos pesos. Paralelismo pipeline/dados, vários workers, LoRA, decodificação especulativa, offloading de pesos e PD ainda não são compatíveis. Modelos quantizados devem passar nas verificações IPC do mecanismo. O vLLM usa seu executor multiprocesso nativo para várias GPU. Nos detalhes do modelo em execução, escolha **Reload parameters** para editar os valores e acompanhar o progresso."

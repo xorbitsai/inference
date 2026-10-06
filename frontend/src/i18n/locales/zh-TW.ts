@@ -492,6 +492,9 @@ const zhTW = {
     emptyFile: '上傳檔案不能為空。',
   },
   launchModel: {
+    enableWeightCache: '保留 GPU 權重以支援重載',
+    enableWeightCacheTip:
+      '需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux GPU、單一 worker 和單一副本。引擎重載期間權重保留在 GPU 記憶體中。',
     recommendSetup: '可能需要準備執行環境。',
     recommendMemory: '尚未驗證可用記憶體。',
     recommendConfiguration: '推薦配置',
@@ -742,6 +745,19 @@ const zhTW = {
     downloadCompleted: '已完成',
   },
   runningModels: {
+    reload: {
+      title: '重載參數',
+      description:
+        '保留 GPU 權重並重建引擎。目前請求完成後暫停服務；不能修改平行度、精度和量化方式。',
+      disabled: '啟動模型時啟用保留 GPU 權重，才能使用重載。',
+      default: '引擎預設值',
+      apply: '套用並重載',
+      queued: '重載已排入佇列',
+      draining: '等待目前請求完成',
+      loading: '正在重建引擎',
+      restoring: '正在還原原始設定',
+      restored: '已還原原始設定。',
+    },
     searchPlaceholder: '搜尋模型名稱或模型 UID...',
     loadingModels: '模型載入中...',
     fetchingModelList: '正在獲取最新的執行模型列表。',

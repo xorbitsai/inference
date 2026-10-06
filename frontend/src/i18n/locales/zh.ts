@@ -480,6 +480,9 @@ const zh = {
     emptyFile: '上传文件不能为空。',
   },
   launchModel: {
+    enableWeightCache: '保留 GPU 权重以支持重载',
+    enableWeightCacheTip:
+      '需要 vLLM 0.31.0+ 或 SGLang 0.5.21+、Linux GPU、单 worker 和单副本。引擎重载期间权重保留在 GPU 显存中。',
     recommendSetup: '可能需要准备运行环境。',
     recommendMemory: '尚未验证可用内存。',
     recommendConfiguration: '推荐配置',
@@ -730,6 +733,19 @@ const zh = {
     downloadCompleted: '已完成',
   },
   runningModels: {
+    reload: {
+      title: '重载参数',
+      description:
+        '保留 GPU 权重并重建引擎。当前请求完成后暂停服务；不能修改并行度、精度和量化方式。',
+      disabled: '启动模型时启用保留 GPU 权重，才能使用重载。',
+      default: '引擎默认值',
+      apply: '应用并重载',
+      queued: '重载已排队',
+      draining: '等待当前请求完成',
+      loading: '正在重建引擎',
+      restoring: '正在恢复原配置',
+      restored: '已恢复原配置。',
+    },
     searchPlaceholder: '搜索模型名称或模型UID...',
     loadingModels: '模型加载中...',
     fetchingModelList: '正在获取最新的运行模型列表。',

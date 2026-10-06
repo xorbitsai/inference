@@ -239,21 +239,26 @@ def test_shutdown_shares_one_deadline_for_unresponsive_kills(
     executor_module, executor, monkeypatch
 ):
     monkeypatch.setattr(executor_module, "_SHUTDOWN_TIMEOUT_SECONDS", 0.05)
+    clock = SimpleNamespace(now=0.0)
+    monkeypatch.setattr(
+        executor_module, "time", SimpleNamespace(monotonic=lambda: clock.now)
+    )
     timeouts = []
 
     class UnresponsiveKill(Future):
         def result(self, timeout=None):
             timeouts.append(timeout)
-            return super().result(timeout=timeout)
+            # Consume the budget deterministically: Windows waits can return
+            # just before the monotonic deadline despite timing out.
+            clock.now += timeout
+            raise TimeoutError()
 
     futures = [UnresponsiveKill() for _ in range(10)]
     executor.workers = [SimpleNamespace(kill=lambda fut=fut: fut) for fut in futures]
     started = time.monotonic()
     executor.shutdown()
     assert time.monotonic() - started < 0.5
-    # Subtracting Windows' monotonic clock values can round slightly above 0.05.
-    assert 0 < timeouts[0] <= 0.05 + 1e-9
-    assert timeouts[1:] == [0] * 9
+    assert timeouts == [0.05] + [0] * 9
     assert not any(fut.done() for fut in futures)
     executor._isolation._thread.join(timeout=1)
     assert executor._loop.is_closed()
