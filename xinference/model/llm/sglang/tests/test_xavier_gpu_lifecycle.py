@@ -194,7 +194,12 @@ async def test_abort_drains_destination_and_source_before_return(gpu_module):
     incoming = asyncio.create_task(receive())
     actor.tasks[1] = incoming
     actor.transfer = SimpleNamespace(send_lock=asyncio.Lock(), release_direct=Mock())
-    actor.rooms[1] = dict(chunks=[dict(ticket="1:0")], completed=asyncio.Event())
+    actor.rooms[1] = dict(
+        chunks=[dict(ticket="1:0")],
+        completed=asyncio.Event(),
+        changed=asyncio.Event(),
+        deadline=gpu_module.time.monotonic() + 600,
+    )
     source_completion = asyncio.create_task(actor.wait_done(1))
     await actor.transfer.send_lock.acquire()
     await asyncio.sleep(0)
@@ -238,6 +243,79 @@ async def test_source_completion_waits_until_last_gpu_chunk_releases(gpu_module)
     assert not completion.done()
     actor.release_chunk("1:1")
     assert await asyncio.wait_for(completion, 1)
+
+
+@pytest.mark.asyncio
+async def test_missing_decode_times_out_and_drains_source_before_failure(gpu_module):
+    import time
+
+    actor = gpu_module.XavierGPUActor(None, None, None, "ns", 0)
+    actor.directory = SimpleNamespace(publish_source=AsyncMock())
+    actor.transfer = SimpleNamespace(send_lock=asyncio.Lock(), release_direct=Mock())
+    await actor.open(1)
+    state = actor.rooms[1]
+    state["chunks"].append(dict(ticket="1:0"))
+    state["deadline"] = time.monotonic() - 1
+    await actor.transfer.send_lock.acquire()
+    completion = asyncio.create_task(actor.wait_done(1))
+    await asyncio.sleep(0.02)
+    assert not completion.done()
+    actor.transfer.release_direct.assert_not_called()
+    actor.transfer.send_lock.release()
+    with pytest.raises(TimeoutError, match="timed out"):
+        await asyncio.wait_for(completion, 1)
+    assert state["aborted"] and state["completed"].is_set()
+    actor.transfer.release_direct.assert_called_once_with("1:0")
+
+
+@pytest.mark.asyncio
+async def test_source_progress_renews_completion_deadline(gpu_module, monkeypatch):
+    import torch
+
+    monkeypatch.setattr(gpu_module, "transfer_timeout", lambda: 0.2)
+    actor = gpu_module.XavierGPUActor(None, None, None, "ns", 0)
+    actor.directory = SimpleNamespace(publish_source=AsyncMock())
+    actor.transfer = SimpleNamespace(
+        register_direct=Mock(), release_direct=Mock(), poll_direct=Mock()
+    )
+    actor.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
+    actor.chunk_capacity = 1
+    await actor.open(1)
+    actor.init(1, 2, 0)
+    completion = asyncio.create_task(actor.wait_done(1))
+    await asyncio.sleep(0.12)
+    await actor.add_chunk(1, [0])
+    actor.release_chunk("1:0")
+    await asyncio.sleep(0.12)
+    assert not completion.done()  # Beyond the original deadline, with progress.
+    await actor.add_chunk(1, [1])
+    actor.release_chunk("1:1")
+    assert await asyncio.wait_for(completion, 1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("aborted", [False, True])
+async def test_chunk_wait_wakes_on_publication_or_abort(gpu_module, aborted):
+    import torch
+
+    actor = gpu_module.XavierGPUActor(None, None, None, "ns", 0)
+    actor.directory = SimpleNamespace(publish_source=AsyncMock())
+    actor.transfer = SimpleNamespace(send_lock=asyncio.Lock(), register_direct=Mock())
+    actor.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
+    actor.chunk_capacity = 1
+    await actor.open(1)
+    actor.init(1, 1, 0)
+    waiting = asyncio.create_task(actor.wait_chunk(1, 0))
+    await asyncio.sleep(0.02)
+    assert not waiting.done()
+    if aborted:
+        await actor.abort(1)
+        with pytest.raises(RuntimeError, match="cancelled"):
+            await asyncio.wait_for(waiting, 1)
+    else:
+        await actor.add_chunk(1, [0])
+        chunk = await asyncio.wait_for(waiting, 1)
+        assert chunk["final"] and chunk["pages"] == [0]
 
 
 @pytest.mark.asyncio

@@ -91,6 +91,61 @@ async def test_sglang_xavier_uses_hicache_without_vllm_collective(launch_runtime
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_format,quantization", [("pytorch", None), ("ggufv2", "4bit")]
+)
+async def test_single_sglang_replica_disables_shared_xavier(
+    launch_runtime, model_format, quantization
+):
+    supervisor, workers, actors, _ = launch_runtime
+    supervisor._resolve_replica_config.return_value = ([(workers[0], [0], 1)], {0: "p"})
+    kwargs = launch_kwargs()
+    kwargs.update(
+        model_engine="SGLang",
+        enable_xavier=True,
+        replica=1,
+        model_format=model_format,
+        quantization=quantization,
+    )
+    kwargs["replica_config"] = kwargs["replica_config"][:1]
+    kwargs["replica_config"][0].role = None
+    await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._xavier_cache_mapping
+    launch = workers[0].launch_builtin_model.call_args.kwargs
+    assert "_xavier_cache_config" not in launch
+    assert launch["xavier_config"] is None
+    workers[1].launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", ["2001:db8::1", "::1"])
+async def test_sglang_ipv6_host_survives_supervisor_engine_and_gpu_pool(
+    launch_runtime, monkeypatch, host
+):
+    import importlib.metadata
+    import importlib.util
+
+    from ...model.llm.xavier.transport import get_transport_host, gpu_pool_options
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.11.1")
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: object())
+    supervisor, workers, _, _ = launch_runtime
+    workers[0].address = f"tcp://[{host}]:1234"
+    supervisor._worker_address_to_worker = {w.address: w for w in workers}
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="SGLang")
+    kwargs["replica_config"][0].devices[0].worker_ip = workers[0].address
+    await supervisor.launch_builtin_model(**kwargs)
+    config = workers[0].launch_builtin_model.call_args.kwargs["_xavier_cache_config"]
+    assert config["host"] == host
+    engine_host = get_transport_host(config["host"])
+    assert engine_host == host
+    assert gpu_pool_options(engine_host, {}) == {
+        "external_address": f"nixl://[{host}]:0"
+    }
+
+
+@pytest.mark.asyncio
 async def test_sglang_xavier_failed_launch_cleans_cache_actor(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()

@@ -500,6 +500,8 @@ def test_constructor_and_mapping_use_registered_caches(monkeypatch):
         ("0.0.0.0:1234", "nixl://10.0.0.9:0"),
         ("[::]:1234", "nixl://10.0.0.9:0"),
         ("[2001:db8::1]:1234", "nixl://[2001:db8::1]:0"),
+        ("2001:db8::1", "nixl://[2001:db8::1]:0"),
+        ("::1", "nixl://[::1]:0"),
     ],
 )
 def test_xavier_advertises_reachable_nixl_address(monkeypatch, address, expected):

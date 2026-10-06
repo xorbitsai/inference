@@ -25,6 +25,19 @@ def contract():
     )
 
 
+def test_cpu_cache_get_keeps_hot_pages_in_lru(contract):
+    page_bytes = contract.layer_nbytes * contract.num_layers
+    actor = XavierCacheActor(2 * page_bytes)
+    ns = actor.configure(contract.to_dict(), {"layout": "layer_first"})
+    page = torch.zeros(page_bytes, dtype=torch.uint8)
+    assert actor.put(ns, ["hot", "cold"], [page, page]) == [True, True]
+    assert actor.get(ns, ["missing", "hot"])[0] is None
+    assert actor.put(ns, ["new"], [page]) == [True]
+    hot, cold, new = actor.get(ns, ["hot", "cold", "new"])
+    assert hot is not None and cold is None and new is not None
+    assert actor.get_stats()["evicted_pages"] == 1
+
+
 @pytest.fixture
 def storage_class(monkeypatch):
     class Base:

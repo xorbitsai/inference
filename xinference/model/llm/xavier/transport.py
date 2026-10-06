@@ -20,6 +20,12 @@ def validate_gpu_cache_budget(value, enabled: bool, replicas: int):
 
 
 def get_transport_host(address: str) -> Optional[str]:
+    # Launch config already contains a host, including bare IPv6 literals.
+    # Re-parsing those as URLs truncates the address at its first colon.
+    try:
+        return str(ipaddress.ip_address(address))
+    except ValueError:
+        pass
     return urlsplit(address if "://" in address else "tcp://" + address).hostname
 
 

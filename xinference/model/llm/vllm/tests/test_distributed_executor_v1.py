@@ -251,7 +251,8 @@ def test_shutdown_shares_one_deadline_for_unresponsive_kills(
     started = time.monotonic()
     executor.shutdown()
     assert time.monotonic() - started < 0.5
-    assert 0 < timeouts[0] <= 0.05
+    # Subtracting Windows' monotonic clock values can round slightly above 0.05.
+    assert 0 < timeouts[0] <= 0.05 + 1e-9
     assert timeouts[1:] == [0] * 9
     assert not any(fut.done() for fut in futures)
     executor._isolation._thread.join(timeout=1)

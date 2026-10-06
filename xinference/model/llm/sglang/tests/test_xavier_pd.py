@@ -345,7 +345,14 @@ def directory_spy(actor):
     return SimpleNamespace(
         **{
             method: AsyncMock(side_effect=partial(call, method))
-            for method in ("get_stats", "prepare", "check", "release")
+            for method in (
+                "get_stats",
+                "prepare",
+                "check",
+                "wait_complete",
+                "renew_completed",
+                "release",
+            )
         }
     )
 
@@ -443,18 +450,102 @@ async def test_completed_room_survives_long_decode_and_requires_both_releases(
 ):
     directory = XavierPDDirectory()
     directory.configure("ns")
-    monkeypatch.setattr("time.monotonic", lambda: 0)
+    clock = [0]
+    monkeypatch.setattr(
+        "xinference.model.llm.sglang.xavier.directory.time",
+        SimpleNamespace(monotonic=lambda: clock[0]),
+    )
     directory.prepare(1, "ns", "prompt", "prefill", 0)
     directory.prepare(1, "ns", "prompt", "decode", 1)
     directory.complete(1, 1024)
     directory.prepare(2, "ns", "prompt", "prefill", 0)
-    monkeypatch.setattr("time.monotonic", lambda: 3600)
+    for now in range(300, 3601, 300):
+        clock[0] = now
+        assert directory.renew_completed(1)
     assert directory.check(1)
     assert not directory.check(2)
     directory.release(1, "prefill")
     assert directory.check(1)
     directory.release(1, "decode")
     assert directory.get_stats()["active_handoffs"] == 0
+
+
+def test_completed_room_expires_after_lost_decode_release(monkeypatch):
+    clock = [0]
+    monkeypatch.setattr(
+        "xinference.model.llm.sglang.xavier.directory.time",
+        SimpleNamespace(monotonic=lambda: clock[0]),
+    )
+    directory = XavierPDDirectory()
+    directory.configure("ns")
+    directory.prepare(1, "ns", "prompt", "prefill", timeout=10)
+    directory.prepare(1, "ns", "prompt", "decode", timeout=10)
+    clock[0] = 9
+    directory.complete(1, 1024)
+    directory.release(1, "prefill")
+    clock[0] = 11
+    assert directory.check(1)  # Completion starts a fresh retention interval.
+    clock[0] = 20
+    assert directory.get_stats()["active_handoffs"] == 0
+    assert not directory.renew_completed(1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["wait_source", "wait_complete"])
+@pytest.mark.parametrize("cancelled", [False, True])
+async def test_directory_wait_wakes_on_progress_or_cleanup(
+    deployment, method, cancelled
+):
+    directory, _, _ = deployment
+    await directory.prepare(1, "gpu-namespace", "prompt", "prefill")
+    await directory.prepare(1, "gpu-namespace", "prompt", "decode")
+    waiting = asyncio.create_task(getattr(directory, method)(1))
+    await asyncio.sleep(0.02)
+    assert not waiting.done()
+    if cancelled:
+        await directory.release(1)
+        with pytest.raises(RuntimeError, match="cancelled"):
+            await asyncio.wait_for(waiting, 1)
+    else:
+        if method == "wait_source":
+            await directory.publish_source(1, {"rank": 0, "address": "gpu"})
+        else:
+            await directory.complete(1, 1024)
+        assert await asyncio.wait_for(waiting, 1)
+        await directory.release(1)
+
+
+@pytest.mark.asyncio
+async def test_directory_destroy_wakes_pending_waiters(deployment):
+    directory, _, _ = deployment
+    await directory.prepare(1, "gpu-namespace", "prompt", "prefill")
+    waiting = asyncio.create_task(directory.wait_source(1))
+    await asyncio.sleep(0.02)
+    assert not waiting.done()
+    await xo.destroy_actor(directory)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        await asyncio.wait_for(waiting, 1)
+
+
+@pytest.mark.asyncio
+async def test_decode_renews_completed_lease_and_stops_on_release(
+    deployment, monkeypatch
+):
+    from ..xavier.settings import TRANSFER_TIMEOUT_ENV
+
+    monkeypatch.setenv(TRANSFER_TIMEOUT_ENV, "0.2")
+    directory, prefill, decode = deployment
+    transfer = config("decode")["_pd_kv_transfer_params"]
+    await prefill._xavier_handoff.prepare("prompt", transfer)
+    handoff = await decode._xavier_handoff.accept("prompt", transfer)
+    await directory.complete(123, 1024)
+    await directory.release(123, "prefill")
+    task = decode._xavier_handoff._lease_tasks[123]
+    await asyncio.sleep(0.4)
+    await decode._xavier_handoff.check_hit({}, handoff)
+    await decode._xavier_handoff.release(handoff)
+    assert task.done() and not decode._xavier_handoff._lease_tasks
+    assert (await directory.get_stats())["active_handoffs"] == 0
 
 
 @pytest.mark.asyncio

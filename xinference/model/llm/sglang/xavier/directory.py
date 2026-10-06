@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 """P/D rendezvous metadata. KV payloads never pass through this actor."""
 
+import asyncio
 import time
 
 import xoscar as xo
@@ -18,6 +19,10 @@ class XavierPDDirectory(xo.StatelessActor):
         self.gpu_bytes = 0
         self.peers = {}
 
+    async def __pre_destroy__(self):
+        for room in list(self.rooms):
+            self._drop(room)
+
     def register_peer(self, rank, address):
         if rank in self.peers and self.peers[rank] != address:
             raise ValueError(
@@ -31,12 +36,12 @@ class XavierPDDirectory(xo.StatelessActor):
         ):
             return False
         del self.peers[rank]
-        self.rooms = {
-            room: state
-            for room, state in self.rooms.items()
-            if rank not in state["ranks"].values()
-            and (state["source"] or {}).get("rank") != rank
-        }
+        for room, state in list(self.rooms.items()):
+            if (
+                rank in state["ranks"].values()
+                or (state["source"] or {}).get("rank") == rank
+            ):
+                self._drop(room)
         return True
 
     def configure(self, namespace):
@@ -46,11 +51,15 @@ class XavierPDDirectory(xo.StatelessActor):
 
     def _expire(self):
         now = time.monotonic()
-        self.rooms = {
-            room: state
-            for room, state in self.rooms.items()
-            if state["completed"] or state["deadline"] > now
-        }
+        for room, state in list(self.rooms.items()):
+            if state["deadline"] <= now:
+                self._drop(room)
+
+    def _drop(self, room):
+        state = self.rooms.pop(room, None)
+        if state is not None:
+            state["source_ready"].set()
+            state["complete_ready"].set()
 
     def prepare(self, room, namespace, prompt_hash, role, rank=None, timeout=None):
         self._expire()
@@ -68,6 +77,9 @@ class XavierPDDirectory(xo.StatelessActor):
                 roles=[],
                 source=None,
                 completed=False,
+                source_ready=asyncio.Event(),
+                complete_ready=asyncio.Event(),
+                timeout=timeout,
                 deadline=time.monotonic() + timeout,
                 ranks={},
                 finished=[],
@@ -75,6 +87,7 @@ class XavierPDDirectory(xo.StatelessActor):
         if state["prompt_hash"] != prompt_hash or role in state["roles"]:
             raise ValueError("SGLang Xavier PD prompt mismatch or duplicate role")
         state["deadline"] = max(state["deadline"], time.monotonic() + timeout)
+        state["timeout"] = max(state["timeout"], timeout)
         state["roles"].append(role)
         if rank is not None:
             state["ranks"][role] = rank
@@ -84,6 +97,25 @@ class XavierPDDirectory(xo.StatelessActor):
         if state is None or "prefill" not in state["roles"] or state["source"]:
             raise ValueError("Unprepared or duplicate SGLang Xavier producer")
         state["source"] = source
+        state["source_ready"].set()
+
+    async def _wait(self, room, event):
+        self._expire()
+        state = self.rooms.get(room)
+        if state is None:
+            raise RuntimeError("SGLang Xavier PD handoff expired or was cancelled")
+        await asyncio.wait_for(
+            state[event].wait(), timeout=max(0, state["deadline"] - time.monotonic())
+        )
+        if self.rooms.get(room) is not state:
+            raise RuntimeError("SGLang Xavier PD handoff expired or was cancelled")
+        return state
+
+    async def wait_source(self, room):
+        return (await self._wait(room, "source_ready"))["source"]
+
+    async def wait_complete(self, room):
+        return (await self._wait(room, "complete_ready"))["completed"]
 
     def source(self, room):
         self._expire()
@@ -99,7 +131,18 @@ class XavierPDDirectory(xo.StatelessActor):
         if not state["completed"]:
             self.completed_requests += 1
             self.gpu_bytes += gpu_bytes
+            state["deadline"] = time.monotonic() + state["timeout"]
         state["completed"] = True
+        state["complete_ready"].set()
+
+    def renew_completed(self, room):
+        self._expire()
+        state = self.rooms.get(room)
+        if state is None:
+            return False
+        if state["completed"]:
+            state["deadline"] = time.monotonic() + state["timeout"]
+        return True
 
     def check(self, room):
         self._expire()
@@ -111,11 +154,11 @@ class XavierPDDirectory(xo.StatelessActor):
         if state is None:
             return
         if role is None:
-            self.rooms.pop(room, None)
+            self._drop(room)
         else:
             state["finished"].append(role)
             if set(state["finished"]) == {"prefill", "decode"}:
-                self.rooms.pop(room, None)
+                self._drop(room)
 
     def get_stats(self):
         self._expire()

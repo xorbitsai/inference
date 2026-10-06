@@ -265,7 +265,7 @@ class PDModelActor(xo.StatelessActor):
                         await ref.release(handoff["room"])
                     else:
                         await ref.release_handoff(handoff["ticket"])
-                else:
+                elif handoff.get("ticket"):
                     await self._abandon_vllm_handoff(handoff)
             except Exception:
                 logger.warning("Failed to abandon Xavier handoff", exc_info=True)

@@ -57,10 +57,13 @@ msgstr ""
 msgid ""
 "The same ``replica_config`` is accepted by ``POST /v1/models``, the async "
 "Python client, and the CLI ``--replica_config`` JSON option. In the Web UI, "
-"select vLLM, enable per-replica placement, and choose Prefill or Decode for "
-"each replica. The community launch path defaults to Xavier when P/D roles "
-"appear."
+"select vLLM or SGLang, enable per-replica placement, and choose Prefill or "
+"Decode for each replica. The community launch path defaults to Xavier when "
+"P/D roles appear."
 msgstr ""
+"``POST /v1/models``、非同步 Python 用戶端及 CLI 的 ``--replica_config`` JSON 選項均接受相同的"
+" ``replica_config``。在 Web UI 中，選擇 vLLM 或 SGLang，啟用逐副本配置，並為每個副本選擇 Prefill 或 "
+"Decode。出現 P/D 角色時，社群版啟動流程預設使用 Xavier。"
 
 #: source/user_guide/pd_separation.rst:57
 msgid "CLI launch"
@@ -370,8 +373,17 @@ msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=fal
 msgstr "SGLang Xavier P/D 要求 ``disaggregation_decode_enable_radix_cache=false``；每個請求都會傳輸完整 prompt 的 KV。Prefill 端仍可使用本地 radix cache。若啟用 decode 端 radix cache，啟動時會拒絕該設定。"
 
 #: ../../user_guide/pd_separation.rst
-msgid "Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed transfers remain available until both request roles release them, regardless of decode duration."
-msgstr "在 worker 環境或啟動 ``envs`` 中設定 ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT``，可修改 Xavier 交接等待上限（預設 600 秒）。較長的預填充佇列或大型提示詞需要增大此值。未完成的目錄房間會在此間隔後過期；已完成的傳輸會保留到請求的兩個角色均釋放它們，不受解碼時長影響。"
+msgid ""
+"Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment "
+"or launch ``envs`` to change the Xavier handoff wait limit (default: 600 "
+"seconds). Increase it for long prefill queues or large prompts. Unfinished "
+"directory rooms expire after this interval; completed directory records "
+"expire after this interval unless the active decode request renews its "
+"lease. Both roles release them on completion."
+msgstr ""
+"在 worker 環境或啟動 ``envs`` 中設定 ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` "
+"可變更 Xavier 交接等待上限（預設 600 "
+"秒）。對於長預填充佇列或大型提示詞，可增加此值。未完成的目錄房間在此間隔後到期；已完成的目錄記錄也會在此間隔後到期，除非作用中的解碼請求續租。兩個角色在請求完成時釋放記錄。"
 
 #: ../../user_guide/pd_separation.rst
 msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."

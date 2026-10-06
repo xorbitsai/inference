@@ -59,13 +59,13 @@ msgstr "示例在 GPU 0 上启动一个 Prefill 副本，在 GPU 1 上启动一�
 msgid ""
 "The same ``replica_config`` is accepted by ``POST /v1/models``, the async "
 "Python client, and the CLI ``--replica_config`` JSON option. In the Web UI, "
-"select vLLM, enable per-replica placement, and choose Prefill or Decode for "
-"each replica. The community launch path defaults to Xavier when P/D roles "
-"appear."
+"select vLLM or SGLang, enable per-replica placement, and choose Prefill or "
+"Decode for each replica. The community launch path defaults to Xavier when "
+"P/D roles appear."
 msgstr ""
-"``POST /v1/models``、异步 Python 客户端以及 CLI 的 ``--replica_config`` JSON 选项都接受相同的"
-" ``replica_config``。在 Web UI 中，选择 vLLM，启用逐副本放置，并为每个副本选择 Prefill 或 "
-"Decode。社区版启动流程检测到 P/D 角色时会自动启用 Xavier (默认)。"
+"``POST /v1/models``、异步 Python 客户端和 CLI 的 ``--replica_config`` JSON 选项均接受相同的 "
+"``replica_config``。在 Web UI 中，选择 vLLM 或 SGLang，启用逐副本放置，并为每个副本选择 Prefill 或 "
+"Decode。出现 P/D 角色时，社区版启动路径默认使用 Xavier。"
 
 #: source/user_guide/pd_separation.rst:57
 msgid "CLI launch"
@@ -375,8 +375,17 @@ msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=fal
 msgstr "SGLang Xavier P/D 要求 ``disaggregation_decode_enable_radix_cache=false``；每个请求都会传输完整 prompt 的 KV。Prefill 端仍可使用本地 radix cache。若启用 decode 端 radix cache，启动时会拒绝该配置。"
 
 #: ../../user_guide/pd_separation.rst
-msgid "Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed transfers remain available until both request roles release them, regardless of decode duration."
-msgstr "在 worker 环境或启动 ``envs`` 中设置 ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT``，可修改 Xavier 交接等待上限（默认 600 秒）。较长的预填充队列或大型提示词需要增大此值。未完成的目录房间会在此间隔后过期；已完成的传输会保留到请求的两个角色均释放它们，不受解码时长影响。"
+msgid ""
+"Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment "
+"or launch ``envs`` to change the Xavier handoff wait limit (default: 600 "
+"seconds). Increase it for long prefill queues or large prompts. Unfinished "
+"directory rooms expire after this interval; completed directory records "
+"expire after this interval unless the active decode request renews its "
+"lease. Both roles release them on completion."
+msgstr ""
+"在 worker 环境或启动 ``envs`` 中设置 ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` "
+"可更改 Xavier 交接等待上限（默认 600 "
+"秒）。对于长预填充队列或大提示词，可增大该值。未完成的目录房间在此间隔后过期；已完成的目录记录也会在此间隔后过期，除非活跃的解码请求续租。两个角色在请求完成时释放记录。"
 
 #: ../../user_guide/pd_separation.rst
 msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."

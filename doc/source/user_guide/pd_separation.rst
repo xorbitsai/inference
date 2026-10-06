@@ -46,7 +46,7 @@ configuration.
    )
 
 The same ``replica_config`` is accepted by ``POST /v1/models``, the async Python
-client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM,
+client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM or SGLang,
 enable per-replica placement, and choose Prefill or Decode for each replica.
 The community launch path defaults to Xavier when P/D roles appear.
 
@@ -61,7 +61,7 @@ The model limitations are described in :ref:`user_guide_vllm_enhancement`. Insta
 
 SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload.
 
-Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed transfers remain available until both request roles release them, regardless of decode duration.
+Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed directory records expire after this interval unless the active decode request renews its lease. Both roles release them on completion.
 
 SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch.
 

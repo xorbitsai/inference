@@ -1,6 +1,16 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Opt-in GPU transfer, native SGLang P/D and slot-lifetime regressions."""
+r"""Opt-in GPU transfer, native SGLang P/D and slot-lifetime regressions.
+
+Run on a two-GPU Linux host with SGLang >= 0.5.21, xoscar[nixl] >= 0.11.1
+and an unquantized local model checkpoint. Activate that model environment
+before running::
+
+    XINFERENCE_TEST_SGLANG_XAVIER=1 \
+    XINFERENCE_TEST_PD_MODEL_PATH=/path/to/model \
+    SGLANG_PLUGINS=__xinference_test__ \
+    pytest -vv xinference/model/llm/sglang/tests/test_xavier_gpu_pd.py
+"""
 
 import asyncio
 import json

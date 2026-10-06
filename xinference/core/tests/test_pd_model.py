@@ -521,6 +521,19 @@ async def test_completed_direct_request_does_not_send_abandon_rpc(router, monkey
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("handoff", [{"ticket": ""}, {"ticket": "", "address": "gpu"}])
+async def test_empty_vllm_handoff_needs_no_abandon_rpc(router, monkeypatch, handoff):
+    actor, _, _ = router
+    actor._request_set.add("r")
+    actor._direct_transfers["r"] = handoff
+    abandon = AsyncMock()
+    monkeypatch.setattr(actor, "_abandon_vllm_handoff", abandon)
+    await actor.free_prefill_model_cache("r")
+    abandon.assert_not_awaited()
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
 async def test_completed_direct_stream_clears_handoff_without_abandon(
     router, monkeypatch
 ):

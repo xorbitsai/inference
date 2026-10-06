@@ -57,10 +57,14 @@ msgstr ""
 msgid ""
 "The same ``replica_config`` is accepted by ``POST /v1/models``, the async "
 "Python client, and the CLI ``--replica_config`` JSON option. In the Web UI, "
-"select vLLM, enable per-replica placement, and choose Prefill or Decode for "
-"each replica. The community launch path defaults to Xavier when P/D roles "
-"appear."
+"select vLLM or SGLang, enable per-replica placement, and choose Prefill or "
+"Decode for each replica. The community launch path defaults to Xavier when "
+"P/D roles appear."
 msgstr ""
+"同じ ``replica_config`` を ``POST /v1/models``、非同期 Python クライアント、CLI の "
+"``--replica_config`` JSON オプションで使用できます。Web UI では vLLM または SGLang "
+"を選択し、レプリカごとの配置を有効にして、各レプリカに Prefill または Decode を指定します。P/D "
+"ロールを指定すると、コミュニティ版の起動処理はデフォルトで Xavier を使用します。"
 
 #: source/user_guide/pd_separation.rst:57
 msgid "CLI launch"
@@ -378,8 +382,18 @@ msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=fal
 msgstr "SGLang Xavier P/D では ``disaggregation_decode_enable_radix_cache=false`` が必要です。各リクエストはプロンプト全体の KV を転送します。Prefill のローカル radix cache は引き続き利用できます。Decode の radix cache を有効にすると、起動時にエラーになります。"
 
 #: ../../user_guide/pd_separation.rst
-msgid "Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed transfers remain available until both request roles release them, regardless of decode duration."
-msgstr "worker 環境または起動時の ``envs`` で ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` を設定すると、Xavier のハンドオフ待機上限（既定値: 600 秒）を変更できます。長いプリフィルキューや大きなプロンプトでは値を増やしてください。未完了のディレクトリルームはこの期間後に期限切れになります。完了した転送はデコード時間に関係なく、リクエストの両方の役割が解放するまで保持されます。"
+msgid ""
+"Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment "
+"or launch ``envs`` to change the Xavier handoff wait limit (default: 600 "
+"seconds). Increase it for long prefill queues or large prompts. Unfinished "
+"directory rooms expire after this interval; completed directory records "
+"expire after this interval unless the active decode request renews its "
+"lease. Both roles release them on completion."
+msgstr ""
+"worker 環境または起動時の ``envs`` に ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` "
+"を設定すると、Xavier のハンドオフ待機上限（デフォルト 600 秒）を変更できます。長い prefill "
+"キューや大きなプロンプトでは値を増やしてください。未完了のディレクトリルームはこの時間後に期限切れになります。完了済みのディレクトリレコードも、実行中の"
+" decode リクエストがリースを更新しない場合は期限切れになります。両ロールはリクエスト完了時にレコードを解放します。"
 
 #: ../../user_guide/pd_separation.rst
 msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."

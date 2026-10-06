@@ -235,6 +235,7 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         self._pd_model_mapping: Dict[str, Any] = {}
+        self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
         self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
@@ -1066,7 +1067,6 @@ class SupervisorActor(xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
-        self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
         self._schedule_autostart()
 
     def _schedule_autostart(self, delay: float = 0.0):
@@ -3101,6 +3101,9 @@ class SupervisorActor(xo.StatelessActor):
             and model_engine is not None
             and model_engine.lower() == "sglang"
         )
+        if sglang_xavier and not pd_enabled and replica <= 1:
+            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+            sglang_xavier = False
         sglang_nixl = (
             pd_enabled
             and transport_backend == "nixl"
@@ -3122,7 +3125,7 @@ class SupervisorActor(xo.StatelessActor):
                 "xavier_cache_bytes requires SGLang shared CPU caching and a positive integer"
             )
         if sglang_xavier:
-            if transport_backend != "xavier" or n_worker != 1:
+            if n_worker != 1:
                 raise ValueError(
                     "SGLang Xavier requires the xavier transport and one worker per replica"
                 )
@@ -3354,8 +3357,6 @@ class SupervisorActor(xo.StatelessActor):
                             address=self.address,
                             uid=kwargs["_xavier_cache_config"]["uid"],
                         )
-                    if not hasattr(self, "_xavier_cache_mapping"):
-                        self._xavier_cache_mapping = {}
                     self._xavier_cache_mapping[model_uid] = cache_ref
                 if enable_xavier:
                     from ..model.llm.xavier.block_tracker import BlockTracker
@@ -5243,7 +5244,7 @@ class SupervisorActor(xo.StatelessActor):
         keeps it for the failure gauge).
         """
         pd_ref = self._pd_model_mapping.pop(model_uid, None)
-        cache_ref = getattr(self, "_xavier_cache_mapping", {}).pop(model_uid, None)
+        cache_ref = self._xavier_cache_mapping.pop(model_uid, None)
         self._pd_roles.pop(model_uid, None)
         if pd_ref is not None:
             try:

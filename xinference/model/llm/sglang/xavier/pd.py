@@ -5,7 +5,6 @@
 import asyncio
 import hashlib
 import json
-import time
 from collections import OrderedDict
 from typing import Optional
 
@@ -24,8 +23,9 @@ class SGLangXavierHandoff:
         self._namespace: Optional[str] = None
         # Keep fixed-size digests only, scoped to this deployment/tokenizer.
         self._prompt_hashes: OrderedDict[bytes, str] = OrderedDict()
+        self._lease_tasks: dict[int, asyncio.Task] = {}
 
-    async def _call(self, method, *args):
+    async def _call(self, method, *args, timeout=10):
         async def invoke():
             if self._directory_actor is None:
                 self._directory_actor = await xo.actor_ref(
@@ -33,7 +33,7 @@ class SGLangXavierHandoff:
                 )
             return await getattr(self._directory_actor, method)(*args)
 
-        return await asyncio.wait_for(invoke(), timeout=10)
+        return await asyncio.wait_for(invoke(), timeout=timeout)
 
     async def prepare(self, prompt: str, transfer: dict) -> dict:
         handoff = transfer.get("sglang_xavier")
@@ -65,14 +65,29 @@ class SGLangXavierHandoff:
     async def accept(self, prompt: str, transfer: dict) -> dict:
         if self.role != "decode":
             raise ValueError("Remote prefill requires a SGLang decode replica")
-        return await self.prepare(prompt, transfer)
+        handoff = await self.prepare(prompt, transfer)
+        room = handoff["room"]
+        self._lease_tasks[room] = asyncio.create_task(self._renew_completed(room))
+        return handoff
+
+    async def _renew_completed(self, room):
+        # Completed records are needed by non-streaming decode after generation.
+        # Keep them while D is alive; lost cleanup/router processes remain bounded.
+        while True:
+            await asyncio.sleep(min(60, transfer_timeout() / 3))
+            try:
+                if not await self._call("renew_completed", room):
+                    return
+            except Exception:
+                # Retry transient RPC errors; completion still fails closed if
+                # the directory stayed unavailable until the lease expired.
+                continue
 
     async def publish(self, handoff: dict) -> dict:
-        deadline = time.monotonic() + transfer_timeout()
-        while not await self._call("check", handoff["room"]):
-            if time.monotonic() > deadline:
-                raise RuntimeError("SGLang Xavier GPU transfer did not complete")
-            await asyncio.sleep(0.005)
+        if not await self._call(
+            "wait_complete", handoff["room"], timeout=transfer_timeout() + 10
+        ):
+            raise RuntimeError("SGLang Xavier GPU transfer did not complete")
         await self.release(handoff)
         return dict(
             do_remote_prefill=True, do_remote_decode=False, sglang_xavier=handoff
@@ -85,4 +100,8 @@ class SGLangXavierHandoff:
             )
 
     async def release(self, handoff: dict, failed: bool = False) -> None:
+        task = self._lease_tasks.pop(handoff["room"], None)
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         await self._call("release", handoff["room"], None if failed else self.role)

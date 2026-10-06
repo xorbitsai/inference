@@ -154,14 +154,13 @@ class XavierCacheActor(xo.StatelessActor):
 
     def get(self, namespace, keys):
         storage_keys = self._keys(namespace, keys)
-        pages = [
-            (
-                self._store.read("page", [key])[0].view(torch.uint8)
-                if key in self._store.ready
-                else None
-            )
-            for key in storage_keys
-        ]
+        pages = []
+        for key in storage_keys:
+            if key in self._store.ready:
+                pages.append(self._store.read("page", [key])[0].view(torch.uint8))
+                self._store.blocks.move_to_end(key)
+            else:
+                pages.append(None)
         self._counts["read_pages"] += sum(page is not None for page in pages)
         self._counts["missed_pages"] += sum(page is None for page in pages)
         # read() owns each response, so eviction cannot invalidate an in-flight RPC.

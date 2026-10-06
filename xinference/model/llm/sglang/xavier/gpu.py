@@ -173,6 +173,8 @@ class XavierGPUActor(xo.StatelessActor):
             total=None,
             sent=0,
             completed=asyncio.Event(),
+            changed=asyncio.Event(),
+            deadline=time.monotonic() + transfer_timeout(),
         )
         try:
             await self.directory.publish_source(
@@ -188,6 +190,7 @@ class XavierGPUActor(xo.StatelessActor):
 
     async def add_chunk(self, room, pages, aux_payload: list[bytes] | None = None):
         state = self.rooms[room]
+        state["deadline"] = time.monotonic() + transfer_timeout()
         state["sent"] += len(pages)
         final = state["sent"] == state["total"]
         if state["sent"] > state["total"]:
@@ -213,12 +216,23 @@ class XavierGPUActor(xo.StatelessActor):
         )
         # Scheduler-owned source slots remain pinned until every chunk is read.
         state["chunks"].append(dict(ticket=ticket, pages=pages, final=final, aux=aux))
+        state["changed"].set()
 
     def chunk(self, room, index):
         state = self.rooms.get(room)
         if state is None or state.get("aborted"):
             raise RuntimeError("SGLang Xavier producer was cancelled")
         return state["chunks"][index] if index < len(state["chunks"]) else None
+
+    async def wait_chunk(self, room, index):
+        state = self.rooms[room]
+        state["changed"].clear()
+        chunk = self.chunk(room, index)
+        while chunk is None:
+            await asyncio.wait_for(state["changed"].wait(), timeout=transfer_timeout())
+            state["changed"].clear()
+            chunk = self.chunk(room, index)
+        return chunk
 
     async def send_direct_gpu_v1(self, ticket, reads, remote_ref, slab_bytes):
         return await self.transfer.run(
@@ -230,6 +244,7 @@ class XavierGPUActor(xo.StatelessActor):
         room = int(ticket.split(":", 1)[0])
         state = self.rooms.get(room)
         if state:
+            state["deadline"] = time.monotonic() + transfer_timeout()
             state["released"].add(ticket)
             if state["sent"] == state["total"] and len(state["released"]) == len(
                 state["chunks"]
@@ -251,7 +266,18 @@ class XavierGPUActor(xo.StatelessActor):
 
     async def wait_done(self, room):
         state = self.rooms[room]
-        await state["completed"].wait()
+        while not state["completed"].is_set():
+            deadline = state["deadline"]
+            try:
+                await asyncio.wait_for(
+                    state["completed"].wait(),
+                    timeout=max(0, deadline - time.monotonic()),
+                )
+            except asyncio.TimeoutError:
+                if state["deadline"] > time.monotonic():
+                    continue  # Source publication or a completed pull made progress.
+                await self.abort(room)
+                raise TimeoutError("SGLang Xavier producer KV transfer timed out")
         if state.get("aborted"):
             raise RuntimeError("SGLang Xavier producer was cancelled")
         return self.done(room)
@@ -265,14 +291,7 @@ class XavierGPUActor(xo.StatelessActor):
         )
 
     async def _receive(self, room, destinations, aux_index):
-        deadline = time.monotonic() + transfer_timeout()
-        source = None
-        while source is None:
-            source = await self.directory.source(room)
-            if time.monotonic() > deadline:
-                raise TimeoutError("SGLang Xavier producer bootstrap timed out")
-            if source is None:
-                await asyncio.sleep(0.005)
+        source = await self.directory.wait_source(room)
         rank = source["rank"]
         self._world_addresses[rank] = source["address"]
         sender = await xo.actor_ref(
@@ -280,13 +299,7 @@ class XavierGPUActor(xo.StatelessActor):
         )
         offset, index, nbytes = 0, 0, 0
         while True:
-            chunk = await sender.chunk(room, index)
-            if chunk is None:
-                if time.monotonic() > deadline:
-                    raise TimeoutError("SGLang Xavier producer KV transfer timed out")
-                await asyncio.sleep(0.001)
-                continue
-            deadline = time.monotonic() + transfer_timeout()
+            chunk = await sender.wait_chunk(room, index)
             pages = chunk["pages"]
             targets = destinations[offset : offset + len(pages)]
             if len(targets) != len(pages):
@@ -353,6 +366,7 @@ class XavierGPUActor(xo.StatelessActor):
                 for chunk in state["chunks"]:
                     self.transfer.release_direct(chunk["ticket"])
                 state["completed"].set()
+                state["changed"].set()
 
     def clear(self, room):
         self.rooms.pop(room, None)
