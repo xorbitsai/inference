@@ -38,7 +38,11 @@ class XavierBytesCacheActor(xo.Actor):
             self._contract = contract
             self._page_bytes = page_bytes
             self._capacity = self.capacity_bytes // page_bytes
-        return contract.fingerprint
+        return {
+            "namespace": contract.fingerprint,
+            "capacity_pages": self._capacity,
+            "max_keys": 4096,
+        }
 
     def _validate(self, namespace, keys):
         if self._contract is None or namespace != self._contract.fingerprint:
@@ -80,6 +84,11 @@ class XavierBytesCacheActor(xo.Actor):
         if len(keys) > self._capacity:
             return [False] * len(keys)
         pinned = self._pinned()
+        # Refresh an aged prefix before inserting any suffix pages. Otherwise
+        # insertion can evict this chain's own head before the final refresh.
+        for key in reversed(keys[:start]):
+            if key in self._pages:
+                self._pages.move_to_end(key)
         for key, page in reversed(list(zip(keys[start:], pages))):
             if key not in self._pages:
                 if len(self._pages) >= self._capacity:

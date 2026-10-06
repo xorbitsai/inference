@@ -1778,6 +1778,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             model_config,
             peft_model,
         )
+        if self._xavier_config is not None:
+            raise ValueError("MLX Xavier does not support vision models")
         self._mlx_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         self._draft_model: Optional[Any] = None
         self._draft_kind: Optional[str] = None

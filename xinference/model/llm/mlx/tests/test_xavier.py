@@ -59,6 +59,24 @@ def model(model_type="qwen2"):
     return value
 
 
+@pytest.mark.parametrize("role", [None, "prefill", "decode"])
+def test_vision_model_rejects_xavier_before_loading(role):
+    from ..core import MLXVisionModel
+
+    family = SimpleNamespace(
+        model_specs=[SimpleNamespace(quantization="bf16", model_revision=None)],
+        model_ability=["chat", "vision"],
+    )
+    with pytest.raises(ValueError, match="does not support vision"):
+        MLXVisionModel(
+            "vision-rep0",
+            family,
+            "unused",
+            {"_xavier_cache_config": dict(address="address", uid="cache", role=role)},
+        )
+    assert MLXVisionModel("vision-rep0", family, "unused", {})._xavier_config is None
+
+
 @pytest.mark.asyncio
 async def test_pd_metadata_is_checked_before_reading():
     client = MLXXavierCache(
@@ -206,6 +224,9 @@ async def test_publication_failure_does_not_drop_batch_results(monkeypatch, capl
 @pytest.mark.asyncio
 async def test_cancelled_flush_keeps_other_requests_writes_independent():
     client = MLXXavierCache(contract(), {})
+    client._ref = SimpleNamespace(
+        configure=AsyncMock(return_value={"capacity_pages": 4096, "max_keys": 4096})
+    )
     client.encode = MagicMock(return_value=[b"page"])
     gates = {client.keys([i])[0]: asyncio.Event() for i in (1, 2)}
 
@@ -225,6 +246,29 @@ async def test_cancelled_flush_keeps_other_requests_writes_independent():
     assert not first.done()
     gates[client.keys([1])[0]].set()
     await asyncio.wait_for(client.flush([first]), 1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capacity,length", [(2, 129), (4097, 4096 * 64 + 1)])
+async def test_oversized_shared_prompt_skips_encoding_and_publication(capacity, length):
+    c = contract()
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        ref = await xo.create_actor(
+            XavierBytesCacheActor,
+            capacity * c.layer_nbytes * c.num_layers,
+            address=pool.external_address,
+        )
+        client = MLXXavierCache(c, dict(address=ref.address, uid=ref.uid))
+        client.encode = MagicMock(side_effect=AssertionError("must not encode"))
+        client.keys = MagicMock(side_effect=AssertionError("must not build keys"))
+        for _ in range(2):
+            await client.publish([], [1] * length)
+        client.encode.assert_not_called()
+        client.keys.assert_not_called()
+        assert client._capacity_pages == min(capacity, 4096)
+        stats = await ref.get_stats()
+        assert stats["stored_pages"] == 0 and stats["pages"] == 0
 
 
 @pytest.mark.asyncio
@@ -343,6 +387,9 @@ async def test_publish_encodes_only_pages_beyond_remote_prefix(cached):
     mx.eval(m(mx.array(tokens)[None], cache=cache))
     client = MLXXavierCache(contract(), {})
     complete = client.encode(cache, tokens)
+    client._ref = SimpleNamespace(
+        configure=AsyncMock(return_value={"capacity_pages": 4096, "max_keys": 4096})
+    )
     client._call = AsyncMock()
     await client.publish(cache, tokens, cached_tokens=cached)
     client._call.assert_awaited_once_with(
@@ -487,6 +534,41 @@ async def test_real_pd_import_skips_prefill_and_matches_logits():
         next_transfer = await p.prefill(m, tokens, prefix_length=24)
         assert p.imported_tokens == 0  # Complete warm pages stay on CPU until D reads.
         await d.fetch(tokens, next_transfer)
+        assert (await ref.get_stats())["active_handoffs"] == 0
+
+
+@metal
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cached", [64, 128])
+async def test_partial_hit_prefill_computes_and_publishes_only_missing_suffix(cached):
+    import mlx.core as mx
+    from mlx_lm.models.cache import make_prompt_cache
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        ref = await xo.create_actor(
+            XavierBytesCacheActor, address=pool.external_address, uid="mlx-cache"
+        )
+        cfg = dict(address=ref.address, uid=ref.uid)
+        p = MLXXavierCache(contract(), dict(cfg, role="prefill"))
+        d = MLXXavierCache(contract(), dict(cfg, role="decode"))
+        tokens = [i % 128 for i in range(130)]
+        m = model()
+        seed = await p.prefill(m, tokens[: cached + 1], prefix_length=24)
+        await d.fetch(tokens[: cached + 1], seed)
+        p.imported_tokens = 0
+        p.encode = MagicMock(wraps=p.encode)
+        transfer = await p.prefill(m, tokens, prefix_length=24)
+        assert p.imported_tokens == cached
+        p.encode.assert_called_once()
+        assert p.encode.call_args.args[1:] == (tokens[:-1], cached)
+        cache, reused = await d.fetch(tokens, transfer)
+        assert reused == len(tokens) - 1
+        actual = m(mx.array(tokens[reused:])[None], cache=cache)[:, -1]
+        expected = m(mx.array(tokens)[None], cache=make_prompt_cache(m))[:, -1]
+        mx.eval(actual, expected)
+        assert bool(mx.array_equal(mx.argmax(actual, -1), mx.argmax(expected, -1)))
+        assert float(mx.max(mx.abs(actual.astype(mx.float32) - expected))) < 0.02
         assert (await ref.get_stats())["active_handoffs"] == 0
 
 

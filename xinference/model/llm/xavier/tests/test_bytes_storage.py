@@ -20,7 +20,9 @@ def contract():
 def store(capacity=2):
     c = contract()
     actor = XavierBytesCacheActor(capacity * c.layer_nbytes * c.num_layers)
-    namespace = actor.configure(c.to_dict())
+    metadata = actor.configure(c.to_dict())
+    assert metadata["capacity_pages"] == capacity and metadata["max_keys"] == 4096
+    namespace = metadata["namespace"]
     page = bytes(c.layer_nbytes * c.num_layers)
     return actor, namespace, page
 
@@ -77,6 +79,31 @@ def test_suffix_publication_keeps_existing_chain_heads_newer_than_tails():
     assert actor.get(namespace, keys[:4]) == [page] * 3
     with pytest.raises(ValueError, match="geometry"):
         actor.put(namespace, keys[:4], [page], start=2)
+
+
+def test_suffix_publication_refreshes_aged_prefix_before_eviction():
+    actor, namespace, page = store(4)
+    keys = [str(i) * 64 for i in range(1, 7)]
+    actor.put(namespace, keys[:2], [page] * 2)
+    actor.put(namespace, keys[4:], [page] * 2)
+    assert actor.put(namespace, keys[:4], [page] * 2, start=2) == [True] * 4
+    assert actor.get(namespace, keys[:4]) == [page] * 4
+    assert actor.get(namespace, keys[4:]) == []
+    assert actor.get_stats()["evicted_pages"] == 2
+
+
+def test_prepare_handoff_evicts_unpinned_pages_and_preserves_active_prefix():
+    actor, namespace, page = store(3)
+    keys = [str(i) * 64 for i in range(1, 6)]
+    actor.put(namespace, keys[:3], [page] * 3)
+    existing = actor.prepare_handoff(namespace, keys[:1])
+    incoming = actor.prepare_handoff(namespace, keys[3:])
+    assert actor.get_stats()["evicted_pages"] == 2
+    assert actor.get_handoff(namespace, keys[:1], existing) == [page]
+    assert not actor.handoff_ready(namespace, keys[3:], incoming)
+    assert actor.put(namespace, keys[3:], [page] * 2) == [True] * 2
+    assert actor.get_handoff(namespace, keys[3:], incoming) == [page] * 2
+    assert actor.get_stats()["pages"] == 3
 
 
 def test_leases_pin_absent_pages_and_handoff_is_consumed_once():

@@ -3126,10 +3126,8 @@ class SupervisorActor(xo.StatelessActor):
             and (model_engine or "").lower() == "mlx"
         )
         if (requested_xavier or pd_enabled) and (model_engine or "").lower() == "mlx":
-            if transport_backend != "xavier" or n_worker != 1:
-                raise ValueError(
-                    "MLX Xavier requires the xavier transport and one worker per replica"
-                )
+            if transport_backend != "xavier":
+                raise ValueError("MLX Xavier requires the xavier transport")
             if (
                 model_type not in (None, "LLM")
                 or model_format != "mlx"

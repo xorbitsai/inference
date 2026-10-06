@@ -135,7 +135,7 @@ async def test_mlx_pd_recovery_keeps_bytes_cache_and_registers_replacement(role)
         cache = await xo.create_actor(
             XavierBytesCacheActor, address=pool.external_address, uid="bytes-cache"
         )
-        namespace = await cache.configure(contract().to_dict())
+        namespace = (await cache.configure(contract().to_dict()))["namespace"]
         worker = MagicMock()
         supervisor = AsyncMock()
         worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
@@ -176,7 +176,6 @@ async def test_mlx_failed_launch_cleans_bytes_actor(launch_runtime):
     "options",
     [
         {"transfer_backend_type": "nixl"},
-        {"n_worker": 2},
         {"model_format": "pytorch"},
         {"quantization": "4bit"},
         {"xavier_gpu_cache_bytes": 1024},

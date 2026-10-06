@@ -113,6 +113,7 @@ class MLXXavierCache:
         self.role = config.get("role")
         self._ref = None
         self._configured = False
+        self._capacity_pages = 0
         self._writes: set = set()
         self.imported_tokens = 0
 
@@ -122,7 +123,8 @@ class MLXXavierCache:
                 address=self.config["address"], uid=self.config["uid"]
             )
         if not self._configured:
-            await self._ref.configure(self.contract.to_dict())
+            metadata = await self._ref.configure(self.contract.to_dict())
+            self._capacity_pages = min(metadata["capacity_pages"], metadata["max_keys"])
             self._configured = True
 
     async def initialize(self):
@@ -268,12 +270,18 @@ class MLXXavierCache:
             logger.warning("MLX Xavier handoff release failed", exc_info=True)
 
     def publish(self, cache, tokens, cached_tokens=0):
-        start = cached_tokens // self.contract.block_size * self.contract.block_size
-        keys = self.keys(tokens)
-        pages = self.encode(cache, tokens, start)
-
         async def write():
             try:
+                await self.initialize()
+                if (
+                    len(tokens) + self.contract.block_size - 1
+                ) // self.contract.block_size > self._capacity_pages:
+                    return
+                start = (
+                    cached_tokens // self.contract.block_size * self.contract.block_size
+                )
+                keys = self.keys(tokens)
+                pages = self.encode(cache, tokens, start)
                 await self._call(
                     "put",
                     self.contract.fingerprint,
@@ -289,11 +297,10 @@ class MLXXavierCache:
         task.add_done_callback(self._writes.discard)
         return task
 
-    async def flush(self, writes=None):
-        tasks = list(self._writes) if writes is None else writes
-        if tasks:
+    async def flush(self, writes):
+        if writes:
             await asyncio.gather(
-                *(asyncio.shield(task) for task in tasks), return_exceptions=True
+                *(asyncio.shield(task) for task in writes), return_exceptions=True
             )
 
     async def prefill(self, model, tokens, prefix_length=None):
