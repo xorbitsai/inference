@@ -78,8 +78,8 @@ msgstr ""
 "192.168.xx.xx``."
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "Xavier ne prend en charge que les cartes graphiques Nvidia."
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "Le transfert GPU de vLLM nécessite des GPU NVIDIA."
 
 #: source/user_guide/vllm_enhancement.rst:21
 msgid ""
@@ -106,3 +106,31 @@ msgstr "Les répliques SGLang ordinaires partagent des pages CPU HiCache. Les r�
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
 msgstr "Xavier charge les checkpoints BF16 en FP16 et émet un avertissement. Les poids et les caches KV utilisent FP16."
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "Répliques MLX"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"Les répliques MLX peuvent partager le cache KV de préfixe avec "
+"``model_engine=\"MLX\"`` et ``enable_xavier=True``. Les modèles et exigences"
+" FP16 sont décrits dans :ref:`user_guide_pd_separation`. "
+"``xavier_cache_bytes`` limite le cache CPU partagé (512 MiB par défaut). "
+"Chaque réplique possède aussi son modèle et son cache KV Metal. Les "
+"répliques ordinaires calculent localement en cas d’absence de cache ou de "
+"stockage indisponible ; les déploiements incompatibles ne peuvent pas "
+"partager de pages. Les statistiques signalent les tokens réutilisés dans "
+"``prompt_tokens_details.cached_tokens``. Les rôles prefill/decode explicites"
+" activent automatiquement MLX Xavier P/D. Le partage de cache entre moteurs "
+"n’est pas encore pris en charge."

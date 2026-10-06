@@ -75,8 +75,8 @@ msgstr ""
 "esempio: ``xinference-local -H 192.168.xx.xx``."
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "Xavier supporta solo schede grafiche Nvidia."
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "Il trasferimento GPU di vLLM richiede GPU NVIDIA."
 
 #: source/user_guide/vllm_enhancement.rst:21
 msgid ""
@@ -103,3 +103,31 @@ msgstr "Le repliche SGLang ordinarie condividono pagine CPU HiCache. I ruoli pre
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
 msgstr "Xavier carica i checkpoint BF16 come FP16 ed emette un avviso. Sia i pesi sia le cache KV usano FP16."
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "Repliche MLX"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"Le repliche MLX possono condividere la cache KV dei prefissi con "
+"``model_engine=\"MLX\"`` e ``enable_xavier=True``. Modelli supportati e "
+"requisiti FP16 sono descritti in :ref:`user_guide_pd_separation`. "
+"``xavier_cache_bytes`` limita la cache CPU condivisa (512 MiB predefiniti). "
+"Ogni replica possiede anche il proprio modello e la propria cache KV Metal. "
+"Le repliche ordinarie calcolano localmente in caso di cache miss o storage "
+"non disponibile; deployment incompatibili non possono condividere pagine. "
+"L’utilizzo riporta i token riusati in "
+"``prompt_tokens_details.cached_tokens``. I ruoli prefill/decode espliciti "
+"attivano automaticamente MLX Xavier P/D. La condivisione della cache tra "
+"motori non è ancora supportata."

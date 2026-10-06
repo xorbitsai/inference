@@ -46,7 +46,7 @@ configuration.
    )
 
 The same ``replica_config`` is accepted by ``POST /v1/models``, the async Python
-client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM or SGLang,
+client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM, SGLang or MLX,
 enable per-replica placement, and choose Prefill or Decode for each replica.
 The community launch path defaults to Xavier when P/D roles appear.
 
@@ -70,6 +70,38 @@ For a native SGLang comparison, keep the same deployment and set ``transfer_back
 Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication.
 
 For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts.
+
+MLX with Xavier
+---------------
+
+MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports unquantized, full-attention Qwen2, Qwen3 and Llama text models with one worker per replica. Weights and KV cache use FP16. Quantized weights or KV cache, rotating caches, hybrid attention, multimodal inputs, LoRA and speculative decoding are unsupported.
+
+Use ``model_engine="MLX"``, ``model_format="mlx"`` and ``quantization="none"`` with the same prefill/decode roles. The example places one replica on each of two Mac workers. Replace the registered worker addresses with those reported by ``client.get_workers_info()``.
+
+.. code-block:: python
+
+   client.launch_model(
+       model_uid="qwen-mlx-pd",
+       model_name="qwen2.5-instruct",
+       model_size_in_billions="0_5",
+       model_engine="MLX",
+       model_format="mlx",
+       quantization="none",
+       replica=2,
+       xavier_cache_bytes=536870912,
+       replica_config=[
+           {"role": "prefill", "devices": [{"worker_ip": "MAC_P_WORKER:PORT",
+                                          "n_gpu": "auto"}]},
+           {"role": "decode", "devices": [{"worker_ip": "MAC_D_WORKER:PORT",
+                                         "n_gpu": "auto"}]},
+       ],
+   )
+
+MLX Xavier stores immutable CPU pages in a shared actor on the supervisor and transfers them through actor RPC. ``xavier_cache_bytes`` bounds this deployment cache (default: 512 MiB); model weights and per-replica Metal KV allocations consume additional memory. The prefill replica evaluates all but the last prompt token. Decode imports the prefix, evaluates that last token and samples the first response token. Streaming and non-streaming requests are supported. Active handoffs reserve cache capacity; insufficient capacity, incompatible metadata or transfer failure raises an error. The five-minute handoff deadline starts when prefill reserves capacity, before computing the prefix, and includes prefill and transfer time.
+
+Each 64-token FP16 page uses ``2 * 64 * num_layers * num_kv_heads * head_dim * 2`` bytes (K and V, with two bytes per value). For example, 36 layers, 8 KV heads and a head dimension of 128 require 9 MiB per page; 512 MiB holds 56 pages, or 3584 prefix tokens. Round each prefix up to a whole page and size ``xavier_cache_bytes`` for the distinct pages reserved by all concurrent P/D requests. Ordinary shared-cache requests skip publication when their prefix exceeds the cache capacity or the 4096-page protocol limit.
+
+Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All workers must reach the supervisor's actor address. Relaunch after a worker restart. Two replicas on one Mac share its Metal GPU; measure your workload before expecting a throughput benefit. Cross-engine P/D, including NVIDIA-to-Mac handoff, is not yet supported.
 
 Native NIXL backend
 -------------------

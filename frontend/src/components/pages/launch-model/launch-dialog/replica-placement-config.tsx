@@ -40,7 +40,7 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerO
   const { t } = useI18n();
   const { notifyUserChange } = useFormContext();
   const engine = useWatch('model_engine', form);
-  const supportsPD = ['vllm', 'sglang'].includes(String(engine).toLowerCase());
+  const supportsPD = ['vllm', 'sglang', 'mlx'].includes(String(engine).toLowerCase());
   const columns = supportsPD ? 'grid-cols-[1fr_2fr_1fr_1fr]' : 'grid-cols-[1fr_2fr_1fr]';
   const rows = (useWatch('replica_config', form) as ReplicaConfigRow[] | undefined) ?? [];
 

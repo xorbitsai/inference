@@ -68,8 +68,8 @@ msgstr ""
 "IP 地址，例如：``xinference-local -H 192.168.xx.xx`` 。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "Xavier 只支持 Nvidia 显卡。"
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "vLLM GPU 传输路径需要 NVIDIA GPU。"
 
 #: source/user_guide/vllm_enhancement.rst:21
 msgid ""
@@ -96,3 +96,26 @@ msgstr "普通 SGLang 副本共享 CPU HiCache 页面。显式 prefill/decode �
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
 msgstr "Xavier 将 BF16 检查点加载为 FP16 并发出警告。权重和 KV 缓存均使用 FP16。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "MLX 副本"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"使用 ``model_engine=\"MLX\"`` 和 ``enable_xavier=True`` 可在 MLX 副本间共享前缀 KV "
+"缓存。支持的模型和 FP16 要求见 :ref:`user_guide_pd_separation`。``xavier_cache_bytes`` "
+"限制共享 CPU 缓存容量，默认 512 MiB。每个副本还拥有各自的模型和 Metal KV "
+"缓存。普通副本在未命中或存储不可用时本地计算；不兼容的部署不能共享缓存页。响应通过 "
+"``prompt_tokens_details.cached_tokens`` 报告复用 token 数。显式设置 prefill/decode "
+"角色会自动启用 MLX Xavier P/D。目前不支持跨引擎缓存共享。"

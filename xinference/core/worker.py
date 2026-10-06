@@ -6903,7 +6903,10 @@ class WorkerActor(xo.StatelessActor):
         ).get("role") in ("prefill", "decode"):
             await supervisor_ref.unregister_pd_replica(origin_uid, rep_model_uid)
             cache_config = launch_args.get("_xavier_cache_config", {})
-            if cache_config.get("role") in ("prefill", "decode"):
+            if (
+                cache_config.get("role") in ("prefill", "decode")
+                and "rank" in cache_config
+            ):
                 directory = await xo.actor_ref(
                     address=cache_config["address"], uid=cache_config["uid"]
                 )

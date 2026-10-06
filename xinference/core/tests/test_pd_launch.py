@@ -68,6 +68,134 @@ def launch_kwargs():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("pd", [False, True])
+@pytest.mark.parametrize("quantization", [None, "none", "fp16", "bf16"])
+async def test_mlx_xavier_launch_and_cleanup(launch_runtime, pd, quantization):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(
+        model_engine="MLX",
+        model_format="mlx",
+        quantization=quantization,
+        xavier_cache_bytes=123456,
+    )
+    if not pd:
+        kwargs["enable_xavier"] = True
+        for replica in kwargs["replica_config"]:
+            replica.role = "hybrid"
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == (
+        {"XavierBytesCacheActor", "PDModelActor"} if pd else {"XavierBytesCacheActor"}
+    )
+    assert (
+        actors["XavierBytesCacheActor"].constructor_kwargs["capacity_bytes"] == 123456
+    )
+    for role, worker in zip(("prefill", "decode"), workers):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        config = {"address": supervisor.address, "uid": "xavier-cache-pd"}
+        if pd:
+            config["role"] = role
+        assert launch["_xavier_cache_config"] == config
+        assert launch["xavier_config"] is None
+        assert "_nixl_config" not in launch
+        worker.launch_rank0_model.assert_not_awaited()
+        worker.start_transfer_for_vllm.assert_not_awaited()
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_cache_mapping and not supervisor._pd_model_mapping
+    assert destroy.await_count == (2 if pd else 1)
+
+
+@pytest.mark.asyncio
+async def test_single_mlx_replica_disables_shared_xavier(launch_runtime, caplog):
+    supervisor, workers, actors, _ = launch_runtime
+    supervisor._resolve_replica_config.return_value = ([(workers[0], [0], 1)], {0: "p"})
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="MLX", model_format="mlx", enable_xavier=True, replica=1)
+    kwargs["replica_config"] = kwargs["replica_config"][:1]
+    kwargs["replica_config"][0].role = None
+    await supervisor.launch_builtin_model(**kwargs)
+    assert "replica<=1" in caplog.text
+    assert not actors and not supervisor._xavier_cache_mapping
+    assert (
+        "_xavier_cache_config" not in workers[0].launch_builtin_model.call_args.kwargs
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+async def test_mlx_pd_recovery_keeps_bytes_cache_and_registers_replacement(role):
+    import xoscar as xo
+
+    from ...model.llm.xavier.backends.bytes.storage import XavierBytesCacheActor
+    from ...model.llm.xavier.tests.test_bytes_storage import contract
+    from ..worker import WorkerActor
+
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        cache = await xo.create_actor(
+            XavierBytesCacheActor, address=pool.external_address, uid="bytes-cache"
+        )
+        namespace = (await cache.configure(contract().to_dict()))["namespace"]
+        worker = MagicMock()
+        supervisor = AsyncMock()
+        worker.get_supervisor_ref = AsyncMock(return_value=supervisor)
+        worker.launch_builtin_model = AsyncMock(return_value="replacement:1234")
+        worker.wait_for_load = AsyncMock()
+        replacement = MagicMock()
+        worker._model_uid_to_model = {"pd-rep0": replacement}
+        config = dict(role=role, address=cache.address, uid=cache.uid)
+        await WorkerActor.recover_model(
+            worker, dict(model_uid="pd-rep0", _xavier_cache_config=config)
+        )
+        worker.launch_builtin_model.assert_awaited_once_with(
+            model_uid="pd-rep0", _xavier_cache_config=config
+        )
+        worker.wait_for_load.assert_awaited_once_with("pd-rep0")
+        supervisor.unregister_pd_replica.assert_awaited_once_with("pd", "pd-rep0")
+        supervisor.register_pd_replica.assert_awaited_once_with(
+            "pd", "pd-rep0", replacement
+        )
+        assert (await cache.get_stats())["namespace"] == namespace
+
+
+@pytest.mark.asyncio
+async def test_mlx_failed_launch_cleans_bytes_actor(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="MLX", model_format="mlx")
+    workers[1].wait_for_load.side_effect = RuntimeError("bad model")
+    with pytest.raises(RuntimeError, match="bad model"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not supervisor._xavier_cache_mapping
+    assert not supervisor._model_uid_to_replica_info
+    destroy.assert_awaited_once_with(actors["XavierBytesCacheActor"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"transfer_backend_type": "nixl"},
+        {"model_format": "pytorch"},
+        {"quantization": "4bit"},
+        {"xavier_gpu_cache_bytes": 1024},
+        {"xavier_cache_bytes": 0},
+        {"xavier_cache_bytes": True},
+    ],
+)
+async def test_mlx_invalid_launch_has_no_actors(launch_runtime, options):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs.update(model_engine="MLX", model_format="mlx")
+    kwargs.update(options)
+    with pytest.raises(ValueError):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_sglang_xavier_uses_hicache_without_vllm_collective(launch_runtime):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
