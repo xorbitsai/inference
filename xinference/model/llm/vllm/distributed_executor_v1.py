@@ -17,6 +17,7 @@ import logging
 import os
 import time
 from concurrent.futures import Future
+from threading import Thread
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -27,6 +28,7 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    cast,
 )
 
 import xoscar as xo
@@ -63,8 +65,9 @@ class _ExecutorIsolation(Isolation):
     def stop(self, timeout: float = _SHUTDOWN_TIMEOUT_SECONDS) -> bool:
         if not self._loop.is_closed():
             self._loop.call_soon_threadsafe(self._loop.stop)
-        self._thread.join(timeout=timeout)
-        return not self._thread.is_alive()
+        thread = cast(Thread, self._thread)
+        thread.join(timeout=timeout)
+        return not thread.is_alive()
 
 
 class WorkerWrapper:
