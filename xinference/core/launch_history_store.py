@@ -332,6 +332,26 @@ class LaunchHistoryStore:
                     ),
                 )
 
+    def update_autostart_launch_config(
+        self, model_uid: str, config: Dict[str, Any]
+    ) -> None:
+        """Persist committed execution limits without replacing owner or policy."""
+        with self._lock:
+            with self._get_conn() as conn:
+                rows = conn.execute(
+                    "SELECT id, data FROM launch_history "
+                    "WHERE model_uid = ? AND autostart_enabled = 1",
+                    (model_uid,),
+                ).fetchall()
+                for row in rows:
+                    data = json.loads(row["data"])
+                    data.update(config)
+                    conn.execute(
+                        "UPDATE launch_history SET data = ?, updated_at = CURRENT_TIMESTAMP "
+                        "WHERE id = ?",
+                        (json.dumps(data, ensure_ascii=False), row["id"]),
+                    )
+
     def remove_autostart(self, model_uid: str) -> bool:
         with self._lock:
             with self._get_conn() as conn:

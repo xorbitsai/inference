@@ -46,7 +46,10 @@ let enabled = true,
   closed = 0,
   refreshed = 0;
 let posts: { url: string; body: unknown }[] = [];
-let initial = { status: 'idle', stage: 'queued' };
+let initial: { status: string; stage?: string; error?: string; restored?: boolean } = {
+  status: 'idle',
+  stage: 'queued',
+};
 let final: { status: string; error?: string; restored?: boolean } = { status: 'ready' };
 const originalGet = request.get,
   originalPost = request.post;
@@ -153,5 +156,13 @@ it('resumes an existing reload and reports restoration', async () => {
     /out of memory.*runningModels.reload.restored/
   );
   assert.equal(refreshed, 0);
+  assert.equal(posts.length, 0);
+});
+
+it('does not present an earlier failed operation as a new dialog error', async () => {
+  initial = { status: 'error', error: 'previous out of memory', restored: true };
+  await render();
+  assert.equal(document.querySelector('[role="alert"]'), null);
+  assert.equal(document.querySelector('[role="status"]'), null);
   assert.equal(posts.length, 0);
 });

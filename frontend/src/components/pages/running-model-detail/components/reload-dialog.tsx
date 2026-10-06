@@ -75,7 +75,7 @@ export function ReloadDialog({
             ])
           )
         );
-        setJob(status);
+        setJob(status.status === 'reloading' ? status : null);
       })
       .catch((err) => {
         if (active) setError(errorMessage(err));

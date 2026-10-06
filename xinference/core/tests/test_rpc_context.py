@@ -318,7 +318,7 @@ async def test_supervisor_abort_propagates_parent_child_metadata():
 
     class Worker:
         @rpc_context
-        async def get_model(self, model_uid, **kwargs):
+        async def get_model_for_abort(self, model_uid, **kwargs):
             metadata = get_current_rpc_metadata()
             calls.append(("worker", model_uid, metadata))
             return Model()

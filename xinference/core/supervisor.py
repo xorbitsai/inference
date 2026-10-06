@@ -2974,6 +2974,8 @@ class SupervisorActor(xo.StatelessActor):
         from ..model.llm.weight_cache import parse_weight_cache_option
 
         if parse_weight_cache_option(kwargs.get("enable_weight_cache", False)):
+            if (model_type or "LLM").lower() != "llm":
+                raise ValueError("enable_weight_cache requires an LLM model")
             if (model_engine or "").lower() not in ("vllm", "sglang"):
                 raise ValueError("enable_weight_cache requires vLLM or SGLang")
             if (
@@ -4623,29 +4625,34 @@ class SupervisorActor(xo.StatelessActor):
             self._model_reload_status[model_uid] = status
 
             async def run() -> None:
-                async with self._get_model_replica_lock(model_uid):
-                    try:
-                        if self._get_reload_target(model_uid) != (replica_uid, worker):
-                            raise ValueError("Model placement changed before reload")
-                        status["stage"] = "draining"
-                        await worker.reload_model(replica_uid, config, drain_timeout)
-                    except Exception as exc:
-                        status.update(status="error", stage="error", error=str(exc))
-                        try:
-                            status.update(
-                                await worker.get_model_reload_status(replica_uid)
-                            )
-                        except Exception:
-                            pass
-                        logger.exception("Reload of %s failed", model_uid)
-                    else:
-                        status.update(
-                            status="ready", stage="ready", weights_reused=True
+                try:
+                    if self._get_reload_target(model_uid) != (replica_uid, worker):
+                        raise ValueError("Model placement changed before reload")
+                    status["stage"] = "draining"
+                    await worker.reload_model(replica_uid, config, drain_timeout)
+                    status["weights_reused"] = True
+                    async with self._autostart_store_lock:
+                        await asyncio.to_thread(
+                            self._launch_history_store.update_autostart_launch_config,
+                            model_uid,
+                            config,
                         )
-                    finally:
-                        status["finished_at"] = time.time()
-                        self._model_reload_tasks.pop(model_uid, None)
-                        self._invalidate_list_models_debounce_cache()
+                except asyncio.CancelledError:
+                    status.update(status="cancelled", stage="cancelled")
+                    raise
+                except Exception as exc:
+                    status.update(status="error", stage="error", error=str(exc))
+                    try:
+                        status.update(await worker.get_model_reload_status(replica_uid))
+                    except Exception:
+                        pass
+                    logger.exception("Reload of %s failed", model_uid)
+                else:
+                    status.update(status="ready", stage="ready", weights_reused=True)
+                finally:
+                    status["finished_at"] = time.time()
+                    self._model_reload_tasks.pop(model_uid, None)
+                    self._invalidate_list_models_debounce_cache()
 
             self._model_reload_tasks[model_uid] = asyncio.create_task(run())
             return dict(status)
@@ -4653,6 +4660,11 @@ class SupervisorActor(xo.StatelessActor):
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
         async with self._get_model_replica_lock(model_uid):
+            task = self._model_reload_tasks.get(model_uid)
+            if task is not None:
+                # Do not await an actor RPC cancellation: a hung engine cannot
+                # acknowledge it. Worker termination forcibly removes the pool.
+                task.cancel()
             return await self._terminate_model(model_uid, suppress_exception)
 
     async def _terminate_model(self, model_uid: str, suppress_exception=False):
@@ -4912,6 +4924,12 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         # ---- 5. Check scale-up eligibility ---------------------------------------
+        from ..model.llm.weight_cache import parse_weight_cache_option
+
+        if parse_weight_cache_option(launch_args.get("enable_weight_cache", False)):
+            raise ValueError(
+                "Adding replicas to weight-cached models is not supported."
+            )
         if launch_args.get("xavier_config"):
             raise ValueError(
                 "Adding replicas to Xavier-distributed models is not supported."
@@ -5817,7 +5835,7 @@ class SupervisorActor(xo.StatelessActor):
             ), "worker_ref must be a single worker"
             model_ref = await actor_call(
                 worker_ref,
-                "get_model",
+                "get_model_for_abort",
                 model_uid=rep_mid,
                 _rpc_operation_request_id=request_id,
             )

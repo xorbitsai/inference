@@ -5,6 +5,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 
 import json
+import os
 import pickle
 import sys
 from types import SimpleNamespace
@@ -157,7 +158,9 @@ def test_reload_error_survives_actor_serialization():
 )
 def test_daemon_lifecycle(monkeypatch, engine, tp):
     daemon = WeightCacheDaemon(
-        engine, "/models/test", {tp: 2, "launch_timeout": 300, "unused": None}
+        engine,
+        "/models/test",
+        {tp: 2, "launch_timeout": 300, "unused": None, "kv_cache_memory_bytes": 100},
     )
     calls = []
     process = MagicMock(pid=1234)
@@ -175,6 +178,7 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
     kill = MagicMock()
     monkeypatch.setattr("xinference.model.llm.weight_cache.os.killpg", kill)
+    monkeypatch.setattr("xinference.model.llm.weight_cache.socket.socket", MagicMock())
     monkeypatch.setenv("SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE", "previous")
     daemon.start(timeout=1)
     config = json.loads((daemon.directory / "config.yaml").read_text())
@@ -200,6 +204,56 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     import os
 
     assert os.environ["SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE"] == "previous"
+
+
+def test_container_driver_pids_and_unknown_memory(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.model.llm.weight_cache._gpu_process_memory",
+        lambda: {
+            0: (1000, {900: 800, 901: 300, 902: None}),
+            1: (1000, {900: 800, 903: 400}),
+        },
+    )
+    # Namespace PIDs intentionally differ from all driver PIDs.
+    assert _cached_memory_fraction(os.getpid(), {0: {900}, 1: {900}}) == 0.4
+    with pytest.raises(RuntimeError, match="kv_cache_memory_bytes"):
+        _cached_memory_fraction(os.getpid())
+
+
+def test_reload_config_reads_committed_snapshot_during_engine_mutation():
+    model = FakeCachedModel()
+
+    class MutatingConfig(dict):
+        def items(self):
+            raise RuntimeError("dictionary changed size during iteration")
+
+    model._model_config = MutatingConfig(max_num_seqs=32)
+    assert model.get_reload_config()["model_config"] == {"max_num_seqs": 16}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="AF_UNIX daemon")
+def test_stale_socket_cannot_pass_preflight():
+    import socket
+
+    daemon = WeightCacheDaemon("vllm", "/models/test", {})
+    daemon.process = MagicMock()
+    daemon.process.poll.return_value = None
+    path = daemon.directory / "rank.sock"
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(path))
+    server.listen()
+    daemon._socket_paths = {path: path.stat().st_ino}
+    try:
+        daemon.client_config()
+        connection, _ = server.accept()
+        connection.close()
+        server.close()  # leaves the same inode behind
+        with pytest.raises(RuntimeError, match="unavailable"):
+            daemon.client_config()
+    finally:
+        server.close()
+        daemon.process = None
+        daemon.stop()
 
 
 def test_daemon_failure_restores_environment(monkeypatch):

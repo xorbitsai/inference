@@ -5539,6 +5539,10 @@ class WorkerActor(xo.StatelessActor):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
+        model_status = self._model_uid_to_model_status.get(model_uid)
+        was_reloading = (
+            model_status is not None and model_status.model_state == "reloading"
+        )
         await self._update_model_state(model_uid, "stopping")
         # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
         if model_uid.endswith("-rank0"):
@@ -5583,7 +5587,7 @@ class WorkerActor(xo.StatelessActor):
         # Removing only its primary pool would sync config to a surviving rank
         # that may be blocked in NCCL and cannot acknowledge the update.
         pool_addresses = list(self._model_uid_to_subpool_addresses.get(model_uid, ()))
-        if not pool_addresses and model_ref is not None:
+        if not pool_addresses and model_ref is not None and not was_reloading:
             try:
                 # pool addresses if model.need_create_pools()
                 pool_addresses = await model_ref.get_pool_addresses()
@@ -5611,7 +5615,7 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
-            if model_ref is not None:
+            if model_ref is not None and not was_reloading:
                 try:
                     await model_ref.stop()
                 except Exception as e:
@@ -5823,23 +5827,55 @@ class WorkerActor(xo.StatelessActor):
     ) -> None:
         from ..model.llm.weight_cache import ModelReloadError
 
+        model_ref = self._model_uid_to_model[model_uid]
         await self._update_model_state(model_uid, "reloading")
-        try:
-            await self._model_uid_to_model[model_uid].reload(config, drain_timeout)
-        except ModelReloadError as exc:
-            await self._update_model_state(
-                model_uid, "ready" if exc.restored else "error"
+        owned_status = self._model_uid_to_model_status.get(model_uid)
+
+        def still_owns_model() -> bool:
+            return (
+                self._model_uid_to_model.get(model_uid) is model_ref
+                and self._model_uid_to_model_status.get(model_uid) is owned_status
+                and owned_status is not None
+                and owned_status.model_state == "reloading"
             )
+
+        try:
+            await model_ref.reload(config, drain_timeout)
+        except ModelReloadError as exc:
+            if still_owns_model():
+                await self._update_model_state(
+                    model_uid, "ready" if exc.restored else "error"
+                )
+            raise
+        except (ValueError, ModelNotReadyError):
+            if still_owns_model():
+                await self._update_model_state(model_uid, "ready")
+            raise
+        except asyncio.CancelledError:
+            # Keep the reload marker until terminate_model forcibly removes the
+            # pool. Cancellation cannot stop a load running in a native thread.
             raise
         except Exception:
-            await self._update_model_state(model_uid, "ready")
+            if still_owns_model():
+                await self._update_model_state(model_uid, "error")
             raise
         else:
+            if not still_owns_model():
+                raise ModelReloadError(
+                    "Model was terminated or recovered during reload"
+                )
             # Persist only committed changes. Recovery must use the new limits,
             # while the original launch identity and GPU placement stay intact.
             self._model_uid_to_launch_args[model_uid].update(config)
             self._persist_launch_args()
             await self._update_model_state(model_uid, "ready")
+
+    def get_model_for_abort(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
+        status = self._model_uid_to_model_status.get(model_uid)
+        if status is not None and status.model_state == "reloading":
+            # Drain keeps existing streams alive; they must remain cancellable.
+            return self._model_uid_to_model[model_uid]
+        return self.get_model(model_uid)
 
     @log_sync(logger=logger)
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -5865,7 +5901,12 @@ class WorkerActor(xo.StatelessActor):
         model_desc = self._model_uid_to_model_spec.get(model_uid, None)
         if model_desc is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        return model_desc
+        return {
+            **model_desc,
+            "n_worker": self._model_uid_to_launch_args.get(model_uid, {}).get(
+                "n_worker", 1
+            ),
+        }
 
     def _refresh_model_subpool_pids(self) -> None:
         """Refresh model PID ownership from stable sub-pool addresses.

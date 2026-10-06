@@ -20,48 +20,40 @@ import logging
 import math
 import os
 import signal
+import socket
 import subprocess
 import sys
 import tempfile
 import time
 from importlib.metadata import version as package_version
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
 from packaging.version import Version
 
 logger = logging.getLogger(__name__)
 
 
-def _cached_memory_fraction(pid: int) -> float:
-    """Largest per-device reservation owned by the daemon, including its ranks.
-
-    Query the driver without creating a CUDA context in the model actor. Engine
-    processes are siblings and must not count towards the retained reservation.
-    """
-    import psutil
+def _gpu_process_memory() -> Dict[int, tuple[int, Dict[int, Optional[int]]]]:
+    """Driver PID records, without creating a CUDA context in the actor."""
     import torch
 
-    pids = {pid, *(child.pid for child in psutil.Process(pid).children(recursive=True))}
-    fractions = []
+    devices = {}
     if torch.version.hip:
         import amdsmi
 
         amdsmi.amdsmi_init()
         try:
-            for handle in amdsmi.amdsmi_get_processor_handles():
-                used = 0
+            for index, handle in enumerate(amdsmi.amdsmi_get_processor_handles()):
+                processes = {}
                 for process in amdsmi.amdsmi_get_gpu_process_list(handle):
-                    # Older AMD SMI returns process handles instead of records.
                     if not isinstance(process, dict):
                         process = amdsmi.amdsmi_get_gpu_process_info(handle, process)
-                    if process["pid"] in pids:
-                        used += process["memory_usage"]["vram_mem"]
-                if used:
-                    total = amdsmi.amdsmi_get_gpu_memory_total(
-                        handle, amdsmi.AmdSmiMemoryType.VRAM
-                    )
-                    fractions.append(used / total)
+                    processes[process["pid"]] = process["memory_usage"]["vram_mem"]
+                total = amdsmi.amdsmi_get_gpu_memory_total(
+                    handle, amdsmi.AmdSmiMemoryType.VRAM
+                )
+                devices[index] = (total, processes)
         finally:
             amdsmi.amdsmi_shut_down()
     else:
@@ -71,21 +63,52 @@ def _cached_memory_fraction(pid: int) -> float:
         try:
             for index in range(pynvml.nvmlDeviceGetCount()):
                 handle = pynvml.nvmlDeviceGetHandleByIndex(index)
-                used = sum(
-                    process.usedGpuMemory
+                processes = {
+                    process.pid: process.usedGpuMemory
                     for process in pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
-                    if process.pid in pids
-                )
-                if used:
-                    try:
-                        memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
-                    except (pynvml.NVMLError, AttributeError):
-                        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-                    fractions.append(used / memory.total)
+                }
+                try:
+                    memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
+                except (pynvml.NVMLError, AttributeError):
+                    memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                devices[index] = (memory.total, processes)
         finally:
             pynvml.nvmlShutdown()
+    return devices
+
+
+def _cached_memory_fraction(
+    pid: int, baseline: Optional[Dict[int, Set[int]]] = None
+) -> float:
+    """Largest per-device reservation owned by the daemon, including its ranks.
+
+    Query the driver without creating a CUDA context in the model actor. Engine
+    processes are siblings and must not count towards the retained reservation.
+    """
+    import psutil
+
+    pids = {pid, *(child.pid for child in psutil.Process(pid).children(recursive=True))}
+    fractions = []
+    for index, (total, processes) in _gpu_process_memory().items():
+        owners = pids
+        if baseline is not None:
+            # Driver PIDs may belong to the host namespace. Snapshot before
+            # preload, then count new driver PIDs before any engine is started.
+            # Concurrent new processes conservatively increase the reservation.
+            owners = set(processes) - baseline.get(index, set())
+        used = sum(
+            memory
+            for process, memory in processes.items()
+            if process in owners and memory is not None
+        )
+        if used:
+            fractions.append(used / total)
     if not fractions or not all(0 < value < 1 for value in fractions):
-        raise RuntimeError("Cannot account for the weight cache daemon's GPU memory")
+        raise RuntimeError(
+            "Cannot account for the weight cache daemon's GPU memory. "
+            "Use kv_cache_memory_bytes with an explicit KV allocation, or expose "
+            "driver process memory accounting to this container."
+        )
     return max(fractions)
 
 
@@ -181,6 +204,7 @@ class WeightCacheDaemon:
         self._saved_env: Dict[str, Optional[str]] = {}
         self._socket_paths: Dict[Path, int] = {}
         self._ready_paths: list[Path] = []
+        self._memory_fraction: Optional[float] = None
 
     def start(self, timeout: float = 1800) -> None:
         config = {k: v for k, v in self.config.items() if v is not None}
@@ -222,6 +246,12 @@ class WeightCacheDaemon:
         try:
             config_path.write_text(json.dumps(config), encoding="utf-8")
             self._log = (self.directory / "daemon.log").open("w+")
+            baseline = None
+            if self.engine == "vllm" and not self.config.get("kv_cache_memory_bytes"):
+                baseline = {
+                    index: set(processes)
+                    for index, (_, processes) in _gpu_process_memory().items()
+                }
             self.process = subprocess.Popen(
                 [
                     sys.executable,
@@ -254,6 +284,10 @@ class WeightCacheDaemon:
                     }
                     if len(self._socket_paths) >= ranks:
                         self._ready_paths = list(self.directory.glob("*.ready"))
+                        if baseline is not None:
+                            self._memory_fraction = _cached_memory_fraction(
+                                self.process.pid, baseline
+                            )
                         return
                 time.sleep(0.1)
             raise RuntimeError("Timed out waiting for the weight cache daemon")
@@ -271,6 +305,13 @@ class WeightCacheDaemon:
                 for ready in self._ready_paths:
                     pid_line = ready.read_text().splitlines()[0]
                     os.kill(int(pid_line.removeprefix("pid=")), 0)
+            else:
+                # A dead rank can leave its socket inode behind while the
+                # launcher remains alive. Connect to every listening rank.
+                for path in self._socket_paths:
+                    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+                        probe.settimeout(2)
+                        probe.connect(str(path))
         except (OSError, ValueError, IndexError) as exc:
             raise RuntimeError("Weight cache rank is unavailable") from exc
         if self.engine == "vllm":
@@ -291,7 +332,10 @@ class WeightCacheDaemon:
             # still checks it against free memory before loading IPC weights.
             effective = min(requested, 0.01)
         else:
-            effective = requested - _cached_memory_fraction(self.process.pid)
+            fraction = self._memory_fraction
+            if fraction is None:
+                fraction = _cached_memory_fraction(self.process.pid)
+            effective = requested - fraction
             if effective <= 0:
                 raise ValueError(
                     "gpu_memory_utilization is too small to cover retained weights"
@@ -307,16 +351,8 @@ class WeightCacheDaemon:
 
     def stop(self) -> None:
         if self.process is not None:
-            # Kill the whole group even if the launcher exited before its ranks.
-            for sig in (signal.SIGTERM, signal.SIGKILL):
-                try:
-                    os.killpg(self.process.pid, sig)
-                except ProcessLookupError:
-                    pass
-                try:
-                    self.process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    continue
+            _terminate_process_group(self.process.pid, reap=self.process.poll)
+            self.process.wait(timeout=5)
             self.process = None
         for name, value in self._saved_env.items():
             if value is None:
@@ -337,6 +373,7 @@ class WeightCachedModel:
     _model_config: Any
     _n_worker: int
     model_path: str
+    model_spec: Any
     _loading_error: Any
     _loading_thread: Any
 
@@ -346,22 +383,33 @@ class WeightCachedModel:
         def _stop_engine(self) -> None: ...
         def load(self) -> None: ...
         def wait_for_load(self) -> None: ...
+        def _get_xinference_executor_backend(self) -> str: ...
 
     def _init_weight_cache(self, config: Any) -> None:
         self._enable_weight_cache = parse_weight_cache_option(
             config.pop("enable_weight_cache", False)
         )
         self._reload_config = copy.deepcopy(config)
-        self._weight_cache: Optional[WeightCacheDaemon] = None
 
     def _prepare_weight_cache(self) -> None:
         if not self._enable_weight_cache:
             return
         config = self._model_config
-        if self._weight_cache is None:
+        engine = self._weight_cache_engine
+        initial = self._weight_cache is None
+        if initial:
             import torch
 
-            engine = self._weight_cache_engine
+            if engine == "vllm":
+                if getattr(self, "model_spec", None) is not None and (
+                    self.model_spec.model_format == "ggufv2"
+                ):
+                    raise ValueError("Weight caching does not support GGUF models")
+                if (
+                    getattr(self, "_get_xinference_executor_backend", lambda: "auto")()
+                    == "xoscar"
+                ):
+                    raise ValueError("Weight caching requires the native vLLM executor")
             minimum = "0.31.0" if engine == "vllm" else "0.5.21"
             if Version(package_version(engine)) < Version(minimum):
                 raise ValueError(f"enable_weight_cache requires {engine}>={minimum}")
@@ -405,7 +453,15 @@ class WeightCachedModel:
             daemon = WeightCacheDaemon(engine, self.model_path, daemon_config)
             daemon.start()
             self._weight_cache = daemon
+        assert self._weight_cache is not None
         config.update(self._weight_cache.client_config())
+        # Publish a separate immutable snapshot. load() continues mutating the
+        # engine config on another thread after this point.
+        if initial:
+            self._reload_config = {
+                **self._reload_config,
+                **{k: v for k, v in config.items() if k in RELOAD_FIELDS[engine]},
+            }
 
     def get_reload_config(self) -> Dict[str, Any]:
         return {
@@ -413,7 +469,7 @@ class WeightCachedModel:
             "engine": self._weight_cache_engine,
             "model_config": {
                 k: v
-                for k, v in self._model_config.items()
+                for k, v in self._reload_config.items()
                 if k in RELOAD_FIELDS[self._weight_cache_engine] and v is not None
             },
             "parameters": RELOAD_FIELDS[self._weight_cache_engine],
@@ -481,18 +537,67 @@ class WeightCachedModel:
         self._reload_config = config
 
 
+def _process_group_alive(pgid: int, exclude_pid: Optional[int] = None) -> bool:
+    import psutil
+
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    # Zombies have released GPU memory but can keep killpg(pgid, 0) alive until
+    # reaped by init. The watcher itself must not count as a surviving rank.
+    for process in psutil.process_iter(["pid", "status"]):
+        try:
+            if (
+                process.pid != exclude_pid
+                and process.info["status"] != psutil.STATUS_ZOMBIE
+                and os.getpgid(process.pid) == pgid
+            ):
+                return True
+        except (ProcessLookupError, psutil.NoSuchProcess):
+            continue
+    return False
+
+
+def _terminate_process_group(
+    pgid: int,
+    exclude_pid: Optional[int] = None,
+    reap: Optional[Callable[[], Any]] = None,
+    grace: float = 3,
+) -> None:
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            return
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            if reap is not None:
+                reap()
+            if not _process_group_alive(pgid, exclude_pid):
+                return
+            time.sleep(0.05)
+    raise RuntimeError("Weight cache process group did not terminate")
+
+
 def _run_watched(parent_pid: int, command: list) -> int:
+    stopping = False
+
+    def request_stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+
+    signal.signal(signal.SIGTERM, request_stop)
     child = subprocess.Popen([sys.executable, *command])
     try:
-        while child.poll() is None:
+        while child.poll() is None and not stopping:
             if os.getppid() != parent_pid:
-                os.killpg(os.getpgrp(), signal.SIGTERM)
+                break
             time.sleep(0.2)
-        return child.returncode
     finally:
-        if child.poll() is None:
-            child.terminate()
-            child.wait()
+        _terminate_process_group(os.getpgrp(), exclude_pid=os.getpid(), reap=child.poll)
+        child.wait(timeout=5)
+    return child.returncode
 
 
 if __name__ == "__main__":
