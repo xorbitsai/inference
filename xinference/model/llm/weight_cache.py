@@ -169,7 +169,12 @@ class WeightCacheDaemon:
         self.engine = engine
         self.config = copy.deepcopy(config)
         self.model_path = model_path
-        self._directory = tempfile.TemporaryDirectory(prefix="xinf-weights-")
+        self._directory = tempfile.TemporaryDirectory(prefix="xinfw-")
+        # Linux AF_UNIX paths allow 107 bytes plus the terminator. Reserve room
+        # for vLLM's socket name, including a possible 64-character UUID hash.
+        if len(os.fsencode(self._directory.name)) > 20:
+            self._directory.cleanup()
+            self._directory = tempfile.TemporaryDirectory(prefix="xinfw-", dir="/tmp")
         self.directory = Path(self._directory.name)
         self.process: Optional[subprocess.Popen] = None
         self._log: Optional[IO[str]] = None

@@ -207,6 +207,22 @@ def test_daemon_failure_restores_environment(monkeypatch):
     assert not daemon.directory.exists()
 
 
+def test_daemon_uses_short_socket_namespace_for_long_tmpdir(monkeypatch, tmp_path):
+    import os
+    import tempfile
+
+    directory = tmp_path / ("long-temporary-directory-" * 4)
+    directory.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(directory))
+    daemon = WeightCacheDaemon("vllm", "/models/test", {})
+    try:
+        assert len(os.fsencode(daemon.directory)) <= 20
+        assert daemon.directory.stat().st_mode & 0o777 == 0o700
+        assert list(directory.iterdir()) == []
+    finally:
+        daemon.stop()
+
+
 @pytest.mark.parametrize("disabled", [False, True])
 def test_sglang_daemon_normalizes_legacy_graph_flag(monkeypatch, disabled):
     daemon = WeightCacheDaemon(
