@@ -3128,7 +3128,7 @@ class SupervisorActor(xo.StatelessActor):
                 )
             if (
                 model_type not in (None, "LLM")
-                or model_format != "pytorch"
+                or model_format not in (None, "pytorch")
                 or quantization not in (None, "none")
             ):
                 raise ValueError(
@@ -5256,7 +5256,7 @@ class SupervisorActor(xo.StatelessActor):
             try:
                 await xo.destroy_actor(cache_ref)
             except Exception:
-                logger.debug(
+                logger.warning(
                     "Destroy Xavier cache failed for %s", model_uid, exc_info=True
                 )
 

@@ -6,6 +6,8 @@ import time
 
 import xoscar as xo
 
+from .settings import transfer_timeout
+
 
 class XavierPDDirectory(xo.StatelessActor):
     def __init__(self):
@@ -23,6 +25,20 @@ class XavierPDDirectory(xo.StatelessActor):
             )
         self.peers[rank] = address
 
+    def unregister_peer(self, rank, address=None):
+        if rank not in self.peers or (
+            address is not None and self.peers[rank] != address
+        ):
+            return False
+        del self.peers[rank]
+        self.rooms = {
+            room: state
+            for room, state in self.rooms.items()
+            if rank not in state["ranks"].values()
+            and (state["source"] or {}).get("rank") != rank
+        }
+        return True
+
     def configure(self, namespace):
         if self.namespace is not None and namespace != self.namespace:
             raise ValueError("SGLang Xavier GPU KV namespaces differ between replicas")
@@ -31,15 +47,18 @@ class XavierPDDirectory(xo.StatelessActor):
     def _expire(self):
         now = time.monotonic()
         self.rooms = {
-            room: state for room, state in self.rooms.items() if state["deadline"] > now
+            room: state
+            for room, state in self.rooms.items()
+            if state["completed"] or state["deadline"] > now
         }
 
-    def prepare(self, room, namespace, prompt_hash, role):
+    def prepare(self, room, namespace, prompt_hash, role, rank=None, timeout=None):
         self._expire()
         if namespace != self.namespace or role not in ("prefill", "decode"):
             raise ValueError("Unregistered SGLang Xavier PD namespace or role")
         if type(room) is not int or not 0 < room < 2**63:
             raise ValueError("Invalid SGLang Xavier bootstrap room")
+        timeout = transfer_timeout(timeout)
         state = self.rooms.get(room)
         if state is None:
             if len(self.rooms) >= 4096:
@@ -49,12 +68,16 @@ class XavierPDDirectory(xo.StatelessActor):
                 roles=[],
                 source=None,
                 completed=False,
-                deadline=time.monotonic() + 300,
+                deadline=time.monotonic() + timeout,
+                ranks={},
                 finished=[],
             )
         if state["prompt_hash"] != prompt_hash or role in state["roles"]:
             raise ValueError("SGLang Xavier PD prompt mismatch or duplicate role")
+        state["deadline"] = max(state["deadline"], time.monotonic() + timeout)
         state["roles"].append(role)
+        if rank is not None:
+            state["ranks"][role] = rank
 
     def publish_source(self, room, source):
         state = self.rooms.get(room)

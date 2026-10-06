@@ -104,6 +104,8 @@ async def test_decode_failure_aborts_engine_and_clears_metadata(deployment, fail
         "gpu-namespace",
         hashlib.sha256(json.dumps(list(b"prompt")).encode()).hexdigest(),
         "prefill",
+        None,
+        600,
     )
     if failure != "miss":
         decode._non_stream_generate.side_effect = (
@@ -335,6 +337,8 @@ async def test_repeated_prompt_reuses_fingerprint_and_validates_every_room():
         "namespace",
         expected,
         "decode",
+        None,
+        600,
     )
     assert list(h._prompt_hashes) == [hashlib.sha256(b"prompt").digest()]
     assert list(h._prompt_hashes.values()) == [expected]
@@ -391,3 +395,82 @@ async def test_encoding_failure_is_never_cached():
             await prepare(h, "one")
     assert not h._prompt_hashes
     h._directory_actor.prepare.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_completed_room_survives_long_decode_and_requires_both_releases(
+    monkeypatch,
+):
+    directory = XavierPDDirectory()
+    directory.configure("ns")
+    monkeypatch.setattr("time.monotonic", lambda: 0)
+    directory.prepare(1, "ns", "prompt", "prefill", 0)
+    directory.prepare(1, "ns", "prompt", "decode", 1)
+    directory.complete(1, 1024)
+    directory.prepare(2, "ns", "prompt", "prefill", 0)
+    monkeypatch.setattr("time.monotonic", lambda: 3600)
+    assert directory.check(1)
+    assert not directory.check(2)
+    directory.release(1, "prefill")
+    assert directory.check(1)
+    directory.release(1, "decode")
+    assert directory.get_stats()["active_handoffs"] == 0
+
+
+@pytest.mark.asyncio
+async def test_unconsumed_stream_reserves_no_request_or_directory_room(deployment):
+    directory, _, decode = deployment
+    stream = await decode.async_generate("prompt", config("decode", stream=True))
+    assert not decode._active_request_ids
+    assert (await directory.get_stats())["active_handoffs"] == 0
+    await stream.aclose()
+
+
+def test_transfer_timeout_configuration(monkeypatch):
+    from ..xavier.settings import TRANSFER_TIMEOUT_ENV, transfer_timeout
+
+    monkeypatch.setenv(TRANSFER_TIMEOUT_ENV, "900")
+    assert transfer_timeout() == 900
+    directory = XavierPDDirectory()
+    directory.configure("ns")
+    monkeypatch.setattr("time.monotonic", lambda: 0)
+    directory.prepare(1, "ns", "p", "prefill")
+    monkeypatch.setattr("time.monotonic", lambda: 601)
+    assert directory.source(1) is None
+    monkeypatch.setattr("time.monotonic", lambda: 901)
+    with pytest.raises(RuntimeError, match="expired"):
+        directory.source(1)
+    for value in ("0", "-1", "nan", "inf"):
+        monkeypatch.setenv(TRANSFER_TIMEOUT_ENV, value)
+        with pytest.raises(ValueError):
+            transfer_timeout()
+
+
+@pytest.mark.asyncio
+async def test_launch_timeout_reaches_directory_with_a_different_environment(
+    monkeypatch,
+):
+    from ..xavier.settings import TRANSFER_TIMEOUT_ENV
+
+    directory = XavierPDDirectory()
+    directory.configure("ns")
+    handoff = SGLangXavierHandoff(
+        dict(role="prefill", rank=0),
+        4,
+        SimpleNamespace(encode=lambda text: [1]),
+    )
+
+    async def prepare(*args):
+        with monkeypatch.context() as patch:
+            patch.delenv(TRANSFER_TIMEOUT_ENV, raising=False)
+            directory.prepare(*args)
+
+    handoff._directory_actor = SimpleNamespace(
+        get_stats=AsyncMock(return_value={"namespace": "ns"}),
+        prepare=prepare,
+    )
+    monkeypatch.setenv(TRANSFER_TIMEOUT_ENV, "900")
+    monkeypatch.setattr("time.monotonic", lambda: 0)
+    await handoff.prepare("prompt", {"sglang_xavier": {"mode": "gpu", "room": 1}})
+    monkeypatch.setattr("time.monotonic", lambda: 601)
+    assert directory.source(1) is None

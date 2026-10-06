@@ -515,6 +515,7 @@ class PDModelActor(xo.StatelessActor):
                     # Native D output follows GPU transfer completion.
                     await p_task
                     yield chunk
+                await p_task
                 completed = True
                 self._direct_transfers.pop(request_id, None)
             finally:

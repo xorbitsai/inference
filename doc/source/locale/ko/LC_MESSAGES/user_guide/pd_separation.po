@@ -380,3 +380,11 @@ msgstr "출력 길이를 고정하는 벤치마크에서는 완성 및 채팅 �
 #: ../../source/user_guide/pd_separation.rst:64
 msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch."
 msgstr "SGLang Xavier P/D에는 ``disaggregation_decode_enable_radix_cache=false`` 가 필요하며, 각 요청은 전체 프롬프트의 KV를 전송합니다. Prefill의 로컬 radix cache는 계속 사용할 수 있습니다. Decode의 radix cache를 활성화하면 시작 시 거부됩니다."
+
+#: ../../user_guide/pd_separation.rst
+msgid "Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed transfers remain available until both request roles release them, regardless of decode duration."
+msgstr "worker 환경 또는 실행 ``envs`` 에 ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` 값을 설정하여 Xavier 핸드오프 대기 한도를 변경할 수 있습니다(기본값: 600초). 프리필 대기열이 길거나 프롬프트가 크면 값을 늘리세요. 미완료 디렉터리 룸은 이 시간이 지나면 만료되며, 완료된 전송은 디코딩 시간과 관계없이 요청의 두 역할이 모두 해제할 때까지 유지됩니다."
+
+#: ../../user_guide/pd_separation.rst
+msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
+msgstr "네이티브 SGLang P/D는 tokenizer worker 하나를 요구하며, 내부 HTTP 엔드포인트에는 복제본별 인증이 자동으로 적용됩니다."

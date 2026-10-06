@@ -245,3 +245,36 @@ print(json.dumps([key.to_dict() for key in build_prefix_keys(contract, list(rang
     )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == expected
+
+
+def test_asset_digest_cache_reuses_content_and_invalidates_mutations(
+    tmp_path, monkeypatch
+):
+    from pathlib import Path
+
+    from ..contract import fingerprint_files
+
+    asset = tmp_path / "weights.bin"
+    asset.write_bytes(b"weights")
+    cache = tmp_path / "digests"
+    expected = fingerprint_files({"weights": asset})
+    assert fingerprint_files({"weights": asset}, cache_dir=cache) == expected
+    original_open = Path.open
+
+    def guarded(path, *args, **kwargs):
+        if path == asset and args and args[0] == "rb":
+            raise AssertionError("unchanged weights should not be reread")
+        return original_open(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "open", guarded)
+        assert fingerprint_files({"weights": asset}, cache_dir=cache) == expected
+    asset.write_bytes(b"changed")  # same size, different mtime/ctime
+    changed = fingerprint_files({"weights": asset}, cache_dir=cache)
+    assert changed != expected
+    assert changed == fingerprint_files({"weights": asset})
+    next(cache.glob("*.json")).write_text("broken JSON")
+    assert fingerprint_files({"weights": asset}, cache_dir=cache) == changed
+    relocated = tmp_path / "relocated.bin"
+    relocated.write_bytes(asset.read_bytes())
+    assert fingerprint_files({"weights": relocated}, cache_dir=cache) == changed

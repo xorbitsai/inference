@@ -173,6 +173,7 @@ def test_sender_poll_never_blocks_scheduler_on_actor(gpu_module, failed):
         Success="success",
     )
     sender = object.__new__(gpu_module.XavierKVSender)
+    sender._operation = sender._error = None
     sender.kv_mgr = SimpleNamespace(call=Mock(side_effect=AssertionError("blocked")))
     sender.inited, sender.aborted = False, False
     sender.future = concurrent.futures.Future()
@@ -282,6 +283,7 @@ def test_manager_close_retains_exports_until_importer_stops(gpu_module, monkeypa
     manager._ipc_caches = {"0": object()}
     manager.aux = [object()]
     manager.actor = object()
+    manager.directory = None
     order = []
 
     async def destroy(actor):
@@ -412,3 +414,82 @@ async def test_manager_exports_once_and_disables_descriptor_replay(
     assert created_kwargs["ipc_descriptors"] == {"0": ("descriptor",)}
     assert isinstance(created_kwargs["allocate_strategy"], ProcessIndex)
     directory.register_peer.assert_awaited_once_with(0, actor.address)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failed_method", [None, "open", "init", "add_chunk"])
+async def test_sender_queues_rpc_without_blocking_and_reports_failures(
+    gpu_module, monkeypatch, failed_method
+):
+    import torch
+
+    gate = asyncio.Event()
+    order = []
+
+    async def operation(method):
+        if method == "open":
+            await gate.wait()
+        order.append(method)
+        if method == failed_method:
+            raise RuntimeError(method + " failed")
+
+    actor = SimpleNamespace(
+        **{
+            name: (lambda *args, name=name: operation(name))
+            for name in ("open", "init", "add_chunk", "wait_done")
+        }
+    )
+    submitted = []
+
+    def submit(coroutine):
+        result = concurrent.futures.Future()
+        task = asyncio.create_task(coroutine)
+        submitted.append(task)
+
+        def finish(task):
+            if task.exception() is not None:
+                result.set_exception(task.exception())
+            else:
+                result.set_result(task.result())
+
+        task.add_done_callback(finish)
+        return result
+
+    mgr = SimpleNamespace(
+        actor=actor,
+        submit=submit,
+        aux=[],
+        kv_args=SimpleNamespace(gpu_id=0),
+        call=Mock(side_effect=AssertionError("Scheduler must not call actor RPC")),
+    )
+    for name in ("Failed", "Success", "Transferring", "WaitingForInput"):
+        setattr(gpu_module.KVPoll, name, name)
+    monkeypatch.setattr(torch.cuda, "synchronize", lambda _: None)
+    sender = gpu_module.XavierKVSender(mgr, "host", 1, [], 0)
+    sender.init(1, 0)
+    sender.send(torch.tensor([2]))
+    assert not gate.is_set() and not order
+    mgr.call.assert_not_called()
+    gate.set()
+    await asyncio.gather(*submitted, return_exceptions=True)
+    await asyncio.sleep(0)
+    if failed_method:
+        assert sender.poll() == "Failed"
+        with pytest.raises(RuntimeError, match=failed_method):
+            sender.failure_exception()
+    else:
+        assert sender.poll() == "Success"
+        assert order.index("open") < order.index("init") < order.index("add_chunk")
+
+
+@pytest.mark.asyncio
+async def test_failed_open_does_not_leak_gpu_room(gpu_module):
+    actor = gpu_module.XavierGPUActor(None, None, None, "ns", 0)
+    actor.rooms = {}
+    actor.address, actor.rank = "worker:1234", 0
+    actor.directory = SimpleNamespace(
+        publish_source=AsyncMock(side_effect=RuntimeError("directory unavailable"))
+    )
+    with pytest.raises(RuntimeError, match="directory unavailable"):
+        await actor.open(1)
+    assert not actor.rooms

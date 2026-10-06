@@ -28,8 +28,7 @@ from ...xavier.backends.torch.direct_handoff import DirectGPUTransfer
 from ...xavier.backends.torch.gpu_transfer import finish_before_cancel
 from ...xavier.contract import KVCacheContract, fingerprint_metadata
 from ..gc_lifecycle import InitializationGCFreeze
-
-GPU_CONFIG_ENV = "XINFERENCE_SGLANG_XAVIER_GPU_CONFIG"
+from .settings import GPU_CONFIG_ENV, transfer_timeout
 
 
 class _CUDABytes:
@@ -175,9 +174,13 @@ class XavierGPUActor(xo.StatelessActor):
             sent=0,
             completed=asyncio.Event(),
         )
-        await self.directory.publish_source(
-            room, dict(address=self.address, rank=self.rank)
-        )
+        try:
+            await self.directory.publish_source(
+                room, dict(address=self.address, rank=self.rank)
+            )
+        except BaseException:
+            self.rooms.pop(room, None)
+            raise
 
     def init(self, room, count, aux_index):
         state = self.rooms[room]
@@ -260,7 +263,7 @@ class XavierGPUActor(xo.StatelessActor):
         )
 
     async def _receive(self, room, destinations, aux_index):
-        deadline = time.monotonic() + 120
+        deadline = time.monotonic() + transfer_timeout()
         source = None
         while source is None:
             source = await self.directory.source(room)
@@ -281,6 +284,7 @@ class XavierGPUActor(xo.StatelessActor):
                     raise TimeoutError("SGLang Xavier producer KV transfer timed out")
                 await asyncio.sleep(0.001)
                 continue
+            deadline = time.monotonic() + transfer_timeout()
             pages = chunk["pages"]
             targets = destinations[offset : offset + len(pages)]
             if len(targets) != len(pages):
@@ -491,6 +495,10 @@ class XavierKVManager(BaseKVManager):
                 for room in list(self._receive_tasks):
                     await self.abort(room)
                 if self.actor is not None:
+                    if self.directory is not None:
+                        await self.directory.unregister_peer(
+                            self.config["rank"], self.actor.address
+                        )
                     await xo.destroy_actor(self.actor)
             finally:
                 if self.pool is not None:
@@ -523,12 +531,41 @@ class XavierKVSender(BaseKVSender):
         self.aborted = False
         self.future = None
         self.total, self.sent, self.aux_index = 0, 0, None
-        mgr.call(mgr.actor.open(self.room))
+        self._operation = None
+        self._error = None
+        self._enqueue("open", self.room)
+
+    def _enqueue(self, method, *args):
+        previous = self._operation
+
+        async def run():
+            if previous is not None:
+                await asyncio.wrap_future(previous)
+            return await getattr(self.kv_mgr.actor, method)(*args)
+
+        coroutine = run()
+        try:
+            self._operation = self.kv_mgr.submit(coroutine)
+        except Exception as error:
+            coroutine.close()
+            self._error = error
+        return self._operation
 
     def init(self, num_kv_indices, aux_index=None):
         self.total, self.sent, self.aux_index = num_kv_indices, 0, aux_index
-        self.kv_mgr.call(self.kv_mgr.actor.init(self.room, num_kv_indices, aux_index))
-        self.future = self.kv_mgr.submit(self.kv_mgr.actor.wait_done(self.room))
+        initialized = self._enqueue("init", self.room, num_kv_indices, aux_index)
+
+        async def wait_done():
+            if initialized is not None:
+                await asyncio.wrap_future(initialized)
+            return await self.kv_mgr.actor.wait_done(self.room)
+
+        coroutine = wait_done()
+        try:
+            self.future = self.kv_mgr.submit(coroutine)
+        except Exception as error:
+            coroutine.close()
+            self._error = error
         self.inited = True
 
     def send(self, kv_indices, state_indices=None, num_kv_tokens=None):
@@ -546,10 +583,17 @@ class XavierKVSender(BaseKVSender):
             if self.sent == self.total
             else None
         )
-        self.kv_mgr.call(self.kv_mgr.actor.add_chunk(self.room, pages, aux))
+        self._enqueue("add_chunk", self.room, pages, aux)
 
     def poll(self):
         if self.aborted:
+            return KVPoll.Failed
+        operation = getattr(self, "_operation", None)
+        if getattr(self, "_error", None) is not None or (
+            operation is not None
+            and operation.done()
+            and (operation.cancelled() or operation.exception())
+        ):
             return KVPoll.Failed
         if not self.inited:
             return KVPoll.WaitingForInput
@@ -561,18 +605,36 @@ class XavierKVSender(BaseKVSender):
         return KVTransferMetric()
 
     def failure_exception(self):
+        if self._error is not None:
+            raise self._error
+        if self._operation is not None and self._operation.done():
+            self._operation.result()
         if self.future is not None and self.future.done():
             self.future.result()
         raise RuntimeError("SGLang Xavier producer GPU transfer failed")
 
     def abort(self):
-        self.kv_mgr.call(self.kv_mgr.abort(self.room))
+        async def drain_and_abort():
+            if self._operation is not None:
+                await asyncio.gather(
+                    asyncio.wrap_future(self._operation), return_exceptions=True
+                )
+            await self.kv_mgr.abort(self.room)
+
+        self.kv_mgr.call(drain_and_abort())
         self.aborted = True
         if self.future is not None:
             self.future.cancel()
 
     def clear(self):
-        self.kv_mgr.call(self.kv_mgr.actor.clear(self.room))
+        async def drain_and_clear():
+            if self._operation is not None:
+                await asyncio.gather(
+                    asyncio.wrap_future(self._operation), return_exceptions=True
+                )
+            await self.kv_mgr.actor.clear(self.room)
+
+        self.kv_mgr.call(drain_and_clear())
 
 
 class XavierKVReceiver(BaseKVReceiver):

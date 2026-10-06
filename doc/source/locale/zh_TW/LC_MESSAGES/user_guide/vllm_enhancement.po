@@ -92,3 +92,6 @@ msgstr "``xavier_cache_bytes`` 設定部署的共用 CPU 快取預算（預設 `
 #: source/user_guide/vllm_enhancement.rst
 msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
 msgstr "一般 SGLang 副本共用 CPU HiCache 頁面。明確的 prefill/decode 角色使用 Xavier GPU 直接傳輸，見 :ref:`user_guide_pd_separation`。尚不支援跨引擎 P/D。"
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier 將 BF16 檢查點載入為 FP16 並發出警告。權重和 KV 快取均使用 FP16。"

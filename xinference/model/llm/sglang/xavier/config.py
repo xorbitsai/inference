@@ -3,9 +3,13 @@
 """Configure SGLang's Xavier HiCache sharing or native GPU P/D adapter."""
 
 import json
+import logging
 from pathlib import Path
 
+from .....constants import XINFERENCE_CACHE_DIR
 from ...xavier.contract import KVCacheContract, fingerprint_files, fingerprint_metadata
+
+logger = logging.getLogger(__name__)
 
 
 def configure_xavier(model_path: str, model_config: dict, cache_config: dict) -> None:
@@ -111,7 +115,10 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         )
     model_config.setdefault("page_size", 64)
     contract = KVCacheContract(
-        weights_fingerprint=fingerprint_files({file.name: file for file in weights}),
+        weights_fingerprint=fingerprint_files(
+            {file.name: file for file in weights},
+            cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints",
+        ),
         tokenizer_fingerprint=fingerprint_files(
             {file.name: file for file in tokenizer}
         ),
@@ -127,6 +134,10 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
         block_size=model_config["page_size"],
         logical_dtype="float16",
     )
+    if config.get("torch_dtype", config.get("dtype")) in ("bfloat16", "bf16"):
+        logger.warning(
+            "SGLang Xavier casts this BF16 checkpoint to FP16; weights and KV use FP16"
+        )
     model_config["dtype"] = "float16"
     if cache_config.get("role"):
         if model_config.get("enable_hierarchical_cache") or any(

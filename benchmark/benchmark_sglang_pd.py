@@ -27,6 +27,29 @@ from xoscar.utils import get_next_port
 from xinference.client import Client
 
 
+def source_hashes() -> dict:
+    root = Path(__file__).resolve().parents[1]
+    paths = [
+        Path(__file__).resolve(),
+        *(root / "xinference/model/llm/sglang").rglob("*.py"),
+        *(
+            root / name
+            for name in (
+                "xinference/core/pd_model.py",
+                "xinference/api/restful_api.py",
+                "xinference/core/supervisor.py",
+                "xinference/types.py",
+                "xinference/model/llm/xavier/backends/torch/gpu_transfer.py",
+                "xinference/model/llm/xavier/backends/torch/direct_handoff.py",
+            )
+        ),
+    ]
+    return {
+        str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(paths)
+    }
+
+
 class GPUInterference(RuntimeError):
     pass
 
@@ -478,19 +501,7 @@ def main():
             for name in ("sglang", "torch", "nixl", "xoscar")
         },
         source_commit=args.source_commit,
-        source_sha256={
-            str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in [
-                Path(__file__),
-                *Path("xinference/model/llm/sglang").rglob("*.py"),
-                Path("xinference/core/pd_model.py"),
-                Path("xinference/api/restful_api.py"),
-                Path("xinference/core/supervisor.py"),
-                Path("xinference/types.py"),
-                Path("xinference/model/llm/xavier/backends/torch/gpu_transfer.py"),
-                Path("xinference/model/llm/xavier/backends/torch/direct_handoff.py"),
-            ]
-        },
+        source_sha256=source_hashes(),
         gpu=subprocess.check_output(
             [
                 "nvidia-smi",

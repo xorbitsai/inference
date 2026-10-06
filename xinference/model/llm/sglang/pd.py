@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 """Native SGLang NIXL P/D configuration and bootstrap metadata."""
 
+import secrets
+
 from packaging.version import Version
 from xoscar.utils import get_next_port
 
@@ -31,7 +33,6 @@ def configure_nixl(config: dict, replica: dict, version: str, n_worker: int) -> 
             "speculative_draft_model_path",
             "enable_hierarchical_cache",
             "hicache_storage_backend",
-            "_xavier_cache_config",
         )
     ):
         raise ValueError(
@@ -39,6 +40,13 @@ def configure_nixl(config: dict, replica: dict, version: str, n_worker: int) -> 
         )
     if replica.get("role") not in ("prefill", "decode"):
         raise ValueError("SGLang native NIXL requires a prefill or decode role")
+    if config.get("tokenizer_worker_num", 1) != 1:
+        raise ValueError(
+            "SGLang native NIXL requires one tokenizer worker for API authentication"
+        )
+    # Native bootstrap shares the routable host with Runtime's HTTP listener.
+    # Protect that internal listener with a per-replica credential.
+    config["api_key"] = config.get("api_key") or secrets.token_urlsafe(32)
     replica["port"] = get_next_port()
     config.update(
         host=replica["host"],

@@ -71,15 +71,26 @@ class XavierHiCacheStorage(HiCacheStorage):
         )
 
     def _request(self, method, keys, fallback, *args):
-        try:
-            return self._rpc(method, self._namespace, keys, *args)
-        except Exception:
-            logger.warning(
-                "Xavier storage %s failed; treating pages as misses",
-                method,
-                exc_info=True,
-            )
-            return fallback
+        result = 0 if method == "exists" else []
+        for offset in range(0, len(keys), 128):
+            batch = keys[offset : offset + 128]
+            batch_args = [arg[offset : offset + 128] for arg in args]
+            try:
+                value = self._rpc(method, self._namespace, batch, *batch_args)
+            except Exception:
+                logger.warning(
+                    "Xavier storage %s failed; treating pages as misses",
+                    method,
+                    exc_info=True,
+                )
+                value = 0 if method == "exists" else fallback[offset : offset + 128]
+            if method == "exists":
+                result += value
+                if value != len(batch):
+                    break
+            else:
+                result.extend(value)
+        return result
 
     def get(self, key, target_location=None, target_sizes=None):
         page = self._request("get", [key], [None])[0]

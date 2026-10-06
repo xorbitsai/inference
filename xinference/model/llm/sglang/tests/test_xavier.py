@@ -273,3 +273,84 @@ def test_unsupported_engine_options_are_rejected(model_path, option, value):
         configure_xavier(
             model_path, {option: value}, {"address": "worker:1234", "uid": "cache"}
         )
+
+
+@pytest.mark.asyncio
+async def test_large_hicache_batches_preserve_remote_pages_and_prefix_misses(
+    contract, storage_class
+):
+    count = 259
+    pool = await xo.create_actor_pool("127.0.0.1", n_process=0)
+    async with pool:
+        actor = await xo.create_actor(
+            XavierCacheActor,
+            count * (contract.num_layers * contract.layer_nbytes),
+            address=pool.external_address,
+            uid="large-cache",
+        )
+        cfg = SimpleNamespace(
+            tp_size=1,
+            pp_size=1,
+            attn_cp_size=1,
+            is_mla_model=False,
+            extra_config=dict(
+                address=actor.address, uid=actor.uid, contract=contract.to_dict()
+            ),
+        )
+        source, target = storage_class(cfg), storage_class(cfg)
+        try:
+            for adapter in (source, target):
+                await asyncio.to_thread(adapter.register_mem_pool_host, HostPool())
+            keys = [f"{i:064x}" for i in range(count)]
+            pages = [
+                torch.full(
+                    ((contract.num_layers * contract.layer_nbytes) // 2,),
+                    i,
+                    dtype=torch.float16,
+                )
+                for i in range(count)
+            ]
+            assert await asyncio.to_thread(source.batch_set, keys, pages)
+            assert await asyncio.to_thread(target.batch_exists, keys) == count
+            restored = await asyncio.to_thread(target.batch_get, keys)
+            assert all(torch.equal(a, b) for a, b in zip(restored, pages))
+            missing = list(keys)
+            missing[130] = "f" * 64
+            assert await asyncio.to_thread(target.batch_exists, missing) == 130
+            restored = await asyncio.to_thread(target.batch_get, missing)
+            assert restored[130] is None and torch.equal(restored[258], pages[258])
+        finally:
+            source.close()
+            target.close()
+
+
+def test_bf16_checkpoint_cast_is_visible(model_path, caplog):
+    import logging
+
+    cfg_path = Path(model_path) / "config.json"
+    cfg = json.loads(cfg_path.read_text())
+    cfg["torch_dtype"] = "bfloat16"
+    cfg_path.write_text(json.dumps(cfg))
+    output = {"dtype": "auto"}
+    with caplog.at_level(logging.WARNING):
+        configure_xavier(str(model_path), output, {"address": "a", "uid": "u"})
+    assert output["dtype"] == "float16"
+    assert "BF16 checkpoint to FP16" in caplog.text
+
+
+def test_inactive_plugin_does_not_import_or_patch_optional_sglang(monkeypatch):
+    import builtins
+
+    from ..xavier.plugin import register
+    from ..xavier.settings import GPU_CONFIG_ENV
+
+    monkeypatch.delenv(GPU_CONFIG_ENV, raising=False)
+    original = builtins.__import__
+
+    def guarded(name, *args, **kwargs):
+        if name.startswith("sglang"):
+            raise ImportError("old or absent SGLang")
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded)
+    register()

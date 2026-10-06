@@ -10,7 +10,7 @@ from ..pd import SGLangNixlHandoff, configure_nixl
 
 
 def test_native_sglang_configuration_uses_unique_bootstrap_ports():
-    ports = []
+    ports, credentials = [], []
     for role in ("prefill", "decode"):
         config = {"dtype": "float16", "tp_size": 1}
         replica = dict(role=role, host="127.0.0.1")
@@ -20,7 +20,9 @@ def test_native_sglang_configuration_uses_unique_bootstrap_ports():
         assert config["disaggregation_bootstrap_port"] == replica["port"]
         assert config["dtype"] == "float16"
         ports.append(replica["port"])
+        credentials.append(config["api_key"])
     assert ports[0] != ports[1]
+    assert credentials[0] != credentials[1] and all(credentials)
 
 
 @pytest.mark.parametrize(
@@ -34,6 +36,7 @@ def test_native_sglang_configuration_uses_unique_bootstrap_ports():
         ({"enable_lora": True}, "0.5.21", 1),
         ({"speculative_algorithm": "EAGLE"}, "0.5.21", 1),
         ({"enable_hierarchical_cache": True}, "0.5.21", 1),
+        ({"tokenizer_worker_num": 2}, "0.5.21", 1),
     ],
 )
 def test_native_sglang_rejects_unmanaged_configuration(config, version, workers):
@@ -91,3 +94,80 @@ async def test_native_sglang_missing_bootstrap_cannot_fall_back_to_local_prefill
     handoff.update(change)
     with pytest.raises(ValueError, match="bootstrap metadata"):
         await SGLangNixlHandoff(replica).accept("prompt", dict(sglang_nixl=handoff))
+
+
+@pytest.mark.asyncio
+async def test_native_http_requests_forward_auth_bootstrap_rid_and_abort():
+    import json
+    from types import SimpleNamespace
+
+    import aiohttp
+    from aiohttp import web
+
+    model = object.__new__(SGLANGModel)
+    model._model_config = {}
+    configure_nixl(
+        model._model_config, dict(role="decode", host="127.0.0.1"), "0.5.21", 1
+    )
+    credential = model._model_config["api_key"]
+    model._active_request_ids = {"r"}
+    received = []
+    meta = dict(prompt_tokens=2, completion_tokens=1, finish_reason={"type": "length"})
+
+    async def handle(request):
+        if request.headers.get("Authorization") != f"Bearer {credential}":
+            return web.Response(status=401)
+        body = await request.json()
+        received.append((request.path, body))
+        if request.path == "/abort_request":
+            return web.json_response({})
+        result = dict(text="ok", meta_info=meta)
+        if body.get("stream"):
+            return web.Response(
+                text="data: " + json.dumps(result) + "\n\ndata: [DONE]\n\n",
+                content_type="text/event-stream",
+            )
+        return web.json_response(result)
+
+    app = web.Application()
+    app.router.add_post("/generate", handle)
+    app.router.add_post("/abort_request", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    url = f"http://127.0.0.1:{site._server.sockets[0].getsockname()[1]}"
+    model._engine = SimpleNamespace(url=url, generate_url=url + "/generate")
+    params = dict(
+        bootstrap_host="producer",
+        bootstrap_port=12345,
+        bootstrap_room=123,
+        max_new_tokens=1,
+    )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url + "/generate", json={}) as response:
+                assert response.status == 401
+        assert (
+            await model._non_stream_generate("prompt", None, request_id="r", **params)
+        )["text"] == "ok"
+        chunks = [
+            chunk
+            async for chunk in model._stream_generate(
+                "prompt", None, request_id="r", **params
+            )
+        ]
+        assert chunks[0][1] == "ok"
+        assert await model.abort_request("missing") == "NO_OP"
+        assert await model.abort_request("r") == "DONE"
+        assert len(received) == 3
+        for _, body in received[:2]:
+            assert body["rid"] == "r" and body["text"] == "prompt"
+            assert (
+                body["bootstrap_host"] == "producer" and body["bootstrap_port"] == 12345
+            )
+            assert body["bootstrap_room"] == 123
+            assert "bootstrap_room" not in body["sampling_params"]
+        assert received[2] == ("/abort_request", {"rid": "r"})
+    finally:
+        await runner.cleanup()

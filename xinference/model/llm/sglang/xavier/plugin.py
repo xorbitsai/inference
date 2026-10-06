@@ -2,7 +2,10 @@
 # Licensed under the Apache License, Version 2.0.
 """Register Xavier with SGLang's supported plugin hook mechanism."""
 
+import os
 from enum import Enum
+
+from .settings import GPU_CONFIG_ENV
 
 
 def _kv_class(original, backend, class_type):
@@ -29,7 +32,9 @@ class XavierBootstrapServer:
 
 
 def register():
-    # Importing the entry point is safe without SGLang; heavy imports stay here.
+    if not os.environ.get(GPU_CONFIG_ENV):
+        return
+    # Heavy imports are needed only for an explicitly configured Xavier worker.
     from sglang.srt.disaggregation.utils import TransferBackend
     from sglang.srt.plugins.hook_registry import HookRegistry, HookType
     from sglang.srt.server_args import add_disagg_transfer_backend_choices

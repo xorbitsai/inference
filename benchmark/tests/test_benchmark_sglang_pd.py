@@ -115,3 +115,14 @@ def test_completed_trial_keeps_telemetry_when_next_trial_resets_guard(
     guard.interference.append(guard.samples[-1])
     assert result["gpu_samples"] == [dict(processes=[dict(pid=1)], external=[])]
     assert result["interference"] == []
+
+
+def test_source_manifest_is_independent_of_working_directory(
+    benchmark, monkeypatch, tmp_path
+):
+    before = benchmark.source_hashes()
+    monkeypatch.chdir(tmp_path)
+    assert benchmark.source_hashes() == before
+    assert "xinference/core/pd_model.py" in before
+    assert "xinference/model/llm/sglang/core.py" in before
+    assert all(not Path(name).is_absolute() for name in before)

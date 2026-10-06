@@ -857,7 +857,7 @@ class SGLANGModel(LLM):
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
             async with session.post(
-                self._engine.generate_url, json=json_data  # type: ignore
+                self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
                 async for chunk, _ in response.content.iter_chunks():
                     chunk = chunk.decode("utf-8")
@@ -901,10 +901,14 @@ class SGLANGModel(LLM):
         }
         async with aiohttp.ClientSession(trust_env=True) as session:
             async with session.post(
-                self._engine.generate_url, json=json_data  # type: ignore
+                self._engine.generate_url, json=json_data, headers=self._engine_headers()  # type: ignore
             ) as response:
                 response.raise_for_status()
                 return await response.json()
+
+    def _engine_headers(self) -> dict:
+        api_key = getattr(self, "_model_config", {}).get("api_key")
+        return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
     async def abort_request(self, request_id: str) -> str:
         import aiohttp
@@ -916,7 +920,9 @@ class SGLANGModel(LLM):
             timeout=aiohttp.ClientTimeout(total=5), trust_env=True
         ) as session:
             async with session.post(
-                self._engine.url + "/abort_request", json={"rid": request_id}
+                self._engine.url + "/abort_request",
+                json={"rid": request_id},
+                headers=self._engine_headers(),
             ) as response:
                 response.raise_for_status()
         return "DONE"
@@ -965,8 +971,12 @@ class SGLANGModel(LLM):
             if isinstance(stream_options, dict)
             else False
         )
+
         # Validate generation options before reserving any shared KV capacity.
-        if transfer is not None:
+        async def prepare_handoff():
+            nonlocal pending_handoff, handoff
+            if transfer is None:
+                return
             if prefill:
                 pending_handoff = await pd.prepare(prompt, transfer)
             else:
@@ -978,12 +988,14 @@ class SGLANGModel(LLM):
                 bootstrap_port=active_handoff.get("port", 1),
                 bootstrap_room=active_handoff["room"],
             )
+
         if not request_id:
             request_id = str(uuid.uuid1())
-        self._active_request_ids.add(request_id)
         if not stream:
             completed = False
+            self._active_request_ids.add(request_id)
             try:
+                await prepare_handoff()
                 state = await self._non_stream_generate(
                     prompt,
                     image_data,
@@ -1142,7 +1154,9 @@ class SGLANGModel(LLM):
 
             async def pd_stream():
                 completed = False
+                self._active_request_ids.add(request_id)
                 try:
+                    await prepare_handoff()
                     async for chunk in stream_results():
                         yield chunk
                     completed = True

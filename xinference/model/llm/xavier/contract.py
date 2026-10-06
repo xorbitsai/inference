@@ -17,6 +17,8 @@ enable cross-engine serving on its own.
 
 import hashlib
 import json
+import os
+import uuid
 from dataclasses import asdict, dataclass, fields
 from functools import cached_property
 from pathlib import Path
@@ -38,7 +40,65 @@ def fingerprint_metadata(metadata: Mapping[str, Any]) -> str:
     ).hexdigest()
 
 
-def fingerprint_files(files: Mapping[str, Path]) -> str:
+def _asset_digest(path: Path, cache_dir: Optional[Path]) -> str:
+    if cache_dir is None:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    from filelock import FileLock
+
+    resolved = path.resolve()
+    stat = resolved.stat()
+    identity = [
+        str(resolved),
+        stat.st_size,
+        stat.st_mtime_ns,
+        stat.st_ctime_ns,
+        stat.st_dev,
+        stat.st_ino,
+    ]
+    key = hashlib.sha256(str(resolved).encode()).hexdigest()
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        with FileLock(str(cache_dir / (key + ".lock"))):
+            entry = cache_dir / (key + ".json")
+            try:
+                cached = json.loads(entry.read_text())
+                value = cached["digest"]
+                _require_digest("cached asset", value)
+                if cached["identity"] == identity:
+                    return value
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
+            value = _asset_digest(resolved, None)
+            after = resolved.stat()
+            if [
+                str(resolved),
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+                after.st_dev,
+                after.st_ino,
+            ] != identity:
+                raise ValueError("Model asset changed while fingerprinting")
+            temporary = entry.with_suffix(f".{uuid.uuid4().hex}.tmp")
+            try:
+                temporary.write_text(json.dumps(dict(identity=identity, digest=value)))
+                os.replace(temporary, entry)
+            finally:
+                temporary.unlink(missing_ok=True)
+            return value
+    except OSError:
+        # Read-only cache locations must not prevent loading verified assets.
+        return _asset_digest(resolved, None)
+
+
+def fingerprint_files(
+    files: Mapping[str, Path], *, cache_dir: Optional[Path] = None
+) -> str:
     """Hash a complete, adapter-selected asset manifest without local root paths.
 
     Names identify files within the asset set; paths identify where to read them.
@@ -50,11 +110,7 @@ def fingerprint_files(files: Mapping[str, Path]) -> str:
         raise ValueError("A nonempty asset manifest with named files is required")
     manifest = {}
     for name, path in sorted(files.items()):
-        digest = hashlib.sha256()
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
-                digest.update(chunk)
-        manifest[name] = digest.hexdigest()
+        manifest[name] = _asset_digest(path, cache_dir)
     return fingerprint_metadata(manifest)
 
 

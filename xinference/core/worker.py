@@ -1864,7 +1864,8 @@ class WorkerActor(xo.StatelessActor):
             if (
                 xavier_config is not None
                 or launch_args.get("_nixl_config")
-                or launch_args.get("_xavier_cache_config")
+                or launch_args.get("_xavier_cache_config", {}).get("role")
+                in ("prefill", "decode")
             ):
                 # PD recovery still depends on supervisor-owned routing state,
                 # so only replay replicas that the supervisor can reconstruct safely.
@@ -1989,8 +1990,8 @@ class WorkerActor(xo.StatelessActor):
             # Worker restart cannot rebuild the supervisor-owned native PD
             # route. Do not allocate an unregistered replacement replica.
             if launch_args.get("_nixl_config") is not None or launch_args.get(
-                "_xavier_cache_config"
-            ):
+                "_xavier_cache_config", {}
+            ).get("role") in ("prefill", "decode"):
                 logger.info(
                     "Skipping native PD replica %s on worker startup", model_uid
                 )
@@ -6750,6 +6751,12 @@ class WorkerActor(xo.StatelessActor):
             "_xavier_cache_config", {}
         ).get("role") in ("prefill", "decode"):
             await supervisor_ref.unregister_pd_replica(origin_uid, rep_model_uid)
+            cache_config = launch_args.get("_xavier_cache_config", {})
+            if cache_config.get("role") in ("prefill", "decode"):
+                directory = await xo.actor_ref(
+                    address=cache_config["address"], uid=cache_config["uid"]
+                )
+                await directory.unregister_peer(cache_config["rank"])
         subpool_address = await self.launch_builtin_model(**launch_args)
         if is_xavier:
             model_ref = self._model_uid_to_model[rep_model_uid]

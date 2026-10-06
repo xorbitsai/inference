@@ -11,6 +11,8 @@ from typing import Optional
 
 import xoscar as xo
 
+from .settings import transfer_timeout
+
 
 class SGLangXavierHandoff:
     def __init__(self, cache_config: dict, page_size: int, tokenizer):
@@ -50,7 +52,13 @@ class SGLangXavierHandoff:
             if self._namespace is None:
                 raise ValueError("Unregistered SGLang Xavier PD namespace")
         await self._call(
-            "prepare", handoff.get("room"), self._namespace, prompt_hash, self.role
+            "prepare",
+            handoff.get("room"),
+            self._namespace,
+            prompt_hash,
+            self.role,
+            self.config.get("rank"),
+            transfer_timeout(),
         )
         return handoff
 
@@ -60,7 +68,7 @@ class SGLangXavierHandoff:
         return await self.prepare(prompt, transfer)
 
     async def publish(self, handoff: dict) -> dict:
-        deadline = time.monotonic() + 30
+        deadline = time.monotonic() + transfer_timeout()
         while not await self._call("check", handoff["room"]):
             if time.monotonic() > deadline:
                 raise RuntimeError("SGLang Xavier GPU transfer did not complete")

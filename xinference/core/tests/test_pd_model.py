@@ -542,3 +542,42 @@ async def test_completed_direct_stream_clears_handoff_without_abandon(
     assert [chunk async for chunk in stream] == [b"one", b"two"]
     assert not actor._direct_transfers and not actor._request_set
     lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [False, True])
+async def test_empty_decode_stream_waits_for_prefill_and_propagates_failure(
+    router, failure
+):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    actor._transport_backend = "nixl"
+    actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    entered, finish = asyncio.Event(), asyncio.Event()
+
+    async def produce(*args, **kwargs):
+        entered.set()
+        await finish.wait()
+        if failure:
+            raise RuntimeError("late prefill failure")
+        return {}
+
+    async def empty():
+        if False:
+            yield b"unused"
+
+    prefill.generate.side_effect = produce
+    decode.generate.return_value = empty()
+    stream = await actor._infer("generate", "prompt", {"stream": True}, request_id="r")
+    task = asyncio.create_task(anext(stream))
+    await entered.wait()
+    await asyncio.sleep(0)
+    assert not task.done()
+    finish.set()
+    with pytest.raises(RuntimeError if failure else StopAsyncIteration):
+        await task
+    decode.decrease_serve_count.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers
+    if failure:
+        prefill.abort_request.assert_awaited_once()
+        decode.abort_request.assert_awaited_once()
