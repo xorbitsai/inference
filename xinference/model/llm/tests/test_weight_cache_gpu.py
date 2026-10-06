@@ -50,6 +50,7 @@ async def test_gpu_weights_survive_engine_reload(engine):
                     "max_num_seqs": 4,
                     "tensor_parallel_size": parallelism,
                     "gpu_memory_utilization": 0.9,
+                    "kv_cache_memory_bytes": 512 * 1024 * 1024,
                     "enforce_eager": True,
                 }
                 if engine == "vllm"
@@ -57,6 +58,7 @@ async def test_gpu_weights_survive_engine_reload(engine):
                     "context_length": 512,
                     "max_running_requests": 4,
                     "tp_size": parallelism,
+                    "max_total_tokens": 2048,
                     "disable_cuda_graph": True,
                 }
             )
@@ -127,6 +129,7 @@ async def test_gpu_weights_survive_engine_reload(engine):
         with pytest.raises(ValueError, match="cannot be changed"):
             await asyncio.to_thread(model.validate_reload, {"quantization": "awq"})
         assert model._engine is original_engine
+        del original_engine
         patch = {"max_num_seqs" if engine == "vllm" else "max_running_requests": 8}
         await asyncio.to_thread(model.reload, patch, lambda stage: None)
         assert model._weight_cache is daemon
