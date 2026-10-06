@@ -160,7 +160,9 @@ def test_sglang_load_passes_one_effective_launch_timeout(
     monkeypatch.setitem(sys.modules, "sglang", sglang)
     monkeypatch.setattr(sglang_core, "get_next_port", lambda: 30001)
     monkeypatch.setattr(
-        sglang_core.multiprocessing, "set_start_method", lambda _method: None
+        sglang_core.multiprocessing,
+        "set_start_method",
+        lambda _method, force=False: None,
     )
 
     model = object.__new__(sglang_core.SGLANGChatModel)
