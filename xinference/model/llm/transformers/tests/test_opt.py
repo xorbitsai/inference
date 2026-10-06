@@ -18,6 +18,23 @@ import pytest
 
 from .....client import Client
 from .....client.restful.restful_client import RESTfulGenerateModelHandle
+from ...llm_family import match_llm
+from ..core import PytorchModel
+
+
+def test_opt_fp4_quantization_config():
+    transformers = pytest.importorskip("transformers")
+    if not hasattr(transformers, "FPQuantConfig"):
+        pytest.skip("FPQuantConfig is not available in transformers.")
+
+    family = match_llm("opt", "pytorch", 1, "none", "huggingface").copy(deep=True)
+    family.model_specs[0].model_format = "fp4"
+    family.model_specs[0].quantization = "mxfp4"
+    model = PytorchModel("test-opt-fp4", family, "unused", {})
+    config = model.apply_quantization_config()["quantization_config"]
+    assert isinstance(config, transformers.FPQuantConfig)
+    assert config.pseudoquantization is True
+    assert config.forward_dtype == "mxfp4"
 
 
 @pytest.mark.asyncio
@@ -79,18 +96,37 @@ async def test_opt_fp4_model(request):
     except Exception:
         pytest.skip("FPQuantConfig is not available in transformers.")
 
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.skip("FPQuant pseudoquantization requires CUDA.")
+    pytest.importorskip(
+        "fp_quant", reason="FPQuant requires the optional fp_quant package."
+    )
+
     # Check optional support before starting the cluster/API subprocesses.
     endpoint, _ = request.getfixturevalue("setup")
     client = Client(endpoint)
     assert len(client.list_models()) == 0
 
+    # The built-in OPT entry is a full-precision checkpoint. Register a test
+    # spec for in-flight FP4 quantization rather than requesting an absent
+    # built-in FP4 checkpoint.
+    family = match_llm("opt", "pytorch", 1, "none", "huggingface").copy(deep=True)
+    family.model_name = "test-opt-fp4"
+    family.model_family = "opt"
+    family.model_specs[0].model_format = "fp4"
+    family.model_specs[0].quantization = "mxfp4"
+    client.register_model("LLM", family.json(), persist=False)
+    request.addfinalizer(lambda: client.unregister_model("LLM", family.model_name))
+
     model_uid = client.launch_model(
-        model_name="opt",
+        model_name=family.model_name,
         model_engine="transformers",
         model_size_in_billions=1,
         model_format="fp4",
         quantization="mxfp4",
-        device="cpu",
+        device="cuda",
         quantization_config={
             "pseudoquantization": True,
             "forward_dtype": "mxfp4",

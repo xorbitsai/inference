@@ -25,6 +25,26 @@ from ....client import Client
 from ..sentence_transformers.core import _get_causal_lm_rerank_forward_kwargs
 
 
+@pytest.mark.parametrize(
+    "tokenizer_name,expected",
+    [
+        ("LlamaTokenizer", "LLM-based layerwise"),
+        ("LlamaTokenizerFast", "LLM-based layerwise"),
+        ("GemmaTokenizer", "LLM-based"),
+        ("GemmaTokenizerFast", "LLM-based"),
+        ("XLMRobertaTokenizer", "normal"),
+        ("XLMRobertaTokenizerFast", "normal"),
+        ("UnknownTokenizer", "normal"),
+    ],
+)
+def test_auto_detect_type_tokenizer_variants(monkeypatch, tokenizer_name, expected):
+    from ..core import RerankModel
+
+    tokenizer = type(tokenizer_name, (), {})()
+    monkeypatch.setattr(RerankModel, "_get_tokenizer", lambda _: tokenizer)
+    assert RerankModel._auto_detect_type("test-model") == expected
+
+
 def test_causal_lm_rerank_forward_kwargs_use_supported_memory_optimizations():
     class QwenLikeModel:
         def forward(self, input_ids, logits_to_keep=0, use_cache=True):

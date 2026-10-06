@@ -237,6 +237,9 @@ jobs:
           # backend would otherwise run on editable installs.
           NO_WEB_UI: 1
         run: |
+          if [ "$MODULE" != "metal" ]; then
+            export PIP_CONSTRAINT="$GITHUB_WORKSPACE/.github/constraints/model-tests.txt"
+          fi
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
             sudo rm -rf /opt/ghc
@@ -257,7 +260,7 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install tomli
           else
-            pip install "transformers<4.49"
+            pip install transformers
             pip install attrdict
             pip install "timm>=0.9.16"
             if [ "${{ matrix.python-version }}" != "3.13" ] && [ "${{ matrix.python-version }}" != "3.14" ]; then
@@ -267,7 +270,7 @@ jobs:
             pip install sentencepiece
             pip install transformers_stream_generator
             pip install bitsandbytes
-            pip install "sentence-transformers>=5.1.1,<6"
+            pip install sentence-transformers
             pip install modelscope
             pip install diffusers
             pip install protobuf
@@ -431,7 +434,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'pyproject.toml') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/constraints/model-tests.txt', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
@@ -454,6 +457,8 @@ jobs:
           python -m pip install -U pip "setuptools<82"
 
       - name: Install dependencies
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/.github/constraints/model-tests.txt
         run: |
           pip install -U -e ".[audio,dev]"
           pip install -U "openai>1"
@@ -466,7 +471,7 @@ jobs:
           pip install -U "passlib[bcrypt]"
           pip install -U "aioprometheus[starlette]"
           pip install -U "pynvml"
-          pip install "transformers==4.53.2"
+          pip install transformers
           pip install "funasr==1.2.7"
           conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
           pip install -U "nemo_text_processing<1.1.0"
@@ -511,12 +516,8 @@ jobs:
           # install it from apt.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
-          # Final guard pins. The serial `pip install -U` calls above ignore
-          # the upper bounds of already-installed packages, letting shared
-          # deps drift past what the stack supports at runtime: numba needs
-          # numpy<2.5, and diffusers 0.35 / tensorizer still import
-          # is_offline_mode, which huggingface_hub 1.0 removed
-          # (transformers==4.53.2 declares the same <1.0 cap).
+          # The constraints above keep all serial upgrades compatible. GPU
+          # tests additionally need NumPy 2 for compiled audio dependencies.
           pip install "numpy>=2,<2.5" "huggingface_hub<1.0"
         working-directory: .
 
