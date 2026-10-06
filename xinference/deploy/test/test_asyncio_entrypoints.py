@@ -14,18 +14,21 @@
 
 import os
 
+import pytest
+
 
 def _fail_if_get_event_loop_is_called():
     raise AssertionError("entry point must not rely on an implicit event loop")
 
 
-def test_test_cluster_entrypoint_creates_event_loop(monkeypatch):
+@pytest.mark.parametrize("use_test_pool", [True, False])
+def test_test_cluster_entrypoint_creates_event_loop(monkeypatch, use_test_pool):
     from ... import conftest
 
     calls = []
 
-    async def fake_start_test_cluster(address, logging_conf=None):
-        calls.append((address, logging_conf))
+    async def fake_start_test_cluster(address, logging_conf=None, use_test_pool=True):
+        calls.append((address, logging_conf, use_test_pool))
 
     monkeypatch.setattr(conftest, "_start_test_cluster", fake_start_test_cluster)
     monkeypatch.setattr(conftest.signal, "signal", lambda *args: None)
@@ -33,9 +36,11 @@ def test_test_cluster_entrypoint_creates_event_loop(monkeypatch):
         conftest.asyncio, "get_event_loop", _fail_if_get_event_loop_is_called
     )
 
-    conftest.run_test_cluster("localhost:1234", {"version": 1})
+    conftest.run_test_cluster(
+        "localhost:1234", {"version": 1}, use_test_pool=use_test_pool
+    )
 
-    assert calls == [("localhost:1234", {"version": 1})]
+    assert calls == [("localhost:1234", {"version": 1}, use_test_pool)]
 
 
 def test_supervisor_entrypoint_creates_event_loop(monkeypatch):

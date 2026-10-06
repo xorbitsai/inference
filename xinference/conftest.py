@@ -20,7 +20,7 @@ import signal
 import socket
 import sys
 from contextlib import ExitStack
-from typing import Dict, Optional
+from typing import Dict, Iterator, Optional, Tuple
 
 import pytest
 import xoscar as xo
@@ -132,12 +132,14 @@ def api_health_check(endpoint: str, max_attempts: int, sleep_interval: int = 3):
 async def _start_test_cluster(
     address: str,
     logging_conf: Optional[Dict] = None,
+    use_test_pool: bool = True,
 ):
     logging.config.dictConfig(logging_conf)  # type: ignore
     pool = None
     try:
         pool = await create_worker_actor_pool(
-            address=f"test://{address}", logging_conf=logging_conf
+            address=f"test://{address}" if use_test_pool else address,
+            logging_conf=logging_conf,
         )
         await xo.create_actor(
             SupervisorActor, address=address, uid=SupervisorActor.default_uid()
@@ -156,22 +158,34 @@ async def _start_test_cluster(
             await pool.stop()
 
 
-def run_test_cluster(address: str, logging_conf: Optional[Dict] = None):
+def run_test_cluster(
+    address: str,
+    logging_conf: Optional[Dict] = None,
+    use_test_pool: bool = True,
+):
     def sigterm_handler(signum, frame):
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, sigterm_handler)
 
-    asyncio.run(_start_test_cluster(address=address, logging_conf=logging_conf))
+    asyncio.run(
+        _start_test_cluster(
+            address=address, logging_conf=logging_conf, use_test_pool=use_test_pool
+        )
+    )
 
 
 def run_test_cluster_in_subprocess(
-    address: str, logging_conf: Optional[Dict] = None
+    address: str,
+    logging_conf: Optional[Dict] = None,
+    use_test_pool: bool = True,
 ) -> multiprocessing.Process:
     # prevent re-init cuda error.
     multiprocessing.set_start_method(method="spawn", force=True)
 
-    p = multiprocessing.Process(target=run_test_cluster, args=(address, logging_conf))
+    p = multiprocessing.Process(
+        target=run_test_cluster, args=(address, logging_conf, use_test_pool)
+    )
     p.start()
     return p
 
@@ -191,8 +205,7 @@ def _stop_test_process(process: multiprocessing.Process) -> None:
     process.join(timeout=10)
 
 
-@pytest.fixture
-def setup():
+def _setup_cluster(use_test_pool: bool = True) -> Iterator[Tuple[str, str]]:
     from .api.restful_api import run_in_subprocess as run_restful_api
     from .deploy.utils import health_check as cluster_health_check
 
@@ -206,7 +219,7 @@ def setup():
     with ExitStack() as cleanup:
         supervisor_addr = f"127.0.0.1:{_get_test_port()}"
         local_cluster_proc = run_test_cluster_in_subprocess(
-            supervisor_addr, TEST_LOGGING_CONF
+            supervisor_addr, TEST_LOGGING_CONF, use_test_pool
         )
         cleanup.callback(_stop_test_process, local_cluster_proc)
         if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
@@ -225,6 +238,18 @@ def setup():
             raise RuntimeError("Endpoint is not available after multiple attempts")
 
         yield f"http://127.0.0.1:{port}", supervisor_addr
+
+
+@pytest.fixture
+def setup():
+    yield from _setup_cluster()
+
+
+@pytest.fixture
+def setup_real_actor_pool() -> Iterator[Tuple[str, str]]:
+    # The in-process test pool ignores start_python and cannot exercise
+    # models whose virtualenv dependencies differ from the host environment.
+    yield from _setup_cluster(use_test_pool=False)
 
 
 @pytest.fixture
