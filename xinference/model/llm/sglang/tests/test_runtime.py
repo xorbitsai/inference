@@ -56,6 +56,8 @@ def test_runtime_children_inherit_canonical_jit_cache(
 @pytest.mark.parametrize("configured", [None, "", "~/.cache/sglang/jit"])
 def test_runtime_default_jit_cache_is_expanded(monkeypatch, configured):
     if configured is None:
+        # Track the absent key so teardown also restores direct runtime writes.
+        monkeypatch.setenv("SGLANG_JIT_CACHE_DIR", "unused")
         monkeypatch.delenv("SGLANG_JIT_CACHE_DIR", raising=False)
     else:
         monkeypatch.setenv("SGLANG_JIT_CACHE_DIR", configured)

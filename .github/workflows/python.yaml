@@ -383,6 +383,7 @@ jobs:
               xinference/model/llm/sglang/tests/test_pd.py \
               xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py \
               xinference/model/llm/sglang/tests/test_gc_lifecycle.py \
+              xinference/model/llm/sglang/tests/test_runtime.py \
               xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
               xinference/model/llm/vllm/tests/test_executor_routing.py \
               xinference/model/llm/vllm/tests/test_speculative_config.py \
