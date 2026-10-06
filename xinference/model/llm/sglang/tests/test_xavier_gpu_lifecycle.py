@@ -441,7 +441,6 @@ async def test_manager_commits_engine_metadata_before_completion(gpu_module, hos
     backing = np.zeros((3, 2), dtype=np.uint8)
     manager = object.__new__(gpu_module.XavierKVManager)
     manager._receive_tasks = {}
-    manager.config = {}
     manager.config = dict(host_handoff=host)
     manager.aux = [torch.from_numpy(backing)]
     manager.actor = SimpleNamespace(

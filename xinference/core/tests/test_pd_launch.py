@@ -963,3 +963,23 @@ async def test_nvidia_mlx_invalid_replica_format_has_no_side_effects(
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
         worker.wait_for_load.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mlx_index", [0, 1])
+@pytest.mark.parametrize(
+    "options,message",
+    [({"n_worker": 2}, "sharded launch"), ({"quantization": "4-bit"}, "unquantized")],
+)
+async def test_nvidia_mlx_rejects_unsupported_launch_before_allocation(
+    launch_runtime, mlx_index, options, message
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][mlx_index].model_engine = "MLX"
+    kwargs.update(options)
+    with pytest.raises(ValueError, match=message):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
