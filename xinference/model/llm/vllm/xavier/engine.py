@@ -30,8 +30,6 @@ from .transport import (
 
 logger = logging.getLogger(__name__)
 
-XAVIER_EAGER_VLLM_VERSION = version.parse("0.21.0")
-
 
 class XavierEngine:
     _xavier_config: Optional[Dict] = None
@@ -90,14 +88,12 @@ class XavierEngine:
         extra_config = dict(xavier_config.get("kv_connector_extra_config") or {})
         extra_config["xavier_config"] = xavier_config
 
-        if (
-            version.parse(VLLM_VERSION) >= XAVIER_EAGER_VLLM_VERSION
-            and xavier_config.get("enforce_eager", True)
-            and not getattr(engine_args, "enforce_eager", False)
+        recurrent = engine_args.create_model_config().is_hybrid
+        if xavier_config.get("enforce_eager", recurrent) and not getattr(
+            engine_args, "enforce_eager", False
         ):
-            # vLLM V1 may create XavierConnector twice during CUDA graph
-            # setup. In CUDA-heavy processes this can trip glibc static TLS
-            # allocation, so keep Xavier on the eager execution path.
+            # Attention snapshots are exported after forward and support CUDA
+            # graphs. Keep the existing eager default for recurrent handoff.
             engine_args.enforce_eager = True
             logger.info(
                 "Set enforce_eager=True for Xavier V1 on vLLM %s.",
@@ -108,7 +104,6 @@ class XavierEngine:
         # of sliding-window and full attention. Only recurrent models need this
         # override: 0.21 disables HMA for every KV connector by default; 0.22+
         # checks SupportsHMA itself. Preserve an explicit user setting.
-        recurrent = engine_args.create_model_config().is_hybrid
         if (
             recurrent
             and version.parse(VLLM_VERSION) < version.parse("0.22.0")

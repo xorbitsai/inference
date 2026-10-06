@@ -190,7 +190,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             # P may restore its own independent history before computing a suffix.
             self._is_consumer = True
         self._requests_need_load: Dict[str, XavierLoadRequest] = {}
-        self._pending_store_requests: Dict[str, XavierStoreRequest] = {}
         self._leased_requests: Dict[str, XavierLoadRequest] = {}
         self._gpu_load_jobs: Dict[asyncio.Task, List[str]] = {}
         self._direct_sends: set[str] = set()
@@ -351,20 +350,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         attn_metadata: "AttentionMetadata",
         **kwargs: Any,
     ) -> None:
-        if not self._is_producer:
-            return
-
-        metadata = self._get_connector_metadata()
-        assert isinstance(metadata, XavierConnectorMetadata)
-        if not metadata.store_requests:
-            return
-
-        for request in metadata.store_requests:
-            if not request.block_ids:
-                continue
-            if getattr(self, "_gpu_budget", None) is None:
-                self._stage_kv_layer_for_request(request, layer_name, kv_layer)
-            self._pending_store_requests[request.request_id] = request
+        # This callback runs inside attention and CUDA graph capture/replay.
+        # Export registered caches in wait_for_save, outside the model forward,
+        # using the current metadata rather than capture-time request IDs.
+        return
 
     def wait_for_save(self):
         if self._direct_handoff and self._is_producer:
@@ -373,13 +362,20 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 self._call(self._ensure_gpu_cache_mapping())
                 torch.cuda.synchronize()
             return
-        if not self._is_producer or not self._pending_store_requests:
+        if not self._is_producer:
             return
-
-        pending = list(self._pending_store_requests.values())
-        self._pending_store_requests.clear()
+        metadata = self._get_connector_metadata()
+        assert isinstance(metadata, XavierConnectorMetadata)
+        pending = metadata.store_requests
+        if not pending:
+            return
         try:
-            self._stage_missing_registered_layers(pending)
+            missing = self._call(self._filter_store_requests(pending))
+            if missing:
+                self._stage_missing_registered_layers(missing)
+            # Re-publish all requested keys, including reused snapshots. This
+            # refreshes discovery and retries a failed tracker registration
+            # without copying already published KV payloads again.
             self._call(self._register_blocks(pending))
         finally:
             for request in pending:
@@ -525,7 +521,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
         token_ids = list(request.prompt_token_ids or [])
         external_token_count = max(len(token_ids) - 1, 0)
-        if external_token_count <= num_computed_tokens:
+        if external_token_count - num_computed_tokens < self._block_size:
             return 0, False
 
         hashes = self._build_xavier_hashes(token_ids[:external_token_count])
@@ -859,6 +855,36 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             blocks,
         )
 
+    async def _filter_store_requests(
+        self, requests: List[XavierStoreRequest]
+    ) -> List[XavierStoreRequest]:
+        transfer_ref = await self._get_transfer_ref()
+        ready = set(
+            await transfer_ref.ready_blocks_for_export_v1(
+                [key for request in requests for key in request.block_hashes]
+            )
+        )
+        missing = []
+        for request in requests:
+            indices = []
+            for i, key in enumerate(request.block_hashes):
+                if key not in ready:
+                    indices.append(i)
+                    ready.add(key)
+            if indices:
+                missing.append(
+                    XavierStoreRequest(
+                        request.request_id,
+                        [request.block_ids[i] for i in indices],
+                        [request.block_hashes[i] for i in indices],
+                        [
+                            [group[i] for i in indices]
+                            for group in request.block_ids_by_group
+                        ],
+                    )
+                )
+        return missing
+
     async def _register_blocks(self, requests: List[XavierStoreRequest]):
         tracker_ref = await self._get_tracker_ref()
         transfer_ref = await self._get_transfer_ref()
@@ -1146,6 +1172,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return transfer
 
     async def _stage_gpu_requests(self, requests):
+        if not requests:
+            return
         transfer = await self._ensure_gpu_cache_mapping()
         entries = []
         for request in requests:

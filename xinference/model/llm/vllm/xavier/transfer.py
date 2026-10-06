@@ -215,6 +215,17 @@ class TransferActor(
             block_ids,
         )
 
+    def ready_blocks_for_export_v1(self, keys: List[int]) -> List[int]:
+        if self._snapshot_store is None:
+            return []
+        ready = []
+        for key in dict.fromkeys(keys):
+            if key in self._snapshot_store.ready:
+                ready.append(key)
+                # A reused snapshot is still hot even without another write.
+                self._snapshot_store.blocks.move_to_end(key)
+        return ready
+
     def publish_blocks_v1(self, keys, layers):
         available = self._snapshot_store.publish(keys, set(layers))
         evicted = list(self._snapshot_store.evicted)

@@ -122,3 +122,7 @@ msgstr ""
 "페이지를 공유할 수 없습니다. 사용량의 ``prompt_tokens_details.cached_tokens`` 는 재사용된 토큰 수를 "
 "보고합니다. 명시적인 prefill/decode 역할은 MLX Xavier P/D를 자동 활성화합니다. 엔진 간 캐시 공유는 아직 "
 "지원하지 않습니다."
+
+#: source/user_guide/vllm_enhancement.rst:18
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
+msgstr "vLLM V1에서 attention만 사용하는 모델의 경우 Xavier는 모델의 ``enforce_eager`` 설정을 유지하여 CUDA Graph 실행을 허용합니다. eager 실행을 사용하려면 모델을 시작할 때 ``enforce_eager=True`` 설정을 사용하세요. 순환 모델은 계속해서 기본적으로 eager 실행을 사용합니다."

@@ -61,11 +61,28 @@ def test_v1_connector_configuration(engine, role, kv_role):
     assert args.kv_transfer_config.kv_connector == "XavierConnector"
     assert args.additional_config["custom"] == 1
     json.dumps(args.additional_config)
-    assert args.enforce_eager
+    assert not args.enforce_eager
     assert getattr(args, "disable_hybrid_kv_cache_manager", None) is None
     assert args.enable_prefix_caching is True
     assert config == {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
     factory.assert_called_once()
+
+
+@pytest.mark.parametrize("recurrent", [False, True])
+@pytest.mark.parametrize("launch_eager", [False, True])
+@pytest.mark.parametrize("xavier_eager", [None, False, True])
+def test_eager_defaults_and_explicit_settings(
+    engine, recurrent, launch_eager, xavier_eager
+):
+    module, _ = engine
+    args = SimpleNamespace(
+        enforce_eager=launch_eager,
+        create_model_config=lambda: SimpleNamespace(is_hybrid=recurrent),
+    )
+    config = {} if xavier_eager is None else {"enforce_eager": xavier_eager}
+    module.XavierEngine.from_engine_args(args, xavier_config=config)
+    expected = launch_eager or (recurrent if xavier_eager is None else xavier_eager)
+    assert args.enforce_eager is expected
 
 
 def test_v0_uses_legacy_adapter(engine, monkeypatch):

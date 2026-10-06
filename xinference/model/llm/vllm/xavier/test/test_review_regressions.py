@@ -425,7 +425,7 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
         side_effect=AssertionError("GPU mode stages once in wait_for_save")
     )
     connector.save_kv_layer("layer", cache, None)
-    assert connector._pending_store_requests["r"] is request
+    connector._stage_kv_layer_for_request.assert_not_called()
 
 
 @pytest.mark.asyncio
