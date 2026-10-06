@@ -197,11 +197,18 @@ api = SimpleNamespace(_cluster_metrics_task=None,
     _close_elasticsearch_client=AsyncMock(), _close_token_router_client=AsyncMock())
 class Cycle:
     pass
+initialized = Cycle()
+initialized.self = initialized
+initialized_ref = weakref.ref(initialized)
 async def run():
+    global initialized
     try:
         async with restful_api.RESTfulAPI._lifespan(api, None):
             assert gc.get_freeze_count() > 0
             assert gc.isenabled() == was_enabled
+            del initialized
+            gc.collect()
+            assert initialized_ref() is not None, "API initialization must be frozen"
             cycle = Cycle()
             cycle.self = cycle
             ref = weakref.ref(cycle)
@@ -215,6 +222,10 @@ async def run():
     assert (gc.get_freeze_count() > 0) == (frozen_before > 0)
     api._close_elasticsearch_client.assert_awaited_once()
     api._close_token_router_client.assert_awaited_once()
+    if frozen_before:
+        gc.unfreeze()  # The external owner ends its own lifetime.
+    gc.collect()
+    assert initialized_ref() is None
 asyncio.run(run())
 """
     result = subprocess.run(

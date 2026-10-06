@@ -153,7 +153,7 @@ jobs:
                 xinference/model/*) full=true; break ;;
                 # The rest of the package (deploy/, docs, examples, other
                 # top-level modules) is not exercised by any GPU test.
-                .github/workflows/python.yaml|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
+                .github/workflows/python.yaml|.github/requirements/model-ci-constraints.txt|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
               esac
             done < changed-files.txt
           fi
@@ -281,7 +281,8 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
-            python -c "from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer; from FlagEmbedding import BGEM3FlagModel"
+            pip install -r .github/requirements/model-ci-constraints.txt
+            python -c "from datasets import Dataset; from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
           fi
         working-directory: .
 
@@ -375,7 +376,13 @@ jobs:
               xinference
             run_pytest \
               benchmark/tests/test_benchmark_pd.py \
+              benchmark/tests/test_benchmark_sglang_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \
+              xinference/model/llm/sglang/tests/test_xavier.py \
+              xinference/model/llm/sglang/tests/test_xavier_pd.py \
+              xinference/model/llm/sglang/tests/test_pd.py \
+              xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py \
+              xinference/model/llm/sglang/tests/test_gc_lifecycle.py \
               xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
               xinference/model/llm/vllm/tests/test_executor_routing.py \
               xinference/model/llm/vllm/tests/test_speculative_config.py \
@@ -438,7 +445,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'pyproject.toml') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/requirements/model-ci-constraints.txt', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
@@ -519,8 +526,9 @@ jobs:
           # install it from apt.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
-          pip install "numpy>=2"
-          python -c "from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
+          # Resolve the shared stack together, including transitive datasets.
+          pip install "numpy>=2" -r .github/requirements/model-ci-constraints.txt
+          python -c "from datasets import Dataset; from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
         working-directory: .
 
       - name: Test with pytest

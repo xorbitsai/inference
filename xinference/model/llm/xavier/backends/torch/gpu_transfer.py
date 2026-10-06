@@ -5,7 +5,7 @@
 import asyncio
 import logging
 from importlib.metadata import version
-from typing import Dict
+from typing import Dict, Iterable
 
 import torch
 import xoscar as xo
@@ -42,7 +42,14 @@ async def finish_before_cancel(task):
 
 
 class GPUTransfer:
-    def __init__(self, actor, caches: Dict[str, torch.Tensor], budget: int):
+    def __init__(
+        self,
+        actor,
+        caches: Dict[str, torch.Tensor],
+        budget: int,
+        *,
+        slab_bytes: int | None = None,
+    ):
         if Version(version("xoscar")) < Version("0.11.1"):
             raise RuntimeError("Xavier GPU transfer requires xoscar[nixl]>=0.11.1")
         if not actor.address.startswith("nixl://"):
@@ -60,8 +67,12 @@ class GPUTransfer:
         )
         # Fixed slabs avoid registration churn. Separate directions allow hybrids
         # to serve a peer while they themselves are waiting for incoming data.
-        self.slab_bytes = max(
-            max(sizes), min(MAX_REQUEST_BYTES, sum(sizes) * MAX_REQUEST_BLOCKS)
+        if slab_bytes is not None and slab_bytes < max(sizes):
+            raise ValueError("Xavier transfer slab cannot fit one KV page")
+        self.slab_bytes = (
+            max(max(sizes), min(MAX_REQUEST_BYTES, sum(sizes) * MAX_REQUEST_BLOCKS))
+            if slab_bytes is None
+            else slab_bytes
         )
         self.send_buffer = torch.zeros(
             self.slab_bytes, dtype=torch.uint8, device=self.device
@@ -92,6 +103,16 @@ class GPUTransfer:
             load_calls=0,
             load_requests=0,
         )
+
+    def add_slab_views(self, sizes: Iterable[int]) -> None:
+        """Register persistent prefixes without allocating additional slabs."""
+        for size in sizes:
+            if 0 < size < self.slab_bytes and size not in self.recv_refs:
+                self.send_buffers[size] = self.send_buffer[:size]
+                self.recv_buffers[size] = self.recv_buffer[:size]
+                self.recv_refs[size] = xo.buffer_ref(
+                    self.actor.address, self.recv_buffers[size]
+                )
 
     async def run(self, function, *args):
         if self.closing:

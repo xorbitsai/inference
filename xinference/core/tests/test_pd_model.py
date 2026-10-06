@@ -1,6 +1,7 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -26,6 +27,7 @@ def test_round_robin_updates():
     [
         (["prefill", "decode"], "vLLM", True),
         (["prefill", "prefill", "decode"], "vLLM", True),
+        (["prefill", "decode"], "SGLang", True),
         (["hybrid"], "transformers", False),
         (["prefill"], "vLLM", None),
         (["decode"], "vLLM", None),
@@ -80,6 +82,84 @@ async def test_infer_preserves_decode_config(router, method):
     assert p_call.kwargs["request_id"] == d_call.kwargs["request_id"] == "r"
     assert not actor._request_set
     prefill.free_model_cache.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+async def test_sglang_starts_decode_while_prefill_holds_source_slots(router, backend):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    actor._transport_backend = backend
+    if backend == "nixl":
+        actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    decode_started = asyncio.Event()
+
+    async def p(*args, **kwargs):
+        await asyncio.wait_for(decode_started.wait(), timeout=1)
+        return {}
+
+    async def d(*args, **kwargs):
+        decode_started.set()
+        await asyncio.sleep(0)
+        return {"choices": []}
+
+    prefill.generate.side_effect = p
+    decode.generate.side_effect = d
+    await actor._infer("generate", "prompt", {"max_tokens": 32}, request_id="r")
+    p_config = prefill.generate.call_args.args[1]
+    d_config = decode.generate.call_args.args[1]
+    assert p_config["max_tokens"] == 1 and d_config["max_tokens"] == 32
+    key = "sglang_nixl" if backend == "nixl" else "sglang_xavier"
+    handoff = p_config["_pd_kv_transfer_params"][key]
+    assert handoff == d_config["_pd_kv_transfer_params"][key]
+    if backend == "nixl":
+        assert handoff["host"] == "producer" and handoff["port"] == 12345
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+async def test_sglang_stream_disconnect_aborts_both_roles(router, monkeypatch, backend):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    actor._transport_backend = backend
+    if backend == "nixl":
+        actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    directory = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=directory))
+
+    async def chunks():
+        yield b"first"
+        await asyncio.Event().wait()
+
+    decode.generate.return_value = chunks()
+    stream = await actor._infer("generate", "prompt", {"stream": True}, request_id="r")
+    assert await anext(stream) == b"first"
+    await stream.aclose()
+    prefill.abort_request.assert_awaited_once()
+    decode.abort_request.assert_awaited_once()
+    decode.decrease_serve_count.assert_awaited_once()
+    if backend == "nixl":
+        directory.release.assert_not_awaited()
+    else:
+        directory.release.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+async def test_native_sglang_bootstrap_refreshed_on_replica_replacement():
+    actor = PDModelActor("pd", transport_backend="nixl", model_engine="sglang")
+    prefill = MagicMock()
+    prefill.get_sglang_pd_bootstrap = AsyncMock(
+        return_value=dict(host="producer", port=12345)
+    )
+    await actor.add_prefill_actor("p", prefill)
+    assert actor._sglang_bootstrap["p"]["port"] == 12345
+    await actor.remove_prefill_actor("p")
+    assert not actor._sglang_bootstrap
+    prefill.get_sglang_pd_bootstrap.return_value["port"] = 23456
+    await actor.add_prefill_actor("p", prefill)
+    assert actor._sglang_bootstrap["p"]["port"] == 23456
 
 
 @pytest.mark.asyncio
@@ -378,13 +458,26 @@ async def test_duplicate_generation_config_rejected_before_dispatch(router):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["decode", "cancel", "abort_before_decode"])
-async def test_direct_router_releases_unclaimed_handoff(router, monkeypatch, failure):
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
+async def test_direct_router_releases_unclaimed_handoff(
+    router, monkeypatch, failure, engine
+):
     actor, prefill, decode = router
     actor._direct_handoff = True
     transfer = {
         "do_remote_prefill": True,
         "xavier_direct": {"ticket": "t", "rank": 0, "address": "127.0.0.1:1234"},
     }
+    if engine == "sglang":
+        transfer = {
+            "do_remote_prefill": True,
+            "sglang_xavier": {
+                "engine": "sglang",
+                "ticket": "t",
+                "uid": "cache",
+                "address": "127.0.0.1:1234",
+            },
+        }
 
     async def finish_prefill(*args, **kwargs):
         if failure == "abort_before_decode":
@@ -397,11 +490,15 @@ async def test_direct_router_releases_unclaimed_handoff(router, monkeypatch, fai
         if failure == "decode"
         else asyncio.CancelledError()
     )
-    peer = MagicMock(abandon_direct_gpu_v1=AsyncMock())
+    peer = MagicMock(abandon_direct_gpu_v1=AsyncMock(), release_handoff=AsyncMock())
     monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=peer))
     with pytest.raises(RuntimeError if failure == "decode" else asyncio.CancelledError):
         await actor._infer("chat", [], {}, request_id="r")
-    peer.abandon_direct_gpu_v1.assert_awaited_once_with("t")
+    if engine == "sglang":
+        peer.release_handoff.assert_awaited_once_with("t")
+        peer.abandon_direct_gpu_v1.assert_not_awaited()
+    else:
+        peer.abandon_direct_gpu_v1.assert_awaited_once_with("t")
     assert not actor._direct_transfers and not actor._request_set
     if failure == "abort_before_decode":
         decode.chat.assert_not_awaited()
@@ -421,6 +518,19 @@ async def test_completed_direct_request_does_not_send_abandon_rpc(router, monkey
     await actor._infer("chat", [], {}, request_id="r")
     lookup.assert_not_awaited()
     assert not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("handoff", [{"ticket": ""}, {"ticket": "", "address": "gpu"}])
+async def test_empty_vllm_handoff_needs_no_abandon_rpc(router, monkeypatch, handoff):
+    actor, _, _ = router
+    actor._request_set.add("r")
+    actor._direct_transfers["r"] = handoff
+    abandon = AsyncMock()
+    monkeypatch.setattr(actor, "_abandon_vllm_handoff", abandon)
+    await actor.free_prefill_model_cache("r")
+    abandon.assert_not_awaited()
+    assert not actor._request_set and not actor._direct_transfers
 
 
 @pytest.mark.asyncio
@@ -446,3 +556,98 @@ async def test_completed_direct_stream_clears_handoff_without_abandon(
     assert [chunk async for chunk in stream] == [b"one", b"two"]
     assert not actor._direct_transfers and not actor._request_set
     lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [False, True])
+async def test_empty_decode_stream_waits_for_prefill_and_propagates_failure(
+    router, failure
+):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    actor._transport_backend = "nixl"
+    actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    entered, finish = asyncio.Event(), asyncio.Event()
+
+    async def produce(*args, **kwargs):
+        entered.set()
+        await finish.wait()
+        if failure:
+            raise RuntimeError("late prefill failure")
+        return {}
+
+    async def empty():
+        if False:
+            yield b"unused"
+
+    prefill.generate.side_effect = produce
+    decode.generate.return_value = empty()
+    stream = await actor._infer("generate", "prompt", {"stream": True}, request_id="r")
+    task = asyncio.create_task(anext(stream))
+    await entered.wait()
+    await asyncio.sleep(0)
+    assert not task.done()
+    finish.set()
+    with pytest.raises(RuntimeError if failure else StopAsyncIteration):
+        await task
+    decode.decrease_serve_count.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers
+    if failure:
+        prefill.abort_request.assert_awaited_once()
+        decode.abort_request.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["xavier", "nixl"])
+@pytest.mark.parametrize("finish_together", [False, True])
+async def test_prefill_failure_closes_already_returned_decode_stream(
+    router, monkeypatch, backend, finish_together
+):
+    actor, prefill, decode = router
+    actor._model_engine = "sglang"
+    actor._transport_backend = backend
+    actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
+    directory = SimpleNamespace(release=AsyncMock())
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=directory))
+    decoded, release_prefill = asyncio.Event(), asyncio.Event()
+    stream = MagicMock()
+    stream.aclose = AsyncMock()
+    serve_count = 0
+
+    async def decrease(**kwargs):
+        nonlocal serve_count
+        serve_count -= 1
+
+    async def produce(*args, **kwargs):
+        await decoded.wait()
+        if not finish_together:
+            await release_prefill.wait()
+        raise RuntimeError("prefill failed after decode stream return")
+
+    async def decode_stream(*args, **kwargs):
+        nonlocal serve_count
+        serve_count += 1
+        decoded.set()
+        return stream
+
+    prefill.generate.side_effect = produce
+    decode.generate.side_effect = decode_stream
+    decode.decrease_serve_count.side_effect = decrease
+    task = asyncio.create_task(
+        actor._infer("generate", "prompt", {"stream": True}, request_id="r")
+    )
+    await decoded.wait()
+    if not finish_together:
+        # Let the router acquire the returned stream and then fail prefill on
+        # the first iteration, covering both ownership handoff windows.
+        returned = await task
+        task = asyncio.create_task(anext(returned))
+        release_prefill.set()
+    with pytest.raises(RuntimeError, match="prefill failed"):
+        await task
+    assert serve_count == 0
+    stream.aclose.assert_awaited_once()
+    decode.decrease_serve_count.assert_awaited_once()
+    prefill.abort_request.assert_awaited_once()
+    decode.abort_request.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers

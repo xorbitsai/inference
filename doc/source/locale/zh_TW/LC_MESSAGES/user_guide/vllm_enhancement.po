@@ -76,3 +76,22 @@ msgid ""
 " connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
 "for community Prefill/Decode deployment."
 msgstr ""
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "SGLang 副本"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` 可透過 Xavier 的 HiCache 儲存後端共用前綴 KV 快取。啟動多個副本時設定 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。初始介面卡支援採用完整注意力、未量化 FP16 權重且 TP=PP=DP=1 的 Qwen2、Qwen3 和 Llama 文字模型；不支援 LoRA、推測解碼、混合注意力和多模態輸入。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` 設定部署的共用 CPU 快取預算（預設 ``536870912``，即 512 MiB）。每個 SGLang 副本也會配置自己的 GPU 和 HiCache 主機記憶體集區。對一般副本而言，快取淘汰或儲存不可用會視為快取未命中。快取命名空間包含實際權重、分詞器、模型設定、KV 幾何形狀和引擎格式；目前無法在 vLLM 與 SGLang 之間交換快取。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "一般 SGLang 副本共用 CPU HiCache 頁面。明確的 prefill/decode 角色使用 Xavier GPU 直接傳輸，見 :ref:`user_guide_pd_separation`。尚不支援跨引擎 P/D。"
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier 將 BF16 檢查點載入為 FP16 並發出警告。權重和 KV 快取均使用 FP16。"

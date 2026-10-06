@@ -15,6 +15,7 @@
 from typing import Any, Dict, Optional
 
 from ...xavier.transport import get_transport_host as get_transport_host
+from ...xavier.transport import gpu_pool_options as gpu_pool_options
 from ...xavier.transport import validate_gpu_cache_budget as validate_gpu_cache_budget
 
 XAVIER_TRANSPORT_BACKEND_KEY = "vllm_transfer_backend_type"
@@ -55,32 +56,6 @@ def set_xavier_transport_backend(
     xavier_config[XAVIER_TRANSPORT_BACKEND_KEY] = normalized
     xavier_config[XAVIER_TRANSPORT_BACKEND_ALIAS_KEY] = normalized
     return xavier_config
-
-
-def gpu_pool_options(address: str, env: Dict[str, str]) -> Dict[str, str]:
-    import os
-    from importlib.metadata import version
-    from importlib.util import find_spec
-
-    from packaging.version import Version
-
-    from ..pd import resolve_nixl_host
-
-    if Version(version("xoscar")) < Version("0.11.1") or find_spec("nixl") is None:
-        raise RuntimeError(
-            "Xavier GPU transfer requires xoscar[nixl]>=0.11.1 on the worker and in the model environment"
-        )
-    host = get_transport_host(address)
-    if not host:
-        raise ValueError("Cannot determine Xavier NIXL worker host")
-    host = resolve_nixl_host(host, "a reachable worker address")
-    if not host:
-        raise ValueError("Cannot determine Xavier NIXL worker host")
-    if ":" in host:
-        host = f"[{host}]"
-    env["UCX_MEMTYPE_CACHE"] = "n"
-    env.setdefault("UCX_TLS", os.environ.get("UCX_TLS", "tcp,cuda_copy,cuda_ipc"))
-    return {"external_address": f"nixl://{host}:0"}
 
 
 def uses_direct_handoff(config: Optional[Dict[str, Any]]) -> bool:

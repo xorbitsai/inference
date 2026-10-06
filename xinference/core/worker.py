@@ -1598,9 +1598,10 @@ class WorkerActor(xo.StatelessActor):
         add_worker: bool,
     ) -> Any:
         """Execute one complete Supervisor RPC lifecycle on the actor loop."""
-        supervisor_ref, supervisor_generation = (
-            await self._get_supervisor_ref_with_generation(add_worker)
-        )
+        (
+            supervisor_ref,
+            supervisor_generation,
+        ) = await self._get_supervisor_ref_with_generation(add_worker)
         try:
             method = getattr(supervisor_ref, method_name)
             return await xo.wait_for(
@@ -1860,7 +1861,12 @@ class WorkerActor(xo.StatelessActor):
             model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
             origin_uid, _ = parse_replica_model_uid(replica_model_uid)
             xavier_config = launch_args.get("xavier_config")
-            if xavier_config is not None or launch_args.get("_nixl_config"):
+            if (
+                xavier_config is not None
+                or launch_args.get("_nixl_config")
+                or launch_args.get("_xavier_cache_config", {}).get("role")
+                in ("prefill", "decode")
+            ):
                 # PD recovery still depends on supervisor-owned routing state,
                 # so only replay replicas that the supervisor can reconstruct safely.
                 continue
@@ -1983,7 +1989,9 @@ class WorkerActor(xo.StatelessActor):
         for model_uid, launch_args in persisted.items():
             # Worker restart cannot rebuild the supervisor-owned native PD
             # route. Do not allocate an unregistered replacement replica.
-            if launch_args.get("_nixl_config") is not None:
+            if launch_args.get("_nixl_config") is not None or launch_args.get(
+                "_xavier_cache_config", {}
+            ).get("role") in ("prefill", "decode"):
                 logger.info(
                     "Skipping native PD replica %s on worker startup", model_uid
                 )
@@ -6743,8 +6751,16 @@ class WorkerActor(xo.StatelessActor):
             await supervisor_ref.call_collective_manager(
                 origin_uid, "unregister_rank", rank
             )
-        elif launch_args.get("_nixl_config"):
+        elif launch_args.get("_nixl_config") or launch_args.get(
+            "_xavier_cache_config", {}
+        ).get("role") in ("prefill", "decode"):
             await supervisor_ref.unregister_pd_replica(origin_uid, rep_model_uid)
+            cache_config = launch_args.get("_xavier_cache_config", {})
+            if cache_config.get("role") in ("prefill", "decode"):
+                directory = await xo.actor_ref(
+                    address=cache_config["address"], uid=cache_config["uid"]
+                )
+                await directory.unregister_peer(cache_config["rank"])
         subpool_address = await self.launch_builtin_model(**launch_args)
         if is_xavier:
             model_ref = self._model_uid_to_model[rep_model_uid]
@@ -6761,8 +6777,11 @@ class WorkerActor(xo.StatelessActor):
         # already awaited model_ref.load(), so wait_for_load is near-instant here.
         await self.wait_for_load(rep_model_uid)
         if (
-            is_xavier and xavier_config.get("role") in ("prefill", "decode")
-        ) or launch_args.get("_nixl_config"):
+            (is_xavier and xavier_config.get("role") in ("prefill", "decode"))
+            or launch_args.get("_nixl_config")
+            or launch_args.get("_xavier_cache_config", {}).get("role")
+            in ("prefill", "decode")
+        ):
             await supervisor_ref.register_pd_replica(
                 origin_uid, rep_model_uid, self._model_uid_to_model[rep_model_uid]
             )
