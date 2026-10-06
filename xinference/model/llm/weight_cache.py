@@ -544,6 +544,10 @@ def _process_group_alive(pgid: int, exclude_pid: Optional[int] = None) -> bool:
         os.killpg(pgid, 0)
     except ProcessLookupError:
         return False
+    except PermissionError:
+        # Darwin can report EPERM for an orphaned group containing only
+        # zombies. Inspect live members before treating it as still running.
+        pass
     # Zombies have released GPU memory but can keep killpg(pgid, 0) alive until
     # reaped by init. The watcher itself must not count as a surviving rank.
     for process in psutil.process_iter(["pid", "status"]):
@@ -570,6 +574,10 @@ def _terminate_process_group(
             os.killpg(pgid, sig)
         except ProcessLookupError:
             return
+        except PermissionError:
+            if not _process_group_alive(pgid, exclude_pid):
+                return
+            raise
         deadline = time.monotonic() + grace
         while time.monotonic() < deadline:
             if reap is not None:

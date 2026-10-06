@@ -13,7 +13,7 @@ import time
 import psutil
 import pytest
 
-from ..weight_cache import WeightCacheDaemon
+from ..weight_cache import WeightCacheDaemon, _process_group_alive
 
 
 def wait_until(predicate, timeout=15):
@@ -90,7 +90,7 @@ def test_watcher_waits_for_ranks_and_escalates(tmp_path, mode):
         wait_until(lambda: not alive(rank) and not alive(pgid))
         assert cleaned.exists() is (mode == "graceful")
     finally:
-        if pgid is not None:
+        if pgid is not None and _process_group_alive(pgid):
             try:
                 os.killpg(pgid, signal.SIGKILL)
             except ProcessLookupError:

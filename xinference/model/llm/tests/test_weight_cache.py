@@ -18,9 +18,31 @@ from ..weight_cache import (
     WeightCacheDaemon,
     WeightCachedModel,
     _cached_memory_fraction,
+    _process_group_alive,
+    _terminate_process_group,
     parse_weight_cache_option,
     validate_reload_patch,
 )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
+@pytest.mark.parametrize("living", [False, True])
+def test_permission_error_distinguishes_live_group_from_zombies(monkeypatch, living):
+    import psutil
+
+    process = SimpleNamespace(
+        pid=11,
+        info={"status": psutil.STATUS_RUNNING if living else psutil.STATUS_ZOMBIE},
+    )
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs: [process])
+    monkeypatch.setattr(os, "getpgid", lambda pid: 10)
+    monkeypatch.setattr(os, "killpg", MagicMock(side_effect=PermissionError("group")))
+    assert _process_group_alive(10) is living
+    if living:
+        with pytest.raises(PermissionError, match="group"):
+            _terminate_process_group(10)
+    else:
+        _terminate_process_group(10)
 
 
 def test_cached_memory_counts_only_daemon_tree(monkeypatch):
