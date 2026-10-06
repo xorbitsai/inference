@@ -9,10 +9,14 @@ from functools import wraps
 _RUNTIME_START_LOCK = threading.Lock()
 
 
-def create_runtime(runtime_class, **config):
+def prepare_jit_cache() -> None:
     # SGLang compares resolved dependencies against its unresolved staging path.
     cache_dir = os.environ.get("SGLANG_JIT_CACHE_DIR") or "~/.cache/sglang/jit"
     os.environ["SGLANG_JIT_CACHE_DIR"] = os.path.realpath(os.path.expanduser(cache_dir))
+
+
+def create_runtime(runtime_class, **config):
+    prepare_jit_cache()
     api_key = config.get("api_key")
     if not api_key:
         return runtime_class(**config)
