@@ -856,7 +856,7 @@ class VLLMModel(WeightCachedModel, LLM):
                 model=self.model_path,
                 enable_lora=enable_lora,
                 max_loras=max_loras,
-                **self._model_config,
+                **self._weight_cache_engine_config(self._model_config),
             )
             self._enable_v1_if_supported(engine_args)
 
@@ -1012,7 +1012,7 @@ class VLLMModel(WeightCachedModel, LLM):
                 model=self.model_path,
                 enable_lora=enable_lora,
                 max_loras=max_loras,
-                **self._model_config,
+                **self._weight_cache_engine_config(self._model_config),
             )
             self._enable_v1_if_supported(engine_args)
 

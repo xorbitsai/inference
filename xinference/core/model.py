@@ -95,7 +95,7 @@ def request_limit(fn):
     """
 
     async def wrapped_func(self, *args, **kwargs):
-        if self._model_state == "reloading":
+        if getattr(self, "_model_state", None) == "reloading":
             raise ModelNotReadyError("Model is reloading")
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"

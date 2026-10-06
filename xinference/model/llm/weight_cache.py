@@ -16,6 +16,7 @@
 
 import copy
 import json
+import logging
 import math
 import os
 import signal
@@ -28,6 +29,65 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from packaging.version import Version
+
+logger = logging.getLogger(__name__)
+
+
+def _cached_memory_fraction(pid: int) -> float:
+    """Largest per-device reservation owned by the daemon, including its ranks.
+
+    Query the driver without creating a CUDA context in the model actor. Engine
+    processes are siblings and must not count towards the retained reservation.
+    """
+    import psutil
+    import torch
+
+    pids = {pid, *(child.pid for child in psutil.Process(pid).children(recursive=True))}
+    fractions = []
+    if torch.version.hip:
+        import amdsmi
+
+        amdsmi.amdsmi_init()
+        try:
+            for handle in amdsmi.amdsmi_get_processor_handles():
+                used = 0
+                for process in amdsmi.amdsmi_get_gpu_process_list(handle):
+                    # Older AMD SMI returns process handles instead of records.
+                    if not isinstance(process, dict):
+                        process = amdsmi.amdsmi_get_gpu_process_info(handle, process)
+                    if process["pid"] in pids:
+                        used += process["memory_usage"]["vram_mem"]
+                if used:
+                    total = amdsmi.amdsmi_get_gpu_memory_total(
+                        handle, amdsmi.AmdSmiMemoryType.VRAM
+                    )
+                    fractions.append(used / total)
+        finally:
+            amdsmi.amdsmi_shut_down()
+    else:
+        import pynvml
+
+        pynvml.nvmlInit()
+        try:
+            for index in range(pynvml.nvmlDeviceGetCount()):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(index)
+                used = sum(
+                    process.usedGpuMemory
+                    for process in pynvml.nvmlDeviceGetComputeRunningProcesses(handle)
+                    if process.pid in pids
+                )
+                if used:
+                    try:
+                        memory = pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
+                    except (pynvml.NVMLError, AttributeError):
+                        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                    fractions.append(used / memory.total)
+        finally:
+            pynvml.nvmlShutdown()
+    if not fractions or not all(0 < value < 1 for value in fractions):
+        raise RuntimeError("Cannot account for the weight cache daemon's GPU memory")
+    return max(fractions)
+
 
 # Only execution parameters may change while the daemon owns the weights.
 # In particular, do not accept arbitrary engine arguments: some change packed
@@ -129,6 +189,11 @@ class WeightCacheDaemon:
         else:
             config["model_path"] = self.model_path
             config["weight_cache_mode"] = "off"
+            # SGLang accepts this legacy Python argument, but its YAML parser
+            # rejects the deprecated CLI action. Use the current CLI fields.
+            if config.pop("disable_cuda_graph", False):
+                config["cuda_graph_backend_decode"] = "disabled"
+                config["cuda_graph_backend_prefill"] = "disabled"
             command = [
                 "-m",
                 "sglang.srt.weight_cache.daemon",
@@ -145,6 +210,8 @@ class WeightCacheDaemon:
                 # This subprocess serves one ModelActor. Engine children inherit
                 # the same private socket namespace as the standalone daemon.
                 os.environ[name] = env[name]
+            # SGLang's config merger emits keys directly as CLI flags.
+            config = {key.replace("_", "-"): value for key, value in config.items()}
         # JSON is a YAML subset, preserving nested engine configs and booleans.
         config_path = self.directory / "config.yaml"
         try:
@@ -207,6 +274,31 @@ class WeightCacheDaemon:
             )
             return {"load_format": "ipc_cache", "model_loader_extra_config": extra}
         return {"weight_cache_mode": "client"}
+
+    def engine_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        config = copy.deepcopy(config)
+        if self.engine != "vllm":
+            return config
+        assert self.process is not None
+        requested = config.get("gpu_memory_utilization", 0.9)
+        if config.get("kv_cache_memory_bytes"):
+            # vLLM ignores this fraction for an explicit KV allocation, but
+            # still checks it against free memory before loading IPC weights.
+            effective = min(requested, 0.01)
+        else:
+            effective = requested - _cached_memory_fraction(self.process.pid)
+            if effective <= 0:
+                raise ValueError(
+                    "gpu_memory_utilization is too small to cover retained weights"
+                )
+        config["gpu_memory_utilization"] = effective
+        logger.info(
+            "vLLM memory budget: requested fraction=%s, engine fraction=%s; "
+            "retained daemon memory is reserved separately",
+            requested,
+            effective,
+        )
+        return config
 
     def stop(self) -> None:
         if self.process is not None:
@@ -322,6 +414,11 @@ class WeightCachedModel:
             "parameters": RELOAD_FIELDS[self._weight_cache_engine],
         }
 
+    def _weight_cache_engine_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        if self._weight_cache is None:
+            return config
+        return self._weight_cache.engine_config(config)
+
     def validate_reload(self, patch: Dict[str, Any]) -> Dict[str, Any]:
         if self._weight_cache is None:
             raise ValueError(
@@ -336,7 +433,9 @@ class WeightCachedModel:
         if self._weight_cache_engine == "vllm":
             from vllm.engine.arg_utils import AsyncEngineArgs
 
-            AsyncEngineArgs(model=self.model_path, **candidate).create_engine_config()
+            AsyncEngineArgs(
+                model=self.model_path, **self._weight_cache_engine_config(candidate)
+            ).create_engine_config()
         else:
             from sglang.srt.server_args import ServerArgs
 

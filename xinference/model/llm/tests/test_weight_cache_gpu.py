@@ -11,9 +11,11 @@ XINFERENCE_TEST_WEIGHT_CACHE_MODEL_PATH=/models/Qwen2.5-0.5B-Instruct \
 
 Requires a Linux CUDA/ROCm GPU and the supported upstream engine versions.
 The two engine tests run sequentially, releasing all GPU resources in finally.
+Set XINFERENCE_TEST_WEIGHT_CACHE_TP=2 to exercise two GPU ranks.
 """
 
 import asyncio
+import json
 import os
 
 import pytest
@@ -34,6 +36,7 @@ async def test_gpu_weights_survive_engine_reload(engine):
     if not torch.cuda.is_available():
         pytest.skip("CUDA/ROCm GPU required")
     pytest.importorskip(engine)
+    parallelism = int(os.getenv("XINFERENCE_TEST_WEIGHT_CACHE_TP", "1"))
 
     class EngineModel(WeightCachedModel):
         _weight_cache_engine = engine
@@ -42,11 +45,18 @@ async def test_gpu_weights_survive_engine_reload(engine):
 
         def __init__(self):
             config = (
-                {"max_model_len": 512, "max_num_seqs": 4, "enforce_eager": True}
+                {
+                    "max_model_len": 512,
+                    "max_num_seqs": 4,
+                    "tensor_parallel_size": parallelism,
+                    "gpu_memory_utilization": 0.9,
+                    "enforce_eager": True,
+                }
                 if engine == "vllm"
                 else {
                     "context_length": 512,
                     "max_running_requests": 4,
+                    "tp_size": parallelism,
                     "disable_cuda_graph": True,
                 }
             )
@@ -64,12 +74,17 @@ async def test_gpu_weights_survive_engine_reload(engine):
                 from vllm.engine.async_llm_engine import AsyncLLMEngine
 
                 self._engine = AsyncLLMEngine.from_engine_args(
-                    AsyncEngineArgs(model=self.model_path, **self._model_config)
+                    AsyncEngineArgs(
+                        model=self.model_path,
+                        **self._weight_cache_engine_config(self._model_config),
+                    )
                 )
             else:
                 import sglang
 
-                self._engine = sglang.Engine(
+                # Xinference uses Runtime: Engine.shutdown() kills every child
+                # of the caller, including an independently owned cache daemon.
+                self._engine = sglang.Runtime(
                     model_path=self.model_path, **self._model_config
                 )
 
@@ -98,7 +113,7 @@ async def test_gpu_weights_survive_engine_reload(engine):
                 "The capital of France is",
                 {"temperature": 0, "max_new_tokens": 8},
             )
-            return result["text"]
+            return json.loads(result)["text"]
 
     model = EngineModel()
     try:
@@ -108,6 +123,10 @@ async def test_gpu_weights_survive_engine_reload(engine):
         pid = daemon.process.pid
         sockets = dict(daemon._socket_paths)
         before = await model.generate()
+        original_engine = model._engine
+        with pytest.raises(ValueError, match="cannot be changed"):
+            await asyncio.to_thread(model.validate_reload, {"quantization": "awq"})
+        assert model._engine is original_engine
         patch = {"max_num_seqs" if engine == "vllm" else "max_running_requests": 8}
         await asyncio.to_thread(model.reload, patch, lambda stage: None)
         assert model._weight_cache is daemon

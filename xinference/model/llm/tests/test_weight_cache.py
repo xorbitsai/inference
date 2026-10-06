@@ -6,6 +6,7 @@
 
 import json
 import pickle
+import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -15,9 +16,85 @@ from ..weight_cache import (
     ModelReloadError,
     WeightCacheDaemon,
     WeightCachedModel,
+    _cached_memory_fraction,
     parse_weight_cache_option,
     validate_reload_patch,
 )
+
+
+def test_cached_memory_counts_only_daemon_tree(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip=None))
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "psutil",
+        SimpleNamespace(
+            Process=lambda pid: SimpleNamespace(
+                children=lambda **kw: [SimpleNamespace(pid=11)]
+            )
+        ),
+    )
+    nvml = SimpleNamespace(
+        nvmlInit=MagicMock(),
+        nvmlShutdown=MagicMock(),
+        nvmlDeviceGetCount=lambda: 2,
+        nvmlDeviceGetHandleByIndex=lambda index: index,
+        nvmlDeviceGetComputeRunningProcesses=lambda index: [
+            SimpleNamespace(pid=10, usedGpuMemory=100),
+            SimpleNamespace(pid=11, usedGpuMemory=200 * (index + 1)),
+            SimpleNamespace(pid=99, usedGpuMemory=800),
+        ],
+        nvmlDeviceGetMemoryInfo_v2=lambda handle: SimpleNamespace(total=1000),
+    )
+    monkeypatch.setitem(sys.modules, "pynvml", nvml)
+    assert _cached_memory_fraction(10) == 0.5
+    nvml.nvmlShutdown.assert_called_once()
+
+
+def test_cached_memory_rocm_records(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules, "torch", SimpleNamespace(version=SimpleNamespace(hip="7"))
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "psutil",
+        SimpleNamespace(Process=lambda pid: SimpleNamespace(children=lambda **kw: [])),
+    )
+    smi = SimpleNamespace(
+        amdsmi_init=MagicMock(),
+        amdsmi_shut_down=MagicMock(),
+        amdsmi_get_processor_handles=lambda: [0],
+        amdsmi_get_gpu_process_list=lambda handle: [
+            {"pid": 10, "memory_usage": {"vram_mem": 300}},
+            {"pid": 99, "memory_usage": {"vram_mem": 800}},
+        ],
+        amdsmi_get_gpu_memory_total=lambda *args: 1000,
+        AmdSmiMemoryType=SimpleNamespace(VRAM=0),
+    )
+    monkeypatch.setitem(sys.modules, "amdsmi", smi)
+    assert _cached_memory_fraction(10) == 0.3
+    smi.amdsmi_shut_down.assert_called_once()
+
+
+def test_engine_budget_reserves_retained_memory_without_mutating_config(monkeypatch):
+    daemon = WeightCacheDaemon("vllm", "/models/test", {})
+    daemon.process = SimpleNamespace(pid=10)
+    monkeypatch.setattr(
+        "xinference.model.llm.weight_cache._cached_memory_fraction", lambda pid: 0.4
+    )
+    config = {"gpu_memory_utilization": 0.9}
+    try:
+        assert daemon.engine_config(config)["gpu_memory_utilization"] == 0.5
+        assert daemon.engine_config(config)["gpu_memory_utilization"] == 0.5
+        assert config == {"gpu_memory_utilization": 0.9}
+        with pytest.raises(ValueError, match="retained weights"):
+            daemon.engine_config({"gpu_memory_utilization": 0.3})
+        explicit = {"gpu_memory_utilization": 0.3, "kv_cache_memory_bytes": 100}
+        assert daemon.engine_config(explicit)["gpu_memory_utilization"] == 0.01
+    finally:
+        daemon.process = None
+        daemon.stop()
 
 
 @pytest.mark.parametrize(
@@ -105,6 +182,9 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
         assert client["model_loader_extra_config"]["fallback"] is False
         assert client["model_loader_extra_config"]["mode"] == "zero_copy"
     else:
+        assert config["model-path"] == "/models/test"
+        assert config["tp-size"] == 2
+        assert config["weight-cache-mode"] == "off"
         assert daemon.client_config() == {"weight_cache_mode": "client"}
         assert "{device_uuid}" in options["env"]["SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE"]
     daemon.stop()
@@ -125,6 +205,33 @@ def test_daemon_failure_restores_environment(monkeypatch):
         daemon.start()
     assert os.environ["SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE"] == "original"
     assert not daemon.directory.exists()
+
+
+@pytest.mark.parametrize("disabled", [False, True])
+def test_sglang_daemon_normalizes_legacy_graph_flag(monkeypatch, disabled):
+    daemon = WeightCacheDaemon(
+        "sglang", "/models/test", {"disable_cuda_graph": disabled}
+    )
+    process = MagicMock(pid=1234)
+    process.poll.return_value = None
+
+    def spawn(*args, **kwargs):
+        import os
+
+        (daemon.directory / "gpu.sock").touch()
+        (daemon.directory / "gpu.ready").write_text(f"pid={os.getpid()}\n")
+        return process
+
+    monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
+    monkeypatch.setattr("xinference.model.llm.weight_cache.os.killpg", MagicMock())
+    try:
+        daemon.start(timeout=1)
+        config = json.loads((daemon.directory / "config.yaml").read_text())
+        assert "disable-cuda-graph" not in config
+        for field in ("cuda-graph-backend-decode", "cuda-graph-backend-prefill"):
+            assert config.get(field) == ("disabled" if disabled else None)
+    finally:
+        daemon.stop()
 
 
 class FakeCachedModel(WeightCachedModel):
