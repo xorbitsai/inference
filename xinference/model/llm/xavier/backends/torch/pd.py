@@ -3,6 +3,8 @@
 """Canonical per-layer K/V pages, using Xavier's persistent GPU NIXL slabs."""
 
 import asyncio
+import logging
+import math
 import os
 import re
 import struct
@@ -14,9 +16,12 @@ import torch
 import xoscar as xo
 
 from ....sglang.gc_lifecycle import InitializationGCFreeze
+from ....sglang.xavier.settings import transfer_timeout
 from .direct_handoff import DirectGPUTransfer
 from .gpu_transfer import finish_before_cancel
 from .snapshot import block_major_view
+
+logger = logging.getLogger(__name__)
 
 
 def sglang_first_token_payload(sizes, room, token, prompt_tokens):
@@ -142,6 +147,8 @@ class CrossEngineGPUActor(xo.StatelessActor):
             total=None,
             sent=0,
             completed=asyncio.Event(),
+            changed=asyncio.Event(),
+            deadline=time.monotonic() + transfer_timeout(),
         )
         try:
             await self.directory.publish_source(
@@ -158,7 +165,9 @@ class CrossEngineGPUActor(xo.StatelessActor):
         self.init(room, len(pages), 0)
         state = self.rooms[room]
         ticket = f"{room}:0"
-        self.transfer.register_direct(ticket, request_id, pages)
+        self.transfer.register_direct(
+            ticket, request_id, pages, lease_timeout=transfer_timeout()
+        )
         state["sent"] = len(pages)
         state["chunks"].append(
             dict(
@@ -168,13 +177,27 @@ class CrossEngineGPUActor(xo.StatelessActor):
                 aux=dict(first_token=first_token, prompt_tokens=prompt_tokens),
             )
         )
+        state["changed"].set()
 
     async def poll_direct_gpu_v1(self):
         finished = self.transfer.poll_direct()
         for room, state in list(self.rooms.items()):
-            if state["completed"].is_set():
-                await self.directory.release(room, "prefill")
+            expired = any(
+                chunk["ticket"] not in self.transfer.direct_requests
+                and chunk["ticket"] not in state["released"]
+                for chunk in state["chunks"]
+            )
+            if expired:
+                await self.abort(room)
+                finished.update(self.transfer.poll_direct())
+            if expired or state["completed"].is_set():
                 self.rooms.pop(room, None)
+                try:
+                    await self.directory.release(room, "prefill")
+                except Exception:
+                    logger.warning(
+                        "Cross-engine room release failed: %s", room, exc_info=True
+                    )
         return finished
 
     def init(self, room, count, aux_index):
@@ -188,6 +211,7 @@ class CrossEngineGPUActor(xo.StatelessActor):
         if state.get("aborted"):
             raise RuntimeError("Cross-engine producer was cancelled")
         state["sent"] += len(pages)
+        state["deadline"] = time.monotonic() + transfer_timeout()
         final = state["sent"] == state["total"]
         if state["sent"] > state["total"]:
             raise ValueError("SGLang Xavier sent too many KV pages")
@@ -203,9 +227,12 @@ class CrossEngineGPUActor(xo.StatelessActor):
             aux = aux_payload
             if aux is None:
                 raise ValueError("Missing SGLang Xavier first-token metadata")
-        self.transfer.register_direct(ticket, ticket, pages)
+        self.transfer.register_direct(
+            ticket, ticket, pages, lease_timeout=transfer_timeout()
+        )
         # Scheduler-owned source slots remain pinned until every chunk is read.
         state["chunks"].append(dict(ticket=ticket, pages=pages, final=final, aux=aux))
+        state["changed"].set()
 
     def chunk(self, room, index):
         state = self.rooms.get(room)
@@ -213,16 +240,42 @@ class CrossEngineGPUActor(xo.StatelessActor):
             raise RuntimeError("SGLang Xavier producer was cancelled")
         return state["chunks"][index] if index < len(state["chunks"]) else None
 
+    async def wait_chunk(self, room, index):
+        state = self.rooms[room]
+        state["changed"].clear()
+        chunk = self.chunk(room, index)
+        while chunk is None:
+            deadline = state["deadline"]
+            try:
+                await asyncio.wait_for(
+                    state["changed"].wait(), timeout=max(0, deadline - time.monotonic())
+                )
+            except asyncio.TimeoutError:
+                if state["deadline"] > time.monotonic():
+                    continue
+                raise TimeoutError("Cross-engine producer KV transfer timed out")
+            state["changed"].clear()
+            chunk = self.chunk(room, index)
+        return chunk
+
     async def send_direct_gpu_v1(self, ticket, reads, remote_ref, slab_bytes):
-        return await self.transfer.run(
+        result = await self.transfer.run(
             self.transfer.send_direct, ticket, reads, remote_ref, slab_bytes
         )
+        state = self.transfer.direct_requests.get(ticket)
+        if state is not None:
+            state.deadline = time.monotonic() + transfer_timeout()
+        room = self.rooms.get(int(ticket.split(":", 1)[0]))
+        if room is not None:
+            room["deadline"] = time.monotonic() + transfer_timeout()
+        return result
 
     def release_chunk(self, ticket):
         self.transfer.release_direct(ticket)
         room = int(ticket.split(":", 1)[0])
         state = self.rooms.get(room)
         if state:
+            state["deadline"] = time.monotonic() + transfer_timeout()
             state["released"].add(ticket)
             if state["sent"] == state["total"] and len(state["released"]) == len(
                 state["chunks"]
@@ -244,7 +297,18 @@ class CrossEngineGPUActor(xo.StatelessActor):
 
     async def wait_done(self, room):
         state = self.rooms[room]
-        await state["completed"].wait()
+        while not state["completed"].is_set():
+            deadline = state["deadline"]
+            try:
+                await asyncio.wait_for(
+                    state["completed"].wait(),
+                    timeout=max(0, deadline - time.monotonic()),
+                )
+            except asyncio.TimeoutError:
+                if state["deadline"] > time.monotonic():
+                    continue
+                await self.abort(room)
+                raise TimeoutError("Cross-engine producer KV transfer timed out")
         if state.get("aborted"):
             raise RuntimeError("SGLang Xavier producer was cancelled")
         return self.done(room)
@@ -259,14 +323,20 @@ class CrossEngineGPUActor(xo.StatelessActor):
         )
 
     async def _receive(self, room, destinations, aux_index):
-        deadline = time.monotonic() + 120
-        source = None
-        while source is None:
-            source = await self.directory.source(room)
-            if time.monotonic() > deadline:
-                raise TimeoutError("SGLang Xavier producer bootstrap timed out")
-            if source is None:
-                await asyncio.sleep(0.005)
+        info = await self.directory.request_info(room)
+        prompt_tokens = info["prompt_tokens"]
+        source_pages = math.ceil(prompt_tokens / self.contract.block_size)
+        receive_pages = (
+            source_pages
+            if self.args.aux_item_lens
+            else math.ceil((prompt_tokens - 1) / self.contract.block_size)
+        )
+        if len(destinations) < receive_pages or len(destinations) > source_pages:
+            raise ValueError("Cross-engine KV destination page counts differ")
+        destinations = destinations[:receive_pages]
+        source = await asyncio.wait_for(
+            self.directory.wait_source(room), timeout=transfer_timeout()
+        )
         rank = source["rank"]
         self._world_addresses[rank] = source["address"]
         sender = await xo.actor_ref(
@@ -274,41 +344,48 @@ class CrossEngineGPUActor(xo.StatelessActor):
         )
         offset, index, nbytes = 0, 0, 0
         while True:
-            chunk = await sender.chunk(room, index)
-            if chunk is None:
-                if time.monotonic() > deadline:
-                    raise TimeoutError("SGLang Xavier producer KV transfer timed out")
-                await asyncio.sleep(0.001)
-                continue
+            chunk = await asyncio.wait_for(
+                sender.wait_chunk(room, index), timeout=transfer_timeout()
+            )
             pages = chunk["pages"]
             targets = destinations[offset : offset + len(pages)]
-            if len(targets) != len(pages):
+            if offset + len(pages) > source_pages:
                 raise ValueError(
                     "SGLang Xavier source and destination page counts differ"
                 )
-            mapping = dict(zip(pages, targets))
-            if len(mapping) != len(pages):
+            mapping = dict(zip(pages[: len(targets)], targets))
+            if len(mapping) != len(targets) or len(set(pages)) != len(pages):
                 raise ValueError("Duplicate SGLang Xavier source pages")
-            invalid = await self.transfer.run(
-                self.transfer.load_direct,
-                [{rank: {name: mapping for name in self.caches}}],
-                [chunk["ticket"]],
-            )
+            if mapping:
+                invalid = await asyncio.wait_for(
+                    self.transfer.run(
+                        self.transfer.load_direct,
+                        [{rank: {name: mapping for name in self.caches}}],
+                        [chunk["ticket"]],
+                    ),
+                    timeout=transfer_timeout(),
+                )
+            else:
+                # A 64k+1 prompt has one source-only final page: vLLM
+                # recomputes its final token after the external load.
+                await asyncio.wait_for(
+                    sender.release_chunk(chunk["ticket"]), timeout=transfer_timeout()
+                )
+                invalid = set()
             if invalid:
                 raise RuntimeError("SGLang Xavier GPU handoff is unavailable")
             offset += len(pages)
-            nbytes += len(pages) * sum(
+            nbytes += len(targets) * sum(
                 cache[0].numel() * cache.element_size()
                 for cache in self.caches.values()
             )
             index += 1
             if chunk["final"]:
+                if offset != source_pages:
+                    raise ValueError("Cross-engine KV source page counts differ")
                 if not self.args.aux_item_lens:
-                    if offset != len(destinations):
-                        raise ValueError("Cross-engine KV page counts differ")
-                    stats = await self.directory.request_info(room)
                     await self.directory.complete(
-                        room, nbytes, max(stats["prompt_tokens"] - 1, 0)
+                        room, nbytes, max(prompt_tokens - 1, 0)
                     )
                     await self.directory.release(room, "decode")
                     return set()
@@ -357,6 +434,7 @@ class CrossEngineGPUActor(xo.StatelessActor):
                 for chunk in state["chunks"]:
                     self.transfer.release_direct(chunk["ticket"])
                 state["completed"].set()
+                state["changed"].set()
                 # Native bootstrap aborts need not call sender.clear(). Waiters
                 # already hold the state and will observe its aborted marker.
                 self.rooms.pop(room, None)

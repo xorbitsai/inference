@@ -2067,6 +2067,29 @@ class VLLMModel(WeightCachedModel, LLM):
         if not request_id:
             request_id = str(uuid.uuid1())
 
+        xavier_config = getattr(self, "_xavier_config", None)
+        if (
+            xavier_config
+            and xavier_config.get("heterogeneous")
+            and generate_config
+            and "_pd_kv_transfer_params" in generate_config
+        ):
+            from ..xavier.pd_contract import prepare_pd_request
+
+            if isinstance(prompt_or_token_ids, str):
+                prompt_or_token_ids = await self._gen_tokens_prompt(
+                    await self._get_tokenizer(lora_request),
+                    prompt_or_token_ids,
+                    cast(dict, sanitized_generate_config),
+                )
+            if isinstance(prompt_or_token_ids, list):
+                prompt_or_token_ids = {"prompt_token_ids": prompt_or_token_ids}
+            await prepare_pd_request(
+                xavier_config,
+                cast(Dict[str, Any], prompt_or_token_ids)["prompt_token_ids"],
+                sampling_params.extra_args["kv_transfer_params"],
+            )
+
         assert self._engine is not None
         start_wall_time = time.time()
         start_perf = time.perf_counter()
@@ -2221,6 +2244,14 @@ class VLLMModel(WeightCachedModel, LLM):
                 final_output = request_output
 
             assert final_output is not None
+            transfer = getattr(final_output, "kv_transfer_params", None)
+            if (
+                xavier_config
+                and xavier_config.get("heterogeneous")
+                and isinstance(transfer, dict)
+                and transfer.get("xavier_error")
+            ):
+                raise RuntimeError(transfer["xavier_error"])
             self._log_pd_request_metrics(final_output)
             completion = self._convert_request_output_to_completion(
                 request_id, model=self.model_uid, request_output=final_output

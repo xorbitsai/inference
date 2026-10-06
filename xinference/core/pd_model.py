@@ -330,25 +330,32 @@ class PDModelActor(xo.StatelessActor):
             raise ValueError("PD KV handoff currently requires n=1")
         if self._model_engine == "heterogeneous":
             config = (args[0] if args else {}) or {}
-            if any(
-                config.get(key) is not None and config.get(key) is not False
-                for key in ("logprobs", "prompt_logprobs")
-            ) or any(
-                config.get(key)
-                for key in (
-                    "top_logprobs",
-                    "return_logprob",
-                    "top_logprobs_num",
-                    "guided_json",
-                    "guided_regex",
-                    "guided_choice",
-                    "guided_grammar",
-                    "guided_json_object",
-                    "structured_outputs",
-                    "json_schema",
-                    "regex",
-                    "ebnf",
-                    "response_format",
+            if (
+                any(
+                    config.get(key) is not None and config.get(key) is not False
+                    for key in ("logprobs", "prompt_logprobs")
+                )
+                or any(
+                    config.get(key)
+                    for key in (
+                        "top_logprobs",
+                        "return_logprob",
+                        "top_logprobs_num",
+                        "guided_json",
+                        "guided_regex",
+                        "guided_choice",
+                        "guided_grammar",
+                        "guided_json_object",
+                        "structured_outputs",
+                        "json_schema",
+                        "regex",
+                        "ebnf",
+                    )
+                )
+                or (
+                    isinstance(config.get("response_format"), dict)
+                    and config["response_format"].get("type")
+                    in ("json_object", "json_schema")
                 )
             ):
                 raise ValueError(

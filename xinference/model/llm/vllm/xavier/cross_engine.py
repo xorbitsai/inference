@@ -67,6 +67,7 @@ class CrossEngineMetadata(KVConnectorMetadata):
     direct_sends: set[str] = field(default_factory=set)
     direct_store: bool = False
     loads: list[tuple[str, int, list[int]]] = field(default_factory=list)
+    errors: dict[str, str] = field(default_factory=dict)
 
 
 class CrossEngineConnector(XavierConnector):
@@ -84,6 +85,8 @@ class CrossEngineConnector(XavierConnector):
         self._cross_requests = {}
         self._cross_allocated = {}
         self._prepared = set()
+        self._cross_prepare_errors = {}
+        self._pending_aborts = {}
 
     async def directory(self):
         if self._directory is None:
@@ -112,7 +115,9 @@ class CrossEngineConnector(XavierConnector):
                     self._registered_kv_caches, self._num_cache_blocks, self.contract
                 )
                 directory = await self.directory()
-                await directory.configure(self.contract.fingerprint)
+                await directory.configure(
+                    self.contract.fingerprint, self.contract.to_dict()
+                )
                 options = gpu_pool_options(self._xavier_config["host"], os.environ)
                 self._pool = await xo.create_actor_pool(
                     options["external_address"],
@@ -153,17 +158,12 @@ class CrossEngineConnector(XavierConnector):
         if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
             raise ValueError("Missing cross-engine Xavier GPU room")
         room = handoff["room"]
-        if request.request_id not in self._prepared:
-            directory = await self.directory()
-            await directory.prepare(
-                room,
-                self.contract.fingerprint,
-                prompt_digest(request.prompt_token_ids),
-                self._xavier_config["role"],
-                rank=self._xavier_config["rank"],
-                prompt_tokens=len(request.prompt_token_ids),
+        if params.get("xavier_prompt_digest") != prompt_digest(
+            request.prompt_token_ids
+        ):
+            raise ValueError(
+                "Cross-engine Xavier prompt was not prepared with these token IDs"
             )
-            self._prepared.add(request.request_id)
         return room
 
     def get_num_new_matched_tokens(self, request, num_computed_tokens):
@@ -172,12 +172,21 @@ class CrossEngineConnector(XavierConnector):
         params = request.kv_transfer_params or {}
         if params.get("do_remote_prefill") is False:
             return 0, False
-        if len(request.prompt_token_ids) < 2:
-            raise ValueError(
-                "Cross-engine vLLM decode requires at least two prompt tokens"
-            )
-        room = self._call(self._prepare(request))
+        try:
+            if len(request.prompt_token_ids) < 2:
+                raise ValueError(
+                    "Cross-engine vLLM decode requires at least two prompt tokens"
+                )
+            room = self._call(self._prepare(request))
+        except Exception as error:
+            logger.warning("Cross-engine request preparation failed: %s", error)
+            self._cross_prepare_errors[request.request_id] = str(error)
+            room = 0
         tokens = max(len(request.prompt_token_ids) - 1 - num_computed_tokens, 0)
+        if request.request_id in self._cross_prepare_errors:
+            # Even a one-token request reaching this internal hook must fail
+            # through the load callback, rather than kill the scheduler.
+            tokens = max(len(request.prompt_token_ids) - num_computed_tokens, 0)
         if tokens:
             self._cross_requests[request.request_id] = room
         return tokens, bool(tokens)
@@ -199,6 +208,8 @@ class CrossEngineConnector(XavierConnector):
         self._direct_sends = set()
         for request_id, (room, destinations) in self._cross_allocated.items():
             meta.loads.append((request_id, room, destinations))
+            if request_id in self._cross_prepare_errors:
+                meta.errors[request_id] = self._cross_prepare_errors.pop(request_id)
         self._cross_allocated.clear()
         return meta
 
@@ -210,10 +221,19 @@ class CrossEngineConnector(XavierConnector):
             async def submit(
                 room=room, destinations=destinations, request_id=request_id
             ):
-                actor = await self._ensure_gpu_cache_mapping()
-                task = asyncio.create_task(
-                    self._receive_pages(actor, room, destinations)
-                )
+                async def receive():
+                    try:
+                        if request_id in meta.errors:
+                            raise ValueError(meta.errors[request_id])
+                        actor = await self._ensure_gpu_cache_mapping()
+                        return await self._receive_pages(actor, room, destinations)
+                    except Exception:
+                        logger.warning(
+                            "Cross-engine KV load submission failed", exc_info=True
+                        )
+                        return set(destinations)
+
+                task = asyncio.create_task(receive())
                 self._gpu_load_jobs[task] = [request_id]
 
             self._call(submit())
@@ -240,6 +260,7 @@ class CrossEngineConnector(XavierConnector):
 
     def request_finished(self, request, block_ids):
         self._cross_requests.pop(request.request_id, None)
+        self._cross_prepare_errors.pop(request.request_id, None)
         if self._is_producer and (request.kv_transfer_params or {}).get(
             "do_remote_decode"
         ):
@@ -247,23 +268,39 @@ class CrossEngineConnector(XavierConnector):
 
             if request.status == RequestStatus.FINISHED_ABORTED:
                 return False, None
-            room = self._call(self._prepare(request))
-            count = math.ceil(len(request.prompt_token_ids) / self._block_size)
-            pages = block_ids[:count]
-            if len(pages) != count or not request.output_token_ids:
-                raise RuntimeError("Incomplete cross-engine vLLM prefill")
-
-            async def register():
-                actor = await self._get_transfer_ref()
-                await actor.register_prefill(
-                    room,
-                    request.request_id,
-                    pages,
-                    request.output_token_ids[0],
-                    len(request.prompt_token_ids),
+            room, actor = None, None
+            try:
+                room = self._call(self._prepare(request))
+                count = math.ceil(len(request.prompt_token_ids) / self._block_size)
+                pages = block_ids[:count]
+                if len(pages) != count or not request.output_token_ids:
+                    raise RuntimeError("Incomplete cross-engine vLLM prefill")
+                actor = self._call(self._get_transfer_ref())
+                self._call(
+                    actor.register_prefill(
+                        room,
+                        request.request_id,
+                        pages,
+                        request.output_token_ids[0],
+                        len(request.prompt_token_ids),
+                    )
                 )
-
-            self._call(register())
+            except Exception as error:
+                logger.warning("Cross-engine prefill handoff failed", exc_info=True)
+                hold = False
+                if actor is not None:
+                    try:
+                        self._call(actor.abort(room))
+                    except Exception:
+                        # An uncertain registration can still read these slots.
+                        # Keep them pinned until the transfer actor reports done.
+                        logger.warning(
+                            "Cross-engine prefill abort failed", exc_info=True
+                        )
+                        hold = True
+                        self._direct_sends.add(request.request_id)
+                        self._pending_aborts[request.request_id] = room
+                return hold, {"xavier_error": str(error)}
             self._direct_sends.add(request.request_id)
             self._prepared.discard(request.request_id)
             return True, dict(
@@ -272,6 +309,26 @@ class CrossEngineConnector(XavierConnector):
             )
         self._prepared.discard(request.request_id)
         return False, None
+
+    def get_finished(self, finished_req_ids):
+        drained = set()
+        for request_id, room in list(self._pending_aborts.items()):
+            try:
+                actor = self._call(self._get_transfer_ref())
+                self._call(actor.abort(room))
+            except Exception:
+                logger.warning("Cross-engine abort retry failed", exc_info=True)
+            else:
+                drained.add(request_id)
+                self._direct_sends.discard(request_id)
+                self._pending_aborts.pop(request_id)
+        try:
+            sent, received = super().get_finished(finished_req_ids)
+            return drained | sent, received
+        except Exception:
+            # Preserve pinned requests for a retry if the actor RPC is unavailable.
+            logger.warning("Cross-engine completion polling failed", exc_info=True)
+            return drained, set()
 
     def request_finished_all_groups(self, request, block_ids):
         return self.request_finished(request, list(block_ids[0]))

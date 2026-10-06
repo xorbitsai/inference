@@ -14,6 +14,7 @@ class XavierPDDirectory(xo.StatelessActor):
     def __init__(self):
         super().__init__()
         self.namespace = None
+        self.contract = None
         self.rooms = {}
         self.completed_requests = 0
         self.gpu_bytes = 0
@@ -45,10 +46,18 @@ class XavierPDDirectory(xo.StatelessActor):
                 self._drop(room)
         return True
 
-    def configure(self, namespace):
+    def configure(self, namespace, contract=None):
         if self.namespace is not None and namespace != self.namespace:
+            if self.contract is not None and contract is not None:
+                from ...xavier.contract import KVCacheContract
+
+                KVCacheContract.from_dict(self.contract).require_match(
+                    KVCacheContract.from_dict(contract)
+                )
             raise ValueError("SGLang Xavier GPU KV namespaces differ between replicas")
         self.namespace = namespace
+        if contract is not None:
+            self.contract = contract
 
     def _expire(self):
         now = time.monotonic()

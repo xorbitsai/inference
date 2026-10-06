@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from ....constants import XINFERENCE_CACHE_DIR
 from .contract import KVCacheContract, fingerprint_files, fingerprint_metadata
 
 
@@ -24,7 +25,7 @@ def build_pd_contract(
         or config.get("vision_config")
         or config.get("quantization_config")
         or config.get("auto_map")
-        or any(kind != "full_attention" for kind in config.get("layer_types", []))
+        or any(kind != "full_attention" for kind in (config.get("layer_types") or []))
     ):
         raise ValueError(
             "Cross-engine Xavier PD requires full-attention Qwen2, Qwen3 or Llama text weights"
@@ -54,7 +55,10 @@ def build_pd_contract(
             "Cross-engine Xavier PD requires local weights and tokenizer assets"
         )
     return KVCacheContract(
-        weights_fingerprint=fingerprint_files({file.name: file for file in weights}),
+        weights_fingerprint=fingerprint_files(
+            {file.name: file for file in weights},
+            cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints",
+        ),
         tokenizer_fingerprint=fingerprint_files(
             {file.name: file for file in tokenizer}
         ),
@@ -67,10 +71,50 @@ def build_pd_contract(
             }
         ),
         num_layers=config["num_hidden_layers"],
-        num_kv_heads=config.get("num_key_value_heads", config["num_attention_heads"]),
-        head_dim=config.get(
-            "head_dim", config["hidden_size"] // config["num_attention_heads"]
+        num_kv_heads=(
+            config["num_attention_heads"]
+            if config.get("num_key_value_heads") is None
+            else config["num_key_value_heads"]
+        ),
+        head_dim=(
+            config["hidden_size"] // config["num_attention_heads"]
+            if config.get("head_dim") is None
+            else config["head_dim"]
         ),
         block_size=64,
         logical_dtype="float16",
     )
+
+
+async def prepare_pd_request(
+    cache_config: dict, tokens: list[int], params: dict
+) -> None:
+    """Reject incompatible rooms in the API process before entering EngineCore."""
+    import asyncio
+
+    import xoscar as xo
+
+    from ..sglang.xavier.settings import transfer_timeout
+
+    if cache_config["role"] == "decode" and len(tokens) < 2:
+        raise ValueError("Cross-engine vLLM decode requires at least two prompt tokens")
+    handoff = params.get("sglang_xavier")
+    if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
+        raise ValueError("Missing cross-engine Xavier GPU room")
+    digest = prompt_digest(tokens)
+    directory = await xo.actor_ref(
+        address=cache_config["address"], uid=cache_config["uid"]
+    )
+    await asyncio.wait_for(
+        directory.prepare(
+            handoff["room"],
+            KVCacheContract.from_dict(cache_config["contract"]).fingerprint,
+            digest,
+            cache_config["role"],
+            rank=cache_config["rank"],
+            timeout=transfer_timeout(),
+            prompt_tokens=len(tokens),
+        ),
+        timeout=transfer_timeout(),
+    )
+    params["xavier_prompt_digest"] = digest

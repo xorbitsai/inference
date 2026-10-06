@@ -3217,7 +3217,9 @@ class SupervisorActor(xo.StatelessActor):
         )
         if (sglang_xavier or heterogeneous_pd) and gpu_cache_bytes not in (None, 0):
             raise ValueError(
-                "SGLang Xavier GPU PD does not yet support retained GPU history"
+                "Cross-engine Xavier GPU PD does not yet support retained GPU history"
+                if heterogeneous_pd
+                else "SGLang Xavier GPU PD does not yet support retained GPU history"
             )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
@@ -5025,6 +5027,8 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError("The replica count to add must be at least 1")
         if replica_configs is not None and len(replica_configs) != replica:
             raise ValueError("replica_configs length must match replica")
+        if any(cfg.model_engine or cfg.engine_config for cfg in replica_configs or []):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
 
         async with self._get_model_replica_lock(model_uid):
             results: List[Dict[str, Any]] = []
@@ -5081,6 +5085,10 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(
                 "PD topology cannot be resized in place; terminate and relaunch the model"
             )
+        if replica_config and (
+            replica_config.model_engine or replica_config.engine_config
+        ):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
         replica_info = self._model_uid_to_replica_info.get(model_uid)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")

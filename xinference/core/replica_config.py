@@ -182,6 +182,43 @@ def validate_pd_replica_configs(
     model_type: Optional[str],
 ) -> bool:
     """Validate a complete P/D topology before allocating any runtime resources."""
+    reserved = {
+        "model_uid",
+        "model_name",
+        "model_size_in_billions",
+        "model_format",
+        "quantization",
+        "model_engine",
+        "model_type",
+        "model_path",
+        "n_gpu",
+        "gpu_idx",
+        "worker_ip",
+        "replica",
+        "replica_uid",
+        "replica_config",
+        "role",
+        "request_limits",
+        "peft_model_config",
+        "download_hub",
+        "enable_virtual_env",
+        "virtual_env_packages",
+        "virtual_env_find_links",
+        "envs",
+        "xavier_config",
+        "enable_xavier",
+        "transfer_backend_type",
+        "xavier_cache_bytes",
+        "xavier_gpu_cache_bytes",
+    }
+    for cfg in configs or []:
+        invalid = {
+            key for key in cfg.engine_config if key in reserved or key.startswith("_")
+        }
+        if invalid:
+            raise ValueError(
+                f"Reserved replica engine_config keys: {', '.join(sorted(invalid))}"
+            )
     roles = {cfg.role for cfg in configs or []}
     if not roles.intersection({"prefill", "decode"}):
         if any(cfg.model_engine or cfg.engine_config for cfg in configs or []):

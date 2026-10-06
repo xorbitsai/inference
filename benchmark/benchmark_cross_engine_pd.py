@@ -17,7 +17,7 @@ import requests
 import xoscar as xo
 from benchmark_pd import measure, summarize
 from benchmark_sglang_pd import GPUIsolation, stop_server
-from openai import AsyncOpenAI
+from openai import APIStatusError, AsyncOpenAI
 from xoscar.utils import get_next_port
 
 from xinference.client import Client
@@ -139,6 +139,41 @@ async def requests_and_measure(endpoint, uid, root, worker, mode, args):
                     stream_text="".join(pieces),
                 )
             )
+        if mode in ("vllm-sglang", "sglang-vllm"):
+            results["boundary_correctness"] = []
+            for tokens in (64, 65, 66, 128, 129, 130, 193):
+                body = dict(
+                    prompt=" hello" * tokens,
+                    temperature=0,
+                    max_tokens=8,
+                    extra_body=dict(ignore_eos=True),
+                )
+                regular = await api.completions.create(model=uid, **body)
+                stream = await api.completions.create(model=uid, **body, stream=True)
+                pieces = []
+                async with stream:
+                    async for chunk in stream:
+                        if chunk.choices:
+                            pieces.append(chunk.choices[0].text)
+                assert regular.usage.prompt_tokens == tokens
+                assert regular.usage.completion_tokens == 8
+                assert regular.choices[0].text == "".join(pieces)
+                results["boundary_correctness"].append(
+                    dict(prompt_tokens=tokens, text=regular.choices[0].text)
+                )
+            if mode == "sglang-vllm":
+                try:
+                    await api.completions.create(
+                        model=uid, prompt=" hello", max_tokens=8, temperature=0
+                    )
+                except APIStatusError as error:
+                    assert "at least two prompt tokens" in str(error)
+                    results["rejected_one_token"] = error.status_code
+                else:
+                    raise AssertionError(
+                        "One-token vLLM decode should be rejected before engine submission"
+                    )
+                await api.chat.completions.create(model=uid, **bodies()[0])
         for concurrency in args.concurrency:
             # Repeated prefixes keep native P caching available in every mode.
             requests_list = [bodies()[i % 4] for i in range(args.requests)]

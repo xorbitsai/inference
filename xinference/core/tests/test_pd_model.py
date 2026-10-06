@@ -86,6 +86,16 @@ async def test_infer_preserves_decode_config(router, method):
 
 
 @pytest.mark.asyncio
+async def test_cross_engine_allows_plain_text_response_format(router):
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    await actor._infer(
+        "generate", "prompt", {"response_format": {"type": "text"}}, request_id="r"
+    )
+    assert prefill.generate.await_count == decode.generate.await_count == 1
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "engine,backend",
     [("sglang", "xavier"), ("sglang", "nixl"), ("heterogeneous", "xavier")],

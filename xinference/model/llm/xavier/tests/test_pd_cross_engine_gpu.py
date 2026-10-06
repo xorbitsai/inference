@@ -3,6 +3,7 @@
 """Opt-in bitwise tests: XINFERENCE_TEST_CROSS_ENGINE_GPU=1 pytest this file."""
 
 import os
+import struct
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -23,7 +24,10 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("producer", ["vllm", "sglang"])
-async def test_gpu_pages_survive_cross_engine_layouts_bitwise(kv_contract, producer):
+@pytest.mark.parametrize("prompt_tokens", [65, 129, 193])
+async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
+    kv_contract, producer, prompt_tokens
+):
     from torch.multiprocessing.reductions import reduce_tensor
     from xoscar.backends.allocate_strategy import ProcessIndex
 
@@ -68,10 +72,16 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(kv_contract, produ
             XavierPDDirectory, address=pool.external_address
         )
         await directory.configure(contract.fingerprint)
+        metadata_sizes = [64, 64, 64, 64, 512, 512, 64, 128, 1024, 64]
         for gpu in (0, 1):
             actor = await xo.create_actor(
                 CrossEngineGPUActor,
-                SimpleNamespace(gpu_id=gpu, aux_item_lens=[]),
+                SimpleNamespace(
+                    gpu_id=gpu,
+                    aux_item_lens=(
+                        metadata_sizes if gpu == 1 and producer == "vllm" else []
+                    ),
+                ),
                 contract,
                 directory,
                 contract.fingerprint,
@@ -84,31 +94,54 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(kv_contract, produ
                 uid=f"{CrossEngineGPUActor.default_uid()}-{gpu + 1}",
             )
             actors.append(actor)
-        room, source, destination = 123, [5, 1, 3], [2, 6, 4]
+        source_count = (prompt_tokens + 63) // 64
+        target_count = (
+            source_count if producer == "vllm" else (prompt_tokens - 1 + 63) // 64
+        )
+        room, source, destination = (
+            123,
+            [5, 1, 3, 0][:source_count],
+            [2, 6, 4, 0][:target_count],
+        )
         for rank, role in enumerate(("prefill", "decode"), 1):
             await directory.prepare(
                 room,
                 contract.fingerprint,
-                prompt_digest(list(range(129))),
+                prompt_digest(list(range(prompt_tokens))),
                 role,
                 rank=rank,
-                prompt_tokens=129,
+                prompt_tokens=prompt_tokens,
             )
         if producer == "vllm":
-            await actors[0].register_prefill(room, "request", source, 42, 129)
+            await actors[0].register_prefill(room, "request", source, 42, prompt_tokens)
         else:
             await actors[0].open(room)
             await actors[0].init(room, len(source), 0)
             await actors[0].add_chunk(room, source[:1])
             await actors[0].add_chunk(room, source[1:], [b"first-token"])
-        assert await actors[1].receive(room, destination, 0) == set()
+        received = await actors[1].receive(room, destination, 0)
+        if producer == "vllm":
+            nbytes, payload = received
+            assert struct.unpack_from("<i", payload[0])[0] == 42
+            assert struct.unpack_from("<i", payload[1])[0] == prompt_tokens
+            assert struct.unpack_from("<Q", payload[-1])[0] == room
+            await directory.complete(room, nbytes)
+            await directory.release(room, "decode")
+        else:
+            assert received == set()
         assert await actors[0].poll_direct_gpu_v1() == {
             "request" if producer == "vllm" else f"{room}:0"
         }
         for key, original in views[0].items():
-            assert torch.equal(original[source].cpu(), views[1][key][destination].cpu())
+            assert torch.equal(
+                original[source[:target_count]].cpu(), views[1][key][destination].cpu()
+            )
         stats = await directory.get_stats()
-        assert stats["imported_tokens"] == 128 and stats["active_handoffs"] == 0
+        assert (
+            stats["imported_tokens"]
+            == (prompt_tokens if producer == "vllm" else prompt_tokens - 1)
+            and stats["active_handoffs"] == 0
+        )
         for actor in actors:
             stats = await actor.get_stats()
             assert stats["cpu_batches"] == stats["active_transfers"] == 0

@@ -427,7 +427,10 @@ class XavierKVManager(BaseKVManager):
         directory = await xo.actor_ref(
             address=self.config["address"], uid=self.config["uid"]
         )
-        await directory.configure(namespace)
+        if self.config.get("heterogeneous"):
+            await directory.configure(namespace, contract.to_dict())
+        else:
+            await directory.configure(namespace)
         from torch.multiprocessing.reductions import reduce_tensor
         from xoscar.backends.allocate_strategy import ProcessIndex
 

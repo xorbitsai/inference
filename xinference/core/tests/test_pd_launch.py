@@ -790,6 +790,33 @@ async def test_cross_engine_mlx_is_rejected_before_allocating_actors(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "key",
+    [
+        "model_engine",
+        "xavier_config",
+        "n_gpu",
+        "gpu_idx",
+        "envs",
+        "_xavier_cache_config",
+        "_nixl_config",
+        "quantization",
+    ],
+)
+async def test_pd_reserved_engine_options_fail_before_allocating_actors(
+    launch_runtime, key
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].engine_config = {key: None}
+    with pytest.raises(ValueError, match="Reserved replica engine_config keys"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_per_replica_engine_override_preserves_homogeneous_mlx_pd(launch_runtime):
     supervisor, workers, actors, _ = launch_runtime
     kwargs = launch_kwargs()
