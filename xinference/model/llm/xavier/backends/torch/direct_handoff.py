@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DirectRequest:
     request_id: str
-    blocks: set[int]
+    layer_blocks: dict[str, set[int]]
     deadline: float
     claimed: bool = False
     reading: bool = False
@@ -77,17 +77,28 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
     ):
         if self.closing or ticket in self.direct_requests:
             raise ValueError("Invalid direct handoff registration")
-        if not blocks or any(
-            block < 0 or block >= len(cache)
-            for cache in self.caches.values()
-            for block in blocks
+        if isinstance(blocks, dict):
+            if hashes is not None:
+                raise ValueError(
+                    "Grouped recurrent handoff cannot retain block history"
+                )
+            layer_blocks = {
+                name: set(blocks[name.split("#", 1)[0]]) for name in self.caches
+            }
+        else:
+            allowed = set(blocks)
+            layer_blocks = {name: allowed for name in self.caches}
+        if not layer_blocks or any(
+            not ids
+            or any(block < 0 or block >= len(self.caches[name]) for block in ids)
+            for name, ids in layer_blocks.items()
         ):
             raise ValueError("Invalid direct KV block IDs")
         if hashes is not None and len(hashes) != len(blocks):
             raise ValueError("History hashes and engine blocks differ")
         self.direct_requests[ticket] = DirectRequest(
             request_id,
-            set(blocks),
+            layer_blocks,
             time.monotonic() + lease_timeout,
             hashes=dict(zip(blocks, hashes or [])),
         )
@@ -151,7 +162,7 @@ class DirectGPUTransfer(DirectHistoryMixin, GPUTransfer):
             for read in reads:
                 cache = self.caches[read.layer]
                 if (
-                    not set(read.keys) <= state.blocks
+                    not set(read.keys) <= state.layer_blocks[read.layer]
                     or cache.dtype != read.dtype
                     or tuple(cache.shape[1:]) != read.block_shape
                 ):

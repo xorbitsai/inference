@@ -15,6 +15,12 @@ from ..xavier.transport import resolve_nixl_host as resolve_nixl_host
 def configure_nixl_environment(env: Dict[str, str], worker_address: str) -> None:
     from xoscar.utils import get_next_port
 
+    # Native NIXL's recurrent-state transfer requires dimension-first conv
+    # states. Select the layout before vLLM initializes model/cache classes.
+    env.setdefault(
+        "VLLM_SSM_CONV_STATE_LAYOUT",
+        os.environ.get("VLLM_SSM_CONV_STATE_LAYOUT", "DS"),
+    )
     # Each model subprocess needs its own listener, including same-host replicas.
     # Reallocate on recovery as the old listener may not have exited yet.
     host_key = "VLLM_NIXL_SIDE_CHANNEL_HOST"

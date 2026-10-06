@@ -370,6 +370,7 @@ def test_restful_api_for_embedding(setup):
         "model_uid": "test_embedding",
         "model_name": model_name,
         "model_type": "embedding",
+        # This API test also runs in the non-GPU macOS matrix.
         "device": "cpu",
     }
 
@@ -397,6 +398,7 @@ def test_restful_api_for_embedding(setup):
     response = requests.post(url, json=payload)
     embedding_res = response.json()
 
+    assert response.status_code == 200, embedding_res
     assert "embedding" in embedding_res["data"][0]
     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
     assert "model_replica" in embedding_res

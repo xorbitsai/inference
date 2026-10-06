@@ -205,8 +205,11 @@ class RerankModel:
         Therefore, we only use this method for unknown model types."""
 
         type_mapper = {
+            "LlamaTokenizer": "LLM-based layerwise",
             "LlamaTokenizerFast": "LLM-based layerwise",
+            "GemmaTokenizer": "LLM-based",
             "GemmaTokenizerFast": "LLM-based",
+            "XLMRobertaTokenizer": "normal",
             "XLMRobertaTokenizerFast": "normal",
         }
 

@@ -5202,3 +5202,45 @@ async def test_terminate_missing_model_does_not_destroy_none(setup_pool, monkeyp
     destroy.assert_not_called()
     presence = await worker.get_launch_state_presence_for_test("already-removed-rep0")
     assert not any(presence.values())
+
+
+@pytest.mark.asyncio
+async def test_terminate_dead_model_removes_all_cached_rank_pools(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    pool = SimpleNamespace(remove_sub_pool=AsyncMock())
+    worker = WorkerActor("test", None, pool, gpu_devices=[])
+    uid = "dead-model-rep0"
+    model = SimpleNamespace(
+        get_pool_addresses=AsyncMock(side_effect=xo.ServerClosed("model is dead")),
+        stop=AsyncMock(side_effect=xo.ServerClosed("model is dead")),
+    )
+    worker._model_uid_to_model[uid] = model
+    worker._model_uid_to_addr[uid] = "model-pool"
+    worker._model_uid_to_subpool_addresses[uid] = {
+        "model-pool",
+        "rank-0-pool",
+        "rank-1-pool",
+    }
+    worker._model_uid_to_model_status[uid] = ModelStatus(model_state="error")
+    worker._status_guard_ref = SimpleNamespace(update_instance_info=AsyncMock())
+    monkeypatch.setattr(worker, "get_supervisor_ref", AsyncMock())
+    monkeypatch.setattr(worker, "_update_model_state", AsyncMock())
+    monkeypatch.setattr(worker, "_remove_persisted_launch_args", lambda _: None)
+    monkeypatch.setattr(
+        xo, "destroy_actor", AsyncMock(side_effect=xo.ServerClosed("model is dead"))
+    )
+
+    await worker.terminate_model(uid)
+
+    model.get_pool_addresses.assert_not_called()
+    calls = pool.remove_sub_pool.await_args_list
+    assert len(calls) == 3
+    assert {call.args[0] for call in calls} == {
+        "model-pool",
+        "rank-0-pool",
+        "rank-1-pool",
+    }
+    assert all(call.kwargs == {"force": True} for call in calls)
+    assert uid not in worker._model_uid_to_model
+    assert uid not in worker._model_uid_to_subpool_addresses

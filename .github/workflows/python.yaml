@@ -153,7 +153,7 @@ jobs:
                 xinference/model/*) full=true; break ;;
                 # The rest of the package (deploy/, docs, examples, other
                 # top-level modules) is not exercised by any GPU test.
-                .github/workflows/python.yaml|.github/ci-huggingface-constraints.txt|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
+                .github/workflows/python.yaml|.github/requirements/model-ci-constraints.txt|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
               esac
             done < changed-files.txt
           fi
@@ -237,14 +237,14 @@ jobs:
           # backend would otherwise run on editable installs.
           NO_WEB_UI: 1
         run: |
-          if [ "$MODULE" != "metal" ]; then
-            export PIP_CONSTRAINT="$GITHUB_WORKSPACE/.github/ci-huggingface-constraints.txt"
-          fi
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
             sudo rm -rf /opt/ghc
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          fi
+          if [ "$MODULE" != "metal" ]; then
+            export PIP_CONSTRAINT="$PWD/.github/requirements/model-ci-constraints.txt"
           fi
           pip install -e ".[dev]"
           pip install "xllamacpp>=0.2.0"
@@ -260,7 +260,7 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install tomli
           else
-            pip install "transformers==4.53.3"
+            pip install transformers
             pip install attrdict
             pip install "timm>=0.9.16"
             if [ "${{ matrix.python-version }}" != "3.13" ] && [ "${{ matrix.python-version }}" != "3.14" ]; then
@@ -281,8 +281,8 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
-            pip install -r .github/ci-huggingface-constraints.txt
-            python -c "from datasets import Dataset; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; import diffusers, peft"
+            pip install -r .github/requirements/model-ci-constraints.txt
+            python -c "from datasets import Dataset; from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
           fi
         working-directory: .
 
@@ -383,6 +383,9 @@ jobs:
               xinference/model/llm/sglang/tests/test_pd.py \
               xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py \
               xinference/model/llm/sglang/tests/test_gc_lifecycle.py \
+              xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
+              xinference/model/llm/vllm/tests/test_executor_routing.py \
+              xinference/model/llm/vllm/tests/test_speculative_config.py \
               xinference/model/llm/vllm/xavier/test/test_profiling.py \
               xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
               xinference/model/llm/vllm/tests/test_pd.py \
@@ -442,7 +445,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/ci-huggingface-constraints.txt', 'pyproject.toml') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/requirements/model-ci-constraints.txt', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
@@ -465,9 +468,8 @@ jobs:
           python -m pip install -U pip "setuptools<82"
 
       - name: Install dependencies
-        env:
-          PIP_CONSTRAINT: ${{ github.workspace }}/.github/ci-huggingface-constraints.txt
         run: |
+          export PIP_CONSTRAINT="$PWD/.github/requirements/model-ci-constraints.txt"
           pip install -U -e ".[audio,dev]"
           pip install -U "openai>1"
           pip install -U modelscope
@@ -479,7 +481,7 @@ jobs:
           pip install -U "passlib[bcrypt]"
           pip install -U "aioprometheus[starlette]"
           pip install -U "pynvml"
-          pip install "transformers==4.53.3"
+          pip install transformers
           pip install "funasr==1.2.7"
           conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
           pip install -U "nemo_text_processing<1.1.0"
@@ -524,10 +526,9 @@ jobs:
           # install it from apt.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
-          # Resolve the entire shared stack together, including transitive
-          # dependencies such as datasets, before the model tests start.
-          pip install "numpy>=2,<2.5" -r .github/ci-huggingface-constraints.txt
-          python -c "from datasets import Dataset; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; import diffusers, peft"
+          # Resolve the shared stack together, including transitive datasets.
+          pip install "numpy>=2" -r .github/requirements/model-ci-constraints.txt
+          python -c "from datasets import Dataset; from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
         working-directory: .
 
       - name: Test with pytest

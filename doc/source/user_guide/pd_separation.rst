@@ -141,7 +141,7 @@ After a worker restart, relaunch the native NIXL PD deployment.
 Hybrid/recurrent attention limitation
 -------------------------------------
 
-Xavier PD does not support hybrid/recurrent attention models such as Qwen3.5. Deploy these models without PD, or choose a full-attention model such as Qwen3 for PD.
+Qwen3.5 text requests are supported with Xavier and native NIXL. Set ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode="none"``, ``disable_hybrid_kv_cache_manager=False`` and ``async_scheduling=False`` on both replicas. Use TP=1 and PP=1. Xavier history caching is not available for these hybrid/recurrent attention models; their configured history budget is not allocated. Image/video inputs and speculative decoding are not supported in this configuration. Native NIXL requires vLLM >= 0.22.0 for this mode.
 
 vLLM Xavier requirements and memory
 -----------------------------------

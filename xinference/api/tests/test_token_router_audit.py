@@ -6,7 +6,11 @@ import pytest
 from fastapi import FastAPI, Request, Response
 
 from xinference.api.oauth2.advanced import audit as audit_module
-from xinference.api.oauth2.advanced.audit import classify_endpoint, should_skip_audit
+from xinference.api.oauth2.advanced.audit import (
+    classify_endpoint,
+    should_skip_audit,
+    should_skip_completed_audit,
+)
 from xinference.api.oauth2.advanced.crypto import sha256_hex
 from xinference.api.restful_api import RESTfulAPI
 from xinference.core import metrics as core_metrics
@@ -24,6 +28,80 @@ def test_token_router_management_endpoints_are_admin_audited():
     endpoint = "/v1/token_routers/router-1/enable"
     assert should_skip_audit(endpoint) is False
     assert classify_endpoint(endpoint) == "admin"
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "status_code", "expected"),
+    [
+        ("GET", "/metrics", 200, True),
+        ("GET", "/metrics", 204, True),
+        ("GET", "/metrics", 302, True),
+        ("GET", "/metrics", 399, True),
+        ("GET", "/metrics", 400, False),
+        ("GET", "/metrics", 401, False),
+        ("GET", "/metrics", 403, False),
+        ("GET", "/metrics", 404, False),
+        ("GET", "/metrics", 500, False),
+        ("POST", "/metrics", 200, False),
+        ("HEAD", "/metrics", 200, False),
+        ("GET", "/metrics/detail", 200, False),
+        ("GET", "/metrics-admin", 200, False),
+    ],
+)
+def test_completed_audit_skip_rules(method, endpoint, status_code, expected):
+    assert should_skip_completed_audit(method, endpoint, status_code) is expected
+
+
+@pytest.mark.asyncio
+async def test_metrics_audit_skips_only_successful_get_requests():
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._advanced_auth_service = object()
+    recorded = []
+
+    def record_admin_audit(
+        self, request, status, latency_s=0.0, status_code=0, category=""
+    ):
+        recorded.append((request.method, request.url.path, status, status_code))
+
+    api._record_admin_audit = MethodType(record_admin_audit, api)
+    app = FastAPI()
+    app.middleware("http")(api._audit_middleware)
+
+    @app.api_route("/metrics", methods=["GET", "POST"])
+    async def metrics(request: Request) -> Response:
+        if request.query_params.get("raise") == "true":
+            raise RuntimeError("metrics unavailable")
+        if request.method != "GET":
+            return Response(status_code=405)
+        return Response(status_code=int(request.query_params.get("status", "200")))
+
+    @app.get("/metrics/detail")
+    async def metrics_detail() -> Response:
+        return Response(status_code=200)
+
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        success_response = await client.get("/metrics")
+        query_response = await client.get("/metrics?format=prometheus")
+        failure_response = await client.get("/metrics?status=500")
+        method_response = await client.post("/metrics")
+        detail_response = await client.get("/metrics/detail")
+        exception_response = await client.get("/metrics?raise=true")
+
+    assert success_response.status_code == 200
+    assert "x-request-id" in success_response.headers
+    assert query_response.status_code == 200
+    assert "x-request-id" in query_response.headers
+    assert failure_response.status_code == 500
+    assert method_response.status_code == 405
+    assert detail_response.status_code == 200
+    assert exception_response.status_code == 500
+    assert recorded == [
+        ("GET", "/metrics", "error", 500),
+        ("POST", "/metrics", "error", 405),
+        ("GET", "/metrics/detail", "success", 200),
+        ("GET", "/metrics", "error", 500),
+    ]
 
 
 @pytest.mark.asyncio

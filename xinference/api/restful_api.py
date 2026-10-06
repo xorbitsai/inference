@@ -856,7 +856,11 @@ class RESTfulAPI(CancelMixin):
         request.state.audit_recorded = True
 
     async def _audit_middleware(self, request: Request, call_next):
-        from .oauth2.advanced.audit import classify_endpoint, should_skip_audit
+        from .oauth2.advanced.audit import (
+            classify_endpoint,
+            should_skip_audit,
+            should_skip_completed_audit,
+        )
 
         started = time.perf_counter()
         request_id = get_model_request_id(request)
@@ -885,8 +889,11 @@ class RESTfulAPI(CancelMixin):
         ):
             return response
 
-        latency_s = time.perf_counter() - started
         status_code = response.status_code
+        if should_skip_completed_audit(request.method, request.url.path, status_code):
+            return response
+
+        latency_s = time.perf_counter() - started
         request.state.audit_status_code = status_code
         model_uid = getattr(request.state, "_audit_model_uid", "")
         audit_status = getattr(request.state, "audit_status", "")

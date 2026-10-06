@@ -242,6 +242,26 @@ def test_register_custom_rerank():
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+@pytest.mark.parametrize(
+    "tokenizer_name,expected",
+    [
+        ("LlamaTokenizer", "LLM-based layerwise"),
+        ("LlamaTokenizerFast", "LLM-based layerwise"),
+        ("GemmaTokenizer", "LLM-based"),
+        ("GemmaTokenizerFast", "LLM-based"),
+        ("XLMRobertaTokenizer", "normal"),
+        ("XLMRobertaTokenizerFast", "normal"),
+        ("UnknownTokenizer", "normal"),
+    ],
+)
+def test_auto_detect_tokenizer_types(monkeypatch, tokenizer_name, expected):
+    from ..core import RerankModel
+
+    tokenizer = type(tokenizer_name, (), {})()
+    monkeypatch.setattr(RerankModel, "_get_tokenizer", lambda path: tokenizer)
+    assert RerankModel._auto_detect_type("unused") == expected
+
+
 def test_auto_detect_type():
     from ..core import RerankModel
 
