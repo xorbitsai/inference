@@ -59,10 +59,15 @@ msgstr ""
 msgid ""
 "The same ``replica_config`` is accepted by ``POST /v1/models``, the async "
 "Python client, and the CLI ``--replica_config`` JSON option. In the Web UI, "
-"select vLLM, enable per-replica placement, and choose Prefill or Decode for "
-"each replica. The community launch path defaults to Xavier when P/D roles "
-"appear."
+"select vLLM or SGLang, enable per-replica placement, and choose Prefill or "
+"Decode for each replica. The community launch path defaults to Xavier when "
+"P/D roles appear."
 msgstr ""
+"Le même ``replica_config`` est accepté par ``POST /v1/models``, le client "
+"Python asynchrone et l’option JSON ``--replica_config`` de la CLI. Dans la "
+"Web UI, sélectionnez vLLM ou SGLang, activez le placement par réplique et "
+"choisissez Prefill ou Decode pour chaque réplique. Le lancement "
+"communautaire utilise Xavier par défaut lorsque des rôles P/D sont définis."
 
 #: source/user_guide/pd_separation.rst:57
 msgid "CLI launch"
@@ -375,3 +380,65 @@ msgstr ""
 "acceptés expirent après 10 minutes sans nouvelle tentative de planification "
 "ni progression du transfert. Les copies en cours se terminent avant la "
 "libération. Les transferts expirés sont recalculés localement sur D."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang avec Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` accepte le même ``replica_config`` prefill/decode via les clients Python, l'API REST, la CLI et la Web UI. Remplacez ``model_engine`` par ``\"SGLang\"`` dans l'exemple. Les rôles explicites activent automatiquement Xavier ; plusieurs répliques prefill et decode sont prises en charge."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors."
+msgstr "SGLang Xavier P/D transfère directement le KV entre GPU via le transport NIXL de Xavier. Prefill et decode s'exécutent simultanément avec le cycle P/D natif de SGLang. Les emplacements GPU source et destination restent réservés jusqu'à la fin du transfert ; decode reçoit aussi le premier token échantillonné par prefill. Les réponses avec et sans streaming sont prises en charge. Les échecs de transfert provoquent des erreurs."
+
+#: source/user_guide/pd_separation.rst
+msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration."
+msgstr "Les limites des modèles sont décrites dans :ref:`user_guide_vllm_enhancement`. Installez ``xoscar[nixl]>=0.11.1`` dans les environnements worker et modèle, avec des adresses worker accessibles. L'absence de NIXL empêche le lancement sans repli CPU. Utilisez le transport ``xavier`` ; cette intégration n'expose pas le backend Mooncake propre à SGLang ni le P/D entre moteurs."
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "SGLang GPU P/D n'utilise ni ``xavier_cache_bytes`` ni CPU HiCache. La conservation d'un historique GPU Xavier n'est pas encore prise en charge ; omettez ``xavier_gpu_cache_bytes`` ou définissez-le sur ``0``. Relancez le déploiement après le redémarrage d'un worker. Comparez le TTFT et le débit avec des répliques ordinaires et le P/D SGLang natif pour votre charge."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D utilise par défaut le transfert direct entre GPU. Il nécessite Linux, des GPU NVIDIA, vLLM >= 0.21.0 et ``xoscar[nixl]>=0.11.1`` dans les environnements du worker et du modèle. Utilisez une adresse hôte accessible (pas ``0.0.0.0``). Sans NIXL, le démarrage échoue ; aucun repli CPU n’est prévu."
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Prérequis et mémoire de Xavier"
+
+#: source/user_guide/pd_separation.rst:64
+msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "Pour comparer avec SGLang natif, conservez le même déploiement et définissez ``transfer_backend_type=\"nixl\"``. Le backend NIXL de SGLang utilise ainsi la même API Xinference et le même routeur P/D. Installez ``nixl`` dans chaque environnement de modèle. L’intégration native initiale exige TP=PP=DP=1, un worker par réplique et des requêtes textuelles, sans LoRA, décodage spéculatif ni HiCache. Les ports de bootstrap sont attribués par réplique ; les deux hôtes doivent être accessibles mutuellement."
+
+#: ../../source/user_guide/pd_separation.rst:66
+msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
+msgstr "Pour les benchmarks à longueur fixe, les requêtes de complétion et de chat acceptent ``ignore_eos=true``. Remplacez les chaînes d’arrêt du modèle par un marqueur ``stop`` inutilisé et vérifiez le nombre réel de tokens de sortie."
+
+#: ../../source/user_guide/pd_separation.rst:64
+msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch."
+msgstr "SGLang Xavier P/D exige ``disaggregation_decode_enable_radix_cache=false`` ; chaque requête transfère tout le KV de son prompt. Le cache radix local du prefill reste disponible. L’activation du cache radix du decode est refusée au lancement."
+
+#: ../../user_guide/pd_separation.rst
+msgid ""
+"Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment "
+"or launch ``envs`` to change the Xavier handoff wait limit (default: 600 "
+"seconds). Increase it for long prefill queues or large prompts. Unfinished "
+"directory rooms expire after this interval; completed directory records "
+"expire after this interval unless the active decode request renews its "
+"lease. Both roles release them on completion."
+msgstr ""
+"Définissez ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` dans "
+"l’environnement du worker ou les ``envs`` de lancement pour modifier la "
+"limite d’attente du transfert Xavier (600 secondes par défaut). Augmentez-la"
+" pour les longues files de préremplissage ou les grands prompts. Les rooms "
+"incomplètes expirent après cet intervalle ; les enregistrements terminés "
+"expirent aussi après cet intervalle, sauf si la requête de décodage active "
+"renouvelle leur bail. Les deux rôles libèrent les enregistrements à la fin "
+"de la requête."
+
+#: ../../user_guide/pd_separation.rst
+msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
+msgstr "Le P/D natif SGLang nécessite un seul worker de tokenisation ; ses endpoints HTTP internes utilisent automatiquement une authentification propre à chaque réplique."

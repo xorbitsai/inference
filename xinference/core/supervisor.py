@@ -235,6 +235,7 @@ class ReplicaInfo:
 class SupervisorActor(xo.StatelessActor):
     def __init__(self):
         self._pd_model_mapping: Dict[str, Any] = {}
+        self._xavier_cache_mapping: Dict[str, xo.ActorRefType] = {}
         self._pd_roles: Dict[str, Dict[int, str]] = {}
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
@@ -3110,8 +3111,55 @@ class SupervisorActor(xo.StatelessActor):
         if transport_backend == "nixl" and not pd_enabled:
             raise ValueError("NIXL requires explicit prefill and decode replica roles")
         # Xavier-related
+        requested_xavier = bool(kwargs.pop("enable_xavier", False))
+        sglang_xavier = (
+            (requested_xavier or pd_enabled)
+            and transport_backend == "xavier"
+            and model_engine is not None
+            and model_engine.lower() == "sglang"
+        )
+        if sglang_xavier and not pd_enabled and replica <= 1:
+            logger.warning("Enabling xavier when replica<=1 is meaningless.")
+            sglang_xavier = False
+        sglang_nixl = (
+            pd_enabled
+            and transport_backend == "nixl"
+            and model_engine is not None
+            and model_engine.lower() == "sglang"
+        )
+        if sglang_nixl and (requested_xavier or n_worker != 1):
+            raise ValueError(
+                "SGLang native NIXL requires one worker per replica without enable_xavier"
+            )
+        cache_bytes = kwargs.pop("xavier_cache_bytes", None)
+        if cache_bytes is not None and (
+            not sglang_xavier
+            or pd_enabled
+            or type(cache_bytes) is not int
+            or cache_bytes <= 0
+        ):
+            raise ValueError(
+                "xavier_cache_bytes requires SGLang shared CPU caching and a positive integer"
+            )
+        if sglang_xavier:
+            if n_worker != 1:
+                raise ValueError(
+                    "SGLang Xavier requires the xavier transport and one worker per replica"
+                )
+            if (
+                model_type not in (None, "LLM")
+                or model_format not in (None, "pytorch")
+                or quantization not in (None, "none")
+            ):
+                raise ValueError(
+                    "SGLang Xavier requires unquantized PyTorch LLM weights"
+                )
+            kwargs["_xavier_cache_config"] = {
+                "address": self.address,
+                "uid": f"xavier-cache-{model_uid}",
+            }
         enable_xavier: bool = (
-            (bool(kwargs.pop("enable_xavier", False)) or pd_enabled)
+            (requested_xavier or pd_enabled)
             and transport_backend == "xavier"
             and model_engine is not None
             and model_engine.lower() == "vllm"
@@ -3119,8 +3167,14 @@ class SupervisorActor(xo.StatelessActor):
         from ..model.llm.xavier.transport import validate_gpu_cache_budget
 
         gpu_cache_bytes = validate_gpu_cache_budget(
-            kwargs.pop("xavier_gpu_cache_bytes", None), enable_xavier, replica
+            kwargs.pop("xavier_gpu_cache_bytes", None),
+            enable_xavier or sglang_xavier and pd_enabled,
+            replica,
         )
+        if sglang_xavier and gpu_cache_bytes not in (None, 0):
+            raise ValueError(
+                "SGLang Xavier GPU PD does not yet support retained GPU history"
+            )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
         store_address = None
@@ -3226,11 +3280,27 @@ class SupervisorActor(xo.StatelessActor):
             self._workers_launching[_addr] = self._workers_launching.get(_addr, 0) + 1
 
             replica_kwargs = dict(kwargs)
+            if sglang_xavier and pd_enabled:
+                assert replica_config is not None
+                from ..model.llm.xavier.transport import get_transport_host
+
+                replica_kwargs["_xavier_cache_config"] = {
+                    **kwargs["_xavier_cache_config"],
+                    "role": replica_config[rank - 1].role,
+                    "rank": rank,
+                    "host": get_transport_host(worker_ref.address),
+                }
             if pd_enabled and transport_backend == "nixl":
                 assert replica_config is not None
                 replica_kwargs["_nixl_config"] = {
                     "role": replica_config[rank - 1].role,
                 }
+                if sglang_nixl:
+                    from ..model.llm.xavier.transport import get_transport_host
+
+                    replica_kwargs["_nixl_config"]["host"] = get_transport_host(
+                        worker_ref.address
+                    )
             try:
                 subpool_address = await worker_ref.launch_builtin_model(
                     model_uid=_replica_model_uid,
@@ -3282,6 +3352,29 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             nonlocal download_hub
             try:
+                if sglang_xavier:
+                    if pd_enabled:
+                        from ..model.llm.sglang.xavier.directory import (
+                            XavierPDDirectory,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierPDDirectory,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    else:
+                        from ..model.llm.xavier.backends.torch.storage import (
+                            XavierCacheActor,
+                        )
+
+                        cache_ref = await xo.create_actor(
+                            XavierCacheActor,
+                            capacity_bytes=cache_bytes or 512 * 1024 * 1024,
+                            address=self.address,
+                            uid=kwargs["_xavier_cache_config"]["uid"],
+                        )
+                    self._xavier_cache_mapping[model_uid] = cache_ref
                 if enable_xavier:
                     from ..model.llm.xavier.block_tracker import BlockTracker
                     from ..model.llm.xavier.collective_manager import CollectiveManager
@@ -3451,7 +3544,6 @@ class SupervisorActor(xo.StatelessActor):
                     target_gpu_idx,
                     target_n_gpu,
                 ) in placements:
-
                     if enable_xavier and _idx == 0:
                         """
                         Start the rank 0 model actor on the worker that holds the rank 1 replica,
@@ -3541,6 +3633,7 @@ class SupervisorActor(xo.StatelessActor):
                         PDModelActor,
                         model_uid,
                         transport_backend=transport_backend,
+                        model_engine=model_engine,
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
@@ -3828,9 +3921,11 @@ class SupervisorActor(xo.StatelessActor):
 
         for request_id, metadata in targets:
             try:
-                progress, info, details = (
-                    await self._progress_tracker.get_progress_details(request_id)
-                )
+                (
+                    progress,
+                    info,
+                    details,
+                ) = await self._progress_tracker.get_progress_details(request_id)
             except KeyError:
                 continue
 
@@ -5263,6 +5358,7 @@ class SupervisorActor(xo.StatelessActor):
         keeps it for the failure gauge).
         """
         pd_ref = self._pd_model_mapping.pop(model_uid, None)
+        cache_ref = self._xavier_cache_mapping.pop(model_uid, None)
         self._pd_roles.pop(model_uid, None)
         if pd_ref is not None:
             try:
@@ -5270,6 +5366,13 @@ class SupervisorActor(xo.StatelessActor):
             except Exception:
                 logger.debug(
                     "Failed to destroy PD router for %s", model_uid, exc_info=True
+                )
+        if cache_ref is not None:
+            try:
+                await xo.destroy_actor(cache_ref)
+            except Exception:
+                logger.warning(
+                    "Destroy Xavier cache failed for %s", model_uid, exc_info=True
                 )
 
         rank0_uid = model_uid + "-rank0"

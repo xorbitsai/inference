@@ -75,3 +75,22 @@ msgid ""
 " connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
 "for community Prefill/Decode deployment."
 msgstr ""
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "SGLang レプリカ"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` は Xavier の HiCache ストレージバックエンドを通じてプレフィックス KV キャッシュを共有できます。複数のレプリカを起動するときに ``model_engine=\"SGLang\"`` と ``enable_xavier=True`` を指定してください。初期アダプターは、完全なアテンション、非量子化 FP16 重み、TP=PP=DP=1 を使用する Qwen2、Qwen3、Llama のテキストモデルに対応します。LoRA、投機的デコード、ハイブリッドアテンション、マルチモーダル入力には対応しません。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` はデプロイ全体の共有 CPU キャッシュ容量を設定します（既定値 ``536870912``、512 MiB）。各 SGLang レプリカは自身の GPU と HiCache ホストメモリプールも割り当てます。通常のレプリカでは、キャッシュの追い出しやストレージの利用不可はキャッシュミスとして扱われます。名前空間には実際の重み、トークナイザー、モデル設定、KV の形状、エンジン形式が含まれます。vLLM と SGLang 間のキャッシュ交換にはまだ対応しません。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "通常の SGLang レプリカは CPU HiCache ページを共有します。明示的な prefill/decode ロールでは Xavier の GPU 間直接転送を使用します。:ref:`user_guide_pd_separation` を参照してください。エンジン間 P/D は未対応です。"
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier は BF16 チェックポイントを FP16 として読み込み、警告を表示します。重みと KV キャッシュの両方に FP16 を使用します。"

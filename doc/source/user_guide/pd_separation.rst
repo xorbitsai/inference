@@ -11,7 +11,7 @@ No enterprise package or License is required.
 Launch
 ------
 
-Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback.
+vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback.
 
 The example starts one prefill replica on GPU 0 and one decode replica on GPU 1.
 Replace the worker address with the full ``ip:port`` reported by
@@ -46,9 +46,30 @@ configuration.
    )
 
 The same ``replica_config`` is accepted by ``POST /v1/models``, the async Python
-client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM,
+client, and the CLI ``--replica_config`` JSON option. In the Web UI, select vLLM or SGLang,
 enable per-replica placement, and choose Prefill or Decode for each replica.
 The community launch path defaults to Xavier when P/D roles appear.
+
+SGLang with Xavier
+------------------
+
+SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``"SGLang"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported.
+
+SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors.
+
+The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration.
+
+SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload.
+
+Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment or launch ``envs`` to change the Xavier handoff wait limit (default: 600 seconds). Increase it for long prefill queues or large prompts. Unfinished directory rooms expire after this interval; completed directory records expire after this interval unless the active decode request renews its lease. Both roles release them on completion.
+
+SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch.
+
+For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type="nixl"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable.
+
+Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication.
+
+For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts.
 
 Native NIXL backend
 -------------------
@@ -122,8 +143,8 @@ Hybrid/recurrent attention limitation
 
 Qwen3.5 text requests are supported with Xavier and native NIXL. Set ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode="none"``, ``disable_hybrid_kv_cache_manager=False`` and ``async_scheduling=False`` on both replicas. Use TP=1 and PP=1. Xavier history caching is not available for these hybrid/recurrent attention models; their configured history budget is not allocated. Image/video inputs and speculative decoding are not supported in this configuration. Native NIXL requires vLLM >= 0.22.0 for this mode.
 
-Xavier requirements and memory
-------------------------------
+vLLM Xavier requirements and memory
+-----------------------------------
 
 Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models without LoRA. Multimodal models, prompt embeddings and salted prompts are not supported.
 

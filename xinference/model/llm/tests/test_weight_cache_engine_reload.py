@@ -112,6 +112,8 @@ async def test_real_model_class_reloads_on_same_instance(monkeypatch, backend):
             "/models/test",
             {"enable_weight_cache": True, "max_running_requests": 16},
         )
+        gc_close = MagicMock()
+        monkeypatch.setattr(model._gc_freeze, "close", gc_close)
         field = "max_running_requests"
     monkeypatch.setattr(model, "_get_cuda_count", lambda: 1)
     monkeypatch.setattr(
@@ -144,10 +146,13 @@ async def test_real_model_class_reloads_on_same_instance(monkeypatch, backend):
             assert model._check_health_task is not health
         else:
             assert start_method.call_args_list == [(("spawn",), {"force": True})] * 2
+            gc_close.assert_called_once()
     finally:
         await asyncio.to_thread(model.stop)
         await asyncio.sleep(0)
     cache.stop.assert_called_once()
+    if backend == "sglang":
+        assert gc_close.call_count == 2
 
 
 @pytest.mark.parametrize("unsupported", ["ggufv2", "xoscar"])

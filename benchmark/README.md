@@ -42,6 +42,72 @@ python benchmark_serving.py --dataset-name random \
                             --stream --ignore-eos
 ```
 
+## Comparing SGLang PD paths
+
+For a comparison through the same Xinference API and P/D router, run the
+controlled benchmark on an idle two-GPU host:
+
+```bash
+python benchmark/benchmark_sglang_pd.py --model-path /path/to/Qwen2.5-0.5B-Instruct \
+    --source-commit "$(git rev-parse HEAD)" --output-dir /tmp/sglang-pd-controls \
+    --trials 2 --requests 300 --overlap-rounds 2
+```
+
+Install SGLang >=0.5.21, `nixl` and `xoscar[nixl]>=0.11.1` in worker and model
+environments. The script starts a fresh server for each backend and trial,
+reverses backend order on alternate trials, primes twelve mixed short/long
+chat requests, measures C16/C32 throughput, and injects 32 cold long prompts
+after eight 1024-token background decodes start. It records actual output
+lengths, transfer counters, source hashes, runtime versions and GPU-process
+snapshots; any unrelated GPU workload during sampling rejects the trial.
+Use `--idle-pid` only for a verified idle CUDA context. The native launch selects
+`transfer_backend_type="nixl"`; Xavier remains the default.
+
+Both backends use FP16, eager execution, page size 64, identical model weights
+and the same memory fraction and KV capacity (`--kv-tokens 524288`). Requests ignore EOS and override chat-family stop
+strings with an unused marker; the script requires exactly 64 output tokens for
+throughput/cold arrivals and 1024 for background decode.
+The warm set primes prefill's local radix cache. SGLang decode radix caching is
+disabled for both transports, so requests still transfer their full prompt KV.
+Historical vLLM controls enabled prefix caching in both replicas; their warm
+cache behavior differs from this SGLang workload.
+The historical vLLM BF16 numbers are a workload reference, not a direct
+cross-engine performance baseline. SGLang Xavier GPU P/D currently retains no
+history, so this test does not measure the vLLM tiered-history benefit.
+
+`benchmark_pd.py` accepts a Xinference launch JSON with explicit P/D placements
+and a JSONL workload of OpenAI chat or completion request bodies. Use completion
+prompts when comparing the transfer paths without differences in chat templates.
+Run ordinary replicas and
+Xavier PD sequentially against an otherwise idle server. SGLang Xavier P/D uses
+GPU-to-GPU NIXL transfer and the native SGLang P/D lifecycle; omit CPU HiCache
+settings and `xavier_cache_bytes` from the launch JSON. Install
+`xoscar[nixl]>=0.11.1` in worker and model environments:
+
+```bash
+python benchmark/benchmark_pd.py --endpoint http://localhost:9997 \
+    --launch sglang-launch.json --workload workload.jsonl --output xavier.json \
+    --modes hybrid xavier --concurrency 1 4 --repeats 1
+```
+
+For a standalone native baseline, launch SGLang's prefill/decode workers and router separately, using
+the same weights, tokenizer, dtype, GPU placement and token/memory limits.
+With no Xinference model replicas running, measure that existing router:
+
+```bash
+python benchmark/benchmark_pd.py --endpoint http://localhost:9997 \
+    --launch sglang-launch.json --workload workload.jsonl --output native.json \
+    --modes sglang-native --native-sglang-endpoint http://localhost:8000 \
+    --native-sglang-model /path/to/model --concurrency 1 4 --repeats 1
+```
+
+The native mode never launches or terminates external models. Record the native
+server arguments and transport version alongside the results. The runner
+reports TTFT, TPOT, latency, output throughput and errors using the same
+measurement code for both endpoints. Use disjoint prompts or flush caches
+between independent cold runs; repeated prompts and later concurrency runs may
+reuse cache. Kernel warmup uses a separate prompt.
+
 ## Benchmarking embeddings
 
 Launch an embedding model first, then use its model UID:

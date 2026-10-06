@@ -1,10 +1,10 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
-"""Compare hybrid replicas, Xavier PD and NIXL PD using identical requests.
+"""Compare hybrid replicas, Xavier PD and native PD using identical requests.
 
 Run against an otherwise idle Xinference server. Launch JSON supplies the model,
 placements, dtype, memory budget and engine settings; each mode runs sequentially.
-JSONL workloads contain OpenAI chat bodies (messages, max_tokens, etc.).
+JSONL workloads contain OpenAI chat or completion bodies.
 """
 import argparse
 import asyncio
@@ -91,16 +91,25 @@ async def measure(
                     body.update(
                         model=uid, stream=True, stream_options={"include_usage": True}
                     )
-                    stream = await api.chat.completions.create(**body)
+                    completion = "prompt" in body
+                    create = (
+                        api.completions.create
+                        if completion
+                        else api.chat.completions.create
+                    )
+                    stream = await create(**body)
                     async with stream:
                         async for chunk in stream:
                             if chunk.usage:
                                 usage = chunk.usage
                             if chunk.choices:
-                                delta = chunk.choices[0].delta
-                                content = delta.content or getattr(
-                                    delta, "reasoning_content", None
-                                )
+                                if completion:
+                                    content = chunk.choices[0].text
+                                else:
+                                    delta = chunk.choices[0].delta
+                                    content = delta.content or getattr(
+                                        delta, "reasoning_content", None
+                                    )
                                 if content:
                                     last = time.perf_counter()
                                     first = first or last
@@ -187,8 +196,15 @@ def main():
     parser.add_argument(
         "--modes",
         nargs="+",
-        choices=("hybrid", "xavier", "nixl"),
+        choices=("hybrid", "xavier", "nixl", "sglang-native"),
         default=["hybrid", "xavier", "nixl"],
+    )
+    parser.add_argument(
+        "--native-sglang-endpoint",
+        help="Existing SGLang native PD router URL; this runner does not launch it",
+    )
+    parser.add_argument(
+        "--native-sglang-model", help="Model served by the native router"
     )
     parser.add_argument("--concurrency", type=int, nargs="+", default=[1, 4, 16])
     parser.add_argument(
@@ -205,6 +221,12 @@ def main():
     parser.add_argument("--ttft-slo", type=float, default=2)
     parser.add_argument("--tpot-slo", type=float, default=0.05)
     args = parser.parse_args()
+    if "sglang-native" in args.modes and not (
+        args.native_sglang_endpoint and args.native_sglang_model
+    ):
+        parser.error(
+            "sglang-native requires --native-sglang-endpoint and --native-sglang-model"
+        )
     if args.repeats < 1 or any(c < 1 for c in args.concurrency):
         parser.error("repeats and concurrency must be positive")
     launch = json.loads(args.launch.read_text())
@@ -227,8 +249,14 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     for mode in args.modes:
         config = deepcopy(launch)
-        uid = config.pop("model_uid", "pd-benchmark") + "-" + mode
-        if uid in client.list_models():
+        native = mode == "sglang-native"
+        endpoint = args.native_sglang_endpoint if native else args.endpoint
+        uid = (
+            args.native_sglang_model
+            if native
+            else config.pop("model_uid", "pd-benchmark") + "-" + mode
+        )
+        if not native and uid in client.list_models():
             raise RuntimeError(
                 f"Model {uid} already exists; choose another benchmark UID"
             )
@@ -241,11 +269,12 @@ def main():
         else:
             config["vllm_transfer_backend_type"] = mode
         try:
-            client.launch_model(model_uid=uid, **config)
+            if not native:
+                client.launch_model(model_uid=uid, **config)
             # Disjoint prompt warms kernels without priming the measured prefixes.
             warm, _, _ = asyncio.run(
                 measure(
-                    args.endpoint,
+                    endpoint,
                     uid,
                     [
                         {
@@ -264,7 +293,7 @@ def main():
             for concurrency in args.concurrency:
                 records, elapsed, samples = asyncio.run(
                     measure(
-                        args.endpoint,
+                        endpoint,
                         uid,
                         workload,
                         concurrency,
@@ -276,6 +305,8 @@ def main():
                 report["runs"].append(
                     {
                         "mode": mode,
+                        "endpoint": endpoint,
+                        "model_uid": uid,
                         "concurrency": concurrency,
                         "records": records,
                         "gpu_samples": samples,
@@ -287,7 +318,7 @@ def main():
                 args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False))
                 print(mode, concurrency, report["runs"][-1]["summary"], flush=True)
         finally:
-            if uid in client.list_models():
+            if not native and uid in client.list_models():
                 client.terminate_model(uid)
 
 

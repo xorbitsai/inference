@@ -111,6 +111,7 @@ def test_shared_coordination_imports_without_engine_or_device_dependencies():
         builtins.__import__ = guarded_import
         for name in (
             "actor_loop", "block_tracker", "collective", "collective_manager", "constants",
+            "contract",
             "profiling", "transport", "utils",
         ):
             importlib.import_module(prefix + "." + name)

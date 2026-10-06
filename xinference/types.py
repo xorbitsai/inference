@@ -437,6 +437,7 @@ class ModelAndMessages(BaseModel):
 
 class CreateCompletionTorch(BaseModel):
     echo: bool = echo_field
+    ignore_eos: bool = False
     max_tokens: Optional[int] = max_tokens_field
     repetition_penalty: float = repeat_penalty_field
     stop: Optional[Union[str, List[str]]] = stop_field

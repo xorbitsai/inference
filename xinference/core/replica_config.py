@@ -183,8 +183,12 @@ def validate_pd_replica_configs(
     roles = {cfg.role for cfg in configs or []}
     if not roles.intersection({"prefill", "decode"}):
         return False
-    if (model_engine or "").lower() != "vllm" or (model_type or "LLM").lower() != "llm":
-        raise ValueError("PD separation requires model_type=LLM and model_engine=vLLM")
+    if (model_engine or "").lower() not in ("vllm", "sglang") or (
+        model_type or "LLM"
+    ).lower() != "llm":
+        raise ValueError(
+            "PD separation requires model_type=LLM and model_engine=vLLM or SGLang"
+        )
     if roles != {"prefill", "decode"}:
         raise ValueError(
             "PD separation requires both prefill and decode replicas, without hybrid replicas"

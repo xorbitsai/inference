@@ -5,6 +5,9 @@ peft==0.18.0
 sentence-transformers==5.1.1
 FlagEmbedding==1.3.5
 # Diffusers 0.35 and tensorizer still import Hub APIs removed in 1.0.
-huggingface-hub<1.0
+huggingface-hub==0.36.2
 # Numba does not support NumPy 2.5 yet.
 numpy<2.5
+# Constrain transitive datasets as well as the packages installed directly.
+datasets==4.4.1
+diffusers==0.35.1

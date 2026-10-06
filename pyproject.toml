@@ -89,6 +89,9 @@ xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:
 [project.entry-points."vllm.general_plugins"]
 xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
 
+[project.entry-points."sglang.srt.plugins"]
+xinference_xavier = "xinference.model.llm.sglang.xavier.plugin:register"
+
 [project.optional-dependencies]
 dev = [
     "jsonschema>=4.18,<5",  # Built-in model catalog authoring/CI validation

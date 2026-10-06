@@ -180,6 +180,8 @@ def test_sglang_load_passes_one_effective_launch_timeout(
     model._engine = None
     model._loading_thread = None
     model._loading_error = None
+    model._xavier_handoff = None
+    model._nixl_handoff = None
     model.prepare_parse_reasoning_content = lambda *args, **kwargs: None
     model.prepare_parse_tool_calls = lambda: None
 

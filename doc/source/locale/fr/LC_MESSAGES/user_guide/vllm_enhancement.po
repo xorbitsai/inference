@@ -87,3 +87,22 @@ msgid ""
 " connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
 "for community Prefill/Decode deployment."
 msgstr ""
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "Répliques SGLang"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` peut partager le cache KV de préfixe via le backend de stockage HiCache de Xavier. Lancez plusieurs répliques avec ``model_engine=\"SGLang\"`` et ``enable_xavier=True``. L'adaptateur initial prend en charge les modèles textuels Qwen2, Qwen3 et Llama FP16 non quantifiés, avec attention complète et TP=PP=DP=1 ; LoRA, le décodage spéculatif, l'attention hybride et les entrées multimodales ne sont pas pris en charge."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` définit le budget de cache CPU partagé du déploiement (par défaut : ``536870912``, 512 MiB). Chaque réplique SGLang alloue aussi ses propres pools GPU et hôte HiCache. Pour les répliques ordinaires, l'éviction ou l'indisponibilité du stockage est traitée comme une absence dans le cache. Les espaces de noms incluent les poids réels, le tokenizer, la configuration du modèle, la géométrie KV et le format du moteur ; les caches ne peuvent pas encore être échangés entre vLLM et SGLang."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "Les répliques SGLang ordinaires partagent des pages CPU HiCache. Les rôles prefill/decode explicites utilisent le transfert GPU direct de Xavier ; voir :ref:`user_guide_pd_separation`. Le P/D entre moteurs n'est pas encore pris en charge."
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier charge les checkpoints BF16 en FP16 et émet un avertissement. Les poids et les caches KV utilisent FP16."
