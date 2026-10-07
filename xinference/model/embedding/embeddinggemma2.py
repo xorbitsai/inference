@@ -143,6 +143,7 @@ def normalize_inputs(
 class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
     engine = "transformers"
     _device: Optional[str]
+    _model: Any
 
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
@@ -191,7 +192,7 @@ class TransformersEmbeddingGemma2Model(EmbeddingModel, BatchMixin):
         self._prompts = load_prompts(self._model_path)
 
     def _encode(self, messages: List[List[Dict[str, Any]]], **kwargs: Any):
-        embeddings = []
+        embeddings: List[torch.Tensor] = []
         tokens = 0
         assert self._model is not None
         # Media have variable token lengths. One sample at a time avoids padding
