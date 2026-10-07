@@ -18,6 +18,7 @@ class XavierPDDirectory(xo.StatelessActor):
         self.rooms = {}
         self.completed_requests = 0
         self.gpu_bytes = 0
+        self.host_bytes = 0
         self.imported_tokens = 0
         self.peers = {}
 
@@ -148,7 +149,7 @@ class XavierPDDirectory(xo.StatelessActor):
             raise RuntimeError("SGLang Xavier PD handoff expired or was cancelled")
         return state["source"]
 
-    def complete(self, room, gpu_bytes, imported_tokens=None):
+    def complete(self, room, gpu_bytes, imported_tokens=None, host_bytes=0):
         state = self.rooms.get(room)
         if state is None or set(state["roles"]) != {"prefill", "decode"}:
             raise RuntimeError("SGLang Xavier PD request is unavailable")
@@ -156,6 +157,7 @@ class XavierPDDirectory(xo.StatelessActor):
             self.completed_requests += 1
             self.gpu_bytes += gpu_bytes
             state["deadline"] = time.monotonic() + state["timeout"]
+            self.host_bytes += host_bytes
             self.imported_tokens += (
                 imported_tokens
                 if imported_tokens is not None
@@ -203,6 +205,7 @@ class XavierPDDirectory(xo.StatelessActor):
             active_handoffs=len(self.rooms),
             completed_requests=self.completed_requests,
             gpu_bytes=self.gpu_bytes,
+            host_bytes=self.host_bytes,
             imported_tokens=self.imported_tokens,
             peers=self.peers,
         )

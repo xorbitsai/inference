@@ -373,14 +373,20 @@ async def prepare(h, prompt, room=1):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("heterogeneous", [False, True])
+@pytest.mark.parametrize("host", [False, True])
 async def test_repeated_prompt_reuses_fingerprint_and_validates_every_room(
     heterogeneous,
+    host,
 ):
     h = fingerprint_handoff()
+    h.config["host_handoff"] = host
     if heterogeneous:
         h.config.update(heterogeneous=True, rank=1)
     for room in range(1, 4):
-        await prepare(h, "prompt", room)
+        await h.prepare(
+            "prompt",
+            dict(sglang_xavier=dict(mode="host" if host else "gpu", room=room)),
+        )
     h.tokenizer.encode.assert_called_once_with("prompt")
     assert h._directory_actor.prepare.await_count == 3
     expected = hashlib.sha256(json.dumps(list(b"prompt")).encode()).hexdigest()

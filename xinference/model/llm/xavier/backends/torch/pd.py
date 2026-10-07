@@ -12,11 +12,13 @@ import time
 from types import SimpleNamespace
 from typing import Any
 
+import numpy as np
 import torch
 import xoscar as xo
 
 from ....sglang.gc_lifecycle import InitializationGCFreeze
 from ....sglang.xavier.settings import transfer_timeout
+from ...constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from .direct_handoff import DirectGPUTransfer
 from .gpu_transfer import finish_before_cancel
 from .snapshot import block_major_view
@@ -77,7 +79,7 @@ def canonical_vllm_views(caches, num_blocks, contract):
 class CrossEngineGPUActor(xo.StatelessActor):
     @classmethod
     def default_uid(cls):
-        return "xavier-cross-engine-transfer"
+        return CROSS_ENGINE_TRANSFER_ACTOR_UID
 
     def __init__(
         self,
@@ -270,6 +272,102 @@ class CrossEngineGPUActor(xo.StatelessActor):
             room["deadline"] = time.monotonic() + transfer_timeout()
         return result
 
+    def _export_host_pages(self, pages, offset, prefix_tokens):
+        """Copy owned canonical pages, clearing unused engine allocation bytes."""
+        device = next(iter(self.caches.values())).device
+        if device.type == "cuda":
+            torch.cuda.set_device(device)
+        try:
+            return self._copy_host_pages(pages, offset, prefix_tokens, device)
+        finally:
+            if device.type == "cuda":
+                torch.cuda.synchronize(device)
+
+    def _copy_host_pages(self, pages, offset, prefix_tokens, device):
+        c = self.contract
+        indices = torch.tensor(pages, dtype=torch.long, device=device)
+        data = torch.stack(
+            [
+                torch.stack(
+                    [
+                        self.caches[str(layer + kind * c.num_layers)].index_select(
+                            0, indices
+                        )
+                        for kind in (0, 1)
+                    ],
+                    dim=1,
+                )
+                for layer in range(c.num_layers)
+            ],
+            dim=1,
+        ).cpu()
+        for index in range(len(pages)):
+            valid = max(
+                0, min(c.block_size, prefix_tokens - (offset + index) * c.block_size)
+            )
+            data[index, :, :, valid:] = 0
+        return [page.numpy().astype("<f2", copy=False).tobytes() for page in data]
+
+    async def export_host_pages(self, room, index, start=0):
+        """Bounded CUDA-to-CPU RPC for a Metal consumer; source slots stay pinned."""
+        room_state = self._producer_state(room)
+        if "prompt_tokens" not in room_state:
+            info = await self.directory.request_info(room)
+            # Abort may have removed this room while the RPC was in flight.
+            self._producer_state(room)
+            room_state["prompt_tokens"] = info["prompt_tokens"]
+        async with self.transfer.send_lock:
+            chunk = self.chunk(room, index)
+            if (
+                chunk is None
+                or type(start) is not int
+                or not 0 <= start < len(chunk["pages"])
+            ):
+                raise ValueError("Invalid cross-engine host page cursor")
+            state = self.transfer._live_direct(chunk["ticket"])
+            if state is None:
+                raise RuntimeError("Cross-engine source pages expired")
+            c = self.contract
+            if c.layer_nbytes * c.num_layers > 64 * 1024**2:
+                raise ValueError("Cross-engine host page exceeds 64 MiB")
+            capacity = max(1, min(16, 64 * 1024**2 // (c.layer_nbytes * c.num_layers)))
+            pages = chunk["pages"][start : start + capacity]
+            if any(
+                not set(pages) <= allowed for allowed in state.layer_blocks.values()
+            ):
+                raise ValueError("Unowned cross-engine source pages")
+            state.reading = True
+            state.claimed = True
+            try:
+                offset = (
+                    sum(
+                        len(item["pages"])
+                        for item in self.rooms[room]["chunks"][:index]
+                    )
+                    + start
+                )
+                # Cancellation must drain the CUDA read before abort can free
+                # engine slots. The returned bytes then own their CPU storage.
+                payload = await finish_before_cancel(
+                    asyncio.create_task(
+                        asyncio.to_thread(
+                            self._export_host_pages,
+                            pages,
+                            offset,
+                            room_state["prompt_tokens"] - 1,
+                        )
+                    )
+                )
+                self.transfer.metrics["host_bytes"] = self.transfer.metrics.get(
+                    "host_bytes", 0
+                ) + sum(map(len, payload))
+                return dict(pages=payload, next=start + len(pages))
+            finally:
+                state.reading = False
+                state.deadline = time.monotonic() + 600
+                if state.released:
+                    self.transfer.release_direct(chunk["ticket"])
+
     def release_chunk(self, ticket):
         self.transfer.release_direct(ticket)
         room = int(ticket.split(":", 1)[0])
@@ -337,6 +435,8 @@ class CrossEngineGPUActor(xo.StatelessActor):
         source = await asyncio.wait_for(
             self.directory.wait_source(room), timeout=transfer_timeout()
         )
+        if source.get("transport") == "host":
+            return await self._receive_host(room, source, destinations)
         rank = source["rank"]
         self._world_addresses[rank] = source["address"]
         sender = await xo.actor_ref(
@@ -411,6 +511,97 @@ class CrossEngineGPUActor(xo.StatelessActor):
                 # Its manager publishes the first-token/room marker after these
                 # GPU writes drain, before native decode can commit the slots.
                 return nbytes, chunk["aux"]
+
+    def _import_host_pages(self, pages, destinations):
+        device = next(iter(self.caches.values())).device
+        if device.type == "cuda":
+            torch.cuda.set_device(device)
+        try:
+            c = self.contract
+            data = torch.from_numpy(
+                np.stack(
+                    [
+                        np.frombuffer(page, dtype="<f2").reshape(
+                            c.num_layers, 2, c.block_size, c.num_kv_heads, c.head_dim
+                        )
+                        for page in pages
+                    ]
+                )
+            ).to(device)
+            indices = torch.tensor(destinations, device=device, dtype=torch.long)
+            for layer in range(c.num_layers):
+                for kind in (0, 1):
+                    self.caches[str(layer + kind * c.num_layers)].index_copy_(
+                        0, indices, data[:, layer, kind]
+                    )
+        finally:
+            if device.type == "cuda":
+                torch.cuda.synchronize(device)
+
+    async def _receive_host(self, room, source, destinations):
+        from ....sglang.xavier.settings import transfer_timeout
+
+        sender = await xo.actor_ref(address=source["address"], uid=source["uid"])
+        info = await self.directory.request_info(room)
+        prompt_tokens = info["prompt_tokens"]
+        c = self.contract
+        expected = (prompt_tokens + c.block_size - 1) // c.block_size
+        imported = prompt_tokens if self.args.aux_item_lens else prompt_tokens - 1
+        if len(destinations) != (imported + c.block_size - 1) // c.block_size:
+            raise ValueError("Cross-engine host destination page count differs")
+        page_bytes = c.num_layers * c.layer_nbytes
+        start, nbytes, first_token = 0, 0, None
+        deadline = time.monotonic() + transfer_timeout()
+        try:
+            while start < expected:
+                result = await asyncio.wait_for(
+                    sender.read(room, start),
+                    timeout=max(0, deadline - time.monotonic()),
+                )
+                pages = result["pages"]
+                if (
+                    not pages
+                    or len(pages) > 16
+                    or len(pages) * page_bytes > 64 * 1024**2
+                    or result["next"] != start + len(pages)
+                    or result["next"] > expected
+                    or result["total"] != expected
+                    or result["prompt_tokens"] != prompt_tokens
+                    or type(result["first_token"]) is not int
+                    or result["first_token"] < 0
+                    or (
+                        first_token is not None and first_token != result["first_token"]
+                    )
+                    or any(type(p) is not bytes or len(p) != page_bytes for p in pages)
+                ):
+                    raise ValueError("Incomplete cross-engine host prefix")
+                first_token = result["first_token"]
+                targets = destinations[start : result["next"]]
+                if targets:
+                    task = asyncio.create_task(
+                        asyncio.to_thread(
+                            self._import_host_pages, pages[: len(targets)], targets
+                        )
+                    )
+                    # Slot reuse after abort must wait for CUDA writes to drain,
+                    # including errors and repeated cancellation during H2D.
+                    await finish_before_cancel(task)
+                nbytes += len(pages) * page_bytes
+                start = result["next"]
+            await sender.release(room)
+            self.transfer.metrics["host_imported_bytes"] = (
+                self.transfer.metrics.get("host_imported_bytes", 0) + nbytes
+            )
+            if not self.args.aux_item_lens:
+                await self.directory.complete(room, 0, imported, nbytes)
+                await self.directory.release(room, "decode")
+                return set()
+            return nbytes, sglang_first_token_payload(
+                self.args.aux_item_lens, room, first_token, prompt_tokens
+            )
+        except BaseException:
+            await sender.abort(room)
+            raise
 
     async def receive(self, room, destinations, aux_index):
         task = self.tasks[room] = asyncio.create_task(

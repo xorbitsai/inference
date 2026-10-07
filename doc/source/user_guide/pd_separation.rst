@@ -101,7 +101,7 @@ MLX Xavier stores immutable CPU pages in a shared actor on the supervisor and tr
 
 Each 64-token FP16 page uses ``2 * 64 * num_layers * num_kv_heads * head_dim * 2`` bytes (K and V, with two bytes per value). For example, 36 layers, 8 KV heads and a head dimension of 128 require 9 MiB per page; 512 MiB holds 56 pages, or 3584 prefix tokens. Round each prefix up to a whole page and size ``xavier_cache_bytes`` for the distinct pages reserved by all concurrent P/D requests. Ordinary shared-cache requests skip publication when their prefix exceeds the cache capacity or the 4096-page protocol limit.
 
-Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All workers must reach the supervisor's actor address. Relaunch after a worker restart. Two replicas on one Mac share its Metal GPU; measure your workload before expecting a throughput benefit. Cross-engine P/D involving MLX, including NVIDIA-to-Mac handoff, is not yet supported.
+Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All workers must reach the supervisor's actor address. Relaunch after a worker restart. Two replicas on one Mac share its Metal GPU; measure your workload before expecting a throughput benefit.
 
 Cross-engine vLLM/SGLang P/D
 --------------------------------------------------------------------------------
@@ -138,7 +138,51 @@ Both workers require identical local weights, tokenizer assets and context limit
 
 Streaming and non-streaming requests require ``n=1``. SGLang decode uses the first output token sampled by prefill. vLLM decode imports all but the final prompt token, computes that token and samples the output. Engine kernels can produce small numerical differences. vLLM decode requires at least two prompt tokens.
 
-Cross-engine P/D does not support CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles. MLX is unsupported.
+Cross-engine P/D does not support CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles.
+
+NVIDIA and MLX cross-engine P/D
+--------------------------------------------------------------------------------
+
+Xavier supports both vLLM/SGLang prefill with MLX decode and MLX prefill with vLLM/SGLang decode, with streaming and non-streaming requests. FP16 64-token pages pass through CPU staging and actor RPC between CUDA and Metal. vLLM and MLX decode compute the last prompt token; SGLang decode imports the full prompt KV and the first output token sampled by P. MLX prefill publishes request-owned pages on its worker with a 512 MiB in-flight budget.
+
+Use identical unquantized checkpoint and tokenizer files; do not convert the Mac checkpoint. Worker-local ``model_path`` and ``model_format`` belong in each replica's ``engine_config``. Xavier checks weights, tokenizer, effective model semantics, context limits and prompt token IDs. Model and sampling restrictions match vLLM/SGLang cross-engine P/D; failures raise errors.
+
+.. code-block:: python
+
+   client.launch_model(
+       model_uid="qwen-nvidia-mac-pd",
+       model_name="qwen2.5-instruct",
+       model_size_in_billions="0_5",
+       model_engine="vLLM",
+       model_format="pytorch",
+       quantization="none",
+       replica=2,
+       replica_config=[
+           {
+               "role": "prefill", "model_engine": "vLLM",
+               "engine_config": {"model_path": "/models/Qwen2.5-0.5B-Instruct",
+                                 "max_model_len": 8192},
+               "devices": [{"worker_ip": "NVIDIA_WORKER:PORT",
+                            "n_gpu": 1, "gpu_idx": [0]}],
+           },
+           {
+               "role": "decode", "model_engine": "MLX",
+               "engine_config": {"model_path": "/Users/me/models/Qwen2.5-0.5B-Instruct",
+                                 "model_format": "mlx", "context_length": 8192},
+               "devices": [{"worker_ip": "MAC_WORKER:PORT", "n_gpu": "auto"}],
+           },
+       ],
+   )
+
+To use MLX prefill, swap the two ``role`` values in the example. For SGLang on either role, use ``SGLang`` and replace ``max_model_len`` with ``context_length``. NVIDIA requires ``xoscar[nixl]>=0.11.1``; Mac requires ``xoscar>=0.11.1`` and ``mlx-lm>=0.31.2``. Workers must reach the supervisor and each other. Use Xavier transport, and omit ``xavier_gpu_cache_bytes`` or set it to ``0``. Relaunch after a worker restart.
+
+For MLX prefill, ``xavier_cache_bytes`` sets the worker-local in-flight CPU page budget (default: 512 MiB). Capacity is reserved before Metal prefill, rounding the full prompt up to 64-token pages. A prompt exceeding the budget fails before prefill; concurrent requests wait for capacity. Reservations and transfer waits are bounded by ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` (default: 600 seconds).
+
+MLX-prefill cross-engine requests do not accept ``min_p``, ``presence_penalty``, ``frequency_penalty`` or ``seed``. The router rejects these parameters before scheduling either replica, so the first output token uses the same supported sampling settings as the rest of the response.
+
+Run the supervisor and all worker/model environments with the same Python version and matching ``cloudpickle`` / ``tblib`` versions; actor RPC also carries exceptions and generators.
+
+Compare end-to-end TTFT with the standalone decode engine on its own hardware, using the same effective FP16 weights and cache policy. Network transfers and CUDA/Metal copies may outweigh faster prefill. ``host_bytes`` measures CPU-staged payloads; ``imported_tokens`` records completed KV imports. Correct output alone does not prove reuse.
 
 Native NIXL backend
 -------------------

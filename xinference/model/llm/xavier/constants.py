@@ -3,3 +3,4 @@
 
 # Preserve the existing actor UID for deployments using the default adapter.
 DEFAULT_TRANSFER_ACTOR_UID = "vllm-transfer-actor"
+CROSS_ENGINE_TRANSFER_ACTOR_UID = "xavier-cross-engine-transfer"

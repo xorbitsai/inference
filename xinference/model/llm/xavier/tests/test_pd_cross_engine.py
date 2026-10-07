@@ -329,8 +329,9 @@ async def test_producer_poll_keeps_finished_ids_when_release_rpc_fails(
         ([1, 2, 3], "room limit"),
     ],
 )
+@pytest.mark.parametrize("host", [False, True])
 async def test_request_preparation_errors_stay_outside_engine(
-    kv_contract, monkeypatch, tokens, error
+    kv_contract, monkeypatch, tokens, error, host
 ):
     import xoscar as xo
 
@@ -345,8 +346,9 @@ async def test_request_preparation_errors_stay_outside_engine(
         address="supervisor",
         uid="directory",
         contract=kv_contract.to_dict(),
+        host_handoff=host,
     )
-    params = dict(sglang_xavier=dict(room=123, mode="gpu"))
+    params = dict(sglang_xavier=dict(room=123, mode="host" if host else "gpu"))
     with pytest.raises(ValueError, match=error):
         await prepare_pd_request(config, tokens, params)
     assert "xavier_prompt_digest" not in params
@@ -355,6 +357,33 @@ async def test_request_preparation_errors_stay_outside_engine(
     directory.prepare.side_effect = None
     await prepare_pd_request(config, [1, 2], params)
     assert params["xavier_prompt_digest"] == prompt_digest([1, 2])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", [False, True])
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+async def test_request_preparation_rejects_wrong_transport_before_rpc(
+    kv_contract, monkeypatch, host, role
+):
+    import xoscar as xo
+
+    from ..pd_contract import prepare_pd_request
+
+    lookup = AsyncMock()
+    monkeypatch.setattr(xo, "actor_ref", lookup)
+    config = dict(
+        role=role,
+        rank=1,
+        address="supervisor",
+        uid="directory",
+        contract=kv_contract.to_dict(),
+        host_handoff=host,
+    )
+    params = dict(sglang_xavier=dict(room=123, mode="gpu" if host else "host"))
+    with pytest.raises(ValueError, match="handoff room"):
+        await prepare_pd_request(config, [1, 2], params)
+    lookup.assert_not_awaited()
+    assert "xavier_prompt_digest" not in params
 
 
 @pytest.mark.parametrize(

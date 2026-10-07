@@ -775,14 +775,14 @@ async def test_cross_engine_pd_launches_one_adapter_per_replica(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engines", [("MLX", "vLLM"), ("SGLang", "MLX")])
-async def test_cross_engine_mlx_is_rejected_before_allocating_actors(
+async def test_cross_engine_mlx_requires_local_format_before_allocating_actors(
     launch_runtime, engines
 ):
     supervisor, workers, actors, _ = launch_runtime
     kwargs = launch_kwargs()
     for cfg, engine in zip(kwargs["replica_config"], engines):
         cfg.model_engine = engine
-    with pytest.raises(ValueError, match="vLLM and SGLang replicas"):
+    with pytest.raises(ValueError, match="PyTorch NVIDIA and MLX Metal weights"):
         await supervisor.launch_builtin_model(**kwargs)
     assert not actors
     for worker in workers:
@@ -874,3 +874,167 @@ async def test_cross_engine_invalid_launch_has_no_side_effects(
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
         worker.wait_for_load.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX"])
+async def test_nvidia_mlx_launch_uses_worker_local_assets(
+    launch_runtime, engine, default_engine
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = default_engine
+    kwargs["model_format"] = "mlx" if default_engine == "MLX" else "pytorch"
+    kwargs["replica_config"][0].model_engine = engine
+    kwargs["replica_config"][0].engine_config = {
+        "model_path": "/gpu/model",
+        "model_format": "pytorch",
+    }
+    kwargs["replica_config"][1].model_engine = "MLX"
+    kwargs["replica_config"][1].engine_config = {
+        "model_path": "/mac/model",
+        "model_format": "mlx",
+    }
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierPDDirectory", "PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["handoff_mode"] == "host"
+    for worker, path, fmt in zip(
+        workers, ["/gpu/model", "/mac/model"], ["pytorch", "mlx"]
+    ):
+        options = worker.launch_builtin_model.call_args.kwargs
+        assert options["model_path"] == path and options["model_format"] == fmt
+        assert options["_xavier_cache_config"]["host_handoff"] is True
+        assert options["xavier_config"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+@pytest.mark.parametrize("capacity", [None, 123456])
+async def test_mlx_prefill_to_nvidia_owns_worker_local_source(
+    launch_runtime, engine, capacity
+):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = engine
+    if capacity is not None:
+        kwargs["xavier_cache_bytes"] = capacity
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {
+        "model_path": "/mac/model",
+        "model_format": "mlx",
+    }
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierPDDirectory", "XavierHostPDSource", "PDModelActor"}
+    source = actors["XavierHostPDSource"]
+    assert source.address == workers[0].address
+    assert source.constructor_kwargs["capacity_bytes"] == (capacity or 512 * 1024**2)
+    assert actors["PDModelActor"].constructor_kwargs["mlx_prefill"] is True
+    config = workers[0].launch_builtin_model.call_args.kwargs["_xavier_cache_config"]
+    assert config["source_address"] == source.address
+    assert config["source_uid"] == source.uid
+    assert actors["PDModelActor"].constructor_kwargs["handoff_mode"] == "host"
+    await supervisor.terminate_model("pd")
+    assert not supervisor._xavier_source_mapping
+    assert source in [call.args[0] for call in destroy.await_args_list]
+
+
+@pytest.mark.asyncio
+async def test_failed_mlx_prefill_launch_destroys_host_source(launch_runtime):
+    supervisor, workers, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {"model_format": "mlx"}
+    workers[0].wait_for_load.side_effect = RuntimeError("Metal load failed")
+    with pytest.raises(RuntimeError, match="Metal load failed"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not supervisor._xavier_source_mapping
+    assert actors["XavierHostPDSource"] in [c.args[0] for c in destroy.await_args_list]
+    assert not supervisor._workers_launching
+
+
+@pytest.mark.asyncio
+async def test_unreachable_host_source_does_not_stall_cache_cleanup(
+    launch_runtime, monkeypatch, caplog
+):
+    supervisor, _, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {"model_format": "mlx"}
+    await supervisor.launch_builtin_model(**kwargs)
+
+    async def wait_for(coroutine, timeout):
+        assert timeout == 5
+        coroutine.close()
+        raise asyncio.TimeoutError("worker unreachable")
+
+    bounded = AsyncMock(side_effect=wait_for)
+    monkeypatch.setattr("xinference.core.supervisor.xo.wait_for", bounded)
+    await supervisor._cleanup_distributed_actors("pd")
+    bounded.assert_awaited_once()
+    assert (
+        not supervisor._xavier_source_mapping and not supervisor._xavier_cache_mapping
+    )
+    destroy.assert_any_await(actors["XavierPDDirectory"])
+    assert "Destroy Xavier host source failed" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capacity", [0, -1, True, "512"])
+async def test_mlx_prefill_invalid_capacity_rejected_before_launch(
+    launch_runtime, capacity
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {"model_format": "mlx"}
+    kwargs["xavier_cache_bytes"] = capacity
+    with pytest.raises(ValueError, match="xavier_cache_bytes"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "index,fmt", [(0, "mlx"), (0, "ggufv2"), (1, "pytorch"), (1, None)]
+)
+async def test_nvidia_mlx_invalid_replica_format_has_no_side_effects(
+    launch_runtime, index, fmt
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][1].model_engine = "MLX"
+    kwargs["replica_config"][1].engine_config = {"model_format": "mlx"}
+    kwargs["replica_config"][index].engine_config["model_format"] = fmt
+    with pytest.raises(ValueError, match="PyTorch NVIDIA and MLX Metal weights"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    assert (
+        not supervisor._xavier_source_mapping and not supervisor._xavier_cache_mapping
+    )
+    supervisor._status_guard_ref.update_replica_status.assert_not_awaited()
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.wait_for_load.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mlx_index", [0, 1])
+@pytest.mark.parametrize(
+    "options,message",
+    [({"n_worker": 2}, "sharded launch"), ({"quantization": "4-bit"}, "unquantized")],
+)
+async def test_nvidia_mlx_rejects_unsupported_launch_before_allocation(
+    launch_runtime, mlx_index, options, message
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][mlx_index].model_engine = "MLX"
+    kwargs.update(options)
+    with pytest.raises(ValueError, match=message):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
