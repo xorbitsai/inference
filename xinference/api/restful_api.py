@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import base64
 import gc
 import inspect
 import ipaddress
@@ -21,6 +22,7 @@ import logging
 import multiprocessing
 import os
 import pprint
+import struct
 import time
 import uuid
 import warnings
@@ -466,6 +468,21 @@ def _audio_response_media_type(response_format: Optional[str]) -> str:
     return _AUDIO_RESPONSE_MEDIA_TYPES.get(
         normalized_format, "application/octet-stream"
     )
+
+
+def _encode_embeddings_base64(embedding: Union[bytes, str]) -> str:
+    """Encode dense vectors as base64 little-endian float32, as OpenAI does.
+
+    Sparse embeddings (token -> weight dicts) have no base64 form and are
+    returned unchanged.
+    """
+    result = json.loads(embedding)
+    for item in result.get("data") or []:
+        vector = item.get("embedding")
+        if isinstance(vector, list):
+            packed = struct.pack(f"<{len(vector)}f", *vector)
+            item["embedding"] = base64.b64encode(packed).decode("ascii")
+    return json.dumps(result)
 
 
 def _validate_replica(value: Any) -> int:
@@ -2854,6 +2871,8 @@ class RESTfulAPI(CancelMixin):
         try:
             kwargs["model_uid"] = model_uid
             embedding = await model.create_embedding(body.input, **kwargs)
+            if payload.get("encoding_format") == "base64":
+                embedding = _encode_embeddings_base64(embedding)
             return Response(embedding, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
