@@ -18,6 +18,7 @@ import xoscar as xo
 
 from ....sglang.gc_lifecycle import InitializationGCFreeze
 from ....sglang.xavier.settings import transfer_timeout
+from ...constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from .direct_handoff import DirectGPUTransfer
 from .gpu_transfer import finish_before_cancel
 from .snapshot import block_major_view
@@ -78,7 +79,7 @@ def canonical_vllm_views(caches, num_blocks, contract):
 class CrossEngineGPUActor(xo.StatelessActor):
     @classmethod
     def default_uid(cls):
-        return "xavier-cross-engine-transfer"
+        return CROSS_ENGINE_TRANSFER_ACTOR_UID
 
     def __init__(
         self,
@@ -309,6 +310,12 @@ class CrossEngineGPUActor(xo.StatelessActor):
 
     async def export_host_pages(self, room, index, start=0):
         """Bounded CUDA-to-CPU RPC for a Metal consumer; source slots stay pinned."""
+        room_state = self._producer_state(room)
+        if "prompt_tokens" not in room_state:
+            info = await self.directory.request_info(room)
+            # Abort may have removed this room while the RPC was in flight.
+            self._producer_state(room)
+            room_state["prompt_tokens"] = info["prompt_tokens"]
         async with self.transfer.send_lock:
             chunk = self.chunk(room, index)
             if (
@@ -332,7 +339,6 @@ class CrossEngineGPUActor(xo.StatelessActor):
             state.reading = True
             state.claimed = True
             try:
-                info = await self.directory.request_info(room)
                 offset = (
                     sum(
                         len(item["pages"])
@@ -348,7 +354,7 @@ class CrossEngineGPUActor(xo.StatelessActor):
                             self._export_host_pages,
                             pages,
                             offset,
-                            info["prompt_tokens"] - 1,
+                            room_state["prompt_tokens"] - 1,
                         )
                     )
                 )

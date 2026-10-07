@@ -174,7 +174,11 @@ Use identical unquantized checkpoint and tokenizer files; do not convert the Mac
        ],
    )
 
-To use MLX prefill, swap the two ``role`` values in the example. For SGLang on either role, use ``SGLang`` and replace ``max_model_len`` with ``context_length``. NVIDIA requires ``xoscar[nixl]>=0.11.1``; Mac requires ``xoscar>=0.11.1`` and ``mlx-lm>=0.31.2``. Workers must reach the supervisor and each other. Use Xavier transport, omit ``xavier_cache_bytes``, and omit ``xavier_gpu_cache_bytes`` or set it to ``0``. Relaunch after a worker restart.
+To use MLX prefill, swap the two ``role`` values in the example. For SGLang on either role, use ``SGLang`` and replace ``max_model_len`` with ``context_length``. NVIDIA requires ``xoscar[nixl]>=0.11.1``; Mac requires ``xoscar>=0.11.1`` and ``mlx-lm>=0.31.2``. Workers must reach the supervisor and each other. Use Xavier transport, and omit ``xavier_gpu_cache_bytes`` or set it to ``0``. Relaunch after a worker restart.
+
+For MLX prefill, ``xavier_cache_bytes`` sets the worker-local in-flight CPU page budget (default: 512 MiB). Capacity is reserved before Metal prefill, rounding the full prompt up to 64-token pages. A prompt exceeding the budget fails before prefill; concurrent requests wait for capacity. Reservations and transfer waits are bounded by ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` (default: 600 seconds).
+
+MLX-prefill cross-engine requests do not accept ``min_p``, ``presence_penalty``, ``frequency_penalty`` or ``seed``. The router rejects these parameters before scheduling either replica, so the first output token uses the same supported sampling settings as the rest of the response.
 
 Run the supervisor and all worker/model environments with the same Python version and matching ``cloudpickle`` / ``tblib`` versions; actor RPC also carries exceptions and generators.
 

@@ -265,6 +265,48 @@ async def test_cross_engine_rejects_unsupported_sampling_before_scheduling(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "key", ["min_p", "presence_penalty", "frequency_penalty", "seed"]
+)
+@pytest.mark.parametrize("raw", [False, True])
+async def test_mlx_prefill_rejects_first_token_sampling_before_scheduling(
+    router, key, raw
+):
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    actor._mlx_prefill = True
+    parameters = {key: 0}
+    with pytest.raises(ValueError, match="MLX cross-engine prefill"):
+        await actor._infer(
+            "generate",
+            "prompt",
+            {} if raw else parameters,
+            **({"raw_params": parameters} if raw else {}),
+            request_id="r",
+        )
+    prefill.generate.assert_not_awaited()
+    decode.generate.assert_not_awaited()
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mlx_prefill", [False, True])
+async def test_first_token_guard_preserves_other_routes_and_unset_parameters(
+    router, mlx_prefill
+):
+    actor, _, _ = router
+    actor._model_engine = "heterogeneous"
+    actor._mlx_prefill = mlx_prefill
+    actor._infer_sglang = AsyncMock(return_value="result")
+    config = dict.fromkeys(
+        ("min_p", "presence_penalty", "frequency_penalty", "seed"),
+        None if mlx_prefill else 0,
+    )
+    assert await actor._infer("generate", "prompt", config, request_id="r") == "result"
+    actor._infer_sglang.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_stream_cleanup_on_disconnect(router):
     actor, prefill, decode = router
     closed = []

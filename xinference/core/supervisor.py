@@ -3182,8 +3182,13 @@ class SupervisorActor(xo.StatelessActor):
                 "SGLang native NIXL requires one worker per replica without enable_xavier"
             )
         cache_bytes = kwargs.pop("xavier_cache_bytes", None)
+        mlx_prefill = host_handoff and any(
+            cfg.role == "prefill"
+            and (cfg.model_engine or model_engine or "").lower() == "mlx"
+            for cfg in (replica_config or [])
+        )
         if cache_bytes is not None and (
-            not (mlx_xavier or sglang_xavier and not pd_enabled)
+            not (mlx_xavier or mlx_prefill or sglang_xavier and not pd_enabled)
             or type(cache_bytes) is not int
             or cache_bytes <= 0
         ):
@@ -3407,11 +3412,10 @@ class SupervisorActor(xo.StatelessActor):
                         XavierHostPDSource,
                         self._xavier_cache_mapping[model_uid],
                         rank,
+                        capacity_bytes=cache_bytes or 512 * 1024**2,
                         address=worker_ref.address,
                         uid=source_uid,
                     )
-                    if not hasattr(self, "_xavier_source_mapping"):
-                        self._xavier_source_mapping = {}
                     self._xavier_source_mapping.setdefault(model_uid, []).append(source)
                     replica_kwargs["_xavier_cache_config"].update(
                         source_address=source.address, source_uid=source_uid
@@ -3773,6 +3777,7 @@ class SupervisorActor(xo.StatelessActor):
                             "heterogeneous" if heterogeneous_pd else model_engine
                         ),
                         handoff_mode="host" if host_handoff else "gpu",
+                        mlx_prefill=mlx_prefill,
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
@@ -5512,9 +5517,9 @@ class SupervisorActor(xo.StatelessActor):
                 logger.debug(
                     "Failed to destroy PD router for %s", model_uid, exc_info=True
                 )
-        for source in getattr(self, "_xavier_source_mapping", {}).pop(model_uid, []):
+        for source in self._xavier_source_mapping.pop(model_uid, []):
             try:
-                await xo.destroy_actor(source)
+                await xo.wait_for(xo.destroy_actor(source), timeout=5)
             except Exception:
                 logger.warning(
                     "Destroy Xavier host source failed for %s", model_uid, exc_info=True

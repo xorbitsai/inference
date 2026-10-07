@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 import xoscar as xo
 
+from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from .rpc_context import actor_call
 from .utils import log_async
 
@@ -86,6 +87,7 @@ class PDModelActor(xo.StatelessActor):
         transport_backend: str = "xavier",
         model_engine: str = "vllm",
         handoff_mode: str = "gpu",
+        mlx_prefill: bool = False,
     ):
         super().__init__()
         # Prefill request map, used to skip the timeout task for specific request id.
@@ -97,6 +99,7 @@ class PDModelActor(xo.StatelessActor):
         self._model_engine = (model_engine or "vllm").lower()
         self._direct_handoff = transport_backend == "xavier"
         self._handoff_mode = handoff_mode
+        self._mlx_prefill = mlx_prefill
 
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -273,7 +276,7 @@ class PDModelActor(xo.StatelessActor):
                                 sender = await xo.actor_ref(
                                     address=source["address"],
                                     uid=source.get("uid")
-                                    or f"xavier-cross-engine-transfer-{source['rank']}",
+                                    or f"{CROSS_ENGINE_TRANSFER_ACTOR_UID}-{source['rank']}",
                                 )
                                 await sender.abort(handoff["room"])
                         await ref.release(handoff["room"])
@@ -329,6 +332,14 @@ class PDModelActor(xo.StatelessActor):
             raise ValueError("PD KV handoff currently requires n=1")
         if self._model_engine == "heterogeneous":
             config = (args[0] if args else {}) or {}
+            if self._mlx_prefill and any(
+                parameters.get(key) is not None
+                for parameters in (config, kwargs.get("raw_params") or {})
+                for key in ("min_p", "presence_penalty", "frequency_penalty", "seed")
+            ):
+                raise ValueError(
+                    "MLX cross-engine prefill does not support min_p, presence_penalty, frequency_penalty or seed"
+                )
             if (
                 any(
                     config.get(key) is not None and config.get(key) is not False

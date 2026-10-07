@@ -5,7 +5,7 @@ import importlib
 import json
 import platform
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 import xoscar as xo
@@ -144,8 +144,8 @@ async def test_host_prefill_abort_releases_cpu_pages(monkeypatch):
         ),
     )
 
-    async def call(method, *args):
-        if method == "check":
+    async def call(method, *args, **kwargs):
+        if method == "wait_complete":
             raise asyncio.CancelledError()
         return True
 
@@ -161,6 +161,164 @@ async def test_host_prefill_abort_releases_cpu_pages(monkeypatch):
         await client.prefill(model(), [1, 2, 3], transfer=transfer)
     source_ref.abort.assert_awaited_once_with(1)
     assert client._call.call_args.args == ("release", 1)
+
+
+@metal
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["budget", "abort"])
+async def test_host_prefill_reserves_before_metal_and_releases_after_abort_failure(
+    monkeypatch, failure
+):
+    client = MLXXavierCache(
+        contract(),
+        dict(
+            address="directory",
+            uid="cache",
+            role="prefill",
+            rank=1,
+            heterogeneous=True,
+            source_address="mac",
+            source_uid="source",
+        ),
+    )
+
+    async def call(method, *args, **kwargs):
+        if method == "wait_complete":
+            raise RuntimeError("consumer failed")
+        return True
+
+    client._call = AsyncMock(side_effect=call)
+    source_ref = AsyncMock()
+    source_ref.abort.side_effect = RuntimeError("abort failed")
+    monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=source_ref))
+    if failure == "budget":
+        source_ref.reserve.side_effect = ValueError("prompt exceeds byte budget")
+        batch = Mock(side_effect=AssertionError("prefill ran before admission"))
+        monkeypatch.setattr(
+            importlib.import_module("mlx_lm.generate"), "PromptProcessingBatch", batch
+        )
+    transfer = dict(
+        sglang_xavier=dict(
+            room=1, mode="host", address="directory", uid="cache", heterogeneous=True
+        )
+    )
+    with pytest.raises((ValueError, RuntimeError), match="byte budget|consumer failed"):
+        await client.prefill(model(), [1, 2, 3], transfer=transfer)
+    source_ref.reserve.assert_awaited_once_with(1, client.contract.to_dict(), 3)
+    client._call.assert_any_await("release", 1)
+    if failure == "budget":
+        batch.assert_not_called()
+        source_ref.publish.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["multiple", "excess", "incomplete"])
+async def test_host_fetch_multiple_chunks_and_prefix_geometry(monkeypatch, kind):
+    c = contract()
+    client = MLXXavierCache(
+        c, dict(address="directory", uid="cache", role="decode", heterogeneous=True)
+    )
+    client.decode = Mock(return_value="restored")
+    client._call = AsyncMock(
+        side_effect=lambda method, *args, **kwargs: (
+            dict(address="gpu", rank=1) if method == "wait_source" else None
+        )
+    )
+    count = {"multiple": 3, "excess": 4, "incomplete": 2}[kind]
+    pages = [bytes([i]) * c.num_layers * c.layer_nbytes for i in range(count)]
+    sender = SimpleNamespace(
+        wait_chunk=AsyncMock(
+            side_effect=lambda room, index: dict(
+                ticket=f"1:{index}", pages=[index], final=index == count - 1
+            )
+        ),
+        export_host_pages=AsyncMock(
+            side_effect=lambda room, index, start: dict(pages=[pages[index]], next=1)
+        ),
+        release_chunk=AsyncMock(),
+        abort=AsyncMock(),
+    )
+    monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=sender))
+    transfer = dict(
+        sglang_xavier=dict(
+            room=1, mode="host", address="directory", uid="cache", heterogeneous=True
+        )
+    )
+    tokens = [1] * 130
+    if kind == "multiple":
+        assert await client.fetch(tokens, transfer) == ("restored", 129)
+        client.decode.assert_called_once_with(pages, 129)
+        assert sender.wait_chunk.await_count == 3
+        client._call.assert_any_await("complete", 1, 0, 129, sum(map(len, pages)))
+        sender.abort.assert_not_awaited()
+    else:
+        with pytest.raises(ValueError, match="page count differs|Incomplete.*prefix"):
+            await client.fetch(tokens, transfer)
+        client.decode.assert_not_called()
+        assert not any(
+            call.args[0] == "complete" for call in client._call.await_args_list
+        )
+        sender.abort.assert_awaited_once_with(1)
+        client._call.assert_any_await("release", 1)
+
+
+@pytest.mark.asyncio
+async def test_host_fetch_cleanup_survives_repeated_cancel_and_source_failure(
+    monkeypatch,
+):
+    client = MLXXavierCache(
+        contract(),
+        dict(address="directory", uid="cache", role="decode", heterogeneous=True),
+    )
+    abort_started, finish_abort, released = (
+        asyncio.Event(),
+        asyncio.Event(),
+        asyncio.Event(),
+    )
+
+    async def call(method, *args, **kwargs):
+        if method == "wait_source":
+            return dict(address="gpu", rank=1)
+        if method == "release":
+            released.set()
+
+    async def abort(room):
+        abort_started.set()
+        await finish_abort.wait()
+        raise RuntimeError("source unreachable")
+
+    client._call = AsyncMock(side_effect=call)
+    sender = SimpleNamespace(
+        wait_chunk=AsyncMock(side_effect=asyncio.CancelledError()),
+        abort=AsyncMock(side_effect=abort),
+    )
+    monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=sender))
+    transfer = dict(
+        sglang_xavier=dict(
+            room=1, mode="host", address="directory", uid="cache", heterogeneous=True
+        )
+    )
+    task = asyncio.create_task(client.fetch([1, 2], transfer))
+    await asyncio.wait_for(abort_started.wait(), 2)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert not released.is_set()
+    finish_abort.set()
+    await asyncio.wait_for(released.wait(), 2)
+    client._call.assert_any_await("release", 1)
+
+
+@pytest.mark.asyncio
+async def test_host_initialize_passes_full_contract(monkeypatch):
+    c = contract()
+    client = MLXXavierCache(
+        c, dict(address="directory", uid="cache", heterogeneous=True)
+    )
+    directory = AsyncMock()
+    monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=directory))
+    await client.initialize()
+    directory.configure.assert_awaited_once_with(c.fingerprint, c.to_dict())
 
 
 @pytest.mark.asyncio
@@ -790,12 +948,13 @@ async def test_host_pd_imports_real_metal_prefix_and_records_transfer(
     )
     client = MLXXavierCache(c, cfg)
 
-    async def call(method, *args):
-        return getattr(directory, method)(*args)
+    async def call(method, *args, **kwargs):
+        result = getattr(directory, method)(*args)
+        return await result if asyncio.iscoroutine(result) else result
 
     client._call = call
     sender = SimpleNamespace(
-        chunk=AsyncMock(
+        wait_chunk=AsyncMock(
             return_value=dict(
                 ticket="123:0", pages=list(range(len(encoded))), final=True
             )
@@ -859,12 +1018,12 @@ async def test_host_pd_truncated_payload_aborts_without_local_prefill(monkeypatc
         ),
     )
     client._call = AsyncMock(
-        side_effect=lambda method, *args: (
-            dict(address="gpu", rank=1) if method == "source" else None
+        side_effect=lambda method, *args, **kwargs: (
+            dict(address="gpu", rank=1) if method == "wait_source" else None
         )
     )
     sender = SimpleNamespace(
-        chunk=AsyncMock(return_value=dict(ticket="123:0", pages=[1], final=True)),
+        wait_chunk=AsyncMock(return_value=dict(ticket="123:0", pages=[1], final=True)),
         export_host_pages=AsyncMock(return_value=dict(pages=[b"truncated"], next=1)),
         release_chunk=AsyncMock(),
         abort=AsyncMock(),

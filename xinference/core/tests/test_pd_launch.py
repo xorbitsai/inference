@@ -910,10 +910,15 @@ async def test_nvidia_mlx_launch_uses_worker_local_assets(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
-async def test_mlx_prefill_to_nvidia_owns_worker_local_source(launch_runtime, engine):
+@pytest.mark.parametrize("capacity", [None, 123456])
+async def test_mlx_prefill_to_nvidia_owns_worker_local_source(
+    launch_runtime, engine, capacity
+):
     supervisor, workers, actors, destroy = launch_runtime
     kwargs = launch_kwargs()
     kwargs["model_engine"] = engine
+    if capacity is not None:
+        kwargs["xavier_cache_bytes"] = capacity
     kwargs["replica_config"][0].model_engine = "MLX"
     kwargs["replica_config"][0].engine_config = {
         "model_path": "/mac/model",
@@ -923,6 +928,8 @@ async def test_mlx_prefill_to_nvidia_owns_worker_local_source(launch_runtime, en
     assert set(actors) == {"XavierPDDirectory", "XavierHostPDSource", "PDModelActor"}
     source = actors["XavierHostPDSource"]
     assert source.address == workers[0].address
+    assert source.constructor_kwargs["capacity_bytes"] == (capacity or 512 * 1024**2)
+    assert actors["PDModelActor"].constructor_kwargs["mlx_prefill"] is True
     config = workers[0].launch_builtin_model.call_args.kwargs["_xavier_cache_config"]
     assert config["source_address"] == source.address
     assert config["source_uid"] == source.uid
@@ -944,6 +951,49 @@ async def test_failed_mlx_prefill_launch_destroys_host_source(launch_runtime):
     assert not supervisor._xavier_source_mapping
     assert actors["XavierHostPDSource"] in [c.args[0] for c in destroy.await_args_list]
     assert not supervisor._workers_launching
+
+
+@pytest.mark.asyncio
+async def test_unreachable_host_source_does_not_stall_cache_cleanup(
+    launch_runtime, monkeypatch, caplog
+):
+    supervisor, _, actors, destroy = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {"model_format": "mlx"}
+    await supervisor.launch_builtin_model(**kwargs)
+
+    async def wait_for(coroutine, timeout):
+        assert timeout == 5
+        coroutine.close()
+        raise asyncio.TimeoutError("worker unreachable")
+
+    bounded = AsyncMock(side_effect=wait_for)
+    monkeypatch.setattr("xinference.core.supervisor.xo.wait_for", bounded)
+    await supervisor._cleanup_distributed_actors("pd")
+    bounded.assert_awaited_once()
+    assert (
+        not supervisor._xavier_source_mapping and not supervisor._xavier_cache_mapping
+    )
+    destroy.assert_any_await(actors["XavierPDDirectory"])
+    assert "Destroy Xavier host source failed" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capacity", [0, -1, True, "512"])
+async def test_mlx_prefill_invalid_capacity_rejected_before_launch(
+    launch_runtime, capacity
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].model_engine = "MLX"
+    kwargs["replica_config"][0].engine_config = {"model_format": "mlx"}
+    kwargs["xavier_cache_bytes"] = capacity
+    with pytest.raises(ValueError, match="xavier_cache_bytes"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
 
 
 @pytest.mark.asyncio

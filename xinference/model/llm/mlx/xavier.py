@@ -14,6 +14,7 @@ import numpy as np
 import xoscar as xo
 
 from ....constants import XINFERENCE_CACHE_DIR
+from ..xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from ..xavier.contract import (
     KVCacheContract,
     build_prefix_keys,
@@ -162,7 +163,9 @@ class MLXXavierCache:
             )
         if not self._configured:
             if self.config.get("heterogeneous"):
-                await self._ref.configure(self.contract.fingerprint)
+                await self._ref.configure(
+                    self.contract.fingerprint, self.contract.to_dict()
+                )
             else:
                 metadata = await self._ref.configure(self.contract.to_dict())
                 self._capacity_pages = min(
@@ -173,12 +176,12 @@ class MLXXavierCache:
     async def initialize(self):
         await asyncio.wait_for(self._ensure_configured(), timeout=30)
 
-    async def _call(self, method, *args):
+    async def _call(self, method, *args, timeout=30):
         async def invoke():
             await self._ensure_configured()
             return await getattr(self._ref, method)(*args)
 
-        return await asyncio.wait_for(invoke(), timeout=30)
+        return await asyncio.wait_for(invoke(), timeout=timeout)
 
     def keys(self, tokens):
         keys = [key.digest for key in build_prefix_keys(self.contract, tokens)]
@@ -314,21 +317,43 @@ class MLXXavierCache:
         except Exception:
             logger.warning("MLX Xavier handoff release failed", exc_info=True)
 
-    async def _fetch_host(self, tokens, transfer):
-        from ..sglang.xavier.settings import transfer_timeout
-
+    def _host_room(self, tokens, transfer, role):
         handoff = (transfer or {}).get("sglang_xavier")
         if (
-            self.role != "decode"
+            self.role != role
             or not tokens
             or not isinstance(handoff, dict)
             or handoff.get("mode") != "host"
             or not handoff.get("heterogeneous")
             or handoff.get("address") != self.config["address"]
             or handoff.get("uid") != self.config["uid"]
+            or type(handoff.get("room")) is not int
+            or not 0 < handoff["room"] < 2**63
         ):
-            raise ValueError("Incompatible cross-engine MLX host handoff")
-        room = handoff["room"]
+            raise ValueError(f"Incompatible cross-engine MLX {role} host handoff")
+        return handoff["room"]
+
+    async def _cleanup_host(self, room, source):
+        async def cleanup():
+            try:
+                if source is not None:
+                    await source.abort(room)
+            except Exception:
+                logger.warning("Cross-engine source cleanup failed", exc_info=True)
+            finally:
+                try:
+                    await self._call("release", room)
+                except Exception:
+                    logger.warning(
+                        "Cross-engine directory release failed", exc_info=True
+                    )
+
+        await asyncio.shield(cleanup())
+
+    async def _fetch_host(self, tokens, transfer):
+        from ..sglang.xavier.settings import transfer_timeout
+
+        room = self._host_room(tokens, transfer, "decode")
         sender = None
         try:
             await self._call(
@@ -348,15 +373,13 @@ class MLXXavierCache:
                     call, timeout=max(0, deadline - time.monotonic())
                 )
 
-            source = None
-            while source is None:
-                source = await rpc(self._call("source", room))
-                if source is None:
-                    await asyncio.sleep(0.005)
+            source = await rpc(
+                self._call("wait_source", room, timeout=transfer_timeout())
+            )
             sender = await rpc(
                 xo.actor_ref(
                     address=source["address"],
-                    uid=f"xavier-cross-engine-transfer-{source['rank']}",
+                    uid=f"{CROSS_ENGINE_TRANSFER_ACTOR_UID}-{source['rank']}",
                 )
             )
             pages, index, nbytes = [], 0, 0
@@ -364,10 +387,7 @@ class MLXXavierCache:
                 len(tokens) + self.contract.block_size - 1
             ) // self.contract.block_size
             while True:
-                chunk = await rpc(sender.chunk(room, index))
-                if chunk is None:
-                    await asyncio.sleep(0.005)
-                    continue
+                chunk = await rpc(sender.wait_chunk(room, index))
                 start = 0
                 while start < len(chunk["pages"]):
                     result = await rpc(sender.export_host_pages(room, index, start))
@@ -402,12 +422,7 @@ class MLXXavierCache:
             await self._call("release", room, "decode")
             return cache, length
         except BaseException:
-            if sender is not None:
-                try:
-                    await sender.abort(room)
-                except Exception:
-                    logger.warning("Cross-engine source cleanup failed", exc_info=True)
-            await self._call("release", room)
+            await self._cleanup_host(room, sender)
             raise
 
     def publish(self, cache, tokens, cached_tokens=0):
@@ -455,18 +470,7 @@ class MLXXavierCache:
 
         from ..sglang.xavier.settings import transfer_timeout
 
-        handoff = (transfer or {}).get("sglang_xavier")
-        if (
-            self.role != "prefill"
-            or not tokens
-            or not isinstance(handoff, dict)
-            or handoff.get("mode") != "host"
-            or not handoff.get("heterogeneous")
-            or handoff.get("address") != self.config["address"]
-            or handoff.get("uid") != self.config["uid"]
-        ):
-            raise ValueError("Incompatible cross-engine MLX prefill handoff")
-        room = handoff["room"]
+        room = self._host_room(tokens, transfer, "prefill")
         source = None
         try:
             await self._call(
@@ -478,6 +482,13 @@ class MLXXavierCache:
                 self.config["rank"],
                 transfer_timeout(),
                 len(tokens),
+            )
+            source = await xo.actor_ref(
+                address=self.config["source_address"], uid=self.config["source_uid"]
+            )
+            await asyncio.wait_for(
+                source.reserve(room, self.contract.to_dict(), len(tokens)),
+                timeout=transfer_timeout(),
             )
             batch = PromptProcessingBatch(
                 model, [0], [make_prompt_cache(model)], prefill_step_size=2048
@@ -508,28 +519,18 @@ class MLXXavierCache:
             )
             first_token = int(sampler(logprobs).item())
             pages = self.encode(batch.extract_cache(0), tokens)
-            source = await xo.actor_ref(
-                address=self.config["source_address"], uid=self.config["source_uid"]
-            )
             await source.publish(
                 room, self.contract.to_dict(), pages, first_token, len(tokens)
             )
             # CPU ownership now belongs to the source actor. Native engine slots
             # may only be committed after the consumer completes its import.
             del pages, batch
-            deadline = time.monotonic() + transfer_timeout()
-            while not await self._call("check", room):
-                await self._call("request_info", room)
-                if time.monotonic() > deadline:
-                    raise TimeoutError("Cross-engine MLX prefill handoff timed out")
-                await asyncio.sleep(0.005)
+            await self._call("wait_complete", room, timeout=transfer_timeout())
             await source.release(room)
             await self._call("release", room, "prefill")
             return dict(transfer)
         except BaseException:
-            if source is not None:
-                await asyncio.shield(source.abort(room))
-            await asyncio.shield(self._call("release", room))
+            await self._cleanup_host(room, source)
             raise
 
     async def prefill(

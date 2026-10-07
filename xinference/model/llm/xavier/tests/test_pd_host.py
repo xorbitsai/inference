@@ -61,21 +61,172 @@ async def test_host_source_budget_expiry_and_direct_peer(kv_contract):
     actor = XavierHostPDSource(directory, 1, capacity_bytes=size * 2)
     actor.address, actor.uid = "mac:1234", "source"
     pages = [b"a" * size, b"b" * size]
+    await actor.reserve(1, c.to_dict(), c.block_size + 1)
     await actor.publish(1, c.to_dict(), pages, 7, c.block_size + 1)
     directory.publish_source.assert_awaited_once_with(
         1, dict(address="mac:1234", uid="source", rank=1, transport="host")
     )
-    with pytest.raises(RuntimeError, match="budget"):
-        await actor.publish(2, c.to_dict(), pages, 7, c.block_size + 1)
+    waiting = asyncio.create_task(actor.reserve(2, c.to_dict(), c.block_size + 1))
+    await asyncio.sleep(0)
+    assert not waiting.done()
     reply = actor.read(1)
     actor.abort(1)
     assert reply["pages"] == tuple(pages)  # In-flight immutable RPC stays valid.
     assert actor.get_stats()["active_bytes"] == 0
+    await waiting
     await actor.publish(2, c.to_dict(), pages, 7, c.block_size + 1)
     actor.rooms[2]["deadline"] = 0
     with pytest.raises(RuntimeError, match="expired"):
         actor.read(2)
     assert not actor.rooms and actor.active_bytes == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["token", "page", "count", "contract", "publish"])
+async def test_host_source_publish_failure_rolls_back_reservation(kv_contract, failure):
+    c = kv_contract
+    size = c.layer_nbytes * c.num_layers
+    directory = AsyncMock()
+    directory.request_info.return_value = dict(prompt_tokens=1)
+    actor = XavierHostPDSource(directory, 1, capacity_bytes=size)
+    actor.address, actor.uid = "mac", "source"
+    await actor.reserve(1, c.to_dict(), 1)
+    metadata, pages, token = c.to_dict(), [b"a" * size], 7
+    if failure == "token":
+        token = -1
+    elif failure == "page":
+        pages = [b"short"]
+    elif failure == "count":
+        pages = []
+    elif failure == "contract":
+        metadata["weights_fingerprint"] = "1" * 64
+    else:
+        directory.publish_source.side_effect = RuntimeError("publish failed")
+    with pytest.raises((ValueError, RuntimeError)):
+        await actor.publish(1, metadata, pages, token, 1)
+    assert not actor.rooms and actor.active_bytes == 0
+    await actor.reserve(2, c.to_dict(), 1)
+    assert actor.active_bytes == size
+    actor.abort(2)
+
+
+@pytest.mark.asyncio
+async def test_host_source_rejects_oversize_before_admission_and_preserves_duplicates(
+    kv_contract,
+):
+    c = kv_contract
+    size = c.layer_nbytes * c.num_layers
+    directory = AsyncMock()
+    directory.request_info.return_value = dict(prompt_tokens=1)
+    actor = XavierHostPDSource(directory, 1, capacity_bytes=size)
+    actor.address, actor.uid = "mac", "source"
+    with pytest.raises(ValueError, match="byte budget"):
+        await actor.reserve(1, c.to_dict(), c.block_size + 1)
+    directory.configure.assert_not_awaited()
+    assert not actor.rooms and actor.active_bytes == 0
+    await actor.reserve(1, c.to_dict(), 1)
+    await actor.publish(1, c.to_dict(), [b"a" * size], 7, 1)
+    with pytest.raises(ValueError, match="Duplicate"):
+        await actor.publish(1, c.to_dict(), [b"a" * size], 7, 1)
+    assert actor.read(1)["first_token"] == 7
+    directory.configure.assert_awaited_once_with(c.fingerprint, c.to_dict())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancel", ["task", "abort", "timeout", "expire"])
+async def test_host_capacity_wait_is_bounded_and_cancellable(
+    kv_contract, monkeypatch, cancel
+):
+    c = kv_contract
+    size = c.layer_nbytes * c.num_layers
+    directory = AsyncMock()
+    directory.request_info.return_value = dict(prompt_tokens=1)
+    actor = XavierHostPDSource(directory, 1, capacity_bytes=size)
+    await actor.reserve(1, c.to_dict(), 1)
+    if cancel in ("timeout", "expire"):
+        monkeypatch.setenv("XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT", "0.1")
+    waiting = asyncio.create_task(actor.reserve(2, c.to_dict(), 1))
+    while 2 not in actor._waiting:
+        await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    if cancel == "task":
+        waiting.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiting
+    elif cancel == "abort":
+        actor.abort(2)
+        with pytest.raises(RuntimeError, match="cancelled"):
+            await waiting
+    elif cancel == "timeout":
+        with pytest.raises(TimeoutError, match="capacity wait"):
+            await waiting
+    else:
+        actor.rooms[1]["deadline"] = 0
+        actor._capacity_changed.set()
+        await waiting
+        assert list(actor.rooms) == [2]
+        actor.abort(2)
+    assert not actor._waiting
+    actor.abort(1)
+    assert actor.active_bytes == 0
+
+
+@pytest.mark.asyncio
+async def test_host_capacity_wait_allows_release_rpc(kv_contract):
+    import xoscar as xo
+
+    from ...sglang.xavier.directory import XavierPDDirectory
+
+    c = kv_contract
+    size = c.layer_nbytes * c.num_layers
+    pool = await xo.create_actor_pool("127.0.0.1:0", n_process=0)
+    async with pool:
+        directory = await xo.create_actor(
+            XavierPDDirectory, address=pool.external_address
+        )
+        await directory.configure(c.fingerprint, c.to_dict())
+        for room in (1, 2):
+            await directory.prepare(
+                room, c.fingerprint, str(room), "prefill", prompt_tokens=1
+            )
+        actor = await xo.create_actor(
+            XavierHostPDSource, directory, 1, size, address=pool.external_address
+        )
+        await actor.reserve(1, c.to_dict(), 1)
+        await actor.publish(1, c.to_dict(), [b"a" * size], 7, 1)
+        waiting = asyncio.create_task(actor.reserve(2, c.to_dict(), 1))
+        await asyncio.sleep(0.05)
+        assert not waiting.done()
+        await asyncio.wait_for(actor.release(1), 2)
+        await asyncio.wait_for(waiting, 2)
+        assert (await actor.get_stats())["active_bytes"] == size
+        await actor.abort(2)
+        assert (await actor.get_stats())["active_bytes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_host_export_reads_prompt_once_outside_send_lock(kv_contract):
+    actor = source(kv_contract)
+    await actor.open(1)
+    actor.rooms[1]["chunks"].append(dict(ticket="1:0", pages=[1, 2], final=True))
+    state = SimpleNamespace(
+        reading=False,
+        claimed=False,
+        released=False,
+        layer_blocks={str(i): {1, 2} for i in range(4)},
+    )
+    actor.transfer = SimpleNamespace(
+        send_lock=asyncio.Lock(), _live_direct=Mock(return_value=state), metrics={}
+    )
+
+    async def request_info(room):
+        assert not actor.transfer.send_lock.locked()
+        return dict(prompt_tokens=65)
+
+    actor.directory.request_info.side_effect = request_info
+    await actor.export_host_pages(1, 0, 0)
+    await actor.export_host_pages(1, 0, 1)
+    actor.directory.request_info.assert_awaited_once_with(1)
 
 
 def test_host_import_preserves_destination_physical_order(kv_contract):
