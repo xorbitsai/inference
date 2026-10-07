@@ -79,7 +79,9 @@ class SGLangXavierHandoff:
     async def _renew_completed(self, room):
         # Completed records are needed by non-streaming decode after generation.
         # Keep them while D is alive; lost cleanup/router processes remain bounded.
-        while True:
+        # release() removes the owner before cancelling. Python 3.10 wait_for
+        # can swallow that cancellation when the RPC has just completed.
+        while self._lease_tasks.get(room) is asyncio.current_task():
             await asyncio.sleep(min(60, transfer_timeout() / 3))
             try:
                 if not await self._call("renew_completed", room):

@@ -376,6 +376,7 @@ jobs:
               --ignore xinference/model/llm/mlx \
               xinference
             run_pytest \
+              -vv \
               benchmark/tests/test_benchmark_pd.py \
               benchmark/tests/test_benchmark_sglang_pd.py \
               benchmark/tests/test_analyze_pd_profile.py \

@@ -563,6 +563,61 @@ async def test_decode_renews_completed_lease_and_stops_on_release(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failed", [False, True])
+async def test_release_finishes_when_renewal_rpc_swallows_cancellation(
+    monkeypatch, failed
+):
+    from ..xavier.settings import TRANSFER_TIMEOUT_ENV
+
+    monkeypatch.setenv(TRANSFER_TIMEOUT_ENV, "0.03")
+    handoff = fingerprint_handoff()
+    entered = asyncio.Event()
+
+    async def renew(room):
+        entered.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            # Model Python 3.10 wait_for returning the completed RPC's result
+            # or exception instead of propagating the caller's cancellation.
+            if failed:
+                raise RuntimeError("RPC completed while cancelling")
+            return True
+
+    handoff._directory_actor.renew_completed = AsyncMock(side_effect=renew)
+    handoff._directory_actor.release = AsyncMock()
+    original_call = handoff._call
+
+    async def call(method, *args, **kwargs):
+        if method == "renew_completed":
+            return await handoff._directory_actor.renew_completed(*args)
+        return await original_call(method, *args, **kwargs)
+
+    monkeypatch.setattr(handoff, "_call", call)
+    accepted = await handoff.accept(
+        "prompt", config("decode")["_pd_kv_transfer_params"]
+    )
+    task = handoff._lease_tasks[123]
+    releasing = None
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        releasing = asyncio.create_task(handoff.release(accepted))
+        done, _ = await asyncio.wait([releasing], timeout=1)
+        assert releasing in done
+        await releasing
+        assert task.done() and not handoff._lease_tasks
+        handoff._directory_actor.renew_completed.assert_awaited_once_with(123)
+        handoff._directory_actor.release.assert_awaited_once_with(123, "decode")
+    finally:
+        handoff._directory_actor.renew_completed.side_effect = None
+        handoff._directory_actor.renew_completed.return_value = False
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        if releasing is not None:
+            await asyncio.gather(releasing, return_exceptions=True)
+
+
+@pytest.mark.asyncio
 async def test_unconsumed_stream_reserves_no_request_or_directory_room(deployment):
     directory, _, decode = deployment
     stream = await decode.async_generate("prompt", config("decode", stream=True))
