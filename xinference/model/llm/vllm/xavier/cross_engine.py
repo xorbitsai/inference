@@ -68,6 +68,7 @@ class CrossEngineMetadata(KVConnectorMetadata):
     direct_store: bool = False
     loads: list[tuple[str, int, list[int]]] = field(default_factory=list)
     errors: dict[str, str] = field(default_factory=dict)
+    pending_aborts: dict[str, int] = field(default_factory=dict)
 
 
 class CrossEngineConnector(XavierConnector):
@@ -84,7 +85,6 @@ class CrossEngineConnector(XavierConnector):
         self._directory = None
         self._cross_requests = {}
         self._cross_allocated = {}
-        self._prepared = set()
         self._cross_prepare_errors = {}
         self._pending_aborts = {}
 
@@ -203,9 +203,12 @@ class CrossEngineConnector(XavierConnector):
 
     def build_connector_meta(self, scheduler_output):
         meta = CrossEngineMetadata(
-            self._direct_sends, bool(scheduler_output.num_scheduled_tokens)
+            self._direct_sends,
+            bool(scheduler_output.num_scheduled_tokens),
+            pending_aborts=self._pending_aborts,
         )
         self._direct_sends = set()
+        self._pending_aborts = {}
         for request_id, (room, destinations) in self._cross_allocated.items():
             meta.loads.append((request_id, room, destinations))
             if request_id in self._cross_prepare_errors:
@@ -216,6 +219,7 @@ class CrossEngineConnector(XavierConnector):
     def start_load_kv(self, forward_context, **kwargs):
         meta = self._get_connector_metadata()
         self._direct_sends.update(meta.direct_sends)
+        self._pending_aborts.update(meta.pending_aborts)
         for request_id, room, destinations in meta.loads:
 
             async def submit(
@@ -226,8 +230,11 @@ class CrossEngineConnector(XavierConnector):
                         if request_id in meta.errors:
                             raise ValueError(meta.errors[request_id])
                         actor = await self._ensure_gpu_cache_mapping()
-                        return await self._receive_pages(actor, room, destinations)
+                        return await actor.receive(room, destinations, 0)
                     except Exception:
+                        # The actor fences writes before returning an error.
+                        # Report it per request; raising here kills EngineCore.
+                        # kv_load_failure_policy=fail prevents local prefill.
                         logger.warning(
                             "Cross-engine KV load submission failed", exc_info=True
                         )
@@ -237,19 +244,6 @@ class CrossEngineConnector(XavierConnector):
                 self._gpu_load_jobs[task] = [request_id]
 
             self._call(submit())
-
-    async def _receive_pages(self, actor, room, destinations):
-        try:
-            return await actor.receive(room, destinations, 0)
-        except Exception:
-            # The transfer actor fences writes before reporting an error. Return
-            # load errors through vLLM's per-request callback, including after an
-            # abort removes the room. Raising from get_finished kills EngineCore.
-            # kv_load_failure_policy=fail prevents fallback to local prefill.
-            logger.warning(
-                "Cross-engine KV load failed for room %s", room, exc_info=True
-            )
-            return set(destinations)
 
     def save_kv_layer(self, layer_name, kv_layer, attn_metadata, **kwargs):
         pass
@@ -302,12 +296,10 @@ class CrossEngineConnector(XavierConnector):
                         self._pending_aborts[request.request_id] = room
                 return hold, {"xavier_error": str(error)}
             self._direct_sends.add(request.request_id)
-            self._prepared.discard(request.request_id)
             return True, dict(
                 do_remote_prefill=True,
                 sglang_xavier=request.kv_transfer_params["sglang_xavier"],
             )
-        self._prepared.discard(request.request_id)
         return False, None
 
     def get_finished(self, finished_req_ids):
@@ -324,6 +316,8 @@ class CrossEngineConnector(XavierConnector):
                 self._pending_aborts.pop(request_id)
         try:
             sent, received = super().get_finished(finished_req_ids)
+            for request_id in sent:
+                self._pending_aborts.pop(request_id, None)
             return drained | sent, received
         except Exception:
             # Preserve pinned requests for a retry if the actor RPC is unavailable.

@@ -231,6 +231,8 @@ async def test_cross_engine_cancel_drains_source_before_directory_release(
         {"prompt_logprobs": 0},
         {"guided_choice": ["yes", "no"]},
         {"json_schema": {"type": "object"}},
+        {"response_format": {"type": "json_object"}},
+        {"response_format": {"type": "json_schema", "json_schema": {"schema": {}}}},
         {"return_logprob": True},
     ],
 )

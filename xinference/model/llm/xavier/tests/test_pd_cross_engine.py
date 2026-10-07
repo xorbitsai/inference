@@ -157,14 +157,27 @@ async def test_late_source_publication_does_not_leak_a_room():
 
 
 @pytest.mark.asyncio
-async def test_aborted_source_cannot_register_late_gpu_chunks():
-    actor = CrossEngineGPUActor(None, None, None, "namespace", 1)
-    actor.rooms[123] = {"aborted": True}
+async def test_aborted_source_cannot_register_late_gpu_chunks(kv_contract):
+    actor = cpu_actor(kv_contract, AsyncMock(), 1)
+    await actor.open(123)
+    actor.init(123, 3, 0)
+    await actor.add_chunk(123, [1])
+    await actor.abort(123)
+    assert not actor.rooms
     with pytest.raises(RuntimeError, match="cancelled"):
         actor.init(123, 3, 0)
     with pytest.raises(RuntimeError, match="cancelled"):
         await actor.add_chunk(123, [1, 2, 3])
-    assert actor.rooms[123] == {"aborted": True}
+    with pytest.raises(RuntimeError, match="cancelled"):
+        actor.done(123)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        actor.chunk(123, 0)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        await actor.wait_chunk(123, 0)
+    with pytest.raises(RuntimeError, match="cancelled"):
+        await actor.wait_done(123)
+    assert not actor.rooms
+    actor.transfer.register_direct.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -188,8 +201,9 @@ async def test_bootstrap_abort_clears_room_and_wakes_existing_waiter():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("prompt_tokens", [64, 65, 128, 129, 193])
 @pytest.mark.parametrize("split_final", [False, True])
+@pytest.mark.parametrize("full_allocation", [False, True])
 async def test_vllm_imports_only_allocated_prefix_pages(
-    kv_contract, monkeypatch, prompt_tokens, split_final
+    kv_contract, monkeypatch, prompt_tokens, split_final, full_allocation
 ):
     directory = AsyncMock()
     directory.request_info.return_value = dict(prompt_tokens=prompt_tokens)
@@ -200,7 +214,8 @@ async def test_vllm_imports_only_allocated_prefix_pages(
     target_count = (prompt_tokens - 1 + 63) // 64
     source.caches = {"K": torch.arange(7 * 64, dtype=torch.float16).reshape(7, 64)}
     destination.caches = {"K": torch.zeros(7, 64, dtype=torch.float16)}
-    pages, targets = [5, 1, 3, 0][:source_count], [2, 6, 4, 0][:target_count]
+    allocated_count = source_count if full_allocation else target_count
+    pages, targets = [5, 1, 3, 0][:source_count], [2, 6, 4, 0][:allocated_count]
     await source.open(123)
     source.init(123, len(pages), 0)
     if split_final and len(pages) > 1:
@@ -227,8 +242,10 @@ async def test_vllm_imports_only_allocated_prefix_pages(
     destination.transfer.load_direct, destination.transfer.run = load, run
     assert await destination.receive(123, targets, 0) == set()
     assert torch.equal(
-        destination.caches["K"][targets], source.caches["K"][pages[:target_count]]
+        destination.caches["K"][targets[:target_count]],
+        source.caches["K"][pages[:target_count]],
     )
+    assert (destination.caches["K"][targets[target_count:]] == 0).all()
     assert source.rooms[123]["completed"].is_set()
     assert source.transfer.release_direct.call_count == len(source.rooms[123]["chunks"])
     directory.complete.assert_awaited_once_with(

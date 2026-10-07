@@ -23,10 +23,12 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("producer", ["vllm", "sglang"])
+@pytest.mark.parametrize(
+    "producer,full_allocation", [("vllm", False), ("sglang", False), ("sglang", True)]
+)
 @pytest.mark.parametrize("prompt_tokens", [65, 129, 193])
 async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
-    kv_contract, producer, prompt_tokens
+    kv_contract, producer, full_allocation, prompt_tokens
 ):
     from torch.multiprocessing.reductions import reduce_tensor
     from xoscar.backends.allocate_strategy import ProcessIndex
@@ -98,10 +100,11 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         target_count = (
             source_count if producer == "vllm" else (prompt_tokens - 1 + 63) // 64
         )
+        allocated_count = source_count if full_allocation else target_count
         room, source, destination = (
             123,
             [5, 1, 3, 0][:source_count],
-            [2, 6, 4, 0][:target_count],
+            [2, 6, 4, 0][:allocated_count],
         )
         for rank, role in enumerate(("prefill", "decode"), 1):
             await directory.prepare(
@@ -134,8 +137,10 @@ async def test_gpu_pages_survive_cross_engine_layouts_bitwise(
         }
         for key, original in views[0].items():
             assert torch.equal(
-                original[source[:target_count]].cpu(), views[1][key][destination].cpu()
+                original[source[:target_count]].cpu(),
+                views[1][key][destination[:target_count]].cpu(),
             )
+            assert views[1][key][destination[target_count:]].count_nonzero().item() == 0
         stats = await directory.get_stats()
         assert (
             stats["imported_tokens"]

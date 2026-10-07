@@ -796,6 +796,9 @@ async def test_cross_engine_mlx_is_rejected_before_allocating_actors(
         "model_engine",
         "xavier_config",
         "n_gpu",
+        "n_worker",
+        "shard",
+        "driver_info",
         "gpu_idx",
         "envs",
         "_xavier_cache_config",
@@ -842,3 +845,32 @@ async def test_cross_engine_rejects_native_transport_before_launch(launch_runtim
     assert not actors
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "options,error",
+    [
+        ({"model_format": "ggufv2"}, "unquantized PyTorch"),
+        ({"model_format": "mlx"}, "unquantized PyTorch"),
+        ({"quantization": "4bit"}, "unquantized PyTorch"),
+        ({"n_worker": 2}, "n_worker"),
+        ({"xavier_gpu_cache_bytes": 1024}, "retained GPU history"),
+        ({"xavier_cache_bytes": 1024}, "xavier_cache_bytes requires"),
+    ],
+)
+async def test_cross_engine_invalid_launch_has_no_side_effects(
+    launch_runtime, options, error
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][1].model_engine = "SGLang"
+    kwargs.update(options)
+    with pytest.raises(ValueError, match=error):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    assert not supervisor._xavier_cache_mapping and not supervisor._pd_model_mapping
+    supervisor._status_guard_ref.update_replica_status.assert_not_awaited()
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.wait_for_load.assert_not_awaited()

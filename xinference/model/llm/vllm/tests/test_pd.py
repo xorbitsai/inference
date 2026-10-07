@@ -12,6 +12,20 @@ from ..pd import configure_nixl_engine, configure_nixl_environment
 from ..xavier.transport import normalize_xavier_transport_backend
 
 
+@pytest.mark.parametrize("heterogeneous", [False, True])
+def test_set_xavier_config_preserves_only_heterogeneous_launch_config(heterogeneous):
+    from ..core import VLLMModel
+
+    model = VLLMModel.__new__(VLLMModel)
+    configured = {"heterogeneous": heterogeneous, "role": "prefill"}
+    model._xavier_config = configured
+    model.set_xavier_config(None)
+    assert model._xavier_config == (configured if heterogeneous else None)
+    replacement = {"rank": 2}
+    model.set_xavier_config(replacement)
+    assert model._xavier_config is replacement
+
+
 def test_nixl_engine_config(monkeypatch):
     monkeypatch.setitem(
         sys.modules, "vllm.config", SimpleNamespace(KVTransferConfig=SimpleNamespace)

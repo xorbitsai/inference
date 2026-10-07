@@ -200,16 +200,18 @@ class CrossEngineGPUActor(xo.StatelessActor):
                     )
         return finished
 
-    def init(self, room, count, aux_index):
-        state = self.rooms[room]
-        if state.get("aborted"):
+    def _producer_state(self, room):
+        state = self.rooms.get(room)
+        if state is None:
             raise RuntimeError("Cross-engine producer was cancelled")
+        return state
+
+    def init(self, room, count, aux_index):
+        state = self._producer_state(room)
         state.update(total=count, aux_index=aux_index)
 
     async def add_chunk(self, room, pages, aux_payload: list[bytes] | None = None):
-        state = self.rooms[room]
-        if state.get("aborted"):
-            raise RuntimeError("Cross-engine producer was cancelled")
+        state = self._producer_state(room)
         state["sent"] += len(pages)
         state["deadline"] = time.monotonic() + transfer_timeout()
         final = state["sent"] == state["total"]
@@ -235,13 +237,11 @@ class CrossEngineGPUActor(xo.StatelessActor):
         state["changed"].set()
 
     def chunk(self, room, index):
-        state = self.rooms.get(room)
-        if state is None or state.get("aborted"):
-            raise RuntimeError("SGLang Xavier producer was cancelled")
+        state = self._producer_state(room)
         return state["chunks"][index] if index < len(state["chunks"]) else None
 
     async def wait_chunk(self, room, index):
-        state = self.rooms[room]
+        state = self._producer_state(room)
         state["changed"].clear()
         chunk = self.chunk(room, index)
         while chunk is None:
@@ -290,13 +290,13 @@ class CrossEngineGPUActor(xo.StatelessActor):
 
     def done(self, room):
         self.transfer.poll_direct()
-        state = self.rooms[room]
+        state = self._producer_state(room)
         return state["sent"] == state["total"] and len(state["released"]) == len(
             state["chunks"]
         )
 
     async def wait_done(self, room):
-        state = self.rooms[room]
+        state = self._producer_state(room)
         while not state["completed"].is_set():
             deadline = state["deadline"]
             try:

@@ -3,6 +3,7 @@
 import asyncio
 import importlib.util
 import json
+import pickle
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -36,7 +37,6 @@ def decode(cross_module, tokens):
     instance._cross_allocated = {}
     instance._direct_sends = set()
     instance._direct_handoff = True
-    instance._prepared = set()
     instance._cross_prepare_errors = {}
     instance._pending_aborts = {}
     instance._call = lambda coro: coro
@@ -49,13 +49,15 @@ def decode(cross_module, tokens):
     return instance, request
 
 
-def test_vllm_decode_reuses_all_but_final_prompt_token(cross_module):
+@pytest.mark.parametrize("allocated_pages", [3, 4])
+def test_vllm_decode_reuses_all_but_final_prompt_token(cross_module, allocated_pages):
     instance, request = decode(cross_module, list(range(193)))
     assert instance.get_num_new_matched_tokens(request, 0) == (192, True)
-    blocks = SimpleNamespace(get_block_ids=lambda: ([9, 5, 7],))
+    destinations = [9, 5, 7, 8][:allocated_pages]
+    blocks = SimpleNamespace(get_block_ids=lambda: (destinations,))
     instance.update_state_after_alloc(request, blocks, 192)
     meta = instance.build_connector_meta(SimpleNamespace(num_scheduled_tokens={}))
-    assert meta.loads == [("r", 123, [9, 5, 7])]
+    assert meta.loads == [("r", 123, destinations)]
     assert request.kv_transfer_params["do_remote_prefill"] is False
     assert instance.get_num_new_matched_tokens(request, 0) == (0, False)
     # Preemption subsequently recomputes locally; the consumed room is single-use.
@@ -73,7 +75,6 @@ async def test_cross_prepare_checks_actual_token_ids_once(cross_module):
     instance = cross_module.CrossEngineConnector.__new__(
         cross_module.CrossEngineConnector
     )
-    instance._prepared = set()
     instance.contract = SimpleNamespace(fingerprint="a" * 64)
     instance._xavier_config = dict(role="decode", rank=1)
     directory = AsyncMock()
@@ -122,20 +123,31 @@ async def test_failed_load_reports_all_blocks_without_crashing_vllm(
     instance, _ = decode(cross_module, list(range(193)))
     instance._loop = object()
     instance._invalid_block_ids = set()
-    instance._call = lambda coro: coro.close()
     actor = AsyncMock()
     actor.receive.side_effect = error
-    task = asyncio.create_task(instance._receive_pages(actor, 123, [9, 5, 7, 8]))
-    instance._gpu_load_jobs = {task: ["r"]}
-    await task
+    instance._ensure_gpu_cache_mapping = AsyncMock(return_value=actor)
+    instance._gpu_load_jobs = {}
+
+    async def load(request_id, room, destinations):
+        meta = cross_module.CrossEngineMetadata(
+            loads=[(request_id, room, destinations)]
+        )
+        instance._get_connector_metadata = lambda: meta
+        coroutines = []
+        instance._call = coroutines.append
+        instance.start_load_kv(None)
+        for coroutine in coroutines:
+            await coroutine
+        await asyncio.gather(*instance._gpu_load_jobs)
+        instance._call = lambda coro: coro.close()
+
+    await load("r", 123, [9, 5, 7, 8])
     assert instance.get_finished(set()) == (set(), {"r"})
     assert instance.get_block_ids_with_load_errors() == {9, 5, 7, 8}
     assert not instance._gpu_load_jobs
     actor.receive.side_effect = None
     actor.receive.return_value = set()
-    task = asyncio.create_task(instance._receive_pages(actor, 124, [1, 2]))
-    instance._gpu_load_jobs = {task: ["next"]}
-    await task
+    await load("next", 124, [1, 2])
     assert instance.get_finished(set()) == (set(), {"next"})
     assert instance.get_block_ids_with_load_errors() == set()
 
@@ -198,11 +210,49 @@ def test_producer_registration_failure_is_drained_without_engine_exception(
     hold, metadata = instance.request_finished(request, [9])
     assert hold and metadata["xavier_error"] == "reply lost"
     assert instance._pending_aborts == {"r": 123}
-    instance._direct_handoff = False
-    instance._gpu_load_jobs = {}
-    actor.abort.side_effect = None
-    assert instance.get_finished(set()) == ({"r"}, set())
+    worker, _ = decode(cross_module, [1, 2])
+    worker._is_producer, worker._is_consumer = True, False
+    worker._gpu_load_jobs = {}
+    worker._transfer_ref = actor
+    worker._get_transfer_ref = AsyncMock(return_value=actor)
+    worker._call = asyncio.run
+    actor.poll_direct_gpu_v1.return_value = set()
+    meta = pickle.loads(
+        pickle.dumps(
+            instance.build_connector_meta(SimpleNamespace(num_scheduled_tokens={}))
+        )
+    )
     assert not instance._pending_aborts and not instance._direct_sends
+    assert not worker._pending_aborts
+    worker._get_connector_metadata = lambda: meta
+    worker.start_load_kv(None)
+    assert worker._pending_aborts == {"r": 123}
+    assert worker.get_finished(set()) == (set(), set())
+    assert worker._pending_aborts == {"r": 123} and worker._direct_sends == {"r"}
+    meta = instance.build_connector_meta(SimpleNamespace(num_scheduled_tokens={}))
+    worker.start_load_kv(None)
+    assert worker._pending_aborts == {"r": 123}
+    actor.abort.side_effect = None
+    assert worker.get_finished(set()) == ({"r"}, set())
+    assert not worker._pending_aborts and not worker._direct_sends
+    assert worker.get_finished(set()) == (set(), set())
+
+
+def test_completed_send_clears_pending_abort_without_duplicate_finish(cross_module):
+    worker, _ = decode(cross_module, [1, 2])
+    worker._is_producer, worker._is_consumer = True, False
+    worker._direct_sends = {"r"}
+    worker._pending_aborts = {"r": 123}
+    worker._gpu_load_jobs = {}
+    actor = AsyncMock()
+    actor.abort.side_effect = OSError("RPC unavailable")
+    actor.poll_direct_gpu_v1.return_value = {"r"}
+    worker._transfer_ref = actor
+    worker._get_transfer_ref = AsyncMock(return_value=actor)
+    worker._call = asyncio.run
+    assert worker.get_finished(set()) == ({"r"}, set())
+    assert not worker._pending_aborts and not worker._direct_sends
+    assert worker.get_finished(set()) == (set(), set())
 
 
 def test_completion_rpc_failure_retains_pinned_request_for_retry(cross_module):

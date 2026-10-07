@@ -138,7 +138,7 @@ Both workers require identical local weights, tokenizer assets and context limit
 
 Streaming and non-streaming requests require ``n=1``. SGLang decode uses the first output token sampled by prefill. vLLM decode imports all but the final prompt token, computes that token and samples the output. Engine kernels can produce small numerical differences. vLLM decode requires at least two prompt tokens.
 
-Cross-engine P/D supports no CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles. MLX is unsupported.
+Cross-engine P/D does not support CPU fallback, retained Xavier history, logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native NIXL comparisons use the same engine on both roles. MLX is unsupported.
 
 Native NIXL backend
 -------------------

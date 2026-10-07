@@ -3184,19 +3184,22 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(
                 "xavier_cache_bytes requires MLX Xavier or SGLang shared CPU caching and a positive integer"
             )
-        if sglang_xavier:
-            if n_worker != 1:
-                raise ValueError(
-                    "SGLang Xavier requires the xavier transport and one worker per replica"
-                )
+        if sglang_xavier and n_worker != 1:
+            raise ValueError(
+                "SGLang Xavier requires the xavier transport and one worker per replica"
+            )
+        if sglang_xavier or heterogeneous_pd:
             if (
                 model_type not in (None, "LLM")
                 or model_format not in (None, "pytorch")
                 or quantization not in (None, "none")
             ):
                 raise ValueError(
-                    "SGLang Xavier requires unquantized PyTorch LLM weights"
+                    "Cross-engine Xavier PD requires unquantized PyTorch LLM weights"
+                    if heterogeneous_pd
+                    else "SGLang Xavier requires unquantized PyTorch LLM weights"
                 )
+        if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
                 "address": self.address,
                 "uid": f"xavier-cache-{model_uid}",

@@ -598,7 +598,7 @@ msgstr ""
 
 #: source/user_guide/pd_separation.rst
 msgid ""
-"Cross-engine P/D supports no CPU fallback, retained Xavier history, "
+"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
 "logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
 " or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
 " not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
