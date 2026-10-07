@@ -93,21 +93,29 @@ def test_host_import_preserves_destination_physical_order(kv_contract):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("sglang", [False, True])
-async def test_host_receive_full_prompt_or_prefix(kv_contract, monkeypatch, sglang):
+@pytest.mark.parametrize(
+    "sglang,full_allocation", [(False, False), (False, True), (True, True)]
+)
+async def test_host_receive_full_prompt_or_prefix(
+    kv_contract, monkeypatch, sglang, full_allocation
+):
     actor = source(kv_contract)
     c = actor.contract
     actor.args = SimpleNamespace(aux_item_lens=[64] * 10 if sglang else [])
     actor.transfer = SimpleNamespace(metrics={})
     actor.directory.request_info.return_value = dict(prompt_tokens=c.block_size + 1)
+    actor.directory.wait_source.return_value = dict(
+        address="mac", uid="source", transport="host"
+    )
     pages = actor._export_host_pages([7, 2], 0, c.block_size + 1)
     sender = AsyncMock()
     sender.read.return_value = dict(
         pages=pages, next=2, total=2, first_token=4, prompt_tokens=c.block_size + 1
     )
     monkeypatch.setattr("xoscar.actor_ref", AsyncMock(return_value=sender))
-    targets = [3, 8] if sglang else [3]
-    result = await actor._receive_host(1, dict(address="mac", uid="source"), targets)
+    spare = {k: v[8].clone() for k, v in actor.caches.items()}
+    targets = [3, 8] if full_allocation else [3]
+    result = await actor.receive(1, targets, 0)
     sender.release.assert_awaited_once_with(1)
     assert actor.transfer.metrics["host_imported_bytes"] == sum(map(len, pages))
     if sglang:
@@ -119,6 +127,7 @@ async def test_host_receive_full_prompt_or_prefix(kv_contract, monkeypatch, sgla
         actor.directory.complete.assert_not_awaited()
     else:
         assert result == set()
+        assert all(torch.equal(v[8], spare[k]) for k, v in actor.caches.items())
         actor.directory.complete.assert_awaited_once_with(
             1, 0, c.block_size, sum(map(len, pages))
         )
@@ -129,7 +138,7 @@ async def test_host_cancel_drains_destination_writes(kv_contract, monkeypatch):
     actor = source(kv_contract)
     actor.args = SimpleNamespace(aux_item_lens=[])
     actor.transfer = SimpleNamespace(metrics={}, send_lock=asyncio.Lock())
-    actor.directory.source.return_value = dict(
+    actor.directory.wait_source.return_value = dict(
         address="mac", uid="source", transport="host"
     )
     actor.directory.request_info.return_value = dict(prompt_tokens=3)
@@ -186,7 +195,9 @@ async def test_host_truncated_read_is_not_committed(kv_contract, monkeypatch):
 async def test_host_cancel_keeps_source_pinned_until_cpu_copy_drains(kv_contract):
     actor = source(kv_contract)
     chunk = dict(ticket="1:0", pages=[1], final=True)
-    actor.rooms[1] = dict(chunks=[chunk], completed=asyncio.Event())
+    actor.address = "gpu:1234"
+    await actor.open(1)
+    actor.rooms[1]["chunks"].append(chunk)
     state = SimpleNamespace(
         reading=False,
         claimed=False,

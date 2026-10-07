@@ -165,7 +165,9 @@ class MLXXavierCache:
                 await self._ref.configure(self.contract.fingerprint)
             else:
                 metadata = await self._ref.configure(self.contract.to_dict())
-                self._capacity_pages = min(metadata["capacity_pages"], metadata["max_keys"])
+                self._capacity_pages = min(
+                    metadata["capacity_pages"], metadata["max_keys"]
+                )
             self._configured = True
 
     async def initialize(self):
@@ -407,7 +409,6 @@ class MLXXavierCache:
                     logger.warning("Cross-engine source cleanup failed", exc_info=True)
             await self._call("release", room)
             raise
-
 
     def publish(self, cache, tokens, cached_tokens=0):
         if self.config.get("heterogeneous"):

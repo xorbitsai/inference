@@ -100,8 +100,9 @@ async def prepare_pd_request(
     if cache_config["role"] == "decode" and len(tokens) < 2:
         raise ValueError("Cross-engine vLLM decode requires at least two prompt tokens")
     handoff = params.get("sglang_xavier")
-    if not isinstance(handoff, dict) or handoff.get("mode") != "gpu":
-        raise ValueError("Missing cross-engine Xavier GPU room")
+    mode = "host" if cache_config.get("host_handoff") else "gpu"
+    if not isinstance(handoff, dict) or handoff.get("mode") != mode:
+        raise ValueError("Missing cross-engine Xavier handoff room")
     digest = prompt_digest(tokens)
     directory = await xo.actor_ref(
         address=cache_config["address"], uid=cache_config["uid"]

@@ -240,8 +240,6 @@ def validate_pd_replica_configs(
         raise ValueError(
             "PD separation requires model_type=LLM and model_engine=vLLM, SGLang or MLX"
         )
-    if "mlx" in engines and len(engines) > 1:
-        raise ValueError("Cross-engine PD requires vLLM and SGLang replicas")
     if roles != {"prefill", "decode"}:
         raise ValueError(
             "PD separation requires both prefill and decode replicas, without hybrid replicas"

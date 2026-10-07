@@ -135,8 +135,9 @@ async def test_generate_passes_native_handoff_and_returns_producer_metadata(
 @pytest.mark.parametrize(
     "failure", ["one-token", "prompt mismatch", "room limit", "producer RPC"]
 )
+@pytest.mark.parametrize("host", [False, True])
 async def test_cross_engine_validation_fails_request_without_submitting_bad_work(
-    monkeypatch, failure
+    monkeypatch, failure, host
 ):
     import xoscar as xo
 
@@ -181,6 +182,7 @@ async def test_cross_engine_validation_fails_request_without_submitting_bad_work
         uid="directory",
         contract=contract.to_dict(),
         gpu_cache_bytes=0,
+        host_handoff=host,
     )
     output = {"xavier_error": failure} if failure == "producer RPC" else None
 
@@ -196,7 +198,9 @@ async def test_cross_engine_validation_fails_request_without_submitting_bad_work
     )
     params = {
         "max_tokens": 1,
-        "_pd_kv_transfer_params": {"sglang_xavier": {"mode": "gpu", "room": 123}},
+        "_pd_kv_transfer_params": {
+            "sglang_xavier": {"mode": "host" if host else "gpu", "room": 123}
+        },
     }
     with pytest.raises(
         (ValueError, RuntimeError),

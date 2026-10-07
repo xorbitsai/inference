@@ -775,14 +775,14 @@ async def test_cross_engine_pd_launches_one_adapter_per_replica(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("engines", [("MLX", "vLLM"), ("SGLang", "MLX")])
-async def test_cross_engine_mlx_is_rejected_before_allocating_actors(
+async def test_cross_engine_mlx_requires_local_format_before_allocating_actors(
     launch_runtime, engines
 ):
     supervisor, workers, actors, _ = launch_runtime
     kwargs = launch_kwargs()
     for cfg, engine in zip(kwargs["replica_config"], engines):
         cfg.model_engine = engine
-    with pytest.raises(ValueError, match="vLLM and SGLang replicas"):
+    with pytest.raises(ValueError, match="PyTorch NVIDIA and MLX Metal weights"):
         await supervisor.launch_builtin_model(**kwargs)
     assert not actors
     for worker in workers:
@@ -888,7 +888,8 @@ async def test_nvidia_mlx_launch_uses_worker_local_assets(
     kwargs["model_format"] = "mlx" if default_engine == "MLX" else "pytorch"
     kwargs["replica_config"][0].model_engine = engine
     kwargs["replica_config"][0].engine_config = {
-        "model_path": "/gpu/model", "model_format": "pytorch"
+        "model_path": "/gpu/model",
+        "model_format": "pytorch",
     }
     kwargs["replica_config"][1].model_engine = "MLX"
     kwargs["replica_config"][1].engine_config = {
@@ -946,7 +947,9 @@ async def test_failed_mlx_prefill_launch_destroys_host_source(launch_runtime):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("index,fmt", [(0, "mlx"), (0, "ggufv2"), (1, "pytorch"), (1, None)])
+@pytest.mark.parametrize(
+    "index,fmt", [(0, "mlx"), (0, "ggufv2"), (1, "pytorch"), (1, None)]
+)
 async def test_nvidia_mlx_invalid_replica_format_has_no_side_effects(
     launch_runtime, index, fmt
 ):
@@ -958,7 +961,9 @@ async def test_nvidia_mlx_invalid_replica_format_has_no_side_effects(
     with pytest.raises(ValueError, match="PyTorch NVIDIA and MLX Metal weights"):
         await supervisor.launch_builtin_model(**kwargs)
     assert not actors and not supervisor._model_uid_to_replica_info
-    assert not supervisor._xavier_source_mapping and not supervisor._xavier_cache_mapping
+    assert (
+        not supervisor._xavier_source_mapping and not supervisor._xavier_cache_mapping
+    )
     supervisor._status_guard_ref.update_replica_status.assert_not_awaited()
     for worker in workers:
         worker.launch_builtin_model.assert_not_awaited()
