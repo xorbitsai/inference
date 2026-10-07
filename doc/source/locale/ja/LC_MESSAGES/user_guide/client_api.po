@@ -192,3 +192,19 @@ msgstr "rerankモデルを起動し、テキスト類似度を計算する："
 #~ msgstr ""
 #~ "Anthropic を使用してリクエストを送信する場合、モデルの作成を除き、その他のリクエストはすべて Anthropic "
 #~ "のインターフェースとの互換性を維持します。"
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "キャッシュヒットしたトークン数"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "vLLM、SGLang、MLX では、エンジンが統計を提供する場合、補完およびチャット補完のレスポンスの ``usage.prompt_tokens_details.cached_tokens`` に、再利用されたプロンプトトークン数が含まれます。この数値には、エンジンが報告したネイティブのプレフィックスキャッシュと Xavier キャッシュの再利用が含まれます。これは ``prompt_tokens`` の一部であり、追加のトークン数ではありません。"
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "ストリーミングリクエストでは、``stream_options={\"include_usage\": True}`` を設定すると、``choices=[]`` の最終使用量チャンクを受け取れます。Responses API は同じ数値を ``usage.input_tokens_details.cached_tokens`` で返します。エンジンがキャッシュヒットを報告しない場合、補完およびチャット補完のレスポンスでは ``prompt_tokens_details`` が省略され、Responses API では既定値のゼロが返されます。"
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "P/D 分離では、この数値にプリフィルエンジンから転送された KV が含まれます。その KV が現在のリクエストで計算された場合も含まれ、プリフィルエンジンでの過去のプレフィックスキャッシュのヒット数を個別に示すものではありません。"

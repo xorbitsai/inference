@@ -207,3 +207,19 @@ msgstr "Inicia el modelo rerank y calcula la similitud de texto:"
 #~ "Anthropic client request with the same function as before, excluding launch "
 #~ "model."
 #~ msgstr ""
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "Número de tokens encontrados en caché"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "Con vLLM, SGLang y MLX, las respuestas de completado y completado de chat exponen el número de tokens del prompt reutilizados por el motor en ``usage.prompt_tokens_details.cached_tokens``, cuando está disponible. Este número incluye la reutilización de la caché de prefijos nativa y de la caché Xavier que informa el motor; forma parte de ``prompt_tokens`` y no es un número adicional de tokens."
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "Para las solicitudes en streaming, establezca ``stream_options={\"include_usage\": True}`` para recibir el bloque final de uso con ``choices=[]``. La Responses API expone el mismo número como ``usage.input_tokens_details.cached_tokens``. Si el motor no informa de aciertos de caché, las respuestas de completado y completado de chat omiten ``prompt_tokens_details``; la Responses API utiliza cero de forma predeterminada."
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "Con la separación P/D, este número incluye los KV transferidos desde el motor de prellenado, aunque se hayan calculado para la solicitud actual; no mide por separado los aciertos históricos de la caché de prefijos del motor de prellenado."

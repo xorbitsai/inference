@@ -632,6 +632,18 @@ class SGLANGModel(WeightCachedModel, LLM):
         return True
 
     @staticmethod
+    def _get_completion_usage(meta_info: Dict) -> CompletionUsage:
+        usage = CompletionUsage(
+            prompt_tokens=meta_info["prompt_tokens"],
+            completion_tokens=meta_info["completion_tokens"],
+            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
+        )
+        cached_tokens = meta_info.get("cached_tokens")
+        if cached_tokens is not None:
+            usage["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+        return usage
+
+    @staticmethod
     def _convert_state_to_completion_chunk(
         request_id: str,
         model: str,
@@ -657,11 +669,7 @@ class SGLANGModel(WeightCachedModel, LLM):
                 finish_reason=finish_reason,
             )
         ]
-        usage = CompletionUsage(
-            prompt_tokens=meta_info["prompt_tokens"],
-            completion_tokens=meta_info["completion_tokens"],
-            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
-        )
+        usage = SGLANGModel._get_completion_usage(meta_info)
         chunk = CompletionChunk(
             id=request_id,
             object="text_completion",
@@ -695,11 +703,7 @@ class SGLANGModel(WeightCachedModel, LLM):
             )
         ]
 
-        usage = CompletionUsage(
-            prompt_tokens=meta_info["prompt_tokens"],
-            completion_tokens=meta_info["completion_tokens"],
-            total_tokens=meta_info["prompt_tokens"] + meta_info["completion_tokens"],
-        )
+        usage = SGLANGModel._get_completion_usage(meta_info)
         return Completion(
             id=request_id,
             object="text_completion",
@@ -1108,6 +1112,9 @@ class SGLANGModel(WeightCachedModel, LLM):
 
             async def stream_results() -> AsyncGenerator[CompletionChunk, None]:
                 prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+                usage = CompletionUsage(
+                    prompt_tokens=0, completion_tokens=0, total_tokens=0
+                )
                 complete_response = ""
                 match_tool_call_tmp_results: List[CompletionChunk] = []
                 is_match_tool_call = False
@@ -1138,11 +1145,7 @@ class SGLANGModel(WeightCachedModel, LLM):
                     prompt_tokens = meta_info["prompt_tokens"]
                     completion_tokens = meta_info["completion_tokens"]
                     total_tokens = prompt_tokens + completion_tokens
-                    chunk["usage"] = CompletionUsage(
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                    )
+                    usage = chunk["usage"]
                     if tools:
                         """
                         The qwen2 tool call returns format like this:
@@ -1199,7 +1202,7 @@ class SGLANGModel(WeightCachedModel, LLM):
                     )
                     else finish_reason
                 )
-                yield generate_completion_chunk(
+                final_chunk = generate_completion_chunk(
                     "",
                     finish_reason=finish_reason,
                     chunk_id=request_id,
@@ -1208,6 +1211,8 @@ class SGLANGModel(WeightCachedModel, LLM):
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
                 )
+                final_chunk["usage"] = usage
+                yield final_chunk
 
                 if include_usage:
                     chunk = CompletionChunk(
@@ -1217,11 +1222,7 @@ class SGLANGModel(WeightCachedModel, LLM):
                         model=self.model_uid,
                         choices=[],
                     )
-                    chunk["usage"] = CompletionUsage(
-                        prompt_tokens=prompt_tokens,
-                        completion_tokens=completion_tokens,
-                        total_tokens=total_tokens,
-                    )
+                    chunk["usage"] = usage
                     yield chunk
 
             async def pd_stream():

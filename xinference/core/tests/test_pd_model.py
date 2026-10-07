@@ -1,6 +1,7 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 # Licensed under the Apache License, Version 2.0.
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -132,6 +133,51 @@ async def test_sglang_starts_decode_while_prefill_holds_source_slots(
         assert handoff["host"] == "producer" and handoff["port"] == 12345
     if engine == "heterogeneous":
         assert handoff["heterogeneous"] is True
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["chat", "generate"])
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("mode", ["gpu", "host"])
+async def test_cross_engine_preserves_decode_cached_token_usage(
+    router, monkeypatch, method, stream, mode
+):
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    actor._handoff_mode = mode
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=AsyncMock()))
+    usage = dict(
+        prompt_tokens=193,
+        completion_tokens=2,
+        total_tokens=195,
+        prompt_tokens_details={"cached_tokens": 192},
+    )
+    # P's cache hits must not replace D's imported-token count or be added to it.
+    getattr(prefill, method).return_value = dict(
+        choices=[], usage=dict(usage, prompt_tokens_details={"cached_tokens": 64})
+    )
+    response = json.dumps(
+        dict(choices=[{"finish_reason": "stop"}], usage=usage)
+    ).encode()
+    usage_chunk = json.dumps(dict(choices=[], usage=usage)).encode()
+
+    async def chunks():
+        yield response
+        yield usage_chunk
+
+    getattr(decode, method).return_value = chunks() if stream else response
+    result = await actor._infer(
+        method,
+        "prompt",
+        {"stream": stream, "stream_options": {"include_usage": True}},
+        request_id="r",
+    )
+    if stream:
+        assert [chunk async for chunk in result] == [response, usage_chunk]
+        decode.decrease_serve_count.assert_awaited_once()
+    else:
+        assert result == response
     assert not actor._request_set and not actor._direct_transfers
 
 

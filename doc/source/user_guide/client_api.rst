@@ -93,6 +93,15 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
         max_tokens=1024
     )
 
+Cache hit token counts
+======================
+
+With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count.
+
+With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine.
+
+For streaming requests, set ``stream_options={"include_usage": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero.
+
 OpenAI Client Tool Calls
 ========================
 

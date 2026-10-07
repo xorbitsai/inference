@@ -207,3 +207,19 @@ msgstr "Iniciar o modelo de rerank e calcular a similaridade textual:"
 #~ msgstr ""
 #~ "Ao enviar requisições usando Anthropic, exceto para criar modelos, todas as "
 #~ "outras requisições mantêm compatibilidade com a interface do Anthropic."
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "Quantidade de tokens encontrados no cache"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "Com vLLM, SGLang e MLX, as respostas de completamento e completamento de chat expõem a quantidade de tokens do prompt reutilizados pelo mecanismo em ``usage.prompt_tokens_details.cached_tokens``, quando disponível. Essa quantidade inclui a reutilização do cache de prefixos nativo e do cache Xavier informada pelo mecanismo; faz parte de ``prompt_tokens`` e não é uma quantidade adicional de tokens."
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "Para solicitações em streaming, defina ``stream_options={\"include_usage\": True}`` para receber o bloco final de uso com ``choices=[]``. A Responses API expõe a mesma quantidade como ``usage.input_tokens_details.cached_tokens``. Se o mecanismo não informar acertos de cache, as respostas de completamento e completamento de chat omitem ``prompt_tokens_details``; a Responses API usa zero por padrão."
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "Com a separação P/D, essa quantidade inclui os KV transferidos do mecanismo de prefill, mesmo quando foram calculados para a solicitação atual; ela não mede separadamente os acertos históricos do cache de prefixos do mecanismo de prefill."

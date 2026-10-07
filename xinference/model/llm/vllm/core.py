@@ -1735,6 +1735,22 @@ class VLLMModel(WeightCachedModel, LLM):
         )
 
     @staticmethod
+    def _get_completion_usage(request_output: "RequestOutput") -> CompletionUsage:
+        prompt_tokens = len(request_output.prompt_token_ids)
+        completion_tokens = sum(
+            len(output.token_ids) for output in request_output.outputs
+        )
+        usage = CompletionUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+        )
+        cached_tokens = getattr(request_output, "num_cached_tokens", None)
+        if cached_tokens is not None:
+            usage["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+        return usage
+
+    @staticmethod
     def _convert_request_output_to_completion(
         request_id: str, model: str, request_output: "RequestOutput"
     ) -> Completion:
@@ -1751,15 +1767,7 @@ class VLLMModel(WeightCachedModel, LLM):
                 )
             )
 
-        prompt_tokens = len(request_output.prompt_token_ids)
-        completion_tokens = sum(
-            len(output.token_ids) for output in request_output.outputs
-        )
-        usage = CompletionUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
-        )
+        usage = VLLMModel._get_completion_usage(request_output)
         return Completion(
             id=request_id,
             object="text_completion",
@@ -2112,6 +2120,9 @@ class VLLMModel(WeightCachedModel, LLM):
             previous_texts = [""] * sanitized_generate_config["n"]
             previous_logprobs_counts = [0] * sanitized_generate_config["n"]
             prompt_tokens, completion_tokens, total_tokens = 0, 0, 0
+            usage = CompletionUsage(
+                prompt_tokens=0, completion_tokens=0, total_tokens=0
+            )
             complete_response = ""
             match_tool_call_tmp_results = []
             is_match_tool_call = False
@@ -2139,16 +2150,11 @@ class VLLMModel(WeightCachedModel, LLM):
                         previous_logprobs_counts[i] = current_count
                     complete_response += delta
 
-                prompt_tokens = len(_request_output.prompt_token_ids)
-                completion_tokens = sum(
-                    len(output.token_ids) for output in _request_output.outputs
-                )
-                total_tokens = prompt_tokens + completion_tokens
-                chunk["usage"] = CompletionUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=total_tokens,
-                )
+                usage = self._get_completion_usage(_request_output)
+                prompt_tokens = usage["prompt_tokens"]
+                completion_tokens = usage["completion_tokens"]
+                total_tokens = usage["total_tokens"]
+                chunk["usage"] = usage
 
                 if tools:
                     """
@@ -2211,7 +2217,7 @@ class VLLMModel(WeightCachedModel, LLM):
             )
 
             # match OpenAI API stream
-            yield generate_completion_chunk(
+            final_chunk = generate_completion_chunk(
                 chunk_text="",
                 finish_reason=finish_reason,
                 chunk_id=request_id,
@@ -2220,6 +2226,8 @@ class VLLMModel(WeightCachedModel, LLM):
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
             )
+            final_chunk["usage"] = usage
+            yield final_chunk
 
             if include_usage:
                 chunk = CompletionChunk(
@@ -2229,11 +2237,7 @@ class VLLMModel(WeightCachedModel, LLM):
                     model=self.model_uid,
                     choices=[],
                 )
-                chunk["usage"] = CompletionUsage(
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    total_tokens=total_tokens,
-                )
+                chunk["usage"] = usage
                 yield chunk
 
         if stream:
