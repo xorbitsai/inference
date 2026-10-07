@@ -430,16 +430,27 @@ def test_packed_export_preserves_mixed_dtypes_and_block_ownership(
     assert connector._exported_keys == set(keys)
 
 
-def test_ipc_export_failure_releases_completed_owners_and_invalidates_mirror(connector):
+@pytest.mark.parametrize("error", ["copy failed", "Unknown snapshot export ticket"])
+@pytest.mark.parametrize("arena", [False, True])
+def test_ipc_export_failure_releases_completed_owners_and_invalidates_mirror(
+    connector, caplog, error, arena
+):
     transfer = SimpleNamespace(
-        poll_snapshot_exports_v1=AsyncMock(return_value={"bad": (None, "copy failed")})
+        poll_snapshot_exports_v1=AsyncMock(return_value={"bad": (None, error)})
     )
     connector._get_transfer_ref = AsyncMock(return_value=transfer)
     connector._ipc_export_jobs["bad"] = ({111}, 16, [torch.ones(16)])
     connector._exported_keys = {111, 222}
-    with pytest.raises(RuntimeError, match="copy failed"):
-        connector._poll_ipc_exports(wait=True)
+    if arena:
+        connector._gpu_export_arena = SimpleNamespace(release=Mock(), close=Mock())
+        connector._gpu_export_tickets["bad"] = [0]
+    connector._poll_ipc_exports(wait=True)
     assert not connector._ipc_export_jobs and not connector._exported_keys
+    assert not connector._gpu_export_tickets
+    assert connector._export_refresh_at == 0
+    assert error in caplog.text
+    if arena:
+        connector._gpu_export_arena.release.assert_called_once_with([0])
 
 
 def test_new_exports_do_not_postpone_periodic_discovery_refresh(connector):
@@ -775,3 +786,124 @@ async def test_actor_publishes_gpu_snapshot_without_producer_polling(dtype):
         result = await actor.poll_snapshot_exports_v1(["export"], wait=True)
         assert set(result["export"][0]) == {111, 222}
         assert result["export"][1] == []
+
+
+@pytest.mark.parametrize("free", [128 << 20, 512 << 20])
+def test_export_arena_requires_capture_headroom(connector, monkeypatch, free):
+    from ....xavier.backends.torch import gpu_export
+
+    gather = SimpleNamespace(row_bytes=16, warmup=Mock(), device=torch.device("cpu"))
+    arena = Mock(return_value=SimpleNamespace(close=Mock()))
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(torch.Tensor, "is_cuda", property(lambda _: True))
+    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda _: (free, free))
+    monkeypatch.setitem(
+        sys.modules,
+        "xinference.model.llm.xavier.backends.torch.packed_gather",
+        SimpleNamespace(
+            PackedGather=SimpleNamespace(try_create=Mock(return_value=gather))
+        ),
+    )
+    monkeypatch.setattr(gpu_export, "GPUExportArena", arena)
+    connector.register_kv_caches({"layer": torch.zeros(8, 2, 16, 2, 4)})
+    assert connector._ipc_export_budget == free // 8
+    assert arena.call_count == int(free >= 512 << 20)
+
+
+def test_export_size_reuses_registered_block_bytes(connector, connector_module):
+    calculate = Mock(wraps=connector._cache_export_block_bytes)
+    connector._cache_export_block_bytes = calculate
+    request = connector_module.XavierStoreRequest("r", [0, 1], [111, 222], [[0, 1]])
+    connector.register_kv_caches({"layer": torch.zeros(8, 2, 16, 2, 4)})
+    assert connector._cpu_export_size([request]) == 2 * 2 * 16 * 2 * 4 * 4
+    assert connector._cpu_export_size([request]) == 2 * 2 * 16 * 2 * 4 * 4
+    assert calculate.call_count == 1
+    connector.register_kv_caches(
+        {"layer": torch.zeros(8, 2, 16, 2, 4, dtype=torch.float16)}
+    )
+    assert connector._cpu_export_size([request]) == 2 * 2 * 16 * 2 * 4 * 2
+    assert calculate.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_refresh_serializes_with_export_eviction(monkeypatch):
+    from types import MethodType
+
+    from torch.multiprocessing import reductions
+
+    store = KVSnapshotStore(1)
+    store.stage("K", [111], torch.ones(1, 2))
+    tracker = VLLMBlockTracker()
+    entered, finish = asyncio.Event(), asyncio.Event()
+    register = tracker.register_snapshot_blocks
+
+    async def paused_register(virtual_engine, keys, rank):
+        if keys == [111]:
+            entered.set()
+            await finish.wait()
+        register(virtual_engine, keys, rank)
+
+    ref = SimpleNamespace(
+        register_snapshot_blocks=AsyncMock(side_effect=paused_register),
+        unregister_blocks=AsyncMock(side_effect=tracker.unregister_blocks),
+    )
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=ref))
+    monkeypatch.setattr(reductions, "rebuild_cuda_tensor", lambda value: value)
+    monkeypatch.setattr(torch.cuda, "Event", Mock())
+    monkeypatch.setattr(torch.cuda, "current_stream", Mock())
+
+    async def copy(value, stream, ready):
+        return await _copy_snapshot_to_cpu(value, None, None)
+
+    monkeypatch.setattr(
+        "xinference.model.llm.vllm.xavier.transfer._copy_snapshot_to_cpu", copy
+    )
+    actor = SimpleNamespace(
+        _rank=1,
+        _snapshot_store=store,
+        _snapshot_export_lock_v1=asyncio.Lock(),
+        _snapshot_export_jobs_v1={},
+        _swap_stream=None,
+    )
+    actor.publish_blocks_v1 = MethodType(TransferActor.publish_blocks_v1, actor)
+    refresh = asyncio.create_task(
+        TransferActor.refresh_snapshot_blocks_v1(actor, [111], {"K"}, "tracker", "uid")
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        TransferActor.enqueue_snapshot_export_v1(
+            actor,
+            "next",
+            [
+                (
+                    [222],
+                    (torch.full((1, 8), 2, dtype=torch.uint8),),
+                    [("K", (2,), torch.float32, 0, 8)],
+                )
+            ],
+            "tracker",
+            "uid",
+        )
+        await asyncio.sleep(0)
+        assert not actor._snapshot_export_jobs_v1["next"].done()
+        assert 111 in store.blocks
+        finish.set()
+        await refresh
+        result = await TransferActor.poll_snapshot_exports_v1(
+            actor, ["next"], wait=True
+        )
+        assert result["next"] == ([222], [111])
+        assert tracker.query_blocks(0, [(111, 0)]) == {}
+        assert tracker.query_blocks(0, [(222, 0)]) == {1: {(222, 222, 0)}}
+        # A later refresh removes stale positives if this rank lost its snapshot.
+        tracker.register_snapshot_blocks(0, [333], 1)
+        await TransferActor.refresh_snapshot_blocks_v1(
+            actor, [333], {"K"}, "tracker", "uid"
+        )
+        assert tracker.query_blocks(0, [(333, 0)]) == {}
+    finally:
+        finish.set()
+        await asyncio.gather(
+            refresh, *actor._snapshot_export_jobs_v1.values(), return_exceptions=True
+        )
+        await tracker.__pre_destroy__()

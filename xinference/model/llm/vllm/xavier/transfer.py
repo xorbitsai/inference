@@ -24,11 +24,11 @@ import numpy as np
 import torch
 import xoscar as xo
 
+from ...sglang.gc_lifecycle import InitializationGCFreeze
 from ...xavier.backends.torch.snapshot import KVSnapshotStore
 from ...xavier.collective import CollectiveRank
 from ...xavier.constants import DEFAULT_TRANSFER_ACTOR_UID
 from ...xavier.profiling import profile_stage
-from .gc_lifecycle import InitializationGCFreeze
 
 try:
     from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
@@ -329,6 +329,20 @@ class TransferActor(
         evicted = list(self._snapshot_store.evicted)
         self._snapshot_store.evicted.clear()
         return available, evicted
+
+    async def refresh_snapshot_blocks_v1(
+        self, keys, layers, tracker_address, tracker_uid
+    ):
+        # Refresh and background export must finish tracker publication before
+        # either path can evict the other's snapshots.
+        async with self._snapshot_export_lock_v1:
+            tracker = await xo.actor_ref(address=tracker_address, uid=tracker_uid)
+            available, evicted = self.publish_blocks_v1(keys, layers)
+            removed = set(evicted) | (set(keys) - set(available))
+            if removed:
+                await tracker.unregister_blocks(0, self._rank, list(removed))
+            await tracker.register_snapshot_blocks(0, available, self._rank)
+            return available, evicted
 
     def configure_kv_schema_v1(self, block_size: int, layers: dict, cache_dtype: str):
         schema = (block_size, dict(layers), cache_dtype)

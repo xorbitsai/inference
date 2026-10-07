@@ -2,22 +2,20 @@
 # Licensed under the Apache License, Version 2.0.
 """Bounded, leased same-host receive buffers; remote actors use normal RPCs."""
 
+import logging
 import mmap
 import os
 import tempfile
 import uuid
-from pathlib import Path
 from typing import Optional, Tuple
 
 import torch
 
+from ...local_directory import _boot_id
 from .request_transfer import MAX_REQUEST_BYTES
 
 _HEADER = 64
-
-
-def _boot_id() -> str:
-    return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+logger = logging.getLogger(__name__)
 
 
 class SharedReadBuffer:
@@ -43,6 +41,7 @@ class SharedReadBuffer:
             self._file.close()
             raise
         self._lease: Optional[bytes] = None
+        self._busy_warned = False
 
     def metadata(self) -> dict:
         return {
@@ -53,7 +52,15 @@ class SharedReadBuffer:
         }
 
     def acquire(self, nbytes: int) -> Optional[Tuple[bytes, torch.Tensor]]:
-        if self._lease is not None or self._payload is None:
+        if self._lease is not None:
+            if not self._busy_warned:
+                logger.warning(
+                    "Xavier shared receive lease is still held; using tensor RPC. "
+                    "A lost read or release reply can keep this lease busy."
+                )
+                self._busy_warned = True
+            return None
+        if self._payload is None:
             return None
         if not 0 < nbytes <= self.capacity:
             return None
@@ -64,6 +71,7 @@ class SharedReadBuffer:
     def release(self, lease: bytes) -> None:
         if lease == self._lease and not self._file.closed:
             self._lease = None
+            self._busy_warned = False
             self._data[24:40] = bytes(16)
 
     def close(self) -> None:

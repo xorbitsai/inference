@@ -190,7 +190,7 @@ class KVSnapshotStore:
         rows = packed.numpy()
         for index, key in enumerate(keys):
             fresh = key not in self.blocks
-            if key not in self.blocks:
+            if fresh:
                 if self._used_slots() >= self.capacity and not self._evict_one(pinned):
                     continue
                 self.blocks[key] = {}

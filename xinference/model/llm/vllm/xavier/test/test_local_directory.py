@@ -179,3 +179,34 @@ async def test_shared_memory_unavailable_keeps_authoritative_query(
     assert await connector._query_remote_blocks("s", [(222, 0)]) == {}
     assert ref.get_snapshot_directory.await_count == 1
     assert ref.query_blocks.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("metadata", [None, {"boot_id": "foreign-host"}])
+async def test_permanently_unavailable_directory_stops_discovery(connector, metadata):
+    ref = SimpleNamespace(
+        get_snapshot_directory=AsyncMock(return_value=metadata),
+        query_blocks=AsyncMock(return_value={}),
+    )
+    connector._get_tracker_ref = AsyncMock(return_value=ref)
+    for _ in range(3):
+        connector._directory_retry_at = 0
+        assert await connector._query_remote_blocks("r", [(111, 0)]) == {}
+    assert connector._directory_disabled
+    ref.get_snapshot_directory.assert_awaited_once_with(0)
+    assert ref.query_blocks.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_transient_directory_error_retries_without_losing_query(connector):
+    ref = SimpleNamespace(
+        get_snapshot_directory=AsyncMock(side_effect=[OSError("disconnected"), None]),
+        query_blocks=AsyncMock(return_value={2: {(111, 111, 0)}}),
+    )
+    connector._get_tracker_ref = AsyncMock(return_value=ref)
+    assert await connector._query_remote_blocks("r", [(111, 0)]) == {2: {(111, 111, 0)}}
+    assert not connector._directory_disabled
+    connector._directory_retry_at = 0
+    assert await connector._query_remote_blocks("s", [(111, 0)]) == {2: {(111, 111, 0)}}
+    assert connector._directory_disabled
+    assert ref.get_snapshot_directory.await_count == 2

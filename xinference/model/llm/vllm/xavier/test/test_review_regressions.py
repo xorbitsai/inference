@@ -55,12 +55,18 @@ def test_cache_layout_round_trip(connector, connector_module, kv_first):
     source = canonical.movedim(0, 1).contiguous() if kv_first else canonical
     sent = []
 
-    async def stage(request, layer, keys, blocks):
-        sent.append((keys, blocks.clone()))
+    async def stage(entries, layouts):
+        for (_, keys, blocks), (shape, dtype) in zip(entries, layouts):
+            sent.append((keys, blocks.view(dtype).view(shape).clone()))
 
-    connector._stage_layer_blocks = stage
+    connector._get_transfer_ref = AsyncMock(
+        return_value=SimpleNamespace(
+            stage_layer_batches_v1=AsyncMock(side_effect=stage)
+        )
+    )
+    connector.register_kv_caches({"layer": source})
     request = connector_module.XavierStoreRequest("r", [2, 5], [111, 222], [[2, 5]])
-    connector._stage_kv_layer_for_request(request, "layer", source)
+    connector._call(connector._stage_cpu_requests([request]))
     assert sent[0][0] == [111, 222]
     assert torch.equal(sent[0][1], canonical[[2, 5]])
     destination = torch.zeros_like(source)
@@ -125,22 +131,18 @@ def test_unsupported_configs_rejected(connector_module, connector_config, field)
 
 @pytest.mark.asyncio
 async def test_reused_request_id_publishes_new_content(connector, connector_module):
-    tracker = SimpleNamespace(
-        register_snapshot_blocks=AsyncMock(), unregister_blocks=AsyncMock()
-    )
     transfer = SimpleNamespace(
-        publish_blocks_v1=AsyncMock(side_effect=[([111], []), ([222], [111])])
+        refresh_snapshot_blocks_v1=AsyncMock(side_effect=[([111], []), ([222], [111])])
     )
-    connector._get_tracker_ref = AsyncMock(return_value=tracker)
     connector._get_transfer_ref = AsyncMock(return_value=transfer)
     connector._registered_kv_caches = {"layer": torch.zeros(8, 2, 16, 2, 4)}
     for key in [111, 222]:
         await connector._register_blocks(
             [connector_module.XavierStoreRequest("r", [1], [key], [[1]])]
         )
-    assert tracker.register_snapshot_blocks.await_count == 2
-    tracker.register_snapshot_blocks.assert_awaited_with(0, [222], 1)
-    tracker.unregister_blocks.assert_awaited_once_with(0, 1, [111])
+    assert transfer.refresh_snapshot_blocks_v1.await_count == 2
+    assert transfer.refresh_snapshot_blocks_v1.await_args.args[:2] == ([222], {"layer"})
+    assert connector._exported_keys == {222}
     assert not hasattr(connector, "_stored_requests")
 
 
@@ -406,7 +408,6 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
     transfer.stage_gpu_requests_v1.assert_awaited_once_with(
         [{"layer": ([111, 222], [2, 5])}]
     )
-    assert not connector._request_staged_layers
     calls.clear()
     load = connector_module.XavierLoadRequest(
         "r", {1: {111: 0}}, local_transfers_by_group={0: {1: {111: 3}}}
@@ -421,11 +422,9 @@ async def test_gpu_connector_mapping_staging_and_load_fences(
     connector._get_connector_metadata = (
         lambda: connector_module.XavierConnectorMetadata(store_requests=[request])
     )
-    connector._stage_kv_layer_for_request = Mock(
-        side_effect=AssertionError("GPU mode stages once in wait_for_save")
-    )
+    calls.clear()
     connector.save_kv_layer("layer", cache, None)
-    connector._stage_kv_layer_for_request.assert_not_called()
+    assert not calls
 
 
 @pytest.mark.asyncio

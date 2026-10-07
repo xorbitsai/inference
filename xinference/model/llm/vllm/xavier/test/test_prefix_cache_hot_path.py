@@ -15,9 +15,11 @@ from ..transfer import TransferActor
 
 
 @pytest.fixture
-def snapshot_export(connector):
+def snapshot_export(connector, monkeypatch):
     store = KVSnapshotStore(8)
-    actor = SimpleNamespace(_snapshot_store=store, _rank=1)
+    actor = SimpleNamespace(
+        _snapshot_store=store, _rank=1, _snapshot_export_lock_v1=asyncio.Lock()
+    )
     transfer = SimpleNamespace(
         ready_blocks_for_export_v1=AsyncMock(
             side_effect=lambda keys: TransferActor.ready_blocks_for_export_v1(
@@ -30,13 +32,23 @@ def snapshot_export(connector):
         stage_layer_batches_v1=AsyncMock(
             side_effect=lambda *args: TransferActor.stage_layer_batches_v1(actor, *args)
         ),
-        publish_blocks_v1=AsyncMock(
+        publish_blocks_v1=Mock(
             side_effect=lambda *args: TransferActor.publish_blocks_v1(actor, *args)
         ),
     )
     tracker = SimpleNamespace(
         register_snapshot_blocks=AsyncMock(), unregister_blocks=AsyncMock()
     )
+    monkeypatch.setattr(
+        "xinference.model.llm.vllm.xavier.transfer.xo.actor_ref",
+        AsyncMock(return_value=tracker),
+    )
+    actor.publish_blocks_v1 = transfer.publish_blocks_v1
+
+    async def refresh(*args):
+        return await TransferActor.refresh_snapshot_blocks_v1(actor, *args)
+
+    transfer.refresh_snapshot_blocks_v1 = AsyncMock(side_effect=refresh)
     connector._get_transfer_ref = AsyncMock(return_value=transfer)
     connector._get_tracker_ref = AsyncMock(return_value=tracker)
     connector._registered_kv_caches = {
@@ -150,7 +162,6 @@ def test_export_uses_post_forward_data_and_current_metadata(
     assert store.read("K", [222]).tolist() == [[42, 42]]
     assert store.read("V", [222]).tolist() == [[84, 84]]
     tracker.register_snapshot_blocks.assert_awaited_once_with(0, [222], 1)
-    assert not connector._request_staged_layers
 
 
 def test_repeated_export_skips_control_rpcs_until_discovery_refresh(
@@ -195,7 +206,7 @@ def test_cold_export_skips_readiness_rpc_and_still_refreshes_recovered_hits(
     transfer.ready_blocks_for_export_v1.assert_not_awaited()
     # Publication supplies the authoritative ready set, removes stale mirrored
     # keys after actor recovery, then republishes the newly copied snapshot.
-    assert transfer.publish_blocks_v1.await_count == 3
+    assert transfer.publish_blocks_v1.call_count == 3
     assert transfer.stage_layer_batches_v1.await_count == 2
     assert 222 in store.ready
     assert transfer.stage_layer_batches_v1.await_count == 2
@@ -242,7 +253,6 @@ def test_partial_export_failure_retries_unpublished_content(
         connector.wait_for_save()
     assert not store.ready
     assert set(store.blocks[111]) == {"K"}
-    assert not connector._request_staged_layers
     store.stage = stage
     connector.wait_for_save()
     assert store.ready == {111}
@@ -337,9 +347,7 @@ def test_export_batches_bound_bytes_across_layers_and_requests(
     )
     assert store.read("K", [333, 444]).tolist() == [[8, 9], [12, 13]]
     assert store.read("V", [333, 444]).tolist() == [[26, 27], [30, 31]]
-    transfer.publish_blocks_v1.assert_awaited_once_with(
-        [111, 222, 333, 444], {"K", "V"}
-    )
+    transfer.publish_blocks_v1.assert_called_once_with([111, 222, 333, 444], {"K", "V"})
     tracker.register_snapshot_blocks.assert_awaited_once_with(
         0, [111, 222, 333, 444], 1
     )
@@ -394,35 +402,6 @@ def test_batched_export_preserves_noncontiguous_bf16_and_snapshot_ownership(
 
 
 @pytest.mark.asyncio
-async def test_batched_registration_keeps_distinct_layer_requirements(
-    connector, connector_module
-):
-    connector._registered_kv_caches = {}
-    connector._request_staged_layers = {"a": {"K"}, "b": {"K", "V"}}
-    transfer = SimpleNamespace(
-        publish_blocks_v1=AsyncMock(side_effect=[([111], [222]), ([222], [])])
-    )
-    tracker = SimpleNamespace(
-        register_snapshot_blocks=AsyncMock(), unregister_blocks=AsyncMock()
-    )
-    connector._get_transfer_ref = AsyncMock(return_value=transfer)
-    connector._get_tracker_ref = AsyncMock(return_value=tracker)
-    request_type = connector_module.XavierStoreRequest
-    await connector._register_blocks(
-        [
-            request_type("a", [0], [111], [[0]]),
-            request_type("b", [1], [222], [[1]]),
-        ]
-    )
-    assert [call.args for call in transfer.publish_blocks_v1.await_args_list] == [
-        ([111], {"K"}),
-        ([222], {"K", "V"}),
-    ]
-    tracker.unregister_blocks.assert_awaited_once_with(0, 1, [222])
-    tracker.register_snapshot_blocks.assert_awaited_once_with(0, [111, 222], 1)
-
-
-@pytest.mark.asyncio
 async def test_export_failure_drains_next_copy_without_publishing(
     connector, snapshot_export, monkeypatch
 ):
@@ -435,7 +414,7 @@ async def test_export_failure_drains_next_copy_without_publishing(
         await connector._stage_cpu_requests([Mock()])
     for event in events:
         event.synchronize.assert_called_once()
-    transfer.publish_blocks_v1.assert_not_awaited()
+    transfer.publish_blocks_v1.assert_not_called()
     tracker.register_snapshot_blocks.assert_not_awaited()
 
 
@@ -688,6 +667,6 @@ def test_mixed_cold_prefix_repairs_expired_publication_once_then_uses_mirror(
     connector.wait_for_save()
     assert queued.call_count == 2
     transfer.ready_blocks_for_export_v1.assert_not_awaited()
-    transfer.publish_blocks_v1.assert_awaited_once()
+    transfer.publish_blocks_v1.assert_called_once()
     tracker.register_snapshot_blocks.assert_awaited_once()
     assert connector._export_refresh_at == 11.5

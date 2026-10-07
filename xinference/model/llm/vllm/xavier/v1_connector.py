@@ -252,7 +252,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._direct_sends: set[str] = set()
         self._invalid_block_ids: set[int] = set()
         self._num_cache_blocks = kv_cache_config.num_blocks
-        self._request_staged_layers: Dict[str, set[str]] = {}
         self._registered_kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]] = (
             {}
         )
@@ -269,6 +268,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._ipc_export_poll: Optional[asyncio.Task] = None
         self._ipc_export_enqueues: Dict[str, asyncio.Task] = {}
         self._ipc_export_budget = _MAX_PENDING_EXPORT_BYTES
+        self._cpu_export_block_bytes: Optional[int] = None
         self._packed_gather: Optional["PackedGather"] = None
         self._gpu_export_arena: Optional["GPUExportArena"] = None
         self._gpu_export_tickets: Dict[str, List[int]] = {}
@@ -280,6 +280,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._hash_cache_tokens = 0
         self._local_directory: Optional["LocalBlockDirectory"] = None
         self._directory_retry_at = 0.0
+        self._directory_disabled = False
         self._local_read: Optional["LocalReadBuffer"] = None
         self._local_read_checked = False
 
@@ -447,9 +448,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 # Two GPU copies can briefly coexist during packing. Leave
                 # headroom for graph capture, activations and allocator segments.
                 free = min(torch.cuda.mem_get_info(device)[0] for device in devices)
-                self._ipc_export_budget = min(
-                    _MAX_PENDING_EXPORT_BYTES, max(2 * _MAX_EXPORT_BYTES, free // 8)
-                )
+                self._ipc_export_budget = min(_MAX_PENDING_EXPORT_BYTES, free // 8)
                 try:
                     from ...xavier.backends.torch.packed_gather import PackedGather
 
@@ -464,7 +463,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     )
                     if self._packed_gather is not None:
                         self._packed_gather.warmup()
-                        if self._packed_gather.row_bytes <= _MAX_EXPORT_BYTES:
+                        if (
+                            self._packed_gather.row_bytes <= _MAX_EXPORT_BYTES
+                            and self._ipc_export_budget >= 2 * _MAX_EXPORT_BYTES
+                        ):
                             from ...xavier.backends.torch.gpu_export import (
                                 GPUExportArena,
                             )
@@ -490,6 +492,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         }
 
         self._kv_schema = XavierKVSchema(self._block_size, schema, self._cache_dtype)
+        self._cpu_export_block_bytes = self._cache_export_block_bytes()
         cache_groups = {
             layer_name: self._get_layer_group_id(layer_name)
             for layer_name in self._registered_kv_caches
@@ -535,92 +538,82 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         pending = metadata.store_requests
         if not pending:
             return
-        try:
-            self._poll_ipc_exports()
-            keys = {key for request in pending for key in request.block_hashes}
-            pending_keys = {
-                key for keys, _, _ in self._ipc_export_jobs.values() for key in keys
-            }
-            if keys.issubset(pending_keys):
-                return
-            # Only this worker writes its actor's snapshots. Publication reports
-            # every eviction; successful keys need no per-request control RPC.
-            # Periodic authoritative refresh also repairs discovery after recovery.
-            if time.monotonic() < self._export_refresh_at and keys.issubset(
-                self._exported_keys
+        self._poll_ipc_exports()
+        keys = {key for request in pending for key in request.block_hashes}
+        pending_keys = {
+            key for keys, _, _ in self._ipc_export_jobs.values() for key in keys
+        }
+        if keys.issubset(pending_keys):
+            return
+        # Only this worker writes its actor's snapshots. Publication reports
+        # every eviction; successful keys need no per-request control RPC.
+        # Periodic authoritative refresh also repairs discovery after recovery.
+        if time.monotonic() < self._export_refresh_at and keys.issubset(
+            self._exported_keys
+        ):
+            return
+        if time.monotonic() < self._export_refresh_at and (
+            keys - self._exported_keys
+        ).issubset(pending_keys):
+            return
+        # New content cannot require authoritative recovery of a mirrored
+        # hit. Avoid a readiness RPC on every cold prefill; existing keys
+        # still use the periodic refresh above and below.
+        ready = None
+        if self._export_refresh_at:
+            if time.monotonic() >= self._export_refresh_at and (
+                keys & self._exported_keys
             ):
-                return
-            if time.monotonic() < self._export_refresh_at and (
-                keys - self._exported_keys
-            ).issubset(pending_keys):
-                return
-            # New content cannot require authoritative recovery of a mirrored
-            # hit. Avoid a readiness RPC on every cold prefill; existing keys
-            # still use the periodic refresh above and below.
-            ready = None
-            if self._export_refresh_at:
-                if time.monotonic() >= self._export_refresh_at and (
-                    keys & self._exported_keys
-                ):
-                    # Cold traffic may reuse a small published prefix. Repair
-                    # its authoritative publication once per refresh interval,
-                    # rather than leaving the deadline expired and querying on
-                    # every subsequent cold request.
-                    self._call(self._register_blocks(pending))
-                if time.monotonic() < self._export_refresh_at:
-                    ready = (keys & self._exported_keys) | pending_keys
-                elif not (keys & self._exported_keys):
-                    ready = pending_keys.copy()
-            if ready is not None and keys.issubset(ready):
-                return
-            missing = (
-                self._missing_store_requests(pending, ready)
-                if ready is not None
-                else self._call(self._filter_store_requests(pending))
-            )
-            if self._gpu_export_arena is not None:
-                # Ordinary replica snapshots are optional. Admit only what the
-                # owned arena and byte budget can hold, without waiting for D2H
-                # or gathering payloads that will immediately need backpressure.
-                # Skipped blocks remain eligible for a later request to export.
-                missing = self._admit_cpu_exports(missing)
-                if missing:
-                    nbytes = self._cpu_export_size(missing)
-                    batches = list(self._cpu_export_batches(missing, gpu_only=True))
-                    self._enqueue_ipc_export(batches, nbytes)
-                return
-            if missing and self._can_queue_ipc_export(missing):
+                # Cold traffic may reuse a small published prefix. Repair
+                # its authoritative publication once per refresh interval,
+                # rather than leaving the deadline expired and querying on
+                # every subsequent cold request.
+                self._call(self._register_blocks(pending))
+            if time.monotonic() < self._export_refresh_at:
+                ready = (keys & self._exported_keys) | pending_keys
+            elif not (keys & self._exported_keys):
+                ready = pending_keys.copy()
+        if ready is not None and keys.issubset(ready):
+            return
+        missing = (
+            self._missing_store_requests(pending, ready)
+            if ready is not None
+            else self._call(self._filter_store_requests(pending))
+        )
+        if self._gpu_export_arena is not None:
+            # Ordinary replica snapshots are optional. Admit only what the
+            # owned arena and byte budget can hold, without waiting for D2H
+            # or gathering payloads that will immediately need backpressure.
+            # Skipped blocks remain eligible for a later request to export.
+            missing = self._admit_cpu_exports(missing)
+            if missing:
                 nbytes = self._cpu_export_size(missing)
-                count = sum(len(request.block_hashes) for request in missing)
-                per_batch = max(1, _MAX_EXPORT_BYTES // (nbytes // count))
-                slots = (count + per_batch - 1) // per_batch
-                if (
-                    nbytes + sum(entry[1] for entry in self._ipc_export_jobs.values())
-                    > self._ipc_export_budget
-                ) or (
-                    self._gpu_export_arena is not None
-                    and slots > len(self._gpu_export_arena.available)
-                ):
-                    self._poll_ipc_exports(wait=True)
-                    missing = self._call(self._filter_store_requests(pending))
-                    nbytes = self._cpu_export_size(missing)
-                # Gather every source before returning to vLLM. Later engine
-                # steps may preempt requests or reuse their original GPU slots.
                 batches = list(self._cpu_export_batches(missing, gpu_only=True))
                 self._enqueue_ipc_export(batches, nbytes)
-                return
-            if self._ipc_export_jobs:
+            return
+        if missing and self._can_queue_ipc_export(missing):
+            nbytes = self._cpu_export_size(missing)
+            if (
+                nbytes + sum(entry[1] for entry in self._ipc_export_jobs.values())
+                > self._ipc_export_budget
+            ):
                 self._poll_ipc_exports(wait=True)
                 missing = self._call(self._filter_store_requests(pending))
-            if missing:
-                self._stage_missing_registered_layers(missing)
-            # Re-publish all requested keys, including reused snapshots. This
-            # refreshes discovery and retries a failed tracker registration
-            # without copying already published KV payloads again.
-            self._call(self._register_blocks(pending))
-        finally:
-            for request in pending:
-                self._request_staged_layers.pop(request.request_id, None)
+                nbytes = self._cpu_export_size(missing)
+            # Gather every source before returning to vLLM. Later engine
+            # steps may preempt requests or reuse their original GPU slots.
+            batches = list(self._cpu_export_batches(missing, gpu_only=True))
+            self._enqueue_ipc_export(batches, nbytes)
+            return
+        if self._ipc_export_jobs:
+            self._poll_ipc_exports(wait=True)
+            missing = self._call(self._filter_store_requests(pending))
+        if missing:
+            self._stage_missing_registered_layers(missing)
+        # Re-publish all requested keys, including reused snapshots. This
+        # refreshes discovery and retries a failed tracker registration
+        # without copying already published KV payloads again.
+        self._call(self._register_blocks(pending))
 
     def get_num_new_matched_tokens(
         self,
@@ -785,6 +778,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 self._local_directory.close()
                 self._local_directory = None
                 self._directory_retry_at = 0.0
+                self._directory_disabled = False
         remote = self._call(self._query_remote_blocks(request.request_id, query_hashes))
         # A remote prefix must contain the first uncached block. Cold requests
         # need neither hashes nor a directory RPC payload for the whole prompt.
@@ -1101,14 +1095,21 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             sys.platform == "linux"
             and self._gpu_budget is None
             and self._local_directory is None
+            and not self._directory_disabled
             and time.monotonic() >= self._directory_retry_at
         ):
-            from ...xavier.local_directory import LocalBlockDirectory
+            from ...xavier.local_directory import LocalBlockDirectory, _boot_id
 
             self._directory_retry_at = time.monotonic() + 1.0
-            self._local_directory = LocalBlockDirectory.attach(
-                await tracker_ref.get_snapshot_directory(0)
-            )
+            try:
+                metadata = await tracker_ref.get_snapshot_directory(0)
+                if metadata is None or metadata["boot_id"] != _boot_id():
+                    self._directory_disabled = True
+                else:
+                    self._local_directory = LocalBlockDirectory.attach(metadata)
+            except OSError:
+                # A temporarily unavailable tracker or procfs is retryable.
+                logger.debug("Xavier local directory discovery failed", exc_info=True)
             if (
                 self._local_directory is not None
                 and self._local_directory.contains(query_hashes[0][0]) is False
@@ -1121,21 +1122,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         )
         logger.debug("Xavier V1 query result for request %s: %s", request_id, remote)
         return remote
-
-    async def _stage_layer_blocks(
-        self,
-        request_id: str,
-        layer_name: str,
-        block_ids: List[int],
-        blocks: torch.Tensor,
-    ):
-        transfer_ref = await self._get_transfer_ref()
-        await transfer_ref.stage_layer_blocks_v1(
-            request_id,
-            layer_name,
-            block_ids,
-            blocks,
-        )
 
     async def _filter_store_requests(
         self, requests: List[XavierStoreRequest], ready: Optional[set[int]] = None
@@ -1180,50 +1166,27 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
     async def _register_blocks(self, requests: List[XavierStoreRequest]):
         if not requests:
             return
-        tracker_ref = await self._get_tracker_ref()
         transfer_ref = await self._get_transfer_ref()
         expected_layers = {
             name
             for layer, cache in self._registered_kv_caches.items()
             for name, _ in self._iter_kv_tensors(layer, cache)
         }
-        if expected_layers:
-            # Registered caches share one schema. Avoid constructing layer
-            # groups and copying the actor's already unique result on hot hits.
-            keys = list(
-                dict.fromkeys(
-                    key for request in requests for key in request.block_hashes
-                )
-            )
-            available, evicted = await transfer_ref.publish_blocks_v1(
-                keys, expected_layers
-            )
-        else:
-            groups: Dict[frozenset[str], Dict[int, None]] = {}
-            for request in requests:
-                layers = frozenset(
-                    self._request_staged_layers.get(request.request_id, set())
-                )
-                groups.setdefault(layers, {}).update(
-                    dict.fromkeys(request.block_hashes)
-                )
-            available_keys: Dict[int, None] = {}
-            evicted_keys: Dict[int, None] = {}
-            for layers, group_keys in groups.items():
-                ready, removed = await transfer_ref.publish_blocks_v1(
-                    list(group_keys), set(layers)
-                )
-                available_keys.update(dict.fromkeys(ready))
-                evicted_keys.update(dict.fromkeys(removed))
-            available, evicted = list(available_keys), list(evicted_keys)
+        if not expected_layers:
+            return
+        keys = list(
+            dict.fromkeys(key for request in requests for key in request.block_hashes)
+        )
+        available, evicted = await transfer_ref.refresh_snapshot_blocks_v1(
+            keys,
+            expected_layers,
+            self._xavier_config.get("block_tracker_address"),
+            self._xavier_config.get("block_tracker_uid"),
+        )
         requested_keys = {key for request in requests for key in request.block_hashes}
         self._exported_keys.difference_update(requested_keys - set(available))
         if evicted:
             self._exported_keys.difference_update(evicted)
-            await tracker_ref.unregister_blocks(0, self._rank, evicted)
-        # Retry discovery even when ready snapshots required no payload export.
-        # Transport addresses identify immutable content, not recyclable GPU slots.
-        await tracker_ref.register_snapshot_blocks(0, available, self._rank)
         self._exported_keys.update(available)
         self._export_refresh_at = time.monotonic() + _EXPORT_REFRESH_SECONDS
         logger.debug(
@@ -1451,59 +1414,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     len(local_block_ids),
                 )
 
-    def _stage_kv_layer_for_request(
-        self,
-        request: XavierStoreRequest,
-        layer_name: str,
-        kv_layer: torch.Tensor | Sequence[torch.Tensor],
-    ) -> None:
-        staged_layers = self._request_staged_layers.setdefault(
-            request.request_id, set()
-        )
-        for kv_layer_name, kv_tensor in self._iter_kv_tensors(layer_name, kv_layer):
-            if kv_layer_name in staged_layers:
-                continue
-            kv_tensor = block_major_view(kv_tensor, self._num_cache_blocks)
-            source_block_ids = self._get_source_block_ids(request, kv_layer_name)
-            num_blocks = min(len(request.block_ids), len(source_block_ids))
-            if num_blocks <= 0:
-                continue
-            transport_block_ids = request.block_hashes[:num_blocks]
-            source_block_ids = source_block_ids[:num_blocks]
-            with profile_stage(
-                "store_d2h",
-                device=kv_tensor.device,
-                request_id=request.request_id,
-                layer=kv_layer_name,
-                blocks=num_blocks,
-                rank=self._rank,
-            ):
-                block_ids_tensor = torch.tensor(
-                    source_block_ids, device=kv_tensor.device, dtype=torch.long
-                )
-                blocks = (
-                    kv_tensor.index_select(0, block_ids_tensor)
-                    .detach()
-                    .cpu()
-                    .contiguous()
-                )
-            with profile_stage(
-                "store_rpc",
-                request_id=request.request_id,
-                layer=kv_layer_name,
-                nbytes=blocks.numel() * blocks.element_size(),
-                rank=self._rank,
-            ):
-                self._call(
-                    self._stage_layer_blocks(
-                        request.request_id,
-                        kv_layer_name,
-                        transport_block_ids,
-                        blocks,
-                    )
-                )
-            staged_layers.add(kv_layer_name)
-
     def _stage_missing_registered_layers(
         self, requests: List[XavierStoreRequest]
     ) -> None:
@@ -1696,8 +1606,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             raise
         return entries, owners, list(events.values())
 
-    def _cpu_export_size(self, requests: List[XavierStoreRequest]) -> int:
-        return sum(len(request.block_hashes) for request in requests) * sum(
+    def _cache_export_block_bytes(self) -> int:
+        return sum(
             (
                 math.prod(block_major_view(tensor, self._num_cache_blocks).shape[1:])
                 * tensor.element_size()
@@ -1707,6 +1617,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             * 8
             for layer, cache in self._registered_kv_caches.items()
             for _, tensor in self._iter_kv_tensors(layer, cache)
+        )
+
+    def _cpu_export_size(self, requests: List[XavierStoreRequest]) -> int:
+        if self._cpu_export_block_bytes is None:
+            self._cpu_export_block_bytes = self._cache_export_block_bytes()
+        return (
+            sum(len(request.block_hashes) for request in requests)
+            * self._cpu_export_block_bytes
         )
 
     def _can_queue_ipc_export(self, requests: List[XavierStoreRequest]) -> bool:
@@ -1950,7 +1868,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             return
         else:
             results = self._call(poll())
-        error = None
         for ticket, (available, evicted) in results.items():
             slots = self._gpu_export_tickets.get(ticket)
             if slots is not None:
@@ -1961,8 +1878,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             if available is None:
                 self._exported_keys.clear()
                 self._export_refresh_at = 0
-                error = error or RuntimeError(
-                    f"Xavier snapshot export failed: {evicted}"
+                logger.warning(
+                    "Optional Xavier snapshot export failed: %s; "
+                    "future requests can export it again",
+                    evicted,
                 )
                 continue
             self._exported_keys.difference_update(evicted)
@@ -1970,8 +1889,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             if not self._export_refresh_at:
                 self._export_refresh_at = time.monotonic() + _EXPORT_REFRESH_SECONDS
         self._ipc_export_poll_at = time.monotonic() + 0.01
-        if error is not None:
-            raise error
         if wait and future is not None and self._ipc_export_jobs:
             self._poll_ipc_exports(wait=True)
 

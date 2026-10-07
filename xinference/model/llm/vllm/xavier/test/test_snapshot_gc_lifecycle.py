@@ -11,7 +11,7 @@ import pytest
 
 @pytest.mark.parametrize("mode", ["enabled", "disabled", "already-frozen"])
 def test_snapshot_gc_preserves_new_request_cycles_and_external_owner(mode):
-    source = Path(__file__).parents[1] / "gc_lifecycle.py"
+    source = Path(__file__).parents[3] / "sglang" / "gc_lifecycle.py"
     script = r"""
 import gc, runpy, sys, weakref
 guard = runpy.run_path(sys.argv[1])["InitializationGCFreeze"]()

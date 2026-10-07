@@ -223,3 +223,22 @@ def test_pinned_receive_retains_exact_bits_after_shared_slot_is_reused(dtype):
     finally:
         view.close()
         owner.close()
+
+
+def test_busy_receive_lease_warns_once_until_released(caplog):
+    from ....xavier.backends.torch.local_read import SharedReadBuffer
+
+    owner = SharedReadBuffer(64)
+    try:
+        lease, payload = owner.acquire(8)
+        for _ in range(3):
+            assert owner.acquire(8) is None
+        assert caplog.text.count("Xavier shared receive lease is still held") == 1
+        owner.release(lease)
+        lease, payload = owner.acquire(8)
+        assert owner.acquire(8) is None
+        assert caplog.text.count("Xavier shared receive lease is still held") == 2
+        owner.release(lease)
+        del payload
+    finally:
+        owner.close()
