@@ -15,7 +15,9 @@
 
 import logging
 import os
+import shutil
 import sys
+import threading
 import time
 from unittest import mock
 
@@ -462,7 +464,50 @@ class _FakeMsvcrt:
         self.actions.append((fd, mode, count))
 
 
+class _BlockingFakeMsvcrt(_FakeMsvcrt):
+    def __init__(self):
+        super().__init__()
+        self.lock = threading.Lock()
+        self.acquire_attempted = threading.Event()
+
+    def locking(self, fd, mode, count):
+        super().locking(fd, mode, count)
+        if mode == self.LK_LOCK:
+            self.acquire_attempted.set()
+            self.lock.acquire()
+        else:
+            self.lock.release()
+
+
 class TestWindowsRotationFallback:
+    def test_lock_file_is_closed_when_locking_fails(self, tmp_path):
+        from ..utils import SafeRotatingFileHandler
+
+        class _FailingMsvcrt(_FakeMsvcrt):
+            def locking(self, fd, mode, count):
+                raise OSError("lock failed")
+
+        log_path = str(tmp_path / "test.log")
+        h = SafeRotatingFileHandler(log_path, maxBytes=100, backupCount=1)
+        opened = []
+        real_open = open
+
+        def tracking_open(*args, **kwargs):
+            lock_fd = real_open(*args, **kwargs)
+            opened.append(lock_fd)
+            return lock_fd
+
+        with (
+            mock.patch.object(deploy_utils, "msvcrt", _FailingMsvcrt()),
+            mock.patch("builtins.open", side_effect=tracking_open),
+        ):
+            with pytest.raises(OSError, match="lock failed"):
+                h._acquire_rotation_lock()
+        h.close()
+
+        assert len(opened) == 1
+        assert opened[0].closed
+
     def test_msvcrt_lock_is_acquired_and_released(self, tmp_path):
         from ..utils import SafeRotatingFileHandler
 
@@ -502,6 +547,74 @@ class TestWindowsRotationFallback:
             assert archive.read() == "before rotation\n"
         with open(log_path, encoding="utf8") as live:
             assert live.read() == ""
+
+    def test_copy_truncate_blocks_concurrent_writes(self, tmp_path):
+        from ..utils import SafeRotatingFileHandler
+
+        fake_msvcrt = _BlockingFakeMsvcrt()
+        log_path = str(tmp_path / "test.log")
+        archive_path = tmp_path / "test.log.1"
+        copy_finished = threading.Event()
+        allow_truncate = threading.Event()
+        errors = []
+        real_copy2 = shutil.copy2
+
+        def pausing_copy(source, dest):
+            result = real_copy2(source, dest)
+            copy_finished.set()
+            if not allow_truncate.wait(timeout=5):
+                raise TimeoutError("test did not release the truncate step")
+            return result
+
+        def capture_errors(target):
+            try:
+                target()
+            except BaseException as exc:
+                errors.append(exc)
+
+        with mock.patch.object(deploy_utils, "msvcrt", fake_msvcrt):
+            h1 = SafeRotatingFileHandler(log_path, maxBytes=1000, backupCount=1)
+            h2 = SafeRotatingFileHandler(log_path, maxBytes=1000, backupCount=1)
+            h1.setFormatter(logging.Formatter("%(message)s"))
+            h2.setFormatter(logging.Formatter("%(message)s"))
+            h1.emit(_make_record("before rotation"))
+
+            with (
+                mock.patch(
+                    "logging.handlers.BaseRotatingHandler.rotate",
+                    side_effect=PermissionError(13, "file is in use"),
+                ),
+                mock.patch("shutil.copy2", side_effect=pausing_copy),
+            ):
+                rotate_thread = threading.Thread(
+                    target=capture_errors, args=(h1.doRollover,)
+                )
+                rotate_thread.start()
+                assert copy_finished.wait(timeout=5)
+
+                fake_msvcrt.acquire_attempted.clear()
+                write_thread = threading.Thread(
+                    target=capture_errors,
+                    args=(lambda: h2.emit(_make_record("during rotation")),),
+                )
+                write_thread.start()
+                assert fake_msvcrt.acquire_attempted.wait(timeout=5)
+                assert write_thread.is_alive()
+
+                allow_truncate.set()
+                rotate_thread.join(timeout=5)
+                write_thread.join(timeout=5)
+
+            h1.close()
+            h2.close()
+
+        assert not rotate_thread.is_alive()
+        assert not write_thread.is_alive()
+        assert errors == []
+        assert archive_path.read_text(encoding="utf8") == "before rotation\n"
+        assert (tmp_path / "test.log").read_text(encoding="utf8") == (
+            "during rotation\n"
+        )
 
     def test_size_rotation_generation_prevents_duplicate_archive(self, tmp_path):
         from ..utils import SafeRotatingFileHandler

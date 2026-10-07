@@ -68,17 +68,34 @@ class _SafeFileRotationMixin:
             self._release_rotation_lock(lock_fd)
 
     def _acquire_rotation_lock(self):
+        active_lock = getattr(self, "_rotation_lock_fd", None)
+        if active_lock is not None:
+            self._rotation_lock_depth += 1
+            return active_lock
+
         lock_fd = open(self._lock_path, "r+b")
-        if msvcrt is not None:
-            lock_fd.seek(0)
-            msvcrt.locking(lock_fd.fileno(), msvcrt.LK_LOCK, 1)
-        else:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        try:
+            if msvcrt is not None:
+                lock_fd.seek(0)
+                msvcrt.locking(lock_fd.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        except BaseException:
+            lock_fd.close()
+            raise
+        self._rotation_lock_fd = lock_fd
+        self._rotation_lock_depth = 1
         return lock_fd
 
     def _release_rotation_lock(self, lock_fd):
         if lock_fd is None:
             return
+        if lock_fd is getattr(self, "_rotation_lock_fd", None):
+            self._rotation_lock_depth -= 1
+            if self._rotation_lock_depth > 0:
+                return
+            self._rotation_lock_fd = None
+            self._rotation_lock_depth = 0
         try:
             if msvcrt is not None:
                 lock_fd.seek(0)
@@ -87,6 +104,23 @@ class _SafeFileRotationMixin:
                 fcntl.flock(lock_fd, fcntl.LOCK_UN)
         finally:
             lock_fd.close()
+
+    def emit(self, record):
+        if msvcrt is None:
+            return super().emit(record)
+
+        # Windows cannot rename a log file held open by sibling processes, so
+        # rotate() may need to copy and truncate it in place. Coordinate the
+        # entire rollover check and write to prevent a sibling from writing in
+        # the otherwise lossy interval between that copy and truncate.
+        try:
+            lock_fd = self._acquire_rotation_lock()
+            try:
+                return super().emit(record)
+            finally:
+                self._release_rotation_lock(lock_fd)
+        except Exception:
+            self.handleError(record)
 
     def _read_rotation_state(self, lock_fd):
         try:
@@ -156,6 +190,7 @@ class SafeRotatingFileHandler(
 
     Multi-process safety:
     1. A platform-native file lock serializes ``doRollover`` across processes.
+       On Windows it also serializes normal writes with copy/truncate rotation.
     2. ``shouldRollover`` checks inode at entry; if another process
        renamed the file, reopen the stream.
     3. Size check uses ``os.fstat().st_size`` instead of
@@ -332,6 +367,7 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
 
     Multi-process safety:
     1. A platform-native file lock serializes ``doRollover`` across processes.
+       On Windows it also serializes normal writes with copy/truncate rotation.
     2. ``shouldRollover`` checks inode at entry; if another process
        renamed the file, reopen the stream.
     3. Size check uses ``os.fstat().st_size`` instead of
