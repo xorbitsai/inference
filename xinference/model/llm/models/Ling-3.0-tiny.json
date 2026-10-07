@@ -173,10 +173,14 @@
         "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "einops ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
-        "#system_numpy# ; #engine# == \"Transformers\""
+        "#system_numpy# ; #engine# == \"Transformers\"",
+        "vllm==0.29.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "sglang==0.5.19 ; #engine# == \"sglang\""
       ]
     },
     "featured": false,
-    "updated_at": 1786709778
+    "updated_at": 1791355561
   }
 ]
