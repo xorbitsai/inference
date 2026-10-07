@@ -1,0 +1,55 @@
+[
+  {
+    "version": 2,
+    "model_name": "embeddinggemma-2",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "model_ability": [
+      "embed_vision",
+      "embed_video",
+      "embed_audio"
+    ],
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "google/embeddinggemma-2",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "google/embeddinggemma-2",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.19.0",
+        "sentence-transformers>=6.1.0 ; #engine# == \"sentence_transformers\"",
+        "vllm>=0.32.0 ; #engine# == \"vllm\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_torchvision# ; #engine# == \"transformers\"",
+        "accelerate",
+        "pillow",
+        "librosa",
+        "soundfile",
+        "torchcodec"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1791324565
+  }
+]
