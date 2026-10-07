@@ -227,3 +227,15 @@ msgstr "响应包含单个向量，与文本 Embeddings API 返回的列表形�
 #: ../../source/user_guide/client_api.rst:430
 msgid "Compare vectors with cosine similarity for speaker verification or speaker identification. See :ref:`audio` for Web UI usage, input processing details, and the complete Speaker Embedding API example."
 msgstr "可以使用余弦相似度比较向量，进行说话人验证或识别。Web UI 使用方法、输入处理细节和完整的说话人嵌入 API 示例参见 :ref:`audio`。"
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "缓存命中 token 数"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "使用 vLLM、SGLang 和 MLX 时，如果引擎提供统计，补全和聊天补全响应会通过 ``usage.prompt_tokens_details.cached_tokens`` 返回复用的提示 token 数。该数值包含引擎报告的原生前缀缓存复用和 Xavier 缓存复用，是 ``prompt_tokens`` 的一部分，不是额外的 token 数。"
+
+#: user_guide/client_api.rst:101
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "流式请求设置 ``stream_options={\"include_usage\": True}`` 后，会收到 ``choices=[]`` 的最终用量统计块。Responses API 通过 ``usage.input_tokens_details.cached_tokens`` 返回同一数值。如果引擎未报告缓存命中，补全和聊天补全响应会省略 ``prompt_tokens_details``；Responses API 则默认返回零。"

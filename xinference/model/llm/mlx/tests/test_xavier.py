@@ -853,8 +853,9 @@ async def test_pd_failed_prefill_releases_reserved_pages(release_fails):
 
 @metal
 @pytest.mark.asyncio
-async def test_real_batch_generation_reuses_remote_cache(monkeypatch):
-    from ..core import MLXBatchModel
+@pytest.mark.parametrize("stream", [False, True])
+async def test_real_batch_generation_reuses_remote_cache(monkeypatch, stream):
+    from ..core import MLXBatchModel, MLXModel
 
     class Tokenizer:
         eos_token_ids = []
@@ -879,19 +880,38 @@ async def test_real_batch_generation_reuses_remote_cache(monkeypatch):
             client = MLXXavierCache(contract(), dict(cfg, role=role))
             client.publish = MagicMock(wraps=client.publish)
             clients.append(client)
+            native_model = model()
             wrapper = MLXBatchModel(
-                model(), Tokenizer(), prompt_cache_size=0, xavier=client
+                native_model, Tokenizer(), prompt_cache_size=0, xavier=client
             )
+            adapter = object.__new__(MLXModel)
+            adapter.model_uid = "mlx-cache-test"
+            adapter._model = native_model
+            adapter._tokenizer = Tokenizer()
+            adapter._model_generation_config = {}
+            adapter._batch_model = wrapper
+            adapter._xavier = client
             try:
-                tokens = Tokenizer().encode("a" * 70)
-                prepared = await client.fetch(tokens, transfer)
-                return await wrapper.generate(
+                result = await adapter.async_generate(
                     "a" * 70,
-                    8,
-                    temperature=0,
-                    prepared_cache=prepared,
-                    prompt_token_ids=tokens,
+                    dict(
+                        max_tokens=8,
+                        temperature=0,
+                        stream=stream,
+                        stream_options={"include_usage": True},
+                        **({"_pd_kv_transfer_params": transfer} if transfer else {}),
+                    ),
                 )
+                if stream:
+                    chunks = [chunk async for chunk in result]
+                    assert chunks[-1]["choices"] == []
+                    text = "".join(
+                        choice["text"]
+                        for chunk in chunks
+                        for choice in chunk["choices"]
+                    )
+                    return text, chunks[-1]["usage"]
+                return result["choices"][0]["text"], result["usage"]
             finally:
                 tasks = [
                     g["task"] for g in wrapper._batch_generators.values() if g["task"]

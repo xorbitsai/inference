@@ -211,3 +211,15 @@ msgstr "Lancez le modèle rerank et calculez la similarité textuelle :"
 #~ "Lors de l'envoi de requêtes avec Anthropic, toutes les requêtes, à "
 #~ "l'exception de la création de modèles, restent compatibles avec l'interface "
 #~ "d'Anthropic."
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "Nombre de tokens trouvés en cache"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "Avec vLLM, SGLang et MLX, les réponses de complétion et de complétion de chat exposent le nombre de tokens du prompt réutilisés par le moteur dans ``usage.prompt_tokens_details.cached_tokens``, lorsque cette information est disponible. Ce nombre inclut la réutilisation du cache de préfixes natif et du cache Xavier signalée par le moteur ; il fait partie de ``prompt_tokens`` et ne constitue pas un nombre de tokens supplémentaire."
+
+#: user_guide/client_api.rst:101
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "Pour les requêtes en streaming, définissez ``stream_options={\"include_usage\": True}`` afin de recevoir le dernier bloc de statistiques avec ``choices=[]``. La Responses API expose le même nombre dans ``usage.input_tokens_details.cached_tokens``. Si le moteur ne signale pas les succès de cache, les réponses de complétion et de complétion de chat omettent ``prompt_tokens_details`` ; la Responses API utilise zéro par défaut."

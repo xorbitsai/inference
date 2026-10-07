@@ -1511,6 +1511,7 @@ class MLXModel(LLM, ChatModelMixin):
             if stream:
                 # Return async generator for streaming
                 async def stream_generator():
+                    last_chunk = None
                     async for chunk in self._batch_model.generate_stream(
                         prompt=prompt_text,
                         max_tokens=max_tokens,
@@ -1531,7 +1532,19 @@ class MLXModel(LLM, ChatModelMixin):
                             chunk["model"] = self.model_uid
                             if chunk.get("choices") and len(chunk["choices"]) > 0:
                                 chunk["choices"][0]["index"] = 0
+                        last_chunk = chunk
                         yield chunk
+
+                    stream_options = generate_config.get("stream_options")
+                    if (
+                        isinstance(stream_options, dict)
+                        and stream_options.get("include_usage")
+                        and last_chunk is not None
+                        and last_chunk.get("usage") is not None
+                    ):
+                        usage_chunk = last_chunk.copy()
+                        usage_chunk["choices"] = []
+                        yield usage_chunk
 
                 return stream_generator()
             else:
