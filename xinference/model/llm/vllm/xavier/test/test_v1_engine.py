@@ -60,12 +60,42 @@ def test_v1_connector_configuration(engine, role, kv_role):
     assert args.kv_transfer_config.kv_role == kv_role
     assert args.kv_transfer_config.kv_connector == "XavierConnector"
     assert args.additional_config["custom"] == 1
+    assert args.additional_config == {"custom": 1}
+    assert (
+        args.kv_transfer_config.kv_connector_extra_config["xavier_config"][
+            "block_tracker_uid"
+        ]
+        == b"tracker"
+    )
     json.dumps(args.additional_config)
     assert not args.enforce_eager
     assert getattr(args, "disable_hybrid_kv_cache_manager", None) is None
     assert args.enable_prefix_caching is True
     assert config == {"role": role, "rank": 2, "block_tracker_uid": b"tracker"}
     factory.assert_called_once()
+
+
+def test_transport_changes_preserve_user_compilation_config(engine):
+    module, _ = engine
+    additional = {"custom": {"graph_option": 1}}
+    for rank in [1, 2]:
+        args = SimpleNamespace(
+            additional_config=additional,
+            create_model_config=lambda: SimpleNamespace(is_hybrid=False),
+        )
+        module.XavierEngine._patch_v1_engine_args(
+            args,
+            {
+                "rank": rank,
+                "rank_address": f"localhost:{1000 + rank}",
+                "block_tracker_uid": b"runtime-only",
+            },
+        )
+        assert args.additional_config is additional
+        assert (
+            args.kv_transfer_config.kv_connector_extra_config["xavier_config"]["rank"]
+            == rank
+        )
 
 
 @pytest.mark.parametrize("recurrent", [False, True])

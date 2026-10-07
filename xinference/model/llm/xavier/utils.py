@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import struct
-from typing import List, Optional
+from functools import lru_cache
+from typing import List, Optional, Tuple
 
 import xxhash
 
@@ -35,6 +36,25 @@ def hash_block_tokens(
     if extra_hash is None:
         extra_hash = none_hash
 
+    return _hash_block_tokens(
+        is_first_block,
+        int(prev_block_hash) & 0xFFFFFFFFFFFFFFFF,
+        tuple(cur_block_token_ids),
+        int(extra_hash) & 0xFFFFFFFFFFFFFFFF,
+    )
+
+
+@lru_cache(maxsize=16384)
+def _hash_block_tokens(
+    is_first_block: bool,
+    prev_block_hash: int,
+    cur_block_token_ids: Tuple[int, ...],
+    extra_hash: int,
+) -> int:
+    # Cache whole hash inputs, including the predecessor. Identical token
+    # chunks at different prefix positions must not share a content address.
+    # The bounded cache retains no request or tensor storage.
+
     buf = bytearray()
 
     # 0. hash version
@@ -50,8 +70,9 @@ def hash_block_tokens(
     buf += struct.pack("<I", len(cur_block_token_ids))
 
     # 4. token ids: int32[]
-    for tid in cur_block_token_ids:
-        buf += struct.pack("<i", int(tid))
+    buf += struct.pack(
+        f"<{len(cur_block_token_ids)}i", *(int(tid) for tid in cur_block_token_ids)
+    )
 
     # 5. extra_hash: int64
     buf += struct.pack("<Q", int(extra_hash) & 0xFFFFFFFFFFFFFFFF)

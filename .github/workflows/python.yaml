@@ -395,6 +395,11 @@ jobs:
               xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \
               xinference/model/llm/vllm/xavier/test/test_v1_engine.py \
               xinference/model/llm/vllm/xavier/test/test_prefix_cache_hot_path.py \
+              xinference/model/llm/vllm/xavier/test/test_snapshot_export_ipc.py \
+              xinference/model/llm/vllm/xavier/test/test_snapshot_gc_lifecycle.py \
+              xinference/model/llm/vllm/xavier/test/test_packed_gather.py \
+              xinference/model/llm/vllm/xavier/test/test_local_directory.py \
+              xinference/model/llm/vllm/xavier/test/test_local_read.py \
               xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py \
               xinference/model/llm/vllm/xavier/test/test_kv_schema.py \
               xinference/model/llm/vllm/xavier/test/test_direct_handoff.py \

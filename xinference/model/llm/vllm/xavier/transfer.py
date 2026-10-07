@@ -13,6 +13,8 @@
 # limitations under the License.
 import asyncio
 import logging
+import math
+import sys
 from functools import lru_cache
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, no_type_check
@@ -25,6 +27,7 @@ from ...xavier.backends.torch.snapshot import KVSnapshotStore
 from ...xavier.collective import CollectiveRank
 from ...xavier.constants import DEFAULT_TRANSFER_ACTOR_UID
 from ...xavier.profiling import profile_stage
+from .gc_lifecycle import InitializationGCFreeze
 
 try:
     from vllm.utils import TORCH_DTYPE_TO_NUMPY_DTYPE, Device
@@ -136,6 +139,7 @@ class TransferActor(
         store_address: str,
         store_port: int,
         world_addresses: List[str],
+        freeze_initialization_gc: bool = False,
     ):
         super().__init__()
         CollectiveRank.__init__(
@@ -153,10 +157,22 @@ class TransferActor(
         self._kv_schema_v1: Optional[Tuple[int, dict, str]] = None
         self._schema_mismatch_warnings: Set[Tuple[str, str]] = set()
         self._layer_send_tasks_v1: Set[asyncio.Task[Any]] = set()
+        self._snapshot_export_jobs_v1: Dict[str, asyncio.Task] = {}
+        self._snapshot_export_lock_v1 = asyncio.Lock()
+        self._snapshot_export_sources_v1: Dict[
+            str, List[Tuple[torch.Tensor, torch.cuda.Event]]
+        ] = {}
+        self._snapshot_gc_freeze = (
+            InitializationGCFreeze() if freeze_initialization_gc else None
+        )
         self._swap_stream = torch.cuda.Stream()
 
     async def __post_create__(self):
         self.init_rank()
+        if self._snapshot_gc_freeze is not None:
+            # Actor creation follows model loading and precedes serving. Freeze
+            # once here; snapshots and request cycles allocated later still GC.
+            self._snapshot_gc_freeze.start()
 
     def setup(
         self,
@@ -176,15 +192,33 @@ class TransferActor(
 
     async def __pre_destroy__(self):
         try:
-            await self.close_gpu_caches_v1()
-        except Exception:
-            logger.warning(
-                "Failed to close Xavier GPU caches; continuing transfer cleanup",
-                exc_info=True,
-            )
-        for task in self._layer_send_tasks_v1:
-            task.cancel()
-        self._context.closeConnections()
+            if getattr(self, "_local_read_tasks_v1", None):
+                await asyncio.gather(*self._local_read_tasks_v1, return_exceptions=True)
+            read_buffer = getattr(self, "_local_read_buffer_v1", None)
+            if read_buffer is not None:
+                read_buffer.close()
+                self._local_read_buffer_v1 = None
+            if getattr(self, "_snapshot_export_jobs_v1", None):
+                await asyncio.gather(
+                    *self._snapshot_export_jobs_v1.values(), return_exceptions=True
+                )
+                self._snapshot_export_jobs_v1.clear()
+            if getattr(self, "_snapshot_export_sources_v1", None):
+                self._snapshot_export_sources_v1.clear()
+            try:
+                await self.close_gpu_caches_v1()
+            except Exception:
+                logger.warning(
+                    "Failed to close Xavier GPU caches; continuing transfer cleanup",
+                    exc_info=True,
+                )
+            for task in self._layer_send_tasks_v1:
+                task.cancel()
+            self._context.closeConnections()
+        finally:
+            guard = getattr(self, "_snapshot_gc_freeze", None)
+            if guard is not None:
+                guard.close()
 
     def _get_cache_engine(self, virtual_engine: int) -> CacheEngine:
         return self._cache_engine[virtual_engine]  # type: ignore
@@ -277,6 +311,115 @@ class TransferActor(
         if previous is not None and previous != schema:
             raise ValueError("Xavier registered KV schema changed")
         self._kv_schema_v1 = schema
+
+    def register_snapshot_export_source_v1(self, source, metadata):
+        from torch.multiprocessing.reductions import rebuild_cuda_tensor
+
+        mapped = []
+        for descriptor, handle in metadata:
+            value = rebuild_cuda_tensor(*descriptor)
+            ready = torch.cuda.Event.from_ipc_handle(value.device, handle)
+            mapped.append((value, ready))
+        sources = getattr(self, "_snapshot_export_sources_v1", None)
+        if sources is None:
+            sources = self._snapshot_export_sources_v1 = {}
+        sources[source] = mapped
+
+    async def close_snapshot_export_source_v1(self, source):
+        if getattr(self, "_snapshot_export_jobs_v1", None):
+            await asyncio.gather(
+                *self._snapshot_export_jobs_v1.values(), return_exceptions=True
+            )
+        sources = getattr(self, "_snapshot_export_sources_v1", None)
+        if sources is not None:
+            sources.pop(source, None)
+
+    def enqueue_snapshot_export_v1(self, ticket, batches, tracker_address, tracker_uid):
+        """Own immutable GPU gathers before acknowledging the producer."""
+        from torch.multiprocessing.reductions import rebuild_cuda_tensor
+
+        sources = getattr(self, "_snapshot_export_sources_v1", {})
+        if any(
+            isinstance(descriptor, dict) and descriptor["gpu_export"] not in sources
+            for _, descriptor, _ in batches
+        ):
+            return False  # Actor recovery requires fresh IPC refcounts.
+        mapped = []
+        for keys, descriptor, layers in batches:
+            ready = None
+            if isinstance(descriptor, dict):
+                buffer, ready = sources[descriptor["gpu_export"]][descriptor["slot"]]
+                shape = descriptor["shape"]
+                value = buffer[: math.prod(shape)].view(shape)
+            else:
+                value = rebuild_cuda_tensor(*descriptor)
+            mapped.append((keys, value, layers, ready))
+        batches = mapped
+
+        async def export():
+            available, evicted = set(), set()
+            async with self._snapshot_export_lock_v1:
+                tracker = await xo.actor_ref(address=tracker_address, uid=tracker_uid)
+                for keys, value, layers, ready_event in batches:
+                    event = torch.cuda.Event()
+                    recorded = False
+                    try:
+                        if ready_event is not None:
+                            torch.cuda.current_stream(value.device).wait_event(
+                                ready_event
+                            )
+                        host = torch.empty_like(value, device="cpu", pin_memory=True)
+                        host.copy_(value, non_blocking=True)
+                        event.record(torch.cuda.current_stream(value.device))
+                        recorded = True
+                        # Publication progresses independently of EngineCore.
+                        while not event.query():
+                            await asyncio.sleep(0.001)
+                        # Own this immutable D2H allocation without copying it
+                        # again. The store charges and evicts whole slabs, so
+                        # retained memory remains bounded by its capacity.
+                        self._snapshot_store.stage_packed_blocks(
+                            keys, host, layers, retain_storage=True
+                        )
+                        ready, removed = self.publish_blocks_v1(
+                            keys, {layer[0] for layer in layers}
+                        )
+                        if removed:
+                            await tracker.unregister_blocks(0, self._rank, removed)
+                        await tracker.register_snapshot_blocks(0, ready, self._rank)
+                        available.difference_update(removed)
+                        available.update(ready)
+                        evicted.update(removed)
+                        evicted.difference_update(ready)
+                    finally:
+                        if recorded:
+                            event.synchronize()
+                        else:
+                            torch.cuda.current_stream(value.device).synchronize()
+            return list(available), list(evicted)
+
+        self._snapshot_export_jobs_v1[ticket] = asyncio.create_task(export())
+
+    async def poll_snapshot_exports_v1(self, tickets, *, wait=False):
+        tasks = {
+            ticket: self._snapshot_export_jobs_v1.get(ticket) for ticket in tickets
+        }
+        if wait:
+            await asyncio.gather(
+                *(task for task in tasks.values() if task is not None),
+                return_exceptions=True,
+            )
+        results = {}
+        for ticket, task in tasks.items():
+            if task is None:
+                results[ticket] = (None, "Unknown snapshot export ticket")
+            elif task.done():
+                self._snapshot_export_jobs_v1.pop(ticket)
+                try:
+                    results[ticket] = task.result()
+                except BaseException as error:
+                    results[ticket] = (None, repr(error))
+        return results
 
     def reserve_blocks_v1(self, lease, keys, expected_schema):
         schema = self._kv_schema_v1
@@ -560,7 +703,53 @@ class TransferActor(
 
         task.add_done_callback(completed)
 
-    async def read_request_blocks_v1(self, from_rank, reads):
+    def get_local_read_metadata_v1(self):
+        if sys.platform != "linux":
+            return None
+        from ...xavier.backends.torch.local_read import SharedReadBuffer
+
+        owner = getattr(self, "_local_read_buffer_v1", None)
+        try:
+            if owner is None:
+                owner = self._local_read_buffer_v1 = SharedReadBuffer()
+                self._local_read_tasks_v1 = set()
+            return owner.metadata()
+        except OSError:
+            if owner is not None:
+                owner.close()
+                self._local_read_buffer_v1 = None
+            return None
+
+    async def read_request_blocks_local_v1(self, from_rank, reads, token):
+        from ...xavier.backends.torch.gpu_transfer import finish_before_cancel
+
+        owner = getattr(self, "_local_read_buffer_v1", None)
+        if owner is None or owner.token != token:
+            return None
+        acquired = owner.acquire(sum(read.nbytes for read in reads))
+        if acquired is None:
+            return None  # Busy or oversized messages use the ordinary RPC path.
+        lease, payload = acquired
+        task = asyncio.create_task(
+            self.read_request_blocks_v1(from_rank, reads, _buffer=payload)
+        )
+        self._local_read_tasks_v1.add(task)
+        try:
+            # Cancellation cannot release/unmap a buffer while Gloo still writes.
+            await finish_before_cancel(task)
+        except BaseException:
+            owner.release(lease)
+            raise
+        finally:
+            self._local_read_tasks_v1.discard(task)
+        return lease
+
+    def release_local_read_v1(self, lease):
+        owner = getattr(self, "_local_read_buffer_v1", None)
+        if owner is not None:
+            owner.release(lease)
+
+    async def read_request_blocks_v1(self, from_rank, reads, *, _buffer=None):
         from xoscar.collective import xoscar_pygloo as xp
 
         fields = dict(
@@ -568,7 +757,11 @@ class TransferActor(
             nbytes=sum(read.nbytes for read in reads),
             blocks=sum(len(read.keys) for read in reads),
         )
-        payload = torch.empty(fields["nbytes"], dtype=torch.uint8)
+        payload = (
+            torch.empty(fields["nbytes"], dtype=torch.uint8)
+            if _buffer is None
+            else _buffer
+        )
         with profile_stage("actor_control", **fields):
             sender = await xo.actor_ref(
                 address=self._world_addresses[from_rank],

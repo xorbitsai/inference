@@ -126,7 +126,7 @@ def test_unsupported_configs_rejected(connector_module, connector_config, field)
 @pytest.mark.asyncio
 async def test_reused_request_id_publishes_new_content(connector, connector_module):
     tracker = SimpleNamespace(
-        register_blocks=AsyncMock(), unregister_blocks=AsyncMock()
+        register_snapshot_blocks=AsyncMock(), unregister_blocks=AsyncMock()
     )
     transfer = SimpleNamespace(
         publish_blocks_v1=AsyncMock(side_effect=[([111], []), ([222], [111])])
@@ -138,8 +138,8 @@ async def test_reused_request_id_publishes_new_content(connector, connector_modu
         await connector._register_blocks(
             [connector_module.XavierStoreRequest("r", [1], [key], [[1]])]
         )
-    assert tracker.register_blocks.await_count == 2
-    tracker.register_blocks.assert_awaited_with(0, [(222, 222)], 1)
+    assert tracker.register_snapshot_blocks.await_count == 2
+    tracker.register_snapshot_blocks.assert_awaited_with(0, [222], 1)
     tracker.unregister_blocks.assert_awaited_once_with(0, 1, [111])
     assert not hasattr(connector, "_stored_requests")
 
