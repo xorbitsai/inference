@@ -15,6 +15,17 @@ from ..snapshot import KVSnapshotStore
 from ..transfer import TransferActor
 
 
+@pytest.mark.parametrize("wait", [False, True])
+def test_exportless_completion_poll_needs_no_cpu_export_state(connector_module, wait):
+    connector = connector_module.XavierConnector.__new__(
+        connector_module.XavierConnector
+    )
+    # Cross-engine completion hooks have no CPU snapshots to publish. An empty
+    # poll must not access queue/poll fields or enter an actor event loop.
+    connector._ipc_export_jobs = {}
+    connector._poll_ipc_exports(wait=wait)
+
+
 class SnapshotExportActor(xo.StatelessActor):
     enqueue_snapshot_export_v1 = TransferActor.enqueue_snapshot_export_v1
     poll_snapshot_exports_v1 = TransferActor.poll_snapshot_exports_v1

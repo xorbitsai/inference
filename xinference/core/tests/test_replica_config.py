@@ -15,7 +15,12 @@ import asyncio
 
 import pytest
 
-from ..replica_config import DeviceConfig, ReplicaConfig, normalize_replica_configs
+from ..replica_config import (
+    DeviceConfig,
+    ReplicaConfig,
+    normalize_replica_configs,
+    validate_pd_replica_configs,
+)
 from ..supervisor import SupervisorActor
 
 
@@ -305,3 +310,26 @@ def test_resolve_auto_gpu_skips_existence_check():
         sup._resolve_replica_config("m", 1, [_cfg(worker_ip="10.0.0.1:9978")])
     )
     assert targets[0][1] is None
+
+
+@pytest.mark.parametrize(
+    "prefill,decode,valid",
+    [
+        (["MLX", "MLX"], ["vLLM", "SGLang"], True),
+        (["vLLM", "SGLang"], ["MLX", "MLX"], True),
+        (["MLX", "vLLM"], ["SGLang"], False),
+        (["vLLM"], ["MLX", "SGLang"], False),
+        (["MLX", "vLLM"], ["MLX", "SGLang"], False),
+    ],
+)
+def test_nvidia_mlx_topology_keeps_hardware_on_separate_roles(prefill, decode, valid):
+    configs = [
+        ReplicaConfig(role=role, model_engine=engine)
+        for role, engines in (("prefill", prefill), ("decode", decode))
+        for engine in engines
+    ]
+    if valid:
+        assert validate_pd_replica_configs(configs, "vLLM", "LLM")
+    else:
+        with pytest.raises(ValueError, match="MLX on one role"):
+            validate_pd_replica_configs(configs, "vLLM", "LLM")

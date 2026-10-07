@@ -347,10 +347,6 @@ msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIX
 msgstr "SGLang Xavier P/D 通过 Xavier 的 NIXL 传输在 GPU 之间直接传递 KV。Prefill 和 decode 使用 SGLang 原生 P/D 生命周期并行运行。源和目标 GPU 槽位保留所有权，直到传输完成；decode 还会接收 prefill 采样的第一个 token。支持流式和非流式响应。传输失败会报错。"
 
 #: source/user_guide/pd_separation.rst
-msgid "The model limitations are described in :ref:`user_guide_vllm_enhancement`. Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use reachable worker addresses. Missing NIXL fails launch without CPU fallback. Use the ``xavier`` transport; SGLang's own Mooncake backend and cross-engine P/D are not exposed by this integration."
-msgstr "模型限制见 :ref:`user_guide_vllm_enhancement`。在 worker 和模型环境中安装 ``xoscar[nixl]>=0.11.1``，并使用可访问的 worker 地址。缺少 NIXL 时启动失败，不会回退到 CPU。使用 ``xavier`` 传输；此集成尚未暴露 SGLang 自身的 Mooncake 后端和跨引擎 P/D。"
-
-#: source/user_guide/pd_separation.rst
 msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
 msgstr "SGLang GPU P/D 不使用 ``xavier_cache_bytes`` 或 CPU HiCache。尚不支持保留 Xavier GPU 历史缓存；可以省略 ``xavier_gpu_cache_bytes`` 或将其设为 ``0``。Worker 重启后需重新启动部署。请针对实际负载，对比普通副本和原生 SGLang P/D 的 TTFT 与吞吐量。"
 
@@ -442,12 +438,10 @@ msgid ""
 "Use the default ``xavier`` transport for MLX; native NIXL is unsupported. "
 "All workers must reach the supervisor's actor address. Relaunch after a "
 "worker restart. Two replicas on one Mac share its Metal GPU; measure your "
-"workload before expecting a throughput benefit. Cross-engine P/D, including "
-"NVIDIA-to-Mac handoff, is not yet supported."
+"workload before expecting a throughput benefit."
 msgstr ""
 "MLX 使用默认的 ``xavier`` 传输，不支持原生 NIXL。所有 worker 必须能访问 supervisor 的 actor "
-"地址。Worker 重启后需要重新启动部署。同一台 Mac 上的两个副本共享 Metal GPU，应先测量工作负载，再评估吞吐收益。目前不支持跨引擎 "
-"P/D，包括 NVIDIA 到 Mac 的交接。"
+"地址。Worker 重启后需要重新启动部署。同一台 Mac 上的两个副本共享 Metal GPU，应先测量工作负载，再评估吞吐收益。"
 
 #: user_guide/pd_separation.rst:102
 msgid ""
@@ -464,3 +458,162 @@ msgstr ""
 " 字节（K 和 V，每个值占两字节）。例如，36 层、8 个 KV 头、头维度为 128 时，每页需要 9 MiB；512 MiB 可保存 56 页，即"
 " 3584 个前缀 token。将每个前缀向上取整到整页，并按所有并发 P/D 请求预留的不同页总量配置 "
 "``xavier_cache_bytes``。普通共享缓存请求的前缀超过缓存容量或 4096 页协议上限时，会跳过发布。"
+
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"The model limitations are described in :ref:`user_guide_vllm_enhancement`. "
+"Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use "
+"reachable worker addresses. Missing NIXL fails launch without CPU fallback. "
+"Use the ``xavier`` transport; SGLang's own Mooncake backend is not exposed "
+"by this integration. For cross-engine P/D, use the per-replica engine "
+"settings below."
+msgstr ""
+"模型限制参见 :ref:`user_guide_vllm_enhancement`。在 worker 和模型环境中安装 "
+"``xoscar[nixl]>=0.11.1``，使用可访问的 worker 地址。缺少 NIXL 时启动失败，不回退到 CPU。使用 "
+"``xavier`` 传输；不开放 SGLang 自带的 Mooncake 后端。跨引擎 P/D 使用下方的逐副本引擎配置。"
+
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine vLLM/SGLang P/D"
+msgstr "跨引擎 vLLM/SGLang P/D"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM or SGLang independently for each role. Cross-engine P/D "
+"requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"在每个 ``replica_config`` 条目中设置 ``model_engine`` 和 ``engine_config``，分别为各角色选择 "
+"vLLM 或 SGLang。跨引擎 P/D 需要 Xavier GPU 传输。引擎选项继承启动参数，``engine_config`` "
+"为各副本覆盖这些选项。"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Both workers require identical local weights, tokenizer assets and context "
+"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
+"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
+">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
+"token IDs, converts 64-token KV pages on GPU and raises errors on "
+"incompatibility or transfer failure."
+msgstr ""
+"两个 worker 必须使用相同的本地权重、tokenizer 文件及上下文限制。支持 TP=PP=DP=1 的未量化 FP16 全注意力 "
+"Qwen2、Qwen3 和 Llama 文本模型。需要 vLLM >=0.21.0、SGLang >=0.5.21 及 "
+"``xoscar[nixl]>=0.11.1``。Xavier 校验契约与实际 prompt token ID，在 GPU 上转换 64-token "
+"KV 页；不兼容或传输失败会报错。"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
+" first output token sampled by prefill. vLLM decode imports all but the "
+"final prompt token, computes that token and samples the output. Engine "
+"kernels can produce small numerical differences. vLLM decode requires at "
+"least two prompt tokens."
+msgstr ""
+"流式与非流式请求均要求 ``n=1``。SGLang decode 使用 prefill 采样的首个输出 token。vLLM decode "
+"导入最后一个 prompt token 之前的 KV，计算该 token 后采样输出。引擎算子可能产生小幅数值差异。vLLM decode 要求至少两个"
+" prompt token。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
+"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
+" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
+" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
+"NIXL comparisons use the same engine on both roles."
+msgstr ""
+"跨引擎 P/D 不支持 CPU 回退、Xavier 历史缓存、logprobs、结构化采样、LoRA、推测解码、多模态输入或混合注意力。省略 "
+"``xavier_gpu_cache_bytes`` 或设为 ``0``，不要设置 ``xavier_cache_bytes``。worker "
+"重启后需要重新部署。原生 NIXL 对照在两个角色上使用相同引擎。"
+
+#: user_guide/pd_separation.rst
+msgid "NVIDIA and MLX cross-engine P/D"
+msgstr "NVIDIA 与 MLX 跨引擎 P/D"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Xavier supports both vLLM/SGLang prefill with MLX decode and MLX prefill "
+"with vLLM/SGLang decode, with streaming and non-streaming requests. FP16 "
+"64-token pages pass through CPU staging and actor RPC between CUDA and "
+"Metal. vLLM and MLX decode compute the last prompt token; SGLang decode "
+"imports the full prompt KV and the first output token sampled by P. MLX "
+"prefill publishes request-owned pages on its worker with a 512 MiB in-flight"
+" budget."
+msgstr ""
+"Xavier 同时支持 vLLM/SGLang 预填充与 MLX 解码，以及 MLX 预填充与 vLLM/SGLang "
+"解码，支持流式和非流式请求。FP16 的 64-token 页面经过 CPU 暂存和 actor RPC 在 CUDA 与 Metal "
+"之间传输。vLLM 和 MLX 解码会计算最后一个 prompt token；SGLang 解码导入完整 prompt KV 和 P 采样的首个输出 "
+"token。MLX 预填充在其 worker 上发布请求专属页面，在途数据预算为 512 MiB。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use identical unquantized checkpoint and tokenizer files; do not convert the"
+" Mac checkpoint. Worker-local ``model_path`` and ``model_format`` belong in "
+"each replica's ``engine_config``. Xavier checks weights, tokenizer, "
+"effective model semantics, context limits and prompt token IDs. Model and "
+"sampling restrictions match vLLM/SGLang cross-engine P/D; failures raise "
+"errors."
+msgstr ""
+"使用相同的未量化检查点和分词器文件，不要转换 Mac 检查点。每个副本的 ``engine_config`` 可设置 worker 本地的 "
+"``model_path`` 和 ``model_format``。Xavier 检查权重、分词器、实际模型语义、上下文限制和 prompt token"
+" ID。模型及采样限制与 vLLM/SGLang 跨引擎 P/D 相同；失败时会抛出错误。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"To use MLX prefill, swap the two ``role`` values in the example. For SGLang "
+"on either role, use ``SGLang`` and replace ``max_model_len`` with "
+"``context_length``. NVIDIA requires ``xoscar[nixl]>=0.11.1``; Mac requires "
+"``xoscar>=0.11.1`` and ``mlx-lm>=0.31.2``. Workers must reach the supervisor"
+" and each other. Use Xavier transport, and omit ``xavier_gpu_cache_bytes`` "
+"or set it to ``0``. Relaunch after a worker restart."
+msgstr ""
+"要使用 MLX 预填充，交换示例中的两个 ``role`` 值。在任一角色使用 SGLang 时，设置 ``SGLang`` 并将 "
+"``max_model_len`` 换成 ``context_length``。NVIDIA 需要 "
+"``xoscar[nixl]>=0.11.1``；Mac 需要 ``xoscar>=0.11.1`` 和 ``mlx-"
+"lm>=0.31.2``。Worker 必须能访问 supervisor 和彼此。使用 Xavier 传输，省略 "
+"``xavier_gpu_cache_bytes`` 或设为 ``0``。Worker 重启后需要重新部署。"
+
+#: ../../source/user_guide/pd_separation.rst
+msgid ""
+"Run the supervisor and all worker/model environments with the same Python "
+"version and matching ``cloudpickle`` / ``tblib`` versions; actor RPC also "
+"carries exceptions and generators."
+msgstr ""
+"Supervisor 与所有 worker/model 环境必须使用相同的 Python 版本，并对齐 ``cloudpickle`` / "
+"``tblib`` 版本；actor RPC 也会传输异常和生成器。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Compare end-to-end TTFT with the standalone decode engine on its own "
+"hardware, using the same effective FP16 weights and cache policy. Network "
+"transfers and CUDA/Metal copies may outweigh faster prefill. ``host_bytes`` "
+"measures CPU-staged payloads; ``imported_tokens`` records completed KV "
+"imports. Correct output alone does not prove reuse."
+msgstr ""
+"使用相同的实际 FP16 权重及缓存策略，与独立运行在原硬件上的解码引擎对比端到端 TTFT。网络传输及 CUDA/Metal "
+"复制成本可能超过预填充加速的收益。``host_bytes`` 记录 CPU 暂存载荷；``imported_tokens`` 记录完成的 KV "
+"导入。仅输出正确不能证明复用了缓存。"
+
+#: source/user_guide/pd_separation.rst:179
+msgid ""
+"For MLX prefill, ``xavier_cache_bytes`` sets the worker-local in-flight CPU "
+"page budget (default: 512 MiB). Capacity is reserved before Metal prefill, "
+"rounding the full prompt up to 64-token pages. A prompt exceeding the budget"
+" fails before prefill; concurrent requests wait for capacity. Reservations "
+"and transfer waits are bounded by "
+"``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` (default: 600 seconds)."
+msgstr ""
+"MLX 做预填充时，``xavier_cache_bytes`` 设置 Worker 本地正在使用的 CPU 页面预算（默认 512 MiB）。在 "
+"Metal 预填充前预留容量，将完整提示词向上取整为 64 token "
+"页面。单个提示词超过预算时，在预填充前报错；并发请求等待空闲容量。预留和传输等待受 "
+"``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` 限制（默认 600 秒）。"
+
+#: source/user_guide/pd_separation.rst:181
+msgid ""
+"MLX-prefill cross-engine requests do not accept ``min_p``, "
+"``presence_penalty``, ``frequency_penalty`` or ``seed``. The router rejects "
+"these parameters before scheduling either replica, so the first output token"
+" uses the same supported sampling settings as the rest of the response."
+msgstr ""
+"MLX 做预填充的跨引擎请求不接受 ``min_p``、``presence_penalty``、``frequency_penalty`` 或 "
+"``seed``。路由器在调度任何副本前拒绝这些参数，确保首个输出 token 与后续响应使用一致的受支持采样设置。"

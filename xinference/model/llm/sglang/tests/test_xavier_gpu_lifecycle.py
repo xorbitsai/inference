@@ -376,20 +376,80 @@ def test_sender_poll_never_blocks_scheduler_on_actor(gpu_module, failed):
 
 
 @pytest.mark.asyncio
-async def test_manager_commits_engine_metadata_before_completion(gpu_module):
+@pytest.mark.parametrize("phase", ["open", "init", "send"])
+async def test_cross_engine_late_cancel_fails_request_without_stopping_scheduler(
+    gpu_module, monkeypatch, phase
+):
+    loop = asyncio.get_running_loop()
+    tasks = []
+    error = RuntimeError("cancelled room")
+
+    async def operation(method):
+        if method == phase:
+            raise error
+
+    monkeypatch.setattr(gpu_module, "KVPoll", SimpleNamespace(Failed="failed"))
+    actor = SimpleNamespace(wait_done=AsyncMock())
+    calls = []
+
+    async def invoke(method, *args):
+        calls.append(method)
+        await operation(method)
+
+    actor.open = lambda *args: invoke("open", *args)
+    actor.init = lambda *args: invoke("init", *args)
+    actor.add_chunk = lambda *args: invoke("send", *args)
+
+    def submit(coroutine):
+        future = asyncio.run_coroutine_threadsafe(coroutine, loop)
+        tasks.append(future)
+        return future
+
+    manager = SimpleNamespace(
+        config={"heterogeneous": True},
+        actor=actor,
+        call=Mock(side_effect=AssertionError("scheduler RPC wait")),
+        submit=submit,
+        kv_args=SimpleNamespace(gpu_id=0),
+        aux=[],
+    )
+    monkeypatch.setattr(gpu_module.torch.cuda, "synchronize", Mock())
+    sender = gpu_module.XavierKVSender(manager, "host", 123, [0], 0)
+    sender.init(2, 0)
+    sender.send(SimpleNamespace(tolist=lambda: [1, 2]))
+    await asyncio.gather(
+        *(asyncio.wrap_future(f) for f in tasks), return_exceptions=True
+    )
+    assert sender.poll() == gpu_module.KVPoll.Failed
+    with pytest.raises(RuntimeError, match="cancelled room"):
+        sender.failure_exception()
+    count = len(calls)
+    sender.send(SimpleNamespace(tolist=lambda: [1, 2]))
+    await asyncio.gather(
+        *(asyncio.wrap_future(f) for f in tasks), return_exceptions=True
+    )
+    assert len(calls) == count
+    manager.call.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("host", [False, True])
+async def test_manager_commits_engine_metadata_before_completion(gpu_module, host):
     import numpy as np
     import torch
 
     backing = np.zeros((3, 2), dtype=np.uint8)
     manager = object.__new__(gpu_module.XavierKVManager)
     manager._receive_tasks = {}
+    manager.config = dict(host_handoff=host)
     manager.aux = [torch.from_numpy(backing)]
     manager.actor = SimpleNamespace(
         receive=AsyncMock(return_value=(1024, [b"\x07\x09"]))
     )
 
-    async def complete(room, nbytes):
-        assert room == 1 and nbytes == 1024
+    async def complete(room, nbytes, host_bytes=0):
+        assert room == 1
+        assert (nbytes, host_bytes) == ((0, 1024) if host else (1024, 0))
         assert backing.tolist() == [[0, 0], [7, 9], [0, 0]]
 
     manager.directory = SimpleNamespace(complete=AsyncMock(side_effect=complete))
@@ -411,6 +471,7 @@ async def test_manager_abort_drains_delayed_metadata_reply(gpu_module):
 
     manager = object.__new__(gpu_module.XavierKVManager)
     manager._receive_tasks = {}
+    manager.config = {}
     manager.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
     manager.actor = SimpleNamespace(receive=receive, abort=AsyncMock())
     manager.directory = SimpleNamespace(complete=AsyncMock())
@@ -441,6 +502,7 @@ async def test_manager_cancel_keeps_metadata_commit_owned(gpu_module):
 
     manager = object.__new__(gpu_module.XavierKVManager)
     manager._receive_tasks = {}
+    manager.config = {}
     manager.aux = [torch.zeros((1, 1), dtype=torch.uint8)]
     manager.actor = SimpleNamespace(receive=receive)
     manager.directory = SimpleNamespace(complete=AsyncMock())
@@ -463,6 +525,7 @@ def test_manager_close_retains_exports_until_importer_stops(gpu_module, monkeypa
     manager = object.__new__(gpu_module.XavierKVManager)
     manager._closed = False
     manager._receive_tasks = {}
+    manager.config = {}
     manager._ipc_caches = {"0": object()}
     manager.aux = [object()]
     manager.actor = object()

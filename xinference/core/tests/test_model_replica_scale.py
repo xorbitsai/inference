@@ -218,6 +218,29 @@ async def test_scale_up_cpu_placement_normalizes_zero_gpu_count():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "field,value",
+    [("model_engine", "SGLang"), ("engine_config", {"context_length": 8192})],
+)
+@pytest.mark.parametrize("count", [1, 2])
+async def test_scale_up_rejects_per_replica_engine_settings_before_any_launch(
+    field, value, count
+):
+    launch_args = {"n_gpu": None, "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args)
+    supervisor = _make_supervisor([worker], launch_args)
+    config = ReplicaConfig(**{field: value})
+    with pytest.raises(ValueError, match="explicit PD roles"):
+        if count == 1:
+            await supervisor.add_model_replica("demo", config)
+        else:
+            await supervisor.add_model_replicas(
+                "demo", replica=2, replica_configs=[ReplicaConfig(), config]
+            )
+    assert worker.launches == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [True, "true"])
 async def test_weight_cached_model_rejects_scale_up_before_allocation(enabled):
     launch_args = {"n_worker": 1, "enable_weight_cache": enabled}

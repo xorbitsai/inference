@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 import xoscar as xo
 
+from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from .rpc_context import actor_call
 from .utils import log_async
 
@@ -85,6 +86,8 @@ class PDModelActor(xo.StatelessActor):
         ] = RoundRobinSchedulingPolicy,
         transport_backend: str = "xavier",
         model_engine: str = "vllm",
+        handoff_mode: str = "gpu",
+        mlx_prefill: bool = False,
     ):
         super().__init__()
         # Prefill request map, used to skip the timeout task for specific request id.
@@ -95,6 +98,8 @@ class PDModelActor(xo.StatelessActor):
         self._transport_backend = transport_backend
         self._model_engine = (model_engine or "vllm").lower()
         self._direct_handoff = transport_backend == "xavier"
+        self._handoff_mode = handoff_mode
+        self._mlx_prefill = mlx_prefill
 
         # 使用字典存储副本：{replica_uid: actor_ref}
         self._prefill_replicas: Dict[str, xo.ActorRefType["ModelActor"]] = {}
@@ -261,7 +266,19 @@ class PDModelActor(xo.StatelessActor):
                     ref = await xo.actor_ref(
                         address=handoff["address"], uid=handoff["uid"]
                     )
-                    if handoff.get("mode") == "gpu":
+                    if handoff.get("mode") in ("gpu", "host"):
+                        if handoff.get("heterogeneous"):
+                            try:
+                                source = await ref.source(handoff["room"])
+                            except RuntimeError:
+                                source = None
+                            if source:
+                                sender = await xo.actor_ref(
+                                    address=source["address"],
+                                    uid=source.get("uid")
+                                    or f"{CROSS_ENGINE_TRANSFER_ACTOR_UID}-{source['rank']}",
+                                )
+                                await sender.abort(handoff["room"])
                         await ref.release(handoff["room"])
                     else:
                         await ref.release_handoff(handoff["ticket"])
@@ -313,7 +330,48 @@ class PDModelActor(xo.StatelessActor):
         if args and args[0] and args[0].get("n", 1) != 1:
             # Handoff leases cover one decoder, not parallel sampling children.
             raise ValueError("PD KV handoff currently requires n=1")
-        if self._model_engine == "sglang":
+        if self._model_engine == "heterogeneous":
+            config = (args[0] if args else {}) or {}
+            if self._mlx_prefill and any(
+                parameters.get(key) is not None
+                for parameters in (config, kwargs.get("raw_params") or {})
+                for key in ("min_p", "presence_penalty", "frequency_penalty", "seed")
+            ):
+                raise ValueError(
+                    "MLX cross-engine prefill does not support min_p, presence_penalty, frequency_penalty or seed"
+                )
+            if (
+                any(
+                    config.get(key) is not None and config.get(key) is not False
+                    for key in ("logprobs", "prompt_logprobs")
+                )
+                or any(
+                    config.get(key)
+                    for key in (
+                        "top_logprobs",
+                        "return_logprob",
+                        "top_logprobs_num",
+                        "guided_json",
+                        "guided_regex",
+                        "guided_choice",
+                        "guided_grammar",
+                        "guided_json_object",
+                        "structured_outputs",
+                        "json_schema",
+                        "regex",
+                        "ebnf",
+                    )
+                )
+                or (
+                    isinstance(config.get("response_format"), dict)
+                    and config["response_format"].get("type")
+                    in ("json_object", "json_schema")
+                )
+            ):
+                raise ValueError(
+                    "Cross-engine PD does not yet transfer structured sampling or logprobs"
+                )
+        if self._model_engine in ("sglang", "heterogeneous"):
             return await self._infer_sglang(method, inputs, args, kwargs, request_id)
         prefill = self._prefill_policy.schedule()
         decode = self._decode_policy.schedule()
@@ -431,10 +489,12 @@ class PDModelActor(xo.StatelessActor):
         )
         handoff = dict(
             engine="sglang",
-            mode="nixl" if native else "gpu",
+            mode="nixl" if native else self._handoff_mode,
             room=uuid.uuid4().int % (2**63 - 1) + 1,
             **bootstrap,
         )
+        if self._model_engine == "heterogeneous":
+            handoff["heterogeneous"] = True
         transfer_key = "sglang_nixl" if native else "sglang_xavier"
         self._request_set.add(request_id)
         if not native:

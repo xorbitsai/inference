@@ -106,15 +106,24 @@ class XavierEngine:
                 )
 
         engine_args.kv_transfer_config = KVTransferConfig(
-            kv_connector=XAVIER_CONNECTOR,
-            kv_connector_module_path=XAVIER_CONNECTOR_MODULE,
+            kv_connector=(
+                "CrossEngineConnector"
+                if xavier_config.get("heterogeneous")
+                else XAVIER_CONNECTOR
+            ),
+            kv_connector_module_path=(
+                "xinference.model.llm.vllm.xavier.cross_engine"
+                if xavier_config.get("heterogeneous")
+                else XAVIER_CONNECTOR_MODULE
+            ),
             engine_id=xavier_config.get("engine_id"),
             kv_role=kv_role,
             kv_rank=xavier_config.get("kv_rank", kv_rank),
             kv_parallel_size=xavier_config.get("kv_parallel_size", 2),
             kv_connector_extra_config=extra_config,
             kv_load_failure_policy=xavier_config.get(
-                "kv_load_failure_policy", "recompute"
+                "kv_load_failure_policy",
+                "fail" if xavier_config.get("heterogeneous") else "recompute",
             ),
         )
 

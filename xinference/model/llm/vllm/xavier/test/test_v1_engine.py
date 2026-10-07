@@ -129,6 +129,25 @@ def test_v0_uses_legacy_adapter(engine, monkeypatch):
     factory.assert_not_called()
 
 
+@pytest.mark.parametrize("role", ["prefill", "decode"])
+def test_heterogeneous_engine_selects_cross_connector_and_fail_policy(engine, role):
+    module, factory = engine
+    args = SimpleNamespace(create_model_config=lambda: SimpleNamespace(is_hybrid=False))
+    module.XavierEngine.from_engine_args(
+        args,
+        xavier_config={"role": role, "heterogeneous": True, "gpu_cache_bytes": 0},
+    )
+    transfer = args.kv_transfer_config
+    assert transfer.kv_connector == "CrossEngineConnector"
+    assert (
+        transfer.kv_connector_module_path
+        == "xinference.model.llm.vllm.xavier.cross_engine"
+    )
+    assert transfer.kv_load_failure_policy == "fail"
+    assert transfer.kv_role == ("kv_producer" if role == "prefill" else "kv_consumer")
+    factory.assert_called_once()
+
+
 def test_incompatible_v1_fails_before_engine_start(engine):
     module, factory = engine
     module.VLLM_VERSION = "0.11.0"

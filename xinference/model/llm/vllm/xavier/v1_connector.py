@@ -1816,6 +1816,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._call(asyncio.sleep(0))
 
     def _poll_ipc_exports(self, *, wait: bool = False) -> None:
+        # Completion hooks are also used by connectors without CPU exports.
+        # With no owned payloads, neither export RPCs nor their state is needed.
+        if not getattr(self, "_ipc_export_jobs", None):
+            return
         if self._ipc_export_enqueues or self._ipc_export_poll is not None:
             self._call(asyncio.sleep(0))
         submission_error = None

@@ -288,6 +288,11 @@ async def test_storage_reuses_one_thread_affine_loop_across_calling_threads(
     assert storage._rpc_loop.is_closed()
 
 
+def test_cross_engine_cannot_select_unfingerprinted_pt_weights(model_path):
+    with pytest.raises(ValueError, match="automatic or safetensors"):
+        configure_xavier(model_path, {"load_format": "pt"}, {"heterogeneous": True})
+
+
 def test_launch_configuration_consumes_adapter_options(model_path):
     config = {"tp_size": 1, "page_size": 4}
     configure_xavier(model_path, config, {"address": "worker:1234", "uid": "cache"})
