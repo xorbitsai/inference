@@ -38,9 +38,14 @@ def _usage(cached_tokens):
 
 
 @pytest.fixture(params=["vllm", "sglang", "mlx"])
-def model_factory(request, monkeypatch):
+def engine(request):
+    return request.param
+
+
+@pytest.fixture
+def model_factory(engine, monkeypatch):
     def create(cached_tokens):
-        if request.param == "vllm":
+        if engine == "vllm":
             from ..vllm import core
 
             class SamplingParams:
@@ -83,7 +88,7 @@ def model_factory(request, monkeypatch):
             model.async_generate = core.VLLMModel.async_generate.__wrapped__.__get__(
                 model
             )
-        elif request.param == "sglang":
+        elif engine == "sglang":
             from ..sglang.core import SGLANGModel
 
             model = object.__new__(SGLANGModel)
@@ -209,6 +214,7 @@ async def test_stream_cached_tokens_reach_final_and_usage_chunks(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("engine", ["vllm", "sglang"])
 @pytest.mark.parametrize("cached_tokens", [MISSING, None])
 @pytest.mark.parametrize("stream", [False, True])
 async def test_unreported_cached_tokens_remain_optional(
@@ -226,8 +232,96 @@ async def test_unreported_cached_tokens_remain_optional(
         chunks = [chunk async for chunk in result]
         assert chunks[-1]["choices"] == []
         assert chunks[-1]["usage"] == _usage(cached_tokens)
+
+        async def source():
+            for chunk in chunks:
+                yield chunk
+
+        events = [
+            json.loads(event["data"])
+            async for event in responses_stream_events(
+                ChatModelMixin._async_to_chat_completion_chunks(source()),
+                parse_responses_request(
+                    {"model": "test-model", "input": "prompt", "stream": True}
+                ),
+            )
+        ]
+        response = events[-1]["response"]
     else:
         assert result["usage"] == _usage(cached_tokens)
+        response = chat_to_response(
+            ChatModelMixin._to_chat_completion(result),
+            parse_responses_request({"model": "test-model", "input": "prompt"}),
+        )
+    assert response["usage"]["input_tokens_details"] == {"cached_tokens": 0}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cached_tokens", [0, 64])
+async def test_tool_stream_preserves_cached_tokens_in_usage_chunk(
+    model_factory, cached_tokens
+):
+    from ..tool_parsers.qwen_tool_parser import QwenToolParser
+
+    completions = await model_factory(cached_tokens).async_generate(
+        "prompt",
+        {"max_tokens": 2, "stream": True, "stream_options": {"include_usage": True}},
+    )
+
+    async def tool_completions():
+        sent = False
+        async for chunk in completions:
+            for choice in chunk["choices"]:
+                choice["text"] = (
+                    '<tool_call>{"name":"get_weather","arguments":{"city":"Beijing"}}'
+                    "</tool_call>"
+                    if not sent
+                    else ""
+                )
+                sent = True
+            yield chunk
+
+    mixin = ChatModelMixin()
+    mixin.model_family = "qwen2-instruct"
+    mixin.model_uid = "test-model"
+    mixin.reasoning_parser = None
+    mixin.tool_parser = QwenToolParser()
+    chunks = [
+        chunk
+        async for chunk in mixin._async_to_tool_completion_chunks(tool_completions())
+    ]
+    final = next(
+        chunk
+        for chunk in reversed(chunks)
+        if chunk["choices"] and chunk["choices"][0]["finish_reason"]
+    )
+    assert final["choices"][0]["finish_reason"] == "tool_calls"
+    assert final["usage"] is None
+    assert any(
+        call["function"].get("name") == "get_weather"
+        for chunk in chunks
+        for choice in chunk["choices"]
+        for call in choice["delta"].get("tool_calls", [])
+    )
+    assert chunks[-1]["choices"] == []
+    assert chunks[-1]["usage"] == _usage(cached_tokens)
+
+    async def source():
+        for chunk in chunks:
+            yield chunk
+
+    events = [
+        json.loads(event["data"])
+        async for event in responses_stream_events(
+            source(),
+            parse_responses_request(
+                {"model": "test-model", "input": "prompt", "stream": True}
+            ),
+        )
+    ]
+    assert events[-1]["response"]["usage"]["input_tokens_details"] == {
+        "cached_tokens": cached_tokens
+    }
 
 
 def test_vllm_multiple_outputs_do_not_multiply_cached_tokens():

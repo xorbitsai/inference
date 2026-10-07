@@ -197,6 +197,10 @@ msgstr "快取命中 token 數"
 msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
 msgstr "使用 vLLM、SGLang 和 MLX 時，如果引擎提供統計，補全和聊天補全回應會透過 ``usage.prompt_tokens_details.cached_tokens`` 傳回重用的提示 token 數。此數值包含引擎回報的原生前綴快取重用和 Xavier 快取重用，是 ``prompt_tokens`` 的一部分，不是額外的 token 數。"
 
-#: user_guide/client_api.rst:101
+#: user_guide/client_api.rst:103
 msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
 msgstr "串流請求設定 ``stream_options={\"include_usage\": True}`` 後，會收到 ``choices=[]`` 的最終用量統計區塊。Responses API 透過 ``usage.input_tokens_details.cached_tokens`` 傳回相同數值。如果引擎未回報快取命中，補全和聊天補全回應會省略 ``prompt_tokens_details``；Responses API 則預設傳回零。"
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "使用 P/D 分離時，此數值包含從預填充引擎傳輸的 KV，即使這些 KV 是為目前請求計算的；它不單獨統計預填充引擎的歷史前綴快取命中數。"
