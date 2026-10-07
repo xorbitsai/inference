@@ -226,6 +226,45 @@ class TransferActor(
                 self._snapshot_store.blocks.move_to_end(key)
         return ready
 
+    def stage_layer_batches_v1(
+        self,
+        entries: List[Tuple[str, List[int], torch.Tensor]],
+        metadata: List[Tuple[Tuple[int, ...], torch.dtype]],
+    ) -> None:
+        if len(entries) != len(metadata):
+            raise ValueError("Xavier export metadata does not match payload")
+        entries = [
+            (name, keys, blocks.view(dtype).view(shape))
+            for (name, keys, blocks), (shape, dtype) in zip(entries, metadata)
+        ]
+        store = self._snapshot_store
+        assert store is not None
+        batch_keys = set(key for _, ids, _ in entries for key in ids)
+        pinned = set().union(*store.leases.values())
+        if len(batch_keys | pinned) <= store.capacity:
+            # All batch keys can stay resident across layers, even if staging
+            # first needs to evict older unleased content.
+            for name, ids, blocks in entries:
+                TransferActor.stage_layer_blocks_v1(self, "batch", name, ids, blocks)
+            return
+        # Stage a complete block before moving to the next one. Layer-major
+        # staging could evict every partial block when the batch exceeds the
+        # available capacity (including capacity held by transfer leases).
+        positions = [
+            (name, dict(zip(keys, range(len(keys)))), blocks)
+            for name, keys, blocks in entries
+        ]
+        ordered_keys = dict.fromkeys(
+            key for _, indices, _ in positions for key in indices
+        )
+        for key in ordered_keys:
+            for name, indices, blocks in positions:
+                if key in indices:
+                    i = indices[key]
+                    TransferActor.stage_layer_blocks_v1(
+                        self, "batch", name, [key], blocks[i : i + 1]
+                    )
+
     def publish_blocks_v1(self, keys, layers):
         available = self._snapshot_store.publish(keys, set(layers))
         evicted = list(self._snapshot_store.evicted)

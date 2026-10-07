@@ -16,7 +16,17 @@ import logging
 import math
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 import torch
 import xoscar as xo
@@ -49,6 +59,12 @@ logger = logging.getLogger(__name__)
 
 _MAX_READ_BYTES = 1024 * 1024
 _MAX_READ_BLOCKS = 64
+_MAX_EXPORT_BYTES = 32 * 1024 * 1024
+_CPUExportBatch = Tuple[
+    List[Tuple[str, List[int], torch.Tensor]],
+    List[torch.Tensor],
+    List[torch.cuda.Event],
+]
 
 
 @dataclass
@@ -886,6 +902,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return missing
 
     async def _register_blocks(self, requests: List[XavierStoreRequest]):
+        if not requests:
+            return
         tracker_ref = await self._get_tracker_ref()
         transfer_ref = await self._get_transfer_ref()
         expected_layers = {
@@ -893,25 +911,48 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             for layer, cache in self._registered_kv_caches.items()
             for name, _ in self._iter_kv_tensors(layer, cache)
         }
-        for request in requests:
-            layers = expected_layers or self._request_staged_layers.get(
-                request.request_id, set()
+        if expected_layers:
+            # Registered caches share one schema. Avoid constructing layer
+            # groups and copying the actor's already unique result on hot hits.
+            keys = list(
+                dict.fromkeys(
+                    key for request in requests for key in request.block_hashes
+                )
             )
             available, evicted = await transfer_ref.publish_blocks_v1(
-                request.block_hashes, layers
+                keys, expected_layers
             )
-            if evicted:
-                await tracker_ref.unregister_blocks(0, self._rank, evicted)
-            # Transport addresses identify immutable content, not recyclable GPU slots.
-            await tracker_ref.register_blocks(
-                0, [(key, key) for key in available], self._rank
-            )
-            logger.debug(
-                "Xavier V1 registered blocks: request=%s, rank=%s, blocks=%s",
-                request.request_id,
-                self._rank,
-                available,
-            )
+        else:
+            groups: Dict[frozenset[str], Dict[int, None]] = {}
+            for request in requests:
+                layers = frozenset(
+                    self._request_staged_layers.get(request.request_id, set())
+                )
+                groups.setdefault(layers, {}).update(
+                    dict.fromkeys(request.block_hashes)
+                )
+            available_keys: Dict[int, None] = {}
+            evicted_keys: Dict[int, None] = {}
+            for layers, group_keys in groups.items():
+                ready, removed = await transfer_ref.publish_blocks_v1(
+                    list(group_keys), set(layers)
+                )
+                available_keys.update(dict.fromkeys(ready))
+                evicted_keys.update(dict.fromkeys(removed))
+            available, evicted = list(available_keys), list(evicted_keys)
+        if evicted:
+            await tracker_ref.unregister_blocks(0, self._rank, evicted)
+        # Retry discovery even when ready snapshots required no payload export.
+        # Transport addresses identify immutable content, not recyclable GPU slots.
+        await tracker_ref.register_blocks(
+            0, [(key, key) for key in available], self._rank
+        )
+        logger.debug(
+            "Xavier V1 registered blocks: requests=%s, rank=%s, blocks=%s",
+            len(requests),
+            self._rank,
+            available,
+        )
 
     async def _read_layer_blocks(
         self,
@@ -1137,11 +1178,130 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if not self._registered_kv_caches:
             return
 
+        self._call(self._stage_cpu_requests(requests))
+
+    def _cpu_export_batches(
+        self, requests: List[XavierStoreRequest]
+    ) -> Iterator[_CPUExportBatch]:
+        caches = {
+            name: block_major_view(tensor, self._num_cache_blocks)
+            for layer, cache in self._registered_kv_caches.items()
+            for name, tensor in self._iter_kv_tensors(layer, cache)
+        }
+        block_bytes = sum(
+            math.prod(tensor.shape[1:]) * tensor.element_size()
+            for tensor in caches.values()
+        )
+        if not block_bytes:
+            return
+        # Keep every layer of a block in the same RPC. One oversized block is
+        # indivisible, just as on the read path.
+        batch_size = max(1, _MAX_EXPORT_BYTES // block_bytes)
+        keys: List[int] = []
+        sources: Dict[str, List[int]] = {name: [] for name in caches}
         for request in requests:
-            if not request.block_ids:
-                continue
-            for layer_name, kv_layer in self._registered_kv_caches.items():
-                self._stage_kv_layer_for_request(request, layer_name, kv_layer)
+            layer_ids = {
+                name: self._get_source_block_ids(request, name) for name in caches
+            }
+            count = min(
+                len(request.block_hashes),
+                len(request.block_ids),
+                *(len(ids) for ids in layer_ids.values()),
+            )
+            for i in range(count):
+                keys.append(request.block_hashes[i])
+                for name, ids in layer_ids.items():
+                    sources[name].append(ids[i])
+                if len(keys) == batch_size:
+                    yield self._prepare_cpu_export(caches, keys, sources)
+                    keys = []
+                    sources = {name: [] for name in caches}
+        if keys:
+            yield self._prepare_cpu_export(caches, keys, sources)
+
+    def _prepare_cpu_export(
+        self,
+        caches: Dict[str, torch.Tensor],
+        keys: List[int],
+        sources: Dict[str, List[int]],
+    ) -> _CPUExportBatch:
+        entries = []
+        owners = []
+        events = {}
+        try:
+            for name, tensor in caches.items():
+                with profile_stage(
+                    "store_d2h",
+                    device=tensor.device,
+                    layer=name,
+                    blocks=len(keys),
+                    rank=self._rank,
+                ):
+                    indices = torch.tensor(
+                        sources[name], device=tensor.device, dtype=torch.long
+                    )
+                    gathered = tensor.index_select(0, indices).detach()
+                    if tensor.is_cuda:
+                        if tensor.device not in events:
+                            events[tensor.device] = torch.cuda.Event()
+                        event = events[tensor.device]
+                        blocks = torch.empty_like(
+                            gathered, device="cpu", pin_memory=True
+                        )
+                        # Retain both sides until the event has completed, including
+                        # when allocation, staging or an actor RPC fails.
+                        owners.append(gathered)
+                        entries.append((name, keys, blocks))
+                        blocks.copy_(gathered, non_blocking=True)
+                        event.record(torch.cuda.current_stream(tensor.device))
+                    else:
+                        entries.append((name, keys, gathered.contiguous()))
+        except BaseException:
+            for event in events.values():
+                event.synchronize()
+            raise
+        return entries, owners, list(events.values())
+
+    async def _stage_cpu_requests(self, requests: List[XavierStoreRequest]) -> None:
+        if not requests or not self._registered_kv_caches:
+            return
+        transfer = await self._get_transfer_ref()
+        pending: Optional[_CPUExportBatch] = None
+
+        async def stage(batch: _CPUExportBatch) -> None:
+            entries, _, events = batch
+            for event in events:
+                event.synchronize()
+            with profile_stage(
+                "store_rpc",
+                rank=self._rank,
+                nbytes=sum(t.numel() * t.element_size() for _, _, t in entries),
+            ):
+                # xoscar's Torch serializer exposes a NumPy memoryview. Socket
+                # backpressure requires len(buffer) to count bytes, so send
+                # flat uint8 views rather than multidimensional typed buffers.
+                await transfer.stage_layer_batches_v1(
+                    [
+                        (name, keys, t.view(torch.uint8).reshape(-1))
+                        for name, keys, t in entries
+                    ],
+                    [(tuple(t.shape), t.dtype) for _, _, t in entries],
+                )
+
+        try:
+            for current in self._cpu_export_batches(requests):
+                previous, pending = pending, current
+                if previous is not None:
+                    # The next D2H copy overlaps the previous batch's actor RPC.
+                    # At most two bounded batches own GPU and pinned CPU buffers.
+                    await stage(previous)
+                    previous = None
+            if pending is not None:
+                await stage(pending)
+        finally:
+            if pending is not None:
+                for event in pending[2]:
+                    event.synchronize()
 
     async def _ensure_gpu_cache_mapping(self):
         from torch.multiprocessing.reductions import reduce_tensor
