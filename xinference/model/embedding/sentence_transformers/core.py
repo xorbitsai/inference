@@ -1035,6 +1035,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name == "embeddinggemma-2":
+            return False, "EmbeddingGemma 2 requires its modality-aware adapter"
         if is_wemm_model(model_family.model_name):
             if not virtual_env_allows_missing_engine():
                 dep_check = check_dependency_available(
