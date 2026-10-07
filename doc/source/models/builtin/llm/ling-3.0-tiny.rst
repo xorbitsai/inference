@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7_9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7_9
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** inclusionAI/Ling-3.0-tiny
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/inclusionAI/Ling-3.0-tiny>`__, `ModelScope <https://modelscope.cn/models/inclusionAI/Ling-3.0-tiny>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 7_9 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 7_9
 - **Quantizations:** FP8
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** inclusionAI/Ling-3.0-tiny-fp8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/inclusionAI/Ling-3.0-tiny-fp8>`__, `ModelScope <https://modelscope.cn/models/inclusionAI/Ling-3.0-tiny-fp8>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (pytorch, 7_9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7_9
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** inclusionAI/Ling-3.0-tiny-int4
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/inclusionAI/Ling-3.0-tiny-int4>`__, `ModelScope <https://modelscope.cn/models/inclusionAI/Ling-3.0-tiny-int4>`__
 
