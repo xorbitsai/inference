@@ -15,6 +15,7 @@ import asyncio
 import logging
 import math
 import sys
+from contextlib import nullcontext
 from functools import lru_cache
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, no_type_check
@@ -121,7 +122,31 @@ class BufferTransferMixin:
         return TypeMappingGloo[TORCH_DTYPE_TO_NUMPY_DTYPE[input_dtype]]
 
 
-from ...xavier.backends.torch.gpu_transfer import GPUTransferMixin
+from ...xavier.backends.torch.gpu_transfer import GPUTransferMixin, finish_before_cancel
+
+
+async def _copy_snapshot_to_cpu(
+    value: torch.Tensor,
+    stream: Optional[torch.cuda.Stream],
+    ready_event: Optional[torch.cuda.Event],
+) -> torch.Tensor:
+    def copy():
+        # Allocation and pageable D2H can block the caller. Keep both off the
+        # actor loop shared by streaming requests; no extra CPU memcpy is needed.
+        with torch.cuda.stream(stream) if stream is not None else nullcontext():
+            if ready_event is not None:
+                assert stream is not None
+                stream.wait_event(ready_event)
+            try:
+                return value.to(device="cpu", non_blocking=False, copy=True)
+            except BaseException:
+                if stream is not None:
+                    stream.synchronize()
+                raise
+
+    task = asyncio.create_task(asyncio.to_thread(copy))
+    # A cancelled export must retain its GPU source until the copy thread exits.
+    return await finish_before_cancel(task)
 
 
 class TransferActor(
@@ -353,6 +378,10 @@ class TransferActor(
                 value = buffer[: math.prod(shape)].view(shape)
             else:
                 value = rebuild_cuda_tensor(*descriptor)
+                # Legacy CUDA IPC reconstruction waits on the actor's current
+                # stream. Carry that dependency to the background copy stream.
+                ready = torch.cuda.Event()
+                ready.record(torch.cuda.current_stream(value.device))
             mapped.append((keys, value, layers, ready))
         batches = mapped
 
@@ -361,41 +390,22 @@ class TransferActor(
             async with self._snapshot_export_lock_v1:
                 tracker = await xo.actor_ref(address=tracker_address, uid=tracker_uid)
                 for keys, value, layers, ready_event in batches:
-                    event = torch.cuda.Event()
-                    recorded = False
-                    try:
-                        if ready_event is not None:
-                            torch.cuda.current_stream(value.device).wait_event(
-                                ready_event
-                            )
-                        host = torch.empty_like(value, device="cpu", pin_memory=True)
-                        host.copy_(value, non_blocking=True)
-                        event.record(torch.cuda.current_stream(value.device))
-                        recorded = True
-                        # Publication progresses independently of EngineCore.
-                        while not event.query():
-                            await asyncio.sleep(0.001)
-                        # Own this immutable D2H allocation without copying it
-                        # again. The store charges and evicts whole slabs, so
-                        # retained memory remains bounded by its capacity.
-                        self._snapshot_store.stage_packed_blocks(
-                            keys, host, layers, retain_storage=True
-                        )
-                        ready, removed = self.publish_blocks_v1(
-                            keys, {layer[0] for layer in layers}
-                        )
-                        if removed:
-                            await tracker.unregister_blocks(0, self._rank, removed)
-                        await tracker.register_snapshot_blocks(0, ready, self._rank)
-                        available.difference_update(removed)
-                        available.update(ready)
-                        evicted.update(removed)
-                        evicted.difference_update(ready)
-                    finally:
-                        if recorded:
-                            event.synchronize()
-                        else:
-                            torch.cuda.current_stream(value.device).synchronize()
+                    host = await _copy_snapshot_to_cpu(
+                        value, self._swap_stream, ready_event
+                    )
+                    self._snapshot_store.stage_packed_blocks(
+                        keys, host, layers, retain_storage=True
+                    )
+                    ready, removed = self.publish_blocks_v1(
+                        keys, {layer[0] for layer in layers}
+                    )
+                    if removed:
+                        await tracker.unregister_blocks(0, self._rank, removed)
+                    await tracker.register_snapshot_blocks(0, ready, self._rank)
+                    available.difference_update(removed)
+                    available.update(ready)
+                    evicted.update(removed)
+                    evicted.difference_update(ready)
             return list(available), list(evicted)
 
         self._snapshot_export_jobs_v1[ticket] = asyncio.create_task(export())

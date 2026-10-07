@@ -18,6 +18,7 @@ import sys
 import time
 import uuid
 from collections import OrderedDict
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -272,6 +273,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._gpu_export_arena: Optional["GPUExportArena"] = None
         self._gpu_export_tickets: Dict[str, List[int]] = {}
         self._gpu_export_registered = False
+        self._gpu_export_fence: Optional[torch.cuda.Event] = None
         self._hash_cache: OrderedDict[
             Tuple[int, int, Tuple[int, ...]], Tuple[Tuple[int, int], ...]
         ] = OrderedDict()
@@ -342,6 +344,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 self._loop = None
 
     def start_load_kv(self, forward_context: "ForwardContext", **kwargs: Any) -> None:
+        # Packing may overlap logits/sampling on the model stream. Before the
+        # next forward or KV load can overwrite source slots, finish those reads.
+        # Only the GPU gather is fenced; D2H and publication remain independent.
+        fence = getattr(self, "_gpu_export_fence", None)
+        if fence is not None:
+            assert self._packed_gather is not None
+            torch.cuda.current_stream(self._packed_gather.device).wait_event(fence)
+            self._gpu_export_fence = None
         metadata = self._get_connector_metadata()
         assert isinstance(metadata, XavierConnectorMetadata)
         self._direct_sends.update(metadata.direct_sends)
@@ -568,6 +578,17 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 if ready is not None
                 else self._call(self._filter_store_requests(pending))
             )
+            if self._gpu_export_arena is not None:
+                # Ordinary replica snapshots are optional. Admit only what the
+                # owned arena and byte budget can hold, without waiting for D2H
+                # or gathering payloads that will immediately need backpressure.
+                # Skipped blocks remain eligible for a later request to export.
+                missing = self._admit_cpu_exports(missing)
+                if missing:
+                    nbytes = self._cpu_export_size(missing)
+                    batches = list(self._cpu_export_batches(missing, gpu_only=True))
+                    self._enqueue_ipc_export(batches, nbytes)
+                return
             if missing and self._can_queue_ipc_export(missing):
                 nbytes = self._cpu_export_size(missing)
                 count = sum(len(request.block_hashes) for request in missing)
@@ -1563,6 +1584,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 slot, output = arena.allocate(
                     (len(keys), self._packed_gather.row_bytes)
                 )
+            stream = None
             with profile_stage(
                 "store_gather",
                 device=self._packed_gather.device,
@@ -1570,17 +1592,39 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 rank=self._rank,
             ):
                 try:
-                    if output is None:
-                        packed, owners = self._packed_gather(sources)
-                    else:
-                        packed, owners = self._packed_gather(sources, output)
-                        assert arena is not None and slot is not None
-                        arena.record(slot, tuple(packed.shape))
+                    if output is not None:
+                        model_stream = torch.cuda.current_stream(
+                            self._packed_gather.device
+                        )
+                        stream = self._cpu_export_streams.get(
+                            self._packed_gather.device
+                        )
+                        if stream is None:
+                            stream = torch.cuda.Stream(
+                                device=self._packed_gather.device
+                            )
+                            self._cpu_export_streams[self._packed_gather.device] = (
+                                stream
+                            )
+                        stream.wait_stream(model_stream)
+                    with (
+                        torch.cuda.stream(stream)
+                        if stream is not None
+                        else nullcontext()
+                    ):
+                        if output is None:
+                            packed, owners = self._packed_gather(sources)
+                        else:
+                            packed, owners = self._packed_gather(sources, output)
+                            assert arena is not None and slot is not None
+                            arena.record(slot, tuple(packed.shape))
+                            fence = torch.cuda.Event()
+                            fence.record(stream)
+                            self._gpu_export_fence = fence
                 except BaseException:
                     if slot is not None:
-                        torch.cuda.current_stream(
-                            self._packed_gather.device
-                        ).synchronize()
+                        if stream is not None:
+                            stream.synchronize()
                         assert arena is not None
                         arena.release([slot])
                     raise
@@ -1677,6 +1721,40 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
             and self._cpu_export_size(requests) <= self._ipc_export_budget
         )
+
+    def _admit_cpu_exports(
+        self, requests: List[XavierStoreRequest]
+    ) -> List[XavierStoreRequest]:
+        arena = self._gpu_export_arena
+        assert arena is not None
+        count = sum(len(request.block_hashes) for request in requests)
+        if not count or not arena.available:
+            return []
+        block_bytes = self._cpu_export_size(requests) // count
+        pending_bytes = sum(entry[1] for entry in self._ipc_export_jobs.values())
+        max_blocks = min(
+            max(0, self._ipc_export_budget - pending_bytes) // block_bytes,
+            len(arena.available)
+            * (min(arena.slot_bytes, _MAX_EXPORT_BYTES) // block_bytes),
+        )
+        if max_blocks >= count:
+            return requests
+        admitted = []
+        for request in requests:
+            take = min(len(request.block_hashes), max_blocks)
+            if take:
+                admitted.append(
+                    XavierStoreRequest(
+                        request.request_id,
+                        request.block_ids[:take],
+                        request.block_hashes[:take],
+                        [group[:take] for group in request.block_ids_by_group],
+                    )
+                )
+                max_blocks -= take
+            if not max_blocks:
+                break
+        return admitted
 
     def _prepare_ipc_export(
         self, batches: List[_CPUExportBatch], nbytes: int
@@ -2102,6 +2180,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     block_ids_by_group,
                     token_ids,
                 )
+                if self._gpu_budget is None:
+                    self._add_store_request(
+                        meta, new_req.req_id, token_ids, block_ids_by_group, num_tokens
+                    )
                 continue
             self._add_store_request(meta, new_req.req_id, token_ids, block_ids_by_group)
 
@@ -2128,6 +2210,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     block_ids_by_group,
                     prompt_token_ids,
                 )
+                if self._gpu_budget is None:
+                    self._add_store_request(
+                        meta, req_id, prompt_token_ids, block_ids_by_group, num_tokens
+                    )
                 continue
             self._add_store_request(meta, req_id, prompt_token_ids, block_ids_by_group)
             self._chunked_prefill.pop(req_id, None)
@@ -2161,8 +2247,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request_id: str,
         token_ids: List[int],
         block_ids_by_group: List[List[int]],
+        num_tokens: Optional[int] = None,
     ) -> None:
         external_token_count = max(len(token_ids) - 1, 0)
+        if num_tokens is not None:
+            # The current chunk may end inside a block that a subsequent
+            # forward still writes. Publish only complete, computed blocks.
+            external_token_count = (
+                min(external_token_count, num_tokens) // self._block_size
+            ) * self._block_size
         hashes = self._build_xavier_hashes(token_ids[:external_token_count])
         if not hashes:
             return

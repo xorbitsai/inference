@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0.
 import asyncio
 import sys
+import threading
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -12,7 +14,7 @@ from xoscar.backends.allocate_strategy import ProcessIndex
 
 from ..block_tracker import VLLMBlockTracker
 from ..snapshot import KVSnapshotStore
-from ..transfer import TransferActor
+from ..transfer import TransferActor, _copy_snapshot_to_cpu
 
 
 @pytest.mark.parametrize("wait", [False, True])
@@ -24,6 +26,252 @@ def test_exportless_completion_poll_needs_no_cpu_export_state(connector_module, 
     # poll must not access queue/poll fields or enter an actor event loop.
     connector._ipc_export_jobs = {}
     connector._poll_ipc_exports(wait=wait)
+
+
+@pytest.mark.asyncio
+async def test_snapshot_copy_owns_independent_pageable_bytes():
+    value = torch.tensor([1e30, -1e30]).to(torch.bfloat16).view(torch.uint8)
+    expected = value.clone()
+    snapshot = await _copy_snapshot_to_cpu(value, None, None)
+    value.zero_()
+    assert torch.equal(snapshot, expected)
+    assert snapshot.data_ptr() != value.data_ptr()
+    assert not snapshot.is_pinned()
+
+
+@pytest.mark.asyncio
+async def test_snapshot_copy_retains_source_after_repeated_cancellation(monkeypatch):
+    started, release = threading.Event(), threading.Event()
+    tensor_to = torch.Tensor.to
+
+    def blocked_copy(value, *args, **kwargs):
+        started.set()
+        assert release.wait(5)
+        return tensor_to(value, *args, **kwargs)
+
+    monkeypatch.setattr(torch.Tensor, "to", blocked_copy)
+    task = asyncio.create_task(_copy_snapshot_to_cpu(torch.arange(8), None, None))
+    try:
+        assert await asyncio.to_thread(started.wait, 5)
+        for _ in range(2):
+            task.cancel()
+            await asyncio.sleep(0)
+            assert not task.done()
+    finally:
+        release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_failed_snapshot_copy_drains_its_stream(monkeypatch):
+    stream, ready = Mock(), Mock()
+    value = SimpleNamespace(to=Mock(side_effect=RuntimeError("copy failed")))
+    monkeypatch.setattr(torch.cuda, "stream", lambda _: nullcontext())
+    with pytest.raises(RuntimeError, match="copy failed"):
+        await _copy_snapshot_to_cpu(value, stream, ready)
+    stream.wait_event.assert_called_once_with(ready)
+    stream.synchronize.assert_called_once_with()
+
+
+def test_next_forward_fences_exports_even_without_loads(
+    connector, connector_module, monkeypatch
+):
+    fence, stream = Mock(), Mock()
+    connector._gpu_export_fence = fence
+    connector._packed_gather = SimpleNamespace(device="cuda:0")
+    connector._get_connector_metadata = connector_module.XavierConnectorMetadata
+    connector._is_consumer = False
+    monkeypatch.setattr(torch.cuda, "current_stream", Mock(return_value=stream))
+    connector.start_load_kv(SimpleNamespace())
+    stream.wait_event.assert_called_once_with(fence)
+    assert connector._gpu_export_fence is None
+    connector.start_load_kv(SimpleNamespace())
+    stream.wait_event.assert_called_once_with(fence)
+
+
+@pytest.mark.skipif(
+    sys.platform != "linux" or not torch.cuda.is_available(),
+    reason="Linux CUDA required",
+)
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
+def test_side_stream_gather_finishes_before_source_overwrite(
+    connector, connector_module, dtype
+):
+    from ....xavier.backends.torch.gpu_export import GPUExportArena
+    from ....xavier.backends.torch.packed_gather import PackedGather
+
+    cache = torch.zeros(8, 256, dtype=dtype, device="cuda")
+    gather = PackedGather.try_create({"K": cache}, {"K": 0})
+    assert gather is not None
+    gather.warmup()
+    model_stream = torch.cuda.current_stream(cache.device)
+
+    class DelayedGather:
+        row_bytes, device, layers = gather.row_bytes, gather.device, gather.layers
+
+        def __call__(self, sources, output):
+            assert torch.cuda.current_stream(self.device) != model_stream
+            # Without the next-forward fence, a model-stream overwrite would
+            # finish before this delayed read and corrupt the immutable snapshot.
+            torch.cuda._sleep(20_000_000)
+            return gather(sources, output)
+
+    connector._packed_gather = DelayedGather()
+    connector._gpu_export_arena = GPUExportArena(4096, 1, cache.device)
+    connector._get_connector_metadata = connector_module.XavierConnectorMetadata
+    connector._is_consumer = False
+    try:
+        # The gather stream must also wait for this model-stream write.
+        torch.cuda._sleep(20_000_000)
+        cache.fill_(7)
+        entries, owners, _ = connector._prepare_cpu_export(
+            {"K": cache}, [111, 222], {"K": [0, 1]}, gpu_only=True
+        )
+        connector.start_load_kv(SimpleNamespace())
+        cache.fill_(9)
+        torch.cuda.synchronize(cache.device)
+        assert owners
+        assert torch.equal(
+            entries.packed.view(dtype).view(2, 256),
+            torch.full((2, 256), 7, dtype=dtype, device=cache.device),
+        )
+        assert torch.all(cache == 9)
+    finally:
+        connector._gpu_export_arena.close()
+        connector._gpu_export_arena = None
+
+
+@pytest.mark.parametrize("slots,budget", [(0, 64), (2, 16)])
+def test_optional_export_congestion_never_waits_or_gathers(
+    connector, connector_module, slots, budget
+):
+    connector._gpu_export_arena = SimpleNamespace(
+        available=list(range(slots)), slot_bytes=32
+    )
+    connector._ipc_export_budget = budget
+    connector._ipc_export_jobs["old"] = ({111}, 16, [])
+    connector._export_refresh_at = float("inf")
+    connector._registered_kv_caches = {"K": torch.ones(8, 4)}
+    connector._layer_group_ids = {"K": 0}
+    connector._poll_ipc_exports = Mock()
+    connector._prepare_cpu_export = Mock(
+        side_effect=AssertionError("unexpected gather")
+    )
+    connector._stage_missing_registered_layers = Mock(
+        side_effect=AssertionError("unexpected synchronous export")
+    )
+    connector._get_connector_metadata = (
+        lambda: connector_module.XavierConnectorMetadata(
+            store_requests=[
+                connector_module.XavierStoreRequest("new", [4], [222], [[4]])
+            ]
+        )
+    )
+    try:
+        connector.wait_for_save()
+        connector._poll_ipc_exports.assert_called_once_with()
+        assert connector._ipc_export_jobs == {"old": ({111}, 16, [])}
+        assert 222 not in connector._exported_keys
+    finally:
+        connector._gpu_export_arena = None
+        connector._ipc_export_jobs.clear()
+
+
+def test_partial_export_admission_bounds_bytes_and_slots_without_losing_group_ids(
+    connector, connector_module, monkeypatch
+):
+    monkeypatch.setattr(connector_module, "_MAX_EXPORT_BYTES", 32)
+    connector._gpu_export_arena = SimpleNamespace(available=[0, 1], slot_bytes=32)
+    connector._ipc_export_budget = 100
+    connector._ipc_export_jobs["old"] = ({999}, 16, [])
+    connector._registered_kv_caches = {"K": torch.ones(8, 4)}
+    requests = [
+        connector_module.XavierStoreRequest("a", [0, 1], [100, 101], [[0, 1], [2, 3]]),
+        connector_module.XavierStoreRequest(
+            "b", [2, 3, 4, 5], [102, 103, 104, 105], [[2, 3, 4, 5], [4, 5, 6, 7]]
+        ),
+    ]
+    try:
+        admitted = connector._admit_cpu_exports(requests)
+        assert admitted[0] == requests[0]
+        assert admitted[1] == connector_module.XavierStoreRequest(
+            "b", [2, 3], [102, 103], [[2, 3], [4, 5]]
+        )
+        assert connector._cpu_export_size(admitted) == 64
+        assert len(requests[1].block_hashes) == 4
+        # Congestion did not mark skipped content as stored or pending. A later
+        # request may export every missing block when ownership becomes available.
+        connector._ipc_export_jobs.clear()
+        connector._gpu_export_arena.available.extend([2])
+        assert connector._admit_cpu_exports(requests) == requests
+    finally:
+        connector._gpu_export_arena = None
+        connector._ipc_export_jobs.clear()
+
+
+@pytest.mark.parametrize("gpu_budget", [None, 1024])
+def test_chunked_cpu_export_uses_only_completed_blocks_and_resume_sources(
+    connector, connector_module, gpu_budget
+):
+    connector._gpu_budget = gpu_budget
+    tokens = list(range(65))
+    scheduler = SimpleNamespace(
+        scheduled_new_reqs=[
+            SimpleNamespace(
+                req_id="r",
+                prompt_token_ids=tokens,
+                block_ids=([0, 1], [10, 11]),
+                num_computed_tokens=0,
+            )
+        ],
+        num_scheduled_tokens={"r": 17},
+        scheduled_cached_reqs=SimpleNamespace(req_ids=[]),
+    )
+    try:
+        meta = connector_module.XavierConnectorMetadata()
+        connector._build_store_meta(scheduler, meta)
+        hashes = [key for key, _ in connector._build_xavier_hashes(tokens[:-1])]
+        if gpu_budget is None:
+            assert meta.store_requests == [
+                connector_module.XavierStoreRequest("r", [0], hashes[:1], [[0], [10]])
+            ]
+        else:
+            assert not meta.store_requests
+        scheduler.scheduled_new_reqs = []
+        scheduler.scheduled_cached_reqs = SimpleNamespace(
+            req_ids=["r"],
+            num_computed_tokens=[17],
+            new_block_ids=[([2], [12])],
+            resumed_req_ids=set(),
+        )
+        scheduler.num_scheduled_tokens["r"] = 16
+        meta = connector_module.XavierConnectorMetadata()
+        connector._build_store_meta(scheduler, meta)
+        if gpu_budget is None:
+            assert meta.store_requests[0].block_hashes == hashes[:2]
+            assert meta.store_requests[0].block_ids_by_group == [[0, 1], [10, 11]]
+        else:
+            assert not meta.store_requests
+        # Preemption replaced every source block. Resume must gather from the
+        # new allocation while preserving the same content-addressed prefix.
+        scheduler.scheduled_cached_reqs = SimpleNamespace(
+            req_ids=["r"],
+            num_computed_tokens=[0],
+            new_block_ids=[([4, 5, 6, 7], [14, 15, 16, 17])],
+            resumed_req_ids={"r"},
+        )
+        scheduler.num_scheduled_tokens["r"] = 65
+        meta = connector_module.XavierConnectorMetadata()
+        connector._build_store_meta(scheduler, meta)
+        assert meta.store_requests == [
+            connector_module.XavierStoreRequest(
+                "r", [4, 5, 6, 7], hashes, [[4, 5, 6, 7], [14, 15, 16, 17]]
+            )
+        ]
+        assert not connector._chunked_prefill
+    finally:
+        connector._gpu_budget = None
 
 
 class SnapshotExportActor(xo.StatelessActor):
@@ -40,10 +288,18 @@ class SnapshotExportActor(xo.StatelessActor):
         self._snapshot_store = KVSnapshotStore(8)
         self._snapshot_export_jobs_v1 = {}
         self._snapshot_export_lock_v1 = asyncio.Lock()
+        self._swap_stream = torch.cuda.Stream()
 
     def snapshot_bits(self, layer, keys):
         store = self._snapshot_store
         return store.read(layer, keys).view(torch.uint8).reshape(-1).tolist()
+
+    def snapshots_are_pageable(self):
+        return all(
+            not layer.is_pinned()
+            for block in self._snapshot_store.blocks.values()
+            for layer in block.values()
+        )
 
     async def __pre_destroy__(self):
         await asyncio.gather(
@@ -98,6 +354,7 @@ async def test_gpu_arena_reuse_and_fresh_registration_after_actor_recovery(dtype
                 )
                 result = await actor.poll_snapshot_exports_v1([ticket], wait=True)
                 assert set(result[ticket][0]) == set(keys)
+                assert await actor.snapshots_are_pageable()
                 arena.release([slot])
             assert await actor.snapshot_bits("K", [111, 222]) == expected
             await xo.destroy_actor(actor)
@@ -486,6 +743,7 @@ async def test_actor_publishes_gpu_snapshot_without_producer_polling(dtype):
         stream = torch.cuda.Stream()
         stream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(stream):
+            torch.cuda._sleep(200_000_000)
             gathered = source.index_select(0, torch.tensor([2, 4], device="cuda"))
             packed = gathered.view(torch.uint8).reshape(2, -1)
             descriptor = reduce_tensor(packed)[1]
