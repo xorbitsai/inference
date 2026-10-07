@@ -114,32 +114,43 @@ def configure_xavier(model_path: str, model_config: dict, cache_config: dict) ->
             "SGLang Xavier requires local model weights and tokenizer assets"
         )
     model_config.setdefault("page_size", 64)
-    num_kv_heads = config.get("num_key_value_heads")
-    head_dim = config.get("head_dim")
-    contract = KVCacheContract(
-        weights_fingerprint=fingerprint_files(
-            {file.name: file for file in weights},
-            cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints",
-        ),
-        tokenizer_fingerprint=fingerprint_files(
-            {file.name: file for file in tokenizer}
-        ),
-        attention_fingerprint=fingerprint_metadata(config),
-        position_fingerprint=fingerprint_metadata(
-            {"config": config, "context_length": model_config.get("context_length")}
-        ),
-        num_layers=config["num_hidden_layers"],
-        num_kv_heads=(
-            config["num_attention_heads"] if num_kv_heads is None else num_kv_heads
-        ),
-        head_dim=(
-            config["hidden_size"] // config["num_attention_heads"]
-            if head_dim is None
-            else head_dim
-        ),
-        block_size=model_config["page_size"],
-        logical_dtype="float16",
-    )
+    if cache_config.get("heterogeneous"):
+        from ...xavier.pd_contract import build_pd_contract
+
+        if model_config.get("load_format", "auto") not in ("auto", "safetensors"):
+            raise ValueError(
+                "Cross-engine Xavier requires standard automatic or safetensors loading"
+            )
+        if model_config["page_size"] != 64:
+            raise ValueError("Cross-engine Xavier PD requires 64-token pages")
+        contract = build_pd_contract(model_path, model_config.get("context_length"))
+    else:
+        num_kv_heads = config.get("num_key_value_heads")
+        head_dim = config.get("head_dim")
+        contract = KVCacheContract(
+            weights_fingerprint=fingerprint_files(
+                {file.name: file for file in weights},
+                cache_dir=Path(XINFERENCE_CACHE_DIR) / "xavier-fingerprints",
+            ),
+            tokenizer_fingerprint=fingerprint_files(
+                {file.name: file for file in tokenizer}
+            ),
+            attention_fingerprint=fingerprint_metadata(config),
+            position_fingerprint=fingerprint_metadata(
+                {"config": config, "context_length": model_config.get("context_length")}
+            ),
+            num_layers=config["num_hidden_layers"],
+            num_kv_heads=(
+                config["num_attention_heads"] if num_kv_heads is None else num_kv_heads
+            ),
+            head_dim=(
+                config["hidden_size"] // config["num_attention_heads"]
+                if head_dim is None
+                else head_dim
+            ),
+            block_size=model_config["page_size"],
+            logical_dtype="float16",
+        )
     if config.get("torch_dtype", config.get("dtype")) in ("bfloat16", "bf16"):
         logger.warning(
             "SGLang Xavier casts this BF16 checkpoint to FP16; weights and KV use FP16"

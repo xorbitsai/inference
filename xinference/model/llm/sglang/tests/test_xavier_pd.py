@@ -372,23 +372,31 @@ async def prepare(h, prompt, room=1):
 
 
 @pytest.mark.asyncio
-async def test_repeated_prompt_reuses_fingerprint_and_validates_every_room():
+@pytest.mark.parametrize("heterogeneous", [False, True])
+async def test_repeated_prompt_reuses_fingerprint_and_validates_every_room(
+    heterogeneous,
+):
     h = fingerprint_handoff()
+    if heterogeneous:
+        h.config.update(heterogeneous=True, rank=1)
     for room in range(1, 4):
         await prepare(h, "prompt", room)
     h.tokenizer.encode.assert_called_once_with("prompt")
     assert h._directory_actor.prepare.await_count == 3
     expected = hashlib.sha256(json.dumps(list(b"prompt")).encode()).hexdigest()
-    assert h._directory_actor.prepare.call_args.args == (
+    arguments = (
         3,
         "namespace",
         expected,
         "decode",
-        None,
+        1 if heterogeneous else None,
         600,
     )
+    if heterogeneous:
+        arguments += (len(b"prompt"),)
+    assert h._directory_actor.prepare.call_args.args == arguments
     assert list(h._prompt_hashes) == [hashlib.sha256(b"prompt").digest()]
-    assert list(h._prompt_hashes.values()) == [expected]
+    assert list(h._prompt_hashes.values()) == [(expected, len(b"prompt"))]
 
 
 @pytest.mark.asyncio

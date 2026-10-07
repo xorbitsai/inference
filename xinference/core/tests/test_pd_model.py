@@ -86,10 +86,25 @@ async def test_infer_preserves_decode_config(router, method):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("backend", ["xavier", "nixl"])
-async def test_sglang_starts_decode_while_prefill_holds_source_slots(router, backend):
+async def test_cross_engine_allows_plain_text_response_format(router):
     actor, prefill, decode = router
-    actor._model_engine = "sglang"
+    actor._model_engine = "heterogeneous"
+    await actor._infer(
+        "generate", "prompt", {"response_format": {"type": "text"}}, request_id="r"
+    )
+    assert prefill.generate.await_count == decode.generate.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "engine,backend",
+    [("sglang", "xavier"), ("sglang", "nixl"), ("heterogeneous", "xavier")],
+)
+async def test_sglang_starts_decode_while_prefill_holds_source_slots(
+    router, engine, backend
+):
+    actor, prefill, decode = router
+    actor._model_engine = engine
     actor._transport_backend = backend
     if backend == "nixl":
         actor._sglang_bootstrap["p"] = dict(host="producer", port=12345)
@@ -115,6 +130,8 @@ async def test_sglang_starts_decode_while_prefill_holds_source_slots(router, bac
     assert handoff == d_config["_pd_kv_transfer_params"][key]
     if backend == "nixl":
         assert handoff["host"] == "producer" and handoff["port"] == 12345
+    if engine == "heterogeneous":
+        assert handoff["heterogeneous"] is True
     assert not actor._request_set and not actor._direct_transfers
 
 
@@ -161,6 +178,74 @@ async def test_native_sglang_bootstrap_refreshed_on_replica_replacement():
     prefill.get_sglang_pd_bootstrap.return_value["port"] = 23456
     await actor.add_prefill_actor("p", prefill)
     assert actor._sglang_bootstrap["p"]["port"] == 23456
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source_published", [False, True])
+async def test_cross_engine_cancel_drains_source_before_directory_release(
+    router, monkeypatch, source_published
+):
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    calls = []
+    directory, sender = AsyncMock(), AsyncMock()
+    directory.source.return_value = (
+        dict(address="gpu-host", rank=1) if source_published else None
+    )
+
+    async def drain(room):
+        calls.append(("drain", room))
+
+    async def release(room):
+        calls.append(("release", room))
+
+    sender.abort.side_effect = drain
+    directory.release.side_effect = release
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(side_effect=[directory, sender]))
+    started = asyncio.Event()
+
+    async def pending(*args, **kwargs):
+        started.set()
+        await asyncio.Event().wait()
+
+    prefill.generate.side_effect = pending
+    decode.generate.side_effect = pending
+    task = asyncio.create_task(actor._infer("generate", "prompt", {}, request_id="r"))
+    await started.wait()
+    handoff = actor._direct_transfers["r"]
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    expected = [("drain", handoff["room"])] if source_published else []
+    assert calls == expected + [("release", handoff["room"])]
+    prefill.abort_request.assert_awaited_once()
+    decode.abort_request.assert_awaited_once()
+    assert not actor._request_set and not actor._direct_transfers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"logprobs": 0},
+        {"prompt_logprobs": 0},
+        {"guided_choice": ["yes", "no"]},
+        {"json_schema": {"type": "object"}},
+        {"response_format": {"type": "json_object"}},
+        {"response_format": {"type": "json_schema", "json_schema": {"schema": {}}}},
+        {"return_logprob": True},
+    ],
+)
+async def test_cross_engine_rejects_unsupported_sampling_before_scheduling(
+    router, config
+):
+    actor, prefill, decode = router
+    actor._model_engine = "heterogeneous"
+    with pytest.raises(ValueError, match="structured sampling or logprobs"):
+        await actor._infer("generate", "prompt", config, request_id="r")
+    prefill.generate.assert_not_awaited()
+    decode.generate.assert_not_awaited()
+    assert not actor._request_set
 
 
 @pytest.mark.asyncio

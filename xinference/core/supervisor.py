@@ -3110,6 +3110,21 @@ class SupervisorActor(xo.StatelessActor):
         transport_backend = normalize_xavier_transport_backend(transport_backend)
         if transport_backend == "nixl" and not pd_enabled:
             raise ValueError("NIXL requires explicit prefill and decode replica roles")
+        replica_engines = [
+            (cfg.model_engine or model_engine or "").lower()
+            for cfg in replica_config or []
+        ]
+        heterogeneous_pd = pd_enabled and len(set(replica_engines)) > 1
+        if (
+            pd_enabled
+            and not heterogeneous_pd
+            and any(cfg.model_engine for cfg in replica_config or [])
+        ):
+            model_engine = next(
+                cfg.model_engine for cfg in replica_config or [] if cfg.model_engine
+            )
+        if heterogeneous_pd and transport_backend != "xavier":
+            raise ValueError("Cross-engine PD requires Xavier GPU transport")
         # Xavier-related
         requested_xavier = bool(kwargs.pop("enable_xavier", False))
         if (
@@ -3124,8 +3139,13 @@ class SupervisorActor(xo.StatelessActor):
             (requested_xavier or pd_enabled)
             and transport_backend == "xavier"
             and (model_engine or "").lower() == "mlx"
+            and not heterogeneous_pd
         )
-        if (requested_xavier or pd_enabled) and (model_engine or "").lower() == "mlx":
+        if (
+            (requested_xavier or pd_enabled)
+            and (model_engine or "").lower() == "mlx"
+            and not heterogeneous_pd
+        ):
             if transport_backend != "xavier":
                 raise ValueError("MLX Xavier requires the xavier transport")
             if (
@@ -3143,6 +3163,7 @@ class SupervisorActor(xo.StatelessActor):
             and transport_backend == "xavier"
             and model_engine is not None
             and model_engine.lower() == "sglang"
+            and not heterogeneous_pd
         )
         sglang_nixl = (
             pd_enabled
@@ -3163,19 +3184,22 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(
                 "xavier_cache_bytes requires MLX Xavier or SGLang shared CPU caching and a positive integer"
             )
-        if sglang_xavier:
-            if n_worker != 1:
-                raise ValueError(
-                    "SGLang Xavier requires the xavier transport and one worker per replica"
-                )
+        if sglang_xavier and n_worker != 1:
+            raise ValueError(
+                "SGLang Xavier requires the xavier transport and one worker per replica"
+            )
+        if sglang_xavier or heterogeneous_pd:
             if (
                 model_type not in (None, "LLM")
                 or model_format not in (None, "pytorch")
                 or quantization not in (None, "none")
             ):
                 raise ValueError(
-                    "SGLang Xavier requires unquantized PyTorch LLM weights"
+                    "Cross-engine Xavier PD requires unquantized PyTorch LLM weights"
+                    if heterogeneous_pd
+                    else "SGLang Xavier requires unquantized PyTorch LLM weights"
                 )
+        if sglang_xavier:
             kwargs["_xavier_cache_config"] = {
                 "address": self.address,
                 "uid": f"xavier-cache-{model_uid}",
@@ -3185,17 +3209,20 @@ class SupervisorActor(xo.StatelessActor):
             and transport_backend == "xavier"
             and model_engine is not None
             and model_engine.lower() == "vllm"
+            and not heterogeneous_pd
         )
         from ..model.llm.xavier.transport import validate_gpu_cache_budget
 
         gpu_cache_bytes = validate_gpu_cache_budget(
             kwargs.pop("xavier_gpu_cache_bytes", None),
-            enable_xavier or sglang_xavier and pd_enabled,
+            enable_xavier or sglang_xavier and pd_enabled or heterogeneous_pd,
             replica,
         )
-        if sglang_xavier and gpu_cache_bytes not in (None, 0):
+        if (sglang_xavier or heterogeneous_pd) and gpu_cache_bytes not in (None, 0):
             raise ValueError(
-                "SGLang Xavier GPU PD does not yet support retained GPU history"
+                "Cross-engine Xavier GPU PD does not yet support retained GPU history"
+                if heterogeneous_pd
+                else "SGLang Xavier GPU PD does not yet support retained GPU history"
             )
         if pd_enabled and enable_xavier and gpu_cache_bytes is None:
             gpu_cache_bytes = 256 * 1024 * 1024
@@ -3302,6 +3329,25 @@ class SupervisorActor(xo.StatelessActor):
             self._workers_launching[_addr] = self._workers_launching.get(_addr, 0) + 1
 
             replica_kwargs = dict(kwargs)
+            replica_engine = model_engine
+            if pd_enabled:
+                assert replica_config is not None
+                cfg = replica_config[rank - 1]
+                replica_engine = cfg.model_engine or model_engine
+                replica_kwargs.update(cfg.engine_config)
+            if heterogeneous_pd:
+                assert replica_config is not None
+                from ..model.llm.xavier.transport import get_transport_host
+
+                replica_kwargs["_xavier_cache_config"] = {
+                    "address": self.address,
+                    "uid": f"xavier-cache-{model_uid}",
+                    "role": replica_config[rank - 1].role,
+                    "rank": rank,
+                    "host": get_transport_host(worker_ref.address),
+                    "heterogeneous": True,
+                    "gpu_cache_bytes": 0,
+                }
             if sglang_xavier and pd_enabled:
                 assert replica_config is not None
                 from ..model.llm.xavier.transport import get_transport_host
@@ -3336,7 +3382,7 @@ class SupervisorActor(xo.StatelessActor):
                     model_size_in_billions=model_size_in_billions,
                     model_format=model_format,
                     quantization=quantization,
-                    model_engine=model_engine,
+                    model_engine=replica_engine,
                     model_type=model_type,
                     n_gpu=n_gpu if replica_n_gpu is None else replica_n_gpu,
                     request_limits=request_limits,
@@ -3380,6 +3426,17 @@ class SupervisorActor(xo.StatelessActor):
         async def _launch_model():
             nonlocal download_hub
             try:
+                if heterogeneous_pd:
+                    from ..model.llm.sglang.xavier.directory import XavierPDDirectory
+
+                    cache_ref = await xo.create_actor(
+                        XavierPDDirectory,
+                        address=self.address,
+                        uid=f"xavier-cache-{model_uid}",
+                    )
+                    if not hasattr(self, "_xavier_cache_mapping"):
+                        self._xavier_cache_mapping = {}
+                    self._xavier_cache_mapping[model_uid] = cache_ref
                 if sglang_xavier or mlx_xavier:
                     if mlx_xavier:
                         from ..model.llm.xavier.backends.bytes.storage import (
@@ -3672,7 +3729,9 @@ class SupervisorActor(xo.StatelessActor):
                         PDModelActor,
                         model_uid,
                         transport_backend=transport_backend,
-                        model_engine=model_engine,
+                        model_engine=(
+                            "heterogeneous" if heterogeneous_pd else model_engine
+                        ),
                         address=self.address,
                         uid=f"{model_uid}-{PDModelActor.default_uid()}",
                     )
@@ -4971,6 +5030,8 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError("The replica count to add must be at least 1")
         if replica_configs is not None and len(replica_configs) != replica:
             raise ValueError("replica_configs length must match replica")
+        if any(cfg.model_engine or cfg.engine_config for cfg in replica_configs or []):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
 
         async with self._get_model_replica_lock(model_uid):
             results: List[Dict[str, Any]] = []
@@ -5027,6 +5088,10 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(
                 "PD topology cannot be resized in place; terminate and relaunch the model"
             )
+        if replica_config and (
+            replica_config.model_engine or replica_config.engine_config
+        ):
+            raise ValueError("Per-replica engine settings require explicit PD roles")
         replica_info = self._model_uid_to_replica_info.get(model_uid)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")

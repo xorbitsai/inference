@@ -745,3 +745,132 @@ async def test_failed_cache_actor_cleanup_emits_warning(launch_runtime, caplog):
     with caplog.at_level(logging.WARNING):
         await supervisor.terminate_model("pd")
     assert "Destroy Xavier cache failed for pd" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engines", [("vLLM", "SGLang"), ("SGLang", "vLLM")])
+@pytest.mark.parametrize("default_engine", ["vLLM", "SGLang", "MLX"])
+async def test_cross_engine_pd_launches_one_adapter_per_replica(
+    launch_runtime, engines, default_engine
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_engine"] = default_engine
+    for index, (cfg, engine) in enumerate(zip(kwargs["replica_config"], engines)):
+        cfg.model_engine = engine
+        cfg.engine_config = {"engine_option": index}
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierPDDirectory", "PDModelActor"}
+    assert actors["PDModelActor"].constructor_kwargs["model_engine"] == "heterogeneous"
+    for index, worker in enumerate(workers):
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["model_engine"] == engines[index]
+        assert launch["engine_option"] == index
+        assert launch["xavier_config"] is None
+        assert launch["_xavier_cache_config"]["heterogeneous"] is True
+        assert launch["_xavier_cache_config"]["role"] == ("prefill", "decode")[index]
+        worker.launch_rank0_model.assert_not_awaited()
+        worker.start_transfer_for_vllm.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("engines", [("MLX", "vLLM"), ("SGLang", "MLX")])
+async def test_cross_engine_mlx_is_rejected_before_allocating_actors(
+    launch_runtime, engines
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    for cfg, engine in zip(kwargs["replica_config"], engines):
+        cfg.model_engine = engine
+    with pytest.raises(ValueError, match="vLLM and SGLang replicas"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "key",
+    [
+        "model_engine",
+        "xavier_config",
+        "n_gpu",
+        "n_worker",
+        "shard",
+        "driver_info",
+        "gpu_idx",
+        "envs",
+        "_xavier_cache_config",
+        "_nixl_config",
+        "quantization",
+    ],
+)
+async def test_pd_reserved_engine_options_fail_before_allocating_actors(
+    launch_runtime, key
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][0].engine_config = {key: None}
+    with pytest.raises(ValueError, match="Reserved replica engine_config keys"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_per_replica_engine_override_preserves_homogeneous_mlx_pd(launch_runtime):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["model_format"] = "mlx"
+    for cfg in kwargs["replica_config"]:
+        cfg.model_engine = "MLX"
+    await supervisor.launch_builtin_model(**kwargs)
+    assert set(actors) == {"XavierBytesCacheActor", "PDModelActor"}
+    for worker in workers:
+        launch = worker.launch_builtin_model.call_args.kwargs
+        assert launch["model_engine"] == "MLX"
+        assert "rank" not in launch["_xavier_cache_config"]
+
+
+@pytest.mark.asyncio
+async def test_cross_engine_rejects_native_transport_before_launch(launch_runtime):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][1].model_engine = "SGLang"
+    kwargs["transfer_backend_type"] = "nixl"
+    with pytest.raises(ValueError, match="Xavier GPU transport"):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "options,error",
+    [
+        ({"model_format": "ggufv2"}, "unquantized PyTorch"),
+        ({"model_format": "mlx"}, "unquantized PyTorch"),
+        ({"quantization": "4bit"}, "unquantized PyTorch"),
+        ({"n_worker": 2}, "n_worker"),
+        ({"xavier_gpu_cache_bytes": 1024}, "retained GPU history"),
+        ({"xavier_cache_bytes": 1024}, "xavier_cache_bytes requires"),
+    ],
+)
+async def test_cross_engine_invalid_launch_has_no_side_effects(
+    launch_runtime, options, error
+):
+    supervisor, workers, actors, _ = launch_runtime
+    kwargs = launch_kwargs()
+    kwargs["replica_config"][1].model_engine = "SGLang"
+    kwargs.update(options)
+    with pytest.raises(ValueError, match=error):
+        await supervisor.launch_builtin_model(**kwargs)
+    assert not actors and not supervisor._model_uid_to_replica_info
+    assert not supervisor._xavier_cache_mapping and not supervisor._pd_model_mapping
+    supervisor._status_guard_ref.update_replica_status.assert_not_awaited()
+    for worker in workers:
+        worker.launch_builtin_model.assert_not_awaited()
+        worker.wait_for_load.assert_not_awaited()

@@ -12,6 +12,20 @@ from ..pd import configure_nixl_engine, configure_nixl_environment
 from ..xavier.transport import normalize_xavier_transport_backend
 
 
+@pytest.mark.parametrize("heterogeneous", [False, True])
+def test_set_xavier_config_preserves_only_heterogeneous_launch_config(heterogeneous):
+    from ..core import VLLMModel
+
+    model = VLLMModel.__new__(VLLMModel)
+    configured = {"heterogeneous": heterogeneous, "role": "prefill"}
+    model._xavier_config = configured
+    model.set_xavier_config(None)
+    assert model._xavier_config == (configured if heterogeneous else None)
+    replacement = {"rank": 2}
+    model.set_xavier_config(replacement)
+    assert model._xavier_config is replacement
+
+
 def test_nixl_engine_config(monkeypatch):
     monkeypatch.setitem(
         sys.modules, "vllm.config", SimpleNamespace(KVTransferConfig=SimpleNamespace)
@@ -115,6 +129,95 @@ async def test_generate_passes_native_handoff_and_returns_producer_metadata(
     else:
         assert "_pd_kv_transfer_params" not in result
     assert not model._active_request_ids
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure", ["one-token", "prompt mismatch", "room limit", "producer RPC"]
+)
+async def test_cross_engine_validation_fails_request_without_submitting_bad_work(
+    monkeypatch, failure
+):
+    import xoscar as xo
+
+    from ...xavier.contract import KVCacheContract
+    from .. import core
+
+    class SamplingParams:
+        def __init__(self, max_tokens=1, **kwargs):
+            self.max_tokens = max_tokens
+            self.__dict__.update(kwargs)
+            self.extra_args = None
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.sampling_params",
+        SimpleNamespace(SamplingParams=SamplingParams),
+    )
+    monkeypatch.setattr(core, "VLLM_VERSION", Version("0.28.0"))
+    monkeypatch.setattr(core, "VLLM_INSTALLED", False)
+    directory = AsyncMock()
+    if failure in ("prompt mismatch", "room limit"):
+        directory.prepare.side_effect = ValueError(failure)
+    monkeypatch.setattr(xo, "actor_ref", AsyncMock(return_value=directory))
+    contract = KVCacheContract(
+        weights_fingerprint="a" * 64,
+        tokenizer_fingerprint="b" * 64,
+        attention_fingerprint="c" * 64,
+        position_fingerprint="d" * 64,
+        num_layers=2,
+        num_kv_heads=1,
+        head_dim=4,
+        block_size=64,
+        logical_dtype="float16",
+    )
+    model = object.__new__(core.VLLMModel)
+    model._nixl_config = None
+    model._xavier_config = dict(
+        role="prefill" if failure == "producer RPC" else "decode",
+        heterogeneous=True,
+        rank=1,
+        address="supervisor",
+        uid="directory",
+        contract=contract.to_dict(),
+        gpu_cache_bytes=0,
+    )
+    output = {"xavier_error": failure} if failure == "producer RPC" else None
+
+    async def generate(*args, **kwargs):
+        yield SimpleNamespace(kv_transfer_params=output)
+
+    model._engine = SimpleNamespace(generate=Mock(side_effect=generate))
+    model._active_request_ids, model.lora_requests = set(), []
+    model.reasoning_parser, model.model_uid = None, "model"
+    model._get_tokenizer = AsyncMock()
+    model._gen_tokens_prompt = AsyncMock(
+        return_value={"prompt_token_ids": [1] if failure == "one-token" else [1, 2]}
+    )
+    params = {
+        "max_tokens": 1,
+        "_pd_kv_transfer_params": {"sglang_xavier": {"mode": "gpu", "room": 123}},
+    }
+    with pytest.raises(
+        (ValueError, RuntimeError),
+        match="two prompt tokens" if failure == "one-token" else failure,
+    ):
+        await core.VLLMModel.async_generate.__wrapped__(
+            model, "prompt", params, request_id="bad"
+        )
+    if failure != "producer RPC":
+        model._engine.generate.assert_not_called()
+    assert not model._active_request_ids
+    directory.prepare.side_effect = None
+    output = None
+    model._gen_tokens_prompt.return_value = {"prompt_token_ids": [1, 2]}
+    model._convert_request_output_to_completion = lambda *a, **kw: {"choices": []}
+    assert (
+        await core.VLLMModel.async_generate.__wrapped__(
+            model, "prompt", params, request_id="good"
+        )
+        is not None
+    )
 
 
 @pytest.mark.parametrize("address", ["0.0.0.0:9997", ":::9997", "[::]:9997"])
