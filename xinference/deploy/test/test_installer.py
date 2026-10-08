@@ -24,9 +24,10 @@ from types import SimpleNamespace
 
 import pytest
 
-_spec = importlib.util.spec_from_file_location(
-    "manage_install", Path(__file__).resolve().parents[3] / "scripts/manage_install.py"
-)
+_script = Path(__file__).resolve().parents[3] / "scripts/manage_install.py"
+if not _script.is_file():
+    pytest.skip("Installer scripts are not included in wheels", allow_module_level=True)
+_spec = importlib.util.spec_from_file_location("manage_install", _script)
 assert _spec is not None and _spec.loader is not None
 module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(module)
@@ -302,6 +303,41 @@ def test_failed_old_service_restart_keeps_recoverable_backup(installer, monkeypa
     assert installer.python.read_text() == "1.0.0"
 
 
+def test_interrupted_upgrade_recovers_after_service_was_uninstalled(
+    installer, monkeypatch
+):
+    restore = installer.restore
+
+    def interrupted_restore(transaction):
+        raise RuntimeError("interrupted recovery")
+
+    monkeypatch.setattr(installer, "restore", interrupted_restore)
+    installer.fail_install = True
+    with pytest.raises(RuntimeError, match="Recovery files were preserved"):
+        installer.update()
+    transaction = json.loads(installer.journal.read_text())
+
+    def removed_service():
+        installer.mode = "none"
+        installer.config = None
+
+    monkeypatch.setattr(installer, "find_service", removed_service)
+    monkeypatch.setattr(installer, "restore", restore)
+    installer.calls.clear()
+    installer.fail_install = False
+    installer.fail_prepare = True
+    with pytest.raises(RuntimeError, match="dependency resolution"):
+        installer.update()
+    assert installer.calls == [
+        ("prepare", "xinference[embedding]", "/original/python", "cpu")
+    ]
+    assert installer.python.read_text() == "1.0.0"
+    assert (installer.bin_dir / "xinference").read_text() == "1.0.0"
+    assert not installer.journal.exists()
+    assert not Path(transaction["backup"]).exists()
+    assert installer.config is None
+
+
 def test_lock_rejects_concurrent_installer(tmp_path):
     with module.installation_lock(tmp_path):
         with pytest.raises(RuntimeError, match="Another"):
@@ -405,6 +441,54 @@ def test_first_install_removes_new_service_when_startup_fails(installer, monkeyp
     assert not registered[0]
     assert installer.calls[-1][0] == "uninstall"
     assert installer.python.read_text() == "2.0.0"
+    assert not installer.journal.exists()
+
+
+def test_unchanged_package_removes_new_service_when_startup_fails(
+    installer, monkeypatch
+):
+    installer.target = "1.0.0"
+    installer.running = False
+    registered = [False]
+    find, service = installer.find_service, installer.service
+
+    def find_service():
+        find()
+        if not registered[0]:
+            installer.config = None
+
+    def control(action, *args, python=None):
+        if action == "start":
+            raise RuntimeError("service is not ready")
+        if action in {"install", "uninstall"}:
+            registered[0] = action == "install"
+        return service(action, *args, python=python)
+
+    monkeypatch.setattr(installer, "find_service", find_service)
+    monkeypatch.setattr(installer, "service", control)
+    with pytest.raises(RuntimeError, match="not ready"):
+        installer.update()
+    assert [call[0] for call in installer.calls] == ["prepare", "install", "uninstall"]
+    assert not registered[0]
+    assert installer.python.read_text() == "1.0.0"
+    assert (installer.environment / "preserve-dependency").exists()
+    assert not installer.journal.exists()
+
+
+def test_incompatible_candidate_keeps_existing_service(installer, monkeypatch):
+    run = module.run
+
+    def check_candidate(args, env=None, check=True):
+        if "-c" in args and "INSTALLER_API_VERSION" in args[-1]:
+            raise RuntimeError("Incompatible service installer API")
+        return run(args, env, check)
+
+    monkeypatch.setattr(module, "run", check_candidate)
+    with pytest.raises(RuntimeError, match="Incompatible service installer API"):
+        installer.update()
+    assert [call[0] for call in installer.calls] == ["prepare"]
+    assert installer.python.read_text() == "1.0.0"
+    assert installer.running
     assert not installer.journal.exists()
 
 

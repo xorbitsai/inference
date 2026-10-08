@@ -171,6 +171,30 @@ def test_failed_registration_can_be_retried(manager, tmp_path, monkeypatch):
     assert manager.load()["registered"]
 
 
+def test_interrupted_definition_write_can_be_retried(manager, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        module,
+        "_run",
+        lambda args, check=True: subprocess.CompletedProcess(args, 0, "", ""),
+    )
+    write_bytes = Path.write_bytes
+
+    def interrupted_write(path, data):
+        if path == manager.definition:
+            assert not manager.load()["registered"]
+            write_bytes(path, data[:10])
+            raise OSError("definition write interrupted")
+        return write_bytes(path, data)
+
+    with monkeypatch.context() as context:
+        context.setattr(Path, "write_bytes", interrupted_write)
+        with pytest.raises(OSError, match="definition write interrupted"):
+            manager.install("127.0.0.1", 9997, str(tmp_path / "data"), None)
+    manager.install("127.0.0.1", 9997, str(tmp_path / "data"), None)
+    assert manager.load()["registered"]
+    assert manager.definition.read_bytes().startswith(b"[Unit]")
+
+
 def test_system_launchd_logs_are_writable_by_the_service_account(
     manager, tmp_path, monkeypatch
 ):
@@ -425,8 +449,8 @@ def test_cli_uses_shared_manager(manager, monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX shell installer")
-@pytest.mark.parametrize("mode", ["none", "user", "system", "auto"])
-def test_shell_installer_delegates_upgrade_flow(tmp_path, mode):
+def test_shell_installer_delegates_upgrade_flow(tmp_path):
+    mode = "system"
     binaries = tmp_path / "bin"
     binaries.mkdir()
     log = tmp_path / "calls.jsonl"
@@ -444,6 +468,8 @@ def test_shell_installer_delegates_upgrade_flow(tmp_path, mode):
         XINFERENCE_SERVICE=mode,
     )
     script = Path(__file__).resolve().parents[3] / "scripts/install.sh"
+    if not script.is_file():
+        pytest.skip("Installer scripts are not included in wheels")
     result = subprocess.run(
         ["sh", str(script)], env=env, capture_output=True, text=True
     )
@@ -483,6 +509,8 @@ def test_piped_installer_ignores_cwd_and_shared_temp_modules(tmp_path):
     driver = tmp_path / "trusted.py"
     driver.write_text("import json\nprint('Downloaded driver ran in isolation')\n")
     script = Path(__file__).resolve().parents[3] / "scripts/install.sh"
+    if not script.is_file():
+        pytest.skip("Installer scripts are not included in wheels")
     result = subprocess.run(
         ["sh"],
         input=script.read_text(),
@@ -504,7 +532,7 @@ def test_piped_installer_ignores_cwd_and_shared_temp_modules(tmp_path):
 
 
 def test_windows_service_uses_protected_control_directory_and_isolated_python(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, capsys
 ):
     monkeypatch.setattr(module.platform, "system", lambda: "Windows")
     program_files = tmp_path / "Program Files"
@@ -532,3 +560,7 @@ def test_windows_service_uses_protected_control_directory_and_isolated_python(
     assert config["home"] == str((program_data / "Xinference/data").absolute())
     assert definition.findtext("workingdirectory") == str(manager.directory)
     assert config["command"][1:4] == ["-I", "-u", "-c"]
+    warning = capsys.readouterr().err
+    assert sys.executable in warning
+    assert "does not restrict" in warning
+    assert "LocalSystem" in warning

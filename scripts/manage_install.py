@@ -193,7 +193,9 @@ class Installer:
                 ("port", "XINFERENCE_PORT"),
                 ("home", "XINFERENCE_HOME"),
             ):
-                if variable not in self.env or (key == "home" and not self.env[variable]):
+                if variable not in self.env or (
+                    key == "home" and not self.env[variable]
+                ):
                     continue
                 expected, actual = self.config[key], self.env[variable]
                 if key == "port":
@@ -241,6 +243,8 @@ class Installer:
             command.append("--system")
         command.extend(args)
         if self.mode == "system" and os.name != "nt" and os.geteuid() != 0:
+            if args and args[0] == "stop":
+                subprocess.run(["sudo", "-v"], check=True)
             command = ["sudo", *command]
         return run(command, self.env)
 
@@ -363,7 +367,9 @@ class Installer:
 
                 args.extend(["--user", config.get("user", getpass.getuser())])
             self.created_service = not self.config
-            print(self.service(*args).stdout, end="", flush=True)
+            result = self.service(*args)
+            print(result.stderr, file=sys.stderr, end="", flush=True)
+            print(result.stdout, end="", flush=True)
         if self.start:
             print(
                 self.service("start", "--timeout", str(self.timeout)).stdout,
@@ -377,7 +383,9 @@ class Installer:
             raise RuntimeError("Invalid upgrade recovery directory.")
         print("Restoring the previous Xinference environment...", flush=True)
         if transaction["service_before"]:
-            self.service("stop", python=python_path(backup / "environment"))
+            self.find_service()
+            if self.config:
+                self.service("stop", python=python_path(backup / "environment"))
         elif self.created_service or self.config:
             self.find_service()
             if self.config:
@@ -393,7 +401,7 @@ class Installer:
             destination.unlink(missing_ok=True)
             source = backup / "shims" / entry["name"]
             shutil.copy2(source, destination, follow_symlinks=False)
-        if transaction["active"]:
+        if transaction["active"] and self.config:
             print(
                 self.service("start", "--timeout", str(max(120, self.timeout))).stdout,
                 end="",
@@ -401,7 +409,27 @@ class Installer:
             )
         self.journal.unlink()
         shutil.rmtree(backup.parent)
-        print("Restored the previous version and service state.", flush=True)
+        if transaction["service_before"] and not self.config:
+            print(
+                "Restored the previous version; the removed service was not recreated.",
+                flush=True,
+            )
+        else:
+            print("Restored the previous version and service state.", flush=True)
+
+    def remove_created_service(self, failure):
+        if not self.created_service:
+            return
+        try:
+            self.find_service()
+            if self.config:
+                self.service("uninstall")
+                self.config = None
+        except Exception as cleanup:
+            raise RuntimeError(
+                f"Installation failed: {failure}\nService cleanup failed: {cleanup}\n"
+                "Run xinference service uninstall (with --system for a system service) before retrying."
+            ) from failure
 
     def update(self):
         self.find_service()
@@ -446,7 +474,11 @@ class Installer:
             candidate = runtime_info(candidate_python)
             code = "from xinference.deploy.cmdline import cli, local"
             if self.mode != "none":
-                code += "; assert 'service' in cli.commands, 'This release has no service CLI'"
+                code += (
+                    "; assert 'service' in cli.commands, 'This release has no service CLI'"
+                    "; from xinference.deploy import service"
+                    "; assert getattr(service, 'INSTALLER_API_VERSION', None) == 1, 'Incompatible service installer API'"
+                )
             run([str(candidate_python), "-I", "-c", code], self.env)
             unchanged = (
                 old
@@ -464,7 +496,11 @@ class Installer:
                     f"Xinference {old['version']} is already installed; keeping its environment.",
                     flush=True,
                 )
-                self.configure()
+                try:
+                    self.configure()
+                except BaseException as failure:
+                    self.remove_created_service(failure)
+                    raise
                 return
             transaction = None
             if old:
@@ -545,16 +581,7 @@ class Installer:
                             f"Recovery files were preserved at {transaction['backup']}."
                         ) from failure
                 elif self.created_service:
-                    try:
-                        self.find_service()
-                        if self.config:
-                            self.service("uninstall")
-                            self.config = None
-                    except Exception as cleanup:
-                        raise RuntimeError(
-                            f"Installation failed: {failure}\nService cleanup failed: {cleanup}\n"
-                            "Run xinference service uninstall (with --system for a system service) before retrying."
-                        ) from failure
+                    self.remove_created_service(failure)
                 raise
             if transaction:
                 self.journal.unlink()

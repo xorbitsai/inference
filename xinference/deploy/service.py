@@ -39,6 +39,8 @@ _LABEL = "io.xinference.local"
 _UNIT = "xinference.service"
 _WINSW_URL = "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe"
 _WINSW_SHA256 = "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da"
+# Bump when installer-facing config paths, schema, unit names, or CLI flags change.
+INSTALLER_API_VERSION = 1
 
 
 def _run(args: List[str], check: bool = True) -> subprocess.CompletedProcess:
@@ -187,6 +189,11 @@ class ServiceManager:
         ):
             raise click.ClickException("Invalid Xinference service configuration.")
         return config
+
+    def _save_config(self, config: Dict[str, Any]) -> None:
+        temporary = self.config_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(config, indent=2) + "\n")
+        temporary.replace(self.config_path)
 
     def _control(self, action: str, check: bool = True) -> subprocess.CompletedProcess:
         if self.platform == "Linux":
@@ -349,6 +356,16 @@ class ServiceManager:
             "user": account,
             "command": command,
         }
+        if self.platform == "Windows":
+            click.echo(
+                f"Warning: this LocalSystem service executes {sys.executable}. "
+                "The one-command installer keeps Python in the installing user's tool store "
+                "and does not restrict its ACLs or the model data ACLs. "
+                "Any account able to modify this Python environment or model code "
+                "can run code as LocalSystem. Use administrator-controlled runtime "
+                "and model data paths.",
+                err=True,
+            )
         if self.config_path.exists():
             previous = self.load()
             registered = previous.pop("registered", False)
@@ -397,13 +414,14 @@ class ServiceManager:
             os.chown(console_log, entry.pw_uid, entry.pw_gid)
         if self.platform == "Windows":
             self._download_wrapper()
+        # Establish ownership before the native definition: an interrupted write
+        # can then be retried instead of being mistaken for an unmanaged service.
+        config["registered"] = False
+        self._save_config(config)
         self.definition.parent.mkdir(parents=True, exist_ok=True)
         self.definition.write_bytes(self._render(config))
         if self.system and self.platform != "Windows":
             self.definition.chmod(0o644)
-        # Keep enough state to uninstall if registration fails partway through.
-        config["registered"] = False
-        self.config_path.write_text(json.dumps(config, indent=2) + "\n")
         if self.platform == "Linux":
             _run(
                 ["systemctl"] + ([] if self.system else ["--user"]) + ["daemon-reload"]
@@ -414,7 +432,7 @@ class ServiceManager:
             if "nonexistent" in native.stdout.lower():
                 self._control("install")
         config["registered"] = True
-        self.config_path.write_text(json.dumps(config, indent=2) + "\n")
+        self._save_config(config)
         click.echo("Installed Xinference service.")
 
     def start(self, timeout: float) -> None:

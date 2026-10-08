@@ -77,7 +77,7 @@ def install_service(home=None, overrides=None, check=True):
     scripts = Path(os.environ["GITHUB_WORKSPACE"]) / "scripts"
     args = (
         [
-            "pwsh",
+            "powershell.exe",
             "-NoProfile",
             "-Command",
             """
@@ -156,7 +156,7 @@ def service_config():
     return Path("/etc/xinference/config.json")
 
 
-def candidate_wheel(source, directory, target, broken=False):
+def candidate_wheel(source, directory, target, broken=False, incompatible=False):
     # Keep actual runtime/dependencies, changing metadata and optionally startup.
     with zipfile.ZipFile(source) as original:
         metadata = next(
@@ -176,6 +176,11 @@ def candidate_wheel(source, directory, target, broken=False):
                     )
                 if broken and name == "xinference/deploy/cmdline.py":
                     data += b"\ndef _installer_startup_failure(**kwargs):\n    raise RuntimeError('Intentional installer rollback smoke failure')\nlocal.callback = _installer_startup_failure\n"
+                if incompatible and name == "xinference/deploy/service.py":
+                    assert b"INSTALLER_API_VERSION = 1" in data
+                    data = data.replace(
+                        b"INSTALLER_API_VERSION = 1", b"INSTALLER_API_VERSION = 2"
+                    )
                 wheel.writestr(name.replace(prefix, replacement, 1), data)
             wheel.writestr(f"{replacement}/RECORD", "")
     return output
@@ -200,6 +205,14 @@ def check_upgrades(home, temporary):
     pid = native_pid()
     install_service(overrides={"UV_FIND_LINKS": str(wheels), "UV_OFFLINE": "1"})
     assert native_pid() == pid
+    incompatible = candidate_wheel(source, wheels, "99.0.2", incompatible=True)
+    rejected = install_service(
+        overrides={"XINFERENCE_PACKAGE": str(incompatible)}, check=False
+    )
+    assert rejected.returncode != 0, "Incompatible service API was accepted"
+    assert "Incompatible service installer API" in rejected.stderr
+    assert native_pid() == pid, "Compatibility check interrupted the running service"
+    assert version() == "99.0.0"
     bad = candidate_wheel(source, wheels, "99.0.1", broken=True)
     failed = install_service(
         overrides={"XINFERENCE_PACKAGE": str(bad), "XINFERENCE_TIMEOUT": "2"},

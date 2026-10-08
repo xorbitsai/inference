@@ -25,7 +25,7 @@
         $installer = [IO.Path]::GetTempFileName()
         $temporary = $true
         $url = if ($env:XINFERENCE_INSTALLER_URL) { $env:XINFERENCE_INSTALLER_URL } else { 'https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/manage_install.py' }
-        Invoke-WebRequest $url -OutFile $installer
+        Invoke-WebRequest $url -UseBasicParsing -OutFile $installer
     }
     try {
         & uv run --no-project --no-config --python 3.12 python -I $installer
