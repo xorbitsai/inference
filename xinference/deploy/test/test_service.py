@@ -425,40 +425,23 @@ def test_cli_uses_shared_manager(manager, monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX shell installer")
-@pytest.mark.parametrize("mode", ["none", "user", "system"])
-def test_shell_installer_uses_persistent_environment(tmp_path, mode):
+@pytest.mark.parametrize("mode", ["none", "user", "system", "auto"])
+def test_shell_installer_delegates_upgrade_flow(tmp_path, mode):
     binaries = tmp_path / "bin"
     binaries.mkdir()
-    store = tmp_path / "tool store"
-    commands = store / "xinference/bin"
-    commands.mkdir(parents=True)
     log = tmp_path / "calls.jsonl"
-    for name in ("uv", "id", "sudo", "xinference", "xinference-local"):
-        path = commands / name if name.startswith("xinference") else binaries / name
-        path.write_text(
-            f"#!{sys.executable}\n"
-            + "import json, os, subprocess, sys\n"
-            + "from pathlib import Path\n"
-            + f"with open({str(log)!r}, 'a') as f: f.write(json.dumps(sys.argv) + '\\n')\n"
-            + f"store = {str(store)!r}\n"
-            + "if sys.argv[1:] == ['tool', 'install', '--help']: print('--torch-backend')\n"
-            + "if sys.argv[1:] == ['tool', 'dir']: print(store)\n"
-            + "if sys.argv[1:] == ['tool', 'dir', '--bin']: print(str(Path(store) / 'bin'))\n"
-            + "if Path(sys.argv[0]).name == 'id': print('1000' if sys.argv[1] == '-u' else 'runner')\n"
-            + "if Path(sys.argv[0]).name == 'sudo': sys.exit(subprocess.call(sys.argv[1:]))\n"
-        )
-        path.chmod(0o755)
+    uv = binaries / "uv"
+    uv.write_text(
+        f"#!{sys.executable}\n"
+        + "import json, os, sys\n"
+        + f"with open({str(log)!r}, 'a') as f: f.write(json.dumps([sys.argv, os.environ.get('XINFERENCE_SERVICE')]) + '\\n')\n"
+        + "if sys.argv[1:] == ['tool', 'install', '--help']: print('--torch-backend')\n"
+    )
+    uv.chmod(0o755)
     env = dict(
-        {
-            key: value
-            for key, value in os.environ.items()
-            if not key.startswith("XINFERENCE_")
-        },
+        os.environ,
         PATH=str(binaries) + os.pathsep + os.environ["PATH"],
         XINFERENCE_SERVICE=mode,
-        XINFERENCE_START="1",
-        XINFERENCE_VERSION="v3.5.0",
-        XINFERENCE_EXTRAS="transformers",
     )
     script = Path(__file__).resolve().parents[3] / "scripts/install.sh"
     result = subprocess.run(
@@ -466,20 +449,13 @@ def test_shell_installer_uses_persistent_environment(tmp_path, mode):
     )
     assert result.returncode == 0, result.stderr
     calls = [json.loads(line) for line in log.read_text().splitlines()]
-    installation = next(
-        args
-        for args in calls
-        if args[1:3] == ["tool", "install"] and "--help" not in args
-    )
-    assert installation[-1] == "xinference[transformers]==3.5.0"
-    assert calls[-1][0] == str(
-        commands / ("xinference-local" if mode == "none" else "xinference")
-    )
-    if mode == "user":
-        assert calls[-1][1:3] == ["service", "install"]
-        assert "--start" in calls[-1]
-    elif mode == "system":
-        assert calls[-2][0] == str(binaries / "sudo")
-        assert calls[-1][1:4] == ["service", "--system", "install"]
-        assert calls[-1][-2:] == ["--user", "runner"]
-        assert "--start" in calls[-1]
+    assert calls[-1][0][1:7] == [
+        "run",
+        "--no-project",
+        "--no-config",
+        "--python",
+        "3.12",
+        "python",
+    ]
+    assert Path(calls[-1][0][-1]).resolve() == script.with_name("manage_install.py")
+    assert calls[-1][1] == mode

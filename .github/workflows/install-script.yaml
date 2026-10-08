@@ -7,9 +7,11 @@ on:
       - 'scripts/install*'
       - 'pyproject.toml'
       - 'scripts/check_install.py'
+      - 'scripts/manage_install.py'
       - 'xinference/deploy/service.py'
       - 'xinference/deploy/cmdline.py'
       - 'xinference/deploy/test/test_service.py'
+      - 'xinference/deploy/test/test_installer.py'
       - '.github/workflows/install-script.yaml'
   pull_request:
     types: ['opened', 'reopened', 'synchronize']
@@ -17,9 +19,11 @@ on:
       - 'scripts/install*'
       - 'pyproject.toml'
       - 'scripts/check_install.py'
+      - 'scripts/manage_install.py'
       - 'xinference/deploy/service.py'
       - 'xinference/deploy/cmdline.py'
       - 'xinference/deploy/test/test_service.py'
+      - 'xinference/deploy/test/test_installer.py'
       - '.github/workflows/install-script.yaml'
 
 concurrency:
@@ -77,9 +81,9 @@ jobs:
           python="$UV_TOOL_DIR/xinference/bin/python"
           "$python" -m xinference.deploy.cmdline service --help
           uv pip install --python "$python" pytest pytest-asyncio pytest-timeout
-          "$python" -m pytest -q xinference/deploy/test/test_service.py
+          "$python" -m pytest -q xinference/deploy/test/test_service.py xinference/deploy/test/test_installer.py
           cd "$RUNNER_TEMP"
-          "$python" "$GITHUB_WORKSPACE/scripts/check_install.py"
+          uv run --no-project --no-config --python 3.12 --with psutil python "$GITHUB_WORKSPACE/scripts/check_install.py"
       - name: Test service behavior and native lifecycle (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -89,8 +93,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Missing service CLI' }
           uv pip install --python $python pytest pytest-asyncio pytest-timeout
           if ($LASTEXITCODE -ne 0) { throw 'Test dependency installation failed' }
-          & $python -m pytest -q xinference/deploy/test/test_service.py
+          & $python -m pytest -q xinference/deploy/test/test_service.py xinference/deploy/test/test_installer.py
           if ($LASTEXITCODE -ne 0) { throw 'Service tests failed' }
           Set-Location $env:RUNNER_TEMP
-          & $python "$env:GITHUB_WORKSPACE/scripts/check_install.py"
+          uv run --no-project --no-config --python 3.12 --with psutil python "$env:GITHUB_WORKSPACE/scripts/check_install.py"
           if ($LASTEXITCODE -ne 0) { throw 'Native service lifecycle failed' }

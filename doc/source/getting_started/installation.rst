@@ -58,6 +58,16 @@ To run without a persistent tool installation, use ``uvx``. This requires uv; th
 
 Use a recent uv supporting ``uv tool install --torch-backend`` (tested with uv 0.11.26). Services require a persistent installation; uvx environments can be removed by cache cleanup.
 
+Upgrading an installation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Run the same one-command installer again to update to the latest stable release. Set ``XINFERENCE_VERSION`` each time to select a specific release, including a downgrade. Without this variable, a previously pinned installation also updates to the latest stable release. If the selected version, Python, extras, and PyTorch backend are unchanged, the installer keeps the existing environment and does not restart a running service.
+
+The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service for this tool environment. Upgrades preserve its service account, address, port, data directory, and registration. Python, extras, and the PyTorch backend are also retained unless explicitly overridden. Run as the original installation account and reuse any custom ``XINFERENCE_HOME_DIR`` and ``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it.
+
+The installer downloads and checks the candidate environment before stopping a service. It then backs up the complete previous environment, switches versions, and waits for the service to become ready. If installation or service startup fails, it restores the previous environment and the service's original running or stopped state. Model data and caches are preserved; models that were running must be launched again after a service restart. Foreground startup does not perform a service readiness check or automatic startup rollback.
+
+Concurrent installers for the same tool store are rejected. If an upgrade is interrupted, the next run restores the saved environment before trying again. Keep the recovery files in the tool store until recovery completes. ``XINFERENCE_TIMEOUT`` sets the service readiness timeout in seconds (default 120). With ``XINFERENCE_START=0``, an updated service remains stopped.
+
 System services
 ~~~~~~~~~~~~~~~
 After installing with pip, Conda, or uv, register and start a local service with::
