@@ -15,11 +15,11 @@ export const NO_AUTH = 'no_auth';
 export const SETUP_COMPLETE_FLAG = 'xinference_setup_complete';
 
 export const LANGUAGES = [
-  { label: '🇺🇸 English', value: 'en' },
-  { label: '🇨🇳 简体中文', value: 'zh' },
-  { label: '🇹🇼 繁體中文', value: 'zh-TW' },
-  { label: '🇰🇷 한국어', value: 'ko' },
-  { label: '🇯🇵 日本語', value: 'ja' },
+  { label: 'English', value: 'en' },
+  { label: '简体中文（中国大陆）', value: 'zh' },
+  { label: '繁體中文（中國台灣）', value: 'zh-TW' },
+  { label: '한국어', value: 'ko' },
+  { label: '日本語', value: 'ja' },
 ] as const;
 export const LANGUAGES_KEYS = LANGUAGES.map((lang) => lang.value);
 export const DEFAULT_LANGUAGE = 'en';
