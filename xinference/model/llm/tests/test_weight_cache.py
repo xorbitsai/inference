@@ -200,6 +200,8 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
     kill = MagicMock()
     monkeypatch.setattr("xinference.model.llm.weight_cache.os.killpg", kill)
+    # The mocked daemon PID must not collide with a real host process group.
+    monkeypatch.setattr("psutil.process_iter", lambda attrs: [])
     monkeypatch.setattr("xinference.model.llm.weight_cache.socket.socket", MagicMock())
     monkeypatch.setenv("SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE", "previous")
     daemon.start(timeout=1)
@@ -326,6 +328,7 @@ def test_sglang_daemon_normalizes_legacy_graph_flag(monkeypatch, disabled):
 
     monkeypatch.setattr("xinference.model.llm.weight_cache.subprocess.Popen", spawn)
     monkeypatch.setattr("xinference.model.llm.weight_cache.os.killpg", MagicMock())
+    monkeypatch.setattr("psutil.process_iter", lambda attrs: [])
     try:
         daemon.start(timeout=1)
         config = json.loads((daemon.directory / "config.yaml").read_text())

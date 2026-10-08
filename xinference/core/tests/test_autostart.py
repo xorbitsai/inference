@@ -274,6 +274,9 @@ class _DummyDeadWorkerSupervisor:
             )
         }
         self._worker_address_to_worker = {"dead-worker:1000": worker_ref}
+        self._extension_worker_resources = {
+            "dead-worker:1000": {"gpu_devices": [], "extensions": {}}
+        }
         self._worker_metadata = {}
         self._worker_metadata_generation = {}
         self._worker_metadata_refresh_tasks = {}
@@ -314,6 +317,7 @@ async def test_check_dead_nodes_reschedules_autostart_on_heartbeat_timeout():
 
     assert supervisor.autostart_scheduled is True
     assert "dead-worker:1000" not in supervisor._worker_status
+    assert "dead-worker:1000" not in supervisor._extension_worker_resources
 
 
 @pytest.mark.asyncio
