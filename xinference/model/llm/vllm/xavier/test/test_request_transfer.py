@@ -141,9 +141,10 @@ def test_connector_writes_correct_destinations(
         )
     source.publish([77], set(caches))
     transfer = SimpleNamespace(
+        get_local_read_metadata_v1=AsyncMock(return_value=None),
         read_request_blocks_v1=AsyncMock(
             side_effect=lambda rank, reads: pack_reads(source, reads)
-        )
+        ),
     )
     connector._get_transfer_ref = AsyncMock(return_value=transfer)
     request = connector_module.XavierLoadRequest(
@@ -172,6 +173,46 @@ def test_connector_writes_correct_destinations(
     for cache in caches.values():
         assert torch.equal(cache[3], values[0])
         assert cache[:3].count_nonzero() == 0
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA required")
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
+def test_connector_uploads_packed_payload_on_current_cuda_stream(
+    connector, connector_module, dtype
+):
+    caches = {
+        name: torch.zeros(8, 4, dtype=dtype, device="cuda") for name in ["K", "V"]
+    }
+    connector._registered_kv_caches = caches
+    connector._layer_group_ids = {"K": 0, "V": 1}
+    source = KVSnapshotStore(2)
+    producer = SimpleNamespace(_snapshot_store=source, _rank=2)
+    values = torch.tensor([[1.0, -2.0, 32.0, 0.125], [9.0, 8.0, 7.0, 6.0]], dtype=dtype)
+    for name in caches:
+        TransferActor.stage_layer_blocks_v1(producer, "r", name, [77, 88], values)
+    source.publish([77, 88], set(caches))
+    transfer = SimpleNamespace(
+        get_local_read_metadata_v1=AsyncMock(return_value=None),
+        read_request_blocks_v1=AsyncMock(
+            side_effect=lambda rank, reads: pack_reads(source, reads)
+        ),
+    )
+    connector._get_transfer_ref = AsyncMock(return_value=transfer)
+    request = connector_module.XavierLoadRequest(
+        "r",
+        {2: {77: 0, 88: 1}},
+        local_transfers_by_group={0: {2: {77: 2, 88: 4}}, 1: {2: {77: 3, 88: 5}}},
+    )
+    stream = torch.cuda.Stream()
+    stream.wait_stream(torch.cuda.current_stream())
+    with torch.cuda.stream(stream):
+        connector._load_request_blocks(request)
+    stream.synchronize()
+    transfer.read_request_blocks_v1.assert_awaited_once()
+    for name, destinations in (("K", [2, 4]), ("V", [3, 5])):
+        actual = caches[name][destinations].cpu()
+        assert torch.equal(actual.view(torch.uint8), values.view(torch.uint8))
+        assert caches[name][0].count_nonzero() == 0
 
 
 def test_payload_preserves_all_bf16_bit_patterns():
@@ -273,9 +314,10 @@ def test_connector_cross_layer_preserves_all_bf16_bits(connector, connector_modu
     TransferActor.stage_layer_blocks_v1(producer, "r", "K", [77], values)
     source.publish([77], {"K"})
     transfer = SimpleNamespace(
+        get_local_read_metadata_v1=AsyncMock(return_value=None),
         read_request_blocks_v1=AsyncMock(
             side_effect=lambda rank, reads: pack_reads(source, reads)
-        )
+        ),
     )
     connector._get_transfer_ref = AsyncMock(return_value=transfer)
     request = connector_module.XavierLoadRequest(

@@ -14,9 +14,24 @@
 import asyncio
 import logging
 import math
+import sys
+import time
 import uuid
+from collections import OrderedDict
+from contextlib import nullcontext
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import torch
 import xoscar as xo
@@ -45,10 +60,52 @@ if TYPE_CHECKING:
     from vllm.v1.kv_cache_interface import KVCacheConfig
     from vllm.v1.request import Request
 
+    from ...xavier.backends.torch.gpu_export import GPUExportArena
+    from ...xavier.backends.torch.local_read import LocalReadBuffer
+    from ...xavier.backends.torch.packed_gather import PackedGather
+    from ...xavier.local_directory import LocalBlockDirectory
+
 logger = logging.getLogger(__name__)
 
 _MAX_READ_BYTES = 1024 * 1024
 _MAX_READ_BLOCKS = 64
+_MAX_EXPORT_BYTES = 32 * 1024 * 1024
+_MAX_PENDING_EXPORT_BYTES = 8 * _MAX_EXPORT_BYTES
+_EXPORT_REFRESH_SECONDS = 1.0
+_MAX_HASH_CACHE_TOKENS = 128 * 1024
+_MAX_HASH_CACHE_ENTRIES = 128
+
+
+@dataclass
+class _PackedExportEntries:
+    keys: List[int]
+    packed: torch.Tensor
+    layers: List[Tuple[str, Tuple[int, ...], torch.dtype, int, int]]
+    slot: Optional[int] = None
+
+    def __len__(self) -> int:
+        return len(self.layers)
+
+    def __getitem__(self, index: int) -> Tuple[str, List[int], torch.Tensor]:
+        name, shape, dtype, offset, nbytes = self.layers[index]
+        return (
+            name,
+            self.keys,
+            self.packed[:, offset : offset + nbytes]
+            .view(dtype)
+            .view(len(self.keys), *shape),
+        )
+
+    def __iter__(self) -> Iterator[Tuple[str, List[int], torch.Tensor]]:
+        for index in range(len(self)):
+            yield self[index]
+
+
+_CPUExportBatch = Tuple[
+    Union[List[Tuple[str, List[int], torch.Tensor]], _PackedExportEntries],
+    List[torch.Tensor],
+    List[torch.cuda.Event],
+]
 
 
 @dataclass
@@ -190,13 +247,11 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             # P may restore its own independent history before computing a suffix.
             self._is_consumer = True
         self._requests_need_load: Dict[str, XavierLoadRequest] = {}
-        self._pending_store_requests: Dict[str, XavierStoreRequest] = {}
         self._leased_requests: Dict[str, XavierLoadRequest] = {}
         self._gpu_load_jobs: Dict[asyncio.Task, List[str]] = {}
         self._direct_sends: set[str] = set()
         self._invalid_block_ids: set[int] = set()
         self._num_cache_blocks = kv_cache_config.num_blocks
-        self._request_staged_layers: Dict[str, set[str]] = {}
         self._registered_kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]] = (
             {}
         )
@@ -205,11 +260,65 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self._tracker_ref: Optional[xo.ActorRefType["VLLMBlockTracker"]] = None
         self._transfer_ref: Optional[xo.ActorRefType["TransferActor"]] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._exported_keys: set[int] = set()
+        self._export_refresh_at = 0.0
+        self._cpu_export_streams: Dict[torch.device, torch.cuda.Stream] = {}
+        self._ipc_export_jobs: Dict[str, Tuple[set[int], int, List[torch.Tensor]]] = {}
+        self._ipc_export_poll_at = 0.0
+        self._ipc_export_poll: Optional[asyncio.Task] = None
+        self._ipc_export_enqueues: Dict[str, asyncio.Task] = {}
+        self._ipc_export_budget = _MAX_PENDING_EXPORT_BYTES
+        self._cpu_export_block_bytes: Optional[int] = None
+        self._packed_gather: Optional["PackedGather"] = None
+        self._gpu_export_arena: Optional["GPUExportArena"] = None
+        self._gpu_export_tickets: Dict[str, List[int]] = {}
+        self._gpu_export_registered = False
+        self._gpu_export_fence: Optional[torch.cuda.Event] = None
+        self._hash_cache: OrderedDict[
+            Tuple[int, int, Tuple[int, ...]], Tuple[Tuple[int, int], ...]
+        ] = OrderedDict()
+        self._hash_cache_tokens = 0
+        self._local_directory: Optional["LocalBlockDirectory"] = None
+        self._directory_retry_at = 0.0
+        self._directory_disabled = False
+        self._local_read: Optional["LocalReadBuffer"] = None
+        self._local_read_checked = False
 
     def shutdown(self):
+        local_read = getattr(self, "_local_read", None)
+        if local_read is not None:
+            local_read.close()
+            self._local_read = None
+        directory = getattr(self, "_local_directory", None)
+        if directory is not None:
+            directory.close()
+            self._local_directory = None
         if self._loop is None:
+            arena = getattr(self, "_gpu_export_arena", None)
+            if arena is not None:
+                arena.close()
+                self._gpu_export_arena = None
             return
         try:
+            if getattr(self, "_ipc_export_jobs", None):
+                try:
+                    self._poll_ipc_exports(wait=True)
+                except Exception:
+                    logger.warning(
+                        "Xavier IPC export failed during shutdown", exc_info=True
+                    )
+            arena = getattr(self, "_gpu_export_arena", None)
+            if arena is not None:
+                try:
+                    if self._transfer_ref is not None:
+                        self._call(
+                            self._transfer_ref.close_snapshot_export_source_v1(
+                                arena.source
+                            )
+                        )
+                finally:
+                    arena.close()
+                    self._gpu_export_arena = None
             if getattr(self, "_gpu_load_jobs", None):
                 results = self._call(
                     asyncio.gather(*self._gpu_load_jobs, return_exceptions=True)
@@ -236,6 +345,14 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 self._loop = None
 
     def start_load_kv(self, forward_context: "ForwardContext", **kwargs: Any) -> None:
+        # Packing may overlap logits/sampling on the model stream. Before the
+        # next forward or KV load can overwrite source slots, finish those reads.
+        # Only the GPU gather is fenced; D2H and publication remain independent.
+        fence = getattr(self, "_gpu_export_fence", None)
+        if fence is not None:
+            assert self._packed_gather is not None
+            torch.cuda.current_stream(self._packed_gather.device).wait_event(fence)
+            self._gpu_export_fence = None
         metadata = self._get_connector_metadata()
         assert isinstance(metadata, XavierConnectorMetadata)
         self._direct_sends.update(metadata.direct_sends)
@@ -277,6 +394,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
     def get_finished(self, finished_req_ids: set[str]) -> tuple[set[str], set[str]]:
         sent = set()
+        self._poll_ipc_exports()
         if self._direct_handoff and self._is_producer and self._direct_sends:
             assert self._transfer_ref is not None
             sent = self._call(self._transfer_ref.poll_direct_gpu_v1())
@@ -315,6 +433,55 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         self, kv_caches: Dict[str, torch.Tensor | Sequence[torch.Tensor]]
     ):
         self._registered_kv_caches = dict(kv_caches)
+        if (
+            sys.platform == "linux"
+            and self._gpu_budget is None
+            and not self._direct_handoff
+        ):
+            devices = {
+                tensor.device
+                for layer, cache in kv_caches.items()
+                for _, tensor in self._iter_kv_tensors(layer, cache)
+                if tensor.is_cuda
+            }
+            if devices:
+                # Two GPU copies can briefly coexist during packing. Leave
+                # headroom for graph capture, activations and allocator segments.
+                free = min(torch.cuda.mem_get_info(device)[0] for device in devices)
+                self._ipc_export_budget = min(_MAX_PENDING_EXPORT_BYTES, free // 8)
+                try:
+                    from ...xavier.backends.torch.packed_gather import PackedGather
+
+                    caches = {
+                        name: block_major_view(tensor, self._num_cache_blocks)
+                        for layer, cache in kv_caches.items()
+                        for name, tensor in self._iter_kv_tensors(layer, cache)
+                    }
+                    self._packed_gather = PackedGather.try_create(
+                        caches,
+                        {name: self._get_layer_group_id(name) for name in caches},
+                    )
+                    if self._packed_gather is not None:
+                        self._packed_gather.warmup()
+                        if (
+                            self._packed_gather.row_bytes <= _MAX_EXPORT_BYTES
+                            and self._ipc_export_budget >= 2 * _MAX_EXPORT_BYTES
+                        ):
+                            from ...xavier.backends.torch.gpu_export import (
+                                GPUExportArena,
+                            )
+
+                            self._gpu_export_arena = GPUExportArena(
+                                _MAX_EXPORT_BYTES,
+                                self._ipc_export_budget // _MAX_EXPORT_BYTES,
+                                self._packed_gather.device,
+                            )
+                except Exception:
+                    self._packed_gather = None
+                    logger.warning(
+                        "Fused Xavier export unavailable; using per-layer gathers",
+                        exc_info=True,
+                    )
         schema = {
             name: (
                 tuple(self._cache_block_view(layer, tensor).shape[1:]),
@@ -325,6 +492,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         }
 
         self._kv_schema = XavierKVSchema(self._block_size, schema, self._cache_dtype)
+        self._cpu_export_block_bytes = self._cache_export_block_bytes()
         cache_groups = {
             layer_name: self._get_layer_group_id(layer_name)
             for layer_name in self._registered_kv_caches
@@ -351,20 +519,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         attn_metadata: "AttentionMetadata",
         **kwargs: Any,
     ) -> None:
-        if not self._is_producer:
-            return
-
-        metadata = self._get_connector_metadata()
-        assert isinstance(metadata, XavierConnectorMetadata)
-        if not metadata.store_requests:
-            return
-
-        for request in metadata.store_requests:
-            if not request.block_ids:
-                continue
-            if getattr(self, "_gpu_budget", None) is None:
-                self._stage_kv_layer_for_request(request, layer_name, kv_layer)
-            self._pending_store_requests[request.request_id] = request
+        # This callback runs inside attention and CUDA graph capture/replay.
+        # Export registered caches in wait_for_save, outside the model forward,
+        # using the current metadata rather than capture-time request IDs.
+        return
 
     def wait_for_save(self):
         if self._direct_handoff and self._is_producer:
@@ -373,17 +531,89 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                 self._call(self._ensure_gpu_cache_mapping())
                 torch.cuda.synchronize()
             return
-        if not self._is_producer or not self._pending_store_requests:
+        if not self._is_producer:
             return
-
-        pending = list(self._pending_store_requests.values())
-        self._pending_store_requests.clear()
-        try:
-            self._stage_missing_registered_layers(pending)
-            self._call(self._register_blocks(pending))
-        finally:
-            for request in pending:
-                self._request_staged_layers.pop(request.request_id, None)
+        metadata = self._get_connector_metadata()
+        assert isinstance(metadata, XavierConnectorMetadata)
+        pending = metadata.store_requests
+        if not pending:
+            return
+        self._poll_ipc_exports()
+        keys = {key for request in pending for key in request.block_hashes}
+        pending_keys = {
+            key for keys, _, _ in self._ipc_export_jobs.values() for key in keys
+        }
+        if keys.issubset(pending_keys):
+            return
+        # Only this worker writes its actor's snapshots. Publication reports
+        # every eviction; successful keys need no per-request control RPC.
+        # Periodic authoritative refresh also repairs discovery after recovery.
+        if time.monotonic() < self._export_refresh_at and keys.issubset(
+            self._exported_keys
+        ):
+            return
+        if time.monotonic() < self._export_refresh_at and (
+            keys - self._exported_keys
+        ).issubset(pending_keys):
+            return
+        # New content cannot require authoritative recovery of a mirrored
+        # hit. Avoid a readiness RPC on every cold prefill; existing keys
+        # still use the periodic refresh above and below.
+        ready = None
+        if self._export_refresh_at:
+            if time.monotonic() >= self._export_refresh_at and (
+                keys & self._exported_keys
+            ):
+                # Cold traffic may reuse a small published prefix. Repair
+                # its authoritative publication once per refresh interval,
+                # rather than leaving the deadline expired and querying on
+                # every subsequent cold request.
+                self._call(self._register_blocks(pending))
+            if time.monotonic() < self._export_refresh_at:
+                ready = (keys & self._exported_keys) | pending_keys
+            elif not (keys & self._exported_keys):
+                ready = pending_keys.copy()
+        if ready is not None and keys.issubset(ready):
+            return
+        missing = (
+            self._missing_store_requests(pending, ready)
+            if ready is not None
+            else self._call(self._filter_store_requests(pending))
+        )
+        if self._gpu_export_arena is not None:
+            # Ordinary replica snapshots are optional. Admit only what the
+            # owned arena and byte budget can hold, without waiting for D2H
+            # or gathering payloads that will immediately need backpressure.
+            # Skipped blocks remain eligible for a later request to export.
+            missing = self._admit_cpu_exports(missing)
+            if missing:
+                nbytes = self._cpu_export_size(missing)
+                batches = list(self._cpu_export_batches(missing, gpu_only=True))
+                self._enqueue_ipc_export(batches, nbytes)
+            return
+        if missing and self._can_queue_ipc_export(missing):
+            nbytes = self._cpu_export_size(missing)
+            if (
+                nbytes + sum(entry[1] for entry in self._ipc_export_jobs.values())
+                > self._ipc_export_budget
+            ):
+                self._poll_ipc_exports(wait=True)
+                missing = self._call(self._filter_store_requests(pending))
+                nbytes = self._cpu_export_size(missing)
+            # Gather every source before returning to vLLM. Later engine
+            # steps may preempt requests or reuse their original GPU slots.
+            batches = list(self._cpu_export_batches(missing, gpu_only=True))
+            self._enqueue_ipc_export(batches, nbytes)
+            return
+        if self._ipc_export_jobs:
+            self._poll_ipc_exports(wait=True)
+            missing = self._call(self._filter_store_requests(pending))
+        if missing:
+            self._stage_missing_registered_layers(missing)
+        # Re-publish all requested keys, including reused snapshots. This
+        # refreshes discovery and retries a failed tracker registration
+        # without copying already published KV payloads again.
+        self._call(self._register_blocks(pending))
 
     def get_num_new_matched_tokens(
         self,
@@ -525,19 +755,44 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
         token_ids = list(request.prompt_token_ids or [])
         external_token_count = max(len(token_ids) - 1, 0)
-        if external_token_count <= num_computed_tokens:
-            return 0, False
-
-        hashes = self._build_xavier_hashes(token_ids[:external_token_count])
-        if not hashes:
+        if external_token_count - num_computed_tokens < self._block_size:
             return 0, False
 
         local_hit_blocks = num_computed_tokens // self._block_size
+        probe_tokens = min(
+            external_token_count, (local_hit_blocks + 1) * self._block_size
+        )
+        hashes = self._build_xavier_hashes(token_ids[:probe_tokens])
+        if not hashes:
+            return 0, False
+
         query_hashes = hashes[local_hit_blocks:]
         if not query_hashes:
             return 0, False
 
+        if self._local_directory is not None:
+            present = self._local_directory.contains(query_hashes[0][0])
+            if present is False:
+                return 0, False
+            if not self._local_directory.valid:
+                self._local_directory.close()
+                self._local_directory = None
+                self._directory_retry_at = 0.0
+                self._directory_disabled = False
         remote = self._call(self._query_remote_blocks(request.request_id, query_hashes))
+        # A remote prefix must contain the first uncached block. Cold requests
+        # need neither hashes nor a directory RPC payload for the whole prompt.
+        # Positive probes still use authoritative queries and snapshot leases.
+        if not self._build_contiguous_transfers(query_hashes, remote)[1]:
+            return 0, False
+        if probe_tokens < external_token_count:
+            hashes = self._build_xavier_hashes(token_ids[:external_token_count])
+            query_hashes = hashes[local_hit_blocks:]
+            remainder = self._call(
+                self._query_remote_blocks(request.request_id, query_hashes[1:])
+            )
+            for rank, blocks in remainder.items():
+                remote.setdefault(rank, set()).update(blocks)
         transfers, matched_blocks = self._build_contiguous_transfers(
             query_hashes, remote
         )
@@ -836,6 +1091,30 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         query_hashes: List[Tuple[int, int]],
     ) -> Dict[int, set[Tuple[int, int, int]]]:
         tracker_ref = await self._get_tracker_ref()
+        if (
+            sys.platform == "linux"
+            and self._gpu_budget is None
+            and self._local_directory is None
+            and not self._directory_disabled
+            and time.monotonic() >= self._directory_retry_at
+        ):
+            from ...xavier.local_directory import LocalBlockDirectory, _boot_id
+
+            self._directory_retry_at = time.monotonic() + 1.0
+            try:
+                metadata = await tracker_ref.get_snapshot_directory(0)
+                if metadata is None or metadata["boot_id"] != _boot_id():
+                    self._directory_disabled = True
+                else:
+                    self._local_directory = LocalBlockDirectory.attach(metadata)
+            except OSError:
+                # A temporarily unavailable tracker or procfs is retryable.
+                logger.debug("Xavier local directory discovery failed", exc_info=True)
+            if (
+                self._local_directory is not None
+                and self._local_directory.contains(query_hashes[0][0]) is False
+            ):
+                return {}
         remote = await tracker_ref.query_blocks(
             0,
             query_hashes,
@@ -844,48 +1123,78 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         logger.debug("Xavier V1 query result for request %s: %s", request_id, remote)
         return remote
 
-    async def _stage_layer_blocks(
-        self,
-        request_id: str,
-        layer_name: str,
-        block_ids: List[int],
-        blocks: torch.Tensor,
-    ):
-        transfer_ref = await self._get_transfer_ref()
-        await transfer_ref.stage_layer_blocks_v1(
-            request_id,
-            layer_name,
-            block_ids,
-            blocks,
+    async def _filter_store_requests(
+        self, requests: List[XavierStoreRequest], ready: Optional[set[int]] = None
+    ) -> List[XavierStoreRequest]:
+        if ready is None:
+            transfer_ref = await self._get_transfer_ref()
+            ready = set(
+                await transfer_ref.ready_blocks_for_export_v1(
+                    [key for request in requests for key in request.block_hashes]
+                )
+            )
+        ready.update(
+            key for keys, _, _ in self._ipc_export_jobs.values() for key in keys
         )
+        return self._missing_store_requests(requests, ready)
+
+    @staticmethod
+    def _missing_store_requests(
+        requests: List[XavierStoreRequest], ready: set[int]
+    ) -> List[XavierStoreRequest]:
+        missing = []
+        for request in requests:
+            indices = []
+            for i, key in enumerate(request.block_hashes):
+                if key not in ready:
+                    indices.append(i)
+                    ready.add(key)
+            if indices:
+                missing.append(
+                    XavierStoreRequest(
+                        request.request_id,
+                        [request.block_ids[i] for i in indices],
+                        [request.block_hashes[i] for i in indices],
+                        [
+                            [group[i] for i in indices]
+                            for group in request.block_ids_by_group
+                        ],
+                    )
+                )
+        return missing
 
     async def _register_blocks(self, requests: List[XavierStoreRequest]):
-        tracker_ref = await self._get_tracker_ref()
+        if not requests:
+            return
         transfer_ref = await self._get_transfer_ref()
         expected_layers = {
             name
             for layer, cache in self._registered_kv_caches.items()
             for name, _ in self._iter_kv_tensors(layer, cache)
         }
-        for request in requests:
-            layers = expected_layers or self._request_staged_layers.get(
-                request.request_id, set()
-            )
-            available, evicted = await transfer_ref.publish_blocks_v1(
-                request.block_hashes, layers
-            )
-            if evicted:
-                await tracker_ref.unregister_blocks(0, self._rank, evicted)
-            # Transport addresses identify immutable content, not recyclable GPU slots.
-            await tracker_ref.register_blocks(
-                0, [(key, key) for key in available], self._rank
-            )
-            logger.debug(
-                "Xavier V1 registered blocks: request=%s, rank=%s, blocks=%s",
-                request.request_id,
-                self._rank,
-                available,
-            )
+        if not expected_layers:
+            return
+        keys = list(
+            dict.fromkeys(key for request in requests for key in request.block_hashes)
+        )
+        available, evicted = await transfer_ref.refresh_snapshot_blocks_v1(
+            keys,
+            expected_layers,
+            self._xavier_config.get("block_tracker_address"),
+            self._xavier_config.get("block_tracker_uid"),
+        )
+        requested_keys = {key for request in requests for key in request.block_hashes}
+        self._exported_keys.difference_update(requested_keys - set(available))
+        if evicted:
+            self._exported_keys.difference_update(evicted)
+        self._exported_keys.update(available)
+        self._export_refresh_at = time.monotonic() + _EXPORT_REFRESH_SECONDS
+        logger.debug(
+            "Xavier V1 registered blocks: requests=%s, rank=%s, blocks=%s",
+            len(requests),
+            self._rank,
+            available,
+        )
 
     async def _read_layer_blocks(
         self,
@@ -915,6 +1224,33 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
         return torch.cat(blocks, dim=0)
 
+    async def _read_request_payload(self, transfer, rank, reads, *, pin_memory):
+        local = self._local_read
+        if local is not None and not local.valid():
+            local.close()
+            self._local_read = None
+            self._local_read_checked = False
+        if sys.platform == "linux" and not self._local_read_checked:
+            from ...xavier.backends.torch.local_read import LocalReadBuffer
+
+            self._local_read = LocalReadBuffer.attach(
+                await transfer.get_local_read_metadata_v1()
+            )
+            self._local_read_checked = True
+        local = self._local_read
+        if local is not None:
+            lease = await transfer.read_request_blocks_local_v1(
+                rank, reads, local.token
+            )
+            if lease is not None:
+                try:
+                    return local.copy(
+                        lease, sum(read.nbytes for read in reads), pin_memory=pin_memory
+                    )
+                finally:
+                    await transfer.release_local_read_v1(lease)
+        return await transfer.read_request_blocks_v1(rank, reads)
+
     def _load_request_blocks(self, request):
         from ...xavier.backends.torch.request_transfer import (
             LayerRead,
@@ -930,6 +1266,7 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
 
         async def load():
             transfer = await self._get_transfer_ref()
+            indices_by_destination = {}
             for rank in request.transfers:
                 reads = []
                 for layer, tensor in caches.items():
@@ -951,6 +1288,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                             )
                         )
                 for batch in batch_reads(reads):
+                    devices = {caches[read.layer].device for read in batch}
+                    cuda = len(devices) == 1 and next(iter(devices)).type == "cuda"
                     with profile_stage(
                         "load_rpc",
                         request_id=request.request_id,
@@ -958,7 +1297,21 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                         nbytes=sum(read.nbytes for read in batch),
                         blocks=sum(len(read.keys) for read in batch),
                     ):
-                        payload = await transfer.read_request_blocks_v1(rank, batch)
+                        payload = await self._read_request_payload(
+                            transfer, rank, batch, pin_memory=cuda
+                        )
+                    if cuda:
+                        device = next(iter(devices))
+                        with profile_stage(
+                            "load_h2d",
+                            device=device,
+                            request_id=request.request_id,
+                            rank=self._rank,
+                            nbytes=payload.numel(),
+                        ):
+                            # Upload one packed payload instead of synchronizing
+                            # a pageable copy and index upload for every layer.
+                            payload = payload.pin_memory().to(device, non_blocking=True)
                     for read, blocks in unpack_reads(payload, batch):
                         cache = caches[read.layer]
                         with profile_stage(
@@ -979,9 +1332,21 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                                 raise RuntimeError(
                                     f"Unexpected Xavier KV dtype {blocks.dtype} for cache {cache.dtype}"
                                 )
-                            cache[
-                                torch.tensor(read.destinations, device=cache.device)
-                            ] = blocks.to(cache.device, non_blocking=True)
+                            destination = (cache.device, tuple(read.destinations))
+                            if destination not in indices_by_destination:
+                                if cache.is_cuda:
+                                    indices_by_destination[destination] = torch.tensor(
+                                        read.destinations,
+                                        dtype=torch.long,
+                                        pin_memory=True,
+                                    ).to(cache.device, non_blocking=True)
+                                else:
+                                    indices_by_destination[destination] = torch.tensor(
+                                        read.destinations, device=cache.device
+                                    )
+                            cache[indices_by_destination[destination]] = blocks.to(
+                                cache.device, non_blocking=True
+                            )
 
         self._call(load())
 
@@ -1049,59 +1414,6 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     len(local_block_ids),
                 )
 
-    def _stage_kv_layer_for_request(
-        self,
-        request: XavierStoreRequest,
-        layer_name: str,
-        kv_layer: torch.Tensor | Sequence[torch.Tensor],
-    ) -> None:
-        staged_layers = self._request_staged_layers.setdefault(
-            request.request_id, set()
-        )
-        for kv_layer_name, kv_tensor in self._iter_kv_tensors(layer_name, kv_layer):
-            if kv_layer_name in staged_layers:
-                continue
-            kv_tensor = block_major_view(kv_tensor, self._num_cache_blocks)
-            source_block_ids = self._get_source_block_ids(request, kv_layer_name)
-            num_blocks = min(len(request.block_ids), len(source_block_ids))
-            if num_blocks <= 0:
-                continue
-            transport_block_ids = request.block_hashes[:num_blocks]
-            source_block_ids = source_block_ids[:num_blocks]
-            with profile_stage(
-                "store_d2h",
-                device=kv_tensor.device,
-                request_id=request.request_id,
-                layer=kv_layer_name,
-                blocks=num_blocks,
-                rank=self._rank,
-            ):
-                block_ids_tensor = torch.tensor(
-                    source_block_ids, device=kv_tensor.device, dtype=torch.long
-                )
-                blocks = (
-                    kv_tensor.index_select(0, block_ids_tensor)
-                    .detach()
-                    .cpu()
-                    .contiguous()
-                )
-            with profile_stage(
-                "store_rpc",
-                request_id=request.request_id,
-                layer=kv_layer_name,
-                nbytes=blocks.numel() * blocks.element_size(),
-                rank=self._rank,
-            ):
-                self._call(
-                    self._stage_layer_blocks(
-                        request.request_id,
-                        kv_layer_name,
-                        transport_block_ids,
-                        blocks,
-                    )
-                )
-            staged_layers.add(kv_layer_name)
-
     def _stage_missing_registered_layers(
         self, requests: List[XavierStoreRequest]
     ) -> None:
@@ -1111,11 +1423,515 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         if not self._registered_kv_caches:
             return
 
+        self._call(self._stage_cpu_requests(requests))
+
+    def _cpu_export_batches(
+        self, requests: List[XavierStoreRequest], *, gpu_only: bool = False
+    ) -> Iterator[_CPUExportBatch]:
+        caches = {
+            name: block_major_view(tensor, self._num_cache_blocks)
+            for layer, cache in self._registered_kv_caches.items()
+            for name, tensor in self._iter_kv_tensors(layer, cache)
+        }
+        block_bytes = sum(
+            (
+                ((math.prod(tensor.shape[1:]) * tensor.element_size() + 7) // 8 * 8)
+                if gpu_only
+                else math.prod(tensor.shape[1:]) * tensor.element_size()
+            )
+            for tensor in caches.values()
+        )
+        if not block_bytes:
+            return
+        # Keep every layer of a block in the same RPC. One oversized block is
+        # indivisible, just as on the read path.
+        batch_size = max(1, _MAX_EXPORT_BYTES // block_bytes)
+        keys: List[int] = []
+        sources: Dict[str, List[int]] = {name: [] for name in caches}
         for request in requests:
-            if not request.block_ids:
+            layer_ids = {
+                name: self._get_source_block_ids(request, name) for name in caches
+            }
+            count = min(
+                len(request.block_hashes),
+                len(request.block_ids),
+                *(len(ids) for ids in layer_ids.values()),
+            )
+            for i in range(count):
+                keys.append(request.block_hashes[i])
+                for name, ids in layer_ids.items():
+                    sources[name].append(ids[i])
+                if len(keys) == batch_size:
+                    if gpu_only:
+                        yield self._prepare_cpu_export(
+                            caches, keys, sources, gpu_only=True
+                        )
+                    else:
+                        yield self._prepare_cpu_export(caches, keys, sources)
+                    keys = []
+                    sources = {name: [] for name in caches}
+        if keys:
+            if gpu_only:
+                yield self._prepare_cpu_export(caches, keys, sources, gpu_only=True)
+            else:
+                yield self._prepare_cpu_export(caches, keys, sources)
+
+    def _prepare_cpu_export(
+        self,
+        caches: Dict[str, torch.Tensor],
+        keys: List[int],
+        sources: Dict[str, List[int]],
+        *,
+        gpu_only: bool = False,
+    ) -> _CPUExportBatch:
+        if gpu_only and self._packed_gather is not None:
+            slot, output = None, None
+            arena = self._gpu_export_arena
+            if (
+                arena is not None
+                and len(keys) * self._packed_gather.row_bytes <= arena.slot_bytes
+            ):
+                slot, output = arena.allocate(
+                    (len(keys), self._packed_gather.row_bytes)
+                )
+            stream = None
+            with profile_stage(
+                "store_gather",
+                device=self._packed_gather.device,
+                blocks=len(keys),
+                rank=self._rank,
+            ):
+                try:
+                    if output is not None:
+                        model_stream = torch.cuda.current_stream(
+                            self._packed_gather.device
+                        )
+                        stream = self._cpu_export_streams.get(
+                            self._packed_gather.device
+                        )
+                        if stream is None:
+                            stream = torch.cuda.Stream(
+                                device=self._packed_gather.device
+                            )
+                            self._cpu_export_streams[self._packed_gather.device] = (
+                                stream
+                            )
+                        stream.wait_stream(model_stream)
+                    with (
+                        torch.cuda.stream(stream)
+                        if stream is not None
+                        else nullcontext()
+                    ):
+                        if output is None:
+                            packed, owners = self._packed_gather(sources)
+                        else:
+                            packed, owners = self._packed_gather(sources, output)
+                            assert arena is not None and slot is not None
+                            arena.record(slot, tuple(packed.shape))
+                            fence = torch.cuda.Event()
+                            fence.record(stream)
+                            self._gpu_export_fence = fence
+                except BaseException:
+                    if slot is not None:
+                        if stream is not None:
+                            stream.synchronize()
+                        assert arena is not None
+                        arena.release([slot])
+                    raise
+            return (
+                _PackedExportEntries(keys, packed, self._packed_gather.layers, slot),
+                owners,
+                [],
+            )
+        entries = []
+        owners = []
+        events = {}
+        indices_by_source = {}
+        try:
+            for name, tensor in caches.items():
+                with profile_stage(
+                    "store_d2h",
+                    device=tensor.device,
+                    layer=name,
+                    blocks=len(keys),
+                    rank=self._rank,
+                ):
+                    source = (tensor.device, tuple(sources[name]))
+                    if source not in indices_by_source:
+                        if tensor.is_cuda:
+                            host_indices = torch.tensor(
+                                sources[name], dtype=torch.long, pin_memory=True
+                            )
+                            indices_by_source[source] = host_indices.to(
+                                tensor.device, non_blocking=True
+                            )
+                            owners.append(host_indices)
+                        else:
+                            indices_by_source[source] = torch.tensor(
+                                sources[name], device=tensor.device, dtype=torch.long
+                            )
+                    indices = indices_by_source[source]
+                    gathered = tensor.index_select(0, indices).detach()
+                    if gpu_only:
+                        entries.append((name, keys, gathered))
+                        continue
+                    if tensor.is_cuda:
+                        if tensor.device not in events:
+                            events[tensor.device] = torch.cuda.Event()
+                        event = events[tensor.device]
+                        blocks = torch.empty_like(
+                            gathered, device="cpu", pin_memory=True
+                        )
+                        # Retain both sides until the event has completed, including
+                        # when allocation, staging or an actor RPC fails.
+                        owners.append(gathered)
+                        entries.append((name, keys, blocks))
+                        stream = self._cpu_export_streams.get(tensor.device)
+                        if stream is None:
+                            stream = torch.cuda.Stream(device=tensor.device)
+                            self._cpu_export_streams[tensor.device] = stream
+                        # Source gathers precede future writes on the model
+                        # stream. Only immutable gathered buffers cross to the
+                        # copy stream, so subsequent forwards need not wait for
+                        # PCIe D2H traffic.
+                        stream.wait_stream(torch.cuda.current_stream(tensor.device))
+                        with torch.cuda.stream(stream):
+                            blocks.copy_(gathered, non_blocking=True)
+                            event.record(stream)
+                    else:
+                        entries.append((name, keys, gathered.contiguous()))
+        except BaseException:
+            for event in events.values():
+                event.synchronize()
+            raise
+        return entries, owners, list(events.values())
+
+    def _cache_export_block_bytes(self) -> int:
+        return sum(
+            (
+                math.prod(block_major_view(tensor, self._num_cache_blocks).shape[1:])
+                * tensor.element_size()
+                + 7
+            )
+            // 8
+            * 8
+            for layer, cache in self._registered_kv_caches.items()
+            for _, tensor in self._iter_kv_tensors(layer, cache)
+        )
+
+    def _cpu_export_size(self, requests: List[XavierStoreRequest]) -> int:
+        if self._cpu_export_block_bytes is None:
+            self._cpu_export_block_bytes = self._cache_export_block_bytes()
+        return (
+            sum(len(request.block_hashes) for request in requests)
+            * self._cpu_export_block_bytes
+        )
+
+    def _can_queue_ipc_export(self, requests: List[XavierStoreRequest]) -> bool:
+        return (
+            sys.platform == "linux"
+            and self._gpu_budget is None
+            and bool(self._registered_kv_caches)
+            and all(
+                tensor.is_cuda
+                for layer, cache in self._registered_kv_caches.items()
+                for _, tensor in self._iter_kv_tensors(layer, cache)
+            )
+            and self._cpu_export_size(requests) <= self._ipc_export_budget
+        )
+
+    def _admit_cpu_exports(
+        self, requests: List[XavierStoreRequest]
+    ) -> List[XavierStoreRequest]:
+        arena = self._gpu_export_arena
+        assert arena is not None
+        count = sum(len(request.block_hashes) for request in requests)
+        if not count or not arena.available:
+            return []
+        block_bytes = self._cpu_export_size(requests) // count
+        pending_bytes = sum(entry[1] for entry in self._ipc_export_jobs.values())
+        max_blocks = min(
+            max(0, self._ipc_export_budget - pending_bytes) // block_bytes,
+            len(arena.available)
+            * (min(arena.slot_bytes, _MAX_EXPORT_BYTES) // block_bytes),
+        )
+        if max_blocks >= count:
+            return requests
+        admitted = []
+        for request in requests:
+            take = min(len(request.block_hashes), max_blocks)
+            if take:
+                admitted.append(
+                    XavierStoreRequest(
+                        request.request_id,
+                        request.block_ids[:take],
+                        request.block_hashes[:take],
+                        [group[:take] for group in request.block_ids_by_group],
+                    )
+                )
+                max_blocks -= take
+            if not max_blocks:
+                break
+        return admitted
+
+    def _prepare_ipc_export(
+        self, batches: List[_CPUExportBatch], nbytes: int
+    ) -> Tuple[str, list, List[int]]:
+        from torch.multiprocessing.reductions import reduce_tensor
+
+        ticket = uuid.uuid4().hex
+        descriptors = []
+        owners = []
+        slots = []
+        for entries, indices, _ in batches:
+            if not entries:
                 continue
-            for layer_name, kv_layer in self._registered_kv_caches.items():
-                self._stage_kv_layer_for_request(request, layer_name, kv_layer)
+            if isinstance(entries, _PackedExportEntries):
+                packed, layers = entries.packed, entries.layers
+            else:
+                count = len(entries[0][1])
+                pieces, layers, offset = [], [], 0
+                for name, keys, value in entries:
+                    if offset % 8:
+                        padding = 8 - offset % 8
+                        pieces.append(
+                            torch.zeros(
+                                (count, padding), dtype=torch.uint8, device=value.device
+                            )
+                        )
+                        offset += padding
+                    part = value.view(torch.uint8).reshape(count, -1)
+                    layers.append(
+                        (
+                            name,
+                            tuple(value.shape[1:]),
+                            value.dtype,
+                            offset,
+                            part.shape[1],
+                        )
+                    )
+                    pieces.append(part)
+                    offset += part.shape[1]
+                if offset % 8:
+                    pieces.append(
+                        torch.zeros(
+                            (count, 8 - offset % 8),
+                            dtype=torch.uint8,
+                            device=pieces[0].device,
+                        )
+                    )
+                packed = torch.cat(pieces, dim=1)
+            if isinstance(entries, _PackedExportEntries) and entries.slot is not None:
+                assert self._gpu_export_arena is not None
+                slots.append(entries.slot)
+                descriptor = {
+                    "gpu_export": self._gpu_export_arena.source,
+                    "slot": entries.slot,
+                    "shape": tuple(packed.shape),
+                }
+            else:
+                descriptor = reduce_tensor(packed)[1]
+            keys = (
+                entries.keys
+                if isinstance(entries, _PackedExportEntries)
+                else entries[0][1]
+            )
+            descriptors.append((keys, descriptor, layers))
+            owners.append(packed)
+            owners.extend(indices)
+        all_keys = {key for keys, _, _ in descriptors for key in keys}
+        # Keep ownership even if an enqueue acknowledgement is lost; the actor
+        # may already have started copying these IPC buffers.
+        self._ipc_export_jobs[ticket] = (all_keys, nbytes, owners)
+        if slots:
+            self._gpu_export_tickets[ticket] = slots
+
+        return ticket, descriptors, slots
+
+    async def _send_ipc_export(
+        self, ticket: str, descriptors: list, slots: List[int]
+    ) -> None:
+        transfer = await self._get_transfer_ref()
+        # Serialize registration and recovery. Each mapping owns one set of CUDA
+        # IPC references for the lifetime of the actor, shared by all exports.
+        async with self._gpu_mapping_lock:
+
+            async def register():
+                assert self._gpu_export_arena is not None
+                await transfer.register_snapshot_export_source_v1(
+                    self._gpu_export_arena.source, self._gpu_export_arena.metadata()
+                )
+                self._gpu_export_registered = True
+
+            async def enqueue():
+                return await transfer.enqueue_snapshot_export_v1(
+                    ticket,
+                    descriptors,
+                    self._xavier_config.get("block_tracker_address"),
+                    self._xavier_config.get("block_tracker_uid"),
+                )
+
+            try:
+                if slots and not self._gpu_export_registered:
+                    await register()
+                if await enqueue() is False:
+                    self._exported_keys.clear()
+                    self._export_refresh_at = 0
+                    await register()
+                    if await enqueue() is False:
+                        raise RuntimeError("Xavier export source registration lost")
+            except BaseException:
+                self._gpu_export_registered = False
+                raise
+
+    async def _queue_ipc_export(
+        self, batches: List[_CPUExportBatch], nbytes: int
+    ) -> None:
+        await self._send_ipc_export(*self._prepare_ipc_export(batches, nbytes))
+
+    def _enqueue_ipc_export(self, batches: List[_CPUExportBatch], nbytes: int) -> None:
+        # Only the reusable arena has a source-close handshake that drains late
+        # submissions before freeing GPU storage. Legacy per-batch CUDA IPC
+        # exports retain their synchronous acknowledgement and cleanup behavior.
+        if self._gpu_export_arena is None or not all(
+            isinstance(entries, _PackedExportEntries) and entries.slot is not None
+            for entries, _, _ in batches
+        ):
+            self._call(self._queue_ipc_export(batches, nbytes))
+            return
+        ticket, descriptors, slots = self._prepare_ipc_export(batches, nbytes)
+        if self._loop is None:
+            self._loop = acquire_actor_loop()
+        # Own slots and index tensors before scheduling the RPC. Advance the
+        # existing EngineCore loop to submit it without waiting for an ACK.
+        # Subsequent polling progresses the task; the actor copies and publishes
+        # independently once it receives the immutable arena descriptor.
+        self._ipc_export_enqueues[ticket] = self._loop.create_task(
+            self._send_ipc_export(ticket, descriptors, slots)
+        )
+        self._call(asyncio.sleep(0))
+
+    def _poll_ipc_exports(self, *, wait: bool = False) -> None:
+        # Completion hooks are also used by connectors without CPU exports.
+        # With no owned payloads, neither export RPCs nor their state is needed.
+        if not getattr(self, "_ipc_export_jobs", None):
+            return
+        if self._ipc_export_enqueues or self._ipc_export_poll is not None:
+            self._call(asyncio.sleep(0))
+        submission_error = None
+        for ticket, submitted in list(self._ipc_export_enqueues.items()):
+            if wait or submitted.done():
+                del self._ipc_export_enqueues[ticket]
+                # On a lost acknowledgement keep the GPU owners until the
+                # source-close handshake has drained any accepted copy.
+                try:
+                    if wait and not submitted.done():
+                        self._call(asyncio.shield(submitted))
+                    submitted.result()
+                except Exception as exc:
+                    submission_error = submission_error or exc
+        if submission_error is not None:
+            # Drain every submission before shutdown can invalidate the source.
+            # A late registration must never reopen a freed arena mapping.
+            raise submission_error
+        future = self._ipc_export_poll
+        if not self._ipc_export_jobs or (
+            future is None
+            and (not wait and time.monotonic() < self._ipc_export_poll_at)
+        ):
+            return
+
+        tickets = [
+            ticket
+            for ticket in self._ipc_export_jobs
+            if ticket not in self._ipc_export_enqueues
+        ]
+        if not tickets and future is None:
+            return
+
+        async def poll():
+            transfer = await self._get_transfer_ref()
+            return await transfer.poll_snapshot_exports_v1(tickets, wait=wait)
+
+        if future is not None:
+            if not wait and not future.done():
+                return
+            try:
+                if wait and not future.done():
+                    self._call(asyncio.shield(future))
+                results = future.result()
+            finally:
+                self._ipc_export_poll = None
+        elif not wait and self._loop is not None:
+            self._ipc_export_poll = self._loop.create_task(poll())
+            self._call(asyncio.sleep(0))
+            return
+        else:
+            results = self._call(poll())
+        for ticket, (available, evicted) in results.items():
+            slots = self._gpu_export_tickets.get(ticket)
+            if slots is not None:
+                assert self._gpu_export_arena is not None
+                self._gpu_export_arena.release(slots)
+                del self._gpu_export_tickets[ticket]
+            self._ipc_export_jobs.pop(ticket)
+            if available is None:
+                self._exported_keys.clear()
+                self._export_refresh_at = 0
+                logger.warning(
+                    "Optional Xavier snapshot export failed: %s; "
+                    "future requests can export it again",
+                    evicted,
+                )
+                continue
+            self._exported_keys.difference_update(evicted)
+            self._exported_keys.update(available)
+            if not self._export_refresh_at:
+                self._export_refresh_at = time.monotonic() + _EXPORT_REFRESH_SECONDS
+        self._ipc_export_poll_at = time.monotonic() + 0.01
+        if wait and future is not None and self._ipc_export_jobs:
+            self._poll_ipc_exports(wait=True)
+
+    async def _stage_cpu_requests(self, requests: List[XavierStoreRequest]) -> None:
+        if not requests or not self._registered_kv_caches:
+            return
+        transfer = await self._get_transfer_ref()
+        pending: Optional[_CPUExportBatch] = None
+
+        async def stage(batch: _CPUExportBatch) -> None:
+            entries, _, events = batch
+            for event in events:
+                event.synchronize()
+            with profile_stage(
+                "store_rpc",
+                rank=self._rank,
+                nbytes=sum(t.numel() * t.element_size() for _, _, t in entries),
+            ):
+                # xoscar's Torch serializer exposes a NumPy memoryview. Socket
+                # backpressure requires len(buffer) to count bytes, so send
+                # flat uint8 views rather than multidimensional typed buffers.
+                await transfer.stage_layer_batches_v1(
+                    [
+                        (name, keys, t.view(torch.uint8).reshape(-1))
+                        for name, keys, t in entries
+                    ],
+                    [(tuple(t.shape), t.dtype) for _, _, t in entries],
+                )
+
+        try:
+            for current in self._cpu_export_batches(requests):
+                previous, pending = pending, current
+                if previous is not None:
+                    # The next D2H copy overlaps the previous batch's actor RPC.
+                    # At most two bounded batches own GPU and pinned CPU buffers.
+                    await stage(previous)
+                    previous = None
+            if pending is not None:
+                await stage(pending)
+        finally:
+            if pending is not None:
+                for event in pending[2]:
+                    event.synchronize()
 
     async def _ensure_gpu_cache_mapping(self):
         from torch.multiprocessing.reductions import reduce_tensor
@@ -1146,6 +1962,8 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return transfer
 
     async def _stage_gpu_requests(self, requests):
+        if not requests:
+            return
         transfer = await self._ensure_gpu_cache_mapping()
         entries = []
         for request in requests:
@@ -1279,6 +2097,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     block_ids_by_group,
                     token_ids,
                 )
+                if self._gpu_budget is None:
+                    self._add_store_request(
+                        meta, new_req.req_id, token_ids, block_ids_by_group, num_tokens
+                    )
                 continue
             self._add_store_request(meta, new_req.req_id, token_ids, block_ids_by_group)
 
@@ -1305,6 +2127,10 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
                     block_ids_by_group,
                     prompt_token_ids,
                 )
+                if self._gpu_budget is None:
+                    self._add_store_request(
+                        meta, req_id, prompt_token_ids, block_ids_by_group, num_tokens
+                    )
                 continue
             self._add_store_request(meta, req_id, prompt_token_ids, block_ids_by_group)
             self._chunked_prefill.pop(req_id, None)
@@ -1338,8 +2164,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         request_id: str,
         token_ids: List[int],
         block_ids_by_group: List[List[int]],
+        num_tokens: Optional[int] = None,
     ) -> None:
         external_token_count = max(len(token_ids) - 1, 0)
+        if num_tokens is not None:
+            # The current chunk may end inside a block that a subsequent
+            # forward still writes. Publish only complete, computed blocks.
+            external_token_count = (
+                min(external_token_count, num_tokens) // self._block_size
+            ) * self._block_size
         hashes = self._build_xavier_hashes(token_ids[:external_token_count])
         if not hashes:
             return
@@ -1442,6 +2275,13 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
         return dict(group_transfers.get(from_rank, {}))
 
     def _build_xavier_hashes(self, token_ids: List[int]) -> List[Tuple[int, int]]:
+        cacheable = len(token_ids) <= _MAX_HASH_CACHE_TOKENS
+        cache_key = (
+            (self._block_size, self._none_hash, tuple(token_ids)) if cacheable else None
+        )
+        if cache_key is not None and cache_key in self._hash_cache:
+            self._hash_cache.move_to_end(cache_key)
+            return list(self._hash_cache[cache_key])
         hashes: List[Tuple[int, int]] = []
         prev_hash: Optional[int] = None
         for block_idx, start in enumerate(range(0, len(token_ids), self._block_size)):
@@ -1457,6 +2297,15 @@ class XavierConnector(KVConnectorBase_V1, SupportsHMA):
             )
             hashes.append((content_hash, block_idx))
             prev_hash = content_hash
+        if cache_key is not None:
+            self._hash_cache[cache_key] = tuple(hashes)
+            self._hash_cache_tokens += len(token_ids)
+            while (
+                self._hash_cache_tokens > _MAX_HASH_CACHE_TOKENS
+                or len(self._hash_cache) > _MAX_HASH_CACHE_ENTRIES
+            ):
+                key, _ = self._hash_cache.popitem(last=False)
+                self._hash_cache_tokens -= len(key[2])
         return hashes
 
     @staticmethod

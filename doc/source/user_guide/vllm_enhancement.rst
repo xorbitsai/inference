@@ -15,6 +15,8 @@ Usage
 *****
 Simply add the parameter ``enable_xavier=True`` when starting the vllm model.
 
+For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default.
+
 ***********
 Limitations
 ***********

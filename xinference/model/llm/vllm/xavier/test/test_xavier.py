@@ -105,7 +105,6 @@ async def test_block_tracker(actor_pool_context):
         123: {
             (rank, 0),
         },
-        456: set(),
         789: {(rank, 2)},
     }
 

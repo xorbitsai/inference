@@ -118,3 +118,7 @@ msgstr ""
 "快取。普通副本在未命中或儲存不可用時於本機計算；不相容的部署不能共用快取頁面。回應透過 "
 "``prompt_tokens_details.cached_tokens`` 報告重用 token 數。明確設定 prefill/decode "
 "角色會自動啟用 MLX Xavier P/D。目前不支援跨引擎快取共用。"
+
+#: source/user_guide/vllm_enhancement.rst:18
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
+msgstr "對於 vLLM V1 上僅使用注意力層的模型，Xavier 保留模型的 ``enforce_eager`` 設定，允許使用 CUDA Graph 執行。若要使用 eager 執行，請在啟動模型時設定 ``enforce_eager=True``。循環模型仍預設使用 eager 執行。"

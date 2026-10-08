@@ -30,23 +30,9 @@ from .transport import (
 
 logger = logging.getLogger(__name__)
 
-XAVIER_EAGER_VLLM_VERSION = version.parse("0.21.0")
-
 
 class XavierEngine:
     _xavier_config: Optional[Dict] = None
-
-    @staticmethod
-    def _json_safe(value: Any) -> Any:
-        if isinstance(value, bytes):
-            return value.decode(errors="replace")
-        if isinstance(value, dict):
-            return {str(k): XavierEngine._json_safe(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple)):
-            return [XavierEngine._json_safe(v) for v in value]
-        if isinstance(value, (str, int, float, bool)) or value is None:
-            return value
-        return str(value)
 
     @classmethod
     def _patch_v1_engine_args(
@@ -69,13 +55,6 @@ class XavierEngine:
         xavier_config = dict(xavier_config)
         set_xavier_transport_backend(xavier_config, XAVIER_TRANSPORT_XAVIER)
 
-        additional_config = dict(getattr(engine_args, "additional_config", {}) or {})
-        # vLLM V1 includes additional_config in its compilation cache hash and
-        # serializes it as JSON. Keep the connector's full config below, but
-        # only expose a JSON-safe copy here.
-        additional_config["xavier_config"] = cls._json_safe(xavier_config)
-        engine_args.additional_config = additional_config
-
         role = xavier_config.get("role")
         if role == "prefill":
             kv_role = "kv_producer"
@@ -88,16 +67,17 @@ class XavierEngine:
             kv_rank = xavier_config.get("rank", 0)
 
         extra_config = dict(xavier_config.get("kv_connector_extra_config") or {})
+        # Actor addresses, IDs and ranks affect transport, not compiled model
+        # operations. Keep them in the connector config: additional_config is
+        # included in vLLM's graph hash and would recompile on every launch.
         extra_config["xavier_config"] = xavier_config
 
-        if (
-            version.parse(VLLM_VERSION) >= XAVIER_EAGER_VLLM_VERSION
-            and xavier_config.get("enforce_eager", True)
-            and not getattr(engine_args, "enforce_eager", False)
+        recurrent = engine_args.create_model_config().is_hybrid
+        if xavier_config.get("enforce_eager", recurrent) and not getattr(
+            engine_args, "enforce_eager", False
         ):
-            # vLLM V1 may create XavierConnector twice during CUDA graph
-            # setup. In CUDA-heavy processes this can trip glibc static TLS
-            # allocation, so keep Xavier on the eager execution path.
+            # Attention snapshots are exported after forward and support CUDA
+            # graphs. Keep the existing eager default for recurrent handoff.
             engine_args.enforce_eager = True
             logger.info(
                 "Set enforce_eager=True for Xavier V1 on vLLM %s.",
@@ -108,7 +88,6 @@ class XavierEngine:
         # of sliding-window and full attention. Only recurrent models need this
         # override: 0.21 disables HMA for every KV connector by default; 0.22+
         # checks SupportsHMA itself. Preserve an explicit user setting.
-        recurrent = engine_args.create_model_config().is_hybrid
         if (
             recurrent
             and version.parse(VLLM_VERSION) < version.parse("0.22.0")

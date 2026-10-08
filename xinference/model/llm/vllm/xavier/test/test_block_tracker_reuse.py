@@ -78,3 +78,74 @@ class TestBlockTrackerReuse:
         tracker.unregister_block(0, rank=1, block_id=5)
         assert _query_rank_block(tracker, 1001) == set()
         assert tracker._rank_to_hash_and_block_id[0][1] == set()
+
+    def test_multiple_hashes_in_one_batch_are_removed_on_reuse(self):
+        tracker = VLLMBlockTracker()
+        tracker.register_blocks(0, [(1001, 5), (1002, 5), (2001, 6)], rank=1)
+        tracker.register_blocks(0, [(3001, 5)], rank=1)
+        assert _query_rank_block(tracker, 1001) == set()
+        assert _query_rank_block(tracker, 1002) == set()
+        assert _query_rank_block(tracker, 2001) == {(1, 6)}
+        assert _query_rank_block(tracker, 3001) == {(1, 5)}
+        tracker.unregister_blocks(0, 1, [5, 5, 99])
+        assert _query_rank_block(tracker, 3001) == set()
+        assert tracker._rank_to_block_hashes[0][1] == {6: {2001}}
+
+    def test_recovery_clears_slot_index_for_every_engine(self):
+        tracker = VLLMBlockTracker()
+        for engine in [0, 1]:
+            tracker.register_blocks(engine, [(1001, 5)], rank=1)
+            tracker.register_blocks(engine, [(2001, 5)], rank=2)
+        tracker.unregister_rank(1)
+        tracker.register_rank(1)
+        for engine in [0, 1]:
+            tracker.register_blocks(engine, [(3001, 5)], rank=1)
+            assert tracker._rank_to_block_hashes[engine] == {
+                1: {5: {3001}},
+                2: {5: {2001}},
+            }
+            assert tracker.query_blocks(engine, [(1001, 0)]) == {}
+
+
+class TestSnapshotDirectory:
+    def test_duplicate_publication_and_rank_exclusion(self):
+        tracker = VLLMBlockTracker()
+        tracker.register_snapshot_blocks(0, [101, 202, 101], 1)
+        tracker.register_snapshot_blocks(0, [101], 2)
+        assert tracker.query_blocks(0, [(101, 7), (202, 8)], exclude_rank=1) == {
+            2: {(101, 101, 7)}
+        }
+        tracker.unregister_blocks(0, 1, [101, 101, 999])
+        assert _query_rank_block(tracker, 101) == {(2, 101)}
+        assert _query_rank_block(tracker, 202) == {(1, 202)}
+        tracker.unregister_blocks(0, 2, [101])
+        assert _query_rank_block(tracker, 101) == set()
+
+    def test_recovery_clears_all_engines_without_removing_other_ranks(self):
+        tracker = VLLMBlockTracker()
+        for engine in (0, 1):
+            tracker.register_snapshot_blocks(engine, [101], 1)
+            tracker.register_snapshot_blocks(engine, [101, 202], 2)
+        tracker.unregister_rank(1)
+        for engine in (0, 1):
+            assert tracker.query_blocks(engine, [(101, 0)], exclude_rank=2) == {}
+        tracker.register_rank(1)
+        for engine in (0, 1):
+            assert tracker.query_blocks(engine, [(101, 0)], exclude_rank=1) == {
+                2: {(101, 101, 0)}
+            }
+            tracker.register_snapshot_blocks(engine, [303], 1)
+            assert tracker.query_blocks(engine, [(101, 0)], exclude_rank=2) == {}
+            assert tracker.query_blocks(engine, [(303, 1)], exclude_rank=2) == {
+                1: {(303, 303, 1)}
+            }
+
+    def test_switching_address_kinds_replaces_stale_locations(self):
+        tracker = VLLMBlockTracker()
+        tracker.register_blocks(0, [(999, 101)], 1)
+        tracker.register_snapshot_blocks(0, [101], 1)
+        assert _query_rank_block(tracker, 999) == set()
+        assert _query_rank_block(tracker, 101) == {(1, 101)}
+        tracker.register_blocks(0, [(303, 101)], 1)
+        assert _query_rank_block(tracker, 101) == set()
+        assert _query_rank_block(tracker, 303) == {(1, 101)}

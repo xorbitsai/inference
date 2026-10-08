@@ -129,3 +129,7 @@ msgstr ""
 "tokens reutilizados em ``prompt_tokens_details.cached_tokens``. Papéis "
 "prefill/decode explícitos ativam MLX Xavier P/D automaticamente. "
 "Compartilhamento de cache entre engines ainda não é suportado."
+
+#: source/user_guide/vllm_enhancement.rst:18
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
+msgstr "Para modelos que usam apenas atenção no vLLM V1, o Xavier preserva a configuração ``enforce_eager`` do modelo, permitindo a execução com CUDA Graph. Defina ``enforce_eager=True`` ao iniciar o modelo para usar a execução eager. Os modelos recorrentes continuam usando a execução eager por padrão."

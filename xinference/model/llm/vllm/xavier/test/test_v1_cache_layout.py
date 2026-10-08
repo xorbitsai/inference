@@ -16,6 +16,7 @@ def test_load_uses_registered_packed_hybrid_cache():
     load = Mock()
     connector = SimpleNamespace(
         _is_consumer=True,
+        _direct_sends=set(),
         _registered_kv_caches={"linear_attn": packed},
         _get_connector_metadata=lambda: XavierConnectorMetadata(
             load_requests=[request]

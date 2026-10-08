@@ -3,7 +3,7 @@
 """Budgeted hot snapshots with CPU overflow and shared publication/read leases."""
 
 from collections import OrderedDict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Mapping, Tuple
 
 import torch
 
@@ -71,7 +71,7 @@ class TieredKVSnapshotStore(KVSnapshotStore):
         return True
 
     @staticmethod
-    def _copy_to_cpu(layers: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _copy_to_cpu(layers: Mapping[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # A synchronous D2H copy per layer stalls the producer for every layer
         # of every evicted block. Pack compatible layers and synchronize once
         # per group. Each host allocation belongs to one block, so evicting a
