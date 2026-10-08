@@ -50,6 +50,7 @@ def _check_port(host, port):
 def command(*args):
     invocation = [
         str(TOOL_PYTHON),
+        "-B",
         "-c",
         "from xinference.deploy.cmdline import cli; cli()",
         "service",

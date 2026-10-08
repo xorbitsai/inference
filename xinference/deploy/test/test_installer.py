@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import importlib.util
+import io
 import json
 import subprocess
+import sys
+from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -155,6 +159,16 @@ def test_preparation_failure_keeps_running_service(installer):
     assert installer.running
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX directory permissions")
+def test_unwritable_environment_fails_before_stopping_service(installer, monkeypatch):
+    monkeypatch.setattr(module.os, "access", lambda path, flags: False)
+    with pytest.raises(RuntimeError, match="Fix permissions"):
+        installer.update()
+    assert not installer.calls
+    assert installer.running
+    assert installer.python.read_text() == "1.0.0"
+
+
 @pytest.mark.parametrize("failure", ["fail_install", "fail_start"])
 @pytest.mark.parametrize("running", [False, True])
 def test_failed_upgrade_restores_whole_environment_and_original_state(
@@ -287,3 +301,35 @@ def test_lock_rejects_concurrent_installer(tmp_path):
         with pytest.raises(RuntimeError, match="Another"):
             with module.installation_lock(tmp_path):
                 pass
+
+
+def test_runtime_probe_excludes_its_windows_redirector_but_detects_server(monkeypatch):
+    import psutil
+
+    args = [str(Path(sys.prefix) / "python.exe"), "-c", "inspection"]
+    redirector = SimpleNamespace(pid=101, cmdline=lambda: args)
+    inspector = SimpleNamespace(
+        pid=102, cmdline=lambda: args, parents=lambda: [redirector]
+    )
+    server = SimpleNamespace(
+        pid=103,
+        info={
+            "cmdline": [str(Path(sys.prefix) / "xinference-local"), "--port", "9997"]
+        },
+    )
+    processes = [
+        SimpleNamespace(pid=101, info={"cmdline": args}),
+        SimpleNamespace(pid=102, info={"cmdline": args}),
+        server,
+    ]
+    monkeypatch.setattr(psutil, "Process", lambda: inspector)
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs: processes)
+
+    def inspect(args, env=None, check=True):
+        output = io.StringIO()
+        with redirect_stdout(output):
+            exec(args[-1], {})
+        return subprocess.CompletedProcess(args, 0, output.getvalue(), "")
+
+    monkeypatch.setattr(module, "run", inspect)
+    assert module.runtime_info(Path(sys.executable))["busy"] == [103]

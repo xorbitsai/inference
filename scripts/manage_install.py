@@ -37,11 +37,22 @@ def runtime_info(python):
 import importlib.metadata as metadata, json, os, pathlib, sys
 import psutil
 root = os.path.normcase(str(pathlib.Path(sys.prefix).absolute())) + os.sep
+inspection = psutil.Process()
+inspection_args = inspection.cmdline()[1:]
+own = {inspection.pid}
+# Windows virtualenv Python can launch a child through its redirector. That
+# waiting parent is part of this metadata probe, not a running server.
+for parent in inspection.parents():
+    try:
+        if parent.cmdline()[1:] == inspection_args:
+            own.add(parent.pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
 busy = []
 for process in psutil.process_iter(['cmdline']):
     try:
         args = process.info['cmdline'] or []
-        if process.pid != os.getpid() and args and os.path.normcase(args[0]).startswith(root):
+        if process.pid not in own and args and os.path.normcase(args[0]).startswith(root):
             busy.append(process.pid)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         pass
@@ -197,6 +208,7 @@ class Installer:
     def service(self, *args, python=None):
         command = [
             str(python or self.python),
+            "-B",
             "-c",
             "from xinference.deploy.cmdline import cli; cli()",
             "service",
@@ -349,6 +361,12 @@ class Installer:
         if self.journal.exists():
             self.restore(json.loads(self.journal.read_text()))
         old = runtime_info(self.python) if self.python.exists() else None
+        if old and os.name != "nt":
+            for directory, _, _ in os.walk(self.environment):
+                if not os.access(directory, os.W_OK | os.X_OK):
+                    raise RuntimeError(
+                        f"The tool environment is not writable. Fix permissions before upgrading: {directory}"
+                    )
         tool = receipt(self.environment)
         spec, python, backend, extras = self.settings(old, tool)
         if old and not self.config and old["busy"]:
