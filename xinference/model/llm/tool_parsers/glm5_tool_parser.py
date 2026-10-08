@@ -117,12 +117,10 @@ class Glm5ToolParser(ToolParser):
     def _extract_delta_without_partial_start(
         self, current_text: str, delta_text: str
     ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        for i in range(len(self.tool_call_start_token) - 1, 0, -1):
-            if current_text.endswith(self.tool_call_start_token[:i]):
-                if len(delta_text) > i:
-                    return delta_text[:-i], None, None
-                return None
-        return (delta_text, None, None) if delta_text else None
+        content = self._plain_text_delta(
+            current_text, delta_text, [self.tool_call_start_token]
+        )
+        return (content, None, None) if content else None
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
