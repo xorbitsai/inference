@@ -241,6 +241,7 @@ class SupervisorActor(xo.StatelessActor):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
+        self._extension_worker_resources: Dict[str, Dict[str, Any]] = {}
         self._worker_metadata: Dict[str, Dict[str, Any]] = {}
         self._worker_metadata_generation: Dict[str, int] = {}
         self._worker_metadata_next_generation = 0
@@ -1650,6 +1651,8 @@ class SupervisorActor(xo.StatelessActor):
     async def _choose_worker(
         self, available_workers: Optional[List[str]] = None
     ) -> xo.ActorRefType["WorkerActor"]:
+        from ..extensions import get_extensions
+
         # TODO: better allocation strategy.
         min_running_model_count = None
         target_worker = None
@@ -1657,6 +1660,11 @@ class SupervisorActor(xo.StatelessActor):
         for worker_addr, worker in self._worker_address_to_worker.items():
             if available_workers and worker_addr not in available_workers:
                 continue
+            if get_extensions():
+                try:
+                    self.get_worker_resource_policy(worker_addr)
+                except Exception:
+                    continue
             running_model_count = await worker.get_model_count()
             if (
                 min_running_model_count is None
@@ -3577,6 +3585,10 @@ class SupervisorActor(xo.StatelessActor):
                                 w_ref.address,
                                 alloc,
                             )
+                            from ..extensions import get_extensions
+
+                            if get_extensions():
+                                continue
                             alloc = None
                         worker_candidates.append(
                             {"ref": w_ref, "count": count, "alloc": alloc}
@@ -4973,6 +4985,8 @@ class SupervisorActor(xo.StatelessActor):
         self, n_gpu: Optional[Union[int, str]]
     ) -> Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]:
         """Select a scale-up target using launch-time load/GPU snapshots."""
+        from ..extensions import get_extensions
+
         workers = list(self._worker_address_to_worker.values())
         if not workers:
             raise RuntimeError("No available worker found")
@@ -5002,6 +5016,8 @@ class SupervisorActor(xo.StatelessActor):
                     worker_ref.address,
                     alloc,
                 )
+                if get_extensions():
+                    continue
                 alloc = None
             candidates.append({"ref": worker_ref, "count": count, "alloc": alloc})
 
@@ -6285,6 +6301,14 @@ class SupervisorActor(xo.StatelessActor):
         worker_ref = await xo.actor_ref(
             address=worker_address, uid=WorkerActor.default_uid()
         )
+        from ..extensions import get_extensions
+
+        if get_extensions():
+            resources = await worker_ref.get_extension_resources()
+            expected = {extension.name for extension in get_extensions()}
+            if set(resources.get("extensions", {})) != expected:
+                raise RuntimeError("Worker and supervisor extensions must match")
+            self._extension_worker_resources[worker_address] = resources
         self._worker_address_to_worker[worker_address] = worker_ref
 
         # Refresh static node metadata on every registration. Clear and cancel
@@ -6358,6 +6382,24 @@ class SupervisorActor(xo.StatelessActor):
                 worker_address, worker_ref, metadata_generation
             )
         self._schedule_autostart()
+
+    def get_worker_resource_policy(self, worker_address: str) -> List[int]:
+        from ..extensions import filter_worker_resources
+
+        resources = self._extension_worker_resources.get(worker_address)
+        if resources is None or worker_address not in self._worker_address_to_worker:
+            raise RuntimeError("Worker has not registered extension resources")
+        inventory = [
+            info
+            for address, info in self._extension_worker_resources.items()
+            if address in self._worker_address_to_worker
+        ]
+        return filter_worker_resources(resources, inventory)
+
+    def call_extension(self, name: str, operation: str, payload: Dict[str, Any]) -> Any:
+        from ..extensions import call_extension
+
+        return call_extension(name, operation, payload)
 
     async def update_system_settings(self, settings: Dict[str, Any]) -> None:
         """Apply settings locally and fan them out to registered workers."""

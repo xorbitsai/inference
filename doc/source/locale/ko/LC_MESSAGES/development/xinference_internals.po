@@ -698,3 +698,19 @@ msgstr ""
 #~ "Both Xinference and Xoscar highly utilize coroutine programming of "
 #~ "``asyncio``."
 #~ msgstr "Xinference와 Xoscar는 모두 ``asyncio``를 고도로 활용하여 코루틴 프로그래밍을 수행합니다."
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "런타임 확장"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "Xinference를 시작하기 전에 ``XINFERENCE_EXTENSIONS``를 쉼표로 구분된 ``module:factory`` 항목으로 설정합니다. 생성되는 API, Worker 및 복구 프로세스를 포함한 각 프로세스는 자체 확장 인스턴스를 불러옵니다. 변수를 설정하지 않으면 표준 동작을 유지하며, 설정된 확장이 잘못되면 명시적으로 실패합니다."
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "팩터리는 고유한 ``name``, ``api_version = 1`` 및 네 메서드 ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, ``control_operation(operation, payload)``를 갖는 객체를 반환합니다. API 컨텍스트에는 앱, 라우터, 인증 서비스, 인증 모드 및 Supervisor 참조를 비동기로 가져오는 함수가 포함됩니다. 라우트와 미들웨어는 정적 프런트엔드 폴백 전에 구성됩니다. 확장 라우트를 보호할 때 인증 서비스를 재사용하세요."
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "Supervisor는 Worker 확장이 일치하는지 확인하고 현재 활성 Worker 목록을 리소스 필터에 제공합니다. 필터는 표시되는 GPU 인덱스를 제한하거나 예외를 발생시켜 CPU 실행을 포함한 승인을 거부할 수 있습니다. 할당과 프로세스 생성 모두 정책을 검사하여 준비 및 복구 경로를 포함합니다. 이름이 지정된 제어 작업은 Supervisor에서 실행되며 확장은 작업 이름과 인수를 검증해야 합니다. 기본 프런트엔드 탐색 설정은 비어 있으며 배포판 빌드에서 구성할 수 있습니다."

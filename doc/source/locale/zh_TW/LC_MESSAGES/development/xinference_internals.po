@@ -664,3 +664,19 @@ msgstr ""
 #~ "Both Xinference and Xoscar highly utilize coroutine programming of "
 #~ "``asyncio``."
 #~ msgstr "Xinference 和 Xoscar 都高度利用了 ``asyncio`` 進行協程程式設計。"
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "執行階段擴充"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "啟動 Xinference 前，將 ``XINFERENCE_EXTENSIONS`` 設為以逗號分隔的 ``module:factory`` 項目。每個程序獨立載入擴充實例，包括新建的 API、Worker 與復原程序。未設定此變數時維持標準行為；錯誤的擴充設定會明確報錯。"
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "工廠回傳的物件須包含唯一的 ``name``、``api_version = 1`` 與四個方法：``configure_api(context)``、``worker_metadata()``、``filter_worker_resources(worker, workers)`` 和 ``control_operation(operation, payload)``。API 上下文包含應用程式、路由、驗證服務、驗證模式與非同步取得 Supervisor 參照的方法。路由與中介軟體在靜態前端回退之前組合。保護擴充路由時應重用驗證服務。"
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "Supervisor 驗證 Worker 擴充是否一致，並向資源篩選器提供目前在線的 Worker 清單。篩選器可縮小可見 GPU 索引範圍，或拋出例外拒絕准入，包括 CPU 模型啟動。資源分配與程序建立皆檢查策略，涵蓋準備與復原路徑。具名控制操作在 Supervisor 執行；擴充必須驗證操作名稱與參數。預設前端導覽設定為空，發行版建置可組合自己的設定。"

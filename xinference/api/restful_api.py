@@ -1235,6 +1235,18 @@ class RESTfulAPI(CancelMixin):
                 validate_oidc_config()
                 register_oidc_routes(self)
 
+        from ..extensions import APIExtensionContext, configure_api
+
+        configure_api(
+            APIExtensionContext(
+                app=self._app,
+                router=self._router,
+                auth_service=self._auth_service,
+                is_authenticated=self.is_authenticated(),
+                get_supervisor_ref=self._get_supervisor_ref,
+            )
+        )
+
         if is_metrics_disabled():
             logger.info(
                 "Supervisor metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"

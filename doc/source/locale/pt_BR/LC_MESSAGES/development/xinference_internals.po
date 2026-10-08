@@ -775,3 +775,19 @@ msgstr ""
 #~ msgstr ""
 #~ "O Xinference e o Xoscar utilizam amplamente o ``asyncio`` para programação "
 #~ "de corrotinas."
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "Extensões do runtime"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "Antes de iniciar o Xinference, defina ``XINFERENCE_EXTENSIONS`` com entradas ``module:factory`` separadas por vírgulas. Cada processo carrega suas próprias instâncias, incluindo os processos de API, Worker e recuperação criados. Sem essa variável, o comportamento padrão é preservado; uma extensão configurada inválida falha explicitamente."
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "Uma fábrica retorna um objeto com ``name`` único, ``api_version = 1`` e quatro métodos: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)`` e ``control_operation(operation, payload)``. O contexto da API contém aplicativo, roteador, serviço e modo de autenticação e uma função assíncrona para obter a referência do Supervisor. Rotas e middleware são compostos antes do fallback para o frontend estático. Reutilize o serviço de autenticação para proteger as rotas adicionadas."
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "O Supervisor verifica se as extensões dos Workers correspondem e fornece aos filtros os Workers ativos. Os filtros podem restringir os índices GPU visíveis ou lançar uma exceção para negar a admissão, incluindo inicializações CPU. Alocação e criação de processos verificam a política, cobrindo preparação e recuperação. As operações de controle nomeadas são executadas no Supervisor; as extensões devem validar nomes e parâmetros. A navegação frontend padrão é vazia e pode ser composta durante a compilação da distribuição."
