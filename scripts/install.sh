@@ -2,6 +2,8 @@
 # Install and run Xinference in a persistent, isolated uv tool environment.
 # curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
 set -eu
+temporary="$(mktemp -d)"
+trap 'rm -rf "$temporary"' 0
 
 fail() { printf 'error: %s\n' "$1" >&2; exit 1; }
 info() { printf '==> %s\n' "$1"; }
@@ -15,8 +17,7 @@ if [ -n "${VIRTUAL_ENV:-}${CONDA_PREFIX:-}" ]; then
 fi
 if ! command -v uv >/dev/null 2>&1 || ! uv tool install --help | grep -q -- '--torch-backend'; then
   info 'Installing a compatible uv...'
-  uv_script="$(mktemp)"
-  trap 'rm -f "$uv_script"' 0
+  uv_script="$temporary/uv-install.sh"
   curl -fsSL https://astral.sh/uv/install.sh -o "$uv_script"
   sh "$uv_script"
   PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
@@ -27,10 +28,12 @@ if ! uv tool install --help | grep -q -- '--torch-backend'; then
   fail 'This installer requires a uv version supporting uv tool install --torch-backend (tested with 0.11.26). Upgrade uv first.'
 fi
 # The same Python transaction handles installation, upgrade, and rollback.
-installer="$(dirname "$0")/manage_install.py"
-if [ ! -f "$installer" ]; then
-  installer="$(mktemp)"
-  trap 'rm -f "$installer"' 0
+installer=''
+case "$0" in
+  */*) installer="$(dirname "$0")/manage_install.py" ;;
+esac
+if [ -z "$installer" ] || [ ! -f "$installer" ]; then
+  installer="$temporary/manage_install.py"
   curl -fsSL "${XINFERENCE_INSTALLER_URL:-https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/manage_install.py}" -o "$installer"
 fi
-uv run --no-project --no-config --python 3.12 python "$installer"
+uv run --no-project --no-config --python 3.12 python -I "$installer"

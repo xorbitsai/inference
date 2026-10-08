@@ -15,6 +15,7 @@
 import importlib.util
 import io
 import json
+import shutil
 import subprocess
 import sys
 from contextlib import redirect_stdout
@@ -68,7 +69,7 @@ def installer(tmp_path, monkeypatch):
     write_environment(result.environment, bins, "1.0.0")
     (result.environment / "preserve-dependency").write_text("old dependency")
 
-    def info(python):
+    def info(python, service_pid=0):
         return {
             "version": python.read_text(),
             "python": "/original/python",
@@ -164,7 +165,7 @@ def test_unwritable_environment_fails_before_stopping_service(installer, monkeyp
     monkeypatch.setattr(module.os, "access", lambda path, flags: False)
     with pytest.raises(RuntimeError, match="Fix permissions"):
         installer.update()
-    assert not installer.calls
+    assert [call[0] for call in installer.calls] == ["prepare"]
     assert installer.running
     assert installer.python.read_text() == "1.0.0"
 
@@ -203,11 +204,13 @@ def test_foreground_process_blocks_in_place_upgrade(installer, monkeypatch):
     monkeypatch.setattr(installer, "find_service", no_service)
     original = module.runtime_info
     monkeypatch.setattr(
-        module, "runtime_info", lambda python: dict(original(python), busy=[123])
+        module,
+        "runtime_info",
+        lambda python, service_pid=0: dict(original(python), busy=[123]),
     )
     with pytest.raises(RuntimeError, match="foreground"):
         installer.update()
-    assert not installer.calls
+    assert [call[0] for call in installer.calls] == ["prepare"]
 
 
 def test_auto_detection_preserves_config_and_rejects_changed_port(
@@ -232,6 +235,9 @@ def test_auto_detection_preserves_config_and_rejects_changed_port(
     module.Installer.find_service(installer)
     assert installer.mode == "user"
     assert installer.config == config
+    installer.env.update(XINFERENCE_HOME="/original/models/", XINFERENCE_PORT="012345")
+    module.Installer.find_service(installer)
+    installer.env["XINFERENCE_HOME"] = "/original/models"
     installer.env["XINFERENCE_PORT"] = "9997"
     with pytest.raises(RuntimeError, match="differs"):
         module.Installer.find_service(installer)
@@ -321,15 +327,99 @@ def test_runtime_probe_excludes_its_windows_redirector_but_detects_server(monkey
         SimpleNamespace(pid=101, info={"cmdline": args}),
         SimpleNamespace(pid=102, info={"cmdline": args}),
         server,
+        SimpleNamespace(pid=104, info=server.info),
     ]
-    monkeypatch.setattr(psutil, "Process", lambda: inspector)
+    managed = SimpleNamespace(pid=103, children=lambda recursive: [])
+    monkeypatch.setattr(
+        psutil, "Process", lambda pid=None: inspector if pid is None else managed
+    )
     monkeypatch.setattr(psutil, "process_iter", lambda attrs: processes)
 
     def inspect(args, env=None, check=True):
         output = io.StringIO()
-        with redirect_stdout(output):
-            exec(args[-1], {})
+        with monkeypatch.context() as context:
+            context.setattr(sys, "argv", ["-c", args[-1]])
+            with redirect_stdout(output):
+                exec(args[-2], {})
         return subprocess.CompletedProcess(args, 0, output.getvalue(), "")
 
     monkeypatch.setattr(module, "run", inspect)
-    assert module.runtime_info(Path(sys.executable))["busy"] == [103]
+    assert module.runtime_info(Path(sys.executable))["busy"] == [103, 104]
+    assert module.runtime_info(Path(sys.executable), 103)["busy"] == [104]
+
+
+def test_noop_foreground_repeat_keeps_busy_environment(installer, monkeypatch):
+    def no_service():
+        installer.mode = "none"
+        installer.config = None
+
+    monkeypatch.setattr(installer, "find_service", no_service)
+    original = module.runtime_info
+    monkeypatch.setattr(
+        module,
+        "runtime_info",
+        lambda python, service_pid=0: dict(original(python), busy=[123]),
+    )
+    installer.target = "1.0.0"
+    installer.update()
+    assert [call[0] for call in installer.calls] == ["prepare"]
+
+
+def test_separate_foreground_process_blocks_service_environment_replacement(
+    installer, monkeypatch
+):
+    original = module.runtime_info
+    monkeypatch.setattr(
+        module,
+        "runtime_info",
+        lambda python, service_pid=0: dict(original(python), busy=[123]),
+    )
+    with pytest.raises(RuntimeError, match="foreground"):
+        installer.update()
+    assert [call[0] for call in installer.calls] == ["prepare"]
+    assert installer.running
+
+
+def test_first_install_removes_new_service_when_startup_fails(installer, monkeypatch):
+    shutil.rmtree(installer.environment)
+    installer.running = False
+    registered = [False]
+    find = installer.find_service
+    service = installer.service
+
+    def find_service():
+        find()
+        if not registered[0]:
+            installer.config = None
+
+    def control(action, *args, python=None):
+        if action in {"install", "uninstall"}:
+            registered[0] = action == "install"
+        return service(action, *args, python=python)
+
+    monkeypatch.setattr(installer, "find_service", find_service)
+    monkeypatch.setattr(installer, "service", control)
+    installer.fail_start = True
+    with pytest.raises(RuntimeError, match="not ready"):
+        installer.update()
+    assert not registered[0]
+    assert installer.calls[-1][0] == "uninstall"
+    assert installer.python.read_text() == "2.0.0"
+    assert not installer.journal.exists()
+
+
+def test_windows_foreground_waits_and_propagates_exit_code(installer, monkeypatch):
+    installer.mode = "none"
+    monkeypatch.setattr(installer, "update", lambda: None)
+    monkeypatch.setattr(module.platform, "system", lambda: "Windows")
+    calls = []
+
+    def foreground(args, env=None):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 17)
+
+    monkeypatch.setattr(module.subprocess, "run", foreground)
+    with pytest.raises(SystemExit) as result:
+        installer.execute()
+    assert result.value.code == 17
+    assert calls[0][:4] == [str(installer.python), "-I", "-u", "-c"]

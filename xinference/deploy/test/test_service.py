@@ -416,7 +416,7 @@ def test_cli_uses_shared_manager(manager, monkeypatch):
         module.service, ["install", "--port", "12345", "--start"]
     )
     assert result.exit_code == 0, result.output
-    assert calls == [("127.0.0.1", 12345, None, None), 60]
+    assert calls == [("127.0.0.1", 12345, None, None), 120]
     from ..cmdline import cli
 
     assert CliRunner().invoke(cli, ["service", "--help"]).exit_code == 0
@@ -458,4 +458,77 @@ def test_shell_installer_delegates_upgrade_flow(tmp_path, mode):
         "python",
     ]
     assert Path(calls[-1][0][-1]).resolve() == script.with_name("manage_install.py")
+    assert calls[-1][0][-2] == "-I"
     assert calls[-1][1] == mode
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX shell installer")
+def test_piped_installer_ignores_cwd_and_shared_temp_modules(tmp_path):
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    uv = binaries / "uv"
+    uv.write_text(
+        f"#!{sys.executable}\n"
+        "import os, sys\n"
+        "if sys.argv[1:] == ['tool', 'install', '--help']: print('--torch-backend')\n"
+        "elif sys.argv[1] == 'run': os.execv(sys.executable, [sys.executable, *sys.argv[7:]])\n"
+    )
+    uv.chmod(0o755)
+    (tmp_path / "manage_install.py").write_text(
+        "raise RuntimeError('Executed a cwd driver')\n"
+    )
+    (tmp_path / "json.py").write_text(
+        "raise RuntimeError('Imported a shared-temp module')\n"
+    )
+    driver = tmp_path / "trusted.py"
+    driver.write_text("import json\nprint('Downloaded driver ran in isolation')\n")
+    script = Path(__file__).resolve().parents[3] / "scripts/install.sh"
+    result = subprocess.run(
+        ["sh"],
+        input=script.read_text(),
+        cwd=tmp_path,
+        env=dict(
+            os.environ,
+            PATH=str(binaries) + os.pathsep + os.environ["PATH"],
+            TMPDIR=str(tmp_path),
+            XINFERENCE_INSTALLER_URL=driver.as_uri(),
+        ),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Downloaded driver ran in isolation" in result.stdout
+    assert not list(
+        tmp_path.glob("tmp.*")
+    ), "Private download directory was not removed"
+
+
+def test_windows_service_uses_protected_control_directory_and_isolated_python(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(module.platform, "system", lambda: "Windows")
+    program_files = tmp_path / "Program Files"
+    program_data = tmp_path / "ProgramData"
+    monkeypatch.setenv("ProgramFiles", str(program_files))
+    monkeypatch.setenv("PROGRAMDATA", str(program_data))
+    manager = module.ServiceManager()
+    monkeypatch.setattr(manager, "_permission", lambda: None)
+    monkeypatch.setattr(manager, "_download_wrapper", lambda: None)
+    monkeypatch.setattr(
+        manager,
+        "_control",
+        lambda action, check=True: subprocess.CompletedProcess([], 0, "stopped", ""),
+    )
+    monkeypatch.setattr(module.shutil, "which", lambda command: None)
+    monkeypatch.setattr(
+        module,
+        "_run",
+        lambda args, check=True: subprocess.CompletedProcess(args, 1060, "", ""),
+    )
+    manager.install("127.0.0.1", 9997, None, None)
+    config = manager.load()
+    definition = ET.fromstring(manager.definition.read_bytes())
+    assert manager.directory == program_files / "Xinference/service"
+    assert config["home"] == str((program_data / "Xinference/data").absolute())
+    assert definition.findtext("workingdirectory") == str(manager.directory)
+    assert config["command"][1:4] == ["-I", "-u", "-c"]

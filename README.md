@@ -168,7 +168,7 @@ Install Xinference by using pip as follows. (For more options, see [Installation
 pip install "xinference[all]"
 ```
 
-A [one-command installer](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prepares Python and an isolated uv tool environment, then starts the local server. Model environments install engine dependencies on demand.
+A [one-command installer](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prepares Python and installs the base package in an isolated uv tool environment, then starts the local server. Use `XINFERENCE_EXTRAS` to preinstall optional engines; model environments also install supported engine dependencies on demand.
 
 Linux/macOS:
 

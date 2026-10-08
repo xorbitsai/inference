@@ -115,7 +115,7 @@ class ServiceManager:
         self.system = system or self.platform == "Windows"
         if self.platform == "Windows":
             self.directory = (
-                Path(os.environ.get("PROGRAMDATA", "C:/ProgramData"))
+                Path(os.environ.get("ProgramFiles", "C:/Program Files"))
                 / "Xinference"
                 / "service"
             )
@@ -274,7 +274,7 @@ class ServiceManager:
             "description": "Xinference local model server",
             "executable": command[0],
             "arguments": subprocess.list2cmdline(command[1:]),
-            "workingdirectory": home,
+            "workingdirectory": str(self.directory),
             "startmode": "Automatic",
             "stoptimeout": "30sec",
             "logpath": logs,
@@ -318,7 +318,10 @@ class ServiceManager:
                 raise click.ClickException(f"Unknown service user: {account}") from exc
             default_home = str(Path(entry.pw_dir) / ".xinference")
         else:
-            default_home = str(self.directory.parent / "data")
+            default_home = str(
+                Path(os.environ.get("PROGRAMDATA", "C:/ProgramData"))
+                / "Xinference/data"
+            )
         data_home = str(
             Path(home or os.environ.get("XINFERENCE_HOME") or default_home)
             .expanduser()
@@ -328,6 +331,7 @@ class ServiceManager:
             raise click.ClickException("The data directory cannot contain line breaks.")
         command = [
             sys.executable,
+            "-I",
             "-u",
             "-c",
             "from xinference.deploy.cmdline import local; local()",
@@ -587,7 +591,7 @@ def service(ctx: click.Context, system: bool) -> None:
 @click.option(
     "--timeout",
     type=click.FloatRange(min=0, min_open=True),
-    default=60,
+    default=120,
     show_default=True,
 )
 @click.pass_obj
@@ -609,7 +613,7 @@ def install(
 @click.option(
     "--timeout",
     type=click.FloatRange(min=0, min_open=True),
-    default=60,
+    default=120,
     show_default=True,
 )
 @click.pass_obj
@@ -627,7 +631,7 @@ def stop(manager: ServiceManager) -> None:
 @click.option(
     "--timeout",
     type=click.FloatRange(min=0, min_open=True),
-    default=60,
+    default=120,
     show_default=True,
 )
 @click.pass_obj

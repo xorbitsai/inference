@@ -9,6 +9,7 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -32,7 +33,7 @@ def python_path(environment):
     return environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def runtime_info(python):
+def runtime_info(python, service_pid=0):
     code = """
 import importlib.metadata as metadata, json, os, pathlib, sys
 import psutil
@@ -40,6 +41,12 @@ root = os.path.normcase(str(pathlib.Path(sys.prefix).absolute())) + os.sep
 inspection = psutil.Process()
 inspection_args = inspection.cmdline()[1:]
 own = {inspection.pid}
+if int(sys.argv[1]):
+    try:
+        service = psutil.Process(int(sys.argv[1]))
+        own.update(p.pid for p in [service, *service.children(recursive=True)])
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
 # Windows virtualenv Python can launch a child through its redirector. That
 # waiting parent is part of this metadata probe, not a running server.
 for parent in inspection.parents():
@@ -63,7 +70,7 @@ print(json.dumps({
     'busy': busy,
 }))
 """
-    return json.loads(run([str(python), "-c", code]).stdout)
+    return json.loads(run([str(python), "-I", "-c", code, str(service_pid)]).stdout)
 
 
 def receipt(environment):
@@ -95,8 +102,8 @@ def installation_lock(root):
 class Installer:
     def __init__(self, env=None):
         self.env = dict(os.environ if env is None else env)
-        if self.env.get("XINFERENCE_HOME_DIR"):
-            self.env["UV_TOOL_DIR"] = self.env["XINFERENCE_HOME_DIR"]
+        if self.env.get("XINFERENCE_TOOL_DIR"):
+            self.env["UV_TOOL_DIR"] = self.env["XINFERENCE_TOOL_DIR"]
         self.root = Path(run(["uv", "tool", "dir"], self.env).stdout.strip())
         self.bin_dir = Path(
             run(["uv", "tool", "dir", "--bin"], self.env).stdout.strip()
@@ -129,7 +136,11 @@ class Installer:
         system = platform.system()
         if system == "Windows":
             paths = {
-                "system": Path(self.env.get("PROGRAMDATA", "C:/ProgramData"))
+                "system": Path(
+                    self.env.get(
+                        "PROGRAMFILES", self.env.get("ProgramFiles", "C:/Program Files")
+                    )
+                )
                 / "Xinference/service/config.json"
             }
         else:
@@ -182,7 +193,19 @@ class Installer:
                 ("port", "XINFERENCE_PORT"),
                 ("home", "XINFERENCE_HOME"),
             ):
-                if variable in self.env and str(self.config[key]) != self.env[variable]:
+                if variable not in self.env or (key == "home" and not self.env[variable]):
+                    continue
+                expected, actual = self.config[key], self.env[variable]
+                if key == "port":
+                    expected, actual = int(expected), int(actual)
+                elif key == "home":
+                    expected, actual = (
+                        os.path.normcase(
+                            os.path.normpath(str(Path(value).expanduser().absolute()))
+                        )
+                        for value in (expected, actual)
+                    )
+                if expected != actual:
                     raise RuntimeError(
                         f"{variable} differs from the installed service. Uninstall before changing service settings."
                     )
@@ -208,6 +231,7 @@ class Installer:
     def service(self, *args, python=None):
         command = [
             str(python or self.python),
+            "-I",
             "-B",
             "-c",
             "from xinference.deploy.cmdline import cli; cli()",
@@ -240,11 +264,36 @@ class Installer:
             )
             return output.returncode == 0 and "state = running" in output.stdout
         output = run(["sc.exe", "query", "Xinference"], self.env, check=False)
-        import re
-
         return output.returncode == 0 and bool(
             re.search(r"STATE\s*:\s*4\b", output.stdout)
         )
+
+    def service_pid(self):
+        if not self.config:
+            return 0
+        system = platform.system()
+        if system == "Linux":
+            args = [
+                "systemctl",
+                *([] if self.mode == "system" else ["--user"]),
+                "show",
+                "xinference.service",
+                "--property=MainPID",
+                "--value",
+            ]
+            pattern = r"^(\d+)"
+        elif system == "Darwin":
+            domain = "system" if self.mode == "system" else f"gui/{os.getuid()}"
+            args = ["launchctl", "print", f"{domain}/io.xinference.local"]
+            pattern = r"^\s*pid = (\d+)"
+        else:
+            args = ["sc.exe", "queryex", "Xinference"]
+            pattern = r"PID\s+:\s+(\d+)"
+        if self.mode == "system" and os.name != "nt" and os.geteuid() != 0:
+            args = ["sudo", *args]
+        output = run(args, self.env, check=False)
+        match = re.search(pattern, output.stdout, re.MULTILINE)
+        return int(match.group(1)) if output.returncode == 0 and match else 0
 
     def settings(self, old, tool):
         requirements = tool.get("requirements", [])
@@ -292,8 +341,7 @@ class Installer:
         command = ["uv", "tool", "install", "--python", python]
         if platform.system() != "Darwin":
             command.extend(["--torch-backend", backend])
-        result = run([*command, *extra, spec], env)
-        print(result.stdout + result.stderr, end="", flush=True)
+        subprocess.run([*command, *extra, spec], env=env, check=True)
 
     def configure(self):
         if self.mode == "none":
@@ -309,7 +357,7 @@ class Installer:
             ]
             home = config.get("home", self.env.get("XINFERENCE_HOME"))
             if home:
-                args.extend(["--home", home])
+                args.extend(["--home", str(Path(home).expanduser().absolute())])
             if self.mode == "system" and os.name != "nt":
                 import getpass
 
@@ -360,18 +408,30 @@ class Installer:
         self.permission()
         if self.journal.exists():
             self.restore(json.loads(self.journal.read_text()))
-        old = runtime_info(self.python) if self.python.exists() else None
-        if old and os.name != "nt":
-            for directory, _, _ in os.walk(self.environment):
-                if not os.access(directory, os.W_OK | os.X_OK):
-                    raise RuntimeError(
-                        f"The tool environment is not writable. Fix permissions before upgrading: {directory}"
-                    )
+        old = (
+            runtime_info(self.python, self.service_pid())
+            if self.python.exists()
+            else None
+        )
         tool = receipt(self.environment)
         spec, python, backend, extras = self.settings(old, tool)
-        if old and not self.config and old["busy"]:
-            raise RuntimeError(
-                f"Stop the foreground Xinference processes before updating: {old['busy']}"
+        existing = shutil.which("xinference", path=self.env.get("PATH"))
+        own_command = self.bin_dir / (
+            "xinference.exe" if os.name == "nt" else "xinference"
+        )
+        if (
+            existing
+            and Path(existing).resolve().parent != self.python.parent
+            and not (old and Path(existing).absolute() == own_command.absolute())
+        ):
+            print(
+                f"Existing Xinference command: {existing}. This installer uses {self.environment}; commands are linked in {self.bin_dir}.",
+                flush=True,
+            )
+        if platform.system() == "Darwin" and platform.machine().lower() == "x86_64":
+            print(
+                "Recent PyTorch releases do not provide Intel Mac wheels; resolution may select an older version or fail.",
+                flush=True,
             )
         temporary = Path(tempfile.mkdtemp(prefix=".xinference-update-", dir=self.root))
         try:
@@ -387,7 +447,7 @@ class Installer:
             code = "from xinference.deploy.cmdline import cli, local"
             if self.mode != "none":
                 code += "; assert 'service' in cli.commands, 'This release has no service CLI'"
-            run([str(candidate_python), "-c", code], self.env)
+            run([str(candidate_python), "-I", "-c", code], self.env)
             unchanged = (
                 old
                 and old["version"] == candidate["version"]
@@ -408,6 +468,16 @@ class Installer:
                 return
             transaction = None
             if old:
+                if old["busy"]:
+                    raise RuntimeError(
+                        f"Stop the foreground Xinference processes before updating: {old['busy']}"
+                    )
+                if os.name != "nt":
+                    for directory, _, _ in os.walk(self.environment):
+                        if not os.access(directory, os.W_OK | os.X_OK):
+                            raise RuntimeError(
+                                f"The tool environment is not writable. Fix permissions before upgrading: {directory}"
+                            )
                 backup = temporary / "backup"
                 backup.mkdir()
                 shutil.copytree(self.environment, backup / "environment", symlinks=True)
@@ -474,6 +544,17 @@ class Installer:
                             f"Upgrade failed: {failure}\nRollback failed: {rollback}\n"
                             f"Recovery files were preserved at {transaction['backup']}."
                         ) from failure
+                elif self.created_service:
+                    try:
+                        self.find_service()
+                        if self.config:
+                            self.service("uninstall")
+                            self.config = None
+                    except Exception as cleanup:
+                        raise RuntimeError(
+                            f"Installation failed: {failure}\nService cleanup failed: {cleanup}\n"
+                            "Run xinference service uninstall (with --system for a system service) before retrying."
+                        ) from failure
                 raise
             if transaction:
                 self.journal.unlink()
@@ -498,9 +579,20 @@ class Installer:
                     f"Starting Xinference on {host}:{port} (Ctrl+C to stop)...",
                     flush=True,
                 )
-                os.execve(
-                    str(server), [str(server), "--host", host, "--port", port], self.env
-                )
+                args = [
+                    str(self.python),
+                    "-I",
+                    "-u",
+                    "-c",
+                    "from xinference.deploy.cmdline import local; local()",
+                    "--host",
+                    host,
+                    "--port",
+                    port,
+                ]
+                if platform.system() == "Windows":
+                    raise SystemExit(subprocess.run(args, env=self.env).returncode)
+                os.execve(str(self.python), args, self.env)
             print(f"Start the server: {server} --host {host} --port {port}", flush=True)
 
 

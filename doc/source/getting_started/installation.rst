@@ -48,9 +48,9 @@ On Windows, run this in PowerShell::
 
    irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
 
-Set ``XINFERENCE_START=0`` to install without starting. Use ``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and ``XINFERENCE_HOME_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` controls persistent model data; it is separate from the tool environment.
+Set ``XINFERENCE_START=0`` to install without starting. Use ``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and ``XINFERENCE_TOOL_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` controls persistent model data; it is separate from the tool environment.
 
-On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another backend supported by uv. macOS uses its native PyTorch wheel; current releases require Apple Silicon. Model virtual environments install engine dependencies on demand. Engine platform restrictions still apply, including Linux-only vLLM and Apple-Silicon-only MLX.
+On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another backend supported by uv. macOS uses its native PyTorch wheel. Recent PyTorch wheels require Apple Silicon; Intel Macs may resolve older dependencies or fail installation. Model virtual environments install engine dependencies on demand. Engine platform restrictions still apply, including Linux-only vLLM and Apple-Silicon-only MLX.
 
 To run without a persistent tool installation, use ``uvx``. This requires uv; the first invocation downloads the Python environment and dependencies::
 
@@ -62,9 +62,9 @@ Upgrading an installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 Run the same one-command installer again to update to the latest stable release. Set ``XINFERENCE_VERSION`` each time to select a specific release, including a downgrade. Without this variable, a previously pinned installation also updates to the latest stable release. If the selected version, Python, extras, and PyTorch backend are unchanged, the installer keeps the existing environment and does not restart a running service.
 
-The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service for this tool environment. Upgrades preserve its service account, address, port, data directory, and registration. Python, extras, and the PyTorch backend are also retained unless explicitly overridden. Run as the original installation account and reuse any custom ``XINFERENCE_HOME_DIR`` and ``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it.
+The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service for this tool environment. Upgrades preserve its service account, address, port, data directory, and registration. Python, extras, and the PyTorch backend are also retained unless explicitly overridden. Run as the original installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and ``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it.
 
-The installer downloads and checks the candidate environment before stopping a service. It then backs up the complete previous environment, switches versions, and waits for the service to become ready. If installation or service startup fails, it restores the previous environment and the service's original running or stopped state. Model data and caches are preserved; models that were running must be launched again after a service restart. Foreground startup does not perform a service readiness check or automatic startup rollback.
+During an upgrade, the installer downloads and checks the candidate environment before stopping a service. It then backs up the complete previous environment, switches versions, and waits for the service to become ready. If installation or service startup fails, it restores the previous environment and the service's original running or stopped state. Preparing the candidate and keeping the full backup require additional disk space. On a first installation, failed startup removes a newly registered service and keeps the installed package for retrying. Model data and caches are preserved; models that were running must be launched again after a service restart. Foreground startup does not perform a service readiness check or automatic startup rollback.
 
 Concurrent installers for the same tool store are rejected. If an upgrade is interrupted, the next run restores the saved environment before trying again. Keep the recovery files in the tool store until recovery completes. ``XINFERENCE_TIMEOUT`` sets the service readiness timeout in seconds (default 120). With ``XINFERENCE_START=0``, an updated service remains stopped.
 
@@ -85,7 +85,9 @@ Linux uses a systemd user service. To start it at boot without logging in, enabl
    sudo /absolute/path/to/xinference service --system status
    sudo /absolute/path/to/xinference service --system uninstall
 
-Windows services currently require x86-64 Windows and an Administrator PowerShell terminal and run as LocalSystem. The installer downloads a pinned, checksum-verified WinSW wrapper. Service data defaults to ``%PROGRAMDATA%\Xinference\data``. Linux and macOS default to the runtime account's ``~/.xinference``. Override the data directory with ``--home`` and the address with ``--host`` and ``--port`` on ``service install``.
+Windows services currently require x86-64 Windows and an Administrator PowerShell terminal and run as LocalSystem. The installer downloads a pinned, checksum-verified WinSW wrapper. Service control files and the working directory use ``%ProgramFiles%\Xinference\service``. Use an administrator-controlled Python installation and model data because the service executes model code with its account's privileges. Service data defaults to ``%PROGRAMDATA%\Xinference\data``. Linux and macOS default to the runtime account's ``~/.xinference``. Override the data directory with ``--home`` and the address with ``--host`` and ``--port`` on ``service install``.
+
+A macOS user service requires a logged-in graphical session; use system mode on headless hosts. The launchd ``console.log`` does not rotate automatically.
 
 For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/macOS or ``XINFERENCE_SERVICE=system`` on any supported platform. System mode uses sudo on Linux/macOS after installing as your account, and requires an Administrator Windows terminal. ``XINFERENCE_START=0`` registers without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to ``127.0.0.1`` and ``9997``. Service mode requires a Xinference release containing the service CLI::
 

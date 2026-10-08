@@ -1,6 +1,8 @@
 """Exercise an installed candidate wheel, including native service cleanup."""
 
+import functools
 import getpass
+import http.server
 import json
 import os
 import re
@@ -9,6 +11,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 import zipfile
@@ -50,6 +53,7 @@ def _check_port(host, port):
 def command(*args):
     invocation = [
         str(TOOL_PYTHON),
+        "-I",
         "-B",
         "-c",
         "from xinference.deploy.cmdline import cli; cli()",
@@ -72,7 +76,18 @@ def run(*args):
 def install_service(home=None, overrides=None, check=True):
     scripts = Path(os.environ["GITHUB_WORKSPACE"]) / "scripts"
     args = (
-        ["pwsh", "-NoProfile", "-File", str(scripts / "install.ps1")]
+        [
+            "pwsh",
+            "-NoProfile",
+            "-Command",
+            """
+$ErrorActionPreference = 'Continue'
+$installer = 'caller-sentinel'
+Get-Content (Join-Path $env:GITHUB_WORKSPACE 'scripts/install.ps1') -Raw | Invoke-Expression
+if ($installer -ne 'caller-sentinel' -or $ErrorActionPreference -ne 'Continue') { throw 'Installer leaked caller variables' }
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+""",
+        ]
         if os.name == "nt"
         else ["sh", str(scripts / "install.sh")]
     )
@@ -98,12 +113,24 @@ def install_service(home=None, overrides=None, check=True):
             env.pop(key, None)
         env["XINFERENCE_START"] = "1"
     env.update(overrides or {})
-    result = subprocess.run(
-        args,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    server = None
+    if os.name == "nt":
+        server = http.server.ThreadingHTTPServer(
+            (HOST, 0),
+            functools.partial(
+                http.server.SimpleHTTPRequestHandler, directory=str(scripts)
+            ),
+        )
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        env[
+            "XINFERENCE_INSTALLER_URL"
+        ] = f"http://{HOST}:{server.server_port}/manage_install.py"
+    try:
+        result = subprocess.run(args, env=env, capture_output=True, text=True)
+    finally:
+        if server:
+            server.shutdown()
+            server.server_close()
     if check and result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     return result
@@ -113,6 +140,7 @@ def version():
     return subprocess.check_output(
         [
             str(TOOL_PYTHON),
+            "-I",
             "-c",
             "from importlib.metadata import version; print(version('xinference'))",
         ],
@@ -122,7 +150,7 @@ def version():
 
 def service_config():
     if os.name == "nt":
-        return Path(os.environ["PROGRAMDATA"]) / "Xinference/service/config.json"
+        return Path(os.environ["ProgramFiles"]) / "Xinference/service/config.json"
     if sys.platform == "darwin":
         return Path("/Library/Application Support/Xinference/service/config.json")
     return Path("/etc/xinference/config.json")
@@ -238,6 +266,11 @@ def assert_stopped(processes):
 def main():
     with tempfile.TemporaryDirectory(prefix="xinference-install-smoke-") as temporary:
         home = Path(temporary) / "data with spaces"
+        if os.name == "nt":
+            home.mkdir()
+            (home / "json.py").write_text(
+                "raise RuntimeError('Imported the model data directory as Python code')\n"
+            )
         # Test the ordinary server entry point on POSIX. Windows lifecycle is
         # exercised through SCM below, where WinSW supplies console signals.
         if os.name != "nt":
@@ -246,6 +279,7 @@ def main():
                 process = subprocess.Popen(
                     [
                         str(TOOL_PYTHON),
+                        "-I",
                         "-c",
                         "from xinference.deploy.cmdline import local; local()",
                         "--host",
@@ -314,7 +348,14 @@ def main():
             print(result.stdout + result.stderr)
             raise
         finally:
-            run("uninstall")
+            failed = sys.exc_info()[0] is not None
+            if service_config().exists():
+                try:
+                    run("uninstall")
+                except Exception as cleanup:
+                    if not failed:
+                        raise
+                    print(f"Service cleanup failed: {cleanup}", file=sys.stderr)
         assert (home / "preserve-model-data").read_text() == "model data"
         _check_port(HOST, PORT)
         print("Candidate installation and native service lifecycle passed.")
