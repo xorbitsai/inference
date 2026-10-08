@@ -182,7 +182,7 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
 ```
 
-Set `XINFERENCE_START=0` to install without starting. Use `XINFERENCE_SERVICE=user` on Linux/macOS, or `XINFERENCE_SERVICE=system` in an Administrator Windows terminal, to register and start a service. Existing pip/Conda/uv installs can use `xinference service install --start`; see the installation guide for system services and configuration.
+Set `XINFERENCE_START=0` to install without starting. Use `XINFERENCE_SERVICE=user` on Linux/macOS or `XINFERENCE_SERVICE=system` on any supported platform to register and start a service. System mode uses sudo on Linux/macOS and requires an Administrator Windows terminal. Existing pip/Conda/uv installs can use `xinference service install --start`; see the installation guide for configuration.
 
 
 To start a local instance of Xinference, run the following command:

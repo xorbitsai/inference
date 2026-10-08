@@ -22,8 +22,13 @@ case "$port" in ''|*[!0-9]*) fail 'XINFERENCE_PORT must be an integer.' ;; esac
 if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
   fail 'XINFERENCE_PORT must be between 1 and 65535.'
 fi
-if [ "$service" = system ] && { [ "$(id -u)" -ne 0 ] || [ -n "${SUDO_USER:-}" ]; }; then
-  fail 'System service installation requires root. Install normally first, then run xinference service --system install --start with sudo and an absolute command path.'
+if [ "$service" = system ]; then
+  if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+    fail 'Run the installer as your normal account. It uses sudo to register the system service after installing Xinference.'
+  fi
+  if [ "$(id -u)" -ne 0 ] && ! command -v sudo >/dev/null 2>&1; then
+    fail 'System service installation requires sudo or a root account.'
+  fi
 fi
 if [ -n "${VIRTUAL_ENV:-}${CONDA_PREFIX:-}" ]; then
   info 'Creating a separate uv tool environment; the active Python environment is not reused.'
@@ -75,7 +80,12 @@ if [ "$service" != none ]; then
   set -- "$@" install --host "$host" --port "$port"
   [ -z "${XINFERENCE_HOME:-}" ] || set -- "$@" --home "$XINFERENCE_HOME"
   [ "$start" != 1 ] || set -- "$@" --start
-  "$cli" "$@"
+  if [ "$service" = system ] && [ "$(id -u)" -ne 0 ]; then
+    info 'Registering the system service with sudo...'
+    sudo "$cli" "$@" --user "$(id -un)"
+  else
+    "$cli" "$@"
+  fi
 elif [ "$start" = 1 ]; then
   info "Starting Xinference on $host:$port (Ctrl+C to stop)..."
   exec "$server" --host "$host" --port "$port"

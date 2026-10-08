@@ -39,6 +39,30 @@ def run(*args):
     return result.stdout
 
 
+def install_service(home):
+    scripts = Path(os.environ["GITHUB_WORKSPACE"]) / "scripts"
+    args = (
+        ["pwsh", "-NoProfile", "-File", str(scripts / "install.ps1")]
+        if os.name == "nt"
+        else ["sh", str(scripts / "install.sh")]
+    )
+    result = subprocess.run(
+        args,
+        env=dict(
+            os.environ,
+            XINFERENCE_SERVICE="system",
+            XINFERENCE_START="1",
+            XINFERENCE_HOME=str(home),
+            XINFERENCE_HOST=HOST,
+            XINFERENCE_PORT=str(PORT),
+        ),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        raise RuntimeError(result.stdout + result.stderr)
+
+
 def native_pid():
     if sys.platform == "win32":
         args = ["sc.exe", "queryex", "Xinference"]
@@ -85,7 +109,7 @@ def assert_stopped(processes):
 
 def main():
     with tempfile.TemporaryDirectory(prefix="xinference-install-smoke-") as temporary:
-        home = Path(temporary) / "data"
+        home = Path(temporary) / "data with spaces"
         # Test the ordinary server entry point on POSIX. Windows lifecycle is
         # exercised through SCM below, where WinSW supplies console signals.
         if os.name != "nt":
@@ -139,7 +163,7 @@ def main():
         if os.name != "nt":
             arguments.extend(["--user", getpass.getuser()])
         try:
-            run(*arguments)
+            install_service(home)
             run("status")
             old_processes = descendants(native_pid())
             run("restart", "--timeout", "120")

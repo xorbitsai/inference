@@ -246,7 +246,8 @@ class ServiceManager:
                 f"[Service]\nType=simple\n{user}"
                 f"ExecStart={' '.join(_unit_value(arg, executable=True) for arg in command)}\n"
                 f"Environment={_unit_value('XINFERENCE_HOME=' + home)}\n"
-                f"WorkingDirectory={_unit_value(home)}\n"
+                # WorkingDirectory takes a literal path, unlike ExecStart.
+                f"WorkingDirectory={home.replace('%', '%%')}\n"
                 "Restart=on-failure\nRestartSec=5\nKillMode=control-group\nTimeoutStopSec=30\n\n"
                 f"[Install]\nWantedBy={'multi-user.target' if self.system else 'default.target'}\n"
             )
@@ -323,6 +324,8 @@ class ServiceManager:
             .expanduser()
             .absolute()
         )
+        if any(character in data_home for character in ("\n", "\r")):
+            raise click.ClickException("The data directory cannot contain line breaks.")
         command = [
             sys.executable,
             "-u",
@@ -383,7 +386,11 @@ class ServiceManager:
         Path(data_home).mkdir(parents=True, exist_ok=True)
         if not home_exists and self.system and self.platform != "Windows":
             os.chown(data_home, entry.pw_uid, entry.pw_gid)
-            # launchd opens these files before changing to the service user.
+        if self.system and self.platform == "Darwin":
+            # The service account must be able to open launchd's output files.
+            console_log = self.directory / "logs/console.log"
+            console_log.touch(exist_ok=True)
+            os.chown(console_log, entry.pw_uid, entry.pw_gid)
         if self.platform == "Windows":
             self._download_wrapper()
         self.definition.parent.mkdir(parents=True, exist_ok=True)
@@ -428,6 +435,8 @@ class ServiceManager:
         except BaseException:
             if not active:
                 try:
+                    status = self._control("status", check=False)
+                    click.echo(status.stdout or status.stderr, err=True, nl=False)
                     self.stop()
                 except click.ClickException as exc:
                     click.echo(f"Service cleanup failed: {exc}", err=True)
@@ -473,6 +482,14 @@ class ServiceManager:
                     for state in ("stopped", "nonexistent")
                 )
             )
+            if self.platform == "Linux" and not processes:
+                active = self._control("is-active", check=False)
+                # A failed registration can leave a definition that systemd
+                # never loaded. Allow uninstalling that inactive service.
+                stopped = active.returncode in {3, 4} and active.stdout.strip() in {
+                    "inactive",
+                    "unknown",
+                }
             missing = self.platform == "Darwin" and any(
                 message in (native.stderr + result.stderr).lower()
                 for message in ("could not find service", "no such process")

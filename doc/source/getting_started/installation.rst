@@ -77,9 +77,11 @@ Linux uses a systemd user service. To start it at boot without logging in, enabl
 
 Windows services currently require x86-64 Windows and an Administrator PowerShell terminal and run as LocalSystem. The installer downloads a pinned, checksum-verified WinSW wrapper. Service data defaults to ``%PROGRAMDATA%\Xinference\data``. Linux and macOS default to the runtime account's ``~/.xinference``. Override the data directory with ``--home`` and the address with ``--host`` and ``--port`` on ``service install``.
 
-For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/macOS or ``XINFERENCE_SERVICE=system`` in an Administrator Windows terminal. ``XINFERENCE_START=0`` registers without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to ``127.0.0.1`` and ``9997``. Service mode requires a Xinference release containing the service CLI::
+For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/macOS or ``XINFERENCE_SERVICE=system`` on any supported platform. System mode uses sudo on Linux/macOS after installing as your account, and requires an Administrator Windows terminal. ``XINFERENCE_START=0`` registers without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to ``127.0.0.1`` and ``9997``. Service mode requires a Xinference release containing the service CLI::
 
    curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_SERVICE=user sh
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_SERVICE=system sh
 
    $env:XINFERENCE_SERVICE='system'; irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
 

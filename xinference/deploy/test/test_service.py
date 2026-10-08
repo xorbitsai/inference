@@ -83,6 +83,7 @@ def test_systemd_escaping_and_process_cleanup(manager, tmp_path, system):
     assert "hello $$world%%" in unit
     assert "models $literal%%name" in unit
     assert "models $$literal" not in unit
+    assert f"WorkingDirectory={tmp_path / 'models $literal%%name'}\n" in unit
     assert "KillMode=control-group" in unit
     assert ("User=runner" in unit) == system
     assert ("multi-user.target" in unit) == system
@@ -120,6 +121,12 @@ def test_existing_unmanaged_definition_is_preserved(manager, tmp_path):
     with pytest.raises(click.ClickException, match="unmanaged"):
         manager.install("127.0.0.1", 9997, str(tmp_path / "data"), None)
     assert manager.definition.read_text() == "existing service"
+
+
+def test_service_data_directory_rejects_line_breaks(manager, tmp_path):
+    with pytest.raises(click.ClickException, match="line breaks"):
+        manager.install("127.0.0.1", 9997, str(tmp_path / "data\ninvalid"), None)
+    assert not manager.definition.exists()
 
 
 def test_install_is_idempotent_and_uninstall_preserves_models(
@@ -162,6 +169,26 @@ def test_failed_registration_can_be_retried(manager, tmp_path, monkeypatch):
     assert not manager.load()["registered"]
     manager.install("127.0.0.1", 9997, str(tmp_path / "data"), None)
     assert manager.load()["registered"]
+
+
+def test_system_launchd_logs_are_writable_by_the_service_account(
+    manager, tmp_path, monkeypatch
+):
+    manager.platform = "Darwin"
+    manager.system = True
+    owners = []
+    monkeypatch.setattr(
+        module.os, "chown", lambda *args: owners.append(args), raising=False
+    )
+    monkeypatch.setattr(
+        module,
+        "_run",
+        lambda args, check=True: subprocess.CompletedProcess(args, 1, "", ""),
+    )
+    manager.install("127.0.0.1", 9997, str(tmp_path / "data"), None)
+    console_log = manager.directory / "logs/console.log"
+    assert console_log.is_file()
+    assert (console_log, 0, 0) in owners
 
 
 def test_windows_registration_retry_reuses_owned_native_service(
@@ -231,7 +258,7 @@ def test_failed_health_check_stops_new_service(manager, tmp_path, monkeypatch):
     monkeypatch.setattr(module, "_wait_ready", fail)
     with pytest.raises(click.ClickException, match="not ready"):
         manager.start(0.1)
-    assert actions == ["is-active", "start", "stop"]
+    assert actions == ["is-active", "start", "status", "stop"]
 
 
 def test_port_conflict_does_not_start_service(manager, tmp_path, monkeypatch):
@@ -264,6 +291,27 @@ def test_native_stop_failure_is_reported(manager, tmp_path, monkeypatch):
     )
     with pytest.raises(click.ClickException, match="permission denied"):
         manager.stop()
+
+
+def test_uninstall_cleans_up_an_inactive_invalid_unit(manager, tmp_path, monkeypatch):
+    _save(manager, _config(tmp_path))
+    manager.definition.parent.mkdir()
+    manager.definition.write_text("invalid unit")
+
+    def control(action, check=True):
+        if action == "stop":
+            return subprocess.CompletedProcess([], 1, "", "Unit not loaded.")
+        if action == "is-active":
+            return subprocess.CompletedProcess([], 3, "inactive\n", "")
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(manager, "_control", control)
+    monkeypatch.setattr(
+        module, "_run", lambda args: subprocess.CompletedProcess(args, 0, "", "")
+    )
+    manager.uninstall()
+    assert not manager.definition.exists()
+    assert not manager.config_path.exists()
 
 
 def test_stop_waits_for_owned_processes(manager, tmp_path, monkeypatch):
@@ -377,7 +425,7 @@ def test_cli_uses_shared_manager(manager, monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX shell installer")
-@pytest.mark.parametrize("mode", ["none", "user"])
+@pytest.mark.parametrize("mode", ["none", "user", "system"])
 def test_shell_installer_uses_persistent_environment(tmp_path, mode):
     binaries = tmp_path / "bin"
     binaries.mkdir()
@@ -385,17 +433,19 @@ def test_shell_installer_uses_persistent_environment(tmp_path, mode):
     commands = store / "xinference/bin"
     commands.mkdir(parents=True)
     log = tmp_path / "calls.jsonl"
-    for name in ("uv", "xinference", "xinference-local"):
-        path = binaries / name if name == "uv" else commands / name
+    for name in ("uv", "id", "sudo", "xinference", "xinference-local"):
+        path = commands / name if name.startswith("xinference") else binaries / name
         path.write_text(
             f"#!{sys.executable}\n"
-            + "import json, os, sys\n"
+            + "import json, os, subprocess, sys\n"
             + "from pathlib import Path\n"
             + f"with open({str(log)!r}, 'a') as f: f.write(json.dumps(sys.argv) + '\\n')\n"
             + f"store = {str(store)!r}\n"
             + "if sys.argv[1:] == ['tool', 'install', '--help']: print('--torch-backend')\n"
             + "if sys.argv[1:] == ['tool', 'dir']: print(store)\n"
             + "if sys.argv[1:] == ['tool', 'dir', '--bin']: print(str(Path(store) / 'bin'))\n"
+            + "if Path(sys.argv[0]).name == 'id': print('1000' if sys.argv[1] == '-u' else 'runner')\n"
+            + "if Path(sys.argv[0]).name == 'sudo': sys.exit(subprocess.call(sys.argv[1:]))\n"
         )
         path.chmod(0o755)
     env = dict(
@@ -427,4 +477,9 @@ def test_shell_installer_uses_persistent_environment(tmp_path, mode):
     )
     if mode == "user":
         assert calls[-1][1:3] == ["service", "install"]
+        assert "--start" in calls[-1]
+    elif mode == "system":
+        assert calls[-2][0] == str(binaries / "sudo")
+        assert calls[-1][1:4] == ["service", "--system", "install"]
+        assert calls[-1][-2:] == ["--user", "runner"]
         assert "--start" in calls[-1]
