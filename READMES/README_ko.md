@@ -152,6 +152,24 @@ pip으로 Xinference를 설치합니다:
 pip install "xinference[all]"
 ```
 
+[원커맨드 설치 프로그램](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install)은 Python을 준비하고 독립된 uv 도구 환경에 기본 패키지를 설치한 후 로컬 서버를 시작합니다. `XINFERENCE_EXTRAS`로 선택적 엔진을 미리 설치할 수 있으며, 모델 환경도 지원되는 엔진 종속성을 필요에 따라 설치합니다.
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+설치 프로그램을 다시 실행하면 최신 안정 버전으로 업데이트되며, `XINFERENCE_VERSION`으로 버전을 선택할 수도 있습니다. 기존 관리 서비스를 감지하고 설정과 모델 데이터를 유지하며, 업그레이드나 서비스 시작에 실패하면 이전 환경을 복원합니다. 같은 버전이면 환경을 유지하고 실행 중인 서비스를 다시 시작하지 않습니다.
+
+시작 없이 설치만 하려면 `XINFERENCE_START=0`을 설정하세요. Linux/macOS에서는 `XINFERENCE_SERVICE=user`, 지원 플랫폼에서는 `XINFERENCE_SERVICE=system`으로 서비스를 등록하고 시작할 수 있습니다. 시스템 모드는 Linux/macOS에서 sudo를 사용하며 Windows에서는 관리자 터미널이 필요합니다. 기존 pip/Conda/uv 설치에서는 `xinference service install --start`를 사용할 수 있습니다. 설정, 업그레이드 및 Windows 권한 요구 사항은 설치 가이드를 참조하세요.
+
 로컬 인스턴스를 시작하려면:
 
 ```bash

@@ -36,6 +36,77 @@ Agent process.
 
    Due to irreconcilable package dependency conflicts between vLLM and sglang, we have removed sglang from the all extra. If you want to use sglang, please install it separately via ``pip install 'xinference[sglang]'``.
 
+.. _one_line_install:
+
+One-command installation and startup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The installer prepares uv, Python 3.12, and an isolated Xinference tool environment, then starts the local server in the foreground. Press Ctrl+C to stop it. On Linux and macOS::
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+
+On Windows, run this in PowerShell::
+
+   irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+
+Set ``XINFERENCE_START=0`` to install without starting. Use ``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and ``XINFERENCE_TOOL_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` controls persistent model data; it is separate from the tool environment.
+
+On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another backend supported by uv. macOS uses its native PyTorch wheel. Recent PyTorch wheels require Apple Silicon; Intel Macs may resolve older dependencies or fail installation. Model virtual environments install engine dependencies on demand. Engine platform restrictions still apply, including Linux-only vLLM and Apple-Silicon-only MLX.
+
+To run without a persistent tool installation, use ``uvx``. This requires uv; the first invocation downloads the Python environment and dependencies::
+
+   uvx --python 3.12 --from xinference xinference-local
+
+Use a recent uv supporting ``uv tool install --torch-backend`` (tested with uv 0.11.26). Services require a persistent installation; uvx environments can be removed by cache cleanup.
+
+Upgrading an installation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Run the same one-command installer again to update to the latest stable release. Set ``XINFERENCE_VERSION`` each time to select a specific release, including a downgrade. Without this variable, a previously pinned installation also updates to the latest stable release. If the selected version, Python, extras, and PyTorch backend are unchanged, the installer keeps the existing environment and does not restart a running service.
+
+The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service for this tool environment. Upgrades preserve its service account, address, port, data directory, and registration. Python, extras, and the PyTorch backend are also retained unless explicitly overridden. Run as the original installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and ``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it.
+
+During an upgrade, the installer downloads and checks the candidate environment before stopping a service. It then backs up the complete previous environment, switches versions, and waits for the service to become ready. If installation or service startup fails, it restores the previous environment and the service's original running or stopped state. Preparing the candidate and keeping the full backup require additional disk space. On a first installation, failed startup removes a newly registered service and keeps the installed package for retrying. Model data and caches are preserved; models that were running must be launched again after a service restart. Foreground startup does not perform a service readiness check or automatic startup rollback.
+
+Concurrent installers for the same tool store are rejected. If an upgrade is interrupted, the next run restores the saved environment before trying again. Keep the recovery files in the tool store until recovery completes. ``XINFERENCE_TIMEOUT`` sets the service readiness timeout in seconds (default 120). With ``XINFERENCE_START=0``, an updated service remains stopped.
+
+The installer checks the candidate's service installer API before stopping a service. An incompatible release cannot be managed in service mode. Same-version checks still prepare a candidate to resolve the requested Python, extras, and backend. Installed dependencies are constrained to that candidate, so use this installer for upgrades; ``uv tool upgrade xinference`` retains these constraints.
+
+Do not run ``xinference service`` commands while the installer is running; they do not share its lock. If a service was uninstalled after an interrupted upgrade, recovery restores the package without recreating the service. For manual recovery, stop processes using the tool, read ``.xinference-transaction.json`` in the tool store, copy its backup's ``environment`` and ``shims`` back to their original tool and command directories, and remove the journal only after restoration succeeds.
+
+System services
+~~~~~~~~~~~~~~~
+After installing with pip, Conda, or uv, register and start a local service with::
+
+   xinference service install --start
+   xinference service status
+   xinference service logs
+   xinference service restart
+   xinference service stop
+   xinference service uninstall
+
+Linux uses a systemd user service. To start it at boot without logging in, enable lingering for the account with ``loginctl enable-linger USER``. macOS uses a LaunchAgent that starts at login. For a systemd system service or macOS LaunchDaemon, use an elevated terminal, an absolute command path, and ``--system`` before the action::
+
+   sudo /absolute/path/to/xinference service --system install --user USER --start
+   sudo /absolute/path/to/xinference service --system status
+   sudo /absolute/path/to/xinference service --system uninstall
+
+For ``--user USER``, that account must be able to traverse the Python installation's parent directories and execute its interpreter. The environment owner can modify code executed as the service account. Use a shared installation with appropriate ownership and permissions when these accounts differ.
+
+Windows services currently require x86-64 Windows and an Administrator PowerShell terminal and run as LocalSystem. The installer downloads a pinned, checksum-verified WinSW wrapper. Service control files and the working directory use ``%ProgramFiles%\Xinference\service``. Use an administrator-controlled Python installation and model data because the service executes model code with its account's privileges. Service data defaults to ``%PROGRAMDATA%\Xinference\data``. Linux and macOS default to the runtime account's ``~/.xinference``. Override the data directory with ``--home`` and the address with ``--host`` and ``--port`` on ``service install``.
+
+The one-command Windows system installer uses the installing user's uv tool store and does not restrict runtime or data ACLs. This default is not an administrator-only Python installation. Protect both Python (including packages) and model data before starting a LocalSystem service, or use foreground mode. Any account able to modify them can execute code with the service account's privileges.
+
+A macOS user service requires a logged-in graphical session; use system mode on headless hosts. The launchd ``console.log`` does not rotate automatically.
+
+For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/macOS or ``XINFERENCE_SERVICE=system`` on any supported platform. System mode uses sudo on Linux/macOS after installing as your account, and requires an Administrator Windows terminal. ``XINFERENCE_START=0`` registers without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to ``127.0.0.1`` and ``9997``. Service mode requires a Xinference release containing the service CLI::
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_SERVICE=user sh
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_SERVICE=system sh
+
+   $env:XINFERENCE_SERVICE='system'; irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+
+Services restart after failures. Starting waits for the cluster's ``/status`` response; a failed readiness check stops a newly started service. Repeated installation reuses the same configuration. Stop and uninstall before changing the installation environment or service settings. Uninstall preserves model data and logs. This service interface manages single-machine local mode.
+
 
 Several usage scenarios require special attention.
 

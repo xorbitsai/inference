@@ -152,6 +152,24 @@ Installa Xinference con pip:
 pip install "xinference[all]"
 ```
 
+Il [programma di installazione con un comando](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prepara Python, installa il pacchetto base in un ambiente uv isolato e avvia il server locale. Usare `XINFERENCE_EXTRAS` per preinstallare motori opzionali; gli ambienti dei modelli installano anche le dipendenze dei motori supportati su richiesta.
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+Eseguire nuovamente il programma per aggiornare all’ultima versione stabile, oppure usare `XINFERENCE_VERSION` per scegliere una versione. Rileva un servizio gestito esistente, ne conserva impostazioni e dati dei modelli e ripristina l’ambiente precedente se l’aggiornamento o l’avvio fallisce. Con la stessa versione mantiene l’ambiente e non riavvia un servizio in esecuzione.
+
+Impostare `XINFERENCE_START=0` per installare senza avviare. Usare `XINFERENCE_SERVICE=user` su Linux/macOS oppure `XINFERENCE_SERVICE=system` sulle piattaforme supportate per registrare e avviare un servizio. La modalità sistema usa sudo su Linux/macOS e richiede un terminale amministratore su Windows. Le installazioni pip/Conda/uv esistenti possono usare `xinference service install --start`; consultare la guida per configurazione, aggiornamenti e permessi Windows.
+
 Avvia un'istanza locale con:
 
 ```bash
