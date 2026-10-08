@@ -457,3 +457,125 @@ msgstr ""
 #~ "更多的 ``xllamacpp`` 安装说明以便"
 #~ "开启 GPU 加速，请参考：https://"
 #~ "github.com/xorbitsai/xllamacpp"
+
+#: ../../source/getting_started/installation.rst:42
+msgid "One-command installation and startup"
+msgstr "一键安装和启动"
+
+#: ../../source/getting_started/installation.rst:43
+msgid ""
+"The installer prepares uv, Python 3.12, and an isolated Xinference tool "
+"environment, then starts the local server in the foreground. Press Ctrl+C to"
+" stop it. On Linux and macOS::"
+msgstr ""
+"安装器准备 uv、Python 3.12 和隔离的 Xinference 工具环境，然后在前台启动本地服务。按 Ctrl+C 停止。在 Linux 和 "
+"macOS 上执行::"
+
+#: ../../source/getting_started/installation.rst:47
+msgid "On Windows, run this in PowerShell::"
+msgstr "在 Windows 上，在 PowerShell 中执行::"
+
+#: ../../source/getting_started/installation.rst:51
+msgid ""
+"Set ``XINFERENCE_START=0`` to install without starting. Use "
+"``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select "
+"Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and "
+"``XINFERENCE_HOME_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` "
+"controls persistent model data; it is separate from the tool environment."
+msgstr ""
+"设置 ``XINFERENCE_START=0`` 可仅安装而不启动。通过 ``XINFERENCE_VERSION`` "
+"固定版本、``XINFERENCE_PYTHON`` 选择 Python、``XINFERENCE_EXTRAS`` "
+"预装后端、``XINFERENCE_HOME_DIR`` 更改 uv 工具存储目录。``XINFERENCE_HOME`` "
+"控制持久化模型数据，与工具环境分开。"
+
+#: ../../source/getting_started/installation.rst:53
+msgid ""
+"On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the "
+"detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another "
+"backend supported by uv. macOS uses its native PyTorch wheel; current "
+"releases require Apple Silicon. Model virtual environments install engine "
+"dependencies on demand. Engine platform restrictions still apply, including "
+"Linux-only vLLM and Apple-Silicon-only MLX."
+msgstr ""
+"在 Linux 和 Windows 上，``XINFERENCE_BACKEND=auto`` 根据检测到的 GPU 驱动或 CPU 选择 "
+"PyTorch。可用 ``cpu``、``cu128`` 或 uv 支持的其他后端覆盖。macOS 使用原生 PyTorch wheel；当前版本要求 "
+"Apple Silicon。模型虚拟环境按需安装引擎依赖。引擎的平台限制仍然适用，例如 vLLM 仅支持 Linux，MLX 仅支持 Apple "
+"Silicon。"
+
+#: ../../source/getting_started/installation.rst:55
+msgid ""
+"To run without a persistent tool installation, use ``uvx``. This requires "
+"uv; the first invocation downloads the Python environment and dependencies::"
+msgstr "若不需要持久化工具安装，可使用 ``uvx``。这要求已安装 uv；首次调用会下载 Python 环境和依赖::"
+
+#: ../../source/getting_started/installation.rst:59
+msgid ""
+"Use a recent uv supporting ``uv tool install --torch-backend`` (tested with "
+"uv 0.11.26). Services require a persistent installation; uvx environments "
+"can be removed by cache cleanup."
+msgstr ""
+"请使用支持 ``uv tool install --torch-backend`` 的较新 uv（已用 uv 0.11.26 "
+"测试）。服务需要持久化安装；uvx 环境可能被缓存清理移除。"
+
+#: ../../source/getting_started/installation.rst:62
+msgid "System services"
+msgstr "系统服务"
+
+#: ../../source/getting_started/installation.rst:63
+msgid ""
+"After installing with pip, Conda, or uv, register and start a local service "
+"with::"
+msgstr "通过 pip、Conda 或 uv 安装后，可用以下命令注册并启动本地服务::"
+
+#: ../../source/getting_started/installation.rst:72
+msgid ""
+"Linux uses a systemd user service. To start it at boot without logging in, "
+"enable lingering for the account with ``loginctl enable-linger USER``. macOS"
+" uses a LaunchAgent that starts at login. For a systemd system service or "
+"macOS LaunchDaemon, use an elevated terminal, an absolute command path, and "
+"``--system`` before the action::"
+msgstr ""
+"Linux 使用 systemd 用户服务。若要在未登录时开机启动，请用 ``loginctl enable-linger USER`` 为该账户启用 "
+"lingering。macOS 使用登录时启动的 LaunchAgent。对于 systemd 系统服务或 macOS "
+"LaunchDaemon，请使用提权终端、命令的绝对路径，并将 ``--system`` 放在操作之前::"
+
+#: ../../source/getting_started/installation.rst:78
+msgid ""
+"Windows services currently require x86-64 Windows and an Administrator "
+"PowerShell terminal and run as LocalSystem. The installer downloads a "
+"pinned, checksum-verified WinSW wrapper. Service data defaults to "
+"``%PROGRAMDATA%\\Xinference\\data``. Linux and macOS default to the runtime "
+"account's ``~/.xinference``. Override the data directory with ``--home`` and"
+" the address with ``--host`` and ``--port`` on ``service install``."
+msgstr ""
+"Windows 服务当前要求 x86-64 Windows。Windows 服务要求管理员 PowerShell 终端，并以 LocalSystem "
+"运行。安装器下载固定版本且经过校验和验证的 WinSW 包装程序。服务数据默认为 "
+"``%PROGRAMDATA%\\Xinference\\data``。Linux 和 macOS 默认为运行账户的 "
+"``~/.xinference``。在 ``service install`` 上使用 ``--home`` 更改数据目录，使用 ``--host`` "
+"和 ``--port`` 更改地址。"
+
+#: ../../source/getting_started/installation.rst:80
+msgid ""
+"For one-command service installation, set ``XINFERENCE_SERVICE=user`` on "
+"Linux/macOS or ``XINFERENCE_SERVICE=system`` in an Administrator Windows "
+"terminal. ``XINFERENCE_START=0`` registers without starting. "
+"``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to ``127.0.0.1`` and "
+"``9997``. Service mode requires a Xinference release containing the service "
+"CLI::"
+msgstr ""
+"要一键安装服务，在 Linux/macOS 上设置 ``XINFERENCE_SERVICE=user``，或在 Windows 管理员终端设置 "
+"``XINFERENCE_SERVICE=system``。``XINFERENCE_START=0`` "
+"仅注册而不启动。``XINFERENCE_HOST`` 和 ``XINFERENCE_PORT`` 默认为 ``127.0.0.1`` 和 "
+"``9997``。服务模式要求 Xinference 版本包含服务 CLI::"
+
+#: ../../source/getting_started/installation.rst:86
+msgid ""
+"Services restart after failures. Starting waits for the cluster's "
+"``/status`` response; a failed readiness check stops a newly started "
+"service. Repeated installation reuses the same configuration. Stop and "
+"uninstall before changing the installation environment or service settings. "
+"Uninstall preserves model data and logs. This service interface manages "
+"single-machine local mode."
+msgstr ""
+"服务在失败后自动重启。启动时等待集群的 ``/status`` "
+"响应；就绪检查失败会停止刚启动的服务。重复安装复用相同配置。更改安装环境或服务设置前，请先停止并卸载服务。卸载保留模型数据和日志。此服务接口管理单机本地模式。"

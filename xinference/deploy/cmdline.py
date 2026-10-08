@@ -43,6 +43,7 @@ from ..constants import (
     XINFERENCE_LOG_RETENTION_DAYS,
     XINFERENCE_SYSTEM_SETTINGS_PATH,
 )
+from .service import service
 from .utils import (
     get_config_dict,
     get_log_file,
@@ -1918,6 +1919,9 @@ def stop_cluster(endpoint: str, api_key: Optional[str], check: bool):
         click.echo(f"Cluster stopped: {result}")
     except Exception as e:
         click.echo(e)
+
+
+cli.add_command(service)
 
 
 if __name__ == "__main__":

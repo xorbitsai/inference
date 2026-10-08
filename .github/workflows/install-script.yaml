@@ -2,15 +2,24 @@ name: Install Script CI
 
 on:
   push:
-    branches:
-      - '*'
+    branches: [main]
     paths:
-      - 'scripts/install.sh'
+      - 'scripts/install*'
+      - 'pyproject.toml'
+      - 'scripts/check_install.py'
+      - 'xinference/deploy/service.py'
+      - 'xinference/deploy/cmdline.py'
+      - 'xinference/deploy/test/test_service.py'
       - '.github/workflows/install-script.yaml'
   pull_request:
     types: ['opened', 'reopened', 'synchronize']
     paths:
-      - 'scripts/install.sh'
+      - 'scripts/install*'
+      - 'pyproject.toml'
+      - 'scripts/check_install.py'
+      - 'xinference/deploy/service.py'
+      - 'xinference/deploy/cmdline.py'
+      - 'xinference/deploy/test/test_service.py'
       - '.github/workflows/install-script.yaml'
 
 concurrency:
@@ -21,32 +30,64 @@ jobs:
   shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      - name: Run shellcheck
-        run: shellcheck scripts/install.sh
+      - uses: actions/checkout@v4
+      - run: shellcheck scripts/install.sh
 
   install:
-    name: install (${{ matrix.os }}, cpu)
+    name: install and service (${{ matrix.os }}, cpu)
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ "ubuntu-latest", "macos-latest" ]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      NO_WEB_UI: '1'
+      UV_TOOL_DIR: ${{ runner.temp }}/xinference-tools
+      UV_TOOL_BIN_DIR: ${{ runner.temp }}/xinference-bin
+      XINFERENCE_BACKEND: cpu
+      XINFERENCE_START: '0'
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      # Exercise the installer end-to-end. CPU backend keeps the download small
-      # and works on runners without a GPU (ignored on macOS).
-      - name: Run installer (CPU backend)
-        env:
-          XINFERENCE_BACKEND: cpu
-          XINFERENCE_HOME_DIR: ${{ runner.temp }}/xinf-venv
-        run: sh scripts/install.sh
-
-      - name: Verify the command is installed and runnable
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.26'
+      - name: Build the candidate wheel
+        shell: bash
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          xinference-local --help
-          xinference --version
+          uv build --wheel --out-dir "$RUNNER_TEMP/wheels"
+          wheel=$(find "$RUNNER_TEMP/wheels" -name 'xinference-*.whl' -print -quit)
+          echo "XINFERENCE_PACKAGE=$wheel" >> "$GITHUB_ENV"
+      - name: Run POSIX installer
+        if: runner.os != 'Windows'
+        run: sh scripts/install.sh
+      - name: Run Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/install.ps1
+      - name: Test service behavior and native lifecycle (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python="$UV_TOOL_DIR/xinference/bin/python"
+          "$python" -m xinference.deploy.cmdline service --help
+          uv pip install --python "$python" pytest pytest-asyncio pytest-timeout
+          "$python" -m pytest -q xinference/deploy/test/test_service.py
+          cd "$RUNNER_TEMP"
+          "$python" "$GITHUB_WORKSPACE/scripts/check_install.py"
+      - name: Test service behavior and native lifecycle (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $python = Join-Path $env:UV_TOOL_DIR 'xinference\Scripts\python.exe'
+          & $python -m xinference.deploy.cmdline service --help
+          if ($LASTEXITCODE -ne 0) { throw 'Missing service CLI' }
+          uv pip install --python $python pytest pytest-asyncio pytest-timeout
+          if ($LASTEXITCODE -ne 0) { throw 'Test dependency installation failed' }
+          & $python -m pytest -q xinference/deploy/test/test_service.py
+          if ($LASTEXITCODE -ne 0) { throw 'Service tests failed' }
+          Set-Location $env:RUNNER_TEMP
+          & $python "$env:GITHUB_WORKSPACE/scripts/check_install.py"
+          if ($LASTEXITCODE -ne 0) { throw 'Native service lifecycle failed' }

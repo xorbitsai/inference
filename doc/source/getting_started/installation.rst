@@ -38,55 +38,52 @@ Agent process.
 
 .. _one_line_install:
 
-One-line install script (Linux/macOS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-As a convenience, Linux and macOS users can bootstrap Xinference with a single command::
+One-command installation and startup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The installer prepares uv, Python 3.12, and an isolated Xinference tool environment, then starts the local server in the foreground. Press Ctrl+C to stop it. On Linux and macOS::
 
    curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
 
-The script installs the base framework into a dedicated, isolated virtualenv managed by
-`uv <https://docs.astral.sh/uv/>`_ (so it does not touch your system Python or hit PEP 668),
-selects a hardware-appropriate PyTorch build, and links the ``xinference`` commands into
-``~/.local/bin``. It installs ``uv`` first if it is not already present.
+On Windows, run this in PowerShell::
 
-.. important::
+   irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
 
-   This installs **only the base framework** (CLI, server, and Web UI). It does **not**
-   install any model-serving backend (transformers, vLLM, sglang, MLX, llama.cpp, image,
-   audio, video). It is a quick way to get the ``xinference`` commands, **not** a replacement
-   for the functional ``pip install "xinference[all]"`` install above. To serve models, add
-   an extra afterwards (e.g. ``XINFERENCE_EXTRAS=transformers``) or use the pip install.
+Set ``XINFERENCE_START=0`` to install without starting. Use ``XINFERENCE_VERSION`` to pin a release, ``XINFERENCE_PYTHON`` to select Python, ``XINFERENCE_EXTRAS`` to preinstall backends, and ``XINFERENCE_HOME_DIR`` to change the uv tool store. ``XINFERENCE_HOME`` controls persistent model data; it is separate from the tool environment.
 
-The script's behavior can be tuned with environment variables:
+On Linux and Windows, ``XINFERENCE_BACKEND=auto`` selects PyTorch for the detected GPU driver or CPU. Override it with ``cpu``, ``cu128``, or another backend supported by uv. macOS uses its native PyTorch wheel; current releases require Apple Silicon. Model virtual environments install engine dependencies on demand. Engine platform restrictions still apply, including Linux-only vLLM and Apple-Silicon-only MLX.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 75
+To run without a persistent tool installation, use ``uvx``. This requires uv; the first invocation downloads the Python environment and dependencies::
 
-   * - Variable
-     - Meaning
-   * - ``XINFERENCE_BACKEND``
-     - PyTorch backend: ``auto`` (default, detects GPU/driver), ``cpu``, a specific CUDA
-       build such as ``cu128``, ``rocm`` (AMD, Linux), or ``xpu`` (Intel GPU, Linux).
-       Ignored on macOS, which ships a single universal wheel.
-   * - ``XINFERENCE_EXTRAS``
-     - Optional extras to include, e.g. ``all`` or ``vllm,transformers``. Some extras
-       (e.g. vLLM) require Linux + CUDA.
-   * - ``XINFERENCE_VERSION``
-     - Pin a specific version, e.g. ``1.8.1``.
-   * - ``XINFERENCE_PYTHON``
-     - Python version for the virtualenv (default ``3.12``).
-   * - ``XINFERENCE_HOME_DIR``
-     - Install location (default ``~/.xinference/venv``).
+   uvx --python 3.12 --from xinference xinference-local
 
-For example, to install a CPU-only build with the transformers backend::
+Use a recent uv supporting ``uv tool install --torch-backend`` (tested with uv 0.11.26). Services require a persistent installation; uvx environments can be removed by cache cleanup.
 
-   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_BACKEND=cpu XINFERENCE_EXTRAS=transformers sh
+System services
+~~~~~~~~~~~~~~~
+After installing with pip, Conda, or uv, register and start a local service with::
 
-.. note::
+   xinference service install --start
+   xinference service status
+   xinference service logs
+   xinference service restart
+   xinference service stop
+   xinference service uninstall
 
-   Windows is not covered by the one-line installer. Install with ``pip`` in a virtualenv
-   instead (see above).
+Linux uses a systemd user service. To start it at boot without logging in, enable lingering for the account with ``loginctl enable-linger USER``. macOS uses a LaunchAgent that starts at login. For a systemd system service or macOS LaunchDaemon, use an elevated terminal, an absolute command path, and ``--system`` before the action::
+
+   sudo /absolute/path/to/xinference service --system install --user USER --start
+   sudo /absolute/path/to/xinference service --system status
+   sudo /absolute/path/to/xinference service --system uninstall
+
+Windows services currently require x86-64 Windows and an Administrator PowerShell terminal and run as LocalSystem. The installer downloads a pinned, checksum-verified WinSW wrapper. Service data defaults to ``%PROGRAMDATA%\Xinference\data``. Linux and macOS default to the runtime account's ``~/.xinference``. Override the data directory with ``--home`` and the address with ``--host`` and ``--port`` on ``service install``.
+
+For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/macOS or ``XINFERENCE_SERVICE=system`` in an Administrator Windows terminal. ``XINFERENCE_START=0`` registers without starting. ``XINFERENCE_HOST`` and ``XINFERENCE_PORT`` default to ``127.0.0.1`` and ``9997``. Service mode requires a Xinference release containing the service CLI::
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_SERVICE=user sh
+
+   $env:XINFERENCE_SERVICE='system'; irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+
+Services restart after failures. Starting waits for the cluster's ``/status`` response; a failed readiness check stops a newly started service. Repeated installation reuses the same configuration. Stop and uninstall before changing the installation environment or service settings. Uninstall preserves model data and logs. This service interface manages single-machine local mode.
 
 
 Several usage scenarios require special attention.

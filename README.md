@@ -168,11 +168,22 @@ Install Xinference by using pip as follows. (For more options, see [Installation
 pip install "xinference[all]"
 ```
 
-On Linux/macOS, a [one-line install script](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install-script-linux-macos) can bootstrap the **base framework** into an isolated [uv](https://docs.astral.sh/uv/)-managed environment (no model backends installed; not a replacement for the `pip install` above):
+A [one-command installer](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prepares Python and an isolated uv tool environment, then starts the local server. Model environments install engine dependencies on demand.
+
+Linux/macOS:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
 ```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+Set `XINFERENCE_START=0` to install without starting. Use `XINFERENCE_SERVICE=user` on Linux/macOS, or `XINFERENCE_SERVICE=system` in an Administrator Windows terminal, to register and start a service. Existing pip/Conda/uv installs can use `xinference service install --start`; see the installation guide for system services and configuration.
+
 
 To start a local instance of Xinference, run the following command:
 
