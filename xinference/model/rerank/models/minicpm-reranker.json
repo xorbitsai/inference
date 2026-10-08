@@ -1,0 +1,41 @@
+[
+  {
+    "version": 2,
+    "model_name": "minicpm-reranker",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh"
+    ],
+    "max_tokens": 1024,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "openbmb/MiniCPM-Reranker",
+            "model_revision": "5d2fd7345b6444c89d4c0fa59c92272888f3f2d0",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "OpenBMB/MiniCPM-Reranker",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543901,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\""
+      ]
+    }
+  }
+]

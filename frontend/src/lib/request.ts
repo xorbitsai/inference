@@ -16,6 +16,8 @@ declare module 'axios' {
     noTimeout?: boolean;
     skipAuthRefresh?: boolean;
     _retry?: boolean;
+    errorMessages?: Record<number, string>;
+    suppressGlobalError?: boolean;
   }
 }
 
@@ -104,15 +106,16 @@ requestInstance.interceptors.response.use(
     return response.data;
   },
   async (error) => {
-    console.log(error, error.message, error.status, 'error');
     const response = error.response;
+    const originalRequest = error.config as AxiosRequestConfig | undefined;
     if (!response) {
-      eventBus.emit(RequestEvents.SERVER_ERROR, error.message || 'Network Error');
+      if (!originalRequest?.suppressGlobalError) {
+        eventBus.emit(RequestEvents.SERVER_ERROR, error.message || 'Network Error');
+      }
 
       return Promise.reject(error);
     }
     const status = response.status;
-    const originalRequest = error.config as AxiosRequestConfig | undefined;
 
     if (shouldRefreshToken(status, originalRequest)) {
       try {
@@ -129,12 +132,12 @@ requestInstance.interceptors.response.use(
     }
 
     const errorMessage =
+      originalRequest?.errorMessages?.[status] ||
       response.data?.detail ||
       response.data?.message ||
       response.data?.msg ||
       error.message ||
       'Unknown error';
-    console.log(status, response, 'response');
 
     switch (status) {
       case 401: {
@@ -151,8 +154,14 @@ requestInstance.interceptors.response.use(
         }
         break;
       }
+      case 499: {
+        /** Client closed the request, e.g. the user cancelled a launch — not a server error. */
+        break;
+      }
       default: {
-        eventBus.emit(RequestEvents.SERVER_ERROR, `Server error: ${status} - ${errorMessage}`);
+        if (!originalRequest?.suppressGlobalError) {
+          eventBus.emit(RequestEvents.SERVER_ERROR, `Server error: ${status} - ${errorMessage}`);
+        }
       }
     }
     return Promise.reject(error);

@@ -51,11 +51,136 @@ The Text-to-image API is supported with the following models in Xinference:
 * hunyuandit-v1.2-distilled
 * cogview4
 * Qwen-Image
+* GLM-Image
+* Ideogram4
+* HiDream-O1-Image
+* HiDream-O1-Image-Dev
+* HiDream-O1-Image-Dev-2604
+* Krea-2-Raw
+* Krea-2-Turbo
 
 Image-to-image supported models:
 
 * Flux.1-Kontext-dev
 * Qwen-Image-Edit
+* GLM-Image
+* HiDream-O1-Image
+* HiDream-O1-Image-Dev
+
+
+HiDream-O1 runtime notes
+------------------------
+
+All three HiDream-O1 checkpoints are available from Hugging Face with revision
+``main`` and ModelScope with revision ``master``. They require an NVIDIA CUDA
+GPU and PyTorch 2.10 or newer. Flash Attention is optional; Xinference disables
+it by default for compatibility.
+
+.. list-table::
+   :widths: 30 15 55
+   :header-rows: 1
+
+   * - Model
+     - Default steps
+     - Usage and scheduler defaults
+   * - HiDream-O1-Image
+     - 50
+     - Text-to-image, instruction-based editing, and multiple reference images;
+       uses the official default scheduler.
+   * - HiDream-O1-Image-Dev
+     - 28
+     - Text-to-image, editing, and multiple reference images; single-reference
+       editing uses the flow-matching scheduler, while text-to-image and
+       multi-reference generation use the flash scheduler.
+   * - HiDream-O1-Image-Dev-2604
+     - 28
+     - Text-to-image only; uses the checkpoint's float32 loading and sampling
+       defaults.
+
+
+Image engines
+-------------------
+
+Text-to-image models run on the ``diffusers`` engine by default. On Linux with
+NVIDIA GPUs, the following models can also run on the ``SGLang`` engine
+(powered by `sglang-diffusion <https://docs.sglang.io/docs/sglang-diffusion/installation>`_)
+or the ``vLLM`` engine
+(powered by `vllm-omni <https://docs.vllm.ai/projects/vllm-omni/>`_)
+for faster inference:
+
+* FLUX.1-dev
+* GLM-Image (SGLang only)
+* Krea-2-Raw (SGLang only)
+* Krea-2-Turbo (SGLang only)
+* Qwen-Image
+* Qwen-Image-2512
+* Z-Image
+* Z-Image-Turbo
+* sd3.5-medium (vLLM only)
+
+On the vLLM engine, models whose vllm-omni pipeline supports request-level
+batching (e.g. sd3.5-medium, Qwen-Image, FLUX.1-dev) can additionally batch
+concurrent requests on the GPU; pass ``max_num_seqs`` at launch to set the
+maximum batch size.
+
+SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request.
+
+To use them, install SGLang with diffusion support via
+``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the
+same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``,
+then launch the model with ``--model-engine SGLang`` or
+``--model-engine vLLM``, for example:
+
+.. code-block:: bash
+
+    xinference launch --model-name Z-Image-Turbo --model-type image --model-engine SGLang
+    xinference launch --model-name Z-Image-Turbo --model-type image --model-engine vLLM
+
+Note that GGUF quantization, Lightning acceleration, LoRA and controlnet are
+only available on the ``diffusers`` engine.
+
+
+Ideogram4
+-------------------
+
+:ref:`Ideogram4 <models_builtin_ideogram4>` uses the NF4 checkpoint and
+requires an NVIDIA CUDA GPU. The checkpoint is distributed under the Ideogram
+4 Non-Commercial Model Agreement, and its repositories are gated. Accept the
+license and authenticate with the selected model hub before launching.
+
+Ideogram4 accepts plain text prompts, but serialized structured JSON captions
+provide the best quality and control.
+
+To download from ModelScope for an individual launch::
+
+   xinference launch --model-name Ideogram4 --model-type image --download_hub modelscope
+
+
+GLM-Image
+-------------------
+
+:ref:`GLM-Image <models_builtin_glm-image>` supports both text-to-image
+generation and single- or multi-reference image-to-image generation through
+the same ``GlmImagePipeline``. Output width and height must both be divisible
+by 32.
+
+The ``diffusers`` engine uses ``diffusers==0.38.0`` and
+``transformers==5.0.0``. Xinference installs these packages automatically when
+per-model virtual environments are enabled.
+
+The Hugging Face source is ``zai-org/GLM-Image`` at revision ``main``. The
+ModelScope source is ``ZhipuAI/GLM-Image`` at revision ``master``.
+
+To download from ModelScope for an individual launch::
+
+   xinference launch --model-name GLM-Image --model-type image --download_hub modelscope
+
+On Linux with NVIDIA GPUs, text-to-image generation can also use SGLang::
+
+   xinference launch --model-name GLM-Image --model-type image --model-engine SGLang
+
+The SGLang engine currently exposes only text-to-image generation. Use the
+default ``diffusers`` engine for image-to-image generation.
 
 
 Quickstart
@@ -315,7 +440,7 @@ For example, using ``4steps-V1.0``, the inference time is reduced from the origi
 OCR
 --------------------
 
-The OCR API accepts image bytes and returns the OCR text.
+The OCR API accepts image or PDF bytes and returns the OCR text.
 
 We can try OCR API out either via cURL, or Xinference's python client:
 
@@ -344,3 +469,154 @@ We can try OCR API out either via cURL, or Xinference's python client:
   .. code-tab:: text output
 
     <OCR result string>
+
+OvisOCR2 Usage
+~~~~~~~~~~~~~~
+
+:ref:`OvisOCR2 <models_builtin_ovisocr2>` is exposed through the image OCR API.
+Use the ``/v1/images/ocr`` endpoint above or Xinference's Python client instead
+of the OpenAI-compatible Chat Completions API:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    with open("document.jpg", "rb") as f:
+        markdown = model.ocr(f.read())
+
+OvisOCR2 uses deterministic decoding and allows up to 16384 new tokens by
+default. Its vLLM adapter also applies the recommended image pixel bounds.
+Visual-region ``<img src="images/bbox_*.jpg" />`` placeholders are removed
+because the OCR API does not create the referenced crops, and known repeated
+tails are cleaned. Pass ``filter_imgtags=False`` to ``model.ocr`` to retain the
+raw placeholders.
+
+PDF uploads are rasterized page by page (requires ``pypdfium2``, included in the
+``image`` extra), OCR runs on each page, and the results are merged:
+
+* When the model returns plain text, the page texts are joined with blank lines
+  and the response stays a single string, same as for an image.
+* When the model returns structured results (e.g. with ``return_dict`` style
+  options), the response is ``{"pages": [{"page": 1, "result": ...}, ...]}``.
+
+Two optional PDF-only ``kwargs`` fields are supported: ``pages`` (a 1-based page
+number or list of page numbers to OCR, defaults to all pages) and ``dpi`` (the
+rasterization resolution, defaults to 200, capped at 600). Pages are rasterized
+one at a time to keep memory usage flat; at most 200 pages can be OCRed per
+request (use ``pages`` to select a subset of larger documents), and a page whose
+raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
+
+.. code-block:: bash
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
+      -F model=<MODEL_UID> \
+      -F 'kwargs={"pages": [1, 2], "dpi": 300}' \
+      -F image=@xxx.pdf
+
+TeleOCR Usage
+~~~~~~~~~~~~~
+
+TeleOCR uses the image OCR API with Transformers or vLLM. Its Hugging Face
+weights are ``StarDoc-AI/TeleOCR``; the ModelScope mirror is
+``XingChen-AGI/TeleOCR``. Launch the regular weights with::
+
+    xinference launch --model-name TeleOCR --model-type image --model-engine transformers
+
+GGUF quantizations use the older NaviDC-OCR conversion with a separate vision
+projector. Select one with::
+
+    xinference launch --model-name TeleOCR --model-type image --model-engine llama.cpp --model-format ggufv2 --quantization Q4_K_M
+
+The GGUF publisher reports that these files require a patched llama.cpp build;
+stock llama.cpp fails with ``check_tensor_dims``. Use a compatible patched
+``xllamacpp`` build before launching. See the `GGUF patch instructions
+<https://huggingface.co/nandraj/NaviDC-OCR-GGUF/blob/main/PATCHES.md>`_.
+
+Whole-document parsing
+~~~~~~~~~~~~~~~~~~~~~~
+
+Some models expose a whole-document parsing task in addition to per-page OCR.
+``DeepDoc`` supports ``task="parse"``, which runs its full document pipeline —
+layout analysis, table structure recognition, paragraph merging and
+reading-order reconstruction — over an entire PDF and returns ordered document
+elements:
+
+.. code-block:: bash
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
+      -F model=<MODEL_UID> \
+      -F 'kwargs={"task": "parse"}' \
+      -F image=@xxx.pdf
+
+.. code-block:: json
+
+    {"task": "parse",
+     "elements": [
+       {"type": "table",
+        "text": "<table><caption>...</caption><tr><th>...</th></tr></table>",
+        "image_base64": "...",
+        "metadata": {"page_number": 2, "x0": 20.0, "x1": 400.0, "top": 50.0,
+                     "bottom": 200.0, "layout_type": "table", "col_id": 0,
+                     "positions": [[2, 20, 400, 50, 200]]}}
+     ]}
+
+``type`` is the detected layout type (``text``, ``title``, ``table`` or
+``figure``), and ``text`` holds the element text — complete HTML in the case of
+tables. Coordinates in ``metadata`` accumulate across pages, so ``top`` and
+``bottom`` are document-wide rather than page-relative. ``col_id`` is only
+present on elements the pipeline assigned to a column.
+
+Unlike the per-page tasks, ``parse`` renders the PDF itself and needs the whole
+document to merge across pages, so it requires a PDF upload and does not accept
+``pages`` or ``dpi``. Two optional ``kwargs`` fields apply:
+
+* ``zoomin`` — the render scale, defaulting to ``3`` and capped at ``6``.
+* ``image_scope`` — which elements carry a base64-encoded PNG crop in
+  ``image_base64``: ``table_figure`` (the default, tables and figures only),
+  ``all``, or ``none``. Every element has a crop internally, but encoding all of
+  them inflates the response substantially, so prefer the default unless the
+  text crops are needed too. The field is omitted for elements without a crop.
+
+Parsing has its own size limits, and they are tighter than the per-page OCR
+path's. When a render finds no text *anywhere in the document*, DeepDoc
+re-renders the whole thing at three times the zoom, repeatedly, until the scale
+reaches 9 — so a request at ``zoomin=3`` may end up rendering at 9.
+
+With ``deepdoc-lib`` 0.2.2 that re-render is in practice unreachable for any
+document that renders at all — DeepDoc appends to its box list on every page,
+including an empty list for a page that yields nothing, so the
+``len(boxes) == 0`` condition it guards on only holds when there were no pages
+to render. The document is therefore budgeted at the scale you asked for, with
+a separate ceiling bounding what the re-render would cost should a later
+release make it reachable again. Three budgets apply:
+
+* **Per page**, enforced at the worst-case scale, since one page with an
+  outsized MediaBox must not be admitted on the strength of a retry that may
+  still fire: a page may not peak above 200 megapixels. An A3 page is fine at
+  ``zoomin=3`` but not at ``6``.
+* **Whole document**, at the requested scale: the pages together may not
+  exceed 1 gigapixel, roughly 221 A4 pages at the default zoom, with the
+  200-page ceiling capping it from the other side.
+* **Whole document, if the re-render happens**: the escalated peak may not
+  exceed 6 gigapixels, about 24 GB of page images. This is what limits long
+  documents in practice — roughly 130 A4 pages at the default zoom — and it is
+  deliberately not derived from the other two, whose product would permit some
+  160 GB.
+
+Note that the per-page budget is **not monotonic** in ``zoomin``, because the
+retry ladder is not: DeepDoc tests ``zoomin < 9`` before multiplying, so
+``zoomin=2`` and ``zoomin=6`` both escalate to 18x while ``zoomin=3`` stops at
+9x. Lowering ``zoomin`` can therefore make the per-page budget *larger*. For
+that reason a 400 from these limits names a ``zoomin`` that would actually fit
+whenever one exists, and otherwise says to split the document — follow what
+the message says rather than assuming a lower zoom will help.
+
+Both whole-document ceilings can be raised on deployments whose parse workers
+are sized for it, via ``XINFERENCE_MAX_PDF_PARSE_TOTAL_PIXELS`` and
+``XINFERENCE_MAX_PDF_PARSE_RETRY_TOTAL_PIXELS`` (both in pixels). A rendered
+page costs roughly 4 bytes per pixel, so the defaults correspond to about 4 GB
+and 24 GB of page images respectively.

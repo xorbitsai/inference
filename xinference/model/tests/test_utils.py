@@ -13,22 +13,101 @@
 # limitations under the License.
 
 import asyncio
+import io
+import json
+import os
 import shutil
 import sys
+import threading
+from contextvars import copy_context
+from types import ModuleType
 
 import pytest
+import tqdm as tqdm_module
 from tqdm.auto import tqdm
 
+from ..._compat import BaseModel
 from ...utils import get_real_path
 from ..utils import (
+    CACHE_SOURCE_MANIFEST,
     CancellableDownloader,
+    ModelArtifactSource,
     _apply_virtualenv_engine_overrides,
     _collect_virtualenv_engine_markers,
     _extract_engine_markers_from_packages,
     _force_virtualenv_engine_params,
+    create_symlink,
+    extend_classes_once,
+    family_identity_key,
+    get_cache_source_paths,
     neutralize_broken_torchcodec,
     parse_uri,
+    resolve_media_seed,
+    retry_download,
+    retry_snapshot_download,
+    symlink_local_file,
 )
+
+
+def test_extend_classes_once_skips_already_present_classes():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    target = [A]
+    extend_classes_once(target, [A, B])
+    assert target == [A, B]
+
+    # A second call with the same classes (simulating a repeated
+    # register_builtin_model() refresh) must not grow the list further.
+    extend_classes_once(target, [A, B])
+    assert target == [A, B]
+
+
+def test_extend_classes_once_preserves_existing_order():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    class C:
+        pass
+
+    target = [B, A]
+    extend_classes_once(target, [A, B, C])
+    assert target == [B, A, C]
+
+
+def test_family_identity_key_ignores_is_builtin():
+    # register_builtin_model() marks every loaded family is_builtin=True right
+    # after loading it, so a freshly re-parsed candidate on a repeated refresh
+    # must still compare equal to the already-marked entry it duplicates.
+    class DummyFamily(BaseModel):
+        model_name: str
+        is_builtin: bool = False
+
+    loaded = DummyFamily(model_name="foo", is_builtin=True)
+    freshly_parsed = DummyFamily(model_name="foo", is_builtin=False)
+    assert family_identity_key(loaded) == family_identity_key(freshly_parsed)
+
+    different_model = DummyFamily(model_name="bar", is_builtin=True)
+    assert family_identity_key(loaded) != family_identity_key(different_model)
+
+
+def test_resolve_media_seed():
+    assert resolve_media_seed(0) == 0
+    assert resolve_media_seed(42) == 42
+    random_seed = resolve_media_seed(-1)
+    assert random_seed is not None
+    assert 0 <= random_seed <= 2**31 - 1
+
+    with pytest.raises(ValueError, match="Seed must be an integer"):
+        resolve_media_seed(True)
+    with pytest.raises(ValueError, match="Seed must be -1"):
+        resolve_media_seed(-2)
 
 
 def test_parse_uri():
@@ -47,6 +126,168 @@ def test_parse_uri():
     scheme, path = parse_uri("s3://bucket/dir")
     assert scheme == "s3"
     assert path == "bucket/dir"
+
+
+def test_retry_snapshot_download_applies_environment_max_workers(monkeypatch):
+    received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["repo_id"] = repo_id
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert received == {
+        "repo_id": "repo",
+        "max_workers": 2,
+    }
+
+
+def test_retry_snapshot_download_preserves_explicit_max_workers(monkeypatch):
+    received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert (
+        retry_snapshot_download(snapshot_download, "dummy", None, "repo", max_workers=6)
+        == "ok"
+    )
+    assert received["max_workers"] == 6
+
+
+def test_retry_download_does_not_inject_snapshot_workers(monkeypatch):
+    received = {}
+    monkeypatch.setenv("HF_HUB_DOWNLOAD_WORKERS", "2")
+
+    def file_download(repo_id, *, filename):
+        received["repo_id"] = repo_id
+        received["filename"] = filename
+        return "ok"
+
+    assert (
+        retry_download(file_download, "dummy", None, "repo", filename="config.json")
+        == "ok"
+    )
+    assert received == {"repo_id": "repo", "filename": "config.json"}
+
+
+def test_retry_snapshot_download_preserves_default_without_environment(monkeypatch):
+    received = {}
+    monkeypatch.delenv("HF_HUB_DOWNLOAD_WORKERS", raising=False)
+
+    def snapshot_download(repo_id, *, max_workers=8):
+        received["max_workers"] = max_workers
+        return "ok"
+
+    assert retry_snapshot_download(snapshot_download, "dummy", None, "repo") == "ok"
+    assert received["max_workers"] == 8
+
+
+def test_model_artifact_source_modelscope(monkeypatch, tmp_path):
+    calls = []
+
+    def snapshot_download(model_id, **kwargs):
+        calls.append((model_id, kwargs))
+        return str(tmp_path)
+
+    modelscope_module = ModuleType("modelscope")
+    hub_module = ModuleType("modelscope.hub")
+    snapshot_module = ModuleType("modelscope.hub.snapshot_download")
+    snapshot_module.snapshot_download = snapshot_download
+    monkeypatch.setitem(sys.modules, "modelscope", modelscope_module)
+    monkeypatch.setitem(sys.modules, "modelscope.hub", hub_module)
+    monkeypatch.setitem(
+        sys.modules, "modelscope.hub.snapshot_download", snapshot_module
+    )
+
+    result = ModelArtifactSource("modelscope").snapshot_download(
+        "org/auxiliary-model",
+        revision="master",
+        allow_patterns=["*.py", "config.json"],
+    )
+
+    assert result == str(tmp_path)
+    assert calls == [
+        (
+            "org/auxiliary-model",
+            {
+                "revision": "master",
+                "allow_file_pattern": ["*.py", "config.json"],
+            },
+        )
+    ]
+
+
+def test_model_artifact_source_huggingface(monkeypatch, tmp_path):
+    calls = []
+
+    def snapshot_download(model_id, **kwargs):
+        calls.append((model_id, kwargs))
+        return str(tmp_path)
+
+    monkeypatch.setattr("huggingface_hub.snapshot_download", snapshot_download)
+
+    result = ModelArtifactSource("huggingface").snapshot_download(
+        "org/auxiliary-model", allow_patterns=["*.json"]
+    )
+
+    assert result == str(tmp_path)
+    assert calls == [("org/auxiliary-model", {"allow_patterns": ["*.json"]})]
+
+
+def test_create_symlink_ignores_downloaded_cache_source_manifest(tmp_path, monkeypatch):
+    download_dir = tmp_path / "download"
+    cache_dir = tmp_path / "cache"
+    download_dir.mkdir()
+    source = download_dir / "model.safetensors"
+    source.write_text("weights")
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("keep")
+    (download_dir / CACHE_SOURCE_MANIFEST).write_text(
+        json.dumps({"version": 1, "source_paths": [str(unrelated)]})
+    )
+
+    from huggingface_hub import file_download
+
+    def _copy_file(source_path, destination_path, new_blob=False):
+        assert new_blob is False
+        shutil.copyfile(source_path, destination_path)
+
+    monkeypatch.setattr(file_download, "_create_symlink", _copy_file)
+    create_symlink(str(download_dir), str(cache_dir))
+
+    assert (cache_dir / "model.safetensors").read_text() == "weights"
+    assert get_cache_source_paths(str(cache_dir)) == {os.path.realpath(source)}
+    assert unrelated.exists()
+
+
+def test_get_cache_source_paths_rejects_symlinked_manifest(tmp_path):
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    unrelated = tmp_path / "unrelated"
+    unrelated.write_text("keep")
+    supplied_manifest = tmp_path / "supplied.json"
+    supplied_manifest.write_text(
+        json.dumps({"version": 1, "source_paths": [str(unrelated)]})
+    )
+    try:
+        (cache_dir / CACHE_SOURCE_MANIFEST).symlink_to(supplied_manifest)
+    except OSError as exc:
+        pytest.skip(f"Symbolic links are unavailable: {exc}")
+
+    assert get_cache_source_paths(str(cache_dir)) == set()
+
+
+def test_symlink_local_file_rejects_reserved_manifest_name(tmp_path):
+    source = tmp_path / "source"
+    source.write_text("untrusted manifest")
+
+    with pytest.raises(ValueError, match="reserved cache metadata filename"):
+        symlink_local_file(str(source), str(tmp_path / "cache"), CACHE_SOURCE_MANIFEST)
 
 
 def test_tqdm_patch():
@@ -74,6 +315,361 @@ def test_tqdm_patch():
             all_bar.update(6)
 
     assert downloader.done
+
+
+def test_tqdm_patch_uses_equal_file_weights():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        all_bar = tqdm(total=3, file=io.StringIO())
+        large_file = tqdm(total=70, unit="B", file=io.StringIO())
+        small_file = tqdm(total=30, unit="B", file=io.StringIO())
+
+        # Their sizes must not determine their weight in the repository-level
+        # progress. The repository bar's total is available before its first
+        # update, so the downloader already knows that n == 3 here. The third
+        # file has not started and therefore contributes zero.
+        large_file.update(69)
+        before_completion = downloader.get_progress()
+        assert before_completion == pytest.approx((69 / 70) / 3)
+
+        large_file.update(1)
+        during_completion = downloader.get_progress()
+        assert during_completion == pytest.approx(1 / 3)
+
+        all_bar.update(1)
+        after_completion = downloader.get_progress()
+        assert after_completion == pytest.approx(1 / 3)
+        assert after_completion == pytest.approx(during_completion)
+
+        small_file.update(15)
+        assert downloader.get_progress() == pytest.approx((1 + 15 / 30) / 3)
+
+
+def test_tqdm_patch_recognizes_modelscope_file_counter():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        # modelscope_hub labels its repository-level counter with unit="file".
+        # Four concurrent files at 50% are half of four tasks, not one task at
+        # 100%.
+        tqdm(total=4, unit="file", file=io.StringIO())
+        file_bars = [tqdm(total=100, unit="B", file=io.StringIO()) for _ in range(4)]
+        for file_bar in file_bars:
+            file_bar.update(50)
+
+        assert downloader.get_progress() == pytest.approx(0.5)
+
+
+def test_tqdm_patch_preserves_completion_without_intermediate_poll():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        all_bar = tqdm(total=3, file=io.StringIO())
+        file_bar = tqdm(total=70, unit="B", file=io.StringIO())
+
+        # Complete the file before get_progress() has observed any partial
+        # progress. Its contribution must remain visible until all_bar catches
+        # up, rather than relying on a previously reported high-water mark.
+        file_bar.update(70)
+        assert downloader.get_progress() == pytest.approx(1 / 3)
+
+        all_bar.update(1)
+        assert downloader.get_progress() == pytest.approx(1 / 3)
+
+
+def test_download_progress_details_include_completed_files():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        bar = tqdm(total=100, unit="B", desc="model.safetensors")
+        bar.update(25)
+
+        [downloading] = downloader.get_download_progress_details()
+        assert downloading["name"] == "model.safetensors"
+        assert downloading["downloaded_bytes"] == 25
+        assert downloading["total_bytes"] == 100
+        assert downloading["progress"] == 0.25
+        assert downloading["status"] == "downloading"
+
+        bar.update(75)
+
+        [completed] = downloader.get_download_progress_details()
+        assert completed["progress"] == 1.0
+        assert completed["speed_bytes_per_second"] is None
+        assert completed["eta_seconds"] == 0.0
+        assert completed["status"] == "completed"
+        bar.close()
+
+
+async def test_concurrent_download_progress_details_are_isolated():
+    """Each launch must only expose tqdm bars from its own task context."""
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    barrier = threading.Barrier(2)
+
+    async def collect_details(downloader, name):
+        with downloader:
+
+            def update_and_snapshot():
+                bar = tqdm(total=100, unit="B", desc=name, file=io.StringIO())
+                try:
+                    bar.update(25)
+                    barrier.wait(timeout=10)
+                    return downloader.get_download_progress_details()
+                finally:
+                    bar.close()
+
+            return await asyncio.to_thread(update_and_snapshot)
+
+    details1, details2 = await asyncio.gather(
+        collect_details(d1, "model-a.bin"),
+        collect_details(d2, "model-b.bin"),
+    )
+
+    assert [item["name"] for item in details1] == ["model-a.bin"]
+    assert [item["name"] for item in details2] == ["model-b.bin"]
+
+
+def test_tqdm_owner_is_stable_across_threads():
+    """A bar created for one downloader keeps that owner in a raw thread."""
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with d1:
+        bar = tqdm(total=100, unit="B", desc="model-a.bin", file=io.StringIO())
+        try:
+            with d2:
+                errors = []
+
+                def update():
+                    try:
+                        bar.update(25)
+                    except BaseException as error:
+                        errors.append(error)
+
+                thread = threading.Thread(target=update)
+                thread.start()
+                thread.join(timeout=10)
+
+                assert not thread.is_alive()
+                assert not errors
+                assert [
+                    item["name"] for item in d1.get_download_progress_details()
+                ] == ["model-a.bin"]
+                assert d2.get_download_progress_details() == []
+        finally:
+            bar.close()
+
+
+def test_concurrent_progress_no_set_mutation():
+    """Two concurrent downloaders race the progress sets: one thread creates
+    new download bars and calls .update() (so patched_update grows
+    _download_progresses), while another polls get_progress(). On main this
+    raises "RuntimeError: Set changed size during iteration"; the per-instance
+    _progress_lock + snapshot in get_progress makes it safe.
+
+    Under CPython's default ~5ms switch interval the mutation rarely lands
+    mid-iteration, so the crash is flaky on main (and can even pass 8/8). We
+    tighten sys.setswitchinterval to force frequent GIL handoffs so the
+    mutation coincides with the poller's iteration deterministically: red on
+    main, green on the branch. The original interval is restored in finally.
+    """
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    errors = []
+
+    orig_si = sys.getswitchinterval()
+    sys.setswitchinterval(1e-4)
+    try:
+        with d1, d2:
+            stop = threading.Event()
+
+            def updater():
+                try:
+                    # seed a few download bars first
+                    for _ in range(5):
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)
+                    while not stop.is_set():
+                        # a NEW bar each iteration -> add() grows the set size
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)
+                        bar.close()
+                except RuntimeError as e:
+                    errors.append(("updater", e))
+
+            def poller():
+                while not stop.is_set():
+                    try:
+                        d1.get_progress()
+                        d2.get_progress()
+                    except RuntimeError as e:
+                        errors.append(("poller", e))
+                        return
+
+            # Propagate the logical downloader context into the raw thread so
+            # this test still exercises concurrent set growth after tqdm bars
+            # became owner-scoped.
+            updater_context = copy_context()
+            tu = threading.Thread(target=updater_context.run, args=(updater,))
+            tp = threading.Thread(target=poller)
+            tu.start()
+            tp.start()
+            # run the race for ~1s; a timeout + Event keeps CI from hanging
+            tp.join(timeout=1.2)
+            stop.set()
+            tu.join(timeout=3.0)
+            tp.join(timeout=3.0)
+    finally:
+        sys.setswitchinterval(orig_si)
+
+    assert not errors, f"concurrent get_progress raised: {errors}"
+
+
+def test_class_level_bookkeeping_no_per_instance_shadow():
+    """qinxuye #5257 round-4 ask #1: _active_instances / _original_update /
+    _original_update_plain must be routed through the class (type(self)), not
+    ``self``. The old ``self._original_update = ...`` shadowed the class
+    attribute, so two concurrent downloaders each saw the class-level None,
+    patched tqdm independently, and the first to exit restored tqdm.update
+    while the second was still active."""
+    # Clean class state, independent of test ordering.
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._original_init_plain = None
+    CancellableDownloader._active_registry.clear()
+    original_update = tqdm.update
+    original_init_plain = tqdm_module.tqdm.__dict__["__init__"]
+
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d1.__enter__()
+    d2.__enter__()
+    try:
+        # Shared class-level counter, no per-instance shadow.
+        assert CancellableDownloader._active_instances == 2
+        assert "_active_instances" not in vars(d1)
+        assert "_active_instances" not in vars(d2)
+        # Originals stored on the class, no per-instance shadow.
+        assert CancellableDownloader._original_update is original_update
+        assert CancellableDownloader._original_update_plain is not None
+        assert CancellableDownloader._original_init_plain[0] is original_init_plain
+        for d in (d1, d2):
+            assert "_original_update" not in vars(d)
+            assert "_original_update_plain" not in vars(d)
+            assert "_original_init_plain" not in vars(d)
+        # tqdm stays patched while any instance is active.
+        assert tqdm.update is not original_update
+
+        # d1 exits while d2 is still active: must NOT restore tqdm yet (the
+        # concrete reproduction: "first downloader exiting while the second
+        # remained active: tqdm.update was restored too early").
+        d1.__exit__(None, None, None)
+        assert CancellableDownloader._active_instances == 1
+        assert (
+            tqdm.update is not original_update
+        ), "tqdm.update was restored while a downloader is still active"
+    finally:
+        if CancellableDownloader._active_instances > 0:
+            d2.__exit__(None, None, None)
+    # last instance out -> counter 0 and tqdm restored
+    assert CancellableDownloader._active_instances == 0
+    assert tqdm.update is original_update
+    assert tqdm_module.tqdm.__dict__["__init__"] is original_init_plain
+
+
+def test_reset_holds_lock_against_progress_poller():
+    """qinxuye #5257 round-4 ask #2: reset() must take _progress_lock around
+    both clears. During __exit__ the progress-upload thread can already have
+    passed its done check and entered get_progress() while cleanup calls
+    reset(); the unlocked clear raced the set iteration and raised
+    "Set changed size during iteration"."""
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._original_init_plain = None
+    CancellableDownloader._active_registry.clear()
+    d = CancellableDownloader(cancel_error_cls=RuntimeError)
+    with d:
+        for _ in range(20):
+            bar = tqdm(total=1000000, unit="B")
+            bar.update(1)
+        errors = []
+        orig_si = sys.getswitchinterval()
+        sys.setswitchinterval(1e-4)
+        try:
+            stop = threading.Event()
+
+            def poller():
+                while not stop.is_set():
+                    try:
+                        d.get_progress()
+                    except RuntimeError as e:
+                        errors.append(e)
+                        return
+
+            def resetter():
+                while not stop.is_set():
+                    try:
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)  # patched_update grows the set under the lock
+                        d.reset()  # must clear under the same lock
+                    except RuntimeError as e:
+                        errors.append(e)
+                        return
+
+            tp = threading.Thread(target=poller)
+            tr = threading.Thread(target=resetter)
+            tp.start()
+            tr.start()
+            tp.join(timeout=1.2)
+            stop.set()
+            tr.join(timeout=3.0)
+            tp.join(timeout=3.0)
+        finally:
+            sys.setswitchinterval(orig_si)
+
+    assert not errors, f"reset/get_progress race raised: {errors}"
+
+
+def test_active_registry_fallback_holds_global_lock():
+    """The no-context, single-downloader fallback must hold the registry lock."""
+
+    class LockCheckingSet(set):
+        def __iter__(self):
+            assert CancellableDownloader._global_lock.locked()
+            return super().__iter__()
+
+    original_registry = CancellableDownloader._active_registry
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._original_init_plain = None
+    CancellableDownloader._active_registry = LockCheckingSet()
+
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+    try:
+        with downloader:
+            errors = []
+
+            def update():
+                try:
+                    bar = tqdm(total=1, disable=True)
+                    bar.update(1)
+                    bar.close()
+                except BaseException as error:
+                    errors.append(error)
+
+            thread = threading.Thread(target=update)
+            thread.start()
+            thread.join(timeout=10)
+
+            assert not thread.is_alive()
+            assert not errors
+    finally:
+        CancellableDownloader._active_registry = original_registry
 
 
 def test_extract_engine_markers_from_packages():
@@ -432,3 +1028,290 @@ def test_neutralize_broken_torchcodec_idempotent(monkeypatch):
         assert sys.modules.get("torchcodec", "missing") is None
     finally:
         _clear_torchcodec_from_sys_modules()
+
+
+@pytest.fixture
+def _reset_auto_hub_cache(monkeypatch):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(model_utils, "_auto_detected_hub", None)
+    monkeypatch.delenv("XINFERENCE_MODEL_SRC", raising=False)
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    monkeypatch.delenv("HF_ENDPOINT", raising=False)
+    for proxy_var in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "NO_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+        "no_proxy",
+    ):
+        monkeypatch.delenv(proxy_var, raising=False)
+    # urllib may also discover OS-level proxy settings (notably on macOS), so
+    # isolate ordinary tests from the host network configuration.
+    monkeypatch.setenv("NO_PROXY", "*")
+    yield
+    model_utils._auto_detected_hub = None
+
+
+def test_auto_detect_download_hub_hf_reachable(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
+    )
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+
+
+def test_auto_detect_download_hub_hf_unreachable(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+    assert model_utils.auto_detect_download_hub() == "modelscope"
+
+
+def test_auto_detect_download_hub_uses_hf_endpoint(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    calls = []
+
+    def probe(url, timeout):
+        calls.append((url, timeout))
+        return True
+
+    endpoint = "https://hf-mirror.example.com"
+    monkeypatch.setenv("HF_ENDPOINT", endpoint)
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+    monkeypatch.setenv("NO_PROXY", "hf-mirror.example.com")
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls == [(endpoint, model_utils.XINFERENCE_HUB_DETECT_TIMEOUT)]
+
+
+def test_auto_detect_download_hub_avoids_proxy_for_hf_endpoint(
+    monkeypatch, _reset_auto_hub_cache
+):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return True
+
+    monkeypatch.setenv("HF_ENDPOINT", "https://hf-mirror.example.com")
+    monkeypatch.delenv("NO_PROXY")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+
+    assert model_utils.auto_detect_download_hub() == "modelscope"
+    assert calls["n"] == 0
+
+
+def test_auto_detect_download_hub_result_is_cached(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return True
+
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls["n"] == 1
+
+
+def test_resolve_download_hub(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+
+    # explicit hubs are passed through untouched
+    assert model_utils.resolve_download_hub("huggingface") == "huggingface"
+    assert model_utils.resolve_download_hub("modelscope") == "modelscope"
+    assert model_utils.resolve_download_hub("csghub") == "csghub"
+
+    # "auto" always resolves via detection
+    assert model_utils.resolve_download_hub("auto") == "modelscope"
+
+    # unspecified hub goes through detection as well
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
+    # a local model path means no download, so no detection
+    assert model_utils.resolve_download_hub(None, "/path/to/model") is None
+
+    # a pinned XINFERENCE_MODEL_SRC resolves to that concrete hub
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
+    # XINFERENCE_MODEL_SRC="auto" resolves via detection
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
+
+def test_explicit_huggingface_bypasses_auto_proxy_avoidance(
+    monkeypatch, _reset_auto_hub_cache
+):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.delenv("NO_PROXY")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+    assert model_utils._uses_environment_proxy("https://huggingface.co")
+
+    # A per-launch selection is the most specific setting.
+    assert model_utils.resolve_download_hub("huggingface") == "huggingface"
+
+    # A service-level pin applies when the launch does not specify a hub.
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "huggingface")
+    assert model_utils.resolve_download_hub(None) == "huggingface"
+
+    # The per-launch setting also overrides a different service-level pin.
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+    assert model_utils.resolve_download_hub("huggingface") == "huggingface"
+
+
+def test_download_from_modelscope_env_auto(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+    assert model_utils.download_from_modelscope() is True
+
+    model_utils._auto_detected_hub = None
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
+    )
+    assert model_utils.download_from_modelscope() is False
+
+
+def test_probe_bypasses_proxies_and_rejects_http_errors(
+    monkeypatch, _reset_auto_hub_cache
+):
+    from types import SimpleNamespace
+
+    import requests
+
+    import xinference.model.utils as model_utils
+
+    ca_bundle = "/private/corporate-ca.pem"
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", ca_bundle)
+
+    def _head(status):
+        def head(session, url, timeout=None, allow_redirects=None, proxies=None):
+            assert session.trust_env is True
+            assert proxies == {"http": None, "https": None, "all": None}
+            settings = session.merge_environment_settings(
+                url, proxies, stream=None, verify=None, cert=None
+            )
+            assert requests.utils.select_proxy(url, settings["proxies"]) is None
+            assert settings["verify"] == ca_bundle
+            return SimpleNamespace(status_code=status)
+
+        return head
+
+    monkeypatch.setenv("HTTP_PROXY", "http://proxy.example.com:8080")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+    monkeypatch.setenv("ALL_PROXY", "socks5://proxy.example.com:1080")
+    monkeypatch.setattr(requests.Session, "head", _head(200))
+    assert model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+    # An error response means downloads would fail, so it must count as
+    # unreachable.
+    for status in (403, 407, 500, 503):
+        monkeypatch.setattr(requests.Session, "head", _head(status))
+        assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+    def head_raise(session, url, timeout=None, allow_redirects=None, proxies=None):
+        assert session.trust_env is True
+        assert proxies == {"http": None, "https": None, "all": None}
+        raise requests.ConnectionError("boom")
+
+    monkeypatch.setattr(requests.Session, "head", head_raise)
+    assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+
+def test_explicit_download_hub_overrides_model_src_env(
+    monkeypatch, _reset_auto_hub_cache
+):
+    from ..embedding.embed_family import match_embedding
+    from ..image.core import match_diffusion
+    from ..rerank.rerank_family import match_rerank
+    from ..video.core import match_diffusion as match_video_diffusion
+
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+
+    # an explicit hub must win over the XINFERENCE_MODEL_SRC fallback
+    assert (
+        match_diffusion("FLUX.1-schnell", download_hub="huggingface").model_hub
+        == "huggingface"
+    )
+    assert (
+        match_video_diffusion("CogVideoX-2b", download_hub="huggingface").model_hub
+        == "huggingface"
+    )
+    assert (
+        match_rerank("bge-reranker-large", download_hub="huggingface")
+        .model_specs[0]
+        .model_hub
+        == "huggingface"
+    )
+    assert (
+        match_embedding("bge-large-en", download_hub="huggingface")
+        .model_specs[0]
+        .model_hub
+        == "huggingface"
+    )
+
+    # without an explicit hub, the env fallback still applies
+    assert match_diffusion("FLUX.1-schnell").model_hub == "modelscope"
+    assert match_video_diffusion("CogVideoX-2b").model_hub == "modelscope"
+    assert match_rerank("bge-reranker-large").model_specs[0].model_hub == "modelscope"
+    assert match_embedding("bge-large-en").model_specs[0].model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("offline_var", ["HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"])
+def test_auto_detect_honors_hf_offline_mode(
+    monkeypatch, _reset_auto_hub_cache, offline_var
+):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return False
+
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+    monkeypatch.setenv(offline_var, "1")
+
+    # Offline deployments read weights from a pre-populated local Hugging
+    # Face cache: detection must pick huggingface without probing the
+    # network instead of falling back to modelscope.
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls["n"] == 0
+    assert model_utils.resolve_download_hub(None) == "huggingface"
+    assert model_utils.resolve_download_hub("auto") == "huggingface"
+
+
+def test_tqdm_patch_accepts_default_update_increment():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+    with downloader:
+        with tqdm(total=2, file=io.StringIO()) as bar:
+            bar.update()
+            assert bar.n == 1
+            assert downloader.get_progress() == pytest.approx(0.5)
+            bar.update()
+            assert bar.n == 2
+            assert downloader.get_progress() == 1.0

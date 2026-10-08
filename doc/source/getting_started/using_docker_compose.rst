@@ -61,7 +61,7 @@ Available variables:
 
 * ``XINFERENCE_IMAGE``: image to run, defaults to ``xprobe/xinference:latest``. Pin a release tag such as ``xprobe/xinference:v<version>`` for production.
 * ``XINFERENCE_PORT``: host port of the RESTful API / Web UI, defaults to ``9997``.
-* ``XINFERENCE_MODEL_SRC``: model download source, ``huggingface`` (default) or ``modelscope``.
+* ``XINFERENCE_MODEL_SRC``: model download source, ``auto`` (default, probes Hugging Face reachability and falls back to ModelScope), ``huggingface`` or ``modelscope``.
 * ``XINFERENCE_SHM_SIZE``: shared memory size, defaults to ``8gb``. Increase for multi-GPU inference.
 * ``XINFERENCE_LOG_LEVEL``: log level, defaults to ``info``.
 * ``XINFERENCE_HOME_DIR`` / ``XINFERENCE_HF_CACHE_DIR`` / ``XINFERENCE_MODELSCOPE_CACHE_DIR``: persistence locations. They default to named Docker volumes; point them at absolute host paths to reuse existing model caches, in the same way as described in :ref:`using_docker_image`.

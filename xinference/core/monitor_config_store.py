@@ -38,6 +38,7 @@ DEFAULT_KEYS = {
     "cluster_name": "Cluster name (for Grafana var-cluster)",
     "dashboard_overview": "Overview dashboard UID",
     "dashboard_model_load": "Model load dashboard UID",
+    "dashboard_token_router": "Token Router dashboard UID",
     "dashboard_llm_slo": "LLM SLO dashboard UID",
     "dashboard_gpu": "GPU resources dashboard UID",
     "dashboard_host": "Host resources dashboard UID",
@@ -54,6 +55,7 @@ ENV_MAPPING = {
 DEFAULT_UIDS = {
     "dashboard_overview": "xinference-overview",
     "dashboard_model_load": "xinference-model-load",
+    "dashboard_token_router": "xinference-token-router",
     "dashboard_llm_slo": "xinference-llm-slo",
     "dashboard_gpu": "xinference-gpu-resources",
     "dashboard_host": "xinference-host-resources",

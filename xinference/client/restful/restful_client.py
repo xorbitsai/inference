@@ -17,10 +17,15 @@ from urllib.parse import quote
 
 import requests
 
-from ..common import convert_float_to_int_or_str, streaming_response_iterator
+from ..common import (
+    convert_float_to_int_or_str,
+    encode_world_reference,
+    streaming_response_iterator,
+)
 
 if TYPE_CHECKING:
     from ...types import (
+        AudioEmbedding,
         ChatCompletion,
         ChatCompletionChunk,
         Completion,
@@ -71,15 +76,28 @@ class RESTfulModelHandle:
 
 
 class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
-    def create_embedding(self, input: Union[str, List[str]], **kwargs) -> "Embedding":
+    def create_embedding(
+        self,
+        input: Union[
+            str,
+            List[str],
+            List[int],
+            List[List[int]],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+            List[Union[str, Dict[str, Any]]],
+        ],
+        **kwargs,
+    ) -> "Embedding":
         """
         Create an Embedding from user input via RESTful APIs.
 
         Parameters
         ----------
-        input: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+        input: Union[str, List[str], List[int], List[List[int]], Dict[str, Any],
+                     List[Dict[str, Any]], List[Union[str, Dict[str, Any]]]]
+            Text, token IDs, or multimodal input. Multimodal dictionaries may
+            contain text, image, video, or interleaved role/content messages.
 
         Returns
         -------
@@ -148,8 +166,8 @@ class RESTfulEmbeddingModelHandle(RESTfulModelHandle):
 class RESTfulRerankModelHandle(RESTfulModelHandle):
     def rerank(
         self,
-        documents: List[str],
-        query: str,
+        documents: List[Union[str, Dict[str, Any]]],
+        query: Union[str, Dict[str, Any]],
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
@@ -161,10 +179,10 @@ class RESTfulRerankModelHandle(RESTfulModelHandle):
 
         Parameters
         ----------
-        query: str
-            The search query
-        documents: List[str]
-            The documents to rerank
+        query: Union[str, Dict[str, Any]]
+            Text or multimodal query.
+        documents: List[Union[str, Dict[str, Any]]]
+            Text or multimodal documents to rerank.
         top_n: int
             The number of results to return, defaults to returning all results
         max_chunks_per_doc: int
@@ -599,6 +617,7 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
+        video: Optional[Union[str, bytes]] = None,
         **kwargs,
     ) -> "VideoList":
         """
@@ -614,6 +633,8 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
             The prompt or prompts not to guide the image generation.
         n: `int`, defaults to 1
             The number of videos to generate per prompt. Must be between 1 and 10.
+        video: `Union[str, bytes]`, optional
+            The driving video for character animation models.
         Returns
         -------
         VideoList
@@ -631,6 +652,18 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
+        if video is not None:
+            if isinstance(video, str):
+                with open(video, "rb") as f:
+                    video_data = f.read()
+            else:
+                video_data = video
+            files.append(
+                (
+                    "video",
+                    ("video", video_data, "application/octet-stream"),
+                )
+            )
         response = self.session.post(url, files=files, headers=self.auth_headers)
         if response.status_code != 200:
             raise RuntimeError(
@@ -692,6 +725,47 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
 
         response_data = response.json()
         return response_data
+
+
+class RESTfulWorldModelHandle(RESTfulModelHandle):
+    def generate(
+        self,
+        prompt: str,
+        image: Optional[Union[str, bytes]] = None,
+        video: Optional[Union[str, bytes]] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        **model_kwargs,
+    ) -> "VideoList":
+        """Generate a world video from text and an optional image or video."""
+        if image is not None and video is not None:
+            raise ValueError("Only one of image and video may be provided")
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "image": (
+                encode_world_reference(image, "image/png")
+                if image is not None
+                else None
+            ),
+            "video": (
+                encode_world_reference(video, "video/mp4")
+                if video is not None
+                else None
+            ),
+            "generation_config": generation_config or {},
+            "extra_body": model_kwargs,
+        }
+        response = self.session.post(
+            f"{self._base_url}/v1/worlds/generations",
+            json=request_body,
+            headers=self.auth_headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                "Failed to generate the world, detail: "
+                f"{_get_error_string(response)}"
+            )
+        return response.json()
 
 
 class RESTfulGenerateModelHandle(RESTfulModelHandle):
@@ -831,6 +905,23 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
 
 class RESTfulAudioModelHandle(RESTfulModelHandle):
+    def create_embedding(self, audio: bytes) -> "AudioEmbedding":
+        """Create a speaker embedding from encoded audio bytes."""
+        url = f"{self._base_url}/v1/audio/embeddings"
+        files = [("file", ("file", audio, "application/octet-stream"))]
+        response = self.session.post(
+            url,
+            data={"model": self._model_uid},
+            files=files,
+            headers=self.auth_headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                "Failed to create the audio embedding, "
+                f"detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def transcriptions(
         self,
         audio: bytes,
@@ -1193,11 +1284,13 @@ class Client:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        replica_config: Optional[List[Dict]] = None,
         model_path: Optional[str] = None,
         enable_thinking: Optional[bool] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -1210,7 +1303,7 @@ class Client:
         model_type: str
             type of model.
         model_engine: Optional[str]
-            Specify the inference engine of the model when launching LLM.
+            Specify the inference engine to use when launching the model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]
@@ -1237,6 +1330,13 @@ class Client:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        replica_config: Optional[List[Dict]]
+            Per-replica placement spec. Each item is ``{"replica_uid": str|None,
+            "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
+            "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
+            given worker/GPU. Do not combine it with worker_ip/n_gpu/gpu_idx.
+            An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
+            ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         enable_thinking: Optional[bool]
@@ -1246,6 +1346,8 @@ class Client:
             If enable virtual env.
         virtual_env_packages: Optional[List[str]]
             Packages to specify in virtual env, can be used to override builtin packages in virtual env.
+        virtual_env_find_links: Optional[List[str]]
+            Worker-local wheel directories to use when installing virtual env packages.
         envs: Optional[Dict[str, str]]
             Environment variables to pass when launching model.
 
@@ -1280,10 +1382,12 @@ class Client:
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "replica_config": replica_config,
             "model_path": model_path,
             "enable_thinking": enable_thinking,
             "enable_virtual_env": enable_virtual_env,
             "virtual_env_packages": virtual_env_packages,
+            "virtual_env_find_links": virtual_env_find_links,
             "envs": envs,
         }
 
@@ -1342,6 +1446,46 @@ class Client:
             )
         return response.json()
 
+    def reload_model(
+        self, model_uid: str, model_config: Dict[str, Any], drain_timeout: float = 300
+    ) -> Dict[str, Any]:
+        """Start an asynchronous reload, retaining GPU weights and model UID.
+
+        Launch with ``enable_weight_cache=True`` first. Use
+        ``get_model_reload_status`` to wait for ready/error after HTTP 202.
+        """
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        response = self.session.post(
+            url,
+            json={"model_config": model_config, "drain_timeout": drain_timeout},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(
+                f"Failed to reload model, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        """Return the latest reload operation, including its stage and error."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get reload status, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        """Return editable parameters, their types and current explicit values."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload/config"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get reload config, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def terminate_model(self, model_uid: str):
         """
         Terminate the specific model running on the server.
@@ -1365,6 +1509,61 @@ class Client:
             raise RuntimeError(
                 f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
+
+    def add_model_replica(
+        self,
+        model_uid: str,
+        replica_config: Optional[Union[dict, List[dict]]] = None,
+        replica: int = 1,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
+    ) -> dict:
+        """Add one or more replicas to a running model (scale-up).
+
+        Parameters
+        ----------
+        model_uid : str
+            The UID of the running model to extend.
+        replica_config : Optional[Union[dict, List[dict]]]
+            Optional single-device placement config, e.g.::
+
+                {
+                  "replica_uid": "my-replica-label",
+                  "devices": [
+                    {"worker_ip": "192.168.1.100:9999", "gpu_idx": [0, 1]}
+                  ]
+                }
+
+            Omit to let the supervisor auto-select a worker and GPU.
+        replica : int
+            Number of replicas to add, default is 1.
+        model_engine : Optional[str]
+            Override the model engine for the new replicas only.
+        n_gpu : Optional[Union[int, str]]
+            Override GPU usage for the new replicas. Use 0 for CPU or ``"auto"``.
+
+        Returns
+        -------
+        dict
+            A single-replica result, or ``{"replica": int, "replicas": list}``
+            when more than one replica is requested.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/replicas"
+        payload: Dict[str, Any] = {}
+        if replica_config is not None:
+            payload["replica_config"] = replica_config
+        if replica != 1:
+            payload["replica"] = replica
+        if model_engine is not None:
+            payload["model_engine"] = model_engine
+        if n_gpu is not None:
+            payload["n_gpu"] = n_gpu
+        response = self.session.post(url, json=payload, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to add model replica, detail: {_get_error_string(response)}"
+            )
+        return response.json()
 
     def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
         """Terminate a specific replica of a running model."""
@@ -1511,6 +1710,10 @@ class Client:
             )
         elif desc["model_type"] == "video":
             return RESTfulVideoModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "world":
+            return RESTfulWorldModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":

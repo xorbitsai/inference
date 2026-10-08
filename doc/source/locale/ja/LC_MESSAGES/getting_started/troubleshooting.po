@@ -501,11 +501,11 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:267
 msgid ""
-"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does"
-" not specify an upper bound for PyTorch:"
+"**Xinference's Unbounded Torch Dependency**: Xinference's "
+"``pyproject.toml`` does not specify an upper bound for PyTorch:"
 msgstr ""
-"**Xinference の Torch 依存関係に上限未設定**：Xinference の ``setup.cfg`` では、PyTorch "
-"にバージョン上限が指定されていません："
+"**Xinference の Torch 依存関係に上限未設定**：Xinference の ``pyproject.toml`` "
+"では、PyTorch にバージョン上限が指定されていません："
 
 #: ../../source/getting_started/troubleshooting.rst:275
 msgid ""

@@ -1,0 +1,619 @@
+# Chinese (Simplified, China) translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference 3.x\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-08 11:49+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: source/user_guide/pd_separation.rst:4
+msgid "PD separation"
+msgstr "PD 分离"
+
+#: source/user_guide/pd_separation.rst:6
+msgid ""
+"Prefill/Decode (PD) separation is available in the community edition. "
+"Prefill replicas compute prompt KV cache; decode replicas reuse it through "
+"Xavier or native NIXL and produce the response. Requests are scheduled "
+"round-robin within each role. No enterprise package or License is required."
+msgstr ""
+"社区版支持 Prefill/Decode（PD）分离。Prefill 副本计算提示词的 KV 缓存，Decode 副本通过 Xavier 或原生 "
+"NIXL 复用这些缓存并生成响应。请求在各角色内部轮询调度，无需企业版安装包或许可证。"
+
+#: source/user_guide/pd_separation.rst:12
+msgid "Launch"
+msgstr "启动"
+
+#: source/user_guide/pd_separation.rst:14
+msgid ""
+"Xavier requires NVIDIA GPUs, a reachable host address (not ``0.0.0.0``), and"
+" vLLM 0.21.0 or newer. Older deployments can use the legacy Xavier "
+"integration with vLLM below 0.11.0; versions 0.11 through 0.20 are not "
+"supported."
+msgstr ""
+"Xavier 需要 NVIDIA GPU、可访问的主机地址（不能是 ``0.0.0.0`` ）以及 vLLM 0.21.0 或更新版本。旧部署可使用 "
+"vLLM 0.11.0 以下版本的旧版 Xavier 集成；不支持 0.11 至 0.20 版本。"
+
+#: source/user_guide/pd_separation.rst:19
+msgid ""
+"The example starts one prefill replica on GPU 0 and one decode replica on "
+"GPU 1. Replace the worker address with the full ``ip:port`` reported by "
+"``client.get_workers_info()``. Both replicas must use the same model and "
+"engine configuration."
+msgstr "示例在 GPU 0 上启动一个 Prefill 副本，在 GPU 1 上启动一个 Decode 副本。请将 Worker 地址替换为 ``client.get_workers_info()`` 返回的完整 ``ip:port``。两个副本必须使用相同的模型和引擎配置。"
+
+#: source/user_guide/pd_separation.rst:51
+msgid ""
+"The same ``replica_config`` is accepted by ``POST /v1/models``, the async "
+"Python client, and the CLI ``--replica_config`` JSON option. In the Web UI, "
+"select vLLM, SGLang or MLX, enable per-replica placement, and choose Prefill"
+" or Decode for each replica. The community launch path defaults to Xavier "
+"when P/D roles appear."
+msgstr ""
+"``POST /v1/models``、异步 Python 客户端和 CLI 的 ``--replica_config`` JSON 选项均接受相同的 "
+"``replica_config``。在 Web UI 中，选择 vLLM、SGLang 或 MLX，启用逐副本放置，并为每个副本选择 Prefill "
+"或 Decode。出现 P/D 角色时，社区版启动路径默认使用 Xavier。"
+
+#: source/user_guide/pd_separation.rst:57
+msgid "CLI launch"
+msgstr "通过 CLI 启动"
+
+#: source/user_guide/pd_separation.rst:59
+msgid "Start a local server first, or use an existing supervisor endpoint:"
+msgstr "先启动本地服务，或使用已有的 Supervisor 地址："
+
+#: source/user_guide/pd_separation.rst:65
+msgid "In another terminal, launch a 1P+1D deployment:"
+msgstr "在另一个终端中启动 1P+1D 部署："
+
+#: source/user_guide/pd_separation.rst:78
+msgid ""
+"Replace ``WORKER_ADDRESS`` with the worker's registered address, including "
+"its actor port (shown in the worker startup log), not the HTTP API port. For"
+" workers on different machines, use each worker's own address and GPU "
+"indices. ``--replica_config`` is an alias for ``--replica-config``. The "
+"replica count is inferred from the array length; no separate Xavier switch "
+"is needed. Do not combine per-replica placement with global ``--n-gpu``, "
+"``--gpu-idx``, or ``--worker-ip``. Invalid PD roles or incomplete P/D "
+"topology fail before the launch request is sent."
+msgstr "将 ``WORKER_ADDRESS`` 替换为 Worker 注册的地址，其中包含 Actor 端口（可在 Worker 启动日志中查看），而不是 HTTP API 端口。如果 Worker 分布在不同机器上，请分别使用各自的地址和 GPU 索引。``--replica_config`` 是 ``--replica-config`` 的别名。副本数量根据数组长度推断，无需单独启用 Xavier。逐副本放置不能与全局 ``--n-gpu``、``--gpu-idx`` 或 ``--worker-ip`` 混用。无效的 PD 角色或不完整的 P/D 拓扑会在发送启动请求前被拒绝。"
+
+#: source/user_guide/pd_separation.rst:88
+msgid "Configuration rules"
+msgstr "配置规则"
+
+#: source/user_guide/pd_separation.rst:90
+msgid ""
+"``replica`` is the total number of P and D replicas. At least one of each "
+"role is required; more than one of either role is supported."
+msgstr "``replica`` 是 P 和 D 副本的总数。每种角色至少需要一个副本，也支持每种角色配置多个副本。"
+
+#: source/user_guide/pd_separation.rst:92
+msgid ""
+"Omitted roles default to ``hybrid`` (ordinary replicas). A PD deployment "
+"cannot mix hybrid replicas with P/D replicas."
+msgstr "未指定角色时默认为 ``hybrid`` （普通副本）。PD 部署不能混用 hybrid 副本和 P/D 副本。"
+
+#: source/user_guide/pd_separation.rst:94
+msgid ""
+"Each entry specifies one worker and its GPU allocation. Different replicas "
+"may run on different workers. Per-replica placement cannot be combined with "
+"global ``worker_ip``, ``gpu_idx`` or ``n_gpu``, or cross-worker sharding "
+"within a replica (``n_worker > 1``)."
+msgstr "每个条目指定一个 Worker 及其 GPU 分配。不同副本可以运行在不同 Worker 上。逐副本放置不能与全局 ``worker_ip``、``gpu_idx``、``n_gpu`` 或副本内部的跨 Worker 分片（``n_worker > 1`` ）混用。"
+
+#: source/user_guide/pd_separation.rst:98
+msgid ""
+"``vllm_transfer_backend_type`` (alias ``transfer_backend_type``) selects "
+"``xavier`` (default) or ``nixl``. Unknown backend names are rejected."
+msgstr ""
+"``vllm_transfer_backend_type``（别名 ``transfer_backend_type``）可选择 "
+"``xavier``（默认）或 ``nixl``。未知后端名称会被拒绝。"
+
+#: source/user_guide/pd_separation.rst:101
+msgid ""
+"The topology is fixed for the deployment lifetime. To change its size or "
+"roles, terminate the model and relaunch it with the new configuration."
+msgstr "部署期间拓扑保持不变。要调整副本数量或角色，需要终止模型，再使用新配置重新启动。"
+
+#: source/user_guide/pd_separation.rst:105
+msgid "Inference and lifecycle"
+msgstr "推理与生命周期"
+
+#: source/user_guide/pd_separation.rst:107
+msgid ""
+"Send OpenAI-compatible chat/completion requests to the model UID used at "
+"launch. Both streaming and non-streaming responses are supported. Wait for "
+"all replicas to be ready before sending requests. Aborting a request stops "
+"work on both roles; terminating the model releases the deployment resources."
+msgstr ""
+"向启动时指定的模型 UID 发送兼容 OpenAI "
+"的聊天或补全请求，支持流式和非流式响应。请等待所有副本就绪后再发送请求。中止请求会停止两个角色的工作；终止模型会释放部署资源。"
+
+#: source/user_guide/pd_separation.rst:134
+msgid "Hybrid/recurrent attention limitation"
+msgstr "混合注意力与循环注意力的限制"
+
+#: source/user_guide/pd_separation.rst:136
+msgid "Qwen3.5 text requests are supported with Xavier and native NIXL. Set ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode=\"none\"``, ``disable_hybrid_kv_cache_manager=False`` and ``async_scheduling=False`` on both replicas. Use TP=1 and PP=1. Xavier history caching is not available for these hybrid/recurrent attention models; their configured history budget is not allocated. Image/video inputs and speculative decoding are not supported in this configuration. Native NIXL requires vLLM >= 0.22.0 for this mode."
+msgstr "Xavier 和原生 NIXL 支持 Qwen3.5 纯文本请求。两个副本均需设置 ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode=\"none\"``, ``disable_hybrid_kv_cache_manager=False`` 和 ``async_scheduling=False``，并使用 TP=1、PP=1。此类混合或循环注意力模型暂不支持 Xavier 历史缓存，因此不会分配配置的历史缓存预算。该配置不支持图片、视频输入或推测解码。 此模式下原生 NIXL 需要 vLLM >= 0.22.0。"
+
+#: source/user_guide/pd_separation.rst:143
+msgid "Xavier requirements and memory"
+msgstr "Xavier 要求与内存用量"
+
+#: source/user_guide/pd_separation.rst:145
+msgid ""
+"Xavier V1 requires one GPU per replica (TP=1, PP=1) and text-only models "
+"without LoRA. Multimodal models, prompt embeddings and salted prompts are "
+"not supported."
+msgstr ""
+"Xavier V1 要求每个副本使用一张 GPU（TP=1、PP=1），模型仅支持文本且不使用 LoRA。不支持多模态模型、提示词嵌入和带 salt "
+"的提示词。"
+
+#: source/user_guide/pd_separation.rst:149
+msgid ""
+"Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. "
+"Allow additional host memory for transfers when sizing your deployment."
+msgstr "Xavier 的 CPU 缓存可能占用与引擎 GPU KV 缓存相当的内存。规划部署容量时，还需为传输预留额外的主机内存。"
+
+#: user_guide/pd_separation.rst:57
+msgid "Native NIXL backend"
+msgstr "原生 NIXL 后端"
+
+#: user_guide/pd_separation.rst:57
+msgid ""
+"Set ``vllm_transfer_backend_type=\"nixl\"`` in the launch example to use "
+"vLLM's native NixlConnector. Install ``nixl`` in the model environment "
+"together with vLLM 0.21.0 or newer. The initial integration supports text-"
+"only models without LoRA and requires TP=1, PP=1 and DP=1 per replica. "
+"Multiple P and D replicas are supported. Xavier remains the default backend."
+msgstr ""
+"在启动示例中设置 ``vllm_transfer_backend_type=\"nixl\"`` 即可使用 vLLM 原生 "
+"NixlConnector。在模型环境中安装 ``nixl`` 和 vLLM 0.21.0 或更新版本。初始集成支持无 LoRA "
+"的纯文本模型，每个副本要求 TP=1、PP=1、DP=1，支持多个 P 和 D 副本。默认后端仍为 Xavier。"
+
+#: user_guide/pd_separation.rst:66
+msgid ""
+"Native NIXL PD requires ``n=1`` per request; parallel sampling is not "
+"supported."
+msgstr "原生 NIXL PD 要求每个请求使用 ``n=1`` ，不支持并行采样。"
+
+msgid ""
+"For NIXL, wildcard worker binds are supported through automatic host "
+"discovery. Set ``VLLM_NIXL_SIDE_CHANNEL_HOST`` in launch ``envs`` or the "
+"worker environment to select a reachable interface; launch ``envs`` take "
+"precedence. If discovery fails or returns loopback, configure this variable "
+"explicitly. Xinference always replaces ``VLLM_NIXL_SIDE_CHANNEL_PORT`` with "
+"a dynamically allocated port per replica, including on recovery. A fixed "
+"side-channel port is not supported; firewalls must allow dynamic ports "
+"between replica hosts."
+msgstr ""
+"NIXL 支持通过自动发现地址使用通配 worker 绑定。在启动 ``envs`` 或 worker 环境中设置 "
+"``VLLM_NIXL_SIDE_CHANNEL_HOST`` 可选择可访问的网卡地址，启动 ``envs`` "
+"优先。若发现失败或返回回环地址，请显式设置该变量。Xinference 始终为每个副本动态分配端口并覆盖 "
+"``VLLM_NIXL_SIDE_CHANNEL_PORT``，恢复时也如此。不支持固定 side-channel "
+"端口；防火墙必须允许副本主机间的动态端口通信。"
+
+msgid "After a worker restart, relaunch the native NIXL PD deployment."
+msgstr "Worker 重启后，请重新启动原生 NIXL PD 部署。"
+
+#: source/user_guide/pd_separation.rst:203
+msgid "GPU-first Xavier cache (experimental)"
+msgstr "GPU 优先的 Xavier 缓存（实验性）"
+
+#: source/user_guide/pd_separation.rst:206
+msgid ""
+"For the Xavier backend, set ``xavier_gpu_cache_bytes`` to a non-negative "
+"integer, such as ``268435456`` for 256 MiB per replica. Omit it to use the "
+"existing CPU cache, or set it to ``0`` to use GPU-first caching with no GPU "
+"storage budget. This option does not select the native vLLM NIXL backend."
+msgstr ""
+"使用 Xavier 后端时，将 ``xavier_gpu_cache_bytes`` 设为非负整数，例如 ``268435456`` 表示每个副本 "
+"256 MiB。省略该参数会使用现有 CPU 缓存；设为 ``0`` 则启用 GPU 优先缓存，但不为 GPU 存储分配预算。此选项不会切换到 vLLM"
+" 原生 NIXL 后端。"
+
+#: source/user_guide/pd_separation.rst:208
+msgid ""
+"Install ``xoscar[nixl]>=0.11.1`` in both the worker and model environments. "
+"GPU-first caching requires Linux, NVIDIA CUDA, vLLM 0.21.0 or newer, a full-"
+"attention model and one GPU per replica (TP=1, PP=1). Use the same model, "
+"cache dtype and engine configuration on all replicas."
+msgstr ""
+"在 Worker 和模型环境中均安装 ``xoscar[nixl]>=0.11.1`` 。GPU 优先缓存需要 Linux、NVIDIA "
+"CUDA、vLLM 0.21.0 或更新版本、全注意力模型，且每个副本使用一张 "
+"GPU（TP=1、PP=1）。所有副本应使用相同的模型、缓存数据类型和引擎配置。"
+
+#: source/user_guide/pd_separation.rst:210
+msgid ""
+"The budget applies only to Xavier's GPU cache. Leave additional GPU memory "
+"for the model, vLLM's own KV cache and transfers. When this cache fills, "
+"Xavier stores reusable data in CPU memory; if no cache space is available, "
+"new data may not be retained for reuse."
+msgstr ""
+"该预算仅用于 Xavier 的 GPU 缓存。还需为模型、vLLM 自身的 KV 缓存和传输预留显存。该缓存满后，Xavier 会将可复用数据存入 "
+"CPU 内存；没有可用缓存空间时，新数据可能不会被保留供后续复用。"
+
+#: source/user_guide/pd_separation.rst
+msgid "GPU-first caching requires the Xavier backend and more than one replica."
+msgstr "GPU 优先缓存要求使用 Xavier 后端，且副本数必须大于 1。"
+
+#: user_guide/pd_separation.rst:211
+msgid ""
+"With GPU-first caching, cache transfers can overlap with response generation"
+" for other requests."
+msgstr "启用 GPU 优先缓存后，缓存传输可与其他请求的响应生成同时进行。"
+
+msgid ""
+"For implementation details, profiling and contributor tests, see the `Xavier"
+" developer README "
+"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+msgstr ""
+"实现细节、性能诊断和开发者测试请参阅 `Xavier developer README "
+"<https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/vllm/xavier/README.md>`_."
+
+#: ../../source/user_guide/pd_separation.rst:145
+msgid "Transfer failures and incompatible KV cache layouts raise errors instead of silently recomputing the request."
+msgstr "传输失败或 KV 缓存布局不兼容时会报错，而不会静默地重新计算请求。"
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA "
+"GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model "
+"environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL "
+"fails the launch; there is no CPU fallback."
+msgstr ""
+"Xavier P/D 默认使用 GPU 到 GPU 直传。要求 Linux、NVIDIA GPU、vLLM >= 0.21.0，并在 worker "
+"和模型环境中都安装 ``xoscar[nixl]>=0.11.1``。请使用可达的主机地址（不能是 ``0.0.0.0``）。缺少 NIXL "
+"时启动失败，不回退 CPU。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid ""
+"``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) "
+"for P/D. History uses GPU first and spills to CPU when GPU capacity is "
+"exhausted. CPU history is bounded by the engine KV block capacity and can "
+"approach that cache size in host memory. CPU hits restore KV to GPU; misses "
+"compute locally. ``0`` disables history, retaining direct transfer. Transfer"
+" failures raise errors."
+msgstr ""
+"P/D 的 ``xavier_gpu_cache_bytes`` 默认为 ``268435456`` （每副本 256 MiB）。历史缓存优先使用 "
+"GPU，GPU 容量不足时下沉 CPU。CPU 历史块数受引擎 KV 块容量限制，主机内存占用可能接近该缓存大小。CPU 命中时将 KV 恢复到 "
+"GPU，未命中时本地计算。 ``0`` 禁用历史缓存，仍保留直传。传输失败时报错。"
+
+
+#: user_guide/pd_separation.rst:1
+msgid "Direct handoff and tiered history"
+msgstr "直传与分层历史缓存"
+
+
+#: user_guide/pd_separation.rst:194
+msgid "Direct handoff currently requires ``n=1``."
+msgstr "直传目前要求 ``n=1``。"
+
+
+#: user_guide/pd_separation.rst
+msgid ""
+"History is restored on P before the handoff to D. Long prompts may retain "
+"only a prefix; cache retention is best effort."
+msgstr "历史缓存在 P 上恢复，然后交接给 D。长提示词可能只保留前缀；不保证保留所有缓存。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. If a handoff expires before D "
+"accepts it, D recomputes locally. Once D accepts it, the source cache stays "
+"reserved until the load finishes or the request is cancelled before loading."
+msgstr ""
+"尚未被接收的交接在 120 秒后过期。如果交接在 D 接收前过期，D 会在本地重新计算。D 接收后，源缓存会保留到加载完成，或请求在加载前被取消。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Direct transfers and history loads can overlap with response generation for "
+"other requests."
+msgstr "直传和历史缓存加载可以与其他请求的响应生成重叠执行。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Unclaimed handoffs expire after 120 seconds. Claimed handoffs expire after "
+"10 minutes without a scheduling retry or transfer progress. Active copies "
+"finish before release. Expired handoffs are recomputed locally on D."
+msgstr ""
+"尚未被接收的交接在 120 秒后过期。已被接收的交接如果 10 分钟内没有调度重试或传输进展，也会过期。正在进行的拷贝会在释放前完成。过期的交接由 D "
+"在本地重新计算。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang with Xavier"
+msgstr "SGLang 与 Xavier"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``\"SGLang\"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported."
+msgstr "SGLang >= ``0.5.21`` 可通过 Python 客户端、REST API、CLI 和 Web UI 使用相同的 prefill/decode ``replica_config``。将示例中的 ``model_engine`` 改为 ``\"SGLang\"``。显式角色会自动启用 Xavier；支持多个 prefill 和 decode 副本。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors."
+msgstr "SGLang Xavier P/D 通过 Xavier 的 NIXL 传输在 GPU 之间直接传递 KV。Prefill 和 decode 使用 SGLang 原生 P/D 生命周期并行运行。源和目标 GPU 槽位保留所有权，直到传输完成；decode 还会接收 prefill 采样的第一个 token。支持流式和非流式响应。传输失败会报错。"
+
+#: source/user_guide/pd_separation.rst
+msgid "SGLang GPU P/D does not use ``xavier_cache_bytes`` or CPU HiCache. Retained Xavier GPU history is not yet supported; ``xavier_gpu_cache_bytes`` may be omitted or set to ``0``. Relaunch the deployment after a worker restart. Measure TTFT and throughput against ordinary replicas and native SGLang P/D for your workload."
+msgstr "SGLang GPU P/D 不使用 ``xavier_cache_bytes`` 或 CPU HiCache。尚不支持保留 Xavier GPU 历史缓存；可以省略 ``xavier_gpu_cache_bytes`` 或将其设为 ``0``。Worker 重启后需重新启动部署。请针对实际负载，对比普通副本和原生 SGLang P/D 的 TTFT 与吞吐量。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback."
+msgstr "vLLM Xavier P/D 默认使用 GPU 到 GPU 直传。要求 Linux、NVIDIA GPU、vLLM >= 0.21.0，并在 worker 和模型环境中都安装 ``xoscar[nixl]>=0.11.1``。请使用可达的主机地址（不能是 ``0.0.0.0``）。缺少 NIXL 时启动失败，不回退 CPU。"
+
+#: source/user_guide/pd_separation.rst
+msgid "vLLM Xavier requirements and memory"
+msgstr "vLLM Xavier 要求与内存用量"
+
+#: source/user_guide/pd_separation.rst:64
+msgid "For a native SGLang comparison, keep the same deployment and set ``transfer_backend_type=\"nixl\"``. This uses SGLang's NIXL backend through the same Xinference API and P/D router. Install ``nixl`` in each model environment. The initial native integration requires TP=PP=DP=1, one worker per replica, text requests, and no LoRA, speculative decoding or HiCache. Bootstrap ports are allocated per replica; both replica hosts must be reachable."
+msgstr "要对比原生 SGLang，保持相同部署并设置 ``transfer_backend_type=\"nixl\"``。这会通过相同的 Xinference API 和 P/D 路由使用 SGLang 的 NIXL 后端。请在每个模型环境中安装 ``nixl``。初始原生集成要求 TP=PP=DP=1、每个副本使用一个 worker、仅处理文本请求，且不使用 LoRA、推测解码或 HiCache。每个副本都会分配引导端口；两个副本主机必须互相可达。"
+
+#: ../../source/user_guide/pd_separation.rst:66
+msgid "For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=true``. Override model stop strings with an unused ``stop`` marker and verify the actual output token counts."
+msgstr "进行固定输出长度的性能测试时，补全和聊天请求均支持 ``ignore_eos=true``。请用未使用的 ``stop`` 标记覆盖模型的停止字符串，并核实实际输出的 token 数。"
+
+#: ../../source/user_guide/pd_separation.rst:64
+msgid "SGLang Xavier P/D requires ``disaggregation_decode_enable_radix_cache=false``; each request transfers its full prompt KV. Prefill's local radix cache remains available. Enabling decode radix caching is rejected at launch."
+msgstr "SGLang Xavier P/D 要求 ``disaggregation_decode_enable_radix_cache=false``；每个请求都会传输完整 prompt 的 KV。Prefill 端仍可使用本地 radix cache。若启用 decode 端 radix cache，启动时会拒绝该配置。"
+
+#: ../../user_guide/pd_separation.rst
+msgid ""
+"Set ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` in the worker environment "
+"or launch ``envs`` to change the Xavier handoff wait limit (default: 600 "
+"seconds). Increase it for long prefill queues or large prompts. Unfinished "
+"directory rooms expire after this interval; completed directory records "
+"expire after this interval unless the active decode request renews its "
+"lease. Both roles release them on completion."
+msgstr ""
+"在 worker 环境或启动 ``envs`` 中设置 ``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` "
+"可更改 Xavier 交接等待上限（默认 600 "
+"秒）。对于长预填充队列或大提示词，可增大该值。未完成的目录房间在此间隔后过期；已完成的目录记录也会在此间隔后过期，除非活跃的解码请求续租。两个角色在请求完成时释放记录。"
+
+#: ../../user_guide/pd_separation.rst
+msgid "Native SGLang P/D requires one tokenizer worker; its internal HTTP endpoints use automatic per-replica authentication."
+msgstr "原生 SGLang P/D 要求单个 tokenizer worker；其内部 HTTP 接口自动使用每副本独立的身份认证。"
+
+#: user_guide/pd_separation.rst
+msgid "MLX with Xavier"
+msgstr "MLX 与 Xavier"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports "
+"unquantized, full-attention Qwen2, Qwen3 and Llama text models with one "
+"worker per replica. Weights and KV cache use FP16. Quantized weights or KV "
+"cache, rotating caches, hybrid attention, multimodal inputs, LoRA and "
+"speculative decoding are unsupported."
+msgstr ""
+"MLX Xavier 需要 Apple 芯片和 ``mlx-lm>=0.31.2``，支持采用全注意力的未量化 Qwen2、Qwen3 和 Llama "
+"文本模型，每个副本使用一个 worker。权重和 KV 缓存使用 FP16。不支持量化权重或 KV 缓存、旋转缓存、混合注意力、多模态输入、LoRA "
+"和推测解码。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use ``model_engine=\"MLX\"``, ``model_format=\"mlx\"`` and "
+"``quantization=\"none\"`` with the same prefill/decode roles. The example "
+"places one replica on each of two Mac workers. Replace the registered worker"
+" addresses with those reported by ``client.get_workers_info()``."
+msgstr ""
+"设置 ``model_engine=\"MLX\"``、``model_format=\"mlx\"`` 和 "
+"``quantization=\"none\"``，沿用相同的 prefill/decode 角色。示例在两个 Mac worker "
+"上各放置一个副本。请使用 ``client.get_workers_info()`` 返回的已注册 worker 地址。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"MLX Xavier stores immutable CPU pages in a shared actor on the supervisor "
+"and transfers them through actor RPC. ``xavier_cache_bytes`` bounds this "
+"deployment cache (default: 512 MiB); model weights and per-replica Metal KV "
+"allocations consume additional memory. The prefill replica evaluates all but"
+" the last prompt token. Decode imports the prefix, evaluates that last token"
+" and samples the first response token. Streaming and non-streaming requests "
+"are supported. Active handoffs reserve cache capacity; insufficient "
+"capacity, incompatible metadata or transfer failure raises an error. The "
+"five-minute handoff deadline starts when prefill reserves capacity, before "
+"computing the prefix, and includes prefill and transfer time."
+msgstr ""
+"MLX Xavier 在 supervisor 上的共享 actor 中保存不可变 CPU 页，通过 actor RPC "
+"传输。``xavier_cache_bytes`` 限制部署缓存容量，默认 512 MiB；模型权重和各副本的 Metal KV "
+"分配需要额外内存。Prefill 副本计算除最后一个之外的全部提示词 token。Decode 导入前缀，计算最后一个 token 并采样首个响应 "
+"token。支持流式和非流式请求。活跃交接会预留缓存容量；容量不足、元数据不兼容或传输失败会报错。交接的五分钟期限从 Prefill "
+"预留容量时开始，早于前缀计算，包含 prefill 和传输时间。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use the default ``xavier`` transport for MLX; native NIXL is unsupported. "
+"All workers must reach the supervisor's actor address. Relaunch after a "
+"worker restart. Two replicas on one Mac share its Metal GPU; measure your "
+"workload before expecting a throughput benefit."
+msgstr ""
+"MLX 使用默认的 ``xavier`` 传输，不支持原生 NIXL。所有 worker 必须能访问 supervisor 的 actor "
+"地址。Worker 重启后需要重新启动部署。同一台 Mac 上的两个副本共享 Metal GPU，应先测量工作负载，再评估吞吐收益。"
+
+#: user_guide/pd_separation.rst:102
+msgid ""
+"Each 64-token FP16 page uses ``2 * 64 * num_layers * num_kv_heads * head_dim"
+" * 2`` bytes (K and V, with two bytes per value). For example, 36 layers, 8 "
+"KV heads and a head dimension of 128 require 9 MiB per page; 512 MiB holds "
+"56 pages, or 3584 prefix tokens. Round each prefix up to a whole page and "
+"size ``xavier_cache_bytes`` for the distinct pages reserved by all "
+"concurrent P/D requests. Ordinary shared-cache requests skip publication "
+"when their prefix exceeds the cache capacity or the 4096-page protocol "
+"limit."
+msgstr ""
+"每个 64 token 的 FP16 页占用 ``2 * 64 * num_layers * num_kv_heads * head_dim * 2``"
+" 字节（K 和 V，每个值占两字节）。例如，36 层、8 个 KV 头、头维度为 128 时，每页需要 9 MiB；512 MiB 可保存 56 页，即"
+" 3584 个前缀 token。将每个前缀向上取整到整页，并按所有并发 P/D 请求预留的不同页总量配置 "
+"``xavier_cache_bytes``。普通共享缓存请求的前缀超过缓存容量或 4096 页协议上限时，会跳过发布。"
+
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"The model limitations are described in :ref:`user_guide_vllm_enhancement`. "
+"Install ``xoscar[nixl]>=0.11.1`` in worker and model environments and use "
+"reachable worker addresses. Missing NIXL fails launch without CPU fallback. "
+"Use the ``xavier`` transport; SGLang's own Mooncake backend is not exposed "
+"by this integration. For cross-engine P/D, use the per-replica engine "
+"settings below."
+msgstr ""
+"模型限制参见 :ref:`user_guide_vllm_enhancement`。在 worker 和模型环境中安装 "
+"``xoscar[nixl]>=0.11.1``，使用可访问的 worker 地址。缺少 NIXL 时启动失败，不回退到 CPU。使用 "
+"``xavier`` 传输；不开放 SGLang 自带的 Mooncake 后端。跨引擎 P/D 使用下方的逐副本引擎配置。"
+
+#: source/user_guide/pd_separation.rst
+msgid "Cross-engine vLLM/SGLang P/D"
+msgstr "跨引擎 vLLM/SGLang P/D"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry "
+"to select vLLM or SGLang independently for each role. Cross-engine P/D "
+"requires Xavier GPU transport. Engine options inherit launch arguments; "
+"``engine_config`` overrides them per replica."
+msgstr ""
+"在每个 ``replica_config`` 条目中设置 ``model_engine`` 和 ``engine_config``，分别为各角色选择 "
+"vLLM 或 SGLang。跨引擎 P/D 需要 Xavier GPU 传输。引擎选项继承启动参数，``engine_config`` "
+"为各副本覆盖这些选项。"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Both workers require identical local weights, tokenizer assets and context "
+"limits. Supported models are unquantized FP16 full-attention Qwen2, Qwen3 "
+"and Llama text models with TP=PP=DP=1. Requires vLLM >=0.21.0, SGLang "
+">=0.5.21 and ``xoscar[nixl]>=0.11.1``. Xavier checks contracts and prompt "
+"token IDs, converts 64-token KV pages on GPU and raises errors on "
+"incompatibility or transfer failure."
+msgstr ""
+"两个 worker 必须使用相同的本地权重、tokenizer 文件及上下文限制。支持 TP=PP=DP=1 的未量化 FP16 全注意力 "
+"Qwen2、Qwen3 和 Llama 文本模型。需要 vLLM >=0.21.0、SGLang >=0.5.21 及 "
+"``xoscar[nixl]>=0.11.1``。Xavier 校验契约与实际 prompt token ID，在 GPU 上转换 64-token "
+"KV 页；不兼容或传输失败会报错。"
+
+#: source/user_guide/pd_separation.rst
+msgid ""
+"Streaming and non-streaming requests require ``n=1``. SGLang decode uses the"
+" first output token sampled by prefill. vLLM decode imports all but the "
+"final prompt token, computes that token and samples the output. Engine "
+"kernels can produce small numerical differences. vLLM decode requires at "
+"least two prompt tokens."
+msgstr ""
+"流式与非流式请求均要求 ``n=1``。SGLang decode 使用 prefill 采样的首个输出 token。vLLM decode "
+"导入最后一个 prompt token 之前的 KV，计算该 token 后采样输出。引擎算子可能产生小幅数值差异。vLLM decode 要求至少两个"
+" prompt token。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Cross-engine P/D does not support CPU fallback, retained Xavier history, "
+"logprobs, structured sampling, LoRA, speculative decoding, multimodal inputs"
+" or hybrid attention. Omit ``xavier_gpu_cache_bytes`` or set it to ``0``; do"
+" not set ``xavier_cache_bytes``. Relaunch after a worker restart. Native "
+"NIXL comparisons use the same engine on both roles."
+msgstr ""
+"跨引擎 P/D 不支持 CPU 回退、Xavier 历史缓存、logprobs、结构化采样、LoRA、推测解码、多模态输入或混合注意力。省略 "
+"``xavier_gpu_cache_bytes`` 或设为 ``0``，不要设置 ``xavier_cache_bytes``。worker "
+"重启后需要重新部署。原生 NIXL 对照在两个角色上使用相同引擎。"
+
+#: user_guide/pd_separation.rst
+msgid "NVIDIA and MLX cross-engine P/D"
+msgstr "NVIDIA 与 MLX 跨引擎 P/D"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Xavier supports both vLLM/SGLang prefill with MLX decode and MLX prefill "
+"with vLLM/SGLang decode, with streaming and non-streaming requests. FP16 "
+"64-token pages pass through CPU staging and actor RPC between CUDA and "
+"Metal. vLLM and MLX decode compute the last prompt token; SGLang decode "
+"imports the full prompt KV and the first output token sampled by P. MLX "
+"prefill publishes request-owned pages on its worker with a 512 MiB in-flight"
+" budget."
+msgstr ""
+"Xavier 同时支持 vLLM/SGLang 预填充与 MLX 解码，以及 MLX 预填充与 vLLM/SGLang "
+"解码，支持流式和非流式请求。FP16 的 64-token 页面经过 CPU 暂存和 actor RPC 在 CUDA 与 Metal "
+"之间传输。vLLM 和 MLX 解码会计算最后一个 prompt token；SGLang 解码导入完整 prompt KV 和 P 采样的首个输出 "
+"token。MLX 预填充在其 worker 上发布请求专属页面，在途数据预算为 512 MiB。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Use identical unquantized checkpoint and tokenizer files; do not convert the"
+" Mac checkpoint. Worker-local ``model_path`` and ``model_format`` belong in "
+"each replica's ``engine_config``. Xavier checks weights, tokenizer, "
+"effective model semantics, context limits and prompt token IDs. Model and "
+"sampling restrictions match vLLM/SGLang cross-engine P/D; failures raise "
+"errors."
+msgstr ""
+"使用相同的未量化检查点和分词器文件，不要转换 Mac 检查点。每个副本的 ``engine_config`` 可设置 worker 本地的 "
+"``model_path`` 和 ``model_format``。Xavier 检查权重、分词器、实际模型语义、上下文限制和 prompt token"
+" ID。模型及采样限制与 vLLM/SGLang 跨引擎 P/D 相同；失败时会抛出错误。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"To use MLX prefill, swap the two ``role`` values in the example. For SGLang "
+"on either role, use ``SGLang`` and replace ``max_model_len`` with "
+"``context_length``. NVIDIA requires ``xoscar[nixl]>=0.11.1``; Mac requires "
+"``xoscar>=0.11.1`` and ``mlx-lm>=0.31.2``. Workers must reach the supervisor"
+" and each other. Use Xavier transport, and omit ``xavier_gpu_cache_bytes`` "
+"or set it to ``0``. Relaunch after a worker restart."
+msgstr ""
+"要使用 MLX 预填充，交换示例中的两个 ``role`` 值。在任一角色使用 SGLang 时，设置 ``SGLang`` 并将 "
+"``max_model_len`` 换成 ``context_length``。NVIDIA 需要 "
+"``xoscar[nixl]>=0.11.1``；Mac 需要 ``xoscar>=0.11.1`` 和 ``mlx-"
+"lm>=0.31.2``。Worker 必须能访问 supervisor 和彼此。使用 Xavier 传输，省略 "
+"``xavier_gpu_cache_bytes`` 或设为 ``0``。Worker 重启后需要重新部署。"
+
+#: ../../source/user_guide/pd_separation.rst
+msgid ""
+"Run the supervisor and all worker/model environments with the same Python "
+"version and matching ``cloudpickle`` / ``tblib`` versions; actor RPC also "
+"carries exceptions and generators."
+msgstr ""
+"Supervisor 与所有 worker/model 环境必须使用相同的 Python 版本，并对齐 ``cloudpickle`` / "
+"``tblib`` 版本；actor RPC 也会传输异常和生成器。"
+
+#: user_guide/pd_separation.rst
+msgid ""
+"Compare end-to-end TTFT with the standalone decode engine on its own "
+"hardware, using the same effective FP16 weights and cache policy. Network "
+"transfers and CUDA/Metal copies may outweigh faster prefill. ``host_bytes`` "
+"measures CPU-staged payloads; ``imported_tokens`` records completed KV "
+"imports. Correct output alone does not prove reuse."
+msgstr ""
+"使用相同的实际 FP16 权重及缓存策略，与独立运行在原硬件上的解码引擎对比端到端 TTFT。网络传输及 CUDA/Metal "
+"复制成本可能超过预填充加速的收益。``host_bytes`` 记录 CPU 暂存载荷；``imported_tokens`` 记录完成的 KV "
+"导入。仅输出正确不能证明复用了缓存。"
+
+#: source/user_guide/pd_separation.rst:179
+msgid ""
+"For MLX prefill, ``xavier_cache_bytes`` sets the worker-local in-flight CPU "
+"page budget (default: 512 MiB). Capacity is reserved before Metal prefill, "
+"rounding the full prompt up to 64-token pages. A prompt exceeding the budget"
+" fails before prefill; concurrent requests wait for capacity. Reservations "
+"and transfer waits are bounded by "
+"``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` (default: 600 seconds)."
+msgstr ""
+"MLX 做预填充时，``xavier_cache_bytes`` 设置 Worker 本地正在使用的 CPU 页面预算（默认 512 MiB）。在 "
+"Metal 预填充前预留容量，将完整提示词向上取整为 64 token "
+"页面。单个提示词超过预算时，在预填充前报错；并发请求等待空闲容量。预留和传输等待受 "
+"``XINFERENCE_SGLANG_XAVIER_TRANSFER_TIMEOUT`` 限制（默认 600 秒）。"
+
+#: source/user_guide/pd_separation.rst:181
+msgid ""
+"MLX-prefill cross-engine requests do not accept ``min_p``, "
+"``presence_penalty``, ``frequency_penalty`` or ``seed``. The router rejects "
+"these parameters before scheduling either replica, so the first output token"
+" uses the same supported sampling settings as the rest of the response."
+msgstr ""
+"MLX 做预填充的跨引擎请求不接受 ``min_p``、``presence_penalty``、``frequency_penalty`` 或 "
+"``seed``。路由器在调度任何副本前拒绝这些参数，确保首个输出 token 与后续响应使用一致的受支持采样设置。"

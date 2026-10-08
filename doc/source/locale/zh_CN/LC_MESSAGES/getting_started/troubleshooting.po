@@ -426,7 +426,6 @@ msgid ""
 "**Update:** The latest transformers 4.57.3 (as in 2026.01.05) still "
 "requires ``huggingface-hub<1.0``."
 msgstr ""
-msgstr ""
 "**更新：** 截至 2026.01.05，transformers 最新版本 4.57.3 依然 "
 "依赖 ``huggingface-hub<1.0``。"
 
@@ -514,11 +513,11 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:267
 msgid ""
-"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` "
-"does not specify an upper bound for PyTorch:"
+"**Xinference's Unbounded Torch Dependency**: Xinference's "
+"``pyproject.toml`` does not specify an upper bound for PyTorch:"
 msgstr ""
-"**Xinference 对 Torch 依赖未设置上限**：Xinference 的 ``setup.cfg`` "
-"中没有为 PyTorch 指定版本上限："
+"**Xinference 对 Torch 依赖未设置上限**：Xinference 的 ``pyproject.toml`` 中没有为 PyTorch "
+"指定版本上限："
 
 #: ../../source/getting_started/troubleshooting.rst:275
 msgid "This allows package managers to upgrade PyTorch to incompatible versions."

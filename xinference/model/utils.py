@@ -17,15 +17,18 @@ import functools
 import importlib
 import json
 import logging
+import math
 import os
 import random
 import re
+import stat
 import sys
 import threading
 from abc import ABC, abstractmethod
 from contextvars import ContextVar
 from copy import deepcopy
 from json import JSONDecodeError
+from numbers import Integral
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -33,6 +36,7 @@ from typing import (
     Callable,
     Dict,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -51,9 +55,12 @@ from ..constants import (
     XINFERENCE_DOWNLOAD_MAX_ATTEMPTS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_ENV_MODEL_SRC,
+    XINFERENCE_HUB_DETECT_TIMEOUT,
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
+from .oci_utils import SCHEME as OCI_SCHEME
+from .oci_utils import resolve_oci_model
 
 if TYPE_CHECKING:
     from .embedding.core import LlamaCppEmbeddingSpecV1
@@ -61,6 +68,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
+CACHE_SOURCE_MANIFEST = "__cache_source_paths.json"
+_CACHE_SOURCE_MANIFEST_LOCK = threading.Lock()
 _ENGINE_MARKER_RE = re.compile(
     r"#(?:engine|model_engine)#\s*==\s*[\"']([^\"']+)[\"']",
     re.IGNORECASE,
@@ -286,6 +295,58 @@ def _build_engine_params_from_specs_by_quantization(
     return engine_param_list
 
 
+def _annotate_draft_support(
+    params: List[Dict[str, Any]],
+    engine_classes: List[Type[Any]],
+    family: Optional[Any] = None,
+    specs: Optional[List[Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Publish whether an engine can run a drafter, for rebuilt param lists.
+
+    The virtualenv-aware discovery path rebuilds entries from specs rather than
+    from the engine registry, so the model class is not attached to them the way
+    ``_clean_engine_param`` finds it. One engine name maps to several classes —
+    MLX has a text one and a vision one, and only the latter takes a drafter —
+    so resolve which of them claims each entry and read the flag off that,
+    matching what the registry-built path reports.
+
+    ``match_json`` is what narrows it, the same call the non-forced branch makes;
+    it never checks whether the library is installed, so it works on this path
+    too. When nothing claims an entry — which is normal here, since the forced
+    branch exists precisely for engines that cannot match yet — fall back to
+    whether any class of the engine could, so an entry offered for on-demand
+    install is not reported as unable to draft.
+    """
+    for param in params:
+        matching_specs = [
+            spec
+            for spec in specs or []
+            if getattr(spec, "model_format", None) == param.get("model_format")
+            and getattr(spec, "model_size_in_billions", None)
+            == param.get("model_size_in_billions")
+        ]
+        claimed: List[Type[Any]] = []
+        for spec in matching_specs:
+            quantization = getattr(spec, "quantization", None) or "none"
+            for cls in engine_classes:
+                match_func = getattr(cls, "match_json", None)
+                if not callable(match_func):
+                    continue
+                try:
+                    is_match, _, _, _ = _normalize_match_result(
+                        match_func(family, spec, quantization), "", "match"
+                    )
+                except Exception:
+                    is_match = False
+                if is_match and cls not in claimed:
+                    claimed.append(cls)
+        considered = claimed or engine_classes
+        param["support_draft_model"] = any(
+            bool(getattr(cls, "support_draft_model", False)) for cls in considered
+        )
+    return params
+
+
 def _force_virtualenv_engine_params(
     family: Optional[Any],
     supported_engines: Dict[str, List[Type[Any]]],
@@ -372,7 +433,12 @@ def _force_virtualenv_engine_params(
                 continue
 
             selected_specs = matched_specs
-            engine_param_list = param_builder(family, selected_specs)
+            engine_param_list = _annotate_draft_support(
+                param_builder(family, selected_specs),
+                engine_classes,
+                family,
+                selected_specs,
+            )
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
             match_status[engine_name] = True
@@ -408,7 +474,12 @@ def _force_virtualenv_engine_params(
         ):
             continue
         selected_specs = matched_specs or specs
-        engine_param_list = param_builder(family, selected_specs)
+        engine_param_list = _annotate_draft_support(
+            param_builder(family, selected_specs),
+            engine_classes,
+            family,
+            selected_specs,
+        )
         if engine_param_list:
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
@@ -529,6 +600,78 @@ def _apply_virtualenv_engine_overrides(
             engine_params[engine_name] = reason
 
 
+def _apply_engine_host_checks(
+    engine_params: Dict[str, Any],
+    supported_engines: Dict[str, List[Type[Any]]],
+) -> None:
+    """Reject engines whose non-installable host requirements are unmet."""
+
+    for engine_name, engine_classes in supported_engines.items():
+        if engine_name not in engine_params:
+            continue
+        host_reason: Optional[str] = None
+        host_available = False
+        for engine_class in engine_classes:
+            check_host = getattr(engine_class, "check_host", None)
+            host_ok, reason, _, _ = _normalize_match_result(
+                check_host() if callable(check_host) else True,
+                f"Engine {engine_name} is incompatible with this host",
+                "model_compatibility",
+            )
+            if host_ok:
+                host_available = True
+                break
+            host_reason = reason or host_reason
+        if not host_available:
+            engine_params[engine_name] = host_reason or (
+                f"Engine {engine_name} is incompatible with this host"
+            )
+
+
+def extend_classes_once(target: List[type], classes: List[type]) -> None:
+    """Append each class to ``target`` only if it is not already present.
+
+    The embedding, rerank and LLM ``_install()`` functions run on every call
+    to ``register_builtin_model()``, including the runtime refresh path
+    (``Worker.update_model_type``, called repeatedly as the model catalog is
+    re-downloaded). Without this guard, each refresh re-appends the same
+    built-in engine classes to the shared module-level ``SUPPORTED_ENGINES``
+    lists, growing them without bound.
+    """
+    for cls in classes:
+        if cls not in target:
+            target.append(cls)
+
+
+def prune_stale_derived_registries(
+    live_model_names: "set[str]", *derived_dicts: Dict[str, Any]
+) -> None:
+    """Drop entries for models no longer present after an install refresh.
+
+    ``install_models_with_merge`` clears and rebuilds its ``built_in_dict`` from
+    scratch on every refresh, but the engine and description registries derived
+    from it (``EMBEDDING_ENGINES``/``EMBEDDING_MODEL_DESCRIPTIONS`` and their
+    rerank counterparts) are only ever added to, never pruned: a model dropped
+    from a later catalog still advertises a launch config and description while
+    ``match_*()`` can no longer find it in the primary table.
+    """
+    for d in derived_dicts:
+        for stale_name in [name for name in d if name not in live_model_names]:
+            del d[stale_name]
+
+
+def family_identity_key(model_spec: Any) -> str:
+    """Serialize a model-family spec for value-based dedup during registry loads.
+
+    Excludes ``is_builtin``: every ``_install()`` marks freshly loaded families
+    with ``family.is_builtin = True`` right after loading them, so on a repeated
+    ``register_builtin_model()`` refresh the newly parsed candidate (default
+    ``is_builtin``) would never compare equal to the already-loaded, already-marked
+    entry it duplicates.
+    """
+    return model_spec.json(exclude={"is_builtin"})
+
+
 def check_dependency_available(
     module_name: str, friendly_name: Optional[str] = None
 ) -> Union[bool, Tuple[bool, str]]:
@@ -547,6 +690,25 @@ def check_dependency_available(
     return True
 
 
+@functools.lru_cache
+def has_cuda_device() -> bool:
+    # use pynvml rather than torch to avoid initializing CUDA on import
+    device_count = 0
+    try:
+        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
+    except Exception:
+        pass
+    finally:
+        try:
+            nvmlShutdown()
+        except Exception:
+            pass
+    return device_count > 0
+
+
 def is_locale_chinese_simplified() -> bool:
     import locale
 
@@ -557,9 +719,145 @@ def is_locale_chinese_simplified() -> bool:
         return False
 
 
+_auto_detected_hub: Optional[str] = None
+_auto_detect_hub_lock = threading.Lock()
+
+
+def _uses_environment_proxy(url: str) -> bool:
+    import requests
+
+    try:
+        proxies = requests.utils.get_environ_proxies(url)
+        return bool(requests.utils.select_proxy(url, proxies))
+    except Exception:
+        # Let the direct reachability probe handle malformed endpoints and
+        # other unexpected environment configuration.
+        return False
+
+
+def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
+    import requests
+
+    session = requests.Session()
+    # Auto detection must test direct connectivity.  If the endpoint is only
+    # reachable through an environment proxy applicable to its URL scheme,
+    # selecting Hugging Face would route large model downloads through the
+    # user's proxy and consume its traffic quota.  Disable only proxies here;
+    # keep trust_env enabled for CA bundles and netrc credentials used by direct
+    # private mirrors.  Explicitly selecting Hugging Face remains possible.
+    direct_proxies: Dict[str, Any] = {
+        "http": None,
+        "https": None,
+        "all": None,
+    }
+    try:
+        response = session.head(
+            url,
+            timeout=timeout,
+            allow_redirects=True,
+            proxies=direct_proxies,
+        )
+    except Exception:
+        return False
+    finally:
+        session.close()
+    # An error response (e.g. access denied or a 5xx from a broken mirror)
+    # means downloads would fail as well, so treat it as unreachable.
+    return response.status_code < 400
+
+
+def _hf_offline_mode_enabled() -> bool:
+    # Same truthy values huggingface_hub accepts for these variables.
+    return any(
+        os.environ.get(var, "").strip().lower() in ("1", "true", "yes", "on")
+        for var in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    )
+
+
+def auto_detect_download_hub() -> str:
+    """
+    Decide between huggingface and modelscope by probing connectivity.
+
+    Checks the actual Hugging Face endpoint (honoring ``HF_ENDPOINT`` mirrors).
+    If requests to that endpoint would use an environment-configured proxy,
+    returns "modelscope" without probing so large downloads do not consume
+    proxy traffic. Otherwise, probes direct connectivity and returns
+    "huggingface" only when the endpoint is reachable. When Hugging Face
+    offline mode is enabled
+    (``HF_HUB_OFFLINE`` / ``TRANSFORMERS_OFFLINE``), no probe runs and
+    "huggingface" is returned directly: offline deployments read weights from
+    a pre-populated local Hugging Face cache, which the huggingface_hub
+    downloader resolves without network access, whereas falling back to
+    modelscope would bypass that cache and attempt a real download. The result
+    is cached for the lifetime of the process so the probe runs at most once.
+    """
+    global _auto_detected_hub
+    if _auto_detected_hub is not None:
+        return _auto_detected_hub
+    with _auto_detect_hub_lock:
+        if _auto_detected_hub is None:
+            if _hf_offline_mode_enabled():
+                _auto_detected_hub = "huggingface"
+                logger.info(
+                    "Auto-detected download hub: huggingface "
+                    "(Hugging Face offline mode is enabled; "
+                    "reading from the local cache)"
+                )
+                return _auto_detected_hub
+            hf_endpoint = os.environ.get("HF_ENDPOINT") or "https://huggingface.co"
+            if _uses_environment_proxy(hf_endpoint):
+                _auto_detected_hub = "modelscope"
+                logger.info(
+                    "Auto-detected download hub: modelscope "
+                    "(%s would use an environment-configured proxy)",
+                    hf_endpoint,
+                )
+            elif _is_hub_endpoint_reachable(hf_endpoint, XINFERENCE_HUB_DETECT_TIMEOUT):
+                _auto_detected_hub = "huggingface"
+                logger.info(
+                    "Auto-detected download hub: huggingface "
+                    "(%s is directly reachable)",
+                    hf_endpoint,
+                )
+            else:
+                _auto_detected_hub = "modelscope"
+                logger.info(
+                    "Auto-detected download hub: modelscope "
+                    "(%s is not directly reachable within %.1f seconds)",
+                    hf_endpoint,
+                    XINFERENCE_HUB_DETECT_TIMEOUT,
+                )
+    return _auto_detected_hub
+
+
+def resolve_download_hub(
+    download_hub: Optional[str], model_path: Optional[str] = None
+) -> Optional[str]:
+    """
+    Resolve the "auto" download hub to a concrete hub before matching specs.
+
+    Explicit "auto" always triggers connectivity detection. When no hub is
+    specified at all, a concrete source pinned via ``XINFERENCE_MODEL_SRC`` is
+    returned directly; otherwise detection runs unless a local ``model_path``
+    was provided (in which case no download is needed).
+    """
+    if download_hub == "auto":
+        return auto_detect_download_hub()
+    if download_hub is None and model_path is None:
+        model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+        if not model_src or model_src == "auto":
+            return auto_detect_download_hub()
+        if model_src in ("huggingface", "modelscope", "openmind_hub", "csghub"):
+            return model_src
+    return download_hub
+
+
 def download_from_modelscope() -> bool:
-    if os.environ.get(XINFERENCE_ENV_MODEL_SRC):
-        return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope"
+    model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+    if model_src == "auto":
+        return auto_detect_download_hub() == "modelscope"
+    elif model_src:
+        return model_src == "modelscope"
     elif is_locale_chinese_simplified():
         return True
     else:
@@ -579,11 +877,101 @@ def download_from_csghub() -> bool:
     return False
 
 
+def get_cache_source_paths(cache_dir: str) -> Set[str]:
+    """Return canonical source files recorded for a Xinference cache."""
+    manifest_path = os.path.join(cache_dir, CACHE_SOURCE_MANIFEST)
+    try:
+        manifest_stat = os.lstat(manifest_path)
+        if not stat.S_ISREG(manifest_stat.st_mode):
+            logger.warning(
+                "Ignoring non-regular cache source manifest: %s", manifest_path
+            )
+            return set()
+
+        open_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        manifest_fd = os.open(manifest_path, open_flags)
+        with os.fdopen(manifest_fd, "r", encoding="utf-8") as manifest_file:
+            opened_stat = os.fstat(manifest_file.fileno())
+            if not stat.S_ISREG(opened_stat.st_mode) or (
+                opened_stat.st_dev,
+                opened_stat.st_ino,
+            ) != (manifest_stat.st_dev, manifest_stat.st_ino):
+                logger.warning(
+                    "Ignoring replaced cache source manifest: %s", manifest_path
+                )
+                return set()
+            manifest = json.load(manifest_file)
+    except FileNotFoundError:
+        return set()
+    except (JSONDecodeError, OSError, TypeError, ValueError) as exc:
+        logger.warning(
+            "Failed to read cache source manifest %s: %s", manifest_path, exc
+        )
+        return set()
+
+    if not isinstance(manifest, dict) or manifest.get("version") != 1:
+        logger.warning("Invalid cache source manifest: %s", manifest_path)
+        return set()
+
+    source_paths = manifest.get("source_paths")
+    if not isinstance(source_paths, list):
+        logger.warning("Invalid cache source manifest: %s", manifest_path)
+        return set()
+
+    return {
+        os.path.realpath(source_path)
+        for source_path in source_paths
+        if isinstance(source_path, str) and os.path.isabs(source_path)
+    }
+
+
+def _record_cache_source_path(cache_dir: str, source_path: str) -> None:
+    """Atomically retain source provenance for symlink-to-copy fallbacks."""
+    cache_dir = os.path.abspath(cache_dir)
+    source_path = os.path.realpath(source_path)
+    try:
+        if os.path.commonpath([source_path, cache_dir]) == cache_dir:
+            # Helpers such as ``merge_cached_files`` may link one cache file to
+            # another. The cache directory already owns both paths.
+            return
+    except ValueError:
+        # Different Windows drives cannot share a common path.
+        pass
+
+    manifest_path = os.path.join(cache_dir, CACHE_SOURCE_MANIFEST)
+    with _CACHE_SOURCE_MANIFEST_LOCK:
+        source_paths = get_cache_source_paths(cache_dir)
+        if source_path in source_paths:
+            return
+        source_paths.add(source_path)
+
+        os.makedirs(cache_dir, exist_ok=True)
+        temp_path = f"{manifest_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        try:
+            with open(temp_path, "w", encoding="utf-8") as manifest_file:
+                json.dump(
+                    {"version": 1, "source_paths": sorted(source_paths)},
+                    manifest_file,
+                )
+            os.replace(temp_path, manifest_path)
+        finally:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+
+
 def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     from huggingface_hub.file_download import _create_symlink
 
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*relpath.split("/"))
+    if os.path.normcase(os.path.normpath(relative_filename)) == os.path.normcase(
+        CACHE_SOURCE_MANIFEST
+    ):
+        raise ValueError(
+            f"Cannot use reserved cache metadata filename: {CACHE_SOURCE_MANIFEST}"
+        )
     if os.name == "nt":
         if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
             raise ValueError(
@@ -604,6 +992,8 @@ def symlink_local_file(path: str, local_dir: str, relpath: str) -> str:
     os.makedirs(os.path.dirname(local_dir_filepath), exist_ok=True)
     real_blob_path = os.path.realpath(path)
     _create_symlink(real_blob_path, local_dir_filepath, new_blob=False)
+    if not os.path.islink(local_dir_filepath):
+        _record_cache_source_path(local_dir, real_blob_path)
     return local_dir_filepath
 
 
@@ -611,6 +1001,14 @@ def create_symlink(download_dir: str, cache_dir: str):
     for subdir, dirs, files in os.walk(download_dir):
         for file in files:
             relpath = os.path.relpath(os.path.join(subdir, file), download_dir)
+            if os.path.normcase(os.path.normpath(relpath)) == os.path.normcase(
+                CACHE_SOURCE_MANIFEST
+            ):
+                logger.warning(
+                    "Ignoring downloaded file with reserved cache metadata name: %s",
+                    os.path.join(subdir, file),
+                )
+                continue
             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
 
@@ -664,6 +1062,69 @@ def retry_download(
             raise RuntimeError(
                 f"Failed to download model '{model_name}' after multiple retries"
             ) from last_ex
+
+
+def retry_snapshot_download(
+    download_func: Callable,
+    model_name: str,
+    model_info: Optional[Dict],
+    *args,
+    **kwargs,
+):
+    download_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+    if download_workers is not None:
+        kwargs.setdefault("max_workers", int(download_workers))
+    return retry_download(download_func, model_name, model_info, *args, **kwargs)
+
+
+class ModelArtifactSource:
+    """Download auxiliary model artifacts from the selected model hub.
+
+    Some model runtimes need companion repositories in addition to the main
+    model snapshot. Keeping source selection here prevents those runtimes from
+    silently falling back to Hugging Face in ModelScope-only deployments.
+    """
+
+    def __init__(self, hub: Literal["huggingface", "modelscope"]):
+        if hub not in ("huggingface", "modelscope"):
+            raise ValueError(f"Unsupported model artifact source: {hub}")
+        self.hub = hub
+
+    @property
+    def is_modelscope(self) -> bool:
+        return self.hub == "modelscope"
+
+    def snapshot_download(
+        self,
+        model_id: str,
+        *,
+        revision: Optional[str] = None,
+        allow_patterns: Optional[List[str]] = None,
+    ) -> str:
+        download_kwargs: Dict[str, Any] = {}
+        if revision is not None:
+            download_kwargs["revision"] = revision
+
+        if self.is_modelscope:
+            from modelscope.hub.snapshot_download import (
+                snapshot_download as download_func,
+            )
+
+            if allow_patterns is not None:
+                download_kwargs["allow_file_pattern"] = allow_patterns
+        else:
+            from huggingface_hub import snapshot_download as download_func
+
+            if allow_patterns is not None:
+                download_kwargs["allow_patterns"] = allow_patterns
+
+        return retry_snapshot_download(
+            download_func,
+            model_id,
+            None,
+            model_id,
+            **download_kwargs,
+        )
 
 
 def valid_model_revision(
@@ -751,6 +1212,39 @@ def is_valid_model_uri(model_uri: Optional[str]) -> bool:
         return True
 
 
+def is_remote_uri(model_uri: str) -> bool:
+    """Whether resolving ``model_uri`` needs the network."""
+    return parse_uri(model_uri)[0] == OCI_SCHEME
+
+
+def resolve_model_uri(model_uri: str, model_name: Optional[str] = None) -> str:
+    """The local directory a ``model_uri`` names, ready to be symlinked at.
+
+    Shared by every cache manager so all model types accept the same schemes.
+    A ``file://`` root is used as is; an ``oci://`` reference is pulled through
+    llmman into its content-addressed store.
+    """
+    src_scheme, src_root = parse_uri(model_uri)
+    if src_root.endswith("/"):
+        # remove trailing path separator.
+        src_root = src_root[:-1]
+
+    if src_scheme == "file":
+        if not os.path.isabs(src_root):
+            raise ValueError(f"Model URI cannot be a relative path: {model_uri}")
+        if not os.path.exists(src_root):
+            of_model = f" of model {model_name!r}" if model_name else ""
+            raise ValueError(
+                f"Model URI path does not exist: {src_root}. "
+                f"Please check the `model_uri`{of_model}."
+            )
+        return src_root
+    elif src_scheme == OCI_SCHEME:
+        return resolve_oci_model(src_root)
+    else:
+        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+
+
 def cache_from_uri(model_spec: CacheableModelSpec) -> str:
     cache_dir = os.path.realpath(
         os.path.join(XINFERENCE_CACHE_DIR, model_spec.model_name)
@@ -760,21 +1254,10 @@ def cache_from_uri(model_spec: CacheableModelSpec) -> str:
         return cache_dir
 
     assert model_spec.model_uri is not None
-    src_scheme, src_root = parse_uri(model_spec.model_uri)
-    if src_root.endswith("/"):
-        # remove trailing path separator.
-        src_root = src_root[:-1]
-
-    if src_scheme == "file":
-        if not os.path.isabs(src_root):
-            raise ValueError(
-                f"Model URI cannot be a relative path: {model_spec.model_uri}"
-            )
-        os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
-        os.symlink(src_root, cache_dir, target_is_directory=True)
-        return cache_dir
-    else:
-        raise ValueError(f"Unsupported URL scheme: {src_scheme}")
+    src_root = resolve_model_uri(model_spec.model_uri, model_spec.model_name)
+    os.makedirs(XINFERENCE_CACHE_DIR, exist_ok=True)
+    os.symlink(src_root, cache_dir, target_is_directory=True)
+    return cache_dir
 
 
 def select_device(device):
@@ -812,12 +1295,40 @@ def set_all_random_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
+MAX_MEDIA_SEED = 2**31 - 1
+
+
+def resolve_media_seed(seed: Any) -> Optional[int]:
+    """Validate a media seed and replace -1 with a fresh random value."""
+    if seed is None:
+        return None
+    if isinstance(seed, bool) or not isinstance(seed, Integral):
+        raise ValueError("Seed must be an integer")
+
+    value = int(seed)
+    if value == -1:
+        return random.SystemRandom().randrange(MAX_MEDIA_SEED + 1)
+    if value < 0 or value > MAX_MEDIA_SEED:
+        raise ValueError(f"Seed must be -1 or between 0 and {MAX_MEDIA_SEED}")
+    return value
+
+
+_cancellable_downloaders_var: ContextVar[Tuple["CancellableDownloader", ...]] = (
+    ContextVar("cancellable_downloaders", default=())
+)
+
+
 class CancellableDownloader:
     _global_lock = threading.Lock()
     _active_instances = 0
+    _active_registry: Set["CancellableDownloader"] = set()
     _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
     _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
+    _original_init_plain = None  # Class-level original __init__ descriptor
+    _original_thread_pool_submit = None  # Tuple with original pool submit method
     _patch_lock = threading.Lock()  # Additional lock for patching operations
+    _tqdm_owner_attr = "_xinference_downloader"
+    _main_progress_units = {"it", "file", "files"}
 
     def __init__(
         self,
@@ -829,54 +1340,180 @@ class CancellableDownloader:
             self._cancelled = threading.Event()
         self._done_event = threading.Event()
         self._cancel_error_cls = cancel_error_cls
+        # Guards mutation/iteration of the progress sets below; a new download
+        # bar can be added by patched_update (download thread) while another
+        # thread iterates the same set in get_progress().
+        self._progress_lock = threading.RLock()
         # progress for tqdm that is main
         self._main_progresses: Set[tqdm] = set()
         # progress for file downloader
         # mainly when tqdm unit is set
         self._download_progresses: Set[tqdm] = set()
+        # A byte bar reaches 100% before the repository-level bar advances.
+        # Keep those completed file contributions until a main-bar update
+        # accounts for them, even if get_progress() was not called in between.
+        self._unaccounted_download_progresses: Set[tqdm] = set()
         # Instance-specific tqdm tracking
         self._patched_instances: Set[int] = set()
 
+    @classmethod
+    def _get_tqdm_owner(cls, tqdm_instance: Any) -> Optional["CancellableDownloader"]:
+        owner = getattr(tqdm_instance, cls._tqdm_owner_attr, None)
+        if owner is not None:
+            return owner
+
+        downloaders = _cancellable_downloaders_var.get()
+        if downloaders:
+            owner = downloaders[-1]
+        else:
+            # Some download libraries create their own worker threads without
+            # propagating contextvars. A single active downloader is still an
+            # unambiguous owner; with concurrent downloaders, never guess.
+            with cls._global_lock:
+                if len(cls._active_registry) == 1:
+                    owner = next(iter(cls._active_registry))
+
+        if owner is not None:
+            setattr(tqdm_instance, cls._tqdm_owner_attr, owner)
+        return owner
+
+    @classmethod
+    def _is_main_progress_unit(cls, unit: Any) -> bool:
+        return str(unit or "").lower() in cls._main_progress_units
+
+    def _remove_from_context(self) -> None:
+        downloaders = list(_cancellable_downloaders_var.get())
+        for index in range(len(downloaders) - 1, -1, -1):
+            if downloaders[index] is self:
+                del downloaders[index]
+                _cancellable_downloaders_var.set(tuple(downloaders))
+                break
+
     def reset(self):
-        self._main_progresses.clear()
-        self._download_progresses.clear()
+        # Hold _progress_lock around both clears so a concurrent get_progress()
+        # caller (e.g. the progress-upload thread that already passed its done
+        # check) cannot be mid-iteration when the sets are cleared — that race
+        # raised "Set changed size during iteration".
+        with self._progress_lock:
+            self._main_progresses.clear()
+            self._download_progresses.clear()
+            self._unaccounted_download_progresses.clear()
+
+    def _progress_snapshots(self) -> Tuple[List[tqdm], List[tqdm]]:
+        """Return stable copies while tqdm callbacks may update the sets."""
+        with self._progress_lock:
+            return list(self._main_progresses), list(self._download_progresses)
 
     def get_progress(self) -> float:
-        if self.done:
-            # directly return 1.0 when finished
-            return 1.0
-        # Don't return 1.0 when cancelled, calculate actual progress
+        with self._progress_lock:
+            if self.done:
+                # directly return 1.0 when finished
+                return 1.0
+            # Don't return 1.0 when cancelled, calculate actual progress
 
-        tasks = finished_tasks = 0
-        for main_progress in self._main_progresses:
-            tasks += main_progress.total or 0
-            finished_tasks += main_progress.n
+            tasks = finished_tasks = 0
+            for main_progress in self._main_progresses:
+                tasks += main_progress.total or 0
+                finished_tasks += main_progress.n
 
-        if tasks == 0:
-            # we assumed at least 1 task
-            tasks = 1
+            if tasks == 0:
+                # we assumed at least 1 task
+                tasks = 1
 
-        finished_ratio = finished_tasks / tasks
+            active_file_progress = 0.0
+            for download_progress in self._download_progresses:
+                total = download_progress.total
+                downloaded = download_progress.n or 0
 
-        all_download_progress = finished_download_progress = 0
-        for download_progress in self._download_progresses:
-            # we skip finished download
-            if download_progress.n == download_progress.total:
+                # Completed downloads are represented either by finished_tasks
+                # or by _unaccounted_download_progresses during the short gap
+                # before the repository-level bar advances.
+                if total is not None and downloaded >= total:
+                    continue
+
+                if total:
+                    # Give every file the same weight, irrespective of its size.
+                    active_file_progress += min(max(downloaded / total, 0.0), 1.0)
+                elif downloaded > 0:
+                    # Preserve the previous best-effort estimate for downloads
+                    # whose total size is not available yet.
+                    active_file_progress += 0.1
+
+            unaccounted_file_progress = len(self._unaccounted_download_progresses)
+            file_progress = active_file_progress + unaccounted_file_progress
+
+            # A tqdm implementation may expose more than one byte progress bar
+            # for the same file. Never let byte bars account for more file slots
+            # than the repository-level progress reports as unfinished.
+            unfinished_tasks = max(tasks - finished_tasks, 0)
+            file_progress = min(file_progress, unfinished_tasks)
+            return min(max((finished_tasks + file_progress) / tasks, 0.0), 1.0)
+
+    @staticmethod
+    def _finite_float(value: Any) -> Optional[float]:
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            return None
+        return result if math.isfinite(result) else None
+
+    def get_download_progress_details(self) -> List[Dict[str, Any]]:
+        """Return JSON-serializable snapshots for files downloading right now.
+
+        Repository-level tqdm bars count files and use ``it`` as their unit.
+        File download bars use a byte unit, so only those bars are exposed.
+        Completed byte bars remain visible until the download context resets,
+        allowing clients to show both active and just-finished files.
+        """
+        _, download_progresses = self._progress_snapshots()
+        files: List[Dict[str, Any]] = []
+
+        for download_progress in download_progresses:
+            if getattr(download_progress, "disable", False):
                 continue
-            all_download_progress += download_progress.total or (
-                download_progress.n * 10
-            )
-            finished_download_progress += download_progress.n
 
-        if all_download_progress > 0:
-            rest_ratio = (
-                (tasks - finished_tasks)
-                / tasks
-                * (finished_download_progress / all_download_progress)
+            unit = str(getattr(download_progress, "unit", "") or "")
+            if unit.lower() not in {"b", "byte", "bytes"}:
+                continue
+
+            downloaded = self._finite_float(getattr(download_progress, "n", None))
+            total = self._finite_float(getattr(download_progress, "total", None))
+            if downloaded is None:
+                continue
+
+            format_dict = getattr(download_progress, "format_dict", {}) or {}
+            rate = self._finite_float(format_dict.get("rate"))
+            elapsed = self._finite_float(format_dict.get("elapsed"))
+            downloaded = max(0.0, downloaded)
+            total = max(0.0, total) if total is not None else None
+            rate = max(0.0, rate) if rate is not None else None
+            elapsed = max(0.0, elapsed) if elapsed is not None else 0.0
+            completed = total is not None and total > 0 and downloaded >= total
+
+            progress = None
+            eta = None
+            if total is not None and total > 0:
+                progress = min(1.0, downloaded / total)
+                if completed:
+                    eta = 0.0
+                    rate = None
+                elif rate is not None and rate > 0:
+                    eta = max(0.0, (total - downloaded) / rate)
+
+            files.append(
+                {
+                    "name": str(getattr(download_progress, "desc", "") or ""),
+                    "downloaded_bytes": int(downloaded),
+                    "total_bytes": int(total) if total is not None else None,
+                    "progress": progress,
+                    "speed_bytes_per_second": rate,
+                    "elapsed_seconds": elapsed,
+                    "eta_seconds": eta,
+                    "status": "completed" if completed else "downloading",
+                }
             )
-            return finished_ratio + rest_ratio
-        else:
-            return finished_ratio
+
+        return sorted(files, key=lambda item: item["name"])
 
     def cancel(self):
         self._cancelled.set()
@@ -897,40 +1534,88 @@ class CancellableDownloader:
         raise self._cancel_error_cls(error_msg)
 
     def patch_tqdm(self):
-        # Use class-level patching to avoid conflicts
+        # Use class-level patching to avoid conflicts. Route the bookkeeping
+        # through the class (type(self)), not `self`: assigning to
+        # self._original_update creates a per-instance attribute that shadows
+        # the class attribute, so two concurrent downloaders each observe the
+        # class-level None, patch tqdm independently, and keep their own
+        # originals — the first to exit then restores tqdm.update while the
+        # second is still active.
         with self._patch_lock:
+            from concurrent.futures import ThreadPoolExecutor
+
             import tqdm as tqdm_module
 
-            if self._original_update is None:
-                self._original_update = tqdm.update
-            if self._original_update_plain is None:
-                self._original_update_plain = tqdm_module.tqdm.update
+            cls = type(self)
 
-            if self._original_update is None or self._original_update_plain is None:
+            if cls._original_update is None:
+                cls._original_update = tqdm.update
+            if cls._original_update_plain is None:
+                cls._original_update_plain = tqdm_module.tqdm.update
+            if cls._original_init_plain is None:
+                # Keep the descriptor inside a tuple so accessing it through
+                # this class does not invoke its own __get__ implementation.
+                cls._original_init_plain = (tqdm_module.tqdm.__dict__["__init__"],)
+            if cls._original_thread_pool_submit is None:
+                # Store the function in a tuple to prevent descriptor binding
+                # when it is accessed through CancellableDownloader.
+                cls._original_thread_pool_submit = (ThreadPoolExecutor.submit,)
+
+            if (
+                cls._original_update is None
+                or cls._original_update_plain is None
+                or cls._original_init_plain is None
+                or cls._original_thread_pool_submit is None
+            ):
                 return
 
-            original_update_plain = self._original_update_plain
+            original_update_plain = cls._original_update_plain
+            original_init_plain = cls._original_init_plain[0].__get__(
+                None, tqdm_module.tqdm
+            )
+            original_thread_pool_submit = cls._original_thread_pool_submit[0]
+
+            def patched_init(tqdm_instance, *args, **kwargs):
+                # Bind ownership when the bar is created so later updates from
+                # library worker threads remain scoped to the same downloader.
+                downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                result = original_init_plain(tqdm_instance, *args, **kwargs)
+
+                # Register the bar immediately, rather than waiting for its
+                # first update. Repository-level bars do not update until the
+                # first file finishes; delaying registration would make
+                # get_progress() assume there is only one task until then.
+                if (
+                    downloader is not None
+                    and not downloader.done
+                    and not getattr(tqdm_instance, "disable", False)
+                ):
+                    unit = getattr(tqdm_instance, "unit", "it")
+                    progresses = (
+                        downloader._main_progresses
+                        if downloader._is_main_progress_unit(unit)
+                        else downloader._download_progresses
+                    )
+                    with downloader._progress_lock:
+                        progresses.add(tqdm_instance)
+
+                return result
 
             # Thread-safe patched update
-            def patched_update(tqdm_instance, n):
-                import gc
-
-                # Get all CancellableDownloader instances and check for cancellation
-                downloaders = [
-                    obj
-                    for obj in gc.get_objects()
-                    if isinstance(obj, CancellableDownloader)
-                ]
-
-                for downloader in downloaders:
+            def patched_update(tqdm_instance, n=1):
+                downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                progresses = None
+                unit = None
+                if downloader is not None:
                     # if download cancelled, throw error
                     if getattr(downloader, "cancelled", False):
                         downloader.raise_error()
 
-                    progresses = None
-                    if not getattr(tqdm_instance, "disable", False):
+                    if not downloader.done and not getattr(
+                        tqdm_instance, "disable", False
+                    ):
                         unit = getattr(tqdm_instance, "unit", "it")
-                        if unit == "it":
+                        if downloader._is_main_progress_unit(unit):
                             progresses = getattr(downloader, "_main_progresses", None)
                         else:
                             progresses = getattr(
@@ -938,46 +1623,128 @@ class CancellableDownloader:
                             )
 
                     if progresses is not None:
-                        progresses.add(tqdm_instance)
-                    else:
-                        logger.debug(f"No progresses found for downloader {downloader}")
+                        with downloader._progress_lock:
+                            # Keep the tqdm update and the corresponding
+                            # completed-file bookkeeping atomic with respect to
+                            # get_progress().
+                            progresses.add(tqdm_instance)
+                            previous_n = getattr(tqdm_instance, "n", 0) or 0
+                            result = original_update_plain(tqdm_instance, n)
+                            current_n = getattr(tqdm_instance, "n", 0) or 0
+
+                            if downloader._is_main_progress_unit(unit):
+                                newly_accounted = max(int(current_n - previous_n), 0)
+                                for _ in range(
+                                    min(
+                                        newly_accounted,
+                                        len(
+                                            downloader._unaccounted_download_progresses
+                                        ),
+                                    )
+                                ):
+                                    downloader._unaccounted_download_progresses.pop()
+                            else:
+                                total = getattr(tqdm_instance, "total", None)
+                                if (
+                                    total is not None
+                                    and previous_n < total <= current_n
+                                ):
+                                    downloader._unaccounted_download_progresses.add(
+                                        tqdm_instance
+                                    )
+
+                            return result
 
                 # Call original update with safety check
                 return original_update_plain(tqdm_instance, n)
 
+            def patched_thread_pool_submit(executor, fn, /, *args, **kwargs):
+                # ThreadPoolExecutor does not propagate contextvars. Capture
+                # only the downloader ownership here so libraries that create
+                # tqdm bars in nested pools can still bind each bar correctly.
+                downloaders = _cancellable_downloaders_var.get()
+                if not downloaders:
+                    return original_thread_pool_submit(executor, fn, *args, **kwargs)
+
+                def run_with_downloaders():
+                    token = _cancellable_downloaders_var.set(downloaders)
+                    try:
+                        return fn(*args, **kwargs)
+                    finally:
+                        _cancellable_downloaders_var.reset(token)
+
+                return original_thread_pool_submit(executor, run_with_downloaders)
+
+            tqdm_module.tqdm.__init__ = patched_init
             tqdm.update = patched_update
             tqdm_module.tqdm.update = patched_update
+            ThreadPoolExecutor.submit = patched_thread_pool_submit
 
     def unpatch_tqdm(self):
         with self._patch_lock:
-            if self._original_update is not None and self._active_instances == 0:
+            cls = type(self)
+            if cls._active_instances == 0:
+                from concurrent.futures import ThreadPoolExecutor
+
                 import tqdm as tqdm_module
 
-                tqdm.update = self._original_update
-                self._original_update = None
-                if self._original_update_plain is not None:
-                    tqdm_module.tqdm.update = self._original_update_plain
-                    self._original_update_plain = None
+                if cls._original_update is not None:
+                    tqdm.update = cls._original_update
+                    cls._original_update = None
+                if cls._original_update_plain is not None:
+                    tqdm_module.tqdm.update = cls._original_update_plain
+                    cls._original_update_plain = None
+                if cls._original_init_plain is not None:
+                    tqdm_module.tqdm.__init__ = cls._original_init_plain[0]
+                    cls._original_init_plain = None
+                if cls._original_thread_pool_submit is not None:
+                    ThreadPoolExecutor.submit = cls._original_thread_pool_submit[0]
+                    cls._original_thread_pool_submit = None
 
     def __enter__(self):
-        # Use global lock to prevent concurrent patching
+        # Use global lock to prevent concurrent patching. _active_instances is
+        # class-level bookkeeping (routed through type(self)) so concurrent
+        # downloaders share one counter instead of each shadowing it per-instance.
         with self._global_lock:
-            if self._active_instances == 0:
+            cls = type(self)
+            if cls._active_instances == 0:
                 self.patch_tqdm()
-            self._active_instances += 1
+            cls._active_instances += 1
+            cls._active_registry.add(self)
+        _cancellable_downloaders_var.set(_cancellable_downloaders_var.get() + (self,))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Use global lock to prevent concurrent unpatching
-        with self._global_lock:
-            self._active_instances -= 1
-            if self._active_instances == 0:
-                self.unpatch_tqdm()
+        try:
+            # Use global lock to prevent concurrent unpatching
+            with self._global_lock:
+                cls = type(self)
+                cls._active_instances -= 1
+                cls._active_registry.discard(self)
+                if cls._active_instances == 0:
+                    self.unpatch_tqdm()
+        finally:
+            self._remove_from_context()
         try:
             self._done_event.set()
             self.reset()
         except Exception as e:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
+
+
+def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, Any]:
+    """Drop the model class from an engine entry, keeping what callers need.
+
+    ``support_draft_model`` is published so a caller can tell whether an engine
+    can run a drafter for speculative decoding, rather than finding out when the
+    launch is rejected. Shared by both engine-discovery entry points: they build
+    otherwise identical payloads and have to stay in sync.
+    """
+    cleaned = {k: v for k, v in param.items() if k != class_field}
+    support_draft_model = getattr(param.get(class_field), "support_draft_model", None)
+    if support_draft_model is not None:
+        cleaned["support_draft_model"] = bool(support_draft_model)
+    return cleaned
 
 
 def get_engine_params_by_name(
@@ -1016,10 +1783,7 @@ def _get_engine_params_by_name(
     def _append_available_engine(
         engine: str, params: List[Dict[str, Any]], class_field: str
     ):
-        cleaned_params: List[Dict[str, Any]] = []
-        for param in params:
-            new_param = {k: v for k, v in param.items() if k != class_field}
-            cleaned_params.append(new_param)
+        cleaned_params = [_clean_engine_param(param, class_field) for param in params]
         engine_params[engine] = cleaned_params
 
     def _append_unavailable_engine(
@@ -1210,6 +1974,31 @@ def _get_engine_params_by_name(
 
             for engine_class in supported_engines[engine_name]:
                 try:
+                    check_host = getattr(engine_class, "check_host", None)
+                    if callable(check_host):
+                        (
+                            host_ok,
+                            host_reason,
+                            host_error_type,
+                            host_details,
+                        ) = _normalize_match_result(
+                            check_host(),
+                            f"Engine {engine_name} is incompatible with the current host",
+                            "host_incompatible",
+                        )
+                        if not host_ok:
+                            _append_unavailable_engine(
+                                engine_name,
+                                host_reason,
+                                host_error_type,
+                                host_details,
+                            )
+                            # The engine was evaluated and rejected by a hard,
+                            # non-installable constraint. Do not let a
+                            # virtualenv marker turn it back into an option.
+                            matched = True
+                            break
+
                     match_func = getattr(engine_class, "match", None)
                     for family in families:
                         match_res = (
@@ -1401,6 +2190,78 @@ def _get_engine_params_by_name(
         )
         return engine_params
 
+    if model_type == "audio":
+        from .audio import BUILTIN_AUDIO_MODELS
+        from .audio.custom import get_user_defined_audios
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
+
+        if model_name not in AUDIO_ENGINES:
+            return None
+
+        available_engines = deepcopy(AUDIO_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "audio_class")
+        audio_families: List[Any] = list(BUILTIN_AUDIO_MODELS.get(model_name, []))
+        audio_families.extend(
+            f for f in get_user_defined_audios() if f.model_name == model_name
+        )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
+        _validate_available_image_engines(
+            audio_families,
+            supported_audio_engines,
+            "audio",
+        )
+        _collect_supported_image_engines(
+            audio_families, supported_audio_engines, "audio"
+        )
+        return engine_params
+
+    if model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.core import VIDEO_REGISTRY_LOCK
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        with VIDEO_REGISTRY_LOCK:
+            if model_name not in VIDEO_ENGINES:
+                return None
+            available_engines = deepcopy(VIDEO_ENGINES[model_name])
+            video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        return engine_params
+
+    if model_type == "world":
+        from .world import BUILTIN_WORLD_MODELS
+        from .world.engine_family import WORLD_ENGINES, get_supported_engines_for_model
+
+        if model_name not in WORLD_ENGINES:
+            return None
+
+        available_engines = deepcopy(WORLD_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "world_class")
+        world_families: List[Any] = list(BUILTIN_WORLD_MODELS.get(model_name, []))
+        supported_world_engines = get_supported_engines_for_model(world_families)
+        _validate_available_image_engines(
+            world_families,
+            supported_world_engines,
+            "world",
+        )
+        _collect_supported_image_engines(
+            world_families, supported_world_engines, "world"
+        )
+        _apply_engine_host_checks(engine_params, supported_world_engines)
+        return engine_params
+
     return None
 
 
@@ -1456,10 +2317,7 @@ def _get_engine_params_by_name_with_virtual_env(
     def _append_available_engine(
         engine: str, params: List[Dict[str, Any]], class_field: str
     ):
-        cleaned_params: List[Dict[str, Any]] = []
-        for param in params:
-            new_param = {k: v for k, v in param.items() if k != class_field}
-            cleaned_params.append(new_param)
+        cleaned_params = [_clean_engine_param(param, class_field) for param in params]
         engine_params[engine] = cleaned_params
         available_params[engine] = cleaned_params
 
@@ -1655,6 +2513,30 @@ def _get_engine_params_by_name_with_virtual_env(
 
             for engine_class in supported_engines[engine_name]:
                 try:
+                    check_host = getattr(engine_class, "check_host", None)
+                    if callable(check_host):
+                        (
+                            host_ok,
+                            host_reason,
+                            host_error_type,
+                            host_details,
+                        ) = _normalize_match_result(
+                            check_host(),
+                            f"Engine {engine_name} is incompatible with the current host",
+                            "host_incompatible",
+                        )
+                        if not host_ok:
+                            _append_unavailable_engine(
+                                engine_name,
+                                host_reason,
+                                host_error_type,
+                                host_details,
+                            )
+                            # Hard host constraints cannot be repaired by
+                            # installing dependencies in a virtualenv.
+                            matched = True
+                            break
+
                     match_func = getattr(engine_class, "match", None)
                     for family in families:
                         match_res = (
@@ -1912,9 +2794,115 @@ def _get_engine_params_by_name_with_virtual_env(
 
         return engine_params
 
+    elif model_type == "audio":
+        from .audio import BUILTIN_AUDIO_MODELS
+        from .audio.custom import get_user_defined_audios
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
+
+        if model_name not in AUDIO_ENGINES:
+            return None
+
+        available_engines = deepcopy(AUDIO_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "audio_class")
+        audio_families: List[Any] = list(BUILTIN_AUDIO_MODELS.get(model_name, []))
+        audio_families.extend(
+            f for f in get_user_defined_audios() if f.model_name == model_name
+        )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
+        audio_engine_markers: Set[str] = set()
+        for family in audio_families:
+            audio_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            audio_families,
+            supported_audio_engines,
+            "audio",
+            audio_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            audio_families, supported_audio_engines, "audio"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_audio_engines,
+            audio_engine_markers,
+            enable_virtual_env,
+        )
+
+        return engine_params
+
+    elif model_type == "video":
+        from .video import BUILTIN_VIDEO_MODELS
+        from .video.core import VIDEO_REGISTRY_LOCK
+        from .video.engine_family import VIDEO_ENGINES, get_supported_engines_for_model
+
+        with VIDEO_REGISTRY_LOCK:
+            if model_name not in VIDEO_ENGINES:
+                return None
+            available_engines = deepcopy(VIDEO_ENGINES[model_name])
+            video_families: List[Any] = list(BUILTIN_VIDEO_MODELS.get(model_name, []))
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "video_class")
+        supported_video_engines = get_supported_engines_for_model(video_families)
+        video_engine_markers: Set[str] = set()
+        for family in video_families:
+            video_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            video_families,
+            supported_video_engines,
+            "video",
+            video_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            video_families, supported_video_engines, "video"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_video_engines,
+            video_engine_markers,
+            enable_virtual_env,
+        )
+        return engine_params
+
+    elif model_type == "world":
+        from .world import BUILTIN_WORLD_MODELS
+        from .world.engine_family import WORLD_ENGINES, get_supported_engines_for_model
+
+        if model_name not in WORLD_ENGINES:
+            return None
+
+        available_engines = deepcopy(WORLD_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "world_class")
+        world_families: List[Any] = list(BUILTIN_WORLD_MODELS.get(model_name, []))
+        supported_world_engines = get_supported_engines_for_model(world_families)
+        world_engine_markers: Set[str] = set()
+        for family in world_families:
+            world_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            world_families,
+            supported_world_engines,
+            "world",
+            world_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            world_families, supported_world_engines, "world"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            supported_world_engines,
+            world_engine_markers,
+            enable_virtual_env,
+        )
+        _apply_engine_host_checks(engine_params, supported_world_engines)
+        return engine_params
+
     raise ValueError(
         "Cannot support model_engine for "
-        f"{model_type}, only available for LLM, embedding, rerank, image"
+        f"{model_type}, only available for LLM, embedding, rerank, image, audio, video, world"
     )
 
 
@@ -2018,7 +3006,7 @@ def flatten_quantizations(input_json: dict):
             record["quantization"] = quant
 
             for key, value in hub_info.items():
-                if key != "quantizations":
+                if key not in ("quantizations", "model_metadata_by_quantization"):
                     if isinstance(value, str) and "{quantization}" in value:
                         try:
                             value = value.format(quantization=quant)
@@ -2026,6 +3014,10 @@ def flatten_quantizations(input_json: dict):
                             pass
                     record[key] = value
 
+            if "model_metadata_by_quantization" in hub_info:
+                record["model_metadata"] = hub_info[
+                    "model_metadata_by_quantization"
+                ].get(quant)
             flattened.append(record)
     return flattened
 
@@ -2161,17 +3153,44 @@ def load_downloaded_models_to_dict(
 
 
 def merge_models_by_timestamp(
-    built_in_models: Dict[str, List[Any]], user_models: Dict[str, List[Any]]
+    built_in_models: Dict[str, List[Any]],
+    user_models: Dict[str, List[Any]],
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> Dict[str, List[Any]]:
     """Merge built-in and user models, keeping the latest version based on updated_at.
 
     Args:
         built_in_models: Dictionary of built-in models
         user_models: Dictionary of user-defined models
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
 
     Returns:
         Merged dictionary with latest models based on updated_at timestamp
     """
+    if model_identity_func is not None:
+        merged_models: Dict[str, List[Any]] = {}
+        model_names = dict.fromkeys([*built_in_models, *user_models])
+        for model_name in model_names:
+            models_by_identity: Dict[Any, List[Any]] = {}
+            for model in [
+                *built_in_models.get(model_name, []),
+                *user_models.get(model_name, []),
+            ]:
+                models_by_identity.setdefault(model_identity_func(model), []).append(
+                    model
+                )
+
+            merged_models[model_name] = []
+            for models in models_by_identity.values():
+                # Variants with the same identity are interchangeable. Keep one
+                # newest entry; because built-ins are ordered first, an equal-
+                # timestamp downloaded copy does not create a duplicate.
+                merged_models[model_name].append(
+                    max(models, key=lambda model: model.updated_at)
+                )
+        return merged_models
+
     merged_models = {}
 
     # First, add all built-in models
@@ -2194,8 +3213,17 @@ def merge_models_by_timestamp(
             for model in built_in_list:
                 all_models.append((model.updated_at, model))
 
-            # Add user models
+            # Add user models, skipping any value-identical to a model already
+            # present. install_models_with_merge reruns on every runtime refresh
+            # against the same downloaded JSON, so without this guard a
+            # downloaded entry sharing content and updated_at with an existing
+            # one keeps re-appending as a duplicate on every call.
+            existing_keys = {family_identity_key(model) for _, model in all_models}
             for model in user_model_list:
+                key = family_identity_key(model)
+                if key in existing_keys:
+                    continue
+                existing_keys.add(key)
                 all_models.append((model.updated_at, model))
 
             # Sort by updated_at (newest first) and keep the latest
@@ -2221,6 +3249,8 @@ def install_models_with_merge(
     user_json_filename: str,
     has_downloaded_models_func,
     load_model_family_func,
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
+    model_normalize_func: Optional[Callable[[Any, Dict[str, List[Any]]], None]] = None,
 ) -> None:
     """Install models with intelligent merging based on timestamps.
 
@@ -2231,6 +3261,10 @@ def install_models_with_merge(
         user_json_filename: Name of user JSON file
         has_downloaded_models_func: Function to check if user models exist
         load_model_family_func: Function to load model family from JSON
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
+        model_normalize_func: Optional function that upgrades downloaded model
+            metadata before identity and timestamp comparison.
     """
     import os.path
 
@@ -2240,12 +3274,17 @@ def install_models_with_merge(
         os.path.abspath(load_model_family_func.__code__.co_filename)
     )
     builtin_json_path = os.path.join(current_dir, builtin_json_file)
-    load_model_family_func(builtin_json_path, built_in_dict)
+
+    # Load and mark into a fresh dict, never built_in_dict directly: a repeat
+    # refresh would otherwise mark a downloaded family left over from a prior
+    # merge as built-in too, then have it shadow its own correctly-False copy.
+    freshly_loaded_builtins: Dict[str, Any] = {}
+    load_model_family_func(builtin_json_path, freshly_loaded_builtins)
 
     # Mark these as vetted built-in models. Loaders may enable trust_remote_code
     # for built-ins without an operator opt-in; user-supplied / downloaded models
     # (loaded below) keep is_builtin=False and stay gated (CWE-94).
-    for _specs in built_in_dict.values():
+    for _specs in freshly_loaded_builtins.values():
         for _family in _specs:
             _family.is_builtin = True
 
@@ -2256,15 +3295,22 @@ def install_models_with_merge(
             user_models, user_model_type, user_json_filename, load_model_family_func
         )
 
-        # Create a copy of built-in models for merging
-        built_in_models_copy = dict(built_in_dict)
+        if model_normalize_func is not None:
+            for user_model_list in user_models.values():
+                for user_model in user_model_list:
+                    model_normalize_func(user_model, freshly_loaded_builtins)
 
         # Merge models, keeping the latest version based on updated_at
-        merged_models = merge_models_by_timestamp(built_in_models_copy, user_models)
+        merged_models = merge_models_by_timestamp(
+            freshly_loaded_builtins, user_models, model_identity_func
+        )
 
         # Update the dictionary with merged results
         built_in_dict.clear()
         built_in_dict.update(merged_models)
+    else:
+        built_in_dict.clear()
+        built_in_dict.update(freshly_loaded_builtins)
 
 
 def allow_trust_remote_code(model_family) -> bool:

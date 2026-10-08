@@ -13,7 +13,10 @@
 # limitations under the License.
 
 import asyncio
+import json
+import logging
 import types
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -42,6 +45,31 @@ class MockModel:
         await TEST_EVENT.wait()
         yield {"test1": prompt}
         yield {"test2": prompt}
+
+
+class _DescribedModelFamily:
+    def __init__(self, model_type: str):
+        self._model_type = model_type
+
+    def to_description(self) -> dict:
+        return {"model_type": self._model_type, "model_name": "test-video"}
+
+
+class _DescribedModel:
+    def __init__(self, model_type: str):
+        self.model_family = _DescribedModelFamily(model_type)
+
+
+def test_video_metrics_keep_selected_engine_label():
+    actor = ModelActor(
+        supervisor_address="test:123",
+        worker_address="test:345",
+        model=_DescribedModel("video"),  # type: ignore
+        replica_model_uid="test-video-0",
+        model_engine="MLX",
+    )
+
+    assert actor._metrics_labels["engine"] == "MLX"
 
 
 class MockModelActor(ModelActor):
@@ -271,3 +299,232 @@ async def test_pre_destroy_frees_gpu_memory(
     else:
         assert len(calls) == 0
         assert stub._model is not None
+
+
+# ---------------------------------------------------------------------------
+# Regression test for the non-stream chat metrics guard (candidate #2).
+# A backend whose non-stream chat completion lacks a "usage" field (or sets
+# it to None) must not crash ModelActor.chat inside its `finally` metrics
+# block. The streaming path already guards with `if final_usage is not None`;
+# this keeps the non-stream path consistent with that intent.
+# ---------------------------------------------------------------------------
+class _NoUsageChatModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
+    async def chat(self, messages, **kwargs):
+        # Intentionally omit "usage" to mimic backends that don't report tokens.
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "fake-no-usage",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+
+class _NoUsageChatModelActor(MockModelActor):
+    def __init__(self, supervisor_address, worker_address, replica_model_uid):
+        super().__init__(supervisor_address, worker_address, replica_model_uid)
+        # Replace the placeholder MockModel with one that returns no usage.
+        self._model = _NoUsageChatModel()
+
+
+@pytest_asyncio.fixture
+async def _chat_pool():
+    pool = await create_actor_pool(
+        f"test://127.0.0.1:{xo.utils.get_next_port()}", n_process=0
+    )
+    async with pool:
+        yield pool
+
+
+@pytest.mark.asyncio
+async def test_chat_without_usage_does_not_crash(_chat_pool):
+    # Before the fix, `await actor.chat(...)` raised KeyError/TypeError from
+    # the `finally` block because it indexed `record["usage"]` unconditionally.
+    pool = _chat_pool
+    addr = pool.external_address
+    actor = await xo.create_actor(
+        _NoUsageChatModelActor,
+        address=addr,
+        uid=_NoUsageChatModelActor.default_uid(),
+        supervisor_address="test:123",
+        worker_address="test:345",
+        replica_model_uid="test_chat_no_usage",
+    )
+    result = await actor.chat([{"role": "user", "content": "hi"}])
+    # Tolerate both a raw bytes return and an xoscar generator wrapper.
+    if isinstance(result, (bytes, str)):
+        parsed = json.loads(result)
+    else:
+        collected = []
+        async for chunk in result:
+            collected.append(chunk)
+        first = collected[0]
+        parsed = json.loads(
+            first if isinstance(first, (bytes, str)) else first.decode()
+        )
+    assert parsed["choices"][0]["message"]["content"] == "hello"
+
+
+class _NonDictUsageChatModel:
+    """A model whose non-stream chat returns usage as a non-dict truthy value
+    (e.g. a string). The original `if usage:` guard would have crashed on it
+    via AttributeError when calling .get()."""
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
+    async def chat(self, messages, **kwargs):
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "fake-non-dict-usage",
+            "usage": "unexpected-string-usage",  # truthy but NOT a dict
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hi"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+
+class _NonDictUsageChatModelActor(MockModelActor):
+    def __init__(self, supervisor_address, worker_address, replica_model_uid):
+        super().__init__(supervisor_address, worker_address, replica_model_uid)
+        self._model = _NonDictUsageChatModel()
+
+
+@pytest.mark.asyncio
+async def test_chat_with_non_dict_usage_does_not_crash(_chat_pool):
+    # Regression test for the isinstance(usage, dict) guard: a non-dict truthy
+    # usage (string/list) must not raise AttributeError from .get().
+    pool = _chat_pool
+    addr = pool.external_address
+    actor = await xo.create_actor(
+        _NonDictUsageChatModelActor,
+        address=addr,
+        uid=_NonDictUsageChatModelActor.default_uid(),
+        supervisor_address="test:123",
+        worker_address="test:345",
+        replica_model_uid="test_chat_non_dict_usage",
+    )
+    result = await actor.chat([{"role": "user", "content": "hi"}])
+    if isinstance(result, (bytes, str)):
+        parsed = json.loads(result)
+    else:
+        collected = []
+        async for chunk in result:
+            collected.append(chunk)
+        first = collected[0]
+        parsed = json.loads(
+            first if isinstance(first, (bytes, str)) else first.decode()
+        )
+    assert parsed["choices"][0]["message"]["content"] == "hi"
+
+
+class _BatchGenerateModel:
+    allow_batch = True
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self._batch_scheduler = object()
+        self.generate_config = None
+
+    async def generate(self, prompt, generate_config=None):
+        self.generate_config = generate_config
+        return {"prompt": prompt}
+
+
+@pytest.mark.asyncio
+async def test_generate_moves_request_id_into_batch_config():
+    model = _BatchGenerateModel()
+    actor = ModelActor("test:123", "test:345", model, "test_model")  # type: ignore
+    actor._model_state = "ready"
+    actor.record_metrics = AsyncMock()
+    generate_config = {"max_tokens": 1}
+
+    result = await actor.generate(
+        "prompt", generate_config, request_id=123, raw_params={"ignored": True}
+    )
+
+    assert json.loads(result) == {"prompt": "prompt"}
+    assert model.generate_config == {"max_tokens": 1, "request_id": "123"}
+    assert generate_config == {"max_tokens": 1}
+
+
+class _BusyOnceModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+        self.calls = 0
+
+    def load(self):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("device is busy or unavailable")
+
+
+@pytest.mark.asyncio
+async def test_load_retry_log_names_the_model(monkeypatch, caplog):
+    model = _BusyOnceModel()
+    actor = ModelActor("test:123", "test:345", model, "retry-model-0")  # type: ignore
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+
+    with caplog.at_level(logging.WARNING, logger="xinference.core.model"):
+        await actor.load()
+
+    assert model.calls == 2
+    assert "Retry to load model retry-model-0: 1 times" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop_first", [False, True])
+async def test_gpu_cache_close_failure_does_not_skip_model_cleanup(
+    monkeypatch, stop_first
+):
+    from unittest.mock import Mock
+
+    from ...model.llm.vllm.core import VLLMModel
+
+    calls = []
+    model = Mock(spec=VLLMModel)
+    model.model_spec = types.SimpleNamespace(model_format="pytorch")
+    model.stop.side_effect = lambda: calls.append("stop")
+
+    async def close():
+        calls.append("close")
+        raise RuntimeError("transfer actor unreachable")
+
+    ref = types.SimpleNamespace(close_gpu_caches_v1=AsyncMock(side_effect=close))
+    stub = types.SimpleNamespace(
+        _model=model,
+        _transfer_ref=ref,
+        _xavier_config={"gpu_cache_bytes": 0},
+        address="test:0",
+    )
+    destroy = AsyncMock(side_effect=lambda ref: calls.append("destroy"))
+    monkeypatch.setattr(xo, "destroy_actor", destroy)
+    monkeypatch.setattr(
+        "xinference.core.model.empty_cache", lambda: calls.append("free")
+    )
+    if stop_first:
+        await ModelActor.stop(stub)
+    await ModelActor.__pre_destroy__(stub)
+    assert calls == (["close", "stop"] if stop_first else []) + [
+        "close",
+        "stop",
+        "destroy",
+        "free",
+    ]
+    destroy.assert_awaited_once_with(ref)
+    assert not hasattr(stub, "_model")

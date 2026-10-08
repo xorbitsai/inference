@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "model_name": "LTX-2-dev",
+    "model_family": "LTX-2",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "LTX-2-dev-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 512,
+      "height": 512,
+      "num_frames": 33,
+      "fps": 24,
+      "pipeline": "dev",
+      "verbose": false
+    },
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/LTX-2-dev",
+        "model_revision": "98683cfe012c2f2a6343383674859de516f3d70b"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/LTX-2-dev",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  }
+]

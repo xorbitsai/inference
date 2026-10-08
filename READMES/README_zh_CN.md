@@ -51,14 +51,20 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新模型
-- 内置 VibeThinker 系列（[1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B)、[3B](https://huggingface.co/WeiboAI/VibeThinker-3B)）: [#5085](https://github.com/xorbitsai/inference/pull/5085)
-- 内置 Nex-N2 系列（[mini](https://huggingface.co/nex-agi/Nex-N2-mini)、[Pro](https://huggingface.co/nex-agi/Nex-N2-Pro)、[Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)）: [#5094](https://github.com/xorbitsai/inference/pull/5094)
-- 内置 [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR): [#5103](https://github.com/xorbitsai/inference/pull/5103)
-- 内置 [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B): [#5119](https://github.com/xorbitsai/inference/pull/5119)
-- 内置 [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B): [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- 内置 jina-embeddings-v5 系列（[text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano)、[text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small)、[omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano)、[omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)）: [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- 内置 MiniCPM-V-4.6 系列（[MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6)、[MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)）: [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- 内置腾讯 Hy-MT2 系列（[1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B)、[7B](https://huggingface.co/tencent/Hy-MT2-7B)、[30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)）: [#5029](https://github.com/xorbitsai/inference/pull/5029)
+- 内置支持 [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR): [#5583](https://github.com/xorbitsai/inference/pull/5583)
+- 内置支持 Ming-Image 系列（[Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design)、[Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)）: [#5582](https://github.com/xorbitsai/inference/pull/5582)
+- 内置支持 [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1): [#5571](https://github.com/xorbitsai/inference/pull/5571)
+- 内置支持 [MinerU2.5](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B): [#5550](https://github.com/xorbitsai/inference/pull/5550)
+- 内置支持 Spark-X2.5 系列（[1.7B](https://huggingface.co/XHToken/Spark-X2.5-1.7B)、[4B](https://huggingface.co/XHToken/Spark-X2.5-4B)、[1.7B Base](https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base)、[4B Base](https://huggingface.co/XHToken/Spark-X2.5-4B-Base)）: [#5538](https://github.com/xorbitsai/inference/pull/5538)
+- 内置支持 LingBot-World-V2 系列（[14B Fast](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast)、[14B Pretrain](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain)、[1.3B Fast](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast)）: [#5536](https://github.com/xorbitsai/inference/pull/5536)
+- 内置支持 Irodori-TTS v4.1 系列（[Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime)、[Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)）: [#5527](https://github.com/xorbitsai/inference/pull/5527)
+- 内置支持 [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B): [#5526](https://github.com/xorbitsai/inference/pull/5526)
+- 内置支持 AuK 系列（[AuK](https://huggingface.co/tencent/AuK)、[AuK-Flash](https://huggingface.co/tencent/AuK-Flash)）: [#5525](https://github.com/xorbitsai/inference/pull/5525)
+- 内置支持 [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B): [#5506](https://github.com/xorbitsai/inference/pull/5506)
+- 内置支持 Fish Audio 系列（[S1-mini](https://huggingface.co/fishaudio/s1-mini)、[S2-Pro](https://huggingface.co/fishaudio/s2-pro)）: [#5490](https://github.com/xorbitsai/inference/pull/5490)
+- 内置支持 [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR): [#5475](https://github.com/xorbitsai/inference/pull/5475)
+- 内置支持 [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr): [#5468](https://github.com/xorbitsai/inference/pull/5468)
+- 内置支持 JoyAI 图像编辑系列（[Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers)、[Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)）: [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### 集成
 - [Xagent](https://github.com/xorbitsai/xagent)：企业级 Agent 平台，用于构建和运行具备规划、记忆与工具调用能力的智能体，不再受限于僵化的工作流。
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
@@ -100,7 +106,8 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 参考 [文档](https://inference.readthedocs.io/zh-cn) 以获得参考和更多说明。
 
 - **面向企业/组织的 Xinference 版本</br>**
-我们提供额外的面向企业的功能。 [通过企业微信联系](https://xinference.cn/images/WeCom.jpg)
+**Xinference Enterprise** 是面向生产环境模型服务的商业版本。您可以将其部署在自己的云环境或数据中心，也可以选择 **Xinference Cloud** 提供的托管专属部署。托管 **Model API** 让您无需维护推理基础设施，即可通过兼容 OpenAI 的 API 调用支持的模型。了解更多：[xinference.co](https://xinference.co)。
+您可以 [通过企业微信联系](https://xinference.cn/images/WeCom.jpg)
 或 [提交表单](https://w8v6grm432.feishu.cn/share/base/form/shrcn9u1EBXQxmGMqILEjguuGoh) 讨论企业需求。 </br>
 
 ## 保持领先
@@ -197,4 +204,4 @@ $ xinference-local
 
 ## Star 历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=xorbitsai/inference&type=Date)](https://star-history.dera.page/#xorbitsai/inference&Date)

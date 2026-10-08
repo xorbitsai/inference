@@ -33,6 +33,20 @@ msgstr ""
 "Xorbits "
 "Inference（Xinference）は、多様なAIモデルの実行と統合を簡素化するオープンソースプラットフォームです。Xinferenceを活用すれば、任意のオープンソースLLM、埋め込みモデル、マルチモーダルモデルを使用して、クラウドまたはローカル環境で推論を実行し、強力なAIアプリケーションを構築できます。"
 
+#: ../../source/index.rst:23
+msgid ""
+"**Xinference Enterprise** is the commercial edition for teams running models "
+"in production. Deploy it in your own cloud or data centre, or choose a "
+"managed dedicated deployment with **Xinference Cloud**. The hosted **Model "
+"API** gives you access to supported models through an OpenAI-compatible API "
+"without managing inference infrastructure. Learn more at `xinference.co "
+"<https://xinference.co>`_."
+msgstr ""
+"**Xinference Enterprise** "
+"は、本番環境でモデルを運用するチーム向けの商用版です。自社のクラウドやデータセンターに導入するか、**Xinference Cloud** "
+"によるマネージド専用環境を選択できます。ホスト型の **Model API** では、推論インフラを管理することなく、OpenAI 互換 API "
+"を通じて対応モデルにアクセスできます。詳細は `xinference.co <https://xinference.co>`_ をご覧ください。"
+
 #: ../../source/index.rst:25
 msgid "Developing Real-world AI Applications with Xinference"
 msgstr "Xinferenceを使用して実際のシーンにおけるAIアプリケーションを開発する"

@@ -12,16 +12,110 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 import re
 import shutil
+import stat
 import subprocess
-from typing import Any, Dict, List, Optional, Union
+import threading
+from importlib import metadata
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
+from packaging.utils import canonicalize_name
+
+from ..constants import (
+    XINFERENCE_VIRTUAL_ENV_DIR,
+    XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_dependency_install_plan(
+    manager: Any, packages: List[str], conf: Dict[str, Any], variables: Dict[str, Any]
+) -> Optional[List[Tuple[str, str]]]:
+    """Resolve distributions uv intends to add to this virtual environment.
+
+    A failed or unsupported dry run must never prevent the actual installation.
+    """
+    if not packages or not all(
+        hasattr(manager, name)
+        for name in ("process_packages", "_resolve_install_plan", "get_lib_path")
+    ):
+        return None
+    try:
+        processed = manager.process_packages(packages, **variables)
+        sources = {
+            key: conf.get(key)
+            for key in (
+                "index_url",
+                "extra_index_url",
+                "index_strategy",
+                "find_links",
+                "trusted_host",
+            )
+        }
+        if conf.get("skip_installed"):
+            if not hasattr(manager, "_filter_packages_not_installed"):
+                return None
+            resolved = manager._filter_packages_not_installed(processed, **sources)
+        else:
+            resolved = manager._resolve_install_plan(processed, {}, **sources)
+        plan = []
+        for spec in resolved:
+            name, separator, version = spec.partition("==")
+            if not separator or not name or not version:
+                # VCS and direct references have no reliable version here.
+                return None
+            plan.append((canonicalize_name(name), version))
+        return list(dict.fromkeys(plan))
+    except Exception:
+        logger.debug("Could not resolve dependency progress plan", exc_info=True)
+        return None
+
+
+def observe_dependency_install(
+    manager: Any,
+    plan: List[Tuple[str, str]],
+    report: Callable[[int, int], None],
+) -> Tuple[threading.Event, threading.Thread]:
+    """Report distributions whose matching metadata is visible in the child env."""
+    stopped = threading.Event()
+    site_packages = manager.get_lib_path()
+    total = len(plan)
+
+    def poll() -> None:
+        last_count = -1
+        while not stopped.is_set():
+            try:
+                installed = {
+                    (canonicalize_name(dist.metadata["Name"]), dist.version)
+                    for dist in metadata.distributions(path=[site_packages])
+                    if dist.metadata and "Name" in dist.metadata
+                }
+                count = sum(package in installed for package in plan)
+                if count != last_count:
+                    report(count, total)
+                    last_count = count
+            except Exception:
+                logger.debug(
+                    "Could not inspect dependency install progress", exc_info=True
+                )
+            stopped.wait(0.5)
+
+    thread = threading.Thread(
+        target=poll, name="dependency-install-progress", daemon=True
+    )
+    thread.start()
+    return stopped, thread
+
+
+class VirtualEnvConflictError(ValueError):
+    """Raised when an active model prevents virtual environment mutation."""
+
 
 ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "sglang": [
@@ -31,8 +125,10 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sentencepiece",
         "dill",
         "ninja",
-        "numpy>=2.4.1",
+        "numpy<2.3",
+        "pandas<3",
         "sglang>=0.5.6",
+        'nvidia-cusparselt-cu13==0.8.0 ; cuda_version == "13.0" and sys_platform == "linux"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
         'sgl_kernel ; cuda_version < "13.0"',
@@ -184,6 +280,71 @@ def get_xllamacpp_cuda_index_url(
 TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
 
 
+def _pin_missing_system_torchcodec(packages: List[str]) -> List[str]:
+    """Constrain a missing host TorchCodec to the inherited Torch ABI."""
+    if not {"#system_torch#", "#system_torchcodec#"}.issubset(packages):
+        return packages
+    try:
+        metadata.version("torchcodec")
+    except metadata.PackageNotFoundError:
+        pass
+    else:
+        # Existing host versions retain the usual #system_*# behavior.
+        return packages
+
+    from packaging.version import Version
+
+    try:
+        torch_version = Version(metadata.version("torch"))
+    except metadata.PackageNotFoundError as exc:
+        raise ValueError(
+            "Cannot select TorchCodec because Torch is not installed in the host "
+            "environment. Install Torch in the host environment or specify Torch "
+            "and TorchCodec explicitly in virtual_env_packages."
+        ) from exc
+    # https://github.com/pytorch/torchcodec#installing-torchcodec
+    # TorchCodec does not express these binary compatibility requirements in
+    # wheel metadata. A bare requirement can resolve successfully but fail at
+    # import time (e.g. TorchCodec 0.16 with Torch 2.9).
+    compatibility = {
+        (2, 4): "==0.0.3",
+        (2, 5): ">=0.1,<0.2",
+        (2, 6): ">=0.2,<0.3",
+        (2, 7): ">=0.3,<0.6",
+        (2, 8): ">=0.6,<0.8",
+        (2, 9): ">=0.8,<0.10",
+        (2, 10): ">=0.10,<0.11",
+        (2, 11): ">=0.11,<0.17",
+    }
+    constraint = compatibility.get((torch_version.major, torch_version.minor))
+    # Upstream lists TorchCodec 0.12 through 0.16 as supporting Torch >=2.11.
+    if torch_version >= Version("2.12"):
+        constraint = ">=0.12,<0.17"
+    if constraint is None or torch_version.is_prerelease:
+        raise ValueError(
+            f"Cannot select TorchCodec for host Torch {torch_version}. "
+            "Install a compatible torchcodec in the host environment or specify "
+            "it explicitly in virtual_env_packages."
+        )
+
+    return [
+        f"torchcodec{constraint}" if package == "#system_torchcodec#" else package
+        for package in packages
+    ]
+
+
+# Packages with compiled NumPy extensions that are commonly present in the
+# parent environment used by sentence-transformers.  The child venv is created
+# with --system-site-packages, so upgrading only part of this stack can leave an
+# inherited binary linked against a different NumPy ABI.
+SENTENCE_TRANSFORMERS_NUMPY_ABI_PACKAGES = (
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "pandas",
+)
+
+
 def ensure_system_torch_pin(packages: List[str]) -> List[str]:
     """
     Pin torch to the system version whenever a torch companion package
@@ -206,8 +367,12 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
     ``#system_torchvision# ; #engine# == "sentence_transformers"`` alongside
     ``#system_torchaudio# ; #engine# == "audio"``), a matching torch pin is added
     for each distinct marker that does not already have one. This covers built-in
-    specs and user-registered models alike, and is a no-op when torch is already
-    pinned under the relevant condition or no companion is pinned.
+    specs and user-registered models alike. No additional Torch pin is needed
+    when Torch is already pinned under the relevant condition or no companion
+    is pinned.
+
+    After aligning Torch, constrain a missing host TorchCodec to a compatible
+    version. The worker filters engine/CUDA/platform markers before this call.
     """
     if not packages:
         return packages
@@ -243,7 +408,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         if _marker_name(pkg) == "torch" or _requirement_name(pkg) == "torch":
             marker = _env_marker(pkg)
             if marker is None:
-                return packages
+                return _pin_missing_system_torchcodec(packages)
             existing_torch_markers.add(marker)
 
     # Inject one torch pin per distinct companion condition that lacks one,
@@ -263,7 +428,7 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
         )
 
     if not to_inject:
-        return packages
+        return _pin_missing_system_torchcodec(packages)
 
     for torch_entry in to_inject:
         logger.info(
@@ -272,7 +437,60 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
             "ABI mismatch on relaunch (issue #5156).",
             torch_entry,
         )
-    return packages + to_inject
+    return _pin_missing_system_torchcodec(packages + to_inject)
+
+
+def pin_sentence_transformers_numpy_abi(
+    packages: List[str], model_engine: Optional[str]
+) -> List[str]:
+    """
+    Keep an inherited sentence-transformers scientific stack ABI-compatible.
+
+    Virtual environments use ``--system-site-packages``.  When uv resolves a
+    new sentence-transformers installation, it may install a newer NumPy,
+    SciPy, or scikit-learn into the child while continuing to inherit pandas
+    (or another compiled extension) from the parent.  The mixed stack then
+    fails at import time with errors such as ``numpy.core.multiarray failed to
+    import``.
+
+    Pin only packages that are already installed in the parent, and never
+    replace an explicit model requirement.  Missing packages remain free to be
+    resolved and installed normally, which is important for slim runtimes.
+    """
+    if not model_engine or model_engine.lower() != "sentence_transformers":
+        return packages
+
+    from importlib import metadata
+
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    explicitly_requested = set()
+    for package in packages:
+        requirement = package.split(";", 1)[0].strip()
+        if not requirement or requirement.startswith("#"):
+            continue
+        try:
+            explicitly_requested.add(canonicalize_name(Requirement(requirement).name))
+        except InvalidRequirement:
+            continue
+
+    pins: List[str] = []
+    for distribution_name in SENTENCE_TRANSFORMERS_NUMPY_ABI_PACKAGES:
+        canonical_name = canonicalize_name(distribution_name)
+        if canonical_name in explicitly_requested:
+            continue
+        try:
+            version = metadata.version(distribution_name)
+        except metadata.PackageNotFoundError:
+            continue
+        pins.append(f"{distribution_name}=={version}")
+
+    if pins:
+        logger.info(
+            "Pinning inherited sentence-transformers NumPy ABI packages: %s", pins
+        )
+    return packages + pins
 
 
 def extract_cuda_version_from_url(url: str) -> Optional[str]:
@@ -562,6 +780,7 @@ class VirtualEnvManager:
         model_name: str,
         model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
+        active_model_uids_by_path: Optional[Dict[str, List[str]]] = None,
     ) -> bool:
         """
         Remove a virtual environment for a specific model.
@@ -589,6 +808,30 @@ class VirtualEnvManager:
             )
 
         v4_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v4")
+
+        model_root = os.path.realpath(os.path.join(v4_env_dir, model_name))
+        for env_path, model_uids in (active_model_uids_by_path or {}).items():
+            if not model_uids:
+                continue
+            real_env_path = os.path.realpath(env_path)
+            try:
+                if os.path.commonpath([model_root, real_env_path]) != model_root:
+                    continue
+            except ValueError:
+                continue
+            relative_parts = Path(real_env_path).relative_to(model_root).parts
+            if model_engine and (
+                not relative_parts or relative_parts[0] != model_engine
+            ):
+                continue
+            if python_version and (
+                not relative_parts or relative_parts[-1] != python_version
+            ):
+                continue
+            raise VirtualEnvConflictError(
+                "Virtual environment cannot be removed while models are using it: "
+                f"path={real_env_path}, active_model_uids={sorted(model_uids)}"
+            )
 
         try:
             if python_version and not self._is_valid_python_version(python_version):
@@ -729,23 +972,80 @@ class VirtualEnvManager:
         virtual_envs = self.list_virtual_envs(model_name)
         return {"has_virtual_env": len(virtual_envs) > 0, "model_name": model_name}
 
-    def list_virtual_env_packages(self, model_name: str) -> Dict[str, Any]:
-        """
-        List packages installed in a specific virtual environment.
+    def list_virtual_env_packages(
+        self, model_name: str, model_engine: str, python_version: str
+    ) -> Dict[str, Any]:
+        """List distributions installed directly in one virtual environment."""
+        if not model_name or not model_engine or not python_version:
+            raise ValueError("model_name, model_engine and python_version are required")
 
-        Args:
-            model_name: Name of the model
+        environments = [
+            environment
+            for environment in self.list_virtual_envs(model_name, model_engine)
+            if environment["python_version"] == python_version
+        ]
+        if len(environments) != 1:
+            raise ValueError(
+                "Virtual environment not found for "
+                f"model={model_name}, engine={model_engine}, python={python_version}"
+            )
 
-        Returns:
-            Dictionary with package information or error message
-        """
-        # This method is deprecated and no longer needed
-        # Virtual environments are managed by direct directory scanning
+        environment = environments[0]
+        environment_path = Path(environment["path"])
+        packages = []
+        for site_packages_path in self._get_site_packages_paths(environment_path):
+            for distribution in metadata.distributions(path=[str(site_packages_path)]):
+                name = distribution.metadata["Name"]
+                if not name:
+                    continue
+                packages.append(
+                    {
+                        "name": name,
+                        "version": distribution.version,
+                        "size_bytes": self._get_distribution_size(
+                            distribution, environment_path
+                        ),
+                    }
+                )
+
         return {
             "model_name": model_name,
+            "model_engine": model_engine,
+            "python_version": python_version,
             "worker_ip": self.worker_address,
-            "error": "Package listing functionality has been removed",
+            "packages": sorted(packages, key=lambda package: package["name"].lower()),
         }
+
+    @staticmethod
+    def _get_site_packages_paths(environment_path: Path) -> List[Path]:
+        site_packages_paths = []
+        windows_site_packages = environment_path / "Lib" / "site-packages"
+        if windows_site_packages.is_dir():
+            site_packages_paths.append(windows_site_packages)
+
+        lib_path = environment_path / "lib"
+        if lib_path.is_dir():
+            site_packages_paths.extend(
+                path for path in lib_path.glob("python*/site-packages") if path.is_dir()
+            )
+        return site_packages_paths
+
+    @staticmethod
+    def _get_distribution_size(distribution: Any, environment_path: Path) -> int:
+        total_size = 0
+        normalized_environment_path = Path(os.path.abspath(environment_path))
+        for package_file in distribution.files or []:
+            try:
+                file_path = Path(
+                    os.path.abspath(distribution.locate_file(package_file))
+                )
+                file_path.relative_to(normalized_environment_path)
+                file_stat = file_path.lstat()
+                if stat.S_ISREG(file_stat.st_mode):
+                    total_size += file_stat.st_size
+            except (OSError, TypeError, ValueError):
+                continue
+        return total_size
 
     def _detect_python_version(self, env_path: str) -> str:
         """
@@ -836,7 +1136,671 @@ FLASHINFER_AOT_PACKAGES = [
     "flashinfer-cubin==0.6.11.post3",
     "flashinfer-jit-cache==0.6.11.post3+cu130",
 ]
+FLASHINFER_CUBIN_WHEEL_URL = "https://flashinfer.ai/whl"
 FLASHINFER_AOT_WHEEL_URL = "https://flashinfer.ai/whl/cu130"
+
+
+def _get_virtualenv_distribution_version(
+    virtual_env_manager: Any, distribution: str
+) -> Optional[str]:
+    try:
+        python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    except (AttributeError, TypeError):
+        return None
+    if not python_path:
+        return None
+    try:
+        result = subprocess.run(
+            [
+                python_path,
+                "-c",
+                (
+                    "import importlib.metadata as metadata; "
+                    f"print(metadata.version({distribution!r}))"
+                ),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def ensure_sglang_inherited_packages_compatible_post_install(
+    model_engine: Optional[str], virtual_env_manager: Any
+) -> None:
+    """Keep SGLang dependencies compatible with inherited numba/cudf packages.
+
+    SGLang and datasets leave NumPy and pandas broadly constrained, while the
+    actor subprocess inherits parent site-packages so xoscar can import its
+    serializers.  New child versions can therefore break inherited numba/cudf
+    before SGLang starts.  New environments carry explicit compatibility caps;
+    when the parent already has a compatible version, repair a cached environment
+    without downloading anything by removing only the shadowing child copy.
+    """
+    if not model_engine or model_engine.lower() != "sglang":
+        return
+
+    import importlib.metadata
+
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    constraints = {"numpy": "<2.3", "pandas": "<3"}
+    for distribution, specifier in constraints.items():
+        compatible = SpecifierSet(specifier)
+        try:
+            system_version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        virtualenv_version = _get_virtualenv_distribution_version(
+            virtual_env_manager, distribution
+        )
+        if virtualenv_version is None or Version(virtualenv_version) in compatible:
+            continue
+        if Version(system_version) not in compatible:
+            raise RuntimeError(
+                f"SGLang requires {distribution}{specifier} for compatibility "
+                f"with inherited numba/cudf packages, but virtualenv "
+                f"{distribution} is {virtualenv_version} and system "
+                f"{distribution} is {system_version}."
+            )
+
+        logger.warning(
+            "Incompatible SGLang virtualenv %s %s shadows system %s %s in %s; "
+            "removing the child copy",
+            distribution,
+            virtualenv_version,
+            distribution,
+            system_version,
+            virtual_env_manager.env_path,
+        )
+        uv_path = None
+        if hasattr(virtual_env_manager, "_get_uv_path"):
+            try:
+                uv_path = virtual_env_manager._get_uv_path()
+            except Exception:
+                pass
+        if not uv_path:
+            uv_path = shutil.which("uv") or "uv"
+        python_path = resolve_virtualenv_python_path(virtual_env_manager)
+        if not python_path:
+            raise RuntimeError(
+                f"Cannot repair the SGLang virtualenv {distribution} mismatch: "
+                "virtualenv Python was not found."
+            )
+
+        result = subprocess.run(
+            [
+                uv_path,
+                "pip",
+                "uninstall",
+                "--python",
+                python_path,
+                distribution,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        repaired_version = _get_virtualenv_distribution_version(
+            virtual_env_manager, distribution
+        )
+        if (
+            result.returncode != 0
+            or repaired_version is None
+            or Version(repaired_version) not in compatible
+        ):
+            detail = result.stderr[-500:] if result.stderr else "(empty)"
+            raise RuntimeError(
+                f"Failed to repair the incompatible SGLang virtualenv "
+                f"{distribution} {virtualenv_version}; system {distribution} "
+                f"is {system_version}: {detail}"
+            )
+        logger.info(
+            "SGLang virtualenv now uses compatible %s %s",
+            distribution,
+            repaired_version,
+        )
+
+
+def _as_uv_option_values(value: Any) -> List[str]:
+    if not value:
+        return []
+    return [value] if isinstance(value, str) else list(value)
+
+
+def build_uv_source_options(
+    conf: Dict[str, Any],
+    *,
+    public_index_urls: Optional[List[str]] = None,
+    allow_public_install: bool = True,
+) -> List[str]:
+    """Build uv source options from the virtualenv install configuration.
+
+    Post-install hooks invoke ``uv`` directly, so they must explicitly reuse the
+    same package sources as the main virtualenv installation. Administrator-
+    supplied public indexes are appended as fallbacks only when public installs
+    are allowed.
+    """
+    options: List[str] = []
+    index_url = conf.get("index_url")
+    extra_index_urls = _as_uv_option_values(conf.get("extra_index_url"))
+
+    # uv gives every --index / --extra-index-url entry higher priority than
+    # --default-index / --index-url. Keep the configured sources in their
+    # original effective order (extra indexes before index_url), then place the
+    # hook-specific public indexes after all of them. The final public index is
+    # the default index so it is a true lowest-priority fallback.
+    configured_index_urls = [*extra_index_urls]
+    if index_url:
+        configured_index_urls.append(index_url)
+    configured_url_set = set(configured_index_urls)
+    public_fallback_urls = (
+        [
+            url
+            for url in (public_index_urls or [])
+            if url and url not in configured_url_set
+        ]
+        if allow_public_install
+        else []
+    )
+
+    default_index_url: Optional[str]
+    if public_fallback_urls:
+        priority_index_urls = configured_index_urls + public_fallback_urls[:-1]
+        default_index_url = public_fallback_urls[-1]
+    elif not allow_public_install and configured_index_urls:
+        # Avoid uv's implicit PyPI default during a configured-source-only
+        # attempt. Keep the final configured URL as the explicit default while
+        # preserving the effective priority of the preceding URLs.
+        priority_index_urls = configured_index_urls[:-1]
+        default_index_url = configured_index_urls[-1]
+    else:
+        # Preserve uv's existing configured-source semantics when no public
+        # fallback is added: extra_index_url entries outrank index_url.
+        priority_index_urls = extra_index_urls
+        default_index_url = index_url
+
+    for url in priority_index_urls:
+        options += ["--index", url]
+    if default_index_url:
+        options += ["--default-index", default_index_url]
+
+    find_links = _as_uv_option_values(conf.get("find_links"))
+    for link in find_links:
+        options += ["--find-links", link]
+    # ``--find-links`` supplements registry indexes; it does not disable uv's
+    # implicit default index. A configured-source-only attempt must therefore
+    # opt out explicitly when find-links is the only configured source.
+    if not allow_public_install and find_links and not configured_index_urls:
+        options.append("--no-index")
+    for host in _as_uv_option_values(conf.get("trusted_host")):
+        options += ["--trusted-host", host]
+
+    # ``unsafe-best-match`` queries every index even after a configured source
+    # provides the pinned package. An unavailable hook-specific public fallback
+    # would therefore still fail the whole install. Use first-index semantics
+    # whenever a public fallback is appended so configured sources remain
+    # authoritative; otherwise preserve the caller's existing strategy.
+    index_strategy = (
+        "first-index"
+        if configured_index_urls and public_fallback_urls
+        else conf.get("index_strategy")
+    )
+    if index_strategy:
+        options += ["--index-strategy", index_strategy]
+    return options
+
+
+def is_flash_attn_requirement(spec: str) -> bool:
+    """Return whether *spec* targets the flash-attn distribution."""
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    try:
+        requirement = Requirement(spec)
+    except InvalidRequirement:
+        return False
+    return canonicalize_name(requirement.name) == "flash-attn"
+
+
+def is_model_find_links_only_requirement(model_name: Optional[str], spec: str) -> bool:
+    """Return whether a model requirement is supplied only via Find Links.
+
+    These requirements are intentionally absent from package indexes.  The
+    runtime installs them from worker-local wheel directories when configured
+    and otherwise uses the model's documented fallback path.
+    """
+    return model_name == "jina-embeddings-v3" and is_flash_attn_requirement(spec)
+
+
+_SUBPROCESS_OUTPUT_LIMIT = 2048
+
+
+def _format_subprocess_output(output: Any) -> str:
+    """Prepare bounded subprocess output for logs and user-facing errors."""
+    if not isinstance(output, str) or not output:
+        return "<empty>"
+
+    sanitized = output.strip()
+    sanitized = re.sub(r"(?i)([a-z][a-z0-9+.-]*://)[^/@\s]+@", r"\1***@", sanitized)
+    sanitized = re.sub(
+        r"(?i)\b(password|passwd|token|api[-_]?key|access[-_]?key)=" r"([^&\s]+)",
+        r"\1=***",
+        sanitized,
+    )
+    sanitized = re.sub(r"(?i)(\bBearer\s+)[^\s,;]+", r"\1***", sanitized)
+    sanitized = sanitized.replace("\r", "\\r").replace("\n", "\\n")
+    if len(sanitized) > _SUBPROCESS_OUTPUT_LIMIT:
+        sanitized = sanitized[:_SUBPROCESS_OUTPUT_LIMIT] + "...<truncated>"
+    return sanitized or "<empty>"
+
+
+def _validate_flash_attn_install(
+    virtual_env_manager: Any, flash_attn_packages: List[str]
+) -> bool:
+    """Validate flash-attn metadata and CUDA imports in a fresh venv process."""
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    if not python_path:
+        logger.warning("flash-attn validation has no virtualenv Python")
+        return False
+
+    validation_script = """
+import importlib.metadata as metadata
+import json
+import pathlib
+import sys
+
+prefix = pathlib.Path(sys.prefix).resolve()
+distribution = metadata.distribution("flash-attn")
+distribution_path = pathlib.Path(distribution.locate_file("")).resolve()
+if prefix != distribution_path and prefix not in distribution_path.parents:
+    raise RuntimeError(
+        f"flash-attn distribution resolved outside the model virtualenv: "
+        f"{distribution_path}"
+    )
+
+import flash_attn
+from flash_attn import flash_attn_func
+
+module_path = pathlib.Path(flash_attn.__file__).resolve()
+if prefix != module_path and prefix not in module_path.parents:
+    raise RuntimeError(
+        f"flash_attn module resolved outside the model virtualenv: {module_path}"
+    )
+if not callable(flash_attn_func):
+    raise RuntimeError("flash_attn.flash_attn_func is not callable")
+
+print(json.dumps({"version": distribution.version}, sort_keys=True))
+"""
+    env = os.environ.copy()
+    for variable in ("VIRTUAL_ENV", "PYTHONPATH", "PYTHONHOME"):
+        env.pop(variable, None)
+    try:
+        result = subprocess.run(
+            [python_path, "-c", validation_script],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    except OSError:
+        logger.warning("flash-attn validation process could not be started")
+        return False
+    if result.returncode != 0:
+        logger.warning(
+            "flash-attn validation failed in %s with exit code %s. "
+            "stdout=%r, stderr=%r",
+            virtual_env_manager.env_path,
+            result.returncode,
+            _format_subprocess_output(result.stdout),
+            _format_subprocess_output(result.stderr),
+        )
+        return False
+
+    try:
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        installed_version = str(payload["version"])
+    except (IndexError, KeyError, TypeError, ValueError):
+        logger.warning(
+            "flash-attn validation returned invalid metadata in %s",
+            virtual_env_manager.env_path,
+        )
+        return False
+
+    for spec in flash_attn_packages:
+        try:
+            requirement = Requirement(spec)
+        except InvalidRequirement:
+            logger.warning("Invalid flash-attn requirement during validation: %s", spec)
+            return False
+        if requirement.specifier and not requirement.specifier.contains(
+            installed_version, prereleases=True
+        ):
+            logger.warning(
+                "Installed flash-attn %s does not satisfy %s",
+                installed_version,
+                spec,
+            )
+            return False
+
+    logger.info(
+        "flash-attn %s import and version validation succeeded in %s",
+        installed_version,
+        virtual_env_manager.env_path,
+    )
+    return True
+
+
+def apply_flash_attn_wheel_post_install(
+    model_name: Optional[str],
+    flash_attn_packages: List[str],
+    virtual_env_manager: Any,
+    conf: Dict[str, Any],
+    cuda_available: bool,
+) -> None:
+    """Install Jina's flash-attn requirement from configured Wheel sources."""
+    if (
+        model_name != "jina-embeddings-v3"
+        or not cuda_available
+        or not flash_attn_packages
+    ):
+        return
+
+    python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    if not python_path:
+        raise RuntimeError("flash-attn post-install has no virtualenv Python")
+
+    if not conf.get("find_links"):
+        if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
+            logger.warning(
+                "flash-attn is not installed or invalid for %s, and no Find "
+                "Links source was configured. The model will use PyTorch "
+                "native attention (higher GPU memory usage).",
+                model_name,
+            )
+        return
+
+    uv_path = None
+    if hasattr(virtual_env_manager, "_get_uv_path"):
+        try:
+            uv_path = virtual_env_manager._get_uv_path()
+        except Exception:
+            pass
+    if not uv_path:
+        uv_path = shutil.which("uv") or "uv"
+
+    command = [
+        uv_path,
+        "pip",
+        "install",
+        "--python",
+        python_path,
+        "--no-deps",
+        "--reinstall",
+        "--only-binary=:all:",
+        *build_uv_source_options(conf),
+        *flash_attn_packages,
+    ]
+    try:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+    except OSError as exc:
+        raise RuntimeError(
+            "flash-attn Wheel installation could not be started"
+        ) from exc
+    if result.returncode != 0:
+        stdout = _format_subprocess_output(result.stdout)
+        stderr = _format_subprocess_output(result.stderr)
+        logger.error(
+            "flash-attn Wheel installation failed for %s with exit code %s. "
+            "stdout=%r, stderr=%r",
+            flash_attn_packages,
+            result.returncode,
+            stdout,
+            stderr,
+        )
+        raise RuntimeError(
+            f"flash-attn Wheel installation failed for {flash_attn_packages} "
+            f"with exit code {result.returncode}. stdout={stdout!r}, stderr={stderr!r}"
+        )
+
+    if not _validate_flash_attn_install(virtual_env_manager, flash_attn_packages):
+        raise RuntimeError(
+            "flash-attn Wheel installation completed, but fresh-process "
+            "version/path/CUDA import validation failed."
+        )
+
+
+def validate_virtual_env_find_links(
+    find_links: Optional[List[str]],
+    allowed_roots: Optional[tuple[str, ...]] = None,
+) -> List[str]:
+    """Validate request-level local wheel directories on the worker."""
+    if find_links is None:
+        return []
+    if not isinstance(find_links, list):
+        raise ValueError("virtual_env_find_links must be a list of local paths")
+
+    roots = (
+        XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS
+        if allowed_roots is None
+        else tuple(os.path.realpath(root) for root in allowed_roots)
+    )
+    if not roots:
+        raise ValueError(
+            "Request-level virtualenv find-links are disabled on this worker"
+        )
+
+    result: List[str] = []
+    seen = set()
+    for raw_path in find_links:
+        if not isinstance(raw_path, str):
+            raise ValueError("virtual_env_find_links entries must be strings")
+        path = raw_path.strip()
+        if not path:
+            continue
+        if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", path):
+            raise ValueError(
+                "virtual_env_find_links only accepts absolute local directories"
+            )
+        if not os.path.isabs(path):
+            raise ValueError(f"virtual_env_find_links path must be absolute: {path!r}")
+        try:
+            canonical_path = str(Path(path).resolve(strict=True))
+        except (OSError, RuntimeError) as exc:
+            raise ValueError(
+                f"virtual_env_find_links path does not exist: {path!r}"
+            ) from exc
+        if not os.path.isdir(canonical_path):
+            raise ValueError(
+                f"virtual_env_find_links path is not a directory: {path!r}"
+            )
+        if not os.access(canonical_path, os.R_OK | os.X_OK):
+            raise ValueError(f"virtual_env_find_links path is not readable: {path!r}")
+
+        contained = False
+        for root in roots:
+            try:
+                contained = os.path.normcase(
+                    os.path.commonpath([canonical_path, root])
+                ) == os.path.normcase(root)
+            except ValueError:
+                contained = False
+            if contained:
+                break
+        if not contained:
+            raise ValueError(
+                f"virtual_env_find_links path is outside the configured allowed roots: {path!r}"
+            )
+
+        key = os.path.normcase(canonical_path)
+        if key not in seen:
+            seen.add(key)
+            result.append(canonical_path)
+    return result
+
+
+def merge_virtual_env_find_links(
+    configured: Optional[Union[str, List[str]]], requested: List[str]
+) -> Optional[List[str]]:
+    values = _as_uv_option_values(configured) + requested
+    if not values:
+        return None
+    return list(dict.fromkeys(values))
+
+
+def _has_configured_package_source(conf: Dict[str, Any]) -> bool:
+    return any(conf.get(key) for key in ("index_url", "extra_index_url", "find_links"))
+
+
+def _run_uv_install_with_source_fallback(
+    base_cmd: List[str],
+    packages: List[str],
+    conf: Dict[str, Any],
+    *,
+    public_index_urls: Optional[List[str]] = None,
+    allow_public_install: bool = True,
+) -> subprocess.CompletedProcess:
+    """Run uv with configured sources before consulting public fallbacks."""
+    source_conf = conf
+    if (
+        allow_public_install
+        and public_index_urls
+        and _has_configured_package_source(conf)
+    ):
+        configured_cmd = base_cmd + build_uv_source_options(
+            conf, allow_public_install=False
+        )
+        result = subprocess.run(
+            configured_cmd + packages,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result
+        logger.info(
+            "Post-install requirements were not satisfied by configured package "
+            "sources; retrying with the allowed public fallback"
+        )
+        # Retry against the hook-specific fallback independently. With uv's
+        # first-index semantics, retaining a configured index that contains the
+        # project at a different version would prevent the fallback from ever
+        # being considered.
+        source_conf = {}
+
+    cmd = base_cmd + build_uv_source_options(
+        source_conf,
+        public_index_urls=public_index_urls,
+        allow_public_install=allow_public_install,
+    )
+    return subprocess.run(
+        cmd + packages,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def ensure_flashinfer_cubin_matches_post_install(
+    model_engine: Optional[str],
+    virtual_env_manager: Any,
+    allow_public_install: bool = True,
+    conf: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Keep FlashInfer's Python package and cubin package on the same version.
+
+    ``flashinfer-cubin`` lives on FlashInfer's own wheel index. A reused vLLM
+    environment can therefore upgrade ``flashinfer-python`` from PyPI while
+    retaining an older cubin from a previous engine wheel index. FlashInfer
+    rejects that pair at import time before the model can load.
+
+    Repair the cubin in place from the official index. In explicit offline mode
+    (or if the repair fails), use FlashInfer's documented version-check bypass
+    so a stale environment does not fail before engine initialization.
+    """
+    if not model_engine or model_engine.lower() != "vllm":
+        return
+
+    python_version = _get_virtualenv_distribution_version(
+        virtual_env_manager, "flashinfer-python"
+    )
+    if python_version is None:
+        return
+    cubin_version = _get_virtualenv_distribution_version(
+        virtual_env_manager, "flashinfer-cubin"
+    )
+    if cubin_version == python_version:
+        return
+
+    logger.warning(
+        "FlashInfer package mismatch in %s: flashinfer-python=%s, "
+        "flashinfer-cubin=%s",
+        virtual_env_manager.env_path,
+        python_version,
+        cubin_version or "not installed",
+    )
+
+    conf = conf or {}
+    if allow_public_install or _has_configured_package_source(conf):
+        uv_path = None
+        if hasattr(virtual_env_manager, "_get_uv_path"):
+            try:
+                uv_path = virtual_env_manager._get_uv_path()
+            except Exception:
+                pass
+        if not uv_path:
+            uv_path = shutil.which("uv") or "uv"
+
+        cmd = [
+            uv_path,
+            "pip",
+            "install",
+            "-p",
+            str(virtual_env_manager.env_path),
+            "--no-deps",
+            "--upgrade",
+        ]
+        try:
+            result = _run_uv_install_with_source_fallback(
+                cmd,
+                [f"flashinfer-cubin=={python_version}"],
+                conf,
+                public_index_urls=[FLASHINFER_CUBIN_WHEEL_URL],
+                allow_public_install=allow_public_install,
+            )
+            if result.returncode == 0:
+                repaired_version = _get_virtualenv_distribution_version(
+                    virtual_env_manager, "flashinfer-cubin"
+                )
+                if repaired_version == python_version:
+                    logger.info(
+                        "Synchronized flashinfer-cubin to flashinfer-python %s",
+                        python_version,
+                    )
+                    return
+            else:
+                logger.warning(
+                    "Failed to synchronize flashinfer-cubin (exit %d): %s",
+                    result.returncode,
+                    result.stderr[-500:] if result.stderr else "(empty)",
+                )
+        except Exception as e:
+            logger.warning("Failed to synchronize flashinfer-cubin: %s", e)
+
+    os.environ["FLASHINFER_DISABLE_VERSION_CHECK"] = "1"
+    logger.warning(
+        "Set FLASHINFER_DISABLE_VERSION_CHECK=1 because flashinfer-cubin could "
+        "not be synchronized to flashinfer-python %s",
+        python_version,
+    )
 
 
 def needs_flashinfer_aot(
@@ -868,6 +1832,7 @@ def apply_flashinfer_aot_post_install(
     virtual_env_manager: Any,
     conf: Dict[str, Any],
     cuda_version: Optional[str] = None,
+    allow_public_install: bool = True,
 ) -> None:
     """Post-install hook: force-upgrade flashinfer to AOT versions for sm_120.
 
@@ -894,14 +1859,12 @@ def apply_flashinfer_aot_post_install(
         list(architectures or []),
     )
 
-    extra_urls = conf.get("extra_index_url") or []
-    if isinstance(extra_urls, str):
-        extra_urls = [extra_urls]
-    extra_urls = (
-        list(extra_urls) + [FLASHINFER_AOT_WHEEL_URL]
-        if extra_urls
-        else [FLASHINFER_AOT_WHEEL_URL]
-    )
+    if not allow_public_install and not _has_configured_package_source(conf):
+        logger.info(
+            "Skipping the FlashInfer AOT post-install because public installs "
+            "are disabled and no package source is configured"
+        )
+        return
 
     # Resolve uv path with a fallback. ``_get_uv_path`` is a private method
     # on xoscar's VirtualEnvManager and could be renamed/removed in future
@@ -925,12 +1888,14 @@ def apply_flashinfer_aot_post_install(
         "--upgrade",
         "--color=always",
     ]
-    for url in extra_urls:
-        cmd += ["--extra-index-url", url]
-    cmd += FLASHINFER_AOT_PACKAGES
-
     try:
-        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        result = _run_uv_install_with_source_fallback(
+            cmd,
+            FLASHINFER_AOT_PACKAGES,
+            conf,
+            public_index_urls=[FLASHINFER_AOT_WHEEL_URL],
+            allow_public_install=allow_public_install,
+        )
         if result.returncode == 0:
             logger.info(
                 "Post-install: flashinfer AOT upgrade SUCCEEDED — "

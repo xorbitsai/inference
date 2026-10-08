@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1
 - **Quantizations:** none
-- **Engines**: Transformers, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** openbmb/MiniCPM-V-4.6-Thinking
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-Thinking>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (bnb, 1 Billion)
 - **Model Format:** bnb
 - **Model Size (in billions):** 1
 - **Quantizations:** 4-bit
-- **Engines**: Transformers, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** openbmb/MiniCPM-V-4.6-Thinking-BNB
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking-BNB>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-Thinking-BNB>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 1 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 1
 - **Quantizations:** Int4
-- **Engines**: Transformers, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** openbmb/MiniCPM-V-4.6-Thinking-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking-AWQ>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-Thinking-AWQ>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (gptq, 1 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 1
 - **Quantizations:** Int4
-- **Engines**: Transformers, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** openbmb/MiniCPM-V-4.6-Thinking-GPTQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking-GPTQ>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-V-4.6-Thinking-GPTQ>`__
 

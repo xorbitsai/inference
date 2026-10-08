@@ -1,8 +1,9 @@
 export const XINFERENCE_DOCS_URL = 'https://inference.readthedocs.io';
-export const XINFERENCE_BASE_URL = 'https://xinference.io';
+export const XINFERENCE_BASE_URL = 'https://xinference.co';
 export const XINFERENCE_CN_URL = 'https://xinference.cn';
 export const XINFERENCE_GITHUB = 'https://github.com/xorbitsai';
 export const XINFERENCE_IO = 'https://model.xinference.io';
+export const XAGENT_BASE_URL = 'https://xagent.co';
 
 export const LOGIN_PATH = '/login';
 export const SETUP_PATH = '/setup';
@@ -15,7 +16,8 @@ export const SETUP_COMPLETE_FLAG = 'xinference_setup_complete';
 
 export const LANGUAGES = [
   { label: '🇺🇸 English', value: 'en' },
-  { label: '🇨🇳 中文', value: 'zh' },
+  { label: '🇨🇳 简体中文', value: 'zh' },
+  { label: '🇹🇼 繁體中文', value: 'zh-TW' },
   { label: '🇰🇷 한국어', value: 'ko' },
   { label: '🇯🇵 日本語', value: 'ja' },
 ] as const;
@@ -38,6 +40,7 @@ export enum ModelType {
   Image = 'image',
   Audio = 'audio',
   Video = 'video',
+  World = 'world',
   Custom = 'custom',
   Flexible = 'flexible',
 }
@@ -49,21 +52,34 @@ export enum ModelAbility {
   Tools = 'tools',
   Reasoning = 'reasoning',
   Audio = 'audio',
+  Video = 'video',
   Omni = 'omni',
   Hybrid = 'hybrid',
   Embed = 'embed',
   Rerank = 'rerank',
+  EmbedVision = 'embed_vision',
+  EmbedVideo = 'embed_video',
+  EmbedAudio = 'embed_audio',
+  RerankVision = 'rerank_vision',
+  RerankVideo = 'rerank_video',
+  RerankAudio = 'rerank_audio',
   Text2image = 'text2image',
   Image2image = 'image2image',
   Inpainting = 'inpainting',
   Audio2text = 'audio2text',
+  SpeakerEmbedding = 'speaker_embedding',
   Text2audio = 'text2audio',
+  Text2music = 'text2music',
   Audio2audio = 'audio2audio',
   Text2video = 'text2video',
   Image2video = 'image2video',
+  Text2world = 'text2world',
+  Image2world = 'image2world',
+  Video2world = 'video2world',
   Ocr = 'ocr',
   Firstlastframe2video = 'firstlastframe2video',
   Text2audioVoiceCloning = 'text2audio_voice_cloning',
+  Text2audioVoiceDesign = 'text2audio_voice_design',
   Text2audioZeroShot = 'text2audio_zero_shot',
   Text2audioEmotionControl = 'text2audio_emotion_control',
   Docanalyze = 'docanalyze',

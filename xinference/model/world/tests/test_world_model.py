@@ -1,0 +1,995 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import asyncio
+import base64
+import importlib
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+from ...core import create_model_instance
+from ...utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
+from .. import BUILTIN_WORLD_MODELS, register_world, unregister_world
+from ..core import (
+    check_world_model_host,
+    create_world_model_instance,
+    match_world_model,
+    resolve_world_model_engine,
+)
+from ..engine import (
+    PyTorchAstraModel,
+    PyTorchHYWorldPlayModel,
+    PyTorchLingBotWorldV2Model,
+    PyTorchMatrixGameModel,
+)
+from ..engine_family import WORLD_ENGINES
+
+
+def test_custom_world_registration_fails_cleanly():
+    with pytest.raises(ValueError, match="not supported"):
+        register_world(None)
+    with pytest.raises(ValueError, match="not supported"):
+        unregister_world("custom-world")
+
+
+def test_materialize_reference_rejects_malformed_data_url():
+    from ..model import _materialize_reference
+
+    with pytest.raises(ValueError, match="Invalid data URL"):
+        with _materialize_reference("data:image/png;base64", ".png"):
+            pass
+    with pytest.raises(ValueError, match="base64-encoded data"):
+        with _materialize_reference("%%%%", ".png"):
+            pass
+
+
+def test_materialize_reference_enforces_encoded_and_decoded_limits(monkeypatch):
+    from .. import model as world_model_module
+
+    monkeypatch.setattr(world_model_module, "_MAX_INPUT_BYTES", 2)
+    with pytest.raises(ValueError, match="exceeds 512 MiB"):
+        with world_model_module._materialize_reference("AAAAA", ".bin"):
+            pass
+    with pytest.raises(ValueError, match="exceeds 512 MiB"):
+        with world_model_module._materialize_reference(
+            base64.b64encode(b"abc").decode(), ".bin"
+        ):
+            pass
+
+
+def test_materialize_reference_removes_temporary_file():
+    from ..model import _materialize_reference
+
+    with _materialize_reference(base64.b64encode(b"image").decode(), ".png") as path:
+        assert path is not None
+        assert Path(path).read_bytes() == b"image"
+    assert not Path(path).exists()
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_class"),
+    [
+        ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel),
+        ("LingBot-World-V2-14B-Causal-Fast", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-14B-Causal-Pretrain", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-1.3B-Causal-Fast", PyTorchLingBotWorldV2Model),
+        ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel),
+        ("Astra", PyTorchAstraModel),
+    ],
+)
+def test_world_model_engine_registry(model_name, model_class, monkeypatch):
+    assert resolve_world_model_engine(model_name) == "PyTorch"
+    assert resolve_world_model_engine(model_name, "pytorch") == "PyTorch"
+    assert WORLD_ENGINES[model_name]["PyTorch"][0]["world_class"] is model_class
+    monkeypatch.setattr(model_class, "check_lib", classmethod(lambda cls: True))
+    monkeypatch.setattr(model_class, "check_host", classmethod(lambda cls: True))
+    assert get_engine_params_by_name("world", model_name, False) == {
+        "PyTorch": [
+            {
+                "model_name": model_name,
+                "model_format": "pytorch",
+            }
+        ]
+    }
+
+    model = create_world_model_instance(
+        "world-uid",
+        model_name,
+        model_path="/unused/model/path",
+        model_engine="pytorch",
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, model_class)
+    assert model.model_family.model_engine == "PyTorch"
+
+
+def test_world_model_rejects_unknown_engine():
+    with pytest.raises(ValueError, match="cannot be run on engine unknown"):
+        create_world_model_instance(
+            "world-uid",
+            "Matrix-Game-3.0-5B",
+            model_path="/unused/model/path",
+            model_engine="unknown",
+            enable_virtual_env=False,
+        )
+
+
+def test_lingbot_world_v2_rejects_old_host_torch(monkeypatch):
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version", lambda name: "2.3.1"
+    )
+
+    assert PyTorchLingBotWorldV2Model.check_host() == (
+        False,
+        "LingBot-World-V2 requires host torch>=2.4.0; found torch 2.3.1",
+    )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_class"),
+    [
+        ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel),
+        ("LingBot-World-V2-14B-Causal-Fast", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-14B-Causal-Pretrain", PyTorchLingBotWorldV2Model),
+        ("LingBot-World-V2-1.3B-Causal-Fast", PyTorchLingBotWorldV2Model),
+        ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel),
+        ("Astra", PyTorchAstraModel),
+    ],
+)
+def test_world_engine_can_be_prepared_in_virtualenv(
+    model_name, model_class, monkeypatch
+):
+    monkeypatch.setattr(
+        model_class,
+        "check_lib",
+        classmethod(lambda cls: (False, "torch is not installed")),
+    )
+    monkeypatch.setattr(model_class, "check_host", classmethod(lambda cls: True))
+
+    engines = get_engine_params_by_name_with_virtual_env(
+        "world",
+        model_name,
+        enable_virtual_env=True,
+    )
+
+    assert isinstance(engines["PyTorch"], list)
+    assert engines["PyTorch"][0]["virtualenv_required"] is True
+
+
+def test_astra_does_not_install_unused_controlnet_runtime():
+    model_spec = BUILTIN_WORLD_MODELS["Astra"][0]
+
+    # Astra's inference entry point imports the annotator class but never
+    # instantiates it.  Installing controlnet-aux would unnecessarily make uv
+    # resolve torch from the package index, which breaks when the inherited
+    # CUDA torch build has a local version suffix such as ``+cu130``.
+    assert model_spec.virtualenv is not None
+    assert not any(
+        package.startswith("controlnet-aux")
+        for package in model_spec.virtualenv.packages
+    )
+
+
+def test_worldplay_inherits_compatible_host_torch_stack(monkeypatch):
+    from xoscar.virtualenv.core import VirtualEnvManager
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+
+    # Official WorldPlay requirements combine torch>=2.6 with companion
+    # packages pinned to torch 2.6.  Pinning those companions in the child
+    # environment conflicts with newer host builds required by platforms such
+    # as GB10/CUDA 13.  The inference path uses torchvision but never imports
+    # torchaudio, so inherit the host's matching torch/torchvision pair and do
+    # not resolve the unused audio companion.
+    assert model_spec.virtualenv is not None
+    packages = model_spec.virtualenv.packages
+    assert '#system_torch# ; #engine# == "pytorch"' in packages
+    assert "#system_torchvision#" in packages
+    assert not any(package.startswith("torchaudio") for package in packages)
+
+    host_versions = {"torch": "2.13.0", "torchvision": "0.28.0"}
+    monkeypatch.setattr(
+        "importlib.metadata.version", lambda package: host_versions[package]
+    )
+    processed = VirtualEnvManager.process_packages(packages, engine="pytorch")
+    assert "torch==2.13.0" in processed
+    assert "torchvision==0.28.0" in processed
+    assert not any(package.startswith("torchaudio") for package in processed)
+
+
+def test_worldplay_accepts_compatible_host_torch_stack(monkeypatch):
+    host_versions = {"torch": "2.9.0+cu130", "torchvision": "0.24.0+cu130"}
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version",
+        lambda package: host_versions[package],
+    )
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.requires",
+        lambda package: ["torch==2.9.0"] if package == "torchvision" else [],
+    )
+
+    assert PyTorchHYWorldPlayModel.check_host() is True
+
+
+@pytest.mark.parametrize(
+    ("host_versions", "torchvision_requirements", "expected_reason"),
+    [
+        (
+            {"torch": "2.5.1", "torchvision": "0.20.1"},
+            ["torch==2.5.1"],
+            "requires host torch>=2.6.0",
+        ),
+        (
+            {"torch": "2.9.0"},
+            ["torch==2.9.0"],
+            "requires host torchvision",
+        ),
+        (
+            {"torch": "2.9.0", "torchvision": "0.20.1"},
+            ["torch==2.5.1"],
+            "requires a compatible host torch/torchvision pair",
+        ),
+    ],
+)
+def test_worldplay_rejects_incompatible_host_torch_stack(
+    monkeypatch, host_versions, torchvision_requirements, expected_reason
+):
+    from importlib import metadata
+
+    def get_host_version(package):
+        try:
+            return host_versions[package]
+        except KeyError:
+            raise metadata.PackageNotFoundError(package)
+
+    monkeypatch.setattr("xinference.model.world.engine.has_cuda_device", lambda: True)
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.version", get_host_version
+    )
+    monkeypatch.setattr(
+        "xinference.model.world.engine.metadata.requires",
+        lambda package: torchvision_requirements,
+    )
+
+    compatible, reason = PyTorchHYWorldPlayModel.check_host()
+
+    assert compatible is False
+    assert expected_reason in reason
+
+
+def test_world_model_is_serializable_for_actor_subprocess():
+    import cloudpickle
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+    model = PyTorchHYWorldPlayModel("worldplay", "/weights/worldplay", model_spec)
+
+    restored = cloudpickle.loads(cloudpickle.dumps(model))
+
+    assert restored._process_lock.acquire(blocking=False)
+    restored._process_lock.release()
+    assert restored._runner_lock.acquire(blocking=False)
+    restored._runner_lock.release()
+    assert restored._running_processes == {}
+    assert restored._request_cancellations == {}
+
+
+def test_generic_model_factory_preserves_world_engine_selection(monkeypatch):
+    monkeypatch.setattr(
+        PyTorchMatrixGameModel, "check_host", classmethod(lambda cls: True)
+    )
+    model = create_model_instance(
+        "world-uid",
+        "world",
+        "Matrix-Game-3.0-5B",
+        "pytorch",
+        model_path="/unused/model/path",
+        enable_virtual_env=False,
+    )
+    assert isinstance(model, PyTorchMatrixGameModel)
+    assert model.model_family.model_engine == "PyTorch"
+
+
+def test_world_engine_rejects_cpu_only_host_before_virtualenv(monkeypatch):
+    reason = "The PyTorch world engine requires an NVIDIA CUDA GPU"
+    monkeypatch.setattr(
+        PyTorchMatrixGameModel,
+        "check_host",
+        classmethod(lambda cls: (False, reason)),
+    )
+
+    engines = get_engine_params_by_name_with_virtual_env(
+        "world", "Matrix-Game-3.0-5B", enable_virtual_env=True
+    )
+
+    assert engines["PyTorch"] == reason
+    with pytest.raises(ValueError, match="requires an NVIDIA CUDA GPU"):
+        check_world_model_host(
+            "Matrix-Game-3.0-5B",
+            "PyTorch",
+            enable_virtual_env=True,
+        )
+    with pytest.raises(ValueError, match="requires an NVIDIA CUDA GPU"):
+        create_world_model_instance(
+            "world-uid",
+            "Matrix-Game-3.0-5B",
+            model_path="/unused/model/path",
+            model_engine="PyTorch",
+            enable_virtual_env=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_id"),
+    [
+        ("Matrix-Game-3.0-5B", "Skywork/Matrix-Game-3.0"),
+        (
+            "LingBot-World-V2-14B-Causal-Fast",
+            "Robbyant/lingbot-world-v2-14b-causal-fast",
+        ),
+        (
+            "LingBot-World-V2-14B-Causal-Pretrain",
+            "Robbyant/lingbot-world-v2-14b-causal-pretrain",
+        ),
+        (
+            "LingBot-World-V2-1.3B-Causal-Fast",
+            "Robbyant/lingbot-world-v2-1.3b-causal-fast",
+        ),
+        ("HY-WorldPlay-5B", "Tencent-Hunyuan/HY-WorldPlay"),
+        ("Astra", "Xorbits/Astra"),
+    ],
+)
+def test_world_models_have_modelscope_sources(model_name, model_id):
+    model_spec = match_world_model(model_name, "modelscope")
+
+    assert model_spec.model_hub == "modelscope"
+    assert model_spec.model_id == model_id
+    assert model_spec.model_revision == "master"
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "LingBot-World-V2-14B-Causal-Fast",
+        "LingBot-World-V2-14B-Causal-Pretrain",
+        "LingBot-World-V2-1.3B-Causal-Fast",
+    ],
+)
+def test_lingbot_world_v2_has_requested_hub_revisions(model_name):
+    assert match_world_model(model_name, "huggingface").model_revision == "main"
+    assert match_world_model(model_name, "modelscope").model_revision == "master"
+
+
+def test_lingbot_world_v2_pins_transformers_compatible_tokenizers():
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+
+    assert model_spec.virtualenv is not None
+    assert "tokenizers>=0.21,<0.22" in model_spec.virtualenv.packages
+    assert model_spec.virtualenv.index_strategy == "unsafe-best-match"
+
+
+def test_lingbot_world_v2_uses_memory_conservative_1_3b_defaults():
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+    defaults = model_spec.default_generate_config
+
+    assert defaults["frame_num"] == 81
+    assert defaults["offload_model"] is True
+    assert defaults["t5_cpu"] is True
+
+
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "LingBot-World-V2-14B-Causal-Pretrain",
+        "LingBot-World-V2-1.3B-Causal-Fast",
+    ],
+)
+def test_lingbot_world_v2_uses_same_hub_for_shared_assets(model_name):
+    huggingface_spec = match_world_model(model_name, "huggingface")
+    modelscope_spec = match_world_model(model_name, "modelscope")
+
+    assert (
+        huggingface_spec.auxiliary_model_id
+        == "robbyant/lingbot-world-v2-14b-causal-fast"
+    )
+    assert huggingface_spec.auxiliary_model_revision == "main"
+    assert (
+        modelscope_spec.auxiliary_model_id
+        == "Robbyant/lingbot-world-v2-14b-causal-fast"
+    )
+    assert modelscope_spec.auxiliary_model_revision == "master"
+
+
+def test_lingbot_world_v2_generation_builds_official_runner_command(
+    tmp_path, monkeypatch
+):
+    from .. import model as world_model_module
+
+    model_spec = match_world_model("LingBot-World-V2-1.3B-Causal-Fast", "huggingface")
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    code_path = tmp_path / "code"
+    action_path = code_path / "examples" / "03"
+    action_path.mkdir(parents=True)
+    (action_path / "poses.npy").write_bytes(b"poses")
+    image_path = tmp_path / "input.png"
+    image_path.write_bytes(b"image")
+    output_root = tmp_path / "responses"
+
+    model = PyTorchLingBotWorldV2Model("lingbot", str(model_path), model_spec)
+    model._code_path = str(code_path)
+    model._assets_model_path = "/weights/lingbot-assets"
+    monkeypatch.setattr(model, "_gpu_count", lambda: 4)
+    monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
+    captured = {}
+
+    def fake_run(command, cwd, env, log_path, request_id=None):
+        captured.update(command=command, cwd=cwd, env=env, request_id=request_id)
+        output_path = command[command.index("--save_file") + 1]
+        Path(output_path).write_bytes(b"lingbot")
+
+    monkeypatch.setattr(model, "_run_command", fake_run)
+    result = model.world_generate(
+        "explore the scene",
+        image=str(image_path),
+        generation_config={"frame_num": 81},
+        model_kwargs={"offload_model": False},
+        request_id="lingbot-request",
+    )
+
+    command = captured["command"]
+    assert command[command.index("--module") + 1] == (
+        "xinference.model.world.lingbot_runner"
+    )
+    assert command[command.index("--task") + 1] == "i2v-1.3B"
+    assert command[command.index("--infer_mode") + 1] == "causal_fast"
+    assert command[command.index("--assets_dir") + 1] == "/weights/lingbot-assets"
+    assert command[command.index("--action_path") + 1] == str(action_path)
+    assert command[command.index("--frame_num") + 1] == "81"
+    assert command[command.index("--ulysses_size") + 1] == "4"
+    assert command[command.index("--offload_model") + 1] == "false"
+    assert "--dit_fsdp" in command
+    assert "--t5_fsdp" not in command
+    assert captured["cwd"] == str(code_path)
+    assert captured["request_id"] == "lingbot-request"
+    assert Path(result["data"][0]["url"]).read_bytes() == b"lingbot"
+
+
+def test_lingbot_world_v2_loads_shared_assets(tmp_path, monkeypatch):
+    from .. import model as world_model_module
+
+    model_spec = match_world_model(
+        "LingBot-World-V2-14B-Causal-Pretrain", "huggingface"
+    )
+    model_path = tmp_path / "model"
+    model_path.mkdir()
+    assets_path = tmp_path / "assets"
+    assets_path.mkdir()
+    (assets_path / "models_t5_umt5-xxl-enc-bf16.pth").write_bytes(b"t5")
+    (assets_path / "Wan2.1_VAE.pth").write_bytes(b"vae")
+    (assets_path / "google" / "umt5-xxl").mkdir(parents=True)
+    model = PyTorchLingBotWorldV2Model("lingbot", str(model_path), model_spec)
+    captured = {}
+
+    def fake_world_load(self):
+        self._code_path = "/code/lingbot-world-v2"
+
+    def fake_download(allow_patterns=None):
+        captured["allow_patterns"] = allow_patterns
+        return str(assets_path)
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    monkeypatch.setattr(model, "_download_auxiliary_model", fake_download)
+    model.load()
+
+    assert model._assets_model_path == str(assets_path)
+    assert captured["allow_patterns"] == [
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth",
+        "google/umt5-xxl/*",
+    ]
+
+
+def test_lingbot_world_v2_uses_main_model_assets(tmp_path, monkeypatch):
+    from .. import model as world_model_module
+
+    model_spec = match_world_model("LingBot-World-V2-14B-Causal-Fast", "huggingface")
+    (tmp_path / "models_t5_umt5-xxl-enc-bf16.pth").write_bytes(b"t5")
+    (tmp_path / "Wan2.1_VAE.pth").write_bytes(b"vae")
+    (tmp_path / "google" / "umt5-xxl").mkdir(parents=True)
+    model = PyTorchLingBotWorldV2Model("lingbot", str(tmp_path), model_spec)
+
+    def fake_world_load(self):
+        self._code_path = "/code/lingbot-world-v2"
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    model.load()
+
+    assert model._assets_model_path == str(tmp_path)
+
+
+def test_lingbot_world_v2_rejects_invalid_inputs(tmp_path, monkeypatch):
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+    model = PyTorchLingBotWorldV2Model("lingbot", "/weights/lingbot", model_spec)
+    model._code_path = str(tmp_path)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 1)
+
+    with pytest.raises(ValueError, match="requires an input image"):
+        model.world_generate("explore")
+    with pytest.raises(ValueError, match="does not support video input"):
+        model.world_generate("explore", image="image", video="video")
+    with pytest.raises(ValueError, match=r"frame_num must equal 4 \* k \+ 1"):
+        model.world_generate(
+            "explore",
+            image="image",
+            generation_config={"frame_num": 80},
+        )
+    with pytest.raises(ValueError, match="directory containing poses.npy"):
+        model.world_generate("explore", image="image")
+
+
+def test_lingbot_world_v2_rejects_invalid_parallelism(tmp_path, monkeypatch):
+    model_spec = BUILTIN_WORLD_MODELS["LingBot-World-V2-1.3B-Causal-Fast"][0]
+    action_path = tmp_path / "examples" / "03"
+    action_path.mkdir(parents=True)
+    (action_path / "poses.npy").write_bytes(b"poses")
+    model = PyTorchLingBotWorldV2Model("lingbot", "/weights/lingbot", model_spec)
+    model._code_path = str(tmp_path)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 5)
+
+    with pytest.raises(ValueError, match="attention heads must be divisible"):
+        model.world_generate("explore", image="image")
+
+
+def test_matrix_game_generation_builds_official_runner_command(tmp_path, monkeypatch):
+    from .. import model as world_model_module
+
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    model._code_path = str(tmp_path)
+    image_path = tmp_path / "input.png"
+    image_path.write_bytes(b"image")
+    output_root = tmp_path / "responses"
+    monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
+    captured = {}
+
+    def fake_run(command, cwd, env, log_path, request_id=None):
+        captured.update(
+            command=command,
+            cwd=cwd,
+            env=env,
+            log_path=log_path,
+            request_id=request_id,
+        )
+        output_dir = command[command.index("--output_dir") + 1]
+        Path(output_dir, "world.mp4").write_bytes(b"video")
+
+    monkeypatch.setattr(model, "_run_command", fake_run)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 2)
+    result = model.world_generate(
+        "move forward",
+        image=str(image_path),
+        generation_config={"num_frames": 97},
+        model_kwargs={"sample_shift": 4.0},
+        request_id="matrix-request",
+    )
+
+    command = captured["command"]
+    assert command[command.index("--num_iterations") + 1] == "2"
+    assert command[command.index("--sample_shift") + 1] == "4.0"
+    assert command[command.index("--prompt") + 1] == "move forward"
+    assert command[command.index("--ulysses_size") + 1] == "2"
+    assert "--dit_fsdp" in command
+    assert "--t5_fsdp" in command
+    assert captured["request_id"] == "matrix-request"
+    assert result["data"][0]["url"] is not None
+    assert Path(result["data"][0]["url"]).read_bytes() == b"video"
+
+
+@pytest.mark.parametrize(
+    ("config", "message"),
+    [
+        ({"use_int8": "true"}, "use_int8 must be a boolean"),
+        ({"num_inference_steps": 1.5}, "num_inference_steps must be an integer"),
+        ({"use_async_vae": True}, "extra CUDA device is not reserved"),
+        ({"ulysses_size": 3}, "must divide the assigned GPU count"),
+    ],
+)
+def test_matrix_game_rejects_unsafe_or_malformed_config(
+    tmp_path, monkeypatch, config, message
+):
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    model._code_path = str(tmp_path)
+    monkeypatch.setattr(model, "_gpu_count", lambda: 2)
+
+    with pytest.raises(ValueError, match=message):
+        model.world_generate(
+            "move forward",
+            image="data:image/png;base64,aW1hZ2U=",
+            model_kwargs=config,
+        )
+
+
+@pytest.mark.asyncio
+async def test_world_abort_marks_request_before_runner_registration(
+    tmp_path, monkeypatch
+):
+    from .. import model as world_model_module
+
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    model.register_request("request-1")
+    assert await model.abort_request("request-1") == "DONE"
+
+    def unexpected_popen(*args, **kwargs):
+        raise AssertionError("cancelled request must not spawn a subprocess")
+
+    monkeypatch.setattr(world_model_module.subprocess, "Popen", unexpected_popen)
+    with pytest.raises(RuntimeError, match="was cancelled"):
+        model._run_command(
+            ["runner"],
+            str(tmp_path),
+            {},
+            str(tmp_path / "runner.log"),
+            request_id="request-1",
+        )
+    model.unregister_request("request-1")
+
+
+def test_worldplay_generation_passes_model_specific_kwargs(
+    tmp_path, monkeypatch, caplog
+):
+    from .. import model as world_model_module
+
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+    model = PyTorchHYWorldPlayModel("worldplay", "/weights/worldplay", model_spec)
+    model._code_path = str(tmp_path)
+    model._base_model_path = "/weights/wan"
+    output_root = tmp_path / "responses"
+    monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
+    captured = {}
+    progress_updates = []
+
+    class FakeProgressor:
+        def set_progress(self, progress, info=None):
+            progress_updates.append((progress, info))
+
+    def fake_run(command, cwd, env, log_path, progress_callback=None, request_id=None):
+        captured.update(
+            command=command,
+            cwd=cwd,
+            env=env,
+            log_path=log_path,
+            request_id=request_id,
+        )
+        assert progress_callback is not None
+        for line in (
+            "XINFERENCE_PROGRESS:1.2.3:malformed progress\n",
+            "XINFERENCE_PROGRESS:0.05:Loading HY-WorldPlay weights\n",
+            "XINFERENCE_PROGRESS:0.15:HY-WorldPlay weights loaded\n",
+            "XINFERENCE_PROGRESS:0.18:Generating 2 chunk(s)\n",
+            "Generate time for chunk  0 is 10.0\n",
+            "Decode latent 0: 1.0 seconds\n",
+            "Generate time for chunk  1 is 9.0\n",
+            "Decode latent 0: 1.0 seconds\n",
+            "XINFERENCE_PROGRESS:0.94:Encoding HY-WorldPlay video\n",
+            "XINFERENCE_PROGRESS:0.98:Saving HY-WorldPlay video\n",
+        ):
+            progress_callback(line)
+        output_dir = command[command.index("--out") + 1]
+        Path(output_dir, "generated.mp4").write_bytes(b"worldplay")
+
+    monkeypatch.setattr(model, "_run_command", fake_run)
+    result = model.world_generate(
+        "README.md@example.com",
+        model_kwargs={"pose": "d-8", "num_chunk": 2},
+        request_id="worldplay-request",
+        progressor=FakeProgressor(),
+    )
+
+    command = captured["command"]
+    assert any(part.endswith("hy_worldplay_runner.py") for part in command)
+    assert "--input" not in command
+    assert command[command.index("--prompt") + 1] == "README.md@example.com"
+    assert command[command.index("--pose") + 1] == "d-8"
+    assert command[command.index("--num_chunk") + 1] == "2"
+    assert command[command.index("--model_id") + 1] == "/weights/wan"
+    assert captured["request_id"] == "worldplay-request"
+    assert result["data"][0]["url"] is not None
+    assert Path(result["data"][0]["url"]).read_bytes() == b"worldplay"
+    assert progress_updates[0] == (0.02, "Starting HY-WorldPlay runner")
+    assert "Failed to parse HY-WorldPlay progress output" in caplog.text
+    assert (0.54, "Decoded chunk 1/2") in progress_updates
+    assert progress_updates[-1] == (0.98, "Saving HY-WorldPlay video")
+    assert [progress for progress, _ in progress_updates] == sorted(
+        progress for progress, _ in progress_updates
+    )
+
+
+@pytest.mark.parametrize("pose", ["forward", "x-4", "w-0", "w-four"])
+def test_worldplay_rejects_malformed_pose(tmp_path, pose):
+    model_spec = BUILTIN_WORLD_MODELS["HY-WorldPlay-5B"][0]
+    model = PyTorchHYWorldPlayModel("worldplay", "/weights/worldplay", model_spec)
+    model._code_path = str(tmp_path)
+    model._base_model_path = "/weights/wan"
+
+    with pytest.raises(ValueError, match="action-duration"):
+        model.world_generate("explore", model_kwargs={"pose": pose})
+
+
+def test_astra_generation_builds_single_gpu_runner_command(tmp_path, monkeypatch):
+    from .. import model as world_model_module
+
+    model_spec = BUILTIN_WORLD_MODELS["Astra"][0]
+    model_path = tmp_path / "astra"
+    checkpoint = (
+        model_path / "models" / "Astra" / "checkpoints" / "diffusion_pytorch_model.ckpt"
+    )
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+    model = PyTorchAstraModel("astra", str(model_path), model_spec)
+    model._code_path = str(tmp_path)
+    model._base_model_path = "/weights/wan-1.3b"
+    image_path = tmp_path / "input.png"
+    image_path.write_bytes(b"image")
+    output_root = tmp_path / "responses"
+    monkeypatch.setattr(world_model_module, "XINFERENCE_WORLD_DIR", str(output_root))
+    captured = {}
+
+    progress_updates = []
+
+    class FakeProgressor:
+        def set_progress(self, progress, info=None):
+            progress_updates.append((progress, info))
+
+    def fake_run(command, cwd, env, log_path, progress_callback=None, request_id=None):
+        captured.update(
+            command=command,
+            cwd=cwd,
+            env=env,
+            log_path=log_path,
+            request_id=request_id,
+        )
+        assert progress_callback is not None
+        for line in (
+            "Starting MoE FramePack sliding window generation...\n",
+            "Loading initial condition frames...\n",
+            "Generation step 1\n",
+            "  Denoising step 1/50\n",
+            "Generation step 2\n",
+            "  Denoising step 41/50\n",
+            "Decoding generated video...\n",
+            "Saving video to output.mp4 ...\n",
+        ):
+            progress_callback(line)
+        output_path = command[command.index("--output_path") + 1]
+        Path(output_path).write_bytes(b"astra")
+
+    monkeypatch.setattr(model, "_run_command", fake_run)
+    result = model.world_generate(
+        "walk through the garden",
+        image=str(image_path),
+        generation_config={"total_frames_to_generate": 16},
+        model_kwargs={"cam_type": 4, "add_icons": True},
+        request_id="astra-request",
+        progressor=FakeProgressor(),
+    )
+
+    command = captured["command"]
+    assert command[:2] == [world_model_module.sys.executable, "scripts/infer_demo.py"]
+    assert "torch.distributed.run" not in command
+    assert command[command.index("--cam_type") + 1] == "4"
+    assert command[command.index("--total_frames_to_generate") + 1] == "16"
+    assert command[command.index("--wan_model_path") + 1] == "/weights/wan-1.3b"
+    assert command[command.index("--dit_path") + 1] == str(checkpoint)
+    assert "--add_icons" in command
+    assert captured["request_id"] == "astra-request"
+    assert Path(result["data"][0]["url"]).read_bytes() == b"astra"
+    assert progress_updates[0] == (0.01, "Starting Astra runner")
+    assert (0.92, "Decoding video") in progress_updates
+    assert progress_updates[-1] == (0.98, "Saving video")
+
+
+def test_astra_loads_pinned_wan_base_model(tmp_path, monkeypatch):
+    import huggingface_hub
+
+    from .. import model as world_model_module
+
+    model_spec = BUILTIN_WORLD_MODELS["Astra"][0]
+    checkpoint = (
+        tmp_path / "models" / "Astra" / "checkpoints" / "diffusion_pytorch_model.ckpt"
+    )
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+    model = PyTorchAstraModel("astra", str(tmp_path), model_spec)
+    captured = {}
+
+    def fake_world_load(self):
+        self._code_path = "/code/astra"
+
+    def fake_snapshot_download(model_id, **kwargs):
+        captured.update(model_id=model_id, **kwargs)
+        return "/weights/wan-1.3b"
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
+
+    model.load()
+
+    assert model._base_model_path == "/weights/wan-1.3b"
+    assert captured == {
+        "model_id": "Wan-AI/Wan2.1-T2V-1.3B",
+        "revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+        "allow_patterns": [
+            "diffusion_pytorch_model.safetensors",
+            "models_t5_umt5-xxl-enc-bf16.pth",
+            "Wan2.1_VAE.pth",
+            "google/umt5-xxl/*",
+        ],
+    }
+
+
+def test_astra_loads_wan_base_model_from_modelscope(tmp_path, monkeypatch):
+    modelscope_snapshot_download = importlib.import_module(
+        "modelscope.hub.snapshot_download"
+    )
+
+    from .. import model as world_model_module
+
+    model_spec = match_world_model("Astra", "modelscope")
+    checkpoint = (
+        tmp_path / "models" / "Astra" / "checkpoints" / "diffusion_pytorch_model.ckpt"
+    )
+    checkpoint.parent.mkdir(parents=True)
+    checkpoint.write_bytes(b"checkpoint")
+    model = PyTorchAstraModel("astra", str(tmp_path), model_spec)
+    captured = {}
+
+    def fake_world_load(self):
+        self._code_path = "/code/astra"
+
+    def fake_snapshot_download(model_id, **kwargs):
+        captured.update(model_id=model_id, **kwargs)
+        return "/weights/wan-1.3b"
+
+    monkeypatch.setattr(world_model_module.WorldModel, "load", fake_world_load)
+    monkeypatch.setattr(
+        modelscope_snapshot_download, "snapshot_download", fake_snapshot_download
+    )
+
+    model.load()
+
+    assert model._base_model_path == "/weights/wan-1.3b"
+    assert captured == {
+        "model_id": "Wan-AI/Wan2.1-T2V-1.3B",
+        "revision": "master",
+        "allow_patterns": [
+            "diffusion_pytorch_model.safetensors",
+            "models_t5_umt5-xxl-enc-bf16.pth",
+            "Wan2.1_VAE.pth",
+            "google/umt5-xxl/*",
+        ],
+    }
+
+
+def test_astra_rejects_unsupported_inputs_and_camera_type():
+    model_spec = BUILTIN_WORLD_MODELS["Astra"][0]
+    model = PyTorchAstraModel("astra", "/weights/astra", model_spec)
+    model._code_path = "/unused/code/path"
+    model._base_model_path = "/weights/wan-1.3b"
+
+    with pytest.raises(ValueError, match="requires an input image"):
+        model.world_generate("move forward")
+    with pytest.raises(ValueError, match="does not support video input"):
+        model.world_generate("move forward", image="image", video="video")
+    with pytest.raises(ValueError, match="cam_type must be between 1 and 7"):
+        model.world_generate(
+            "move forward", image="image", model_kwargs={"cam_type": 8}
+        )
+
+
+def test_generation_config_and_model_kwargs_must_not_overlap():
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    model._code_path = "/unused/code/path"
+
+    with pytest.raises(ValueError, match="duplicate keys: seed"):
+        model.world_generate(
+            "move forward",
+            image="unused",
+            generation_config={"seed": 1},
+            model_kwargs={"seed": 2},
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_class", "needs_image"),
+    [
+        ("Matrix-Game-3.0-5B", PyTorchMatrixGameModel, True),
+        (
+            "LingBot-World-V2-14B-Causal-Fast",
+            PyTorchLingBotWorldV2Model,
+            True,
+        ),
+        ("HY-WorldPlay-5B", PyTorchHYWorldPlayModel, False),
+        ("Astra", PyTorchAstraModel, True),
+    ],
+)
+def test_invalid_response_format_is_rejected_before_runner(
+    model_name, model_class, needs_image, monkeypatch
+):
+    model_spec = BUILTIN_WORLD_MODELS[model_name][0]
+    model = model_class("world", "/weights/world", model_spec)
+    model._code_path = "/unused/code/path"
+    if isinstance(model, (PyTorchHYWorldPlayModel, PyTorchAstraModel)):
+        model._base_model_path = "/weights/wan"
+    monkeypatch.setattr(
+        model,
+        "_run_command",
+        lambda *args, **kwargs: pytest.fail("runner must not be called"),
+    )
+
+    with pytest.raises(ValueError, match="Unsupported response_format"):
+        model.world_generate(
+            "move forward",
+            image="unused" if needs_image else None,
+            generation_config={"response_format": "base64"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_world_runner_is_terminated_on_abort(tmp_path):
+    from ...scheduler.core import AbortRequestMessage
+
+    model_spec = BUILTIN_WORLD_MODELS["Matrix-Game-3.0-5B"][0]
+    model = PyTorchMatrixGameModel("matrix", "/weights/matrix", model_spec)
+    run_task = asyncio.create_task(
+        asyncio.to_thread(
+            model._run_command,
+            [
+                sys.executable,
+                "-c",
+                "import time; print('ready', flush=True); time.sleep(60)",
+            ],
+            str(tmp_path),
+            os.environ.copy(),
+            str(tmp_path / "runner.log"),
+            request_id="abort-me",
+        )
+    )
+    deadline = asyncio.get_running_loop().time() + 10
+    while True:
+        with model._process_lock:
+            if "abort-me" in model._running_processes:
+                break
+        if run_task.done():
+            await run_task
+            pytest.fail("runner exited before it was registered")
+        if asyncio.get_running_loop().time() >= deadline:
+            pytest.fail("runner process was not registered within 10 seconds")
+        await asyncio.sleep(0.05)
+
+    assert await model.abort_request("abort-me") == AbortRequestMessage.DONE.name
+    with pytest.raises(RuntimeError, match="runner exited with code"):
+        await asyncio.wait_for(run_task, timeout=5)
+    with model._process_lock:
+        assert "abort-me" not in model._running_processes

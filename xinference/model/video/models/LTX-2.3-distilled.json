@@ -1,0 +1,46 @@
+[
+  {
+    "version": 2,
+    "model_name": "LTX-2.3-distilled",
+    "model_family": "LTX-2.3",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "cache_name": "LTX-2.3-distilled-mlx",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "width": 512,
+      "height": 512,
+      "num_frames": 33,
+      "fps": 24,
+      "pipeline": "distilled",
+      "verbose": false
+    },
+    "text_encoder_model_id": "prince-canuma/LTX-2-distilled",
+    "text_encoder_model_revision": "60135212a1e96122922a15bf249356a3ff38cde0",
+    "virtualenv": {
+      "packages": [
+        "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "prince-canuma/LTX-2.3-distilled",
+        "model_revision": "65b104b9387fb173d8e4b92fc5effc47625baf2a"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/LTX-2.3-distilled",
+        "model_revision": "master",
+        "text_encoder_model_id": "Xorbits/LTX-2-distilled",
+        "text_encoder_model_revision": "master"
+      }
+    },
+    "updated_at": 1787065586,
+    "featured": false
+  }
+]

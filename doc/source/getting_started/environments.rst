@@ -11,8 +11,18 @@ Default value is http://127.0.0.1:9997 , you can get it through logs.
 
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
-Modelhub used for downloading models. Default is "huggingface", or you
-can set "modelscope" as downloading source.
+Modelhub used for downloading models. Options are "huggingface", "modelscope"
+and "auto". When unset or set to "auto", Xinference probes whether the Hugging
+Face endpoint (including ``HF_ENDPOINT``) would use an environment-configured
+proxy. If so, or if the endpoint is not directly reachable, it falls back to
+"modelscope"; otherwise it picks "huggingface". ``NO_PROXY`` is honored. Set an
+explicit value to pin the download source. An explicit value can be overridden
+for an individual launch with ``--download_hub``.
+
+XINFERENCE_HUB_DETECT_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Timeout in seconds for probing hub connectivity when the download hub is
+automatically detected. Default is 3.
 
 .. _environments_xinference_home:
 
@@ -22,6 +32,11 @@ By default, Xinference uses ``<HOME>/.xinference`` as home path to store
 necessary files such as logs and models, where ``<HOME>`` is the home
 path of current user. You can change this directory by configuring this environment
 variable.
+
+XINFERENCE_SYSTEM_SETTINGS_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the JSON file that stores system settings configured through the Web UI.
+Default value is ``<XINFERENCE_HOME>/system-settings.json``.
 
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -37,6 +52,13 @@ XINFERENCE_HEALTH_CHECK_TIMEOUT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Health check timeout (seconds) at Xinference startup.
 Default value is 10.
+
+XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum age in seconds of the last valid per-model GPU-memory snapshot retained
+by the supervisor after a worker omits the field because collection failed or
+was skipped. An explicit empty snapshot still clears the cache immediately.
+Default value is 90.
 
 XINFERENCE_DISABLE_HEALTH_CHECK
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,10 +76,11 @@ XINFERENCE_DOWNLOAD_MAX_ATTEMPTS
 Maximum download retry attempts for model files.
 Default value is 3.
 
-XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Enable continuous batching for text-to-image models by specifying the target image size
-(e.g., ``1024*1024``). Default is unset.
+XINFERENCE_LLMMAN_BIN
+~~~~~~~~~~~~~~~~~~~~~
+Path to the ``llmman`` executable used to resolve ``oci://`` model URIs.
+Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an
+``llmman serve`` daemon that is not on ``127.0.0.1:17434``.
 
 XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -205,3 +228,56 @@ XINFERENCE_AUDIT_LOG_RETENTION_DAYS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Number of days audit log files are retained.
 Default value is 90. See :ref:`user_guide_audit_security`.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Initial delay in seconds between Router Agent bootstrap retries. The delay uses
+exponential backoff with jitter. Default value is 1.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum delay in seconds between Router Agent bootstrap retries. Default value
+is 15 and must not be lower than the initial delay.
+
+XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total deadline in seconds for Router Agent startup registration and initial
+synchronization retries. Default value is 120.
+
+.. _environments_media:
+
+XINFERENCE_MEDIA_BLOCK_PRIVATE_ADDRESS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Refuse client-supplied ``image_url`` / ``video_url`` / ``audio_url`` values that
+resolve to loopback, private, or link-local addresses, which otherwise let a
+chat request probe the server's own network (SSRF).
+Default value is ``true``.
+
+.. versionadded:: 3.5
+   Enabled by default. Requests referencing intranet hosts such as
+   ``http://minio.internal/x.png`` or a Kubernetes Service DNS name now fail.
+   Set this to ``false`` if the deployment is not publicly exposed and the
+   server is trusted to reach those hosts.
+
+XINFERENCE_MEDIA_ALLOW_LOCAL_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Allow ``file://`` URLs and bare filesystem paths in chat media parts. When
+disabled, such values are rejected instead of being read off the server's disk.
+Default value is ``false``.
+
+.. versionadded:: 3.5
+   Disabled by default. Server-local paths that previously worked
+   (an ``image_url`` of ``/data/img.png``) now error. Send the media as a
+   ``data:`` URI or an HTTP(S) URL, or set this to ``true`` when every API
+   caller is already trusted with the server's filesystem.
+
+XINFERENCE_MEDIA_FETCH_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Total wall-clock seconds allowed for fetching one remote media URL, redirects
+included. A single request's media as a whole is capped at three times this
+value. Default value is 20.
+
+XINFERENCE_MEDIA_MAX_BYTES
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum size in bytes of one fetched media file.
+Default value is 67108864 (64 MiB).

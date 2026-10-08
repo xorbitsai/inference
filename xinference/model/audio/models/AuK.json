@@ -1,0 +1,42 @@
+[
+  {
+    "version": 2,
+    "model_name": "AuK",
+    "model_description": "AuK supports instruction-based TTS and zero-shot voice cloning. It requires the shared Qwen2.5-Omni-3B encoder; set qwen_path to use a local encoder snapshot.",
+    "model_family": "AuK",
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_design",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.3",
+        "qwen-omni-utils>=0.0.9",
+        "omegaconf~=2.3.0",
+        "torchdiffeq",
+        "x_transformers>=1.31.14",
+        "safetensors",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchvision#",
+        "#system_torchcodec#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "tencent/AuK",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Tencent-Hunyuan/AuK",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1789146000,
+    "featured": false
+  }
+]

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -21,6 +22,7 @@ import warnings
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import click
+from click.core import ParameterSource
 from tqdm.auto import tqdm
 from xoscar.utils import get_next_port
 
@@ -39,6 +41,7 @@ from ..constants import (
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
     XINFERENCE_LOG_RETENTION_DAYS,
+    XINFERENCE_SYSTEM_SETTINGS_PATH,
 )
 from .utils import (
     get_config_dict,
@@ -99,6 +102,9 @@ def start_local_cluster(
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from .local import main
 
     dict_config = get_config_dict(
@@ -264,6 +270,9 @@ def supervisor(
     port: int,
     supervisor_port: Optional[int],
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.supervisor import main
 
     dict_config = get_config_dict(
@@ -329,6 +338,9 @@ def worker(
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
 ):
+    from ..core.system_settings_store import initialize_system_settings
+
+    initialize_system_settings(XINFERENCE_SYSTEM_SETTINGS_PATH)
     from ..deploy.worker import main
 
     dict_config = get_config_dict(
@@ -570,6 +582,25 @@ def list_model_registrations(
             ),
             file=sys.stderr,
         )
+    elif model_type in ("video", "world"):
+        for registration in registrations:
+            model_name = registration["model_name"]
+            model_family = client.get_model_registration(model_type, model_name)
+            table.append(
+                [
+                    model_type,
+                    model_family["model_name"],
+                    model_family["model_family"],
+                    model_family["model_ability"],
+                    registration["is_builtin"],
+                ]
+            )
+        print(
+            tabulate(
+                table, headers=["Type", "Name", "Family", "Ability", "Is-built-in"]
+            ),
+            file=sys.stderr,
+        )
     elif model_type == "flexible":
         for registration in registrations:
             model_name = registration["model_name"]
@@ -744,7 +775,7 @@ def remove_cache(
     "-en",
     type=str,
     default=None,
-    help="Specify the inference engine of the model when launching LLM.",
+    help="Specify the inference engine to use when launching the model.",
 )
 @click.option(
     "--model-uid",
@@ -780,6 +811,18 @@ def remove_cache(
     default=1,
     type=int,
     help="The replica count of the model, default is 1.",
+)
+@click.option(
+    "--replica-config",
+    "--replica_config",
+    "replica_config",
+    default=None,
+    type=str,
+    help=(
+        "Per-replica worker and GPU placement as a non-empty JSON array. "
+        "For vLLM PD separation, set role to prefill or decode in each entry; "
+        "both roles are required. Replica count defaults to the array length."
+    ),
 )
 @click.option(
     "--n-worker",
@@ -877,6 +920,12 @@ def remove_cache(
     help="Packages to install in the virtual environment. Can be used multiple times.",
 )
 @click.option(
+    "--virtual-env-find-link",
+    multiple=True,
+    type=click.Path(path_type=str),
+    help="Worker-local wheel directory for virtualenv installs. Can be used multiple times.",
+)
+@click.option(
     "--env",
     "-ev",
     multiple=True,
@@ -895,6 +944,7 @@ def model_launch(
     model_format: str,
     quantization: str,
     replica: int,
+    replica_config: Optional[str],
     n_worker: int,
     n_gpu: str,
     lora_modules: Optional[Tuple],
@@ -909,6 +959,7 @@ def model_launch(
     enable_thinking: Optional[bool],
     enable_virtual_env: Optional[bool],
     virtual_env_package: Optional[Tuple[str]],
+    virtual_env_find_link: Optional[Tuple[str]],
     env: Optional[Tuple[Tuple[str, str]]],
 ):
     kwargs = {}
@@ -933,6 +984,58 @@ def model_launch(
 
     if model_type == "LLM" and model_engine is None:
         raise ValueError("--model-engine is required for LLM models.")
+
+    _replica_config: Optional[List[Dict]] = None
+    if replica_config is not None:
+        try:
+            parsed_replica_config = json.loads(replica_config)
+        except json.JSONDecodeError as e:
+            raise click.BadParameter(
+                f"must be valid JSON: {e.msg}", param_hint="--replica-config"
+            ) from e
+
+        if not isinstance(parsed_replica_config, list):
+            raise click.BadParameter(
+                "must be a JSON array", param_hint="--replica-config"
+            )
+        if not parsed_replica_config:
+            raise click.BadParameter(
+                "must be a non-empty JSON array", param_hint="--replica-config"
+            )
+
+        _replica_config = parsed_replica_config
+        from ..core.replica_config import ReplicaConfig, validate_pd_replica_configs
+
+        try:
+            configs = [ReplicaConfig.parse_obj(item) for item in _replica_config]
+            validate_pd_replica_configs(configs, model_engine, model_type)
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--replica-config") from e
+
+        replica_source = ctx.get_parameter_source("replica")
+        if replica_source == ParameterSource.COMMANDLINE:
+            if replica != len(_replica_config):
+                raise click.BadParameter(
+                    "must match the number of entries in --replica-config",
+                    param_hint="--replica",
+                )
+        else:
+            replica = len(_replica_config)
+
+        conflicting_options = []
+        if worker_ip is not None:
+            conflicting_options.append("--worker-ip")
+        if gpu_idx is not None:
+            conflicting_options.append("--gpu-idx")
+        if n_gpu != "auto":
+            conflicting_options.append("--n-gpu")
+        if n_worker > 1:
+            conflicting_options.append("--n-worker")
+        if conflicting_options:
+            raise click.BadParameter(
+                "cannot be used together with " + ", ".join(conflicting_options),
+                param_hint="--replica-config",
+            )
 
     if n_gpu.lower() == "none":
         _n_gpu: Optional[Union[int, str]] = None
@@ -1004,6 +1107,7 @@ def model_launch(
         model_format=model_format,
         quantization=quantization,
         replica=replica,
+        replica_config=_replica_config,
         n_worker=n_worker,
         n_gpu=_n_gpu,
         peft_model_config=peft_model_config,
@@ -1014,6 +1118,9 @@ def model_launch(
         enable_thinking=enable_thinking,
         enable_virtual_env=enable_virtual_env,
         virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
+        virtual_env_find_links=(
+            list(virtual_env_find_link) if virtual_env_find_link else None
+        ),
         envs=dict(env) if env else None,
         **kwargs,
     )
@@ -1078,6 +1185,7 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
     rerank_table = []
     image_table = []
     audio_table = []
+    media_table = []
     models = client.list_models()
     for model_uid, model_spec in models.items():
         if model_spec["model_type"] == "LLM":
@@ -1116,6 +1224,15 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
         elif model_spec["model_type"] == "audio":
             audio_table.append(
                 [model_uid, model_spec["model_type"], model_spec["model_name"]]
+            )
+        elif model_spec["model_type"] in ("video", "world"):
+            media_table.append(
+                [
+                    model_uid,
+                    model_spec["model_type"],
+                    model_spec["model_name"],
+                    model_spec.get("model_engine", ""),
+                ]
             )
     if llm_table:
         print(
@@ -1173,6 +1290,11 @@ def model_list(endpoint: Optional[str], api_key: Optional[str]):
             ),
             file=sys.stderr,
         )
+    if media_table:
+        print(
+            tabulate(media_table, headers=["UID", "Type", "Name", "Engine"]),
+            file=sys.stderr,
+        )
         print()
 
 
@@ -1209,6 +1331,42 @@ def model_terminate(
     if api_key is None:
         client._set_token(get_stored_token(endpoint, client))
     client.terminate_model(model_uid=model_uid)
+
+
+@cli.command("reload", help="Reload engine parameters while retaining GPU weights.")
+@click.option("--endpoint", "-e", type=str, help="Xinference endpoint.")
+@click.option("--model-uid", required=True, type=str)
+@click.option(
+    "--model-config",
+    required=True,
+    type=str,
+    help="JSON object of changed engine parameters.",
+)
+@click.option(
+    "--drain-timeout",
+    default=300.0,
+    type=click.FloatRange(min=0, min_open=True, max=3600),
+)
+@click.option("--api-key", "-ak", default=None, type=str)
+def model_reload(
+    endpoint: Optional[str],
+    model_uid: str,
+    model_config: str,
+    drain_timeout: float,
+    api_key: Optional[str],
+):
+    try:
+        config = json.loads(model_config)
+        if not isinstance(config, dict) or not config:
+            raise ValueError("Expected a non-empty JSON object")
+    except ValueError as exc:
+        raise click.BadParameter(str(exc), param_hint="--model-config") from exc
+    endpoint = get_endpoint(endpoint)
+    client = RESTfulClient(base_url=endpoint, api_key=api_key)
+    if api_key is None:
+        client._set_token(get_stored_token(endpoint, client))
+    result = client.reload_model(model_uid, config, drain_timeout)
+    click.echo(json.dumps(result))
 
 
 @cli.command("generate", help="Generate text using a running LLM.")

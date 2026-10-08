@@ -58,6 +58,12 @@ class InferenceRequest:
         self._sanitized_generate_config = None
         # Chunk id for results. In stream mode, all the chunk ids should be same.
         self._stream_chunk_id = str(uuid.uuid4())
+        # Effective max_tokens for the full scheduler lifecycle. It is resolved
+        # once the prompt token length is known and reused by decode-only steps.
+        self._effective_max_new_tokens: Optional[int] = None
+        # Physical batch decoding may continue after this request stops. Keep the
+        # user-visible token count separate so output and usage remain bounded.
+        self._visible_new_tokens_count = 0
         # For calculate attention mask if needed
         self.padding_len = 0
         # Use in stream mode
@@ -143,6 +149,23 @@ class InferenceRequest:
     @property
     def new_tokens(self):
         return self._new_tokens
+
+    @property
+    def effective_max_new_tokens(self) -> Optional[int]:
+        return self._effective_max_new_tokens
+
+    @effective_max_new_tokens.setter
+    def effective_max_new_tokens(self, value: int) -> None:
+        self._effective_max_new_tokens = int(value)
+
+    @property
+    def visible_new_tokens_count(self) -> int:
+        return self._visible_new_tokens_count
+
+    @visible_new_tokens_count.setter
+    def visible_new_tokens_count(self, value: int) -> None:
+        assert value >= 0
+        self._visible_new_tokens_count = int(value)
 
     def append_new_token(self, token: int):
         self._new_tokens.append(token)

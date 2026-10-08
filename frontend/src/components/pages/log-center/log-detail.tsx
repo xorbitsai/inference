@@ -1,7 +1,19 @@
 'use client';
 
-import { Check, Copy, FileText, MinusCircle, PlusCircle } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  FileJson,
+  FileText,
+  GitBranch,
+  MinusCircle,
+  PlusCircle,
+  ShieldCheck,
+  Radio,
+  History,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,13 +27,28 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LOG_FONT_SIZE_CLASS } from '@/constants/logs';
+import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn, copyToClipboard } from '@/lib/utils';
 
+import { buildAuditCenterHref } from './audit-link-utils';
+import { getCorrelationId } from './correlation-utils';
+import { CorrelatedDialog } from './correlated-dialog';
+import { RequestBodyDialog } from './request-body-dialog';
 import type { FieldFilter, FieldFilterOp, LogRow } from './types';
-import { FieldTypeIcon, formatFieldValue, HighlightText } from './utils';
+import {
+  FieldTypeIcon,
+  formatFieldValue,
+  getLogNodeName,
+  getLogNodeRole,
+  HighlightText,
+  LogLevelBadge,
+  NodeRoleBadge,
+} from './utils';
 
 interface LogDetailProps {
+  mode?: 'runtime' | 'historical';
   row: LogRow;
   onFilter: (key: string, value: unknown, op: FieldFilterOp) => void;
   fieldFilters: FieldFilter[];
@@ -29,25 +56,44 @@ interface LogDetailProps {
   selectedLevels: string[];
   selectedLogType: string;
   nodeField: string;
-  onViewContext: (row: LogRow) => void;
+  onViewContext?: (row: LogRow) => void;
+  onViewHistorical?: () => void;
+  onViewRuntimeNode?: (nodeName: string) => void;
 }
 
 export function LogDetail({
+  mode = 'historical',
   row,
   onFilter,
   fieldFilters,
   appliedSearch,
   selectedLevels,
   selectedLogType,
+  nodeField,
   onViewContext,
+  onViewHistorical,
+  onViewRuntimeNode,
 }: LogDetailProps) {
   const { t } = useI18n();
+  const router = useRouter();
+  const { clusterAuth, clusterUIConfig } = useGlobal();
+  const menuAuth = useMenuAuth();
   const [copied, setCopied] = useState(false);
+  const [requestIdCopied, setRequestIdCopied] = useState(false);
+  const [correlatedOpen, setCorrelatedOpen] = useState(false);
+  const [requestBodyOpen, setRequestBodyOpen] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyRequestIdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyRequestIdTimerRef.current) clearTimeout(copyRequestIdTimerRef.current);
     };
   }, []);
 
@@ -87,130 +133,258 @@ export function LogDetail({
   };
 
   const handleViewContext = () => {
-    onViewContext(row);
+    onViewContext?.(row);
+  };
+
+  const requestId = typeof row.request_id === 'string' ? row.request_id.trim() : '';
+  const correlationId = getCorrelationId(row);
+  const nodeName = getLogNodeName(row, nodeField);
+  const eventType = String(row.event_type || row.event || '');
+  const canReadRequestBody = Boolean(
+    requestId &&
+    eventType === 'model_request_started' &&
+    clusterAuth?.auth !== false &&
+    clusterUIConfig?.auth_advanced &&
+    menuAuth.canReadModelRequestBody
+  );
+
+  const handleCopyRequestId = () => {
+    if (!correlationId) return;
+    copyToClipboard(correlationId);
+    setRequestIdCopied(true);
+    if (copyRequestIdTimerRef.current) clearTimeout(copyRequestIdTimerRef.current);
+    copyRequestIdTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
+  };
+
+  const handleViewAuditInitiator = () => {
+    if (!correlationId) return;
+    router.push(buildAuditCenterHref(correlationId, row['@timestamp']));
   };
 
   return (
-    <div className="px-4 pb-4">
-      <Tabs defaultValue="table" className="gap-3">
-        <div className="flex items-center justify-between gap-3 mt-1">
-          <TabsList className="h-9">
-            <TabsTrigger value="table" className="px-3 text-xs">
-              {t('logCenter.detail.tableTab')}
-            </TabsTrigger>
-            <TabsTrigger value="json" className="px-3 text-xs">
-              {t('logCenter.detail.jsonTab')}
-            </TabsTrigger>
-          </TabsList>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-primary hover:text-primary"
-            onClick={handleViewContext}
-          >
-            <FileText className="size-4" />
-            {t('logCenter.detail.viewContext')}
-          </Button>
-        </div>
-        <TabsContent value="table">
-          <Table size="small">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-24">{t('logCenter.detail.action')}</TableHead>
-                <TableHead className="w-52">{t('logCenter.detail.field')}</TableHead>
-                <TableHead>{t('logCenter.detail.value')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fields.map(([key, value]) => {
-                const isFilterMatch =
-                  activeFilterMap.has(key) && activeFilterMap.get(key)?.has(String(value));
-                const valueKeywords = [
-                  ...(appliedSearch ? [appliedSearch] : []),
-                  ...(isFilterMatch ? [String(value)] : []),
-                ];
-
-                return (
-                  <TableRow
-                    key={key}
-                    className={cn(isFilterMatch && 'bg-amber-50 dark:bg-amber-950/20')}
-                  >
-                    <TableCell className="whitespace-nowrap">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onFilter(key, value, '+');
-                              }}
-                            >
-                              <PlusCircle className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{t('logCenter.detail.filterFor')}</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-7"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onFilter(key, value, '-');
-                              }}
-                            >
-                              <MinusCircle className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{t('logCenter.detail.filterOut')}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell className={LOG_FONT_SIZE_CLASS}>
-                      <span className="flex items-center gap-1.5">
-                        <FieldTypeIcon fieldKey={key} value={value} />
-                        <HighlightText text={key} keywords={appliedSearch} />
-                      </span>
-                    </TableCell>
-                    <TableCell className={cn('break-all font-mono', LOG_FONT_SIZE_CLASS)}>
-                      <HighlightText text={formatFieldValue(value)} keywords={valueKeywords} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TabsContent>
-        <TabsContent value="json">
-          <div className="relative max-h-96 overflow-auto rounded-md bg-muted p-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-2 size-8 bg-background/70"
-                    onClick={handleCopyJson}
-                  >
-                    {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {copied ? t('logCenter.detail.copied') : t('logCenter.detail.copyJson')}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <pre className="m-0 whitespace-pre-wrap break-all pr-10 font-mono text-xs">
-              {JSON.stringify(row, null, 2)}
-            </pre>
+    <>
+      <div className="px-4 pb-4">
+        <Tabs defaultValue="table" className="gap-3">
+          <div className="flex items-center justify-between gap-3 mt-1">
+            <TabsList className="h-9">
+              <TabsTrigger value="table" className="px-3 text-xs">
+                {t('logCenter.detail.tableTab')}
+              </TabsTrigger>
+              <TabsTrigger value="json" className="px-3 text-xs">
+                {t('logCenter.detail.jsonTab')}
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex flex-wrap items-center justify-end gap-1">
+              {mode === 'historical' && correlationId && (
+                <Button variant="ghost" size="sm" className="text-xs" onClick={handleCopyRequestId}>
+                  {requestIdCopied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  {t('logCenter.detail.copyRequestId')}
+                </Button>
+              )}
+              {mode === 'runtime' && onViewHistorical && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={onViewHistorical}
+                >
+                  <History className="size-4" />
+                  {t('logCenter.detail.searchHistorical')}
+                </Button>
+              )}
+              {mode === 'historical' && onViewRuntimeNode && nodeName !== '-' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={() => onViewRuntimeNode(nodeName)}
+                >
+                  <Radio className="size-4" />
+                  {t('logCenter.detail.viewRuntime')}
+                </Button>
+              )}
+              {mode === 'historical' && onViewContext && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={handleViewContext}
+                >
+                  <FileText className="size-4" />
+                  {t('logCenter.detail.viewContext')}
+                </Button>
+              )}
+              {mode === 'historical' && correlationId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={() => setCorrelatedOpen(true)}
+                >
+                  <GitBranch className="size-4" />
+                  {t('logCenter.detail.viewCorrelated')}
+                </Button>
+              )}
+              {mode === 'historical' && correlationId && menuAuth.isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={handleViewAuditInitiator}
+                >
+                  <ShieldCheck className="size-4" />
+                  {t('logCenter.detail.viewAuditInitiator')}
+                </Button>
+              )}
+              {mode === 'historical' && canReadRequestBody && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-primary hover:text-primary"
+                  onClick={() => setRequestBodyOpen(true)}
+                >
+                  <FileJson className="size-4" />
+                  {t('logCenter.detail.viewRequestBody')}
+                </Button>
+              )}
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
-    </div>
+          <TabsContent value="table">
+            <Table size="small">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-24">{t('logCenter.detail.action')}</TableHead>
+                  <TableHead className="w-52">{t('logCenter.detail.field')}</TableHead>
+                  <TableHead>{t('logCenter.detail.value')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fields.map(([key, value]) => {
+                  const isFilterMatch =
+                    activeFilterMap.has(key) && activeFilterMap.get(key)?.has(String(value));
+                  const valueKeywords = [
+                    ...(appliedSearch ? [appliedSearch] : []),
+                    ...(isFilterMatch ? [String(value)] : []),
+                  ];
+
+                  return (
+                    <TableRow
+                      key={key}
+                      className={cn(isFilterMatch && 'bg-amber-50 dark:bg-amber-950/20')}
+                    >
+                      <TableCell className="whitespace-nowrap">
+                        {mode === 'historical' ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onFilter(key, value, '+');
+                                  }}
+                                >
+                                  <PlusCircle className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t('logCenter.detail.filterFor')}</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-7"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onFilter(key, value, '-');
+                                  }}
+                                >
+                                  <MinusCircle className="size-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{t('logCenter.detail.filterOut')}</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className={LOG_FONT_SIZE_CLASS}>
+                        <span className="flex items-center gap-1.5">
+                          <FieldTypeIcon fieldKey={key} value={value} />
+                          <HighlightText text={key} keywords={appliedSearch} />
+                        </span>
+                      </TableCell>
+                      <TableCell className={cn('break-all font-mono', LOG_FONT_SIZE_CLASS)}>
+                        {key === 'level' ? (
+                          <LogLevelBadge level={String(value)}>
+                            <HighlightText
+                              text={formatFieldValue(value)}
+                              keywords={valueKeywords}
+                            />
+                          </LogLevelBadge>
+                        ) : ['node_role', 'role', 'log_type'].includes(key) &&
+                          getLogNodeRole({ [key]: value }) ? (
+                          <NodeRoleBadge role={getLogNodeRole({ [key]: value })}>
+                            <HighlightText
+                              text={formatFieldValue(value)}
+                              keywords={valueKeywords}
+                            />
+                          </NodeRoleBadge>
+                        ) : (
+                          <HighlightText text={formatFieldValue(value)} keywords={valueKeywords} />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TabsContent>
+          <TabsContent value="json">
+            <div className="relative max-h-96 overflow-auto rounded-md bg-muted p-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 size-8 bg-background/70"
+                      onClick={handleCopyJson}
+                    >
+                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {copied ? t('logCenter.detail.copied') : t('logCenter.detail.copyJson')}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <pre className="m-0 whitespace-pre-wrap break-all pr-10 font-mono text-xs">
+                {JSON.stringify(row, null, 2)}
+              </pre>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+      {mode === 'historical' && (
+        <>
+          <CorrelatedDialog
+            requestId={correlationId}
+            anchorTimestamp={row['@timestamp']}
+            open={correlatedOpen}
+            onOpenChange={setCorrelatedOpen}
+          />
+          <RequestBodyDialog
+            requestId={requestId}
+            open={requestBodyOpen}
+            onOpenChange={setRequestBodyOpen}
+          />
+        </>
+      )}
+    </>
   );
 }

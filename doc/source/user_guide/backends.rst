@@ -7,6 +7,8 @@ Backends
 Xinference supports multiple backends for different models. After the user specifies the model,
 xinference will automatically select the appropriate backend.
 
+.. _llama_cpp_backend:
+
 llama.cpp
 =========
 
@@ -140,7 +142,7 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
 - ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
 - ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``
 - ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
@@ -151,6 +153,7 @@ Currently, supported model includes:
 - ``cogagent``
 - ``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``
 - ``codegeex4``, ``glm-4v``
+- ``qwen3.8-max``
 - ``seallm_v2.5``
 - ``orion-chat``
 - ``qwen1.5-moe-chat``, ``qwen2-moe-instruct``
@@ -172,14 +175,23 @@ Currently, supported model includes:
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
 - ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
 - ``GLM-4.7-Flash``
-- ``glm-5``, ``glm-5.1``
-- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``
+- ``glm-5``, ``glm-5.1``, ``glm-5.2``
+- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
+- ``Hy-MT2-1.8B``, ``Hy-MT2-7B``
+- ``Hy-MT2-30B-A3B``
+
 .. vllm_end
 
 Besides LLMs, vLLM can also serve embedding models. Model families whose
 names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
 ``bce`` can be launched with ``--model-engine vllm`` — see
 :ref:`Embeddings <embed>`.
+
+vLLM can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM
+of the same major.minor version, e.g.
+``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``.
 
 .. _sglang_backend:
 
@@ -189,6 +201,11 @@ SGLang
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
 
+Besides LLMs, SGLang can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires SGLang with diffusion support:
+``pip install 'sglang[diffusion]>=0.5.20,<0.6'``.
+
 .. _mlx_backend:
 
 MLX
@@ -196,3 +213,124 @@ MLX
 `MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides efficient runtime
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
+
+MLX can also serve supported audio models on Apple silicon. Whisper models,
+``F5-TTS``, and ``Kokoro-82M`` expose it through ``--model-engine MLX``; see
+:ref:`Audio engines <audio>`.
+
+
+.. _speculative_decoding:
+
+Speculative decoding
+====================
+Some models ship a small paired drafter checkpoint that predicts several tokens
+ahead, which the target model then verifies in one pass. Output is unchanged,
+decoding gets faster. Gemma 4 calls this multi-token prediction (MTP) and
+publishes a ``*-it-assistant`` drafter for every variant.
+
+Pass ``--enable_mtp true`` at launch to download the drafter declared by the
+model spec and run it alongside the target model:
+
+.. code-block:: bash
+
+   xinference launch --model-name gemma-4 --model-engine vllm \
+     --model-format pytorch --size-in-billions 12 --quantization none \
+     --enable_mtp true
+
+In the Web UI the same options live under *Advanced Configuration → Speculative
+Decoding*, which only appears for a format/size that actually ships a drafter.
+
+Optional parameters:
+
+* ``--num_speculative_tokens <n>``: how many tokens the drafter proposes per
+  round, including the bonus token. Left unset, MLX reads it from the drafter,
+  which runs at the depth it was trained for (``4`` for Gemma 4). Gemma 4 on
+  llama.cpp, vLLM, and SGLang follows the same model-size recipe: ``2`` for
+  E2B, ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended
+  ``4-8`` range for 12B and 31B. Other llama.cpp models keep xllamacpp's own
+  default.
+* ``--draft_quantization <quantization>``: which drafter conversion to use, when
+  the spec declares more than one — the MLX build of Gemma 4 12B publishes
+  eight. Defaults to the first declared, which is the least quantized one: a
+  drafter is small and quantizing it costs acceptance rate, so pairing a
+  quantized target with an unquantized drafter is the recommended setup.
+* ``--draft_model_path <path>``: use a local drafter instead of the one declared
+  by the spec. Implies ``--enable_mtp true``.
+
+The drafter must match the target model family and size — it shares the target's
+KV cache, so a mismatched checkpoint is rejected rather than silently degrading.
+
+Engine support:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 32 50
+
+   * - Engine
+     - Requirement
+     - Notes
+   * - :ref:`vLLM <vllm_backend>`
+     - ``vllm>=0.22.0``, ``transformers>=5.8.0``
+     - Translated into ``speculative_config`` with ``method: mtp``. An
+       explicitly provided ``speculative_config`` is left untouched. Older
+       vLLM treats the drafter as a generic draft model, while older
+       Transformers does not recognize ``gemma4_assistant``; either case is
+       rejected before engine initialization. Virtual-environment launches
+       also synchronize ``flashinfer-cubin`` with ``flashinfer-python`` before
+       starting vLLM, repairing stale environments that contain mismatched
+       FlashInfer packages.
+   * - :ref:`SGLang <sglang_backend>`
+     - ``sglang==0.5.13.post1``, ``transformers==5.8.1``
+     - Translated into ``--speculative-algorithm NEXTN`` with the matching
+       ``speculative_num_steps`` / ``speculative_num_draft_tokens``. An
+       explicitly provided ``speculative_algorithm`` is left untouched.
+   * - :ref:`MLX <mlx_backend>`
+     - ``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)
+     - Served by the MLX vision engine, the one that runs multimodal models
+       such as Gemma 4. The drafter is validated against the target when the
+       model loads.
+   * - :ref:`llama.cpp <llama_cpp_backend>`
+     - ``xllamacpp>=2026.6.9713``
+     - Translated into the ``draft-mtp`` speculative implementation. The
+       drafter is a single gguf published inside the target's own repository,
+       so its quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma
+       4) and independent of the target's. Earlier llama.cpp builds do not
+       know the ``gemma4-assistant`` architecture and cannot load it.
+
+Not supported by the Transformers engine: it runs its own continuous-batching
+loop rather than ``generate()``, so there is nowhere to attach a drafter.
+
+When it pays off
+----------------
+Speculation is only worth it when a drafting step is cheap *relative to* a
+target decoding step. The drafter is a small dense model whose cost does not
+change with the target, so the ratio is what decides the outcome — and a
+mixture-of-experts target can land on the wrong side of it, because only its
+activated slice is read per token:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 22 22 22
+
+   * - gemma-4 MLX, 4bit, M5 Pro
+     - Without a drafter
+     - With MTP
+     - Accepted per round
+   * - 31B (dense, 18.4 GB read per token)
+     - 14.9 tok/s
+     - **31.0 tok/s** (2.1x)
+     - 2.08 of 4
+   * - 26B-A4B (MoE, ~2.2 GB read per token)
+     - 73.2 tok/s
+     - 65.9 tok/s (0.9x)
+     - 1.40 of 4
+
+The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a
+26B-A4B one, so on the MoE the three drafting steps of a round already exceed
+one plain decoding step — and the round has to win that back from a lower
+acceptance rate. The MoE is still the faster model here in absolute terms; it
+simply has no headroom left for speculation.
+
+So measure before leaving it on, and note that the verification step itself is
+not the problem: a four-token forward costs only ~40% more than a single-token
+one on either model.

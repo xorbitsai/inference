@@ -13,8 +13,11 @@
 # limitations under the License.
 
 import importlib.util
+import json
 import logging
 import os
+import shutil
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 
 import numpy as np
@@ -23,14 +26,217 @@ import torch
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import (
+    ModelArtifactSource,
     allow_trust_remote_code,
     check_dependency_available,
     is_flash_attn_available,
+    virtual_env_allows_missing_engine,
 )
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ..wemm import ensure_wemm_video_reader, is_wemm_model, normalize_wemm_inputs
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
+
+
+def _resolve_sentence_transformer_device(model: Any, device: Any) -> Any:
+    """Use an explicit encode device or the model's public device property."""
+
+    if device is not None:
+        return device
+    return model.device
+
+
+def _atomic_write_text(path: str, content: str) -> None:
+    directory = os.path.dirname(os.path.abspath(path))
+    temp_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=directory,
+            prefix=f".{os.path.basename(path)}.",
+            suffix=".tmp",
+            delete=False,
+        ) as file:
+            temp_path = file.name
+            file.write(content)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+
+def _patch_json_file(path: str, update: Any) -> None:
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+
+    update(data)
+    content = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    _atomic_write_text(path, content)
+
+
+def _copy_python_sources(source_dir: str, target_dir: str) -> None:
+    os.makedirs(target_dir, exist_ok=True)
+    for filename in os.listdir(source_dir):
+        source_path = os.path.join(source_dir, filename)
+        if filename.endswith(".py") and os.path.isfile(source_path):
+            shutil.copyfile(source_path, os.path.join(target_dir, filename))
+
+
+def _copy_python_sources_to_transformers_cache(source_dir: str) -> None:
+    from transformers.dynamic_module_utils import (
+        HF_MODULES_CACHE,
+        TRANSFORMERS_DYNAMIC_MODULE_NAME,
+        create_dynamic_module,
+    )
+
+    submodule = os.path.basename(source_dir)
+    full_submodule = os.path.join(TRANSFORMERS_DYNAMIC_MODULE_NAME, submodule)
+    create_dynamic_module(full_submodule)
+    _copy_python_sources(source_dir, os.path.join(HF_MODULES_CACHE, full_submodule))
+
+
+def _patch_python_source(
+    path: str, original: str, replacement: str, marker: str
+) -> None:
+    with open(path, encoding="utf-8") as file:
+        source = file.read()
+
+    if marker in source:
+        return
+    if original not in source:
+        raise RuntimeError(f"Unable to apply ModelScope compatibility patch to {path}")
+
+    _atomic_write_text(path, source.replace(original, replacement, 1))
+
+
+def _patch_jina_clip_config(data: Dict[str, Any], text_model_path: str) -> None:
+    data["auto_map"] = {
+        "AutoConfig": "configuration_clip.JinaCLIPConfig",
+        "AutoModel": "modeling_clip.JinaCLIPModel",
+    }
+    text_config = data.get("text_config")
+    if text_config is None:
+        text_config = {}
+    elif not isinstance(text_config, dict):
+        raise RuntimeError("Invalid Jina CLIP text_config: expected a JSON object")
+    text_config["hf_model_name_or_path"] = text_model_path
+    data["text_config"] = text_config
+
+
+def _patch_jina_clip_custom_st(model_path: str) -> None:
+    custom_st_path = os.path.join(model_path, "custom_st.py")
+    _patch_python_source(
+        custom_st_path,
+        "from transformers import AutoConfig, AutoImageProcessor, AutoModel, AutoTokenizer",
+        "from transformers import (\n"
+        "    AutoConfig,\n"
+        "    AutoImageProcessor,\n"
+        "    AutoModel,\n"
+        "    XLMRobertaTokenizerFast,\n"
+        ")",
+        "XLMRobertaTokenizerFast",
+    )
+    _patch_python_source(
+        custom_st_path,
+        "        self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "            tokenizer_name_or_path or model_name_or_path,\n"
+        "            **tokenizer_kwargs,\n"
+        "        )",
+        "        tokenizer_source = tokenizer_name_or_path or model_name_or_path\n"
+        "        tokenizer_kwargs.pop('config', None)\n"
+        "        self.tokenizer = XLMRobertaTokenizerFast.from_pretrained(\n"
+        "            tokenizer_source,\n"
+        "            **tokenizer_kwargs,\n"
+        "        )",
+        "tokenizer_kwargs.pop('config', None)",
+    )
+
+
+def _patch_jina_clip_modeling(model_path: str) -> None:
+    modeling_path = os.path.join(model_path, "modeling_clip.py")
+    _patch_python_source(
+        modeling_path,
+        "    AutoTokenizer,\n",
+        "    AutoTokenizer,\n    XLMRobertaTokenizerFast,\n",
+        "XLMRobertaTokenizerFast",
+    )
+    _patch_python_source(
+        modeling_path,
+        "            self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "                self.config._name_or_path, trust_remote_code=True\n"
+        "            )",
+        "            self.tokenizer = XLMRobertaTokenizerFast.from_pretrained(\n"
+        "                self.config._name_or_path\n"
+        "            )",
+        "self.tokenizer = XLMRobertaTokenizerFast.from_pretrained",
+    )
+
+
+def _patch_xlm_roberta_modeling(model_path: str) -> None:
+    modeling_path = os.path.join(model_path, "modeling_xlm_roberta.py")
+    _patch_python_source(
+        modeling_path,
+        "        self.tokenizer = AutoTokenizer.from_pretrained(\n"
+        "            self.name_or_path, trust_remote_code=True\n"
+        "        )",
+        "        self.tokenizer = None",
+        "self.tokenizer = None",
+    )
+
+
+def _prepare_modelscope_jina_clip_v2(
+    model_path: str, artifact_source: ModelArtifactSource
+) -> None:
+    clip_impl_path = artifact_source.snapshot_download(
+        "jinaai/jina-clip-implementation",
+        allow_patterns=["*.py", "configuration.json"],
+    )
+    _copy_python_sources(clip_impl_path, model_path)
+    _patch_jina_clip_custom_st(model_path)
+    _patch_jina_clip_modeling(model_path)
+
+    text_model_path = artifact_source.snapshot_download(
+        "jinaai/jina-embeddings-v3", allow_patterns=["config.json"]
+    )
+    text_impl_path = artifact_source.snapshot_download(
+        "jinaai/xlm-roberta-flash-implementation",
+        allow_patterns=["*.py", "configuration.json"],
+    )
+    _copy_python_sources(text_impl_path, text_model_path)
+    _patch_xlm_roberta_modeling(text_model_path)
+    _copy_python_sources_to_transformers_cache(text_model_path)
+
+    def patch_processor_config(data: Dict[str, Any]) -> None:
+        data["auto_map"] = {
+            "AutoImageProcessor": "processing_clip.JinaCLIPImageProcessor",
+            "AutoProcessor": "processing_clip.JinaCLIPProcessor",
+        }
+
+    def patch_text_config(data: Dict[str, Any]) -> None:
+        data["_name_or_path"] = text_model_path
+        data["auto_map"] = {
+            "AutoConfig": "configuration_xlm_roberta.XLMRobertaFlashConfig",
+            "AutoModel": "modeling_lora.XLMRobertaLoRA",
+            "AutoModelForMaskedLM": "modeling_xlm_roberta.XLMRobertaForMaskedLM",
+            "AutoModelForPreTraining": (
+                "modeling_xlm_roberta.XLMRobertaForPreTraining"
+            ),
+        }
+
+    _patch_json_file(
+        os.path.join(model_path, "config.json"),
+        lambda data: _patch_jina_clip_config(data, text_model_path),
+    )
+    _patch_json_file(
+        os.path.join(model_path, "preprocessor_config.json"), patch_processor_config
+    )
+    _patch_json_file(os.path.join(text_model_path, "config.json"), patch_text_config)
+
 
 # jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
 # v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
@@ -242,6 +448,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         )
 
         if (
+            self.model_family.model_name == "jina-clip-v2"
+            and self._model_spec.model_hub == "modelscope"
+        ):
+            _prepare_modelscope_jina_clip_v2(
+                self._model_path, ModelArtifactSource("modelscope")
+            )
+
+        if (
             "gte" in self.model_family.model_name.lower()
             and "qwen2" in self.model_family.model_name.lower()
         ):
@@ -254,8 +468,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 model_kwargs=model_kwargs,
                 truncate_dim=dimensions,
             )
-        elif "qwen3" in self.model_family.model_name.lower():
-            # qwen3 embedding
+        elif (
+            "qwen3" in self.model_family.model_name.lower()
+            or "r3-embedding" in self.model_family.model_name.lower()
+        ):
+            # qwen3 embedding (also covers R3-embedding, fine-tuned from Qwen3)
             flash_attn_enabled = self._kwargs.get(
                 "enable_flash_attn", is_flash_attn_available()
             )
@@ -302,10 +519,21 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         if hasattr(self._model, "tokenizer"):
             self._tokenizer = self._model.tokenizer
+        if is_wemm_model(self.model_family.model_name) and dimensions is not None:
+            self._validate_wemm_dimensions(dimensions)
+
+    def _validate_wemm_dimensions(self, dimensions: int) -> None:
+        assert self._model is not None
+        config = self._model[0].auto_model.config
+        supported = getattr(config, "matryoshka_dimensions", None)
+        if supported is not None and dimensions not in supported:
+            raise ValueError(
+                f"WeMM-Embedding dimensions must be one of {list(supported)}, got {dimensions}."
+            )
 
     def _create_embedding(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]],
         **kwargs,
     ):
         if self._embedder is not None:
@@ -416,8 +644,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                         tokenized_prompt["input_ids"].shape[-1] - 1
                     )
 
-            if device is None:
-                device = model._target_device
+            device = _resolve_sentence_transformer_device(model, device)
 
             if (
                 "gte" in self.model_family.model_name.lower()
@@ -579,6 +806,45 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 objs,
                 **encode_kwargs,
             )
+        elif is_wemm_model(self.model_family.model_name):
+            # WeMM relies on Sentence Transformers 5.7's modality-aware
+            # ``encode`` path. The local text-only helper above bypasses its
+            # role/content conversion and vision preprocessing.
+            input_was_single = isinstance(sentences, (str, dict))
+            wemm_inputs = normalize_wemm_inputs(sentences)
+            ensure_wemm_video_reader()
+
+            wemm_kwargs = dict(kwargs)
+            wemm_kwargs.pop("convert_to_numpy", None)
+            wemm_kwargs.pop("return_sparse", None)
+            if "normalize_embedding" in wemm_kwargs:
+                wemm_kwargs["normalize_embeddings"] = wemm_kwargs.pop(
+                    "normalize_embedding"
+                )
+            dimensions = wemm_kwargs.pop("dimensions", None)
+            if dimensions is not None:
+                self._validate_wemm_dimensions(dimensions)
+                wemm_kwargs["truncate_dim"] = dimensions
+            wemm_kwargs.setdefault("batch_size", 1)
+
+            assert self._model is not None
+            with torch.inference_mode():
+                wemm_out = self._model.encode(
+                    wemm_inputs,
+                    convert_to_numpy=True,
+                    **wemm_kwargs,
+                )
+            if input_was_single:
+                if hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) > 1:
+                    all_embeddings = [wemm_out[0]]
+                else:
+                    all_embeddings = [wemm_out]
+                sentences = [sentences]  # type: ignore[list-item]
+            elif hasattr(wemm_out, "ndim") and getattr(wemm_out, "ndim", 0) == 1:
+                all_embeddings = [wemm_out]
+            else:
+                all_embeddings = list(wemm_out)
+            all_token_nums = len(wemm_inputs)
         elif "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
             # jina-embeddings-v5-omni accepts text, image, video and audio.
             # Per the model card, the SentenceTransformer wrapper auto-detects
@@ -769,6 +1035,50 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name == "embeddinggemma-2":
+            return False, "EmbeddingGemma 2 requires its modality-aware adapter"
+        if is_wemm_model(model_family.model_name):
+            if not virtual_env_allows_missing_engine():
+                dep_check = check_dependency_available(
+                    "sentence_transformers", "sentence-transformers"
+                )
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen-vl-utils")
+                if dep_check != True:
+                    return dep_check
+                from importlib.metadata import PackageNotFoundError, version
+
+                from packaging.version import Version
+                from sentence_transformers import __version__ as st_version
+                from transformers import __version__ as transformers_version
+
+                if Version(st_version) < Version("5.7.0"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires sentence-transformers>=5.7.0, "
+                        f"current: {st_version}",
+                    )
+                if Version(transformers_version) < Version("5.2.0"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires transformers>=5.2.0, "
+                        f"current: {transformers_version}",
+                    )
+                try:
+                    qwen_utils_version = version("qwen-vl-utils")
+                except PackageNotFoundError:
+                    return False, "Cannot determine the installed qwen-vl-utils version"
+                if Version(qwen_utils_version) < Version("0.0.14"):
+                    return (
+                        False,
+                        "WeMM-Embedding requires qwen-vl-utils>=0.0.14, "
+                        f"current: {qwen_utils_version}",
+                    )
+            if model_spec.model_format != "pytorch":
+                return False, "WeMM-Embedding supports pytorch format only"
+            return True
+
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
         if model_family.model_name.startswith("Qwen3-VL-Embedding"):

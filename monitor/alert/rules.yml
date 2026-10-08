@@ -99,3 +99,105 @@ groups:
         annotations:
           summary: "Banned IP count abnormally high"
           description: "Currently {{ $value }} IPs banned, possible brute-force or abuse."
+
+  - name: xinference-token-router-monitoring-v2
+    rules:
+      - alert: TokenRouterAgentSuspected
+        expr: xinference:token_router_agent_connectivity_status{status="suspected"} == 1
+        for: 30s
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterAgentSuspected"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterAgentOffline
+        expr: xinference:token_router_agent_connectivity_status{status="offline"} == 1
+        for: 0m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterAgentOffline"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterRuntimeUncontrollable
+        expr: xinference:token_router_runtime_effective_ready == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_controllable == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterRuntimeUncontrollable"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterRuntimeDown
+        expr: xinference:token_router_runtime_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterRuntimeDown"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterRuntimeConfigOutOfSync
+        expr: xinference:token_router_runtime_up == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_config_synced == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterRuntimeConfigOutOfSync"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterAssignmentNotReady
+        expr: xinference:token_router_assignment_desired_state{state="running"} == 1 and on (router_uid, assignment_id, replica_index, node_id) xinference:token_router_assignment_runtime_ready == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterAssignmentNotReady"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterTokenizerBindingFailed
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="failed"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterTokenizerBindingFailed"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterTokenizerBindingStale
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="stale"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterTokenizerBindingStale"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterDegraded
+        expr: xinference:token_router_status{status="degraded"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterDegraded"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."
+
+      - alert: TokenRouterUnavailable
+        expr: xinference:token_router_desired_replicas > 0 and on (router_uid) xinference:token_router_effective_ready_replicas == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: token-router
+        annotations:
+          summary: "Token Router monitoring condition detected: TokenRouterUnavailable"
+          description: "Check Router control-plane, Runtime, Binding, or replica state for the labeled object."

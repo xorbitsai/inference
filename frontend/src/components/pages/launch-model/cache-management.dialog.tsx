@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogTrigger,
@@ -22,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyToClipboard } from '@/lib/utils';
+import { copyToClipboard, formatFileSize } from '@/lib/utils';
 import type { ModelCachedItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -31,10 +32,11 @@ interface CacheManagementDialogProps {
   onCacheDelete: () => void;
 }
 
-const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
-  modelDetail,
-  onCacheDelete,
-}) => {
+interface DeleteCacheResponse {
+  result: boolean;
+}
+
+const CacheManagementDialog: FC<CacheManagementDialogProps> = ({ modelDetail, onCacheDelete }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [dataSource, setDataSource] = useState<ModelCachedItem[]>([]);
@@ -62,7 +64,14 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
       const params = new URLSearchParams();
 
       params.set('model_version', pendingDeleteItem.model_version);
-      await request.delete(`/v1/cache/models?${params.toString()}`);
+      params.set('worker_ip', pendingDeleteItem.actor_ip_address);
+      const response = await request.delete<DeleteCacheResponse>(
+        `/v1/cache/models?${params.toString()}`
+      );
+      if (!response?.result) {
+        toast.error(t('launchModel.deleteCacheFailed'));
+        return;
+      }
       toast.success(t('common.deleteSuccess'));
       setPendingDeleteItem(undefined);
 
@@ -104,36 +113,52 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
               <TableRow>
                 <TableHead>{t('launchModel.model_format')}</TableHead>
                 <TableHead>{t('launchModel.model_size_in_billions')}</TableHead>
+                <TableHead>{t('cacheManagement.diskUsage')}</TableHead>
                 <TableHead>{t('launchModel.quantizations')}</TableHead>
-                <TableHead>{t('launchModel.real_path')}</TableHead>
                 <TableHead>{t('launchModel.path')}</TableHead>
-                <TableHead>{t('launchModel.ipAddress')}</TableHead>
+                <TableHead>{t('launchModel.real_path')}</TableHead>
+                <TableHead>{t('cacheManagement.worker')}</TableHead>
                 <TableHead>{t('common.operation')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {dataSource.length ? (
                 dataSource.map((item) => (
-                  <TableRow key={item.model_version}>
+                  <TableRow key={`${item.model_version}:${item.actor_ip_address}`}>
                     <TableCell>{item.model_format || '-'}</TableCell>
                     <TableCell>{item.model_size_in_billions || '-'}</TableCell>
+                    <TableCell>
+                      {typeof item.size_bytes === 'number' ? formatFileSize(item.size_bytes) : '-'}
+                    </TableCell>
                     <TableCell>{item.quantization || '-'}</TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
+                        <InfoTooltip
+                          content={item?.path}
+                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{item?.path}</span>
+                        </InfoTooltip>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyToClipboard(item?.real_path)}
+                          onClick={() => copyToClipboard(item?.path)}
                         />
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[220px]">
                       <div className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 truncate">{item?.path}</span>
-                        <Copy
-                          className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyToClipboard(item?.path)}
-                        />
+                        <InfoTooltip
+                          content={item?.real_path}
+                          contentClassName="max-w-[calc(100vw-2rem)] break-all"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{item.real_path || '-'}</span>
+                        </InfoTooltip>
+                        {item.real_path && (
+                          <Copy
+                            className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+                            onClick={() => copyToClipboard(item.real_path || '')}
+                          />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{item.actor_ip_address}</TableCell>
@@ -151,7 +176,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-40 text-center text-muted-foreground">
                     No cache for now.
                   </TableCell>
                 </TableRow>

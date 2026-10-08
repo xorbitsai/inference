@@ -75,5 +75,62 @@ msgstr ""
 "konfiguriert werden, z. B.: ``xinference-local -H 192.168.xx.xx``."
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "Xavier unterstützt nur Nvidia-Grafikkarten."
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "Der vLLM-GPU-Transferpfad benötigt NVIDIA-GPUs."
+
+#: source/user_guide/vllm_enhancement.rst:21
+msgid ""
+"Xavier retains the V0 adapter for vLLM >= ``0.7.0`` and < ``0.11.0``. The V1"
+" connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
+"for community Prefill/Decode deployment."
+msgstr ""
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "SGLang-Replikate"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` kann Präfix-KV-Cache über Xaviers HiCache-Speicherbackend teilen. Starten Sie mehrere Replikate mit ``model_engine=\"SGLang\"`` und ``enable_xavier=True``. Der erste Adapter unterstützt nicht quantisierte FP16-Textmodelle Qwen2, Qwen3 und Llama mit vollständiger Attention und TP=PP=DP=1; LoRA, spekulatives Decoding, hybride Attention und multimodale Eingaben werden nicht unterstützt."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` legt das gemeinsame CPU-Cache-Budget der Bereitstellung fest (Standard: ``536870912``, 512 MiB). Jedes SGLang-Replikat reserviert außerdem eigene GPU- und HiCache-Host-Pools. Verdrängung oder nicht verfügbarer Speicher gelten bei gewöhnlichen Replikaten als Cache-Miss. Cache-Namensräume umfassen die tatsächlichen Gewichte, den Tokenizer, die Modellkonfiguration, KV-Geometrie und das Engine-Format; ein Cache-Austausch zwischen vLLM und SGLang ist noch nicht möglich."
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "Gewöhnliche SGLang-Replikate teilen CPU-HiCache-Seiten. Explizite prefill/decode-Rollen verwenden Xaviers direkte GPU-Übertragung; siehe :ref:`user_guide_pd_separation`. Engineübergreifendes P/D wird noch nicht unterstützt."
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier lädt BF16-Checkpoints als FP16 und gibt eine Warnung aus. Sowohl Gewichte als auch KV-Caches verwenden FP16."
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "MLX-Replikate"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"MLX-Replikate können mit ``model_engine=\"MLX\"`` und ``enable_xavier=True``"
+" Präfix-KV-Caches teilen. Unterstützte Modelle und FP16-Anforderungen stehen"
+" unter :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` begrenzt den "
+"gemeinsamen CPU-Cache (Standard: 512 MiB). Jedes Replikat besitzt zusätzlich"
+" sein Modell und seinen Metal-KV-Cache. Gewöhnliche Replikate rechnen bei "
+"einem Cache-Miss oder nicht verfügbarem Speicher lokal; inkompatible "
+"Deployments können keine Seiten teilen. Die Nutzungsdaten melden "
+"wiederverwendete Token unter ``prompt_tokens_details.cached_tokens``. "
+"Explizite Prefill-/Decode-Rollen aktivieren MLX Xavier P/D automatisch. "
+"Engineübergreifendes Cache-Sharing wird noch nicht unterstützt."
+
+#: source/user_guide/vllm_enhancement.rst:18
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
+msgstr "Bei Modellen mit ausschließlich Attention unter vLLM V1 behält Xavier die Einstellung ``enforce_eager`` des Modells bei und ermöglicht damit die Ausführung mit CUDA Graph. Setzen Sie beim Modellstart ``enforce_eager=True``, um die Eager-Ausführung zu verwenden. Rekurrente Modelle verwenden weiterhin standardmäßig die Eager-Ausführung."

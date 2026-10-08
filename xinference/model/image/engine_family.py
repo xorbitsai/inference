@@ -131,11 +131,16 @@ def check_engine_by_model_name_and_engine_with_virtual_env(
     )
 
 
-def generate_engine_config_by_model_name(model_family: "ImageModelFamilyV2") -> None:
+def generate_engine_config_by_model_name(
+    model_family: "ImageModelFamilyV2",
+    target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
+) -> None:
     model_name = model_family.model_name
     model_format = getattr(model_family, "model_format", None)
     quantization = getattr(model_family, "quantization", None)
-    engines: Dict[str, List[Dict[str, Any]]] = IMAGE_ENGINES.get(model_name, {})
+    if target_engines is None:
+        target_engines = IMAGE_ENGINES
+    engines = target_engines.get(model_name, {})
     for engine, classes in SUPPORTED_ENGINES.items():
         for cls in classes:
             if cls.match(model_family):
@@ -143,16 +148,16 @@ def generate_engine_config_by_model_name(model_family: "ImageModelFamilyV2") -> 
                 engine_quantization = quantization
                 if engine_quantization is None:
                     engine_quantization = getattr(cls, "engine_quantization", None)
-                engine_params = engines.get(engine, [])
-                engine_params.append(
-                    {
-                        "model_name": model_name,
-                        "model_format": engine_model_format,
-                        "quantization": engine_quantization,
-                        "image_class": cls,
-                    }
-                )
+                engine_params = engines.setdefault(engine, [])
+                param = {
+                    "model_name": model_name,
+                    "model_format": engine_model_format,
+                    "quantization": engine_quantization,
+                    "image_class": cls,
+                }
+                if param not in engine_params:
+                    engine_params.append(param)
                 engines[engine] = engine_params
                 break
     if engines:
-        IMAGE_ENGINES[model_name] = engines
+        target_engines[model_name] = engines

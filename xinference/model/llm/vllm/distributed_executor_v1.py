@@ -15,7 +15,9 @@
 import asyncio
 import logging
 import os
+import time
 from concurrent.futures import Future
+from threading import Thread
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -26,14 +28,16 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    cast,
 )
 
 import xoscar as xo
+from vllm import envs
 from vllm.v1.executor.abstract import Executor
-from vllm.v1.worker.worker_base import WorkerWrapperBase
 from xoscar.utils import get_next_port
 
 from ....isolation import Isolation
+from .distributed_worker_actor import WorkerActor
 from .utils import get_distributed_init_method
 
 if TYPE_CHECKING:
@@ -42,62 +46,28 @@ if TYPE_CHECKING:
     from vllm.v1.outputs import ModelRunnerOutput
 
 logger = logging.getLogger(__name__)
+_SHUTDOWN_TIMEOUT_SECONDS = 10.0
 
-DEBUG_EXECUTOR = bool(int(os.getenv("XINFERENCE_DEBUG_VLLM_EXECUTOR", "0")))
 
-
-class WorkerActor(xo.StatelessActor):
-    def __init__(self, vllm_config: "VllmConfig", rpc_rank: int = 0, **kwargs):
-        super().__init__(**kwargs)
-        self._worker = WorkerWrapperBase(rpc_rank=rpc_rank)
-
-    async def __post_create__(self):
+class _ExecutorIsolation(Isolation):
+    def _run(self):
+        asyncio.set_event_loop(self._loop)
         try:
-            # Change process title for model
-            import setproctitle
+            self._loop.run_forever()
+        finally:
+            for task in asyncio.all_tasks(self._loop):
+                task.cancel()
+            # Let cancellation callbacks run without waiting for remote cancel
+            # acknowledgements from a rank that may be stuck in NCCL.
+            self._loop.run_until_complete(asyncio.sleep(0))
+            self._loop.close()
 
-            _uid = os.environ.get("XINFERENCE_MODEL_UID", "")
-            setproctitle.setproctitle(
-                f"Xinf vLLM worker: {self._worker.rpc_rank} [{_uid}]"
-            )
-        except ImportError:
-            pass
-
-    def __getattr__(self, item):
-        from xoscar.core import NO_LOCK_ATTRIBUTE_HINT
-
-        if item == NO_LOCK_ATTRIBUTE_HINT:
-            return True
-        return getattr(self._worker, item)
-
-    @classmethod
-    def gen_uid(cls, rank):
-        return f"VllmWorker_{rank}"
-
-    def execute_method(self, method: Union[str, Callable], *args, **kwargs):
-        if DEBUG_EXECUTOR:
-            # NOTE: too many logs, but useful for debug
-            logger.debug(
-                "Calling method %s in vllm worker %s, args: %s, kwargs: %s",
-                method,
-                self.uid,
-                args,
-                kwargs,
-            )
-        if isinstance(method, str):
-            if method != "sample_tokens":
-                return getattr(self._worker, method)(*args, **kwargs)
-            else:
-                result = getattr(self._worker, method)(*args, **kwargs)
-                return self._sanitize_result(result)
-        else:
-            return method(self._worker, *args, **kwargs)
-
-    def _sanitize_result(self, obj):
-        if obj is None:
-            return obj
-        output = obj.get_output()
-        return output
+    def stop(self, timeout: float = _SHUTDOWN_TIMEOUT_SECONDS) -> bool:
+        if not self._loop.is_closed():
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        thread = cast(Thread, self._thread)
+        thread.join(timeout=timeout)
+        return not thread.is_alive()
 
 
 class WorkerWrapper:
@@ -124,6 +94,8 @@ class WorkerWrapper:
 class XinferenceDistributedExecutorV1(Executor):
     """Xoscar based distributed executor"""
 
+    supports_pp: bool = True
+
     _loop: asyncio.AbstractEventLoop
     _pool_addresses: List[str]
     _n_worker: int
@@ -137,45 +109,82 @@ class XinferenceDistributedExecutorV1(Executor):
         **kwargs,
     ):
         # XinferenceDistributedExecutorV1
-        isolation = Isolation(asyncio.new_event_loop())
-        isolation.start()
-        loop = isolation.loop
+        self._isolation = _ExecutorIsolation(asyncio.new_event_loop())
+        self._isolation.start()
+        loop = self._isolation.loop
 
         # XinferenceDistributedExecutor
         self._pool_addresses = pool_addresses
         self._loop = loop
         self._n_worker = n_worker
         self._is_shutdown = False
+        self.workers: List[WorkerWrapper] = []
 
         # DistributedExecutorBase
         self.parallel_worker_tasks: Optional[Union[Any, Awaitable[Any]]] = None
 
         # Executor
-        Executor.__init__(self, vllm_config, *args, **kwargs)
+        try:
+            Executor.__init__(self, vllm_config, *args, **kwargs)
+        except Exception:
+            self.shutdown()
+            raise
+
+    @classmethod
+    def supports_async_scheduling(cls) -> bool:
+        return True
+
+    @property
+    def max_concurrent_batches(self) -> int:
+        # Newer vLLM versions own this setting in VllmConfig. Older V1
+        # engines read it from the executor to fill all PP stages.
+        configured = getattr(self.vllm_config, "max_concurrent_batches", None)
+        if configured is not None:
+            return configured
+        pp_size = self.parallel_config.pipeline_parallel_size
+        if pp_size == 1 and self.scheduler_config.async_scheduling:
+            return 2
+        return pp_size
 
     def _init_executor(self) -> None:
         # Create the parallel GPU workers.
         world_size = self.parallel_config.world_size
         tensor_parallel_size = self.parallel_config.tensor_parallel_size
 
-        assert (
-            self._pool_addresses and len(self._pool_addresses) == world_size
-        ), f"Pool addresses(#{len(self._pool_addresses or [])} must be equal to worldsize(#{world_size})"
+        if len(self._pool_addresses) != world_size:
+            raise ValueError(
+                f"Allocated GPU count ({len(self._pool_addresses)}) must equal "
+                f"the vLLM world size ({world_size}); set the vLLM world size "
+                "to the total allocated GPU count"
+            )
+        if self._n_worker <= 0 or world_size % self._n_worker != 0:
+            raise ValueError(
+                f"vLLM world size ({world_size}) must be divisible by "
+                f"a positive n_worker ({self._n_worker})"
+            )
 
         futures = []
         for rank in range(world_size):
             coro = xo.create_actor(
                 WorkerActor,
-                self.vllm_config,
                 rpc_rank=rank,
                 address=self._pool_addresses[rank],
                 uid=WorkerActor.gen_uid(rank),
             )
             futures.append(asyncio.run_coroutine_threadsafe(coro, self._loop))
-        refs: List[xo.ActorRefType[WorkerActor]] = [fut.result() for fut in futures]
+        refs: List[xo.ActorRefType[WorkerActor]] = []
+        creation_error = None
+        for fut in futures:
+            try:
+                refs.append(fut.result())
+            except Exception as exc:
+                if creation_error is None:
+                    creation_error = exc
 
         # create workers
         self._create_workers(refs)
+        if creation_error is not None:
+            raise creation_error
 
         # Set environment variables for the driver and workers.
         all_args_to_update_environment_variables: List[Dict[str, str]] = [
@@ -198,7 +207,7 @@ class XinferenceDistributedExecutorV1(Executor):
         self._env_vars_for_all_workers = all_args_to_update_environment_variables
 
         self._run_workers(
-            "update_environment_variables", self._env_vars_for_all_workers
+            "update_environment_variables", args=(self._env_vars_for_all_workers,)
         )
 
         all_kwargs = []
@@ -216,7 +225,7 @@ class XinferenceDistributedExecutorV1(Executor):
                 or (rank % tensor_parallel_size == 0),
             )
             all_kwargs.append(kwargs)
-        self._run_workers("init_worker", all_kwargs)
+        self._run_workers("init_worker", args=(all_kwargs,))
         self._run_workers("init_device")
         self._run_workers(
             "load_model",
@@ -234,8 +243,9 @@ class XinferenceDistributedExecutorV1(Executor):
 
         # Enforce rank order for correct rank to return final output.
         for index, worker in enumerate(self.workers):
-            # The driver worker is rank 0 and not in self.workers.
-            rank = index + 1
+            rank = index
+            if rank == 0:
+                continue
             if rank % self.parallel_config.tensor_parallel_size == 0:
                 self.tp_driver_workers.append(worker)
             else:
@@ -251,7 +261,9 @@ class XinferenceDistributedExecutorV1(Executor):
         of the last PP stage.
         """
         return (
-            self.parallel_config.world_size - self.parallel_config.tensor_parallel_size
+            self.parallel_config.world_size
+            - self.parallel_config.tensor_parallel_size
+            * getattr(self.parallel_config, "prefill_context_parallel_size", 1)
         )
 
     def collective_rpc(
@@ -261,58 +273,80 @@ class XinferenceDistributedExecutorV1(Executor):
         args: Tuple = (),
         kwargs: Optional[Dict] = None,
         non_block: bool = False,
-    ) -> List[Any]:
-        return self._run_workers(method, *args, **(kwargs or {}))
+    ) -> Union[List[Any], Future]:
+        return self._run_workers(
+            method, args=args, kwargs=kwargs, timeout=timeout, non_block=non_block
+        )
 
     def execute_model(
         self, scheduler_output: "SchedulerOutput", non_block: bool = False
     ) -> Union["ModelRunnerOutput", None, Future[Union["ModelRunnerOutput", None]]]:
-        outputs = self._run_workers(
-            "execute_model", scheduler_output, non_block=non_block
+        return self._run_workers(
+            "execute_model",
+            args=(scheduler_output,),
+            non_block=non_block,
+            output_rank=self._get_output_rank(),
+            timeout=envs.VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
+            aggregate_output=True,
         )
-        # In pipeline parallelism, only the last PP stage returns output.
-        return outputs[self._get_output_rank()]
 
     def sample_tokens(
         self, grammar_output: Optional[Any] = None, non_block: bool = False
     ) -> Any:
-        outputs = self._run_workers(
-            "sample_tokens", grammar_output, non_block=non_block
+        return self._run_workers(
+            "sample_tokens",
+            args=(grammar_output,),
+            non_block=non_block,
+            output_rank=self._get_output_rank(),
+            timeout=envs.VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS,
+            aggregate_output=True,
         )
-        # In pipeline parallelism, only the last PP stage produces
-        # sampled tokens. The output_rank is the first TP worker of
-        # the last PP stage.
-        return outputs[self._get_output_rank()]
+
+    def take_draft_token_ids(self) -> Any:
+        return self._run_workers(
+            "take_draft_token_ids", output_rank=self._get_output_rank()
+        )
 
     def check_health(self) -> None:
-        # Assume that the workers are healthy.
-        # TODO: check the health by checking if the workers all alive
-        return
+        self.collective_rpc("check_health", timeout=10)
 
     def shutdown(self) -> None:
         if self._is_shutdown:
             return
 
+        self._is_shutdown = True
+        deadline = time.monotonic() + _SHUTDOWN_TIMEOUT_SECONDS
+        futs = []
+        for worker in self.workers:
+            try:
+                futs.append(worker.kill())
+            except Exception:
+                logger.debug("Failed to destroy vLLM worker", exc_info=True)
         try:
-            self._is_shutdown = True
-            futs = [worker.kill() for worker in self.workers]
-            _ = [fut.result() for fut in futs]
-        except (RuntimeError, ConnectionError, xo.ActorNotExist):
-            # event loop closed already, ignore
-            # or actor already removed
-            pass
+            for fut in futs:
+                try:
+                    fut.result(timeout=max(0, deadline - time.monotonic()))
+                except Exception:
+                    logger.debug("Failed to destroy vLLM worker", exc_info=True)
+        finally:
+            if not self._isolation.stop(timeout=max(0, deadline - time.monotonic())):
+                logger.warning("vLLM executor loop exceeded the shutdown deadline")
 
-    def _create_workers(self, refs: xo.ActorRefType[WorkerActor]) -> None:
+    def _create_workers(self, refs: List[xo.ActorRefType[WorkerActor]]) -> None:
         self.workers = [WorkerWrapper(self._loop, ref) for ref in refs]
 
     def _run_workers(
         self,
         method: Union[str, Callable],
-        *args,
+        args: Tuple = (),
+        kwargs: Optional[Dict] = None,
+        *,
         async_run_tensor_parallel_workers_only: bool = False,
         max_concurrent_workers: Optional[int] = None,
         non_block: bool = False,
-        **kwargs,
+        output_rank: Optional[int] = None,
+        timeout: Optional[float] = None,
+        aggregate_output: bool = False,
     ) -> Any:
         if max_concurrent_workers:
             raise NotImplementedError("max_concurrent_workers is not supported yet.")
@@ -321,10 +355,33 @@ class XinferenceDistributedExecutorV1(Executor):
         if async_run_tensor_parallel_workers_only:
             workers = self.non_driver_workers
         worker_outputs = [
-            worker.execute_method(method, *args, **kwargs) for worker in workers
+            worker.execute_method(method, *args, **(kwargs or {})) for worker in workers
         ]
 
-        if async_run_tensor_parallel_workers_only or non_block:
-            return worker_outputs
+        async def collect_outputs():
+            # Observe every rank: a failed early PP stage can leave the final
+            # stage waiting indefinitely for activation tensors.
+            try:
+                outputs = await asyncio.wait_for(
+                    asyncio.gather(
+                        *(asyncio.wrap_future(output) for output in worker_outputs)
+                    ),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError as exc:
+                raise TimeoutError(f"RPC call to {method} timed out") from exc
 
-        return [output.result() for output in worker_outputs]
+            if output_rank is None:
+                return outputs
+            result = outputs[output_rank]
+            if aggregate_output:
+                for name in ("kv_output_aggregator", "ec_output_aggregator"):
+                    aggregator = getattr(self, name, None)
+                    if aggregator is not None:
+                        result = aggregator.aggregate(outputs, output_rank=output_rank)
+            return result
+
+        result = asyncio.run_coroutine_threadsafe(collect_outputs(), self._loop)
+        if async_run_tensor_parallel_workers_only or non_block:
+            return result
+        return result.result()

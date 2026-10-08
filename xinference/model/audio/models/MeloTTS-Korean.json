@@ -1,0 +1,48 @@
+[
+  {
+    "version": 2,
+    "model_name": "MeloTTS-Korean",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": false,
+    "language": "KR",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-Korean",
+        "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323"
+      }
+    },
+    "updated_at": 1783912384,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  }
+]

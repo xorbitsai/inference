@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "asset_id": "deepseek-v4-flash-0731",
+  "display_name": "DeepSeek-V4-Flash-0731",
+  "model_family": "deepseek-v4",
+  "model_name": "DeepSeek-V4-Flash-0731",
+  "revision": "1",
+  "encoding_type": "deepseek-v4-chat",
+  "compatible_models": [
+    "DeepSeek-V4-Flash-0731"
+  ],
+  "capabilities": {
+    "chat": true,
+    "tools": true,
+    "thinking": true
+  },
+  "required_files": [
+    "tokenizer.json",
+    "encoding/encoding_dsv4.py"
+  ],
+  "checksums": {
+    "tokenizer.json": "sha256:8f9f37ca37fdc4f5fd36d5cf4d3b0e8392edb4e894fd10cc0d70b4957c8633cf",
+    "encoding/encoding_dsv4.py": "sha256:abc0d26120250dda0ae077dc64aa28836026e61e970854aaeb792445e6a0dde6"
+  },
+  "origin": "builtin",
+  "source_metadata": "SOURCE.json",
+  "license_file": "LICENSE.txt"
+}

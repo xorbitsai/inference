@@ -1,0 +1,15 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+# Licensed under the Apache License, Version 2.0.
+"""Compatibility alias for the shared Xavier tiered_snapshot module."""
+
+import sys
+from typing import TYPE_CHECKING
+
+from ...xavier.backends.torch import tiered_snapshot as _implementation
+
+if TYPE_CHECKING:
+    from ...xavier.backends.torch.tiered_snapshot import (
+        TieredKVSnapshotStore as TieredKVSnapshotStore,
+    )
+
+sys.modules[__name__] = _implementation

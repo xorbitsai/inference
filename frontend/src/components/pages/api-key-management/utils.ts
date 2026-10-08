@@ -53,8 +53,11 @@ export const MODEL_TYPE_OPTIONS = [
   { value: 'rerank', label: 'Rerank' },
   { value: 'image', label: 'Image' },
   { value: 'video', label: 'Video' },
+  { value: 'world', label: 'World' },
   { value: 'audio', label: 'Audio' },
 ];
+
+export const getApiKeyDisplayName = (key: ApiKey) => key.name?.trim() || `api-key-${key.id}`;
 
 export const getBannedCount = (key: ApiKey) => key.banned_count ?? key.banned ?? '-';
 

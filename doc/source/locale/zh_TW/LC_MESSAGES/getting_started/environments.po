@@ -117,15 +117,13 @@ msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
 msgid "Maximum download retry attempts for model files. Default value is 3."
 msgstr "模型檔案的最大下載重試次數。預設值為3。"
 
-#: ../../source/getting_started/environments.rst:58
-msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
-msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+#: ../../source/getting_started/environments.rst:73
+msgid "XINFERENCE_LLMMAN_BIN"
+msgstr "XINFERENCE_LLMMAN_BIN"
 
-#: ../../source/getting_started/environments.rst:59
-msgid ""
-"Enable continuous batching for text-to-image models by specifying the "
-"target image size (e.g., ``1024*1024``). Default is unset."
-msgstr "通過指定目標圖像尺寸（例如 ``1024*1024`` ）為文字轉圖像模型啟用連續批次處理。預設未設定。"
+#: ../../source/getting_started/environments.rst:74
+msgid "Path to the ``llmman`` executable used to resolve ``oci://`` model URIs. Defaults to ``llmman`` on ``PATH``. Set ``LLMMAN_HOST`` to reach an ``llmman serve`` daemon that is not on ``127.0.0.1:17434``."
+msgstr "用於解析 ``oci://`` 模型 URI 的 ``llmman`` 執行檔路徑。預設使用 ``PATH`` 中的 ``llmman``。若 ``llmman serve`` 常駐程式不在 ``127.0.0.1:17434`` 上，可設定 ``LLMMAN_HOST``。"
 
 #: ../../source/getting_started/environments.rst:63
 msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
@@ -388,3 +386,34 @@ msgid ""
 ":ref:`user_guide_audit_security`."
 msgstr "稽核日誌檔案的保留天數。預設值為 90。參見 :ref:`user_guide_audit_security`。"
 
+#: ../../source/getting_started/environments.rst:56
+msgid "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+msgstr "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "Maximum age in seconds of the last valid per-model GPU-memory snapshot retained by the supervisor after a worker omits the field because collection failed or was skipped. An explicit empty snapshot still clears the cache immediately. Default value is 90."
+msgstr "當 Worker 因收集失敗或略過收集而省略該欄位時，Supervisor 保留最近一次有效的單模型 GPU 記憶體快照的最大秒數。明確的空快照仍會立即清除快取。預設值為 90。"
+
+#: ../../source/getting_started/environments.rst:233
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_INITIAL_SECONDS"
+
+#: ../../source/getting_started/environments.rst:234
+msgid "Initial delay in seconds between Router Agent bootstrap retries. The delay uses exponential backoff with jitter. Default value is 1."
+msgstr "Router Agent 啟動重試之間的初始延遲（秒）。延遲採用帶抖動的指數退避。預設值為 1。"
+
+#: ../../source/getting_started/environments.rst:238
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_MAX_SECONDS"
+
+#: ../../source/getting_started/environments.rst:239
+msgid "Maximum delay in seconds between Router Agent bootstrap retries. Default value is 15 and must not be lower than the initial delay."
+msgstr "Router Agent 啟動重試之間的最大延遲（秒）。預設值為 15，且不能小於初始延遲。"
+
+#: ../../source/getting_started/environments.rst:243
+msgid "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+msgstr "XINFERENCE_TOKEN_ROUTER_AGENT_STARTUP_RETRY_TIMEOUT_SECONDS"
+
+#: ../../source/getting_started/environments.rst:244
+msgid "Total deadline in seconds for Router Agent startup registration and initial synchronization retries. Default value is 120."
+msgstr "Router Agent 啟動註冊和初始同步重試的總截止時間（秒）。預設值為 120。"

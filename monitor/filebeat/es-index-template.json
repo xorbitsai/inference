@@ -1,5 +1,7 @@
 {
-  "index_patterns": ["xinference-logs-*"],
+  "index_patterns": [
+    "xinference-logs-*"
+  ],
   "template": {
     "settings": {
       "number_of_shards": 2,
@@ -11,15 +13,33 @@
     "mappings": {
       "dynamic": false,
       "properties": {
-        "@timestamp": { "type": "date" },
-        "cluster":    { "type": "keyword" },
-        "log_type":   { "type": "keyword" },
-        "node":       { "type": "keyword" },
-        "address":    { "type": "keyword" },
-        "role":       { "type": "keyword" },
-        "module":     { "type": "keyword" },
-        "pid":        { "type": "integer" },
-        "level":      { "type": "keyword" },
+        "@timestamp": {
+          "type": "date"
+        },
+        "cluster": {
+          "type": "keyword"
+        },
+        "log_type": {
+          "type": "keyword"
+        },
+        "node": {
+          "type": "keyword"
+        },
+        "address": {
+          "type": "keyword"
+        },
+        "role": {
+          "type": "keyword"
+        },
+        "module": {
+          "type": "keyword"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "level": {
+          "type": "keyword"
+        },
         "message": {
           "type": "text",
           "analyzer": "standard",
@@ -40,8 +60,49 @@
             }
           }
         },
-        "json.error": { "type": "keyword" }
+        "json.error": {
+          "type": "keyword"
+        },
+        "request_id": {
+          "type": "keyword"
+        },
+        "correlation_id": {
+          "type": "keyword"
+        },
+        "operation_request_id": {
+          "type": "keyword"
+        },
+        "actor_call_id": {
+          "type": "keyword"
+        },
+        "parent_call_id": {
+          "type": "keyword"
+        },
+        "operation": {
+          "type": "keyword"
+        },
+        "phase": {
+          "type": "keyword"
+        },
+        "event_type": {
+          "type": "keyword"
+        },
+        "endpoint": {
+          "type": "keyword"
+        },
+        "model_uid": {
+          "type": "keyword"
+        },
+        "elapsed_ms": {
+          "type": "double"
+        },
+        "error_type": {
+          "type": "keyword"
+        }
       }
+    },
+    "aliases": {
+      "xinference-log-search": {}
     }
   },
   "priority": 200,

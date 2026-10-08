@@ -1,0 +1,67 @@
+[
+  {
+    "version": 1,
+    "model_name": "Matrix-Game-3.0-5B",
+    "model_family": "Matrix-Game-3.0",
+    "model_description": "A 5B image-conditioned interactive world model from Skywork AI.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "image2world"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "size": "704*1280",
+      "num_iterations": 12,
+      "num_inference_steps": 3,
+      "guidance_scale": 5.0,
+      "seed": 42,
+      "use_int8": true,
+      "compile_vae": true,
+      "lightvae_pruning_rate": 0.5,
+      "vae_type": "mg_lightvae",
+      "fa_version": "0",
+      "response_format": "url"
+    },
+    "source_url": "https://github.com/SkyworkAI/Matrix-Game.git",
+    "source_revision": "71c3cd7f741311f8100f6cf9cde942b6c1378d11",
+    "source_subdir": "Matrix-Game-3",
+    "virtualenv": {
+      "packages": [
+        "torch==2.10.0 ; #engine# == \"pytorch\"",
+        "torchvision==0.25.0",
+        "torchaudio==2.10.0",
+        "opencv-python==4.10.0.84",
+        "diffusers>=0.36.0",
+        "transformers==4.57.3",
+        "tokenizers>=0.20.3",
+        "accelerate>=1.1.1",
+        "tqdm",
+        "imageio[ffmpeg]",
+        "easydict",
+        "ftfy",
+        "imageio-ffmpeg",
+        "numpy==2.2.6",
+        "scipy",
+        "einops",
+        "pandas",
+        "decord==0.6.0 ; platform_machine == \"x86_64\"",
+        "decord2==3.4.0 ; platform_machine == \"aarch64\"",
+        "tensorboard",
+        "trimesh",
+        "safetensors==0.7.0"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Skywork/Matrix-Game-3.0",
+        "model_revision": "382aa382a03cec057360755aa72c7735025770bb"
+      },
+      "modelscope": {
+        "model_id": "Skywork/Matrix-Game-3.0",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1787337600,
+    "featured": false
+  }
+]

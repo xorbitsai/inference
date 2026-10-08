@@ -16,9 +16,16 @@ import codecs
 import json
 import os
 import warnings
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from ..utils import flatten_quantizations
+from ..._model_catalog import load_model_catalog
+from ...engine_hooks import MODEL_TYPE_EMBEDDING, _run_engine_registration_hooks
+from ..utils import (
+    extend_classes_once,
+    family_identity_key,
+    flatten_quantizations,
+    prune_stale_derived_registries,
+)
 from .core import (
     EMBEDDING_MODEL_DESCRIPTIONS,
     EmbeddingModelFamilyV2,
@@ -77,13 +84,16 @@ def check_format_with_engine(model_format, engine):
     return True
 
 
-def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2"):
+def generate_engine_config_by_model_name(
+    model_family: "EmbeddingModelFamilyV2",
+    target_engines: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None,
+):
     from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
     model_name = model_family.model_name
-    engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
-        model_name, {}
-    )  # structure for engine query
+    if target_engines is None:
+        target_engines = EMBEDDING_ENGINES
+    engines = target_engines.get(model_name, {})  # structure for engine query
     for spec in [x for x in model_family.model_specs if x.model_hub == "huggingface"]:
         model_format = spec.model_format
         quantization = spec.quantization
@@ -99,26 +109,17 @@ def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2")
                     matched = cls.match(model_family, spec, quantization)
                 if matched == True:
                     # we only match the first class for an engine
-                    if engine not in engines:
-                        engines[engine] = [
-                            {
-                                "model_name": model_name,
-                                "model_format": model_format,
-                                "quantization": quantization,
-                                "embedding_class": cls,
-                            }
-                        ]
-                    else:
-                        engines[engine].append(
-                            {
-                                "model_name": model_name,
-                                "model_format": model_format,
-                                "quantization": quantization,
-                                "embedding_class": cls,
-                            }
-                        )
+                    engine_params = engines.setdefault(engine, [])
+                    param: Dict[str, Any] = {
+                        "model_name": model_name,
+                        "model_format": model_format,
+                        "quantization": quantization,
+                        "embedding_class": cls,
+                    }
+                    if param not in engine_params:
+                        engine_params.append(param)
                     break
-    EMBEDDING_ENGINES[model_name] = engines
+    target_engines[model_name] = engines
 
 
 def has_downloaded_models():
@@ -144,7 +145,7 @@ def load_downloaded_models():
             f"Failed to load downloaded embedding models from {json_file_path}: {e}"
         )
         # Fall back to built-in models if download fails
-        load_model_family_from_json("model_spec.json", BUILTIN_EMBEDDING_MODELS)
+        load_model_family_from_json("models", BUILTIN_EMBEDDING_MODELS)
 
 
 def load_model_family_from_json(json_filename, target_families):
@@ -154,19 +155,20 @@ def load_model_family_from_json(json_filename, target_families):
     else:
         json_path = os.path.join(os.path.dirname(__file__), json_filename)
 
-    for json_obj in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+    for json_obj in load_model_catalog(json_path):
         flattened = []
         for spec in json_obj["model_specs"]:
             flattened.extend(flatten_quantizations(spec))
         json_obj["model_specs"] = flattened
+        model_spec = EmbeddingModelFamilyV2(**json_obj)
+        # Dedup by value: this loader reruns on every refresh against the same JSON.
         if json_obj["model_name"] not in target_families:
-            target_families[json_obj["model_name"]] = [
-                EmbeddingModelFamilyV2(**json_obj)
-            ]
+            target_families[json_obj["model_name"]] = [model_spec]
         else:
-            target_families[json_obj["model_name"]].append(
-                EmbeddingModelFamilyV2(**json_obj)
-            )
+            bucket = target_families[json_obj["model_name"]]
+            key = family_identity_key(model_spec)
+            if not any(family_identity_key(existing) == key for existing in bucket):
+                bucket.append(model_spec)
 
     del json_path
 
@@ -193,7 +195,7 @@ def _install():
 
     install_models_with_merge(
         BUILTIN_EMBEDDING_MODELS,
-        "model_spec.json",
+        "models",
         "embedding",
         "embedding_models.json",
         has_downloaded_models,
@@ -208,30 +210,58 @@ def _install():
                     generate_embedding_description(model_spec)
                 )
 
+    from .embeddinggemma2 import (
+        SentenceTransformerEmbeddingGemma2Model,
+        TransformersEmbeddingGemma2Model,
+    )
     from .flag.core import FlagEmbeddingModel
     from .llama_cpp.core import XllamaCppEmbeddingModel
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
 
-    SENTENCE_TRANSFORMER_CLASSES.extend([SentenceTransformerEmbeddingModel])
-    FLAG_EMBEDDER_CLASSES.extend([FlagEmbeddingModel])
-    VLLM_CLASSES.extend([VLLMEmbeddingModel])
-    LLAMA_CPP_CLASSES.extend([XllamaCppEmbeddingModel])
+    extend_classes_once(
+        SENTENCE_TRANSFORMER_CLASSES, [SentenceTransformerEmbeddingModel]
+    )
+    # Specific modality-aware adapters take precedence over the generic text path.
+    if SentenceTransformerEmbeddingGemma2Model not in SENTENCE_TRANSFORMER_CLASSES:
+        SENTENCE_TRANSFORMER_CLASSES.insert(0, SentenceTransformerEmbeddingGemma2Model)
+    extend_classes_once(FLAG_EMBEDDER_CLASSES, [FlagEmbeddingModel])
+    extend_classes_once(VLLM_CLASSES, [VLLMEmbeddingModel])
+    extend_classes_once(LLAMA_CPP_CLASSES, [XllamaCppEmbeddingModel])
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
     SUPPORTED_ENGINES["vllm"] = VLLM_CLASSES
     SUPPORTED_ENGINES["llama.cpp"] = LLAMA_CPP_CLASSES
+    SUPPORTED_ENGINES["transformers"] = [TransformersEmbeddingGemma2Model]
 
-    # Init embedding engine
+    # Distribution-specific engines are appended after the built-ins.
+    _run_engine_registration_hooks(MODEL_TYPE_EMBEDDING, SUPPORTED_ENGINES)
+
+    # Build a complete engine table for this refresh. Accumulating into one
+    # fresh table preserves equal-timestamp family variants without retaining
+    # entries from an earlier refresh.
+    new_embedding_engines: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     for model_spec_list in BUILTIN_EMBEDDING_MODELS.values():
         for model_spec in model_spec_list:
-            generate_engine_config_by_model_name(model_spec)
+            generate_engine_config_by_model_name(model_spec, new_embedding_engines)
 
     register_custom_model()
 
     # register model description
-    for ud_embedding in get_user_defined_embeddings():
+    user_defined_embeddings = get_user_defined_embeddings()
+    for ud_embedding in user_defined_embeddings:
+        generate_engine_config_by_model_name(ud_embedding, new_embedding_engines)
         EMBEDDING_MODEL_DESCRIPTIONS.update(
             generate_embedding_description(ud_embedding)
         )
+
+    EMBEDDING_ENGINES.clear()
+    EMBEDDING_ENGINES.update(new_embedding_engines)
+
+    # A model present on a prior refresh but absent from this one must not keep
+    # advertising a launch config or description from the stale entry.
+    live_names = {name for name in BUILTIN_EMBEDDING_MODELS} | {
+        ud.model_name for ud in user_defined_embeddings
+    }
+    prune_stale_derived_registries(live_names, EMBEDDING_MODEL_DESCRIPTIONS)

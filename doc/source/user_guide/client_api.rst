@@ -6,6 +6,14 @@ Client API
 
 Complete Client API Reference: :ref:`reference_index`
 
+Replica management
+==================
+
+The synchronous and asynchronous clients accept ``replica_config`` in
+``launch_model`` and expose ``add_model_replica`` and
+``terminate_model_replica`` for running models. See :ref:`launch` for the
+request structure, placement rules, and examples.
+
 To utilize the Client API, initiate the xinference server using the command below:
 
 .. code-block::
@@ -85,6 +93,15 @@ More details refer to: https://platform.openai.com/docs/api-reference/chat?lang=
         max_tokens=1024
     )
 
+Cache hit token counts
+======================
+
+With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count.
+
+With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine.
+
+For streaming requests, set ``stream_options={"include_usage": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero.
+
 OpenAI Client Tool Calls
 ========================
 
@@ -136,6 +153,44 @@ Output:
 .. code-block::
 
     ChatCompletion(id='chatcmpl-ad2f383f-31c7-47d9-87b7-3abe928e629c', choices=[Choice(finish_reason='tool_calls', index=0, message=ChatCompletionMessage(content="```python\ntool_call(loc=94704, type='plus', time=10)\n```", role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='call_ad2f383f-31c7-47d9-87b7-3abe928e629c', function=Function(arguments='{"loc": 94704, "type": "plus", "time": 10}', name='uber_ride'), type='function')]))], created=1704687803, model='chatglm3', object='chat.completion', system_fingerprint=None, usage=CompletionUsage(completion_tokens=-1, prompt_tokens=-1, total_tokens=-1))
+
+.. _openai_responses_client:
+
+OpenAI Client Responses API
+===========================
+
+    Responses API's access address is: /v1/responses
+
+The Responses API is stateless in Xinference. Responses are not stored, so
+``previous_response_id`` and ``conversation`` are rejected: send the whole
+conversation in ``input`` on every request. Text and image input, function and
+custom tools, reasoning, structured output and streaming are supported. Hosted
+tools such as ``web_search`` are ignored.
+
+.. code-block::
+
+    import openai
+
+    client = openai.Client(api_key="not empty", base_url="http://localhost:9997/v1")
+    response = client.responses.create(
+        model="qwen3",
+        instructions="You are a helpful assistant.",
+        input="What is the largest animal?",
+    )
+    print(response.output_text)
+
+Codex CLI calls custom providers through this API. Add Xinference as a provider
+in ``~/.codex/config.toml``:
+
+.. code-block:: toml
+
+    model = "qwen3"
+    model_provider = "xinference"
+
+    [model_providers.xinference]
+    name = "Xinference"
+    base_url = "http://localhost:9997/v1"
+    wire_api = "responses"
 
 .. _anthropic_client:
 
@@ -301,7 +356,7 @@ Output:
 Audio
 ~~~~~
 
-To list the available built-in image models:
+To list the available built-in audio models:
 
 .. code-block::
 
@@ -316,6 +371,8 @@ To list the available built-in image models:
     audio   whisper-medium.en  whisper   False           True
     audio   whisper-tiny       whisper   True            True
     audio   whisper-tiny.en    whisper   False           True
+    audio   speech_campplus_sv_zh-cn_16k-common                    campplus  False  True
+    audio   speech_campplus_sv_zh_en_16k-common_advanced           campplus  True   True
 
 
 To initiate an audio model and get text from an audio:
@@ -365,6 +422,61 @@ Output:
 .. code-block::
 
     Translation(text=' This list lists the airlines in Hong Kong.')
+
+
+Speaker Embeddings
+==================
+
+Speaker-embedding audio models extract a fixed-length representation of speaker
+identity. Xinference provides two built-in CAMPPlus models:
+``speech_campplus_sv_zh-cn_16k-common`` and
+``speech_campplus_sv_zh_en_16k-common_advanced``. Both return a 192-dimensional
+vector through the ``speaker_embedding`` ability.
+
+Launch a model and call it with the Xinference client:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model_uid = client.launch_model(
+        model_name="speech_campplus_sv_zh-cn_16k-common",
+        model_type="audio",
+    )
+    model = client.get_model(model_uid)
+
+    with open("speaker.wav", "rb") as audio_file:
+        result = model.create_embedding(audio_file.read())
+
+    print(result["dimensions"])
+    embedding = result["embedding"]
+
+The equivalent HTTP request uploads the model UID and audio file as multipart
+form fields:
+
+.. code-block:: bash
+
+    curl -X POST 'http://localhost:9997/v1/audio/embeddings' \
+      -H 'accept: application/json' \
+      -F 'model=<MODEL_UID>' \
+      -F 'file=@speaker.wav'
+
+The response contains one vector rather than the list-shaped response returned
+by the text Embeddings API:
+
+.. code-block:: json
+
+    {
+      "object": "embedding",
+      "model": "<MODEL_UID>",
+      "dimensions": 192,
+      "embedding": [0.0123, -0.0456, 0.0789]
+    }
+
+Compare vectors with cosine similarity for speaker verification or speaker
+identification. See :ref:`audio` for Web UI usage, input processing details,
+and the complete Speaker Embedding API example.
 
 
 Rerank

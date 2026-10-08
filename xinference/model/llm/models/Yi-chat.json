@@ -1,0 +1,197 @@
+[
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "Yi-chat",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "The Yi series models are large language models trained from scratch by developers at 01.AI.",
+    "model_specs": [
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "8bits"
+            ],
+            "model_id": "01-ai/Yi-34B-Chat-{quantization}",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/01-ai/Yi-34B-Chat-8bits/resolve/dabaed9f8e8bb8fd11bcb0f7dd36f967b37eec7c/config.json",
+              "config_sha256": "60ce5561af5a0ee15b34b2eac9d7a52bb386edf019f30166d634a884fa247685",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "8bits"
+            ],
+            "model_id": "01ai/Yi-34B-Chat-{quantization}",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-34B-Chat-8bits/resolve/master/config.json",
+              "config_sha256": "60ce5561af5a0ee15b34b2eac9d7a52bb386edf019f30166d634a884fa247685",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 6,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01-ai/Yi-6B-Chat",
+            "model_revision": "1c20c960895e4c3877cf478bc2df074221b81d7b",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-6B-Chat/resolve/1c20c960895e4c3877cf478bc2df074221b81d7b/config.json",
+              "config_sha256": "75400cc9a254403e715cd40e007ba828d248dc073877231fe87e5dc70af3bc2b",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01ai/Yi-6B-Chat",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-6B-Chat/resolve/master/config.json",
+              "config_sha256": "75400cc9a254403e715cd40e007ba828d248dc073877231fe87e5dc70af3bc2b",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01-ai/Yi-34B-Chat",
+            "model_revision": "a99ec35331cbfc9da596af7d4538fe2efecff03c",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/01-ai/Yi-34B-Chat/resolve/a99ec35331cbfc9da596af7d4538fe2efecff03c/config.json",
+              "config_sha256": "282c0873e062d428a94c49ad0b5deffe4979c2f0d941fba242cbe4affa84a194",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01ai/Yi-34B-Chat",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-34B-Chat/resolve/master/config.json",
+              "config_sha256": "282c0873e062d428a94c49ad0b5deffe4979c2f0d941fba242cbe4affa84a194",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/Yi-34B-Chat-GGUF",
+            "model_file_name_template": "yi-34b-chat.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Yi-34B-Chat-GGUF/resolve/main/yi-34b-chat.Q2_K.gguf",
+              "config_sha256": "47a6417acfa4f173dd4d0c697ec1403ddf5abe7f8db3f351de43264a12976e6c",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}",
+    "stop_token_ids": [
+      2,
+      6,
+      7,
+      8
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|im_sep|>"
+    ],
+    "updated_at": 1769418497,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

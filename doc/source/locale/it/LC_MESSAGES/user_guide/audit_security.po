@@ -223,3 +223,22 @@ msgstr ""
 "/v1/admin/security/banned-ips``, ``POST /v1/admin/security/unban-ip``) e "
 "richiedono il permesso ``admin``."
 
+#: ../../source/user_guide/audit_security.rst:56
+msgid "Log Center and protected request bodies"
+msgstr ""
+
+#: ../../source/user_guide/audit_security.rst:58
+msgid "When ``XINFERENCE_ES_URL`` is configured, the **Log Center** queries the index pattern selected by ``XINFERENCE_ES_INDEX``. The default remains ``xinference-logs-*`` for compatibility with existing deployments. Operators that ship ``model_request.log`` into a separate index can set this variable to a read-only alias, such as ``xinference-log-search``, that spans both the application-log and model-request indices."
+msgstr ""
+
+#: ../../source/user_guide/audit_security.rst:65
+msgid "``GET /v1/cluster/logs/correlated`` returns a time-ordered request timeline and requires ``logs:list``. The query accepts a ``request_id`` and an optional time range of at most seven days. Metadata queries, including normal log search and context search, always exclude ``request_body`` and ``request_body_raw`` from the Elasticsearch response."
+msgstr ""
+
+#: ../../source/user_guide/audit_security.rst:71
+msgid "Request bodies are fetched separately with ``GET /v1/cluster/model-requests/{request_id}/body``. This endpoint requires both ``logs:list`` and ``model_requests:read_body`` and is denied when authentication is disabled. It queries ``XINFERENCE_MODEL_REQUEST_ES_INDEX`` (default ``xinference-model-request-*``), and successful or failed access attempts are recorded in the admin audit trail. API keys cannot use this administrative endpoint."
+msgstr ""
+
+#: ../../source/user_guide/audit_security.rst:80
+msgid "The read-only alias is a routing convenience, not a field-level security boundary. Browser clients should access logs only through the Xinference API, and Elasticsearch credentials should not be exposed to users who are not allowed to read captured request bodies."
+msgstr ""

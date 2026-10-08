@@ -59,15 +59,15 @@ Take the command-lines we implemented as examples:
 Each command is equipped with ``options`` and ``flags`` to customize its behavior, such as specifying log levels,
 host addresses, port numbers, and other relevant settings.
 
-Python projects define command-line console entry points in `setup.cfg` or `setup.py`.
+Python projects define command-line console entry points in ``pyproject.toml``.
 
 ::
 
-  console_scripts =
-      xinference = xinference.deploy.cmdline:cli
-      xinference-local = xinference.deploy.cmdline:local
-      xinference-supervisor = xinference.deploy.cmdline:supervisor
-      xinference-worker = xinference.deploy.cmdline:worker
+  [project.scripts]
+  xinference = "xinference.deploy.cmdline:cli"
+  xinference-local = "xinference.deploy.cmdline:local"
+  xinference-supervisor = "xinference.deploy.cmdline:supervisor"
+  xinference-worker = "xinference.deploy.cmdline:worker"
 
 The command-line ``xinference`` can be referred to code in ``xinference.deploy.cmdline:cli``.
 
@@ -184,9 +184,8 @@ Therefore, there is a lot of adaptation work to be done after the model generate
 JSON
 ----
 
-In `model/llm/llm_family.json <https://github.com/xorbitsai/inference/blob/main/xinference/model/llm/llm_family.json>`_,
-we utilize JSON files to manage the metadata of emerging open-source models. Adding a new model does not necessitate writing new code,
-it merely requires appending new metadata to the existing JSON file.
+In `model/llm/models/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm/models>`_,
+each model has a JSON file containing all its variants. Add or remove a model by adding or deleting its file. Files are discovered automatically in case-insensitive filename order; the order of records within each file is preserved.
 
 ::
 

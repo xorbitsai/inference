@@ -258,3 +258,21 @@ OTEL 指标与 Supervisor 端 Prometheus 指标语义等价，命名采用 OTLP 
 - OpenTelemetry 初始化：`xinference/core/otel.py`
 - REST API 中的 `/metrics` 路由注册：`xinference/api/restful_api.py`
 - Worker 侧指标埋点：`xinference/core/model.py`
+
+## Token Router Runtime 动态发现
+
+Token Router Runtime 端口由 Router Agent 动态分配，不能扫描整个端口池，也不应维护
+静态 Runtime target。Prometheus 应通过以下 Supervisor HTTP 服务发现接口获取目标：
+
+```text
+GET /v1/monitor/prometheus/http-sd/token-router-runtimes
+所需权限：routers:read
+```
+
+完整抓取示例见 `prometheus-token-router-http-sd.yml`。Supervisor 会在 Runtime 有效期及
+stale 保留窗口内持续返回 target，包括 Starting/Degraded 实例，以及 Agent 控制链路离线、
+但数据面仍可能服务的 Runtime；超过 Runtime Registry 保留期后 target 自动删除。
+
+Supervisor `/metrics` 是 Agent、Assignment、Runtime 控制面、Tokenizer Binding、逻辑
+Router 汇总的权威来源；Runtime `/metrics` 是请求、路由、后端、并发池、
+Tokenization 和 Runtime 进程资源指标的权威来源。

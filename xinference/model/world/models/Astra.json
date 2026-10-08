@@ -1,0 +1,76 @@
+[
+  {
+    "version": 1,
+    "model_name": "Astra",
+    "model_family": "Astra",
+    "model_description": "An image-conditioned interactive world model based on Wan2.1 1.3B with controllable camera trajectories.",
+    "model_format": "pytorch",
+    "model_ability": [
+      "image2world"
+    ],
+    "default_model_config": {},
+    "default_generate_config": {
+      "start_frame": 0,
+      "initial_condition_frames": 1,
+      "frames_per_generation": 8,
+      "total_frames_to_generate": 24,
+      "max_history_frames": 100,
+      "modality_type": "sekai",
+      "cam_type": 1,
+      "camera_guidance_scale": 2.0,
+      "text_guidance_scale": 1.0,
+      "moe_num_experts": 3,
+      "moe_top_k": 1,
+      "response_format": "url"
+    },
+    "source_url": "https://github.com/EternalEvan/Astra.git",
+    "source_revision": "3fb82e1939bfcf87d6e27a7da57d8b55ff9cb393",
+    "auxiliary_model_id": "Wan-AI/Wan2.1-T2V-1.3B",
+    "auxiliary_model_revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+    "auxiliary_model_allow_patterns": [
+      "diffusion_pytorch_model.safetensors",
+      "models_t5_umt5-xxl-enc-bf16.pth",
+      "Wan2.1_VAE.pth",
+      "google/umt5-xxl/*"
+    ],
+    "cache_config": {
+      "allow_patterns": [
+        "models/Astra/checkpoints/diffusion_pytorch_model.ckpt",
+        "README.md",
+        "LICENSE"
+      ]
+    },
+    "virtualenv": {
+      "packages": [
+        "torch>=2.0.0 ; #engine# == \"pytorch\"",
+        "torchvision",
+        "cupy-cuda12x",
+        "transformers==4.46.2",
+        "imageio[ffmpeg]",
+        "safetensors",
+        "einops",
+        "sentencepiece",
+        "protobuf",
+        "modelscope",
+        "ftfy",
+        "numpy",
+        "pillow",
+        "scipy",
+        "tqdm"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "EvanEternal/Astra",
+        "model_revision": "aef5d6d75a994fa67f3f05cf17f5824a53b1c52f"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/Astra",
+        "model_revision": "master",
+        "auxiliary_model_revision": "master"
+      }
+    },
+    "updated_at": 1787337600,
+    "featured": false
+  }
+]

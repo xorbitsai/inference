@@ -1,11 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Check,
   CircleAlert,
   Copy,
   FileSearch,
   Filter,
+  GitBranch,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -15,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { AutoComplete } from '@/components/ui/auto-complete';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,11 +40,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
+import { AUDIT_TIME_RANGES, DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { cn, copyToClipboard } from '@/lib/utils';
 
+import { CorrelatedDialog } from '../log-center/correlated-dialog';
 import { TimeRangePicker } from '../log-center/time-range-picker';
 import type { TimeRangeValue } from '../log-center/types';
 
@@ -46,6 +54,7 @@ const AUDIT_PAGE_SIZE = 50;
 interface AuditRecord {
   '@timestamp'?: string;
   event_type?: string;
+  request_id?: string;
   category?: string;
   auth_type?: string;
   user?: string;
@@ -68,7 +77,16 @@ interface AuditSearchResponse {
   total?: number;
 }
 
+interface AuditFilterOptionsResponse {
+  user?: string[];
+  api_key_name?: string[];
+  model_id?: string[];
+  model_name?: string[];
+  client_ip?: string[];
+}
+
 interface AuditFilters {
+  requestId: string;
   user: string;
   apiKeyName: string;
   modelId: string;
@@ -81,10 +99,17 @@ interface AuditFilters {
 }
 
 type AuditFilterKey = keyof AuditFilters;
-type AuditTextFilterKey = 'user' | 'apiKeyName' | 'modelId' | 'modelName' | 'clientIp';
+type AuditTextFilterKey =
+  | 'requestId'
+  | 'user'
+  | 'apiKeyName'
+  | 'modelId'
+  | 'modelName'
+  | 'clientIp';
 type AuditMultiFilterKey = 'modelType' | 'category' | 'status';
 
 const defaultFilters: AuditFilters = {
+  requestId: '',
   user: '',
   apiKeyName: '',
   modelId: '',
@@ -97,6 +122,7 @@ const defaultFilters: AuditFilters = {
 };
 
 const defaultTextFilters = {
+  requestId: '',
   user: '',
   apiKeyName: '',
   modelId: '',
@@ -104,7 +130,16 @@ const defaultTextFilters = {
   clientIp: '',
 };
 
+const defaultFilterOptions: Required<AuditFilterOptionsResponse> = {
+  user: [],
+  api_key_name: [],
+  model_id: [],
+  model_name: [],
+  client_ip: [],
+};
+
 const filterParamMap: Record<AuditFilterKey, string> = {
+  requestId: 'request_id',
   user: 'user',
   apiKeyName: 'api_key_name',
   modelId: 'model_id',
@@ -134,7 +169,7 @@ const statusValues = [
   'user_disabled',
   'no_credentials',
 ];
-const modelTypeValues = ['LLM', 'embedding', 'rerank', 'image', 'video', 'audio'];
+const modelTypeValues = ['LLM', 'embedding', 'rerank', 'image', 'video', 'world', 'audio'];
 
 const toDash = (value: unknown) => {
   if (value === undefined || value === null || value === '') return '-';
@@ -199,13 +234,53 @@ export default function AuditCenter() {
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
   const [filters, setFilters] = useState<AuditFilters>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState(defaultTextFilters);
+  const [deepLinkInitialized, setDeepLinkInitialized] = useState(false);
+  const [filterOptions, setFilterOptions] =
+    useState<Required<AuditFilterOptionsResponse>>(defaultFilterOptions);
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
+  const [correlatedRequest, setCorrelatedRequest] = useState<{
+    requestId: string;
+    anchorTimestamp?: string;
+  } | null>(null);
+  const [requestIdCopied, setRequestIdCopied] = useState(false);
+  const requestIdCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deepLinkInitializedRef = useRef(false);
   const requestSeqRef = useRef(0);
+  const lastSuccessfulRequestRef = useRef<{
+    queryKey: string;
+    pageFrom: number;
+  } | null>(null);
   // Tracks whether the latest fetch is still pending so the auto-refresh
   // interval can skip a tick instead of stacking overlapping requests.
   const inFlightRef = useRef(false);
   const [refreshInterval, setRefreshInterval] = useState(0);
+  const [jumpPage, setJumpPage] = useState('1');
+
+  useEffect(() => {
+    if (deepLinkInitializedRef.current) return;
+    deepLinkInitializedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('request_id')?.trim() || '';
+    const timeFrom = params.get('time_from') || '';
+    const timeTo = params.get('time_to') || '';
+
+    if (requestId) {
+      setDraftFilters((current) => ({ ...current, requestId }));
+      setFilters((current) => ({ ...current, requestId }));
+    }
+    if (timeFrom && timeTo) {
+      setTimeRange({ from: timeFrom, to: timeTo });
+    }
+    setDeepLinkInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (requestIdCopyTimerRef.current) clearTimeout(requestIdCopyTimerRef.current);
+    };
+  }, []);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -225,45 +300,59 @@ export default function AuditCenter() {
     return params;
   }, [filters, pageFrom, timeRange]);
 
-  const fetchAuditRecords = useCallback(async (silent = false) => {
-    const seq = ++requestSeqRef.current;
-    inFlightRef.current = true;
-    // Background refreshes stay silent so the table does not flip to the
-    // loading spinner every interval; only user-initiated fetches show it.
-    if (!silent) {
-      setLoading(true);
-    }
-    try {
-      const data = await request.get<AuditSearchResponse>(
-        '/v1/audit/search?' + queryParams.toString()
-      );
+  const fetchAuditRecords = useCallback(
+    async (silent = false) => {
+      const seq = ++requestSeqRef.current;
+      const queryKeyParams = new URLSearchParams(queryParams);
+      queryKeyParams.delete('page_from');
+      queryKeyParams.delete('size');
+      const queryKey = queryKeyParams.toString();
+      inFlightRef.current = true;
+      // Background refreshes stay silent so the table does not flip to the
+      // loading spinner every interval; only user-initiated fetches show it.
+      if (!silent) {
+        setLoading(true);
+      }
+      try {
+        const data = await request.get<AuditSearchResponse>(
+          '/v1/audit/search?' + queryParams.toString()
+        );
 
-      if (seq === requestSeqRef.current) {
-        setRecords(Array.isArray(data.hits) ? data.hits : []);
-        setTotal(data.total || 0);
+        if (seq === requestSeqRef.current) {
+          setRecords(Array.isArray(data.hits) ? data.hits : []);
+          setTotal(data.total || 0);
+          lastSuccessfulRequestRef.current = { queryKey, pageFrom };
+        }
+      } catch {
+        // A transient failure during a silent background refresh must not wipe
+        // the table. A failed foreground page jump also keeps the last good
+        // results and restores the page that produced them.
+        if (!silent && seq === requestSeqRef.current) {
+          const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
+          if (lastSuccessfulRequest?.queryKey === queryKey) {
+            setPageFrom(lastSuccessfulRequest.pageFrom);
+          } else {
+            setRecords([]);
+            setTotal(0);
+            setPageFrom(0);
+          }
+        }
+      } finally {
+        if (seq === requestSeqRef.current) {
+          inFlightRef.current = false;
+          setLoading(false);
+        }
       }
-    } catch {
-      // A transient failure during a silent background refresh must not wipe
-      // the table — keep the last good results. Foreground (user-initiated)
-      // fetches keep the original clear-on-error behavior.
-      if (!silent && seq === requestSeqRef.current) {
-        setRecords([]);
-        setTotal(0);
-      }
-    } finally {
-      if (seq === requestSeqRef.current) {
-        inFlightRef.current = false;
-        setLoading(false);
-      }
-    }
-  }, [queryParams]);
+    },
+    [pageFrom, queryParams]
+  );
 
   useEffect(() => {
-    fetchAuditRecords();
-  }, [fetchAuditRecords]);
+    if (deepLinkInitialized) fetchAuditRecords();
+  }, [deepLinkInitialized, fetchAuditRecords]);
 
   useEffect(() => {
-    if (refreshInterval > 0) {
+    if (deepLinkInitialized && refreshInterval > 0) {
       const timer = setInterval(() => {
         // Skip a tick while a request is in flight so a slow/hung query does
         // not stack overlapping requests or make every response stale.
@@ -273,7 +362,7 @@ export default function AuditCenter() {
       }, refreshInterval);
       return () => clearInterval(timer);
     }
-  }, [fetchAuditRecords, refreshInterval]);
+  }, [deepLinkInitialized, fetchAuditRecords, refreshInterval]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -291,6 +380,40 @@ export default function AuditCenter() {
 
     return () => clearTimeout(timer);
   }, [draftFilters]);
+
+  useEffect(() => {
+    if (!deepLinkInitialized) return;
+
+    let active = true;
+    const params = new URLSearchParams({
+      time_from: timeRange.from,
+      time_to: timeRange.to,
+    });
+
+    request
+      .get<AuditFilterOptionsResponse>('/v1/audit/filter-options?' + params.toString())
+      .then((data) => {
+        if (!active) return;
+        if (!data) {
+          setFilterOptions(defaultFilterOptions);
+          return;
+        }
+        setFilterOptions({
+          user: data.user || [],
+          api_key_name: data.api_key_name || [],
+          model_id: data.model_id || [],
+          model_name: data.model_name || [],
+          client_ip: data.client_ip || [],
+        });
+      })
+      .catch(() => {
+        if (active) setFilterOptions(defaultFilterOptions);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [deepLinkInitialized, timeRange]);
 
   const stats = useMemo(() => {
     const successCount = records.filter((record) => record.status === 'success').length;
@@ -331,8 +454,8 @@ export default function AuditCenter() {
     ];
   }, [records, t, total]);
 
-  const setTextFilter = (key: AuditTextFilterKey, value: string) => {
-    setDraftFilters((current) => ({ ...current, [key]: value }));
+  const setTextFilter = (key: AuditTextFilterKey, value?: string) => {
+    setDraftFilters((current) => ({ ...current, [key]: value || '' }));
   };
 
   const setFilter = (key: Exclude<AuditFilterKey, AuditTextFilterKey>, value?: string | number) => {
@@ -349,6 +472,26 @@ export default function AuditCenter() {
     setDraftFilters(defaultTextFilters);
     setFilters(defaultFilters);
     setPageFrom(0);
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('time_from') || url.searchParams.has('time_to')) {
+      setTimeRange(DEFAULT_LOG_TIME_RANGE);
+    }
+    url.searchParams.delete('request_id');
+    url.searchParams.delete('time_from');
+    url.searchParams.delete('time_to');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  };
+
+  const selectedRequestId =
+    typeof selectedRecord?.request_id === 'string' ? selectedRecord.request_id.trim() : '';
+
+  const copySelectedRequestId = () => {
+    if (!selectedRequestId) return;
+    copyToClipboard(selectedRequestId);
+    setRequestIdCopied(true);
+    if (requestIdCopyTimerRef.current) clearTimeout(requestIdCopyTimerRef.current);
+    requestIdCopyTimerRef.current = setTimeout(() => setRequestIdCopied(false), 1500);
   };
 
   const getOptionLabel = (prefix: string, value: string | undefined, knownValues: string[]) => {
@@ -360,9 +503,26 @@ export default function AuditCenter() {
     Array.isArray(value) ? value.length > 0 : Boolean(value)
   );
   const hasDraftFilters = Object.values(draftFilters).some(Boolean);
-  const maxAccessibleTotal = Math.min(total, 10000);
   const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
-  const totalPages = Math.ceil(maxAccessibleTotal / AUDIT_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(total / AUDIT_PAGE_SIZE) || 1;
+  const lastPageFrom = (totalPages - 1) * AUDIT_PAGE_SIZE;
+
+  useEffect(() => {
+    setJumpPage(String(currentPage));
+  }, [currentPage]);
+
+  const goToPage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const page = Number(jumpPage);
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) {
+      setJumpPage(String(currentPage));
+      return;
+    }
+
+    setPageFrom((page - 1) * AUDIT_PAGE_SIZE);
+    setJumpPage(String(page));
+  };
 
   return (
     <PageContainer
@@ -372,6 +532,7 @@ export default function AuditCenter() {
         <div className="flex items-center gap-2">
           <TimeRangePicker
             value={timeRange}
+            ranges={AUDIT_TIME_RANGES}
             onChange={(value) => {
               setTimeRange(value);
               setPageFrom(0);
@@ -444,33 +605,47 @@ export default function AuditCenter() {
             </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <FilterInput
+            <div className="space-y-2">
+              <Label htmlFor="audit-request-id">{t('auditCenter.requestId')}</Label>
+              <Input
+                id="audit-request-id"
+                value={draftFilters.requestId}
+                placeholder={t('auditCenter.requestIdPlaceholder')}
+                onChange={(event) => setTextFilter('requestId', event.target.value)}
+              />
+            </div>
+            <FilterTextSelect
               label={t('auditCenter.user')}
               value={draftFilters.user}
+              values={filterOptions.user}
               placeholder={t('auditCenter.userPlaceholder')}
               onChange={(value) => setTextFilter('user', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.apiKeyName')}
               value={draftFilters.apiKeyName}
+              values={filterOptions.api_key_name}
               placeholder={t('auditCenter.apiKeyNamePlaceholder')}
               onChange={(value) => setTextFilter('apiKeyName', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.modelId')}
               value={draftFilters.modelId}
+              values={filterOptions.model_id}
               placeholder={t('auditCenter.modelIdPlaceholder')}
               onChange={(value) => setTextFilter('modelId', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.modelName')}
               value={draftFilters.modelName}
+              values={filterOptions.model_name}
               placeholder={t('auditCenter.modelNamePlaceholder')}
               onChange={(value) => setTextFilter('modelName', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.clientIp')}
               value={draftFilters.clientIp}
+              values={filterOptions.client_ip}
               placeholder={t('auditCenter.clientIpPlaceholder')}
               onChange={(value) => setTextFilter('clientIp', value)}
             />
@@ -620,24 +795,69 @@ export default function AuditCenter() {
           <span className="text-sm text-muted-foreground">
             {t('auditCenter.totalHits', { count: total })}
           </span>
+          <form className="flex items-center gap-2 text-sm" noValidate onSubmit={goToPage}>
+            <Label className="sr-only" htmlFor="audit-jump-page">
+              {t('auditCenter.pageNumber')}
+            </Label>
+            <span>{t('auditCenter.pagePrefix')}</span>
+            <Input
+              id="audit-jump-page"
+              className="h-8 w-16 text-center tabular-nums"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={totalPages}
+              step={1}
+              value={jumpPage}
+              aria-label={t('auditCenter.jumpToPage')}
+              disabled={total === 0}
+              onChange={(event) => setJumpPage(event.target.value)}
+            />
+            <span>{t('auditCenter.pageOf', { count: totalPages })}</span>
+          </form>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.firstPage')}
+            title={t('auditCenter.firstPage')}
+            disabled={pageFrom === 0}
+            onClick={() => setPageFrom(0)}
+          >
+            <ChevronsLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.prevPage')}
+            title={t('auditCenter.prevPage')}
             disabled={pageFrom === 0}
             onClick={() => setPageFrom(Math.max(0, pageFrom - AUDIT_PAGE_SIZE))}
           >
-            {t('auditCenter.prevPage')}
+            <ChevronLeft />
           </Button>
-          <span className="text-sm">
-            {currentPage} / {totalPages}
-          </span>
           <Button
             variant="outline"
-            size="sm"
-            disabled={pageFrom + AUDIT_PAGE_SIZE >= maxAccessibleTotal}
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.nextPage')}
+            title={t('auditCenter.nextPage')}
+            disabled={pageFrom + AUDIT_PAGE_SIZE >= total}
             onClick={() => setPageFrom(pageFrom + AUDIT_PAGE_SIZE)}
           >
-            {t('auditCenter.nextPage')}
+            <ChevronRight />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.lastPage')}
+            title={t('auditCenter.lastPage')}
+            disabled={pageFrom === lastPageFrom}
+            onClick={() => setPageFrom(lastPageFrom)}
+          >
+            <ChevronsRight />
           </Button>
         </div>
       </div>
@@ -656,6 +876,11 @@ export default function AuditCenter() {
                 <DetailItem
                   label={t('auditCenter.time')}
                   value={formatAuditTime(selectedRecord['@timestamp'])}
+                />
+                <DetailItem
+                  label={t('auditCenter.requestId')}
+                  value={toDash(selectedRecord.request_id)}
+                  wide
                 />
                 <DetailItem label={t('auditCenter.user')} value={toDash(selectedRecord.user)} />
                 <DetailItem
@@ -685,6 +910,33 @@ export default function AuditCenter() {
                   wide
                 />
               </div>
+              {selectedRequestId && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={copySelectedRequestId}>
+                    {requestIdCopied ? (
+                      <Check className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Copy className="mr-2 h-4 w-4" />
+                    )}
+                    {requestIdCopied
+                      ? t('auditCenter.requestIdCopied')
+                      : t('auditCenter.copyRequestId')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCorrelatedRequest({
+                        requestId: selectedRequestId,
+                        anchorTimestamp: selectedRecord['@timestamp'],
+                      })
+                    }
+                  >
+                    <GitBranch className="mr-2 h-4 w-4" />
+                    {t('auditCenter.viewCorrelated')}
+                  </Button>
+                </div>
+              )}
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-medium">{t('auditCenter.rawJson')}</div>
@@ -703,25 +955,34 @@ export default function AuditCenter() {
           )}
         </DialogContent>
       </Dialog>
+      <CorrelatedDialog
+        requestId={correlatedRequest?.requestId || ''}
+        anchorTimestamp={correlatedRequest?.anchorTimestamp}
+        open={correlatedRequest !== null}
+        onOpenChange={(open) => !open && setCorrelatedRequest(null)}
+      />
     </PageContainer>
   );
 }
 
-interface FilterInputProps {
+interface FilterTextSelectProps {
   label: string;
   value: string;
+  values: string[];
   placeholder: string;
-  onChange: (value: string) => void;
+  onChange: (value?: string) => void;
 }
 
-function FilterInput({ label, value, placeholder, onChange }: FilterInputProps) {
+function FilterTextSelect({ label, value, values, placeholder, onChange }: FilterTextSelectProps) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input
+      <AutoComplete
         value={value}
         placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
+        allowCustomValue
+        onChange={(nextValue) => onChange(nextValue)}
+        options={values.map((item) => ({ value: item, label: item }))}
       />
     </div>
   );

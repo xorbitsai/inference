@@ -30,8 +30,9 @@ services:
       - "${XINFERENCE_PORT:-9997}:9997"
     command: xinference-local -H 0.0.0.0 --port 9997 --log-level ${XINFERENCE_LOG_LEVEL:-info}
     environment:
-      # Model download source: huggingface (default) or modelscope.
-      XINFERENCE_MODEL_SRC: ${XINFERENCE_MODEL_SRC:-huggingface}
+      # Model download source: auto (default, probes Hugging Face reachability
+      # and falls back to modelscope), huggingface, or modelscope.
+      XINFERENCE_MODEL_SRC: ${XINFERENCE_MODEL_SRC:-auto}
     env_file:
       # Only present in offline deployments (cp offline.env.example offline.env).
       # Silently skipped when the file does not exist.

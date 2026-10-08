@@ -1,269 +1,188 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ArrowDown, Database, Radio, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import PageContainer from '@/components/ui/page-container';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DEFAULT_LOG_TIME_RANGE, LOG_PAGE_SIZE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
+import { Select } from '@/components/ui/select';
+import { DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
-import request from '@/lib/request';
+import { cn } from '@/lib/utils';
 
-import { FilterChipBar } from './filter-chip-bar';
-import { LogPagination } from './pagination';
-import { LogTable } from './log-table';
-import { LogToolbar } from './log-toolbar';
+import ElasticLogs from './elastic-logs';
+import RuntimeLogs from './runtime-logs';
+import { TimeRangePicker } from './time-range-picker';
 import type {
-  FieldFilter,
-  FieldFilterOp,
-  LogNodesResponse,
-  LogsResponse,
+  HistoricalLogHandoff,
+  LogCenterMode,
+  RuntimeNodeHandoff,
   TimeRangeValue,
 } from './types';
-import { buildLogQueryParams } from './utils';
-import { TimeRangePicker } from './time-range-picker';
 
-const LogCenter = () => {
+const DEFAULT_RUNTIME_MAX_LINES = 100;
+const MAX_RUNTIME_DISPLAY_LINES = 10000;
+
+export default function LogCenter() {
   const { t } = useI18n();
   const { clusterUIConfig, globalReady } = useGlobal();
-  const esEnabled = Boolean(clusterUIConfig?.es_enabled);
-  const [logs, setLogs] = useState<LogsResponse['hits']>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
-  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
-  const [selectedLogType, setSelectedLogType] = useState('');
-  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
-  const [nodes, setNodes] = useState<string[]>([]);
-  const [nodeField, setNodeField] = useState('node');
-  const [pageFrom, setPageFrom] = useState(0);
-  const [fieldFilters, setFieldFilters] = useState<FieldFilter[]>([]);
-  const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
-  const [refreshInterval, setRefreshInterval] = useState(0);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (!esEnabled) return;
-
-    const fetchNodes = async () => {
-      try {
-        const data = await request.get<LogNodesResponse>('/v1/cluster/logs/nodes');
-
-        setNodes(Array.isArray(data.nodes) ? data.nodes : []);
-        setNodeField(data.node_field || 'node');
-      } catch {
-        setNodes([]);
-        setNodeField('node');
-      }
-    };
-
-    fetchNodes();
-  }, [esEnabled]);
-
-  const fetchLogs = useCallback(async () => {
-    if (!esEnabled) return;
-
-    setLoading(true);
-
-    try {
-      const params = buildLogQueryParams({
-        appliedSearch,
-        selectedLevels,
-        selectedLogType,
-        selectedNode: selectedNodes.join(','),
-        nodeField,
-        timeRange,
-        pageFrom,
-        fieldFilters,
-        size: LOG_PAGE_SIZE,
-      });
-      const data = await request.get<LogsResponse>(`/v1/cluster/logs?${params.toString()}`);
-
-      setLogs(data.hits || []);
-      setTotal(data.total || 0);
-    } catch {
-      setLogs([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    appliedSearch,
-    esEnabled,
-    fieldFilters,
-    nodeField,
-    pageFrom,
-    selectedLevels,
-    selectedLogType,
-    selectedNodes,
-    timeRange,
-  ]);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [fetchLogs]);
-
-  useEffect(() => {
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-
-    if (refreshInterval > 0) {
-      refreshTimerRef.current = setInterval(() => fetchLogs(), refreshInterval);
-    }
-
-    return () => {
-      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
-    };
-  }, [fetchLogs, refreshInterval]);
-
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, []);
-
-  const commitSearch = useCallback(
-    (value = searchText) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      setAppliedSearch(value);
-      setPageFrom(0);
-    },
-    [searchText]
+  const [mode, setMode] = useState<LogCenterMode>('runtime');
+  const [historicalHandoff, setHistoricalHandoff] = useState<HistoricalLogHandoff>();
+  const [runtimeHandoff, setRuntimeHandoff] = useState<RuntimeNodeHandoff>();
+  const [runtimeMaxLinesInput, setRuntimeMaxLinesInput] = useState(
+    String(DEFAULT_RUNTIME_MAX_LINES)
   );
+  const [runtimeFollowTail, setRuntimeFollowTail] = useState(true);
+  const [historicalTimeRange, setHistoricalTimeRange] =
+    useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
+  const [historicalRefreshInterval, setHistoricalRefreshInterval] = useState(0);
 
-  const handleSearchTextChange = (value: string) => {
-    setSearchText(value);
+  if (!globalReady) return <PageContainer loading />;
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => commitSearch(value), 500);
+  const indexedEnabled = Boolean(clusterUIConfig?.es_enabled);
+
+  const openHistoricalLogs = (request: Omit<HistoricalLogHandoff, 'token'>) => {
+    setHistoricalHandoff({ ...request, token: Date.now() });
+    setMode('historical');
   };
 
-  const toggleLevel = (level: string) => {
-    setSelectedLevels((current) =>
-      current.includes(level) ? current.filter((item) => item !== level) : [...current, level]
-    );
-    setPageFrom(0);
+  const openRuntimeLogs = (nodeName: string) => {
+    setRuntimeHandoff({ nodeName, token: Date.now() });
+    setMode('runtime');
   };
 
-  const handleFieldFilter = useCallback((key: string, value: unknown, op: FieldFilterOp) => {
-    const valueString = String(value);
-
-    setFieldFilters((current) => {
-      const exists = current.find(
-        (filter) => filter.key === key && filter.value === valueString && filter.op === op
-      );
-
-      if (exists) return current.filter((filter) => filter !== exists);
-      return [...current, { key, value: valueString, op }];
-    });
-    setPageFrom(0);
-  }, []);
-
-  if (!globalReady) {
-    return <PageContainer loading />;
-  }
-  if (!esEnabled) {
-    return (
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center text-center font-medium text-muted-foreground">
-        {t('logCenter.notConfigured')}
-      </div>
-    );
-  }
+  const normalizeRuntimeMaxLines = () => {
+    const parsed = Number(runtimeMaxLinesInput);
+    const normalized =
+      Number.isSafeInteger(parsed) && parsed > 0
+        ? Math.min(parsed, MAX_RUNTIME_DISPLAY_LINES)
+        : DEFAULT_RUNTIME_MAX_LINES;
+    setRuntimeMaxLinesInput(String(normalized));
+  };
 
   return (
     <PageContainer
       title={t('menu.logCenter')}
+      subTitle={t('logCenter.workspaceDescription')}
       className="h-full gap-4"
-      extraContent={
-        <div className="flex gap-2">
-          <TimeRangePicker
-            value={timeRange}
-            onChange={(value) => {
-              setTimeRange(value);
-              setPageFrom(0);
-            }}
-          />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label={t('logCenter.refresh')}
-                  onClick={fetchLogs}
-                >
-                  <RefreshCw className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t('logCenter.refresh')}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <Select
-            value={refreshInterval}
-            onChange={(value) => setRefreshInterval(Number(value || 0))}
-            options={LOG_REFRESH_OPTIONS.map((option) => ({
-              value: option.value,
-              label: t(option.labelKey),
-              prefix: <RefreshCw className="size-4" />,
-            }))}
-            allowClear={false}
-            className="w-32"
-          />
-        </div>
-      }
     >
-      <div className="flex h-[calc(100vh-8rem)] min-h-[34rem] flex-col overflow-hidden rounded-md border bg-background">
-        <LogToolbar
-          nodes={nodes}
-          selectedNodes={selectedNodes}
-          onSelectedNodesChange={(values) => {
-            setSelectedNodes(values);
-            setPageFrom(0);
-          }}
-          searchText={searchText}
-          onSearchTextChange={handleSearchTextChange}
-          onSearchCommit={() => commitSearch()}
-          selectedLevels={selectedLevels}
-          onToggleLevel={toggleLevel}
-          selectedLogType={selectedLogType}
-          onSelectedLogTypeChange={(value) => {
-            setSelectedLogType(value);
-            setPageFrom(0);
-          }}
+      <div className="mb-4 rounded-md border bg-background">
+        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
+          <span className="text-sm font-medium">{t('logCenter.dataMode')}</span>
+          <div className="flex gap-2">
+            <Button
+              aria-pressed={mode === 'runtime'}
+              variant={mode === 'runtime' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setMode('runtime')}
+            >
+              <Radio className="size-4" />
+              {t('logCenter.liveTracking')}
+            </Button>
+            <Button
+              aria-pressed={mode === 'historical'}
+              variant={mode === 'historical' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setMode('historical')}
+            >
+              <Database className="size-4" />
+              {t('logCenter.historicalSearch')}
+              {!indexedEnabled && <AlertTriangle className="size-3.5 text-amber-500" />}
+            </Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-foreground">{t('logCenter.dataSource')}:</span>
+            <span>
+              {mode === 'runtime'
+                ? t('logCenter.runtimeDataSource')
+                : t('logCenter.historicalDataSource')}
+            </span>
+            {mode === 'runtime' && (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                {t('logCenter.updateEveryTwoSeconds')}
+              </span>
+            )}
+          </div>
+
+          {mode === 'runtime' ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-foreground">
+                {t('logCenter.runtimeSettings')}
+              </span>
+              <label htmlFor="runtime-log-max-lines" className="text-sm">
+                {t('logCenter.maxLines')}
+              </label>
+              <Input
+                id="runtime-log-max-lines"
+                type="number"
+                min={1}
+                max={MAX_RUNTIME_DISPLAY_LINES}
+                step={1}
+                className="h-8 w-24"
+                value={runtimeMaxLinesInput}
+                onChange={(event) => setRuntimeMaxLinesInput(event.target.value)}
+                onBlur={normalizeRuntimeMaxLines}
+              />
+              <Button
+                variant={runtimeFollowTail ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setRuntimeFollowTail((value) => !value)}
+              >
+                <ArrowDown className="size-4" />
+                {t('logCenter.autoFollow')}
+              </Button>
+            </div>
+          ) : (
+            indexedEnabled && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-foreground">
+                  {t('logCenter.historicalSettings')}
+                </span>
+                <TimeRangePicker value={historicalTimeRange} onChange={setHistoricalTimeRange} />
+                <Select
+                  value={historicalRefreshInterval}
+                  onChange={(value) => setHistoricalRefreshInterval(Number(value || 0))}
+                  options={LOG_REFRESH_OPTIONS.map((option) => ({
+                    value: option.value,
+                    label: t(option.labelKey),
+                    prefix: <RefreshCw className="size-4" />,
+                  }))}
+                  allowClear={false}
+                  className="w-36"
+                />
+              </div>
+            )
+          )}
+        </div>
+      </div>
+
+      <div className={cn(mode !== 'runtime' && 'hidden')} aria-hidden={mode !== 'runtime'}>
+        <RuntimeLogs
+          active={mode === 'runtime'}
+          historicalSearchEnabled={indexedEnabled}
+          targetNodeRequest={runtimeHandoff}
+          maxLinesInput={runtimeMaxLinesInput}
+          followTail={runtimeFollowTail}
+          onFollowTailChange={setRuntimeFollowTail}
+          onViewHistorical={openHistoricalLogs}
         />
-        <FilterChipBar
-          filters={fieldFilters}
-          clearLabel={t('logCenter.clearFilters')}
-          onRemove={(index) => {
-            setFieldFilters((current) => current.filter((_, filterIndex) => filterIndex !== index));
-            setPageFrom(0);
-          }}
-          onClear={() => {
-            setFieldFilters([]);
-            setPageFrom(0);
-          }}
+      </div>
+      <div className={cn(mode !== 'historical' && 'hidden')} aria-hidden={mode !== 'historical'}>
+        <ElasticLogs
+          active={mode === 'historical'}
+          enabled={indexedEnabled}
+          handoff={historicalHandoff}
+          timeRange={historicalTimeRange}
+          onTimeRangeChange={setHistoricalTimeRange}
+          refreshInterval={historicalRefreshInterval}
+          onRefreshIntervalChange={setHistoricalRefreshInterval}
+          onViewRuntimeNode={openRuntimeLogs}
         />
-        <LogTable
-          logs={logs || []}
-          loading={loading}
-          fieldFilters={fieldFilters}
-          appliedSearch={appliedSearch}
-          selectedLevels={selectedLevels}
-          selectedLogType={selectedLogType}
-          nodeField={nodeField}
-          onFieldFilter={handleFieldFilter}
-        />
-        <LogPagination total={total} pageFrom={pageFrom} onPageFromChange={setPageFrom} />
       </div>
     </PageContainer>
   );
-};
-
-export default LogCenter;
+}

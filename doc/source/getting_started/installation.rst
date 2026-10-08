@@ -9,6 +9,29 @@ If you aim to serve all supported models, you can install all the necessary depe
 
    pip install "xinference[all]"
 
+Token Router
+~~~~~~~~~~~~
+The Token Router Runtime and Router Agent can be installed separately from
+the model-serving backends::
+
+   pip install "xinference[router]"
+
+When installing Xinference from a source checkout, use::
+
+   uv pip install -e ".[router]"
+
+The ``router`` extra provides the dependencies required by the Token Router
+Runtime and Router Agent. The ``all`` extra includes the ``router`` extra.
+
+The Supervisor can use the base installation::
+
+   pip install xinference
+
+Installing the package creates the ``xinference-router`` and
+``xinference-router-agent`` commands. The extra controls dependency
+installation; it does not start any Supervisor, Worker, Router, or Router
+Agent process.
+
 .. versionchanged:: v1.8.1
 
    Due to irreconcilable package dependency conflicts between vLLM and sglang, we have removed sglang from the all extra. If you want to use sglang, please install it separately via ``pip install 'xinference[sglang]'``.
@@ -117,7 +140,7 @@ Currently, supported models include:
 
 .. vllm_start
 
-- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
 - ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
 - ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``
 - ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
@@ -128,6 +151,7 @@ Currently, supported models include:
 - ``cogagent``
 - ``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``
 - ``codegeex4``, ``glm-4v``
+- ``qwen3.8-max``
 - ``seallm_v2.5``
 - ``orion-chat``
 - ``qwen1.5-moe-chat``, ``qwen2-moe-instruct``
@@ -149,8 +173,11 @@ Currently, supported models include:
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
 - ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
 - ``GLM-4.7-Flash``
-- ``glm-5``, ``glm-5.1``
-- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``
+- ``glm-5``, ``glm-5.1``, ``glm-5.2``
+- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Flash-0731``, ``DeepSeek-V4-Pro``
+- ``Hy-MT2-1.8B``, ``Hy-MT2-7B``
+- ``Hy-MT2-30B-A3B``
+
 .. vllm_end
 
 To install Xinference and vLLM::

@@ -23,6 +23,7 @@ import types
 import uuid
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Callable,
     Dict,
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
     from .progress_tracker import ProgressTrackerActor
     from .worker import WorkerActor
     from ..model.llm.core import LLM
+    from ..model.llm.weight_cache import WeightCachedModel
     import PIL
 
 import logging
@@ -54,6 +56,7 @@ logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
 from .exceptions import ModelNotReadyError
+from .rpc_context import rpc_context
 from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
 
 try:
@@ -69,7 +72,6 @@ except ImportError:
 # !!!!! DO NOT add model_name to this list, using `register_batching_multimodal_models` below instead.
 XINFERENCE_BATCHING_ALLOWED_VISION_MODELS = []
 
-XINFERENCE_TEXT_TO_IMAGE_BATCHING_ALLOWED_MODELS = ["FLUX.1-dev", "FLUX.1-schnell"]
 XINFERENCE_TEST_OUT_OF_MEMORY_ERROR = bool(
     os.getenv("XINFERENCE_TEST_OUT_OF_MEMORY_ERROR", False)
 )
@@ -93,6 +95,8 @@ def request_limit(fn):
     """
 
     async def wrapped_func(self, *args, **kwargs):
+        if getattr(self, "_model_state", None) == "reloading":
+            raise ModelNotReadyError("Model is reloading")
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
@@ -112,60 +116,66 @@ def request_limit(fn):
             raise RuntimeError(
                 f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
             )
-        await self.record_metrics(
-            "model_serve_count",
-            "set",
-            {"labels": self._metrics_labels, "value": self._serve_count},
-        )
         start_time = time.time()
         ret = None
         _error = False
+        released = False
+        stream_transferred = False
         try:
-            ret = await fn(self, *args, **kwargs)
-        except Exception:
-            _error = True
-            raise
-        finally:
-            duration = time.time() - start_time
-            _is_stream = ret is not None and (
-                inspect.isasyncgen(ret)
-                or inspect.isgenerator(ret)
-                or isinstance(ret, IteratorWrapper)
-            )
-            stream_label = "true" if _is_stream else "false"
-            await self.record_metrics(
-                "model_request_total",
-                "add",
-                {
-                    "labels": {**self._metrics_labels, "stream": stream_label},
-                    "value": 1,
-                },
-            )
-            if _is_stream:
-                # stream case, let client call model_ref to decrease self._serve_count
-                pass
-            else:
-                self._serve_count = max(0, self._serve_count - 1)
+            try:
                 await self.record_metrics(
                     "model_serve_count",
                     "set",
                     {"labels": self._metrics_labels, "value": self._serve_count},
                 )
-                logger.debug(
-                    f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+                ret = await fn(self, *args, **kwargs)
+            except Exception:
+                _error = True
+                raise
+            finally:
+                duration = time.time() - start_time
+                _is_stream = ret is not None and (
+                    inspect.isasyncgen(ret)
+                    or inspect.isgenerator(ret)
+                    or isinstance(ret, IteratorWrapper)
                 )
-            await self.record_metrics(
-                "model_request_duration_seconds",
-                "observe",
-                {"labels": self._metrics_labels, "value": duration},
-            )
-            if _error:
+                if not _is_stream:
+                    self._serve_count = max(0, self._serve_count - 1)
+                    released = True
+                stream_label = "true" if _is_stream else "false"
                 await self.record_metrics(
-                    "model_request_errors_total",
+                    "model_request_total",
                     "add",
-                    {"labels": self._metrics_labels, "value": 1},
+                    {
+                        "labels": {**self._metrics_labels, "stream": stream_label},
+                        "value": 1,
+                    },
                 )
-        return ret
+                if not _is_stream:
+                    await self.record_metrics(
+                        "model_serve_count",
+                        "set",
+                        {"labels": self._metrics_labels, "value": self._serve_count},
+                    )
+                    logger.debug(
+                        f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+                    )
+                await self.record_metrics(
+                    "model_request_duration_seconds",
+                    "observe",
+                    {"labels": self._metrics_labels, "value": duration},
+                )
+                if _error:
+                    await self.record_metrics(
+                        "model_request_errors_total",
+                        "add",
+                        {"labels": self._metrics_labels, "value": 1},
+                    )
+            stream_transferred = _is_stream
+            return ret
+        finally:
+            if not released and not stream_transferred:
+                self._serve_count = max(0, self._serve_count - 1)
 
     return wrapped_func
 
@@ -210,6 +220,8 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
         from ..model.rerank.core import RerankModel
+
+        await ModelActor._close_gpu_caches(self)
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
@@ -289,10 +301,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._progress_tracker_ref = None
         self._serve_count = 0
         model_type = self._model_description.get("model_type", "unknown")
-        if model_type in ("audio", "video"):
-            engine_label = ""
+        if model_type == "video":
+            engine_label = model_engine or ""
             format_label = ""
-        elif model_type == "image":
+        elif model_type in ("audio", "image", "world"):
             engine_label = model_engine or ""
             format_label = ""
         else:
@@ -349,7 +361,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def _require_ready(self):
         """Guard for all inference methods: reject if not in ready state."""
         if self._model_state != "ready":
-            if self._model_state in ("registering", "loading"):
+            if self._model_state in ("registering", "loading", "reloading"):
                 raise ModelNotReadyError(
                     f"Model is {self._model_state}, not ready for inference"
                 )
@@ -361,6 +373,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
 
+    @rpc_context
     async def decrease_serve_count(self):
         self._serve_count = max(0, self._serve_count - 1)
         await self.record_metrics(
@@ -386,6 +399,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             store_address=self._xavier_config.get("store_address"),  # type: ignore
             store_port=self._xavier_config.get("store_port"),  # type: ignore
             world_addresses=rank_addresses,
+            freeze_initialization_gc=(
+                self._model._is_vllm_v1()
+                and self._xavier_config.get("gpu_cache_bytes") is None
+            ),
         )
         await self._model.init_xavier()
         logger.debug(
@@ -448,7 +465,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             )
         return self._progress_tracker_ref
 
-    async def _get_progressor(self, request_id: str):
+    async def _get_progressor(self, request_id: Optional[str]):
         from .progress_tracker import Progressor
 
         progressor = Progressor(
@@ -468,6 +485,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.sglang.core import SGLANGModel
 
         return isinstance(self._model, SGLANGModel)
+
+    def get_sglang_pd_bootstrap(self) -> dict:
+        from ..model.llm.sglang.core import SGLANGModel
+
+        if not isinstance(self._model, SGLANGModel):
+            raise ValueError("SGLang P/D bootstrap requires a SGLang replica")
+        return self._model.get_pd_bootstrap()
 
     async def load(self):
         self._model_state = "loading"
@@ -494,7 +518,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     and str(e).find("busy or unavailable") >= 0
                 ):
                     await asyncio.sleep(5)
-                    logger.warning("Retry to load model {model_uid}: %d times", i)
+                    logger.warning(
+                        "Retry to load model %s: %d times", self._replica_model_uid, i
+                    )
                     continue
                 raise
         logger.info(f"{self} loaded")
@@ -509,6 +535,60 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         if hasattr(self._model, "wait_for_load"):
             await asyncio.to_thread(self._model.wait_for_load)
         self._model_state = "ready"
+
+    def _get_weight_cached_model(self) -> "WeightCachedModel":
+        from ..model.llm.weight_cache import WeightCachedModel
+
+        if not isinstance(self._model, WeightCachedModel):
+            raise ValueError("Reload with retained weights requires vLLM or SGLang")
+        return self._model
+
+    def get_reload_config(self) -> Dict[str, Any]:
+        return self._get_weight_cached_model().get_reload_config()
+
+    async def validate_reload(self, model_config: Dict[str, Any]) -> None:
+        self._require_ready()
+        await asyncio.to_thread(
+            self._get_weight_cached_model().validate_reload, model_config
+        )
+        self._reload_status: Dict[str, Any] = {}
+
+    def get_reload_status(self) -> Dict[str, Any]:
+        return dict(getattr(self, "_reload_status", {}))
+
+    async def reload(self, model_config: Dict[str, Any], drain_timeout: float) -> None:
+        from ..model.llm.weight_cache import ModelReloadError
+
+        await self.validate_reload(model_config)
+        model = self._get_weight_cached_model()
+        self._model_state = "reloading"
+        self._reload_status = {"stage": "draining"}
+        try:
+            deadline = time.monotonic() + drain_timeout
+            while self._serve_count:
+                if time.monotonic() >= deadline:
+                    raise ModelReloadError(
+                        "Timed out draining requests; the original engine is still running",
+                        restored=True,
+                    )
+                await asyncio.sleep(0.05)
+            await asyncio.to_thread(
+                model.reload,
+                model_config,
+                lambda stage: self._reload_status.update(stage=stage),
+            )
+        except ModelReloadError as exc:
+            self._model_state = "ready" if exc.restored else "error"
+            self._reload_status.update(stage="error", restored=exc.restored)
+            raise
+        except Exception:
+            # Validation inside reload happens before engine teardown.
+            self._model_state = "ready"
+            self._reload_status.update(stage="error", restored=True)
+            raise
+        else:
+            self._model_state = "ready"
+            self._reload_status.update(stage="ready")
 
     def need_create_pools(self):
         return getattr(self._model, "need_create_pools", False)
@@ -543,8 +623,26 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # will hold driver information includes dist store etc.
         return self._driver_info
 
+    async def _close_gpu_caches(self):
+        config = getattr(self, "_xavier_config", None)
+        if config is None or config.get("gpu_cache_bytes") is None:
+            return
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+
+        if isinstance(self._model, LLMVLLMModel) and self._transfer_ref is not None:
+            # Release imported CUDA IPC handles while EngineCore still owns the
+            # allocations, after any in-flight transfer has completed.
+            try:
+                await self._transfer_ref.close_gpu_caches_v1()
+            except Exception:
+                logger.warning(
+                    "Failed to close Xavier GPU caches; continuing model cleanup",
+                    exc_info=True,
+                )
+
     async def stop(self):
         self._model_state = "stopping"
+        await ModelActor._close_gpu_caches(self)
         if hasattr(self._model, "stop"):
             await asyncio.to_thread(self._model.stop)
         elif hasattr(self._model, "close"):
@@ -748,12 +846,30 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     @oom_check
     async def _call_wrapper(self, output_type: str, fn: Callable, *args, **kwargs):
+        wait_for_sync_on_cancel = kwargs.pop("_wait_for_sync_on_cancel", False)
+
+        async def _invoke():
+            if inspect.iscoroutinefunction(fn):
+                return await fn(*args, **kwargs)
+            if not wait_for_sync_on_cancel:
+                return await asyncio.to_thread(fn, *args, **kwargs)
+
+            # World generation runs a synchronous subprocess adapter.  Keep the
+            # actor task (and therefore its request-limit slot) alive until the
+            # worker thread has observed cancellation and reaped that process.
+            thread_task = asyncio.create_task(asyncio.to_thread(fn, *args, **kwargs))
+            try:
+                return await asyncio.shield(thread_task)
+            except asyncio.CancelledError:
+                try:
+                    await asyncio.shield(thread_task)
+                except BaseException:
+                    pass
+                raise
+
         self._add_running_task(kwargs.get("request_id"))
         if self._lock is None:
-            if inspect.iscoroutinefunction(fn):
-                ret = await fn(*args, **kwargs)
-            else:
-                ret = await asyncio.to_thread(fn, *args, **kwargs)
+            ret = await _invoke()
 
             if inspect.isgenerator(ret):
                 gen = self._to_generator(output_type, ret)
@@ -763,10 +879,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 return gen
         else:
             async with self._lock:
-                if inspect.iscoroutinefunction(fn):
-                    ret = await fn(*args, **kwargs)
-                else:
-                    ret = await asyncio.to_thread(fn, *args, **kwargs)
+                ret = await _invoke()
 
                 stream_out: Union[queue.Queue, asyncio.Queue]
 
@@ -820,8 +933,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # Directly delegate to model, let model decide how to handle (batching or not)
         kwargs.pop("raw_params", None)
         if hasattr(self._model, "generate"):
-            # not support request_id for generate
-            kwargs.pop("request_id", None)
+            request_id = kwargs.pop("request_id", None)
+            if request_id is not None and getattr(
+                self._model, "_batch_scheduler", None
+            ):
+                # Batched Transformers models read request IDs from the generation
+                # config. Keep the actor-only keyword away from the model method,
+                # whose signature does not accept arbitrary keyword arguments.
+                generate_config = args[0] if args else kwargs.get("generate_config")
+                generate_config = dict(generate_config or {})
+                generate_config["request_id"] = str(request_id)
+                if args:
+                    args = (generate_config, *args[1:])
+                else:
+                    kwargs["generate_config"] = generate_config
             return await self._call_wrapper_json(
                 self._model.generate, prompt, *args, **kwargs
             )
@@ -879,15 +1004,17 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             elif isinstance(response, bytes):
                 record = json.loads(response)
             if record and isinstance(record, dict):
-                usage = record["usage"]
+                usage = record.get("usage")
                 # Some backends may not have a valid usage, we just skip them.
-                completion_tokens = usage["completion_tokens"]
-                prompt_tokens = usage["prompt_tokens"]
-                await self._record_completion_metrics(
-                    time.time() - start_time,
-                    completion_tokens,
-                    prompt_tokens,
-                )
+                if isinstance(usage, dict):
+                    completion_tokens = usage.get("completion_tokens")
+                    prompt_tokens = usage.get("prompt_tokens")
+                    if completion_tokens is not None and prompt_tokens is not None:
+                        await self._record_completion_metrics(
+                            time.time() - start_time,
+                            completion_tokens,
+                            prompt_tokens,
+                        )
                 await self.record_metrics(
                     "time_to_first_token_seconds",
                     "observe",
@@ -897,6 +1024,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     },
                 )
 
+    @log_async(logger=logger)
     async def abort_request(
         self,
         request_id: str,
@@ -905,13 +1033,24 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.scheduler.core import AbortRequestMessage
 
         # Always cancel the running task first
+        task = self._running_tasks.get(request_id)
+        cancelled = (
+            task is not None
+            and not task.done()
+            and task.get_name() != self._CANCEL_TASK_NAME
+        )
         self._cancel_running_task(request_id, block_duration)
 
         # If model has abort_request method, delegate to it
         if hasattr(self._model, "abort_request"):
             result = await self._model.abort_request(request_id)
-            if result is not None:
+            if result is not None and (
+                not cancelled or result != AbortRequestMessage.NO_OP.name
+            ):
                 return result
+
+        if cancelled:
+            return AbortRequestMessage.DONE.name
 
         # Otherwise return NO_OP for legacy models or when model doesn't handle abort
         return AbortRequestMessage.NO_OP.name
@@ -928,6 +1067,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
         raise AttributeError(
             f"Model {self._model.model_spec} is not for creating embedding."
+        )
+
+    @request_limit
+    @log_async(logger=logger, ignore_kwargs=["audio"])
+    async def create_audio_embedding(self, audio: bytes, *args, **kwargs):
+        self._require_ready()
+        kwargs.pop("request_id", None)
+        if hasattr(self._model, "create_embedding"):
+            return await self._call_wrapper_json(
+                self._model.create_embedding, audio, *args, **kwargs
+            )
+
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating audio embeddings."
         )
 
     @request_limit
@@ -1044,8 +1197,25 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "speech"):
+            from ..model.utils import resolve_media_seed
+
+            if "seed" in kwargs:
+                seed = resolve_media_seed(kwargs["seed"])
+                if seed is None:
+                    kwargs.pop("seed")
+                else:
+                    kwargs["seed"] = seed
+
+            speech = self._model.speech
+            parameters = inspect.signature(speech).parameters
+            accepts_kwargs = any(
+                parameter.kind == inspect.Parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            )
+            if "seed" not in parameters and not accepts_kwargs:
+                kwargs.pop("seed", None)
             return await self._call_wrapper_binary(
-                self._model.speech,
+                speech,
                 input,
                 voice,
                 response_format,
@@ -1095,8 +1265,15 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         if hasattr(self._model, "txt2img"):
+            kwargs.pop("_sdapi_lora_specs", None)
+            if "<lora:" in (kwargs.get("prompt") or ""):
+                worker = await self._get_worker_ref()
+                specs = await worker.list_model_registrations("image", detailed=True)
+                kwargs["_sdapi_lora_specs"] = [
+                    spec for spec in specs if spec.get("model_family") == "lora"
+                ]
             progressor = kwargs["progressor"] = await self._get_progressor(
-                kwargs.pop("request_id", None)
+                kwargs.get("request_id")
             )
             with progressor:
                 return await self._call_wrapper_json(
@@ -1150,8 +1327,15 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         if hasattr(self._model, "img2img"):
+            kwargs.pop("_sdapi_lora_specs", None)
+            if "<lora:" in (kwargs.get("prompt") or ""):
+                worker = await self._get_worker_ref()
+                specs = await worker.list_model_registrations("image", detailed=True)
+                kwargs["_sdapi_lora_specs"] = [
+                    spec for spec in specs if spec.get("model_family") == "lora"
+                ]
             progressor = kwargs["progressor"] = await self._get_progressor(
-                kwargs.pop("request_id", None)
+                kwargs.get("request_id")
             )
             with progressor:
                 return await self._call_wrapper_json(
@@ -1221,6 +1405,26 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         raise AttributeError(f"Model {self._model.model_spec} is not for ocr.")
 
     @request_limit
+    @log_async(logger=logger, ignore_kwargs=["file_bytes"])
+    async def docanalyze(
+        self,
+        file_bytes: bytes,
+        file_name: str,
+        *args,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "docanalyze"):
+            return await self._call_wrapper_json(
+                self._model.docanalyze,
+                file_bytes,
+                file_name,
+                *args,
+                **kwargs,
+            )
+        raise AttributeError(f"Model {self._model.model_spec} is not for docanalyze.")
+
+    @request_limit
     @log_async(logger=logger, ignore_kwargs=["image"])
     async def infer(
         self,
@@ -1266,7 +1470,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         )
 
     @request_limit
-    @log_async(logger=logger)
+    @log_async(logger=logger, ignore_kwargs=["video"])
     async def image_to_video(
         self,
         image: "PIL.Image",
@@ -1327,9 +1531,157 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating video from first-last-frame."
         )
 
+    @request_limit
+    @log_async(logger=logger, ignore_kwargs=["image", "video"])
+    async def world_generate(
+        self,
+        prompt: str,
+        image: Optional[str] = None,
+        video: Optional[str] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "world_generate"):
+            request_id = kwargs.get("request_id")
+            if request_id and hasattr(self._model, "register_request"):
+                self._model.register_request(request_id)
+            try:
+                progressor = kwargs["progressor"] = await self._get_progressor(
+                    request_id
+                )
+                with progressor:
+                    return await self._call_wrapper_json(
+                        self._model.world_generate,
+                        prompt,
+                        image,
+                        video,
+                        generation_config,
+                        model_kwargs,
+                        *args,
+                        _wait_for_sync_on_cancel=True,
+                        **kwargs,
+                    )
+            finally:
+                if request_id and hasattr(self._model, "unregister_request"):
+                    self._model.unregister_request(request_id)
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for world generation."
+        )
+
     async def record_metrics(self, name, op, kwargs):
         worker_ref = await self._get_worker_ref()
         await worker_ref.record_metrics(name, op, kwargs)
 
     async def get_pending_requests_count(self):
         return self._pending_requests.qsize()
+
+    @log_async(logger=logger)
+    async def free_model_cache(self, request_id: str):
+        """Free the seq kvcache reference count of the vLLM model."""
+        from ..model.llm.vllm.core import VLLMChatModel as LLMVLLMChatModel
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+
+        if isinstance(self._model, LLMVLLMModel) or isinstance(
+            self._model, LLMVLLMChatModel
+        ):
+            # self._model.free_seq_cache(request_id)
+            engine = self._model._engine
+            inner_engine = getattr(engine, "engine", None)
+            scheduler = getattr(engine, "scheduler", None) or getattr(
+                inner_engine, "scheduler", None
+            )
+            if scheduler:
+                scheduler[0].free_seq_cache(request_id)
+
+    @log_async(logger=logger)
+    async def set_unpin_handler(
+        self, model_uid: str, request_id: str, pd_model_actor_address: str
+    ):
+        """Set the unpin handle of the vLLM model."""
+        from ..model.llm.vllm.core import VLLMChatModel as LLMVLLMChatModel
+        from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+
+        if isinstance(self._model, LLMVLLMModel) or isinstance(
+            self._model, LLMVLLMChatModel
+        ):
+            # For XavierEngine, need to access internal engine's scheduler
+            # XavierEngine.engine -> XavierInternalEngine.scheduler
+            engine = self._model._engine
+            inner_engine = getattr(engine, "engine", None)
+            scheduler = getattr(engine, "scheduler", None) or getattr(
+                inner_engine, "scheduler", None
+            )
+            if scheduler:
+                await scheduler[0].set_unpin_handler(
+                    model_uid, request_id, pd_model_actor_address
+                )
+                logger.debug(
+                    f"[PDModelActor] Set unpin handle for request {request_id} with pd model actor {pd_model_actor_address}"
+                )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_module_list(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_module_list"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_module_list,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_module_list."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_control_types(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_control_types"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_control_types,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_control_types."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_detect(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_detect"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_detect,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_detect."
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def controlnet_model_list(
+        self,
+        **kwargs,
+    ):
+        self._require_ready()
+        if hasattr(self._model, "controlnet_model_list"):
+            return await self._call_wrapper_json(
+                self._model.controlnet_model_list,
+                **kwargs,
+            )
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for controlnet_model_list."
+        )

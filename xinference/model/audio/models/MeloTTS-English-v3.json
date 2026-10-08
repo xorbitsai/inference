@@ -1,0 +1,79 @@
+[
+  {
+    "version": 2,
+    "model_name": "MeloTTS-English-v3",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "multilingual": false,
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-English-v3",
+        "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
+      }
+    },
+    "updated_at": 1783912375,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "MeloTTS-English-v3",
+    "cache_name": "MeloTTS-English-v3-MLX",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "engine": "MLX",
+    "model_format": "mlx",
+    "multilingual": false,
+    "language": "EN",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/MeloTTS-English-v3-MLX",
+        "model_revision": "837d15fd72bc35a15033234ce5ea242367ca1960"
+      }
+    },
+    "updated_at": 1786801843,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[tts]==0.4.6 ; #engine# == \"MLX\"",
+        "g2p_en",
+        "soundfile"
+      ]
+    }
+  }
+]

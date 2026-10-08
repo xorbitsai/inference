@@ -1,0 +1,48 @@
+[
+  {
+    "version": 2,
+    "model_name": "MeloTTS-French",
+    "model_family": "MeloTTS",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": false,
+    "language": "FR",
+    "model_src": {
+      "huggingface": {
+        "model_id": "myshell-ai/MeloTTS-French",
+        "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf"
+      }
+    },
+    "updated_at": 1783912377,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  }
+]

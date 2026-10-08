@@ -62,17 +62,20 @@ _AUDIT_SKIP_ENDPOINTS = (
     "/v1/cluster/ui_config",
     "/status",
     "/v1/address",
+    "/v1/internal/token-router/",
 )
 
 # Endpoint prefixes for category classification
 _INFERENCE_PREFIXES = (
     "/v1/chat/",
     "/v1/completions",
+    "/v1/responses",
     "/v1/embeddings",
     "/v1/rerank",
     "/v1/images/",
     "/v1/audio/",
     "/v1/video/",
+    "/v1/worlds/",
     "/v1/sdapi/",
 )
 
@@ -87,6 +90,11 @@ def should_skip_audit(endpoint: str) -> bool:
         if endpoint == prefix or endpoint.startswith(prefix):
             return True
     return False
+
+
+def should_skip_completed_audit(method: str, endpoint: str, status_code: int) -> bool:
+    """Return whether a completed request is routine audit noise."""
+    return method == "GET" and endpoint == "/metrics" and status_code < 400
 
 
 def classify_endpoint(endpoint: str) -> str:
@@ -153,6 +161,9 @@ def record_audit_event(
     address: str = "",
     category: str = "",
     auth_type: str = "",
+    method: str = "",
+    status_code: int = 0,
+    request_id: str = "",
 ) -> None:
     if should_skip_audit(endpoint):
         return
@@ -166,6 +177,9 @@ def record_audit_event(
         "event_type": "api_call",
         "category": category,
         "auth_type": auth_type,
+        "request_id": request_id,
+        "method": method,
+        "status_code": status_code,
         "user": user,
         "api_key_name": api_key_name,
         "api_key_prefix": api_key_prefix,

@@ -20,7 +20,40 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_SQL = """
+API_KEY_NAME_REQUIRED_MESSAGE = "API key name is required"
+API_KEY_NAME_CONFLICT_MESSAGE = "API key name already exists"
+API_KEY_NAME_UNIQUE_INDEX = "idx_api_keys_name_unique"
+API_KEY_NAME_SQL_TRIM_CHARS = (
+    "char(9) || char(10) || char(11) || char(12) || char(13) || ' '"
+)
+
+
+class ApiKeyNameRequiredError(ValueError):
+    pass
+
+
+class ApiKeyNameConflictError(ValueError):
+    pass
+
+
+def normalize_api_key_name(name: Any) -> str:
+    if not isinstance(name, str):
+        raise ApiKeyNameRequiredError(API_KEY_NAME_REQUIRED_MESSAGE)
+    normalized = name.strip()
+    if not normalized:
+        raise ApiKeyNameRequiredError(API_KEY_NAME_REQUIRED_MESSAGE)
+    return normalized
+
+
+def _api_key_name_identity(name: str) -> str:
+    # SQLite's built-in lower() is ASCII-only by default. Mirror that behavior
+    # so migration conflict detection exactly matches the expression index.
+    return "".join(
+        chr(ord(char) + 32) if "A" <= char <= "Z" else char for char in name.strip()
+    )
+
+
+SCHEMA_SQL = f"""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL,
@@ -48,7 +81,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     key_hash TEXT UNIQUE NOT NULL,
     key_encrypted TEXT NOT NULL,
     key_prefix TEXT NOT NULL,
-    name TEXT,
+    name TEXT NOT NULL CHECK (length(trim(name, {API_KEY_NAME_SQL_TRIM_CHARS})) > 0),
     description TEXT,
     enabled INTEGER DEFAULT 1,
     expires_at TIMESTAMP,
@@ -114,6 +147,98 @@ class Database:
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub "
                 "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
             )
+            self._migrate_api_key_names(conn)
+
+    @staticmethod
+    def _migrate_api_key_names(conn: sqlite3.Connection) -> None:
+        rows = conn.execute("SELECT id, name FROM api_keys ORDER BY id").fetchall()
+        used_names: set[str] = set()
+        trimmed_count = 0
+        generated_count = 0
+        renamed_count = 0
+
+        for row in rows:
+            key_id = row["id"]
+            original_name = row["name"]
+            if isinstance(original_name, str) and original_name.strip():
+                base_name = original_name.strip()
+                if base_name != original_name:
+                    trimmed_count += 1
+            else:
+                base_name = f"api-key-{key_id}"
+                generated_count += 1
+
+            candidate = base_name
+            if _api_key_name_identity(candidate) in used_names:
+                candidate = f"{base_name}-{key_id}"
+                suffix = 2
+                while _api_key_name_identity(candidate) in used_names:
+                    candidate = f"{base_name}-{key_id}-{suffix}"
+                    suffix += 1
+                renamed_count += 1
+
+            used_names.add(_api_key_name_identity(candidate))
+            if candidate != original_name:
+                conn.execute(
+                    "UPDATE api_keys SET name = ? WHERE id = ?",
+                    (candidate, key_id),
+                )
+
+        conn.execute(
+            f"CREATE UNIQUE INDEX IF NOT EXISTS {API_KEY_NAME_UNIQUE_INDEX} "
+            f"ON api_keys(lower(trim(name, {API_KEY_NAME_SQL_TRIM_CHARS})))"
+        )
+        conn.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS trg_api_keys_name_required_insert
+            BEFORE INSERT ON api_keys
+            FOR EACH ROW
+            WHEN NEW.name IS NULL OR length(trim(
+                NEW.name, {API_KEY_NAME_SQL_TRIM_CHARS}
+            )) = 0
+            BEGIN
+                SELECT RAISE(ABORT, '{API_KEY_NAME_REQUIRED_MESSAGE}');
+            END
+            """
+        )
+        conn.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS trg_api_keys_name_required_update
+            BEFORE UPDATE OF name ON api_keys
+            FOR EACH ROW
+            WHEN NEW.name IS NULL OR length(trim(
+                NEW.name, {API_KEY_NAME_SQL_TRIM_CHARS}
+            )) = 0
+            BEGIN
+                SELECT RAISE(ABORT, '{API_KEY_NAME_REQUIRED_MESSAGE}');
+            END
+            """
+        )
+
+        if trimmed_count or generated_count or renamed_count:
+            logger.info(
+                "Migrated API key names: checked=%d, trimmed=%d, generated=%d, "
+                "renamed_duplicates=%d",
+                len(rows),
+                trimmed_count,
+                generated_count,
+                renamed_count,
+            )
+
+    @staticmethod
+    def _api_key_name_exists(
+        conn: sqlite3.Connection, name: str, exclude_key_id: Optional[int] = None
+    ) -> bool:
+        sql = (
+            "SELECT 1 FROM api_keys "
+            f"WHERE lower(trim(name, {API_KEY_NAME_SQL_TRIM_CHARS})) = "
+            f"lower(trim(?, {API_KEY_NAME_SQL_TRIM_CHARS}))"
+        )
+        params: List[Any] = [name]
+        if exclude_key_id is not None:
+            sql += " AND id != ?"
+            params.append(exclude_key_id)
+        return conn.execute(sql, params).fetchone() is not None
 
     @contextmanager
     def _get_conn(self):
@@ -339,7 +464,7 @@ class Database:
         key_hash: str,
         key_encrypted: str,
         key_prefix: str,
-        name: Optional[str] = None,
+        name: str,
         description: Optional[str] = None,
         expires_at: Optional[str] = None,
         rate_limit_max_failures: Optional[int] = None,
@@ -347,25 +472,35 @@ class Database:
         rate_limit_ban_seconds: Optional[int] = None,
         model_permissions: Optional[List[Dict[str, Optional[str]]]] = None,
     ) -> int:
+        normalized_name = normalize_api_key_name(name)
         with self._lock:
             with self._get_conn() as conn:
-                cursor = conn.execute(
-                    """INSERT INTO api_keys (user_id, key_hash, key_encrypted, key_prefix, name, description, expires_at,
-                       rate_limit_max_failures, rate_limit_window_seconds, rate_limit_ban_seconds)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        user_id,
-                        key_hash,
-                        key_encrypted,
-                        key_prefix,
-                        name,
-                        description,
-                        expires_at,
-                        rate_limit_max_failures,
-                        rate_limit_window_seconds,
-                        rate_limit_ban_seconds,
-                    ),
-                )
+                if self._api_key_name_exists(conn, normalized_name):
+                    raise ApiKeyNameConflictError(API_KEY_NAME_CONFLICT_MESSAGE)
+                try:
+                    cursor = conn.execute(
+                        """INSERT INTO api_keys (user_id, key_hash, key_encrypted, key_prefix, name, description, expires_at,
+                           rate_limit_max_failures, rate_limit_window_seconds, rate_limit_ban_seconds)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            user_id,
+                            key_hash,
+                            key_encrypted,
+                            key_prefix,
+                            normalized_name,
+                            description,
+                            expires_at,
+                            rate_limit_max_failures,
+                            rate_limit_window_seconds,
+                            rate_limit_ban_seconds,
+                        ),
+                    )
+                except sqlite3.IntegrityError as exc:
+                    if self._api_key_name_exists(conn, normalized_name):
+                        raise ApiKeyNameConflictError(
+                            API_KEY_NAME_CONFLICT_MESSAGE
+                        ) from exc
+                    raise
                 key_id = cursor.lastrowid
                 if model_permissions:
                     for mp in model_permissions:
@@ -437,11 +572,28 @@ class Database:
         fields = {k: v for k, v in kwargs.items() if k in allowed}
         if not fields:
             return False
+        if "name" in fields:
+            fields["name"] = normalize_api_key_name(fields["name"])
         with self._lock:
             with self._get_conn() as conn:
+                if "name" in fields and self._api_key_name_exists(
+                    conn, fields["name"], exclude_key_id=key_id
+                ):
+                    raise ApiKeyNameConflictError(API_KEY_NAME_CONFLICT_MESSAGE)
                 set_clause = ", ".join(f"{k} = ?" for k in fields)
                 values = list(fields.values()) + [key_id]
-                conn.execute(f"UPDATE api_keys SET {set_clause} WHERE id = ?", values)
+                try:
+                    conn.execute(
+                        f"UPDATE api_keys SET {set_clause} WHERE id = ?", values
+                    )
+                except sqlite3.IntegrityError as exc:
+                    if "name" in fields and self._api_key_name_exists(
+                        conn, fields["name"], exclude_key_id=key_id
+                    ):
+                        raise ApiKeyNameConflictError(
+                            API_KEY_NAME_CONFLICT_MESSAGE
+                        ) from exc
+                    raise
                 return True
 
     def delete_api_key(self, key_id: int) -> bool:

@@ -1,0 +1,281 @@
+[
+  {
+    "model_name": "MiniMax-M2",
+    "model_description": "MiniMax-M2, a Mini model built for Max coding & agentic workflows.",
+    "context_length": 196608,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 230,
+        "activated_size_in_billions": 10,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "MiniMaxAI/MiniMax-M2",
+            "quantizations": [
+              "none"
+            ],
+            "model_metadata": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/MiniMaxAI/MiniMax-M2/resolve/757303d492a50514c312788b5247a4f696a4c6a3/config.json",
+              "config_sha256": "03d0b726553f72ee799f30f52f77b9292b873714abda76ee7e2683953373db87",
+              "architecture_type": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
+          },
+          "modelscope": {
+            "model_id": "MiniMax/MiniMax-M2",
+            "quantizations": [
+              "none"
+            ],
+            "model_metadata": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/MiniMax/MiniMax-M2/resolve/master/config.json",
+              "config_sha256": "03d0b726553f72ee799f30f52f77b9292b873714abda76ee7e2683953373db87",
+              "architecture_type": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 230,
+        "activated_size_in_billions": 10,
+        "model_format": "awq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "QuantTrio/MiniMax-M2-AWQ",
+            "quantizations": [
+              "Int4"
+            ],
+            "model_metadata": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://huggingface.co/QuantTrio/MiniMax-M2-AWQ/resolve/3f6771a80ff4dd0b0114f6bc9b18a227348bcbaa/config.json",
+              "config_sha256": "08f4c0913799dbe6ef8999dd694633c5b6a11b66a3714dc3aa9f8ae1a3d8f5eb",
+              "architecture_type": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
+          },
+          "modelscope": {
+            "model_id": "tclf90/MiniMax-M2-AWQ",
+            "quantizations": [
+              "Int4"
+            ],
+            "model_metadata": {
+              "vocab_size": 200064,
+              "num_attention_heads": 48,
+              "num_key_value_heads": 8,
+              "head_dim": 128,
+              "config_source": "https://modelscope.cn/models/tclf90/MiniMax-M2-AWQ/resolve/master/config.json",
+              "config_sha256": "08f4c0913799dbe6ef8999dd694633c5b6a11b66a3714dc3aa9f8ae1a3d8f5eb",
+              "architecture_type": "moe",
+              "hidden_size": 3072,
+              "intermediate_size": 1536,
+              "num_hidden_layers": 62
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 230,
+        "activated_size_in_billions": 10,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/MiniMax-M2-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-3bit/resolve/16b359ad77b674bd593e159c07af4aa54e8fa2eb/config.json",
+                "config_sha256": "cf754e640778e63f43ef7c3c16dc0506ffe22a98876f2648ea5999b924ea5327",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "4bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-4bit/resolve/fb2e5d39528a1345b6927b66cbd2a8ebabcd9db4/config.json",
+                "config_sha256": "5ba49b50b6335b1488d2aba4673dc91f750a93d895fc2ce8cce5cd74ca620749",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "5bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-5bit/resolve/d5bcd1405ef722de4ef1beac42ae623e032da90e/config.json",
+                "config_sha256": "8c0fe0c07fb751a3f30d05ae0863d2e299464ab1b11bafc60de0de9328578966",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "6bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-6bit/resolve/02298eb755e33e9a4f37b0fae4960a9e81081f04/config.json",
+                "config_sha256": "627dc8d9caf66d4bdd6d36f85ba635b8e0b633d9afa4f2115b0108995c287483",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "8bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://huggingface.co/mlx-community/MiniMax-M2-8bit/resolve/273271278bbf96cea99682723c2cb010bf8cd78c/config.json",
+                "config_sha256": "5f3dfbb1b023519307ce8e971fb6a217e3b8bd23acd0dfe63cf6c7463f9215a0",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              }
+            }
+          },
+          "modelscope": {
+            "model_id": "mlx-community/MiniMax-M2-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_metadata_by_quantization": {
+              "3bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-3bit/resolve/master/config.json",
+                "config_sha256": "cf754e640778e63f43ef7c3c16dc0506ffe22a98876f2648ea5999b924ea5327",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "4bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-4bit/resolve/master/config.json",
+                "config_sha256": "5ba49b50b6335b1488d2aba4673dc91f750a93d895fc2ce8cce5cd74ca620749",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "5bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-5bit/resolve/master/config.json",
+                "config_sha256": "8c0fe0c07fb751a3f30d05ae0863d2e299464ab1b11bafc60de0de9328578966",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "6bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-6bit/resolve/master/config.json",
+                "config_sha256": "627dc8d9caf66d4bdd6d36f85ba635b8e0b633d9afa4f2115b0108995c287483",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              },
+              "8bit": {
+                "vocab_size": 200064,
+                "num_attention_heads": 48,
+                "num_key_value_heads": 8,
+                "head_dim": 128,
+                "config_source": "https://modelscope.cn/models/mlx-community/MiniMax-M2-8bit/resolve/master/config.json",
+                "config_sha256": "5f3dfbb1b023519307ce8e971fb6a217e3b8bd23acd0dfe63cf6c7463f9215a0",
+                "architecture_type": "moe",
+                "hidden_size": 3072,
+                "intermediate_size": 1536,
+                "num_hidden_layers": 62
+              }
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{# ----------‑‑‑ special token variables ‑‑‑---------- #}\n{%- set toolcall_begin_token   = '<minimax:tool_call>'         -%}\n{%- set toolcall_end_token     = '</minimax:tool_call>'        -%}\n{#- Tool Rendering Functions ============================================== -#}\n{%- macro render_tool_namespace(namespace_name, tool_list) -%}\n{%- for tool in tool_list -%}\n<tool>{{ tool.function | tojson(ensure_ascii=False) }}</tool>\n{% endfor -%}\n{%- endmacro -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{ content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- System Message Construction ============================================ -#}\n{%- macro build_system_message(system_message) -%}\n    {%- if system_message and system_message.content -%}\n        {{- visible_text(system_message.content) }}\n    {%- else -%}\n        {%- if model_identity is not defined -%}\n            {%- set model_identity = \"You are a helpful assistant.\" -%}\n        {%- endif -%}\n        {{- model_identity }}\n    {%- endif -%}\n    \n    {#- Handle current_date -#}\n    {%- if system_message and system_message.current_date -%}\n        {{- '\\n' ~ 'Current date: ' + system_message.current_date }}\n    {%- endif -%}\n    {#- Handle current_location -#}\n    {%- if system_message and system_message.current_location -%}\n        {{- '\\n' ~ 'Current location: ' + system_message.current_location }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- Main Template Logic ================================================= -#}\n{#- Extract system message (only first message if it's system) -#}\n{%- set system_message = none -%}\n{%- set conversation_messages = messages -%}\n{%- if messages and messages[0].role == \"system\" -%}\n    {%- set system_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n{%- endif -%}\n{#- Get the last user message turn, for interleved thinking -#}\n{%- set ns = namespace(last_user_index=-1) %}\n{% for m in conversation_messages %}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{#- Render system message -#}\n{{- ']~!b[' ~ ']~b]system' ~ '\\n' }}\n{{- build_system_message(system_message) }}\n{#- Render tools if available -#}\n{%- if tools -%}\n    {{- '\\n\\n' ~ '# Tools' ~ '\\n' ~ 'You may call one or more tools to assist with the user query.\\nHere are the tools available in JSONSchema format:' ~ '\\n' }}\n    {{- '\\n' ~ '<tools>' ~ '\\n' }}\n    {{- render_tool_namespace(\"functions\", tools) }}\n    {{- '</tools>' ~ '\\n\\n' }}\n{{- 'When making tool calls, use XML format to invoke tools and pass parameters:' ~ '\\n' }}\n{{- '\\n' ~ toolcall_begin_token }}\n<invoke name=\"tool-name-1\">\n<parameter name=\"param-key-1\">param-value-1</parameter>\n<parameter name=\"param-key-2\">param-value-2</parameter>\n...\n</invoke>\n{{- '\\n' ~ toolcall_end_token }}\n{%- endif -%}\n{{- '[e~[\\n' }}\n\n{#- Render messages -#}\n{%- set last_tool_call = namespace(name=none) -%}\n{%- for message in conversation_messages -%}\n    {%- if message.role == 'assistant' -%}\n        {#- Only render reasoning_content if no user message follows -#}\n        {{- ']~b]ai' ~ '\\n' }}\n\n        {%- set reasoning_content = '' %}\n        {%- set content = visible_text(message.content) %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].strip('\\n').split('<think>')[-1].strip('\\n') %}\n                {%- set content = content.split('</think>')[-1].strip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if reasoning_content and loop.index0 > ns.last_user_index -%}\n            {{- '<think>' ~ '\\n' ~ reasoning_content ~ '\\n' ~ '</think>' ~ '\\n\\n' }}\n        {%- endif -%}\n        {%- if content -%}\n            {{- content }}\n        {%- endif -%}\n        {%- if message.tool_calls -%}\n            {{- '\\n' ~ toolcall_begin_token ~ '\\n' }}\n\n            {%- for tool_call in message.tool_calls -%}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<invoke name=\"' + tool_call.name + '\">' }}\n                {% set _args = tool_call.arguments %}\n                {%- for k, v in _args.items() %}\n                {{- '<parameter name=\"' + k + '\">' }}\n                {{- v | tojson(ensure_ascii=False) if v is not string else v }}\n                {{- '</parameter>' }}\n                {% endfor %}\n                {{- '</invoke>' ~ '\\n' }}\n            {%- endfor -%}\n            \n            {{- toolcall_end_token}}\n            {%- set last_tool_call.name = message.tool_calls[-1].name -%}\n        {%- else -%}\n            {%- set last_tool_call.name = none -%}\n        {%- endif -%}\n        {{- '[e~[' ~ '\\n' }}\n        \n    {%- elif message.role == 'tool' -%}\n    {%- if last_tool_call.name is none -%}\n        {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n    {%- endif -%}\n    {%- if loop.first or (conversation_messages[loop.index0 - 1].role != 'tool') -%}\n        {{- ']~b]tool' }}\n    {%- endif -%}\n    {%- if message.content is string -%}\n        {{- '\\n<response>' }}\n        {{- message.content }}\n        {{- '</response>' }}\n    {%- else -%}\n        {%- for tr in message.content -%}\n            {{- '\\n<response>' }}\n            {{- tr.output if tr.output is defined else (tr.text if tr.type == 'text' and tr.text is defined else tr) }}\n            {{- '\\n</response>' }}\n        {%- endfor -%}\n    {%- endif -%}\n    {%- if loop.last or (conversation_messages[loop.index0 + 1].role != 'tool') -%}\n        {{- '[e~[\\n' -}}\n    {%- endif -%}\n        \n    {%- elif message.role == 'user' -%}\n        {{- ']~b]user' ~ '\\n' }}\n        {{- visible_text(message.content) }}\n        {{- '[e~[' ~ '\\n' }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt -#}\n{%- if add_generation_prompt -%}\n{{- ']~b]ai' ~ '\\n' ~ '<think>' ~ '\\n' }}\n{%- endif -%}",
+    "stop_token_ids": [
+      200020
+    ],
+    "stop": [
+      "[e~["
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "minimax",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "updated_at": 1769418603,
+    "featured": false,
+    "architectures": [
+      "MiniMaxM2ForCausalLM"
+    ],
+    "model_type": "minimax_m2"
+  }
+]

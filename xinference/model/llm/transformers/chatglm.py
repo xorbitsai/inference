@@ -579,5 +579,5 @@ class ChatglmPytorchChatModel(PytorchChatModel):
                         )
 
         if req.stopped and req.include_usage:
-            results.append(self._get_final_chat_completion_chunk(req.completion[-1]))
+            results.append(self._get_usage_chat_completion_chunk(req.completion[-1]))
         req.completion = results

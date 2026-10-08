@@ -17,8 +17,16 @@
 See optimize/20260702/2026070209.md for root cause analysis.
 """
 
+import http.server
 import importlib.metadata
 import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+import zipfile
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -27,10 +35,107 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_ARCHES,
     FLASHINFER_AOT_PACKAGES,
     FLASHINFER_AOT_WHEEL_URL,
+    FLASHINFER_CUBIN_WHEEL_URL,
+    VirtualEnvConflictError,
+    VirtualEnvManager,
+    _run_uv_install_with_source_fallback,
+    _validate_flash_attn_install,
+    apply_flash_attn_wheel_post_install,
     apply_flashinfer_aot_post_install,
+    build_uv_source_options,
+    ensure_flashinfer_cubin_matches_post_install,
+    ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
+    is_flash_attn_requirement,
+    is_model_find_links_only_requirement,
+    merge_virtual_env_find_links,
     needs_flashinfer_aot,
+    observe_dependency_install,
+    resolve_dependency_install_plan,
+    validate_virtual_env_find_links,
 )
+
+
+def test_dependency_install_plan_uses_actual_resolved_distributions(tmp_path):
+    manager = mock.Mock()
+    manager.process_packages.return_value = ["example>=1"]
+    manager._resolve_install_plan.return_value = ["Example==2.0", "child_pkg==3.0"]
+    manager.get_lib_path.return_value = str(tmp_path)
+
+    plan = resolve_dependency_install_plan(
+        manager, ["example>=1"], {"skip_installed": False}, {}
+    )
+
+    assert plan == [("example", "2.0"), ("child-pkg", "3.0")]
+    manager._resolve_install_plan.assert_called_once()
+
+
+def test_dependency_install_plan_respects_skip_installed_and_unknown_versions():
+    manager = mock.Mock()
+    manager.process_packages.return_value = ["example>=1"]
+    manager._filter_packages_not_installed.return_value = ["example==2.0"]
+
+    assert resolve_dependency_install_plan(
+        manager, ["example>=1"], {"skip_installed": True}, {}
+    ) == [("example", "2.0")]
+    manager._filter_packages_not_installed.assert_called_once()
+    manager._resolve_install_plan.assert_not_called()
+
+    manager._filter_packages_not_installed.return_value = [
+        "example @ git+https://example.test"
+    ]
+    assert (
+        resolve_dependency_install_plan(
+            manager, ["example>=1"], {"skip_installed": True}, {}
+        )
+        is None
+    )
+
+
+def test_dependency_install_progress_counts_matching_child_distributions(tmp_path):
+    counts = []
+    manager = mock.Mock()
+    manager.get_lib_path.return_value = str(tmp_path)
+    stopped, thread = observe_dependency_install(
+        manager,
+        [("example", "2.0")],
+        lambda completed, total: counts.append((completed, total)),
+    )
+    try:
+        (tmp_path / "example-2.0.dist-info").mkdir()
+        (tmp_path / "example-2.0.dist-info" / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: example\nVersion: 2.0\n"
+        )
+        deadline = time.monotonic() + 3
+        while (1, 1) not in counts and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert (1, 1) in counts
+    finally:
+        stopped.set()
+        thread.join(timeout=1)
+
+
+def _create_test_wheel(
+    tmp_path: Path, package_name: str, version: str = "1.0.0"
+) -> Path:
+    module_name = package_name.replace("-", "_")
+    wheel_name = f"{module_name}-{version}-py3-none-any.whl"
+    wheel_path = tmp_path / wheel_name
+    with zipfile.ZipFile(wheel_path, "w") as wheel:
+        wheel.writestr(f"{module_name}/__init__.py", f'__version__ = "{version}"\n')
+        wheel.writestr(
+            f"{module_name}-{version}.dist-info/METADATA",
+            f"Metadata-Version: 2.1\nName: {package_name}\nVersion: {version}\n",
+        )
+        wheel.writestr(
+            f"{module_name}-{version}.dist-info/WHEEL",
+            "Wheel-Version: 1.0\n"
+            "Generator: xinference-test\n"
+            "Root-Is-Purelib: true\n"
+            "Tag: py3-none-any\n",
+        )
+        wheel.writestr(f"{module_name}-{version}.dist-info/RECORD", "")
+    return wheel_path
 
 
 class TestNeedsFlashinferAot:
@@ -106,6 +211,872 @@ class TestNeedsFlashinferAot:
         assert len(FLASHINFER_AOT_PACKAGES) == 3
         assert any("flashinfer-jit-cache" in p for p in FLASHINFER_AOT_PACKAGES)
         assert "flashinfer.ai" in FLASHINFER_AOT_WHEEL_URL
+
+
+class TestBuildUvSourceOptions:
+    def test_reuses_all_configured_source_options(self):
+        options = build_uv_source_options(
+            {
+                "index_url": "https://packages.example/simple",
+                "extra_index_url": ["https://cuda.example/simple"],
+                "find_links": ["/srv/wheels", "/opt/wheels"],
+                "trusted_host": "packages.example",
+                "index_strategy": "unsafe-best-match",
+            },
+            public_index_urls=["https://public.example/simple"],
+        )
+
+        assert options == [
+            "--index",
+            "https://cuda.example/simple",
+            "--index",
+            "https://packages.example/simple",
+            "--default-index",
+            "https://public.example/simple",
+            "--find-links",
+            "/srv/wheels",
+            "--find-links",
+            "/opt/wheels",
+            "--trusted-host",
+            "packages.example",
+            "--index-strategy",
+            "first-index",
+        ]
+
+    def test_configured_index_precedes_public_fallback(self):
+        options = build_uv_source_options(
+            {"index_url": "https://packages.example/simple"},
+            public_index_urls=["https://public.example/simple"],
+        )
+
+        # uv prioritizes --index over --default-index. This verifies the
+        # configured corporate mirror is effective before the public fallback,
+        # rather than merely checking that both flags are present.
+        assert options == [
+            "--index",
+            "https://packages.example/simple",
+            "--default-index",
+            "https://public.example/simple",
+            "--index-strategy",
+            "first-index",
+        ]
+
+    def test_multiple_public_fallbacks_follow_configured_sources(self):
+        options = build_uv_source_options(
+            {"index_url": "https://packages.example/simple"},
+            public_index_urls=[
+                "https://public-primary.example/simple",
+                "https://public-default.example/simple",
+            ],
+        )
+
+        assert options == [
+            "--index",
+            "https://packages.example/simple",
+            "--index",
+            "https://public-primary.example/simple",
+            "--default-index",
+            "https://public-default.example/simple",
+            "--index-strategy",
+            "first-index",
+        ]
+
+    def test_preserves_configured_strategy_without_public_fallback(self):
+        options = build_uv_source_options(
+            {
+                "index_url": "https://packages.example/simple",
+                "index_strategy": "unsafe-best-match",
+            }
+        )
+
+        assert options == [
+            "--default-index",
+            "https://packages.example/simple",
+            "--index-strategy",
+            "unsafe-best-match",
+        ]
+
+    def test_offline_mode_omits_public_fallbacks(self):
+        options = build_uv_source_options(
+            {"find_links": "/srv/wheels"},
+            public_index_urls=["https://public.example/simple"],
+            allow_public_install=False,
+        )
+
+        assert options == ["--find-links", "/srv/wheels", "--no-index"]
+
+    def test_configured_only_extra_index_replaces_implicit_public_default(self):
+        options = build_uv_source_options(
+            {
+                "extra_index_url": "https://packages.example/simple",
+                "index_strategy": "unsafe-best-match",
+            },
+            allow_public_install=False,
+        )
+
+        assert options == [
+            "--default-index",
+            "https://packages.example/simple",
+            "--index-strategy",
+            "unsafe-best-match",
+        ]
+
+    def test_deduplicates_public_fallback(self):
+        options = build_uv_source_options(
+            {"extra_index_url": "https://public.example/simple"},
+            public_index_urls=["https://public.example/simple"],
+        )
+
+        assert options == [
+            "--index",
+            "https://public.example/simple",
+        ]
+
+    def test_resolver_does_not_consult_unavailable_public_fallback(self, tmp_path):
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            pytest.skip("uv is required for the resolver-level source priority test")
+
+        package_name = "xinference-source-priority-test"
+        wheel_path = _create_test_wheel(tmp_path, package_name)
+        wheel_name = wheel_path.name
+        wheel_bytes = wheel_path.read_bytes()
+        fallback_requests = []
+
+        class SourceHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == f"/private/simple/{package_name}/":
+                    body = (f'<a href="/files/{wheel_name}">{wheel_name}</a>').encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html")
+                elif self.path == f"/files/{wheel_name}":
+                    body = wheel_bytes
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/octet-stream")
+                elif self.path.startswith("/fallback/"):
+                    fallback_requests.append(self.path)
+                    self.send_error(503, "public fallback unavailable")
+                    return
+                else:
+                    self.send_error(404)
+                    return
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SourceHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            private_index = f"http://127.0.0.1:{port}/private/simple"
+            public_fallback = f"http://127.0.0.1:{port}/fallback/simple"
+            options = build_uv_source_options(
+                {
+                    "index_url": private_index,
+                    "index_strategy": "unsafe-best-match",
+                },
+                public_index_urls=[public_fallback],
+            )
+            result = subprocess.run(
+                [
+                    uv_path,
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--no-cache",
+                    "--no-deps",
+                    "--python",
+                    sys.executable,
+                    *options,
+                    f"{package_name}==1.0.0",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        assert result.returncode == 0, result.stderr
+        assert fallback_requests == []
+
+    def test_find_links_miss_retries_with_public_fallback(self):
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
+        public_fallback = "https://public.example/simple"
+
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
+        ) as run_mock:
+            result = _run_uv_install_with_source_fallback(
+                ["uv", "pip", "install"],
+                ["example-package==1.0.0"],
+                {"find_links": "/srv/wheels"},
+                public_index_urls=[public_fallback],
+            )
+
+        assert result is fallback_result
+        assert run_mock.call_count == 2
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        assert "--no-index" in configured_cmd
+        assert public_fallback not in configured_cmd
+        assert "--no-index" not in fallback_cmd
+        assert public_fallback in fallback_cmd
+        assert "--find-links" not in fallback_cmd
+
+    def test_configured_version_miss_uses_public_fallback(self, tmp_path):
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            pytest.skip("uv is required for the resolver-level fallback test")
+
+        package_name = "xinference-version-miss-fallback-test"
+        private_dir = tmp_path / "private-files"
+        public_dir = tmp_path / "public-files"
+        private_dir.mkdir()
+        public_dir.mkdir()
+        private_wheel = _create_test_wheel(private_dir, package_name, "0.9.0")
+        public_wheel = _create_test_wheel(public_dir, package_name, "1.0.0")
+        private_requests = []
+        public_requests = []
+
+        class SourceHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path == f"/private/simple/{package_name}/":
+                    private_requests.append(self.path)
+                    wheel_path = private_wheel
+                elif self.path == f"/public/simple/{package_name}/":
+                    public_requests.append(self.path)
+                    wheel_path = public_wheel
+                elif self.path == f"/files/{private_wheel.name}":
+                    wheel_path = private_wheel
+                    self._send_wheel(wheel_path)
+                    return
+                elif self.path == f"/files/{public_wheel.name}":
+                    wheel_path = public_wheel
+                    self._send_wheel(wheel_path)
+                    return
+                else:
+                    self.send_error(404)
+                    return
+
+                body = (
+                    f'<a href="/files/{wheel_path.name}">{wheel_path.name}</a>'
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _send_wheel(self, wheel_path):
+                body = wheel_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/octet-stream")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SourceHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            result = _run_uv_install_with_source_fallback(
+                [
+                    uv_path,
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--no-cache",
+                    "--no-deps",
+                    "--python",
+                    sys.executable,
+                ],
+                [f"{package_name}==1.0.0"],
+                {
+                    "index_url": f"http://127.0.0.1:{port}/private/simple",
+                    "index_strategy": "unsafe-best-match",
+                },
+                public_index_urls=[f"http://127.0.0.1:{port}/public/simple"],
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        assert result.returncode == 0, result.stderr
+        assert len(private_requests) == 1
+        assert len(public_requests) == 1
+
+    def test_find_links_resolves_before_unavailable_public_fallback(self, tmp_path):
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            pytest.skip("uv is required for the resolver-level source priority test")
+
+        package_name = "xinference-find-links-priority-test"
+        _create_test_wheel(tmp_path, package_name)
+        fallback_requests = []
+
+        class FallbackHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                fallback_requests.append(self.path)
+                self.send_error(503, "public fallback unavailable")
+
+            def log_message(self, format, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), FallbackHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            public_fallback = (
+                f"http://127.0.0.1:{server.server_address[1]}/fallback/simple"
+            )
+            result = _run_uv_install_with_source_fallback(
+                [
+                    uv_path,
+                    "pip",
+                    "install",
+                    "--dry-run",
+                    "--no-cache",
+                    "--no-deps",
+                    "--python",
+                    sys.executable,
+                ],
+                [f"{package_name}==1.0.0"],
+                {
+                    "find_links": str(tmp_path),
+                    "index_strategy": "unsafe-best-match",
+                },
+                public_index_urls=[public_fallback],
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+        assert result.returncode == 0, result.stderr
+        assert fallback_requests == []
+
+
+class TestApplyFlashAttnWheelPostInstall:
+    @pytest.fixture
+    def fake_venv_manager(self):
+        manager = mock.MagicMock()
+        manager._get_uv_path.return_value = "/fake/uv"
+        manager.get_python_path.return_value = "/fake/venv/bin/python"
+        manager.env_path = "/fake/venv"
+        return manager
+
+    @pytest.mark.parametrize(
+        "requirement",
+        [
+            "flash_attn==2.8.3.post1+cvte1",
+            "flash-attn==2.8.3.post1+cvte1",
+            "Flash_Attn==2.8.3.post1+cvte1",
+        ],
+    )
+    def test_recognizes_canonical_requirement_names(self, requirement):
+        assert is_flash_attn_requirement(requirement)
+
+    @pytest.mark.parametrize(
+        "requirement",
+        ["my-flash-attn-wrapper", "not_flash_attn", "flashinfer-python"],
+    )
+    def test_does_not_match_unrelated_requirements(self, requirement):
+        assert not is_flash_attn_requirement(requirement)
+
+    def test_identifies_only_jina_flash_attn_as_find_links_only(self):
+        requirement = "flash-attn==2.8.3.post1+cvte1"
+
+        assert is_model_find_links_only_requirement("jina-embeddings-v3", requirement)
+        assert not is_model_find_links_only_requirement("another-model", requirement)
+        assert not is_model_find_links_only_requirement(
+            "jina-embeddings-v3", "sentence-transformers"
+        )
+
+    def test_non_jina_model_is_noop(self, fake_venv_manager):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._validate_flash_attn_install"
+            ) as validate_mock,
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
+            apply_flash_attn_wheel_post_install(
+                "another-model",
+                ["flash-attn==2.8.3.post1+cvte1"],
+                fake_venv_manager,
+                {"find_links": ["/wheels"]},
+                True,
+            )
+
+        validate_mock.assert_not_called()
+        run_mock.assert_not_called()
+
+    def test_no_find_links_warns_and_uses_native_attention(
+        self, fake_venv_manager, caplog
+    ):
+        with mock.patch(
+            "xinference.core.virtual_env_manager._validate_flash_attn_install",
+            return_value=False,
+        ):
+            apply_flash_attn_wheel_post_install(
+                "jina-embeddings-v3",
+                ["flash-attn==2.8.3.post1+cvte1"],
+                fake_venv_manager,
+                {},
+                True,
+            )
+
+        assert "no Find Links source was configured" in caplog.text
+        assert "native attention" in caplog.text
+
+    def test_find_links_install_uses_binary_reinstall_and_validates(
+        self, fake_venv_manager
+    ):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._validate_flash_attn_install",
+                return_value=True,
+            ) as validate_mock,
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=mock.MagicMock(returncode=0),
+            ) as run_mock,
+        ):
+            apply_flash_attn_wheel_post_install(
+                "jina-embeddings-v3",
+                ["flash-attn==2.8.3.post1+cvte1"],
+                fake_venv_manager,
+                {
+                    "index_url": "https://mirror.example/simple",
+                    "find_links": ["/wheels/jina"],
+                },
+                True,
+            )
+
+        command = run_mock.call_args.args[0]
+        assert command[:5] == [
+            "/fake/uv",
+            "pip",
+            "install",
+            "--python",
+            "/fake/venv/bin/python",
+        ]
+        for option in ("--no-deps", "--reinstall", "--only-binary=:all:"):
+            assert option in command
+        assert command[command.index("--find-links") + 1] == "/wheels/jina"
+        assert "--no-index" not in command
+        assert command[-1] == "flash-attn==2.8.3.post1+cvte1"
+        validate_mock.assert_called_once_with(
+            fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+        )
+
+    def test_find_links_install_failure_is_fatal_and_redacts_output(
+        self, fake_venv_manager, caplog
+    ):
+        result = mock.MagicMock(
+            returncode=1,
+            stdout="Downloading https://user:password@example.com/wheel",
+            stderr="authentication failed: token=secret-token",
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run",
+            return_value=result,
+        ):
+            with pytest.raises(RuntimeError, match="installation failed") as exc_info:
+                apply_flash_attn_wheel_post_install(
+                    "jina-embeddings-v3",
+                    ["flash-attn==2.8.3.post1+cvte1"],
+                    fake_venv_manager,
+                    {"find_links": ["/wheels/jina"]},
+                    True,
+                )
+
+        message = str(exc_info.value)
+        assert "stdout=" in message
+        assert "stderr=" in message
+        assert "https://***@example.com/wheel" in message
+        assert "token=***" in message
+        assert "password" not in message
+        assert "secret-token" not in message
+        assert "https://***@example.com/wheel" in caplog.text
+        assert "secret-token" not in caplog.text
+
+    def test_validation_failure_after_install_is_fatal(self, fake_venv_manager):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=mock.MagicMock(returncode=0),
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager._validate_flash_attn_install",
+                return_value=False,
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="validation failed"):
+                apply_flash_attn_wheel_post_install(
+                    "jina-embeddings-v3",
+                    ["flash-attn==2.8.3.post1+cvte1"],
+                    fake_venv_manager,
+                    {"find_links": ["/wheels/jina"]},
+                    True,
+                )
+
+    def test_validation_uses_clean_process_and_checks_version(
+        self, fake_venv_manager, monkeypatch
+    ):
+        monkeypatch.setenv("VIRTUAL_ENV", "/parent/venv")
+        monkeypatch.setenv("PYTHONPATH", "/parent/pythonpath")
+        monkeypatch.setenv("PYTHONHOME", "/parent/pythonhome")
+        result = mock.MagicMock(
+            returncode=0,
+            stdout='{"version": "2.8.3.post1+cvte1"}\n',
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            assert _validate_flash_attn_install(
+                fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+            )
+
+        command = run_mock.call_args.args[0]
+        assert command[:2] == ["/fake/venv/bin/python", "-c"]
+        assert 'metadata.distribution("flash-attn")' in command[2]
+        assert "from flash_attn import flash_attn_func" in command[2]
+        child_env = run_mock.call_args.kwargs["env"]
+        assert "VIRTUAL_ENV" not in child_env
+        assert "PYTHONPATH" not in child_env
+        assert "PYTHONHOME" not in child_env
+
+    def test_validation_failure_logs_subprocess_output(self, fake_venv_manager, caplog):
+        result = mock.MagicMock(
+            returncode=1,
+            stdout="validation stdout",
+            stderr="ImportError: libcudart.so not found",
+        )
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ):
+            assert not _validate_flash_attn_install(
+                fake_venv_manager, ["flash-attn==2.8.3.post1+cvte1"]
+            )
+
+        assert "validation stdout" in caplog.text
+        assert "ImportError: libcudart.so not found" in caplog.text
+
+
+class TestValidateVirtualEnvFindLinks:
+    def test_accepts_canonical_paths_and_deduplicates(self, tmp_path):
+        allowed = tmp_path / "allowed"
+        wheels = allowed / "wheels"
+        wheels.mkdir(parents=True)
+
+        result = validate_virtual_env_find_links(
+            [str(wheels), f"  {wheels}  ", ""],
+            allowed_roots=(str(allowed),),
+        )
+
+        assert result == [str(wheels.resolve())]
+
+    @pytest.mark.parametrize(
+        "value, message",
+        [
+            ("relative/wheels", "must be absolute"),
+            ("https://example.com/wheels", "absolute local directories"),
+            ("file:///srv/wheels", "absolute local directories"),
+        ],
+    )
+    def test_rejects_non_local_absolute_paths(self, tmp_path, value, message):
+        with pytest.raises(ValueError, match=message):
+            validate_virtual_env_find_links([value], allowed_roots=(str(tmp_path),))
+
+    def test_rejects_non_list_and_non_string_entries(self, tmp_path):
+        with pytest.raises(ValueError, match="must be a list"):
+            validate_virtual_env_find_links(  # type: ignore[arg-type]
+                str(tmp_path), allowed_roots=(str(tmp_path),)
+            )
+        with pytest.raises(ValueError, match="entries must be strings"):
+            validate_virtual_env_find_links(  # type: ignore[list-item]
+                [123], allowed_roots=(str(tmp_path),)
+            )
+
+    def test_rejects_missing_files_and_regular_files(self, tmp_path):
+        with pytest.raises(ValueError, match="does not exist"):
+            validate_virtual_env_find_links(
+                [str(tmp_path / "missing")], allowed_roots=(str(tmp_path),)
+            )
+
+        wheel = tmp_path / "package.whl"
+        wheel.write_text("not a wheel")
+        with pytest.raises(ValueError, match="not a directory"):
+            validate_virtual_env_find_links(
+                [str(wheel)], allowed_roots=(str(tmp_path),)
+            )
+
+    def test_rejects_path_outside_allowed_roots(self, tmp_path):
+        allowed = tmp_path / "allowed"
+        outside = tmp_path / "allowed-suffix"
+        allowed.mkdir()
+        outside.mkdir()
+
+        with pytest.raises(ValueError, match="outside the configured allowed roots"):
+            validate_virtual_env_find_links(
+                [str(outside)], allowed_roots=(str(allowed),)
+            )
+
+    def test_rejects_symlink_escape(self, tmp_path):
+        allowed = tmp_path / "allowed"
+        outside = tmp_path / "outside"
+        allowed.mkdir()
+        outside.mkdir()
+        link = allowed / "wheels"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            pytest.skip("directory symlinks are not available")
+
+        with pytest.raises(ValueError, match="outside the configured allowed roots"):
+            validate_virtual_env_find_links([str(link)], allowed_roots=(str(allowed),))
+
+    def test_rejects_unreadable_directory(self, tmp_path):
+        with mock.patch(
+            "xinference.core.virtual_env_manager.os.access", return_value=False
+        ):
+            with pytest.raises(ValueError, match="not readable"):
+                validate_virtual_env_find_links(
+                    [str(tmp_path)], allowed_roots=(str(tmp_path),)
+                )
+
+    def test_empty_allowed_roots_disables_feature(self, tmp_path):
+        with pytest.raises(ValueError, match="disabled on this worker"):
+            validate_virtual_env_find_links([str(tmp_path)], allowed_roots=())
+
+    def test_merge_preserves_configured_sources(self):
+        assert merge_virtual_env_find_links(
+            ["https://packages.example/wheels", "/srv/wheels"],
+            ["/srv/wheels", "/opt/wheels"],
+        ) == [
+            "https://packages.example/wheels",
+            "/srv/wheels",
+            "/opt/wheels",
+        ]
+
+
+class TestEnsureFlashinferCubinMatchesPostInstall:
+    @pytest.fixture
+    def fake_venv_manager(self):
+        manager = mock.MagicMock()
+        manager._get_uv_path.return_value = "/fake/uv"
+        manager.env_path = "/fake/venv"
+        return manager
+
+    @pytest.fixture(autouse=True)
+    def clean_env(self, monkeypatch):
+        monkeypatch.delenv("FLASHINFER_DISABLE_VERSION_CHECK", raising=False)
+
+    def test_matching_versions_are_noop(self, fake_venv_manager):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.14"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
+            ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
+
+        run_mock.assert_not_called()
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
+
+    def test_mismatched_cubin_is_synchronized(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6", "0.6.14"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
+            ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
+
+        cmd = run_mock.call_args[0][0]
+        assert "flashinfer-cubin==0.6.14" in cmd
+        assert FLASHINFER_CUBIN_WHEEL_URL in cmd
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
+
+    def test_failed_sync_sets_version_check_bypass(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=1, stderr="wheel unavailable")
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ),
+        ):
+            ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
+
+        assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
+
+    def test_offline_mismatch_uses_version_check_bypass(self, fake_venv_manager):
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
+            ensure_flashinfer_cubin_matches_post_install(
+                "vllm", fake_venv_manager, allow_public_install=False
+            )
+
+        run_mock.assert_not_called()
+        assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
+
+    def test_offline_mismatch_uses_configured_find_links(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6", "0.6.14"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
+            ensure_flashinfer_cubin_matches_post_install(
+                "vllm",
+                fake_venv_manager,
+                allow_public_install=False,
+                conf={"find_links": "/srv/wheels"},
+            )
+
+        cmd = run_mock.call_args[0][0]
+        assert ["--find-links", "/srv/wheels"] == cmd[7:9]
+        assert "--no-index" in cmd
+        assert FLASHINFER_CUBIN_WHEEL_URL not in cmd
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
+
+    def test_non_vllm_engine_is_noop(self, fake_venv_manager):
+        with mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version"
+        ) as version_mock:
+            ensure_flashinfer_cubin_matches_post_install("sglang", fake_venv_manager)
+
+        version_mock.assert_not_called()
+
+
+class TestEnsureSGLangInheritedPackagesCompatiblePostInstall:
+    @pytest.fixture
+    def fake_venv_manager(self):
+        manager = mock.MagicMock()
+        manager._get_uv_path.return_value = "/fake/uv"
+        manager.get_python_path.return_value = "/fake/venv/bin/python"
+        manager.env_path = "/fake/venv"
+        return manager
+
+    def test_matching_versions_are_noop(self, fake_venv_manager):
+        versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
+        with (
+            mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=lambda _manager, name: versions[name],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", fake_venv_manager
+            )
+
+        run_mock.assert_not_called()
+
+    def test_cached_newer_numpy_is_removed(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0, stderr="")
+        versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
+        with (
+            mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["2.4.1", "2.2.6", "2.3.3"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", fake_venv_manager
+            )
+
+        assert run_mock.call_args[0][0] == [
+            "/fake/uv",
+            "pip",
+            "uninstall",
+            "--python",
+            "/fake/venv/bin/python",
+            "numpy",
+        ]
+
+    def test_cached_pandas_3_is_removed(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0, stderr="")
+        versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
+        with (
+            mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["2.2.6", "3.0.0", "2.3.3"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", fake_venv_manager
+            )
+
+        assert run_mock.call_args[0][0] == [
+            "/fake/uv",
+            "pip",
+            "uninstall",
+            "--python",
+            "/fake/venv/bin/python",
+            "pandas",
+        ]
+
+    def test_other_engines_are_untouched(self, fake_venv_manager):
+        with mock.patch("importlib.metadata.version") as version_mock:
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "vllm", fake_venv_manager
+            )
+
+        version_mock.assert_not_called()
 
 
 class TestApplyFlashinferAotPostInstall:
@@ -198,12 +1169,12 @@ class TestApplyFlashinferAotPostInstall:
             )
         assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
 
-    def test_extra_index_url_merged_from_conf(self, fake_venv_manager):
-        """conf['extra_index_url'] should be merged with flashinfer.ai URL."""
-        result = mock.MagicMock()
-        result.returncode = 0
+    def test_extra_index_url_used_before_public_fallback(self, fake_venv_manager):
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
         with mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
         ) as run_mock:
             apply_flashinfer_aot_post_install(
                 "vllm",
@@ -212,17 +1183,22 @@ class TestApplyFlashinferAotPostInstall:
                 {"extra_index_url": ["https://wheels.vllm.ai/0.19.0/cu130"]},
                 "13.0",
             )
-            cmd = run_mock.call_args[0][0]
-            cmd_str = " ".join(cmd)
-            assert "wheels.vllm.ai" in cmd_str
-            assert "flashinfer.ai" in cmd_str
 
-    def test_extra_index_url_string_form(self, fake_venv_manager):
-        """conf['extra_index_url'] as string should also be handled."""
-        result = mock.MagicMock()
-        result.returncode = 0
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        assert "wheels.vllm.ai" in " ".join(configured_cmd)
+        assert "flashinfer.ai" not in " ".join(configured_cmd)
+        assert "wheels.vllm.ai" not in " ".join(fallback_cmd)
+        assert "flashinfer.ai" in " ".join(fallback_cmd)
+
+    def test_extra_index_url_string_used_before_public_fallback(
+        self, fake_venv_manager
+    ):
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
         with mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
         ) as run_mock:
             apply_flashinfer_aot_post_install(
                 "vllm",
@@ -231,10 +1207,113 @@ class TestApplyFlashinferAotPostInstall:
                 {"extra_index_url": "https://wheels.vllm.ai/0.19.0/cu130"},
                 "13.0",
             )
-            cmd = run_mock.call_args[0][0]
-            cmd_str = " ".join(cmd)
-            assert "wheels.vllm.ai" in cmd_str
-            assert "flashinfer.ai" in cmd_str
+
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        assert "wheels.vllm.ai" in " ".join(configured_cmd)
+        assert "flashinfer.ai" not in " ".join(configured_cmd)
+        assert "wheels.vllm.ai" not in " ".join(fallback_cmd)
+        assert "flashinfer.ai" in " ".join(fallback_cmd)
+
+    def test_configured_source_success_skips_public_fallback(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {"find_links": "/srv/wheels"},
+                "13.0",
+            )
+
+        run_mock.assert_called_once()
+        cmd = run_mock.call_args[0][0]
+        assert ["--find-links", "/srv/wheels"] == cmd[8:10]
+        assert "--no-index" in cmd
+        assert FLASHINFER_AOT_WHEEL_URL not in cmd
+
+    def test_reuses_configured_source_options_before_public_fallback(
+        self, fake_venv_manager
+    ):
+        configured_result = mock.MagicMock(returncode=1, stderr="package missing")
+        fallback_result = mock.MagicMock(returncode=0)
+        conf = {
+            "index_url": "https://packages.example/simple",
+            "find_links": "/srv/wheels",
+            "trusted_host": "packages.example",
+            "index_strategy": "unsafe-best-match",
+        }
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run",
+            side_effect=[configured_result, fallback_result],
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                conf,
+                "13.0",
+            )
+
+        configured_cmd = run_mock.call_args_list[0][0][0]
+        configured_index_pos = configured_cmd.index("--default-index")
+        assert (
+            configured_cmd[configured_index_pos + 1]
+            == "https://packages.example/simple"
+        )
+        assert "--find-links" in configured_cmd
+        assert "/srv/wheels" in configured_cmd
+        assert "--trusted-host" in configured_cmd
+        assert "packages.example" in configured_cmd
+        assert "--index-strategy" in configured_cmd
+        assert "unsafe-best-match" in configured_cmd
+        assert FLASHINFER_AOT_WHEEL_URL not in configured_cmd
+
+        fallback_cmd = run_mock.call_args_list[1][0][0]
+        fallback_index_pos = fallback_cmd.index("--default-index")
+        assert fallback_cmd[fallback_index_pos + 1] == FLASHINFER_AOT_WHEEL_URL
+        assert "https://packages.example/simple" not in fallback_cmd
+        assert "--find-links" not in fallback_cmd
+        assert "--trusted-host" not in fallback_cmd
+        assert "--index-strategy" not in fallback_cmd
+
+    def test_offline_mode_uses_configured_find_links(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {"find_links": "/srv/wheels"},
+                "13.0",
+                allow_public_install=False,
+            )
+
+        cmd = run_mock.call_args[0][0]
+        assert "--find-links" in cmd
+        assert "/srv/wheels" in cmd
+        assert "--no-index" in cmd
+        assert FLASHINFER_AOT_WHEEL_URL not in cmd
+
+    def test_offline_mode_without_source_skips_install(self, fake_venv_manager):
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run"
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {},
+                "13.0",
+                allow_public_install=False,
+            )
+
+        run_mock.assert_not_called()
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
 
     def test_skipped_for_non_cu130_cuda(self, fake_venv_manager):
         """CUDA 12.x must skip — AOT packages are +cu130 only."""
@@ -359,3 +1438,116 @@ class TestGetEngineCriticalDependencySpecs:
                 ],
             )
         assert specs == ["transformers==4.57.1"]
+
+
+def test_remove_virtual_env_rejects_active_model(tmp_path, monkeypatch):
+    from xinference import constants
+
+    virtual_env_root = tmp_path / "virtualenv"
+    env_path = virtual_env_root / "v4" / "Qwen3.8-Flash-Next" / "vllm" / "3.12"
+    env_path.mkdir(parents=True)
+    monkeypatch.setattr(constants, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root))
+    manager = VirtualEnvManager("worker-0")
+
+    with pytest.raises(VirtualEnvConflictError, match="models are using it"):
+        manager.remove_virtual_env(
+            "Qwen3.8-Flash-Next",
+            "vllm",
+            "3.12",
+            active_model_uids_by_path={str(env_path): ["qwen-rep0"]},
+        )
+
+    assert env_path.exists()
+
+
+def test_remove_virtual_env_allows_delete_after_final_release(tmp_path, monkeypatch):
+    from xinference import constants
+
+    virtual_env_root = tmp_path / "virtualenv"
+    env_path = virtual_env_root / "v4" / "Qwen3.8-Flash-Next" / "vllm" / "3.12"
+    env_path.mkdir(parents=True)
+    monkeypatch.setattr(constants, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root))
+    manager = VirtualEnvManager("worker-0")
+
+    assert manager.remove_virtual_env(
+        "Qwen3.8-Flash-Next",
+        "vllm",
+        "3.12",
+        active_model_uids_by_path={},
+    )
+    assert not env_path.exists()
+
+
+def test_list_virtual_env_packages_returns_direct_distribution_sizes(
+    tmp_path, monkeypatch
+):
+    from xinference.core import virtual_env_manager
+
+    virtual_env_root = tmp_path / "virtualenv"
+    environment_path = virtual_env_root / "v4" / "Qwen3" / "vllm" / "3.12"
+    site_packages_path = environment_path / "lib" / "python3.12" / "site-packages"
+    package_file = site_packages_path / "demo_package" / "__init__.py"
+    metadata_file = site_packages_path / "demo_package-1.2.3.dist-info" / "METADATA"
+    record_file = site_packages_path / "demo_package-1.2.3.dist-info" / "RECORD"
+
+    package_file.parent.mkdir(parents=True)
+    metadata_file.parent.mkdir()
+    package_file.write_text("value = 1\n")
+    metadata_file.write_text(
+        "Metadata-Version: 2.1\nName: demo-package\nVersion: 1.2.3\n"
+    )
+    record_file.write_text(
+        "demo_package/__init__.py,,\n"
+        "demo_package-1.2.3.dist-info/METADATA,,\n"
+        "demo_package-1.2.3.dist-info/RECORD,,\n"
+    )
+    (site_packages_path / "not-in-record.py").write_text("ignored = True\n")
+    monkeypatch.setattr(
+        virtual_env_manager, "XINFERENCE_VIRTUAL_ENV_DIR", str(virtual_env_root)
+    )
+
+    result = VirtualEnvManager("worker-0").list_virtual_env_packages(
+        "Qwen3", "vllm", "3.12"
+    )
+
+    assert result["model_name"] == "Qwen3"
+    assert result["worker_ip"] == "worker-0"
+    assert result["packages"] == [
+        {
+            "name": "demo-package",
+            "version": "1.2.3",
+            "size_bytes": sum(
+                path.stat().st_size
+                for path in (package_file, metadata_file, record_file)
+            ),
+        }
+    ]
+
+
+def test_get_distribution_size_skips_invalid_or_outside_files(tmp_path):
+    environment_path = tmp_path / "virtualenv"
+    package_file = environment_path / "package.py"
+    outside_file = tmp_path / "outside.py"
+    environment_path.mkdir()
+    package_file.write_text("package = True\n")
+    outside_file.write_text("outside = True\n")
+
+    distribution = mock.Mock()
+    distribution.files = ["package.py", "outside.py", "invalid.py"]
+    distribution.locate_file.side_effect = [package_file, outside_file, None]
+
+    assert (
+        VirtualEnvManager._get_distribution_size(distribution, environment_path)
+        == package_file.stat().st_size
+    )
+
+
+def test_list_virtual_env_packages_requires_exact_environment(tmp_path, monkeypatch):
+    from xinference.core import virtual_env_manager
+
+    monkeypatch.setattr(
+        virtual_env_manager, "XINFERENCE_VIRTUAL_ENV_DIR", str(tmp_path / "virtualenv")
+    )
+
+    with pytest.raises(ValueError, match="Virtual environment not found"):
+        VirtualEnvManager("worker-0").list_virtual_env_packages("Qwen3", "vllm", "3.12")

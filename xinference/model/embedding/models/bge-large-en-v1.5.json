@@ -1,0 +1,44 @@
+[
+  {
+    "version": 2,
+    "model_name": "bge-large-en-v1.5",
+    "dimensions": 1024,
+    "max_tokens": 512,
+    "language": [
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "BAAI/bge-large-en-v1.5",
+            "model_revision": "5888da4a3a013e65d33dd6f612ecd4625eb87a7d",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Xorbits/bge-large-en-v1.5",
+            "model_revision": "v0.0.1",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543819,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "FlagEmbedding ; #engine# == \"flag\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

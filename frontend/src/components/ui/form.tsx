@@ -23,9 +23,19 @@ interface FormProps extends Omit<React.ComponentProps<'form'>, 'onSubmit'> {
   initialValues?: Record<string, unknown>;
 
   onFinish?: (values: FormValues) => void;
+
+  onUserChange?: () => void;
 }
 
-export function Form({ form, initialValues, children, onFinish, className, ...props }: FormProps) {
+export function Form({
+  form,
+  initialValues,
+  children,
+  onFinish,
+  onUserChange,
+  className,
+  ...props
+}: FormProps) {
   const [, forceUpdate] = React.useState({});
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -185,6 +195,9 @@ export function Form({ form, initialValues, children, onFinish, className, ...pr
     clearFieldState(key);
   }, [clearFieldState]);
 
+  const notifyUserChange = React.useCallback(() => {
+    onUserChange?.();
+  }, [onUserChange]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,6 +237,7 @@ export function Form({ form, initialValues, children, onFinish, className, ...pr
         clearFieldState,
         registerField,
         unregisterField,
+        notifyUserChange,
       }}
     >
       <form {...props} onSubmit={handleSubmit} className={cn('space-y-3', className)}>

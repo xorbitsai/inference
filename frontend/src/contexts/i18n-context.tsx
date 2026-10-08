@@ -5,7 +5,7 @@ import { translations } from '@/i18n/translations';
 import type { Locale } from '@/types/common';
 import { LANGUAGES_KEYS, DEFAULT_LANGUAGE } from '@/constants';
 type InterpolationValue = string | number | boolean | null | undefined;
-type TFunc = (key: string, vars?: Record<string, InterpolationValue>) => string;
+export type TFunc = (key: string, vars?: Record<string, InterpolationValue>) => string;
 
 interface I18nContextValue {
   locale: Locale;
@@ -49,8 +49,10 @@ export function I18nProvider({
       } else if (!stored) {
         // First visit: the app is statically exported, so there is no
         // request-time Accept-Language detection; use the browser language.
-        const browserLocale: Locale =
-          typeof navigator !== 'undefined' && navigator.language?.toLowerCase().includes('zh')
+        const navLang = typeof navigator !== 'undefined' ? navigator.language?.toLowerCase() : '';
+        const browserLocale: Locale = navLang?.match(/^zh-(tw|hk|mo)/)
+          ? 'zh-TW'
+          : navLang?.includes('zh')
             ? 'zh'
             : DEFAULT_LANGUAGE;
         if (browserLocale !== locale) {
@@ -81,13 +83,19 @@ export function I18nProvider({
 
   const t: TFunc = useMemo(() => {
     return (key, vars) => {
-      const dict: any = translations[locale as keyof typeof translations] || {};
-      const value = key
-        .split('.')
-        .reduce(
-          (acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined),
-          dict
-        );
+      const dict = translations[locale as keyof typeof translations] || {};
+      const parts = key.split('.');
+      const resolve = (source: unknown) => {
+        let current = source;
+        for (const part of parts) {
+          if (typeof current !== 'object' || current === null || !(part in current)) {
+            return undefined;
+          }
+          current = (current as Record<string, unknown>)[part];
+        }
+        return current;
+      };
+      const value = resolve(dict) ?? resolve(translations.en);
       const str = typeof value === 'string' ? value : key;
       return interpolate(str, vars);
     };

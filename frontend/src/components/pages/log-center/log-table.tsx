@@ -11,14 +11,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { LOG_LEVEL_TEXT_CLASSES } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import { cn } from '@/lib/utils';
 
 import { ContextDialog } from './context-dialog';
 import { LogDetail } from './log-detail';
-import type { FieldFilter, FieldFilterOp, LogRow } from './types';
-import { formatLogTime, HighlightText } from './utils';
+import type { FieldFilter, FieldFilterOp, LogNodeRole, LogRow } from './types';
+import {
+  formatLogTime,
+  formatLogTimeTitle,
+  getLogNodeFilterValue,
+  getLogNodeName,
+  getLogNodeRole,
+  getLogSummary,
+  HighlightText,
+  resolveHistoricalNodeRole,
+  LogLevelBadge,
+  NodeRoleBadge,
+} from './utils';
 
 interface LogTableProps {
   logs: LogRow[];
@@ -28,7 +38,9 @@ interface LogTableProps {
   selectedLevels: string[];
   selectedLogType: string;
   nodeField: string;
+  nodeRoles: Record<string, LogNodeRole>;
   onFieldFilter: (key: string, value: unknown, op: FieldFilterOp) => void;
+  onViewRuntimeNode?: (nodeName: string) => void;
 }
 
 export function LogTable({
@@ -39,7 +51,9 @@ export function LogTable({
   selectedLevels,
   selectedLogType,
   nodeField,
+  nodeRoles,
   onFieldFilter,
+  onViewRuntimeNode,
 }: LogTableProps) {
   const { t } = useI18n();
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
@@ -54,7 +68,7 @@ export function LogTable({
         ...selectedLevels,
       ],
       nodes: fieldFilters
-        .filter((filter) => filter.op === '+' && filter.key === 'node')
+        .filter((filter) => filter.op === '+' && filter.key === nodeField)
         .map((filter) => filter.value),
       messages: [
         appliedSearch,
@@ -63,24 +77,47 @@ export function LogTable({
           .map((filter) => filter.value),
       ],
     };
-  }, [appliedSearch, fieldFilters, selectedLevels]);
+  }, [appliedSearch, fieldFilters, nodeField, selectedLevels]);
+
+  const roleLabel = (role: string) => {
+    if (role === 'supervisor') return t('clusterInfo.supervisor');
+    if (role === 'worker') return t('clusterInfo.worker');
+    if (role === 'local') return t('logCenter.local');
+    return t('logCenter.unknownNodeType');
+  };
 
   return (
     <>
       <div className="min-h-0 flex-1 overflow-auto">
-        <Table size="small">
+        <Table size="small" className="min-w-[960px] table-auto">
+          <colgroup>
+            <col className="w-9" />
+            <col className="w-px" />
+            <col className="w-px" />
+            <col className="w-[18%]" />
+            <col className="w-px" />
+            <col />
+          </colgroup>
           <TableHeader className="sticky top-0 z-10">
             <TableRow>
-              <TableHead className="w-8" />
-              <TableHead className="w-40">{t('logCenter.time')}</TableHead>
-              <TableHead className="w-24">{t('logCenter.level')}</TableHead>
-              <TableHead className="w-44">{t('logCenter.node')}</TableHead>
+              <TableHead />
+              <TableHead className="whitespace-nowrap">{t('logCenter.time')}</TableHead>
+              <TableHead className="whitespace-nowrap">{t('logCenter.nodeRole')}</TableHead>
+              <TableHead>{t('logCenter.nodeName')}</TableHead>
+              <TableHead className="whitespace-nowrap">{t('logCenter.level')}</TableHead>
               <TableHead>{t('logCenter.message')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {logs.map((row, index) => {
               const isExpanded = expandedRow === index;
+              const nodeName = getLogNodeName(row, nodeField);
+              const nodeFilterValue = getLogNodeFilterValue(row, nodeField);
+              const role = resolveHistoricalNodeRole({
+                nodeName,
+                historicalRole: nodeRoles[nodeFilterValue] || nodeRoles[nodeName],
+                resultRole: getLogNodeRole(row),
+              });
 
               return (
                 <Fragment key={`${row['@timestamp'] || index}-${index}`}>
@@ -88,26 +125,43 @@ export function LogTable({
                     className={cn('cursor-pointer', isExpanded && '[&>td]:border-b-0')}
                     onClick={() => setExpandedRow(isExpanded ? null : index)}
                   >
-                    <TableCell className="w-8">
-                      <ChevronDown className={cn('size-4 transition-transform', isExpanded && 'rotate-180')} />
+                    <TableCell>
+                      <ChevronDown
+                        className={cn('size-4 transition-transform', isExpanded && 'rotate-180')}
+                      />
                     </TableCell>
-                    <TableCell className="w-40 whitespace-nowrap text-xs">
+                    <TableCell
+                      className="whitespace-nowrap font-mono text-xs text-muted-foreground"
+                      title={formatLogTimeTitle(row['@timestamp'])}
+                    >
                       {formatLogTime(row['@timestamp'])}
                     </TableCell>
-                    <TableCell className="w-24 text-xs">
-                      <span className={cn('font-semibold', LOG_LEVEL_TEXT_CLASSES[String(row.level)] || 'text-foreground')}>
-                        <HighlightText text={row.level || ''} keywords={highlightValues.levels} />
-                      </span>
+                    <TableCell className="whitespace-nowrap text-xs">
+                      <NodeRoleBadge role={role}>{roleLabel(role)}</NodeRoleBadge>
                     </TableCell>
-                    <TableCell className="w-44 text-xs">
-                      <HighlightText text={row.node || ''} keywords={highlightValues.nodes} />
+                    <TableCell
+                      className="min-w-[140px] max-w-[220px] whitespace-normal break-words [overflow-wrap:anywhere] font-mono text-xs"
+                      title={nodeName}
+                    >
+                      <HighlightText text={nodeName} keywords={highlightValues.nodes} />
                     </TableCell>
-                    <TableCell className="max-w-0 truncate text-xs">
-                      <HighlightText text={row.message || ''} keywords={highlightValues.messages} />
+                    <TableCell className="whitespace-nowrap text-xs">
+                      <LogLevelBadge level={String(row.level || '')}>
+                        <HighlightText
+                          text={row.level || 'UNKNOWN'}
+                          keywords={highlightValues.levels}
+                        />
+                      </LogLevelBadge>
+                    </TableCell>
+                    <TableCell className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs">
+                      <HighlightText
+                        text={getLogSummary(row)}
+                        keywords={highlightValues.messages}
+                      />
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell colSpan={5} className="p-0">
+                    <TableCell colSpan={6} className="p-0">
                       {isExpanded && (
                         <LogDetail
                           row={row}
@@ -118,6 +172,7 @@ export function LogTable({
                           selectedLogType={selectedLogType}
                           nodeField={nodeField}
                           onViewContext={setContextAnchorRow}
+                          onViewRuntimeNode={onViewRuntimeNode}
                         />
                       )}
                     </TableCell>
@@ -127,7 +182,7 @@ export function LogTable({
             })}
             {loading && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                     <Loader2 className="size-5 animate-spin" />
                     <span>{t('logCenter.loading')}</span>
@@ -137,8 +192,10 @@ export function LogTable({
             )}
             {!loading && logs.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5}>
-                  <div className="py-10 text-center text-muted-foreground">{t('logCenter.noLogs')}</div>
+                <TableCell colSpan={6}>
+                  <div className="py-10 text-center text-muted-foreground">
+                    {t('logCenter.noHistoricalLogs')}
+                  </div>
                 </TableCell>
               </TableRow>
             )}

@@ -1,0 +1,403 @@
+[
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "llama-2-chat",
+    "model_lang": [
+      "en"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Llama-2-Chat is a fine-tuned version of the Llama-2 LLM, specializing in chatting.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Llama-2-7b-chat-hf",
+            "model_revision": "08751db2aca9bf2f7f80d2e516117a53d7450235"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "modelscope/Llama-2-7b-chat-ms",
+            "model_revision": "v1.0.5",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://modelscope.cn/models/modelscope/Llama-2-7b-chat-ms/resolve/v1.0.5/config.json",
+              "config_sha256": "3c66a81e29ce617a74ff2e4055e7fb275b5c9457103864745693fbce59b368a2",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Llama-2-13b-chat-hf",
+            "model_revision": "0ba94ac9b9e1d5a0037780667e8b219adde1908c"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "modelscope/Llama-2-13b-chat-ms",
+            "model_revision": "v1.0.2",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://modelscope.cn/models/modelscope/Llama-2-13b-chat-ms/resolve/v1.0.2/config.json",
+              "config_sha256": "789089fe1cf1c511f13d26f7263c88644a1c9b72a2b610490d66649c83fa745a",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Llama-2-70b-chat-hf",
+            "model_revision": "36d9a7388cc80e5f4b3e9701ca2f250d21a96c30"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "modelscope/Llama-2-70b-chat-ms",
+            "model_revision": "v1.0.1",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/modelscope/Llama-2-70b-chat-ms/resolve/v1.0.1/config.json",
+              "config_sha256": "13e6a4e85d425e6348a13bfd6218a03d06156312eca843fa73b03fc5cc9e1d9e",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/Llama-2-7B-Chat-GGUF",
+            "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q2_K.gguf",
+              "config_sha256": "fbb0018167da59d69a9134b6fd6e439d72024f4295f8ea6d43165a8deb4da05a",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M"
+            ],
+            "model_id": "Xorbits/Llama-2-7b-Chat-GGUF",
+            "model_file_name_template": "llama-2-7b-chat.{quantization}.gguf",
+            "model_revision": "v0.0.1",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://modelscope.cn/models/Xorbits/Llama-2-7b-Chat-GGUF/resolve/v0.0.1/llama-2-7b-chat.Q4_K_M.gguf",
+              "config_sha256": "dfa131b995879a2b9764c7145b1e9b662bea896e9224011658a14fd9eee27251",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_S",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "TheBloke/Llama-2-13B-chat-GGUF",
+            "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-13B-chat-GGUF/resolve/main/llama-2-13b-chat.Q2_K.gguf",
+              "config_sha256": "96b0104ac335b8f2d266e3a45f0a00f9869b386374d01dae7cc93efd7d120ff4",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M"
+            ],
+            "model_id": "Xorbits/Llama-2-13b-Chat-GGUF",
+            "model_file_name_template": "llama-2-13b-chat.{quantization}.gguf",
+            "model_revision": "v0.0.1",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://modelscope.cn/models/Xorbits/Llama-2-13b-Chat-GGUF/resolve/v0.0.1/llama-2-13b-chat.Q4_K_M.gguf",
+              "config_sha256": "7dcd9577dfc25648d6ba68a63a8b1132db717001b0dfb91076549226e7d78878",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_S",
+              "Q3_K_M",
+              "Q3_K_L",
+              "Q4_0",
+              "Q4_K_S",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_S",
+              "Q5_K_M"
+            ],
+            "quantization_parts": {
+              "Q6_K": [
+                "split-a",
+                "split-b"
+              ],
+              "Q8_0": [
+                "split-a",
+                "split-b"
+              ]
+            },
+            "model_id": "TheBloke/Llama-2-70B-Chat-GGUF",
+            "model_file_name_template": "llama-2-70b-chat.{quantization}.gguf",
+            "model_file_name_split_template": "llama-2-70b-chat.{quantization}.gguf-{part}",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-70B-Chat-GGUF/resolve/main/llama-2-70b-chat.Q2_K.gguf",
+              "config_sha256": "ac6f1467434ee227851fc297c3be6f9c452a7a0aee82637d3e4625fbd43782dd",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Llama-2-7B-Chat-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-GPTQ/resolve/d5ad9310836dd91b6ac6133e2e47f47394386cea/config.json",
+              "config_sha256": "9197af2125bacafc333d6a18323438fd5050586d008f2ddb3b150dcf28491592",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Llama-2-70B-Chat-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-70B-Chat-GPTQ/resolve/ac53ed5e8ebdbbe6db22ecf816e21f55905418df/config.json",
+              "config_sha256": "94ebd58ce188a68d5b907d65a871a960377997fd15717fa8c93a6afc357ee6fe",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Llama-2-70B-Chat-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-70B-Chat-AWQ/resolve/55c2786a75adef2b89bf3157d1517536d817c936/config.json",
+              "config_sha256": "0c665768966ef3a54454627d5cbcef5a8fed7b6fee5ecbe830acc24dd43ad1ea",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Llama-2-7B-Chat-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 32,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-AWQ/resolve/ee91097dc818c742d9b648147891dfadd9638ace/config.json",
+              "config_sha256": "e705b27cd6a1fbc40df25fb0976aef6bf1dc852558bf21c56395d8475fe4d09e",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Llama-2-13B-chat-GPTQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-13B-chat-GPTQ/resolve/ea078917a7e91c896787c73dba935f032ae658e9/config.json",
+              "config_sha256": "2151c7e35c0f547eafaf5f2b9f5b9a13632069387679421ccd659f9f81b7edb8",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 13,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "TheBloke/Llama-2-13B-chat-AWQ",
+            "model_metadata": {
+              "vocab_size": 32000,
+              "num_attention_heads": 40,
+              "num_key_value_heads": 40,
+              "config_source": "https://huggingface.co/TheBloke/Llama-2-13B-chat-AWQ/resolve/e609cfc317ae4da50bb1839b8dcc3bf3a65f0fb7/config.json",
+              "config_sha256": "bf78daa284bd00f67701c8333d017b7ca7fac8a205a76655e7a5ee0a14b2425f",
+              "hidden_size": 5120,
+              "intermediate_size": 13824,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = '<<SYS>>\n' + messages[0]['content'] | trim + '\n<</SYS>>\n\n' %}{% set messages = messages[1:] %}{% else %}{% set system_message = '' %}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '<s>' + '[INST] ' + content | trim + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' ' + content | trim + ' ' + '</s>' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      2
+    ],
+    "stop": [],
+    "featured": false,
+    "updated_at": 1769418532,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

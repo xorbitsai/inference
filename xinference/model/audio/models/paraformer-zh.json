@@ -1,0 +1,38 @@
+[
+  {
+    "version": 2,
+    "model_name": "paraformer-zh",
+    "model_family": "funasr",
+    "model_ability": [
+      "audio2text"
+    ],
+    "multilingual": false,
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "punc_model": "ct-punc"
+    },
+    "default_transcription_config": {
+      "batch_size_s": 300
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "funasr/paraformer-zh",
+        "model_revision": "5ed094cdfc8f6a9b6b022bd08bc904ef862bc79e"
+      },
+      "modelscope": {
+        "model_id": "iic/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1783912345,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
+  }
+]

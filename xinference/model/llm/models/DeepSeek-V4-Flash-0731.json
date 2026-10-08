@@ -1,0 +1,83 @@
+[
+  {
+    "model_name": "DeepSeek-V4-Flash-0731",
+    "model_description": "Official DeepSeek-V4-Flash release with enhanced agentic capabilities and an attached DSpark speculative decoding module.",
+    "context_length": 1048576,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 304,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+            "quantizations": [
+              "fp8"
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731/resolve/7872f01b1d1fe23eabc4c98b48bffcef5a386062/config.json",
+              "config_sha256": "6c8f3d2d3b48707541b88f32f22ef3f0f8a6b57d8523281e2b8d3cdb0ae9a023",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 43
+            }
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+            "quantizations": [
+              "fp8"
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4-Flash-0731/resolve/master/config.json",
+              "config_sha256": "6c8f3d2d3b48707541b88f32f22ef3f0f8a6b57d8523281e2b8d3cdb0ae9a023",
+              "architecture_type": "moe",
+              "hidden_size": 4096,
+              "intermediate_size": 2048,
+              "num_hidden_layers": 43
+            }
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV4ForCausalLM"
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "deepseek-v4",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "vllm>=0.20.1 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1786099285
+  }
+]

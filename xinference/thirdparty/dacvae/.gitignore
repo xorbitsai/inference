@@ -1,0 +1,11 @@
+__pycache__
+*.egg-info
+*.pyc
+*.so
+*.sw?
+build
+.nfs*
+runs*
+.vscode
+core
+dist

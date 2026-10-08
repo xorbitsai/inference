@@ -12,8 +12,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import math
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+def parse_env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable without accepting ambiguous values."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(
+        f"{name} must be one of true/false, 1/0, yes/no, or on/off; got {raw!r}"
+    )
+
+
+def parse_env_float(name: str, default: float) -> float:
+    """Parse a finite float environment variable with a safe fallback."""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        logger.warning(
+            "Environment variable %s is invalid (got %r); using default %s",
+            name,
+            raw,
+            default,
+        )
+        return default
+    if not math.isfinite(value):
+        logger.warning(
+            "Environment variable %s must be finite (got %r); using default %s",
+            name,
+            raw,
+            default,
+        )
+        return default
+    return value
+
 
 XINFERENCE_ENV_ENDPOINT = "XINFERENCE_ENDPOINT"
 XINFERENCE_ENV_MODEL_SRC = "XINFERENCE_MODEL_SRC"
@@ -30,17 +76,23 @@ XINFERENCE_ENV_TCP_REQUEST_TIMEOUT = "XINFERENCE_TCP_REQUEST_TIMEOUT"
 XINFERENCE_ENV_LIST_MODELS_PER_WORKER_TIMEOUT = (
     "XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT"
 )
+XINFERENCE_ENV_LIST_MODELS_DEBOUNCE_SECONDS = "XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS"
 XINFERENCE_ENV_GET_MODEL_RPC_TIMEOUT = "XINFERENCE_GET_MODEL_RPC_TIMEOUT"
 XINFERENCE_ENV_STATUS_GATHER_TIMEOUT = "XINFERENCE_STATUS_GATHER_TIMEOUT"
 XINFERENCE_ENV_STATUS_REPORT_MULTIPLIER = "XINFERENCE_STATUS_REPORT_MULTIPLIER"
+XINFERENCE_ENV_MODEL_GPU_MEMORY_CACHE_TTL = "XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL"
 XINFERENCE_ENV_MAX_CONCURRENT_LAUNCHES = "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
 XINFERENCE_ENV_DISABLE_HEALTH_CHECK = "XINFERENCE_DISABLE_HEALTH_CHECK"
 XINFERENCE_ENV_DISABLE_METRICS = "XINFERENCE_DISABLE_METRICS"
 XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS = "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
-XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE = "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+XINFERENCE_ENV_HUB_DETECT_TIMEOUT = "XINFERENCE_HUB_DETECT_TIMEOUT"
+XINFERENCE_ENV_LLMMAN_BIN = "XINFERENCE_LLMMAN_BIN"
 XINFERENCE_ENV_VIRTUAL_ENV = "XINFERENCE_ENABLE_VIRTUAL_ENV"
 XINFERENCE_ENV_VIRTUAL_ENV_SKIP_INSTALLED = "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
 XINFERENCE_ENV_VIRTUAL_ENV_OFFLINE_INSTALL = "XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL"
+XINFERENCE_ENV_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS = (
+    "XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS"
+)
 XINFERENCE_ENV_SSE_PING_ATTEMPTS_SECONDS = "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
 XINFERENCE_ENV_MAX_TOKENS = "XINFERENCE_MAX_TOKENS"
 XINFERENCE_ENV_ALLOWED_IPS = "XINFERENCE_ALLOWED_IPS"
@@ -68,6 +120,18 @@ XINFERENCE_ENV_OTEL_BATCH_EXPORT_TIMEOUT = "XINFERENCE_OTEL_BATCH_EXPORT_TIMEOUT
 XINFERENCE_ENV_OTEL_METRIC_EXPORT_TIMEOUT = "XINFERENCE_OTEL_METRIC_EXPORT_TIMEOUT"
 
 
+def _parse_virtual_env_find_links_allowed_roots(
+    raw_value: str | None, xinference_home: str
+) -> tuple[str, ...]:
+    if raw_value is None:
+        raw_value = os.path.join(xinference_home, "wheels")
+    return tuple(
+        os.path.realpath(root.strip())
+        for root in raw_value.split(os.pathsep)
+        if root.strip()
+    )
+
+
 def get_xinference_home() -> str:
     home_path = os.environ.get(XINFERENCE_ENV_HOME_PATH)
     if home_path is None:
@@ -90,6 +154,7 @@ XINFERENCE_LOG_DIR = os.environ.get(
 )
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
+XINFERENCE_WORLD_DIR = os.path.join(XINFERENCE_HOME, "world")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
 
 
@@ -220,9 +285,50 @@ XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "launch_history.db"),
 )
 
+XINFERENCE_DOWNLOAD_TASK_DB_PATH = os.environ.get(
+    "XINFERENCE_DOWNLOAD_TASK_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "download_tasks.db"),
+)
+
 XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
     "XINFERENCE_MONITOR_CONFIG_DB_PATH",
     os.path.join(XINFERENCE_HOME, "monitor_config.db"),
+)
+
+XINFERENCE_SYSTEM_SETTINGS_PATH = os.environ.get(
+    "XINFERENCE_SYSTEM_SETTINGS_PATH",
+    os.path.join(XINFERENCE_HOME, "system-settings.json"),
+)
+
+XINFERENCE_TOKEN_ROUTER_ENABLED = parse_env_bool(
+    "XINFERENCE_TOKEN_ROUTER_ENABLED", True
+)
+
+XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
+    "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""
+)
+
+XINFERENCE_TOKEN_ROUTER_DB_PATH = os.environ.get(
+    "XINFERENCE_TOKEN_ROUTER_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "token_routers.db"),
+)
+XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_HEARTBEAT_TIMEOUT_SECONDS", 90.0
+)
+XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_AGENT_SUSPECT_SECONDS", 30.0
+)
+XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_AGENT_OFFLINE_SECONDS", 45.0
+)
+XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_AGENT_MONITOR_SECONDS", 5.0
+)
+XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS = parse_env_float(
+    "XINFERENCE_TOKEN_ROUTER_STALE_RETENTION_SECONDS", 300.0
+)
+XINFERENCE_TOKENIZER_ASSET_CONFIG = os.environ.get(
+    "XINFERENCE_TOKENIZER_ASSET_CONFIG", ""
 )
 
 # Whether to allow models to run their own bundled code (transformers /
@@ -256,6 +362,12 @@ XINFERENCE_AUDIT_ES_INDEX = os.environ.get(
 )
 
 XINFERENCE_VIRTUAL_ENV_DIR = os.path.join(XINFERENCE_HOME, "virtualenv")
+XINFERENCE_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS = (
+    _parse_virtual_env_find_links_allowed_roots(
+        os.getenv(XINFERENCE_ENV_VIRTUAL_ENV_FIND_LINKS_ALLOWED_ROOTS),
+        XINFERENCE_HOME,
+    )
+)
 XINFERENCE_CSG_ENDPOINT = str(
     os.environ.get(XINFERENCE_ENV_CSG_ENDPOINT, "https://hub-stg.opencsg.com/")
 )
@@ -268,6 +380,13 @@ XINFERENCE_LOG_ROTATION = os.environ.get("XINFERENCE_LOG_ROTATION", "daily+size"
 XINFERENCE_LOG_FORMAT = os.environ.get("XINFERENCE_LOG_FORMAT", "text").lower()
 XINFERENCE_LOG_CONSOLE = (
     os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
+)
+
+# The Web UI polls /progress and /replicas about once a second per model and
+# metrics scrapers hit /metrics, so at info level those access lines bury
+# everything else. Set to true to log them anyway.
+XINFERENCE_LOG_POLLING_ACCESS = (
+    os.environ.get("XINFERENCE_LOG_POLLING_ACCESS", "false").lower() == "true"
 )
 
 # Download progress logging level (only effective when XINFERENCE_LOG_CONSOLE=false)
@@ -295,6 +414,30 @@ XINFERENCE_LOG_MAX_BYTES = int(
     os.environ.get("XINFERENCE_LOG_MAX_BYTES", str(100 * 1024 * 1024))
 )
 XINFERENCE_LOG_BACKUP_COUNT = int(os.environ.get("XINFERENCE_LOG_BACKUP_COUNT", "300"))
+
+# Dedicated REST API model request log.  It is disabled by default because JSON
+# bodies may contain sensitive values and large Base64/latent payloads.
+XINFERENCE_MODEL_REQUEST_LOG_ENABLED = (
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_ENABLED", "false").lower() == "true"
+)
+XINFERENCE_MODEL_REQUEST_LOG_FILE = os.environ.get(
+    "XINFERENCE_MODEL_REQUEST_LOG_FILE", "model_request.log"
+)
+XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_RETENTION_DAYS", "7")
+)
+XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_MAX_BYTES", str(1024 * 1024 * 1024))
+)
+XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_BACKUP_COUNT", "7")
+)
+# Maximum request body size captured by the dedicated model request log.
+# Requests without a valid Content-Length or above this limit are not pre-read.
+XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES = int(
+    os.environ.get("XINFERENCE_MODEL_REQUEST_LOG_BODY_MAX_BYTES", str(16 * 1024 * 1024))
+)
+
 XINFERENCE_LOG_ARG_MAX_LENGTH = 100
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD = int(
     os.environ.get(XINFERENCE_ENV_HEALTH_CHECK_FAILURE_THRESHOLD, 5)
@@ -311,6 +454,11 @@ XINFERENCE_TCP_REQUEST_TIMEOUT = int(
 # Per-worker list_models RPC; default well below TCP read-timeout (~600s+) seen in production
 XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT = int(
     os.environ.get(XINFERENCE_ENV_LIST_MODELS_PER_WORKER_TIMEOUT, "60")
+)
+# Whole-result cache TTL for list_models debounce during rapid UI refresh.
+# Set to 0 to disable debounce caching entirely.
+XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS = int(
+    os.environ.get(XINFERENCE_ENV_LIST_MODELS_DEBOUNCE_SECONDS, "3")
 )
 # get_model -> worker_ref.get_model RPC
 XINFERENCE_GET_MODEL_RPC_TIMEOUT = int(
@@ -340,8 +488,9 @@ def is_metrics_disabled() -> bool:
 XINFERENCE_DOWNLOAD_MAX_ATTEMPTS = int(
     os.environ.get(XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS, 3)
 )
-XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE = os.environ.get(
-    XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE, None
+# Timeout (seconds) for probing hub connectivity when download_hub is "auto"
+XINFERENCE_HUB_DETECT_TIMEOUT = float(
+    os.environ.get(XINFERENCE_ENV_HUB_DETECT_TIMEOUT, 3)
 )
 XINFERENCE_SSE_PING_ATTEMPTS_SECONDS = int(
     os.environ.get(XINFERENCE_ENV_SSE_PING_ATTEMPTS_SECONDS, 600)
@@ -373,6 +522,13 @@ XINFERENCE_STATUS_REPORT_MULTIPLIER = int(
     os.environ.get(XINFERENCE_ENV_STATUS_REPORT_MULTIPLIER, 3)
 )
 
+# Keep the last trustworthy per-model GPU-memory snapshot long enough to absorb
+# transient worker status failures, but do not display stale usage indefinitely.
+XINFERENCE_MODEL_GPU_MEMORY_CACHE_TTL = max(
+    0,
+    int(os.environ.get(XINFERENCE_ENV_MODEL_GPU_MEMORY_CACHE_TTL, 90)),
+)
+
 XINFERENCE_MAX_CONCURRENT_LAUNCHES = max(
     1, int(os.environ.get(XINFERENCE_ENV_MAX_CONCURRENT_LAUNCHES, 5))
 )
@@ -386,6 +542,12 @@ XINFERENCE_MAX_CONCURRENT_LAUNCHES = max(
 # extreme environments (slow NFS, vLLM version upgrade slowing import, etc.).
 XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT = int(
     os.environ.get("XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT", "60")
+)
+
+# How long cancel_launch_model waits for the cancelled launch to unwind before
+# returning anyway, so an immediate relaunch is not rejected as still running.
+XINFERENCE_CANCEL_LAUNCH_TIMEOUT = int(
+    os.environ.get("XINFERENCE_CANCEL_LAUNCH_TIMEOUT", "60")
 )
 
 # Status gather timeout in seconds (for collecting GPU info, etc.)

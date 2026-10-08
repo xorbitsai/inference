@@ -1,0 +1,53 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-04 00:11+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/builtin/image/monkeyocr.rst:5
+msgid "MonkeyOCR"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:7
+msgid "**Model Name:** MonkeyOCR"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:8
+msgid "**Model Family:** ocr"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:9
+msgid "**Abilities:** ocr"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:10
+msgid "**Available ControlNet:** None"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:13
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:15
+msgid "**Model ID:** echo840/MonkeyOCR"
+msgstr ""
+
+#: ../../source/models/builtin/image/monkeyocr.rst:17
+msgid "Execute the following command to launch the model::"
+msgstr ""
+

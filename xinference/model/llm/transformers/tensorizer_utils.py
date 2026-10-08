@@ -159,9 +159,10 @@ def _load_pretrained_from_tensorizer(
         with _read_stream(load_path) as stream:
             downloaded.write(stream.read())
         downloaded.seek(0)
-        with zipfile.ZipFile(
-            downloaded, mode="r"
-        ) as file, tempfile.TemporaryDirectory() as directory:
+        with (
+            zipfile.ZipFile(downloaded, mode="r") as file,
+            tempfile.TemporaryDirectory() as directory,
+        ):
             file.extractall(path=directory)
             return component_class.from_pretrained(
                 directory, cache_dir=None, local_files_only=True, **kwargs
@@ -243,9 +244,12 @@ def _load_model_from_tensorizer(
     logger.info(f"Loading {tensors_uri}, {ram_usage}")
     begin_load = time.perf_counter()
 
-    with _read_stream(tensors_uri) as tensor_stream, TensorDeserializer(
-        tensor_stream, device=device, dtype=dtype, plaid_mode=is_cuda
-    ) as tensor_deserializer:
+    with (
+        _read_stream(tensors_uri) as tensor_stream,
+        TensorDeserializer(
+            tensor_stream, device=device, dtype=dtype, plaid_mode=is_cuda
+        ) as tensor_deserializer,
+    ):
         tensor_deserializer.load_into_module(model)
         tensor_load_s = time.perf_counter() - begin_load
         bytes_read: int = tensor_deserializer.total_bytes_read
@@ -332,9 +336,13 @@ def _tensorizer_serialize_pretrained(
     logger.info(f"Writing component to {save_path}")
     _write_stream = partial(stream_io.open_stream, mode="wb+")
 
-    with _write_stream(save_path) as stream, zipfile.ZipFile(
-        stream, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=5
-    ) as file, tempfile.TemporaryDirectory() as directory:
+    with (
+        _write_stream(save_path) as stream,
+        zipfile.ZipFile(
+            stream, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=5
+        ) as file,
+        tempfile.TemporaryDirectory() as directory,
+    ):
         if hasattr(component, "save_pretrained"):
             component.save_pretrained(directory)
         else:

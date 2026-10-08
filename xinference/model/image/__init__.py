@@ -17,8 +17,13 @@ import json
 import os
 import warnings
 
+from ..._model_catalog import load_model_catalog
 from ...constants import XINFERENCE_MODEL_DIR
-from ..utils import flatten_model_src, flatten_quantizations
+from ..utils import (
+    flatten_model_src,
+    flatten_quantizations,
+    prune_stale_derived_registries,
+)
 from .core import (
     BUILTIN_IMAGE_MODELS,
     IMAGE_MODEL_DESCRIPTIONS,
@@ -33,11 +38,12 @@ from .custom import (
     unregister_image,
 )
 from .engine import register_builtin_image_engines
+from .engine_family import IMAGE_ENGINES
 from .engine_family import (
     generate_engine_config_by_model_name as generate_image_engine_config,
 )
 from .ocr import register_builtin_ocr_engines
-from .ocr.ocr_family import generate_engine_config_by_model_name
+from .ocr.ocr_family import OCR_ENGINES, generate_engine_config_by_model_name
 
 
 def register_custom_model():
@@ -68,7 +74,7 @@ def _install():
 
     install_models_with_merge(
         BUILTIN_IMAGE_MODELS,
-        "model_spec.json",
+        "models",
         "image",
         "image_models.json",
         has_downloaded_models,
@@ -82,21 +88,36 @@ def _install():
 
     register_builtin_image_engines()
     register_builtin_ocr_engines()
+    new_image_engines = {}
+    new_ocr_engines = {}
     for model_specs in BUILTIN_IMAGE_MODELS.values():
         for model_spec in model_specs:
             if model_spec.model_ability and "ocr" not in model_spec.model_ability:
-                generate_image_engine_config(model_spec)
+                generate_image_engine_config(model_spec, new_image_engines)
             if model_spec.model_ability and "ocr" in model_spec.model_ability:
-                generate_engine_config_by_model_name(model_spec)
+                generate_engine_config_by_model_name(model_spec, new_ocr_engines)
 
     register_custom_model()
 
-    for ud_image in get_user_defined_images():
+    user_defined_images = get_user_defined_images()
+    for ud_image in user_defined_images:
         IMAGE_MODEL_DESCRIPTIONS.update(generate_image_description(ud_image))
         if ud_image.model_ability and "ocr" not in ud_image.model_ability:
-            generate_image_engine_config(ud_image)
+            generate_image_engine_config(ud_image, new_image_engines)
         if ud_image.model_ability and "ocr" in ud_image.model_ability:
-            generate_engine_config_by_model_name(ud_image)
+            generate_engine_config_by_model_name(ud_image, new_ocr_engines)
+
+    IMAGE_ENGINES.clear()
+    IMAGE_ENGINES.update(new_image_engines)
+    OCR_ENGINES.clear()
+    OCR_ENGINES.update(new_ocr_engines)
+
+    # A model present on a prior refresh but absent from this one must not keep
+    # advertising a launch config or description from the stale entry.
+    live_names = {name for name in BUILTIN_IMAGE_MODELS} | {
+        ud.model_name for ud in user_defined_images
+    }
+    prune_stale_derived_registries(live_names, IMAGE_MODEL_DESCRIPTIONS)
 
 
 def register_builtin_model():
@@ -123,7 +144,7 @@ def load_downloaded_models():
             f"Failed to load downloaded image models from {json_file_path}: {e}"
         )
         # Fall back to built-in models if download fails
-        load_model_family_from_json("model_spec.json", BUILTIN_IMAGE_MODELS)
+        load_model_family_from_json("models", BUILTIN_IMAGE_MODELS)
 
 
 def load_model_family_from_json(json_filename, target_families):
@@ -134,7 +155,7 @@ def load_model_family_from_json(json_filename, target_families):
         json_path = os.path.join(os.path.dirname(__file__), json_filename)
 
     flattened_model_specs = []
-    for spec in json.load(codecs.open(json_path, "r", encoding="utf-8")):
+    for spec in load_model_catalog(json_path):
         base_info = {
             key: value
             for key, value in spec.items()

@@ -471,6 +471,10 @@ msgstr ""
 "possède les deux), vous pouvez gérer les utilisateurs et les clés API via"
 " les points de terminaison REST sous ``/v1/admin``, par exemple :"
 
+#: ../../source/user_guide/auth_system.rst:228
+msgid "API key names are required. Names are trimmed before storage and must be unique across all users; comparisons ignore ASCII letter case. When an existing database is upgraded, blank or duplicate names are migrated to deterministic unique names without changing the API key values."
+msgstr "Les noms de clés API sont obligatoires. Les espaces de début et de fin sont supprimés avant le stockage et les noms doivent être uniques pour tous les utilisateurs ; les comparaisons ne tiennent pas compte de la casse des lettres ASCII. Lors de la mise à niveau d’une base de données existante, les noms vides ou en double sont remplacés par des noms uniques déterministes sans modifier les valeurs des clés API."
+
 #: ../../source/user_guide/auth_system.rst:226
 #, python-brace-format
 msgid ""

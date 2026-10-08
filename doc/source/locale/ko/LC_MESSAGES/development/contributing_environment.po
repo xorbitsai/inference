@@ -143,12 +143,12 @@ msgstr "소스 코드로 설치"
 #: ../../source/development/contributing_environment.rst:70
 msgid ""
 "Before we begin, please make sure that you have cloned the repository. "
-"Suppose you clone the repository as ``inference`` directory,  ``cd`` to this"
-" directory where the ``setup.cfg`` and ``setup.py`` files are located, and "
-"run the following command:"
+"Suppose you clone the repository as ``inference`` directory,  ``cd`` to "
+"this directory where the ``pyproject.toml`` file is located, and run the "
+"following command:"
 msgstr ""
 "시작하기 전에 저장소를 클론했는지 확인하세요. 저장소를 ``inference`` 라는 디렉토리에 클론했다고 가정하고, 해당 디렉토리로 "
-"이동한 후(그곳에는 ``setup.cfg`` 와 ``setup.py`` 파일이 있습니다) 다음 명령을 실행하세요:"
+"이동한 후(그곳에는 ``pyproject.toml`` 파일이 있습니다) 다음 명령을 실행하세요:"
 
 #: ../../source/development/contributing_environment.rst:79
 msgid ""
@@ -203,9 +203,9 @@ msgstr "첫 번째 명령 실행이 실패하더라도 ``--force`` 옵션을 추
 
 #: ../../source/development/contributing_environment.rst:112
 msgid ""
-"After compiling the frontend, you can ``cd`` back to the directory where the"
-" ``setup.cfg`` and ``setup.py`` files are located, and install Xinference "
-"via ``pip install -e .``."
+"After compiling the frontend, you can ``cd`` back to the directory where "
+"the ``pyproject.toml`` file is located, and install Xinference via ``pip "
+"install -e .``."
 msgstr ""
-"프론트엔드를 컴파일한 후, ``setup.cfg``와 ``setup.py`` 파일이 포함된 디렉토리로 돌아가서 ``pip install "
-"-e .`` 명령어로 Xinference를 설치할 수 있습니다."
+"프론트엔드를 컴파일한 후, ``pyproject.toml`` 파일이 포함된 디렉토리로 돌아가서 ``pip install -e .`` "
+"명령어로 Xinference를 설치할 수 있습니다."

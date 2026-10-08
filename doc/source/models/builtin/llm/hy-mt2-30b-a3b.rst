@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 30 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 30
 - **Quantizations:** none
-- **Engines**: Transformers, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** tencent/Hy-MT2-30B-A3B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/tencent/Hy-MT2-30B-A3B>`__, `ModelScope <https://modelscope.cn/models/Tencent-Hunyuan/Hy-MT2-30B-A3B>`__
 

@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xinference world built-in model catalog",
+  "description": "Raw catalog records before runtime flattening. A file may contain multiple engine variants of the same model.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "$ref": "#/$defs/record"
+  },
+  "$defs": {
+    "spec": {
+      "type": "object",
+      "properties": {
+        "model_name": {
+          "$ref": "common.schema.json#/$defs/name"
+        },
+        "inference_task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inference_mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_generate_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "auxiliary_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auxiliary_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auxiliary_model_allow_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        }
+      },
+      "required": [
+        "model_name",
+        "model_src"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/source"
+        }
+      ],
+      "properties": {
+        "auxiliary_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auxiliary_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auxiliary_model_allow_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "unevaluatedProperties": false
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "huggingface",
+          "modelscope",
+          "openmind_hub",
+          "csghub"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/record"
+        },
+        {
+          "oneOf": [
+            {
+              "required": [
+                "model_src"
+              ]
+            },
+            {
+              "required": [
+                "model_specs"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "model_src": [
+              "model_name"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "model_family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        },
+        "model_ability": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "image2world",
+              "text2world"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "model_format": {
+          "const": "pytorch"
+        },
+        "source_url": {
+          "type": "string",
+          "pattern": "^https?://[^\\s]+$"
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_subdir": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inference_task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inference_mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_model_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "default_generate_config": {
+          "type": "object",
+          "description": "Engine-specific parameters; keys are intentionally open."
+        },
+        "auxiliary_model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auxiliary_model_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "auxiliary_model_allow_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "model_specs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spec"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "model_family",
+        "model_ability",
+        "source_url",
+        "source_revision",
+        "model_format"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

@@ -270,3 +270,11 @@ msgstr ""
 "Xinference に組み込まれた柔軟なモデルランチャーは `GitHub "
 "<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_"
 " で見つけることができます。従来の機械学習モデルのさらなるサポートのための貢献を歓迎します！"
+
+#: ../../source/models/model_abilities/flexible.rst
+msgid "Local text classification models"
+msgstr "ローカルのテキスト分類モデル"
+
+#: ../../source/models/model_abilities/flexible.rst
+msgid "Register a local BERT or other Transformers sequence classification model using the same launcher with ``task=\"text-classification\"``. The directory must contain a trained classification model and tokenizer saved with ``save_pretrained``; a base encoder or a training checkpoint alone is insufficient. The model's ``config.json`` supplies ``id2label``, ``label2id`` and ``problem_type``. The directory must be accessible on the worker that loads the model."
+msgstr "同じ launcher で ``task=\"text-classification\"`` を指定すると、ローカルの BERT やその他の Transformers 系列分類モデルを登録できます。ディレクトリには ``save_pretrained`` で保存した学習済み分類モデルとトークナイザーが必要です。ベースエンコーダーや学習チェックポイントだけでは不十分です。モデルの ``config.json`` が ``id2label``、``label2id``、``problem_type`` を提供します。モデルを読み込む worker からこのディレクトリにアクセスできる必要があります。"

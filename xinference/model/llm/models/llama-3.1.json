@@ -1,0 +1,173 @@
+[
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "llama-3.1",
+    "model_lang": [
+      "en",
+      "de",
+      "fr",
+      "it",
+      "pt",
+      "hi",
+      "es",
+      "th"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_description": "Llama 3.1 is an auto-regressive language model that uses an optimized transformer architecture",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Meta-Llama-3.1-8B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Meta-Llama-3.1-8B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-8B/resolve/master/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
+          },
+          "openmind_hub": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "AI-Research/Meta-Llama-3.1-8B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelers.cn/api/v1/file/AI-Research/Meta-Llama-3.1-8B/main/media/config.json",
+              "config_sha256": "54acfad3cffe057640904ca8a1e83525e6551c70c7a04c641f5a9eda0bbf64bd",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 8,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_1",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "QuantFactory/Meta-Llama-3.1-8B-GGUF",
+            "model_file_name_template": "Meta-Llama-3.1-8B.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/QuantFactory/Meta-Llama-3.1-8B-GGUF/resolve/main/Meta-Llama-3.1-8B.Q2_K.gguf",
+              "config_sha256": "1b7786e194a4df4a532b878e6b87e802b16d7cff0593ef8057199ff3345fedcb",
+              "hidden_size": 4096,
+              "intermediate_size": 14336,
+              "num_hidden_layers": 32
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 70,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Meta-Llama-3.1-70B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Meta-Llama-3.1-70B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-70B/resolve/master/config.json",
+              "config_sha256": "37653c55ea907be0dc75070afd416fc77e20981c60b7c7e9521ba343678c5349",
+              "hidden_size": 8192,
+              "intermediate_size": 28672,
+              "num_hidden_layers": 80
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 405,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "meta-llama/Meta-Llama-3.1-405B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "LLM-Research/Meta-Llama-3.1-405B",
+            "model_metadata": {
+              "vocab_size": 128256,
+              "num_attention_heads": 128,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/LLM-Research/Meta-Llama-3.1-405B/resolve/master/config.json",
+              "config_sha256": "6ebd8c4a85132e74f49ed32e1ec845fa1f2f84ef8931ac24d96b5d0b8c04028a",
+              "hidden_size": 16384,
+              "intermediate_size": 53248,
+              "num_hidden_layers": 126
+            }
+          }
+        }
+      }
+    ],
+    "updated_at": 1769418535,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

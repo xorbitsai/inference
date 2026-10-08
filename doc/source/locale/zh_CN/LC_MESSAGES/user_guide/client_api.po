@@ -50,7 +50,7 @@ msgstr "所有模型被分为 LLM、embedding、rerank 等类型。后续可能�
 
 #: ../../source/user_guide/client_api.rst:23
 msgid "LLM"
-msgstr "LLM"
+msgstr "大语言模型（LLM）"
 
 #: ../../source/user_guide/client_api.rst:25
 msgid "To list the available built-in LLM models:"
@@ -65,14 +65,14 @@ msgstr "初始化一个大语言模型并且与之对话："
 #: ../../source/user_guide/client_api.rst:254
 #: ../../source/user_guide/client_api.rst:323
 msgid "Xinference Client"
-msgstr "Xinference Client"
+msgstr "Xinference 客户端"
 
 #: ../../source/user_guide/client_api.rst:65
 #: ../../source/user_guide/client_api.rst:215
 #: ../../source/user_guide/client_api.rst:278
 #: ../../source/user_guide/client_api.rst:347
 msgid "OpenAI Client"
-msgstr "OpenAI Client"
+msgstr "OpenAI 客户端"
 
 #: ../../source/user_guide/client_api.rst:67
 msgid ""
@@ -98,19 +98,29 @@ msgstr "OpenAI 工具调用"
 msgid "Output:"
 msgstr "输出："
 
+msgid "OpenAI Client Responses API"
+msgstr "OpenAI 客户端 Responses API"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "Responses API 的访问地址为：/v1/responses"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "Xinference 中的 Responses API 是无状态的。响应不会被保存，因此 ``previous_response_id`` 和 ``conversation`` 会被拒绝：每次请求都需要在 ``input`` 中发送完整的对话。支持文本和图片输入、函数工具和自定义工具、推理、结构化输出以及流式输出。 ``web_search`` 等托管工具会被忽略。"
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI 通过该 API 调用自定义提供方。在 ``~/.codex/config.toml`` 中将 Xinference 添加为提供方："
+
 #: ../../source/user_guide/client_api.rst:142
-#, fuzzy
 msgid "Anthropic Client"
-msgstr "Anthropic Client"
+msgstr "Anthropic 客户端"
 
 #: ../../source/user_guide/client_api.rst:144
-#, fuzzy
 msgid "Anthropic API's access address is: /anthropic/v1/messages"
-msgstr "Anthropic的API访问地址为：/anthropic/v1/messages"
+msgstr "Anthropic API 的访问地址为：/anthropic/v1/messages"
 
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
-msgstr "Embedding"
+msgstr "文本嵌入（Embedding）"
 
 #: ../../source/user_guide/client_api.rst:167
 msgid "To list the available built-in embedding models:"
@@ -153,7 +163,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:301
 msgid "Audio"
-msgstr ""
+msgstr "音频"
 
 #: ../../source/user_guide/client_api.rst:320
 msgid "To initiate an audio model and get text from an audio:"
@@ -170,7 +180,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:370
 msgid "Rerank"
-msgstr "Rerank"
+msgstr "重排序（Rerank）"
 
 #: ../../source/user_guide/client_api.rst:371
 msgid "To launch a rerank model and compute the similarity scores:"
@@ -182,3 +192,54 @@ msgstr "拉起 rerank 模型并计算文本相似度："
 #~ "model."
 #~ msgstr "使用 Anthropic 发送请求时，除了创建模型，其余的请求都保持与 Anthropic 的接口兼容。"
 
+#: ../../source/user_guide/client_api.rst:10
+msgid "Replica management"
+msgstr "副本管理"
+
+#: ../../source/user_guide/client_api.rst:12
+msgid "The synchronous and asynchronous clients accept ``replica_config`` in ``launch_model`` and expose ``add_model_replica`` and ``terminate_model_replica`` for running models. See :ref:`launch` for the request structure, placement rules, and examples."
+msgstr "同步和异步客户端的 ``launch_model`` 都接受 ``replica_config`` 参数，并提供 ``add_model_replica`` 和 ``terminate_model_replica`` 来管理运行中的模型副本。请求结构、放置规则和示例参见 :ref:`launch`。"
+
+#: ../../source/user_guide/client_api.rst:312
+msgid "To list the available built-in audio models:"
+msgstr "列出可用的内置音频模型："
+
+#: ../../source/user_guide/client_api.rst:381
+msgid "Speaker Embeddings"
+msgstr "说话人嵌入"
+
+#: ../../source/user_guide/client_api.rst:383
+msgid "Speaker-embedding audio models extract a fixed-length representation of speaker identity. Xinference provides two built-in CAMPPlus models: ``speech_campplus_sv_zh-cn_16k-common`` and ``speech_campplus_sv_zh_en_16k-common_advanced``. Both return a 192-dimensional vector through the ``speaker_embedding`` ability."
+msgstr "说话人嵌入音频模型用于提取表示说话人身份的定长向量。Xinference 提供两个内置 CAMPPlus 模型：``speech_campplus_sv_zh-cn_16k-common`` 和 ``speech_campplus_sv_zh_en_16k-common_advanced``。两者都通过 ``speaker_embedding`` 能力返回一个 192 维向量。"
+
+#: ../../source/user_guide/client_api.rst:389
+msgid "Launch a model and call it with the Xinference client:"
+msgstr "启动模型并通过 Xinference 客户端调用："
+
+#: ../../source/user_guide/client_api.rst:408
+msgid "The equivalent HTTP request uploads the model UID and audio file as multipart form fields:"
+msgstr "对应的 HTTP 请求通过 multipart 表单字段上传模型 UID 和音频文件："
+
+#: ../../source/user_guide/client_api.rst:418
+msgid "The response contains one vector rather than the list-shaped response returned by the text Embeddings API:"
+msgstr "响应包含单个向量，与文本 Embeddings API 返回的列表形式不同："
+
+#: ../../source/user_guide/client_api.rst:430
+msgid "Compare vectors with cosine similarity for speaker verification or speaker identification. See :ref:`audio` for Web UI usage, input processing details, and the complete Speaker Embedding API example."
+msgstr "可以使用余弦相似度比较向量，进行说话人验证或识别。Web UI 使用方法、输入处理细节和完整的说话人嵌入 API 示例参见 :ref:`audio`。"
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "缓存命中 token 数"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "使用 vLLM、SGLang 和 MLX 时，如果引擎提供统计，补全和聊天补全响应会通过 ``usage.prompt_tokens_details.cached_tokens`` 返回复用的提示 token 数。该数值包含引擎报告的原生前缀缓存复用和 Xavier 缓存复用，是 ``prompt_tokens`` 的一部分，不是额外的 token 数。"
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "流式请求设置 ``stream_options={\"include_usage\": True}`` 后，会收到 ``choices=[]`` 的最终用量统计块。Responses API 通过 ``usage.input_tokens_details.cached_tokens`` 返回同一数值。如果引擎未报告缓存命中，补全和聊天补全响应会省略 ``prompt_tokens_details``；Responses API 则默认返回零。"
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "使用 P/D 分离时，该数值包含从预填充引擎传输的 KV，即使这些 KV 是为当前请求计算的；它不单独统计预填充引擎的历史前缀缓存命中数。"

@@ -66,8 +66,16 @@ function FormField({
 }: FormFieldProps) {
   const { t } = useI18n();
   const fieldKey = getNamePathString(name);
-  const { form, errors, touched, setFieldError, registerField, unregisterField, setFieldTouched } =
-    useFormContext();
+  const {
+    form,
+    errors,
+    touched,
+    setFieldError,
+    registerField,
+    unregisterField,
+    setFieldTouched,
+    notifyUserChange,
+  } = useFormContext();
 
   const fieldValue = form.hasFieldValue(fieldKey)
     ? form.getFieldValue(fieldKey)
@@ -149,6 +157,7 @@ function FormField({
     const nextValue = normalize ? normalize(rawValue) : rawValue;
     
     form.setFieldValue(fieldKey, nextValue);
+    notifyUserChange();
 
     // Mark as touched after the first interaction
     if (!isTouched) {

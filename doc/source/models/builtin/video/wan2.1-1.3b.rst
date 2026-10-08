@@ -11,8 +11,19 @@ Wan2.1-1.3B
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+- **diffusers model ID:** Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+- **MLX model ID:** Wan-AI/Wan2.1-T2V-1.3B
+- **vLLM model ID:** Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+- **SGLang model ID:** Wan-AI/Wan2.1-T2V-1.3B-Diffusers
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Wan2.1-1.3B --model-type video
+   xinference launch --model-name Wan2.1-1.3B --model-type video --model-engine diffusers
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``diffusers``
+* ``MLX``
+* ``vLLM``
+* ``SGLang``

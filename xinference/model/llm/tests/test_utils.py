@@ -61,6 +61,189 @@ def filter_ids_and_created(data):
     return data
 
 
+@pytest.mark.parametrize(
+    "usage",
+    [
+        {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+        ),
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=1),
+        ),
+        SimpleNamespace(
+            prompt_tokens=3,
+            completion_tokens=2,
+            total_tokens=5,
+            prompt_tokens_details=SimpleNamespace(
+                model_dump=lambda: None, cached_tokens=1
+            ),
+        ),
+    ],
+)
+def test_sanitize_usage_accepts_dict_and_object(usage):
+    expected = {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+    }
+    if getattr(usage, "prompt_tokens_details", None) is not None:
+        expected["prompt_tokens_details"] = {"cached_tokens": 1}
+    assert ChatModelMixin._sanitize_usage(usage) == expected
+
+
+def test_sanitize_usage_accepts_openai_completion_usage():
+    pytest.importorskip("openai")
+    from openai.types.completion_usage import CompletionUsage as OpenAICompletionUsage
+
+    usage = OpenAICompletionUsage(
+        prompt_tokens=3,
+        completion_tokens=2,
+        total_tokens=5,
+    )
+
+    assert ChatModelMixin._sanitize_usage(usage) == {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+    }
+
+
+@pytest.mark.parametrize("usage", [None, {}, SimpleNamespace()])
+def test_sanitize_usage_rejects_empty_or_incomplete_usage(usage):
+    assert ChatModelMixin._sanitize_usage(usage) is None
+
+
+def test_sync_tool_chunks_first_choice_keeps_assistant_role(monkeypatch):
+    mixin = ChatModelMixin()
+    mixin.reasoning_parser = None
+    mixin.model_family = "test-family"
+    mixin.model_uid = "test-model"
+    ensure_roles = []
+
+    def to_chat_chunk(completion_chunk, reasoning_parser, previous_texts, ensure_role):
+        ensure_roles.append(ensure_role)
+        return {
+            "choices": [
+                {
+                    "delta": {"role": "assistant", "content": "hello"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(mixin, "_to_chat_completion_chunk", to_chat_chunk)
+    monkeypatch.setattr(
+        mixin, "_split_reasoning_tool_chunk", lambda chunk: (chunk, None)
+    )
+    monkeypatch.setattr(
+        mixin,
+        "_get_usage_chat_completion_chunk",
+        lambda chunk, fallback: {"choices": [], "usage": chunk["usage"]},
+    )
+
+    chunks = [
+        {"choices": [], "usage": {"total_tokens": 1}},
+        {"choices": [{"delta": {"content": "hello"}}]},
+    ]
+    results = list(mixin._to_tool_completion_chunks(iter(chunks)))
+
+    assert len(results) == 2
+    assert ensure_roles == [True]
+
+
+@pytest.mark.asyncio
+async def test_async_tool_chunks_increment_role_after_reasoning_only_chunk(
+    monkeypatch,
+):
+    mixin = ChatModelMixin()
+    mixin.reasoning_parser = None
+    mixin.model_family = "test-family"
+    mixin.model_uid = "test-model"
+    ensure_roles = []
+
+    def to_chat_chunk(completion_chunk, reasoning_parser, previous_texts, ensure_role):
+        ensure_roles.append(ensure_role)
+        return {
+            "choices": [
+                {
+                    "delta": {
+                        "role": "assistant",
+                        "reasoning_content": completion_chunk["reasoning_content"],
+                        "content": None,
+                    },
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(mixin, "_to_chat_completion_chunk", to_chat_chunk)
+    monkeypatch.setattr(
+        mixin, "_split_reasoning_tool_chunk", lambda chunk: (chunk, None)
+    )
+
+    async def chunks():
+        yield {"choices": [{}], "reasoning_content": "first"}
+        yield {"choices": [{}], "reasoning_content": "second"}
+
+    results = [
+        chunk async for chunk in mixin._async_to_tool_completion_chunks(chunks())
+    ]
+
+    assert len(results) == 2
+    assert ensure_roles == [True, False]
+
+
+@pytest.mark.asyncio
+async def test_async_chat_chunks_first_choice_keeps_role_after_usage_chunk():
+    async def chunks():
+        yield {
+            "choices": [],
+            "usage": SimpleNamespace(
+                prompt_tokens=3,
+                completion_tokens=2,
+                total_tokens=5,
+            ),
+        }
+        yield {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "hello",
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+        }
+
+    results = [
+        chunk
+        async for chunk in ChatModelMixin._async_to_chat_completion_chunks(chunks())
+    ]
+
+    assert results[0]["usage"] == {
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "total_tokens": 5,
+    }
+    assert results[1]["choices"][0]["delta"]["role"] == "assistant"
+
+
 def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
     chunks = [
         {
@@ -99,6 +282,626 @@ def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
             "completion_tokens": 2,
             "total_tokens": 5,
         },
+    }
+
+
+def test_to_chat_completion_propagates_logprobs():
+    # Regression for #1911 / #3553: /v1/chat/completions silently returned
+    # logprobs: null even when the engine produced them. The chat builder must
+    # propagate the source Completion choice's logprobs onto the chat choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+
+    assert chat["choices"][0]["logprobs"] is not None
+    # Chat completions carry the chat ``content[]`` logprobs shape (token/bytes/
+    # logprob/top_logprobs), not the legacy parallel-list shape, so openai-python
+    # parses ``choice.logprobs.content`` instead of dropping it as extra fields.
+    assert chat["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None (not computed), so it is
+        # omitted from content[] rather than emitted with a null logprob —
+        # openai-python rejects null (see test_chat_logprobs_parse_openai).
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_to_chat_completion_chunks_propagates_logprobs():
+    # Streaming counterpart: the chat chunk choice must carry the source
+    # CompletionChunk choice's logprobs instead of dropping them.
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello", index=0, logprobs=logprobs, finish_reason=None
+            )
+        ],
+    )
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter([chunk])))
+
+    assert results, "expected at least one chat chunk"
+    assert results[0]["choices"][0]["logprobs"] is not None
+    # Streaming chat chunks carry the chat ``content[]`` logprobs shape, converted
+    # from the legacy parallel-list shape the engine emits.
+    assert results[0]["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None -> omitted from content[]
+        # (see test_chat_logprobs_parse_openai); only the known-logprob token
+        # survives, in the chat content[] shape.
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_chat_logprobs_parse_openai():
+    # Regression for the openai-python validation failure qinxuye reproduced with
+    # 1.99.9: ``ChatCompletionTokenLogprob.logprob`` is non-nullable, so a chat
+    # logprobs ``content[]`` entry must never carry ``null``. The converter now
+    # skips tokens whose legacy ``token_logprobs`` entry is ``None`` instead of
+    # emitting a null logprob; assert every emitted entry parses through the
+    # OpenAI client model.
+    pytest.importorskip("openai")
+    from openai.types.chat.chat_completion_token_logprob import (
+        ChatCompletionTokenLogprob,
+    )
+
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    # token_logprobs[0] is None (the legacy first-token case). The converter must
+    # drop that token rather than emit ``logprob: None``.
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+    content = chat["choices"][0]["logprobs"]["content"]
+    assert content, "content[] must not be empty when a known-logprob token exists"
+    # No entry carries a null logprob, and the None-logprob first token is dropped.
+    assert [e["token"] for e in content] == [" world"]
+    for entry in content:
+        # Must parse through the OpenAI client model without raising — the exact
+        # gate that was failing ("logprob: Input should be a valid number").
+        ChatCompletionTokenLogprob(**entry)
+
+
+class _NoOpToolParser:
+    """Minimal tool-parser stub: reports no tool calls so the tool post-processors
+    take the content-preserving branch while still exercising the logprobs path
+    (the real parsers are heavy to construct in a unit test)."""
+
+    def extract_tool_calls(self, text):  # non-streaming
+        return []
+
+    def extract_tool_calls_streaming(
+        self, previous_texts, current_text, delta_text
+    ):  # streaming; returns (content, func, args)
+        return (delta_text or "", None, None)
+
+
+class _MultiToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        return [
+            (None, "get_weather", {"city": "Beijing"}),
+            (None, "get_time", {"timezone": "UTC+8"}),
+            (" tail", None, None),
+        ]
+
+
+class _IndexedToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if not delta_text:
+            return None
+        if delta_text == " gap":
+            return (delta_text, None, None)
+        if current_text == "first":
+            return (None, "first", {}, 0)
+        return (None, "second", {}, 1)
+
+
+class _IncrementalToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if current_text == "start":
+            return (None, "get_weather", None, 0)
+        return (None, "get_weather", {"city": "Beijing"}, 0)
+
+
+class _SequentialToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if not delta_text:
+            return None
+        return (None, delta_text, {})
+
+
+class _InterleavedIncrementalToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        events = {
+            "call0-start": (None, "get_weather", None, 0),
+            "call1-start": (None, "get_time", None, 1),
+            "call0-complete": (None, "get_weather", {"city": "Beijing"}, 0),
+            "call1-complete": (None, "get_time", {"timezone": "UTC+8"}, 1),
+        }
+        return events[delta_text]
+
+
+def test_post_process_completion_chunk_supports_multiple_tool_calls():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _MultiToolParser()
+    result = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": "tool output"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=[""],
+    )
+
+    assert result is not None
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["delta"]["content"] == " tail"
+    tool_calls = choice["delta"]["tool_calls"]
+    assert [call["index"] for call in tool_calls] == [0, 1]
+    assert all(call["id"].startswith("call_") for call in tool_calls)
+    assert all(call["type"] == "function" for call in tool_calls)
+    assert [
+        (call["function"]["name"], call["function"]["arguments"]) for call in tool_calls
+    ] == [
+        ("get_weather", '{"city": "Beijing"}'),
+        ("get_time", '{"timezone": "UTC+8"}'),
+    ]
+
+
+def test_post_process_completion_chunk_indexes_tool_calls_across_chunks():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _SequentialToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False, "next_index": 0}
+    streamed_calls = []
+
+    for name in ["first", "second"]:
+        result = mixin._post_process_completion_chunk(
+            "test-family",
+            "test-model",
+            {
+                "choices": [
+                    {
+                        "delta": {"content": name},
+                        "finish_reason": None,
+                        "logprobs": None,
+                    }
+                ]
+            },
+            previous_texts=previous_texts,
+            tool_call_state=tool_call_state,
+        )
+        assert result is not None
+        streamed_calls.extend(result["choices"][0]["delta"]["tool_calls"])
+
+    final = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": ""}, "finish_reason": "stop", "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert final is not None
+    assert [call["index"] for call in streamed_calls] == [0, 1]
+    assert [call["function"]["name"] for call in streamed_calls] == [
+        "first",
+        "second",
+    ]
+    assert final["choices"][0]["finish_reason"] == "tool_calls"
+    assert final["choices"][0]["delta"]["tool_calls"] == []
+
+
+def test_post_process_completion_chunk_preserves_absolute_tool_call_index():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IndexedToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    first = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": "first"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    gap = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": " gap"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    second = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": " second"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    final = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": ""}, "finish_reason": "stop", "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert first is not None
+    assert gap is not None
+    assert second is not None
+    assert final is not None
+    assert first["choices"][0]["delta"]["tool_calls"][0]["index"] == 0
+    assert gap["choices"][0]["delta"]["tool_calls"] == []
+    assert gap["choices"][0]["delta"]["content"] == " gap"
+    assert second["choices"][0]["delta"]["tool_calls"][0]["index"] == 1
+    assert first["choices"][0]["finish_reason"] is None
+    assert gap["choices"][0]["finish_reason"] is None
+    assert second["choices"][0]["finish_reason"] is None
+    assert final["choices"][0]["finish_reason"] == "tool_calls"
+
+
+def test_post_process_completion_chunk_emits_incremental_metadata_once():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IncrementalToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    first = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": "start"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    complete = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": " complete"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert first is not None
+    assert complete is not None
+    first_call = first["choices"][0]["delta"]["tool_calls"][0]
+    complete_call = complete["choices"][0]["delta"]["tool_calls"][0]
+    assert first_call["id"] == tool_call_state["call_ids"][0]
+    assert first_call["type"] == "function"
+    assert first_call["function"] == {"name": "get_weather", "arguments": ""}
+    assert "id" not in complete_call
+    assert "type" not in complete_call
+    assert complete_call["function"] == {"arguments": '{"city": "Beijing"}'}
+    assert tool_call_state["sent_metadata"] == {0}
+
+
+def test_post_process_completion_chunk_tracks_metadata_per_tool_call_index():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _InterleavedIncrementalToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    def process(delta_text):
+        result = mixin._post_process_completion_chunk(
+            "test-family",
+            "test-model",
+            {
+                "choices": [
+                    {
+                        "delta": {"content": delta_text},
+                        "finish_reason": None,
+                        "logprobs": None,
+                    }
+                ]
+            },
+            previous_texts=previous_texts,
+            tool_call_state=tool_call_state,
+        )
+        assert result is not None
+        return result["choices"][0]["delta"]["tool_calls"][0]
+
+    first_call0 = process("call0-start")
+    first_call1 = process("call1-start")
+    complete_call0 = process("call0-complete")
+    complete_call1 = process("call1-complete")
+
+    assert first_call0["index"] == 0
+    assert first_call1["index"] == 1
+    assert first_call0["id"] != first_call1["id"]
+    assert first_call0["type"] == first_call1["type"] == "function"
+    assert first_call0["function"] == {"name": "get_weather", "arguments": ""}
+    assert first_call1["function"] == {"name": "get_time", "arguments": ""}
+
+    assert complete_call0 == {
+        "index": 0,
+        "function": {"arguments": '{"city": "Beijing"}'},
+    }
+    assert complete_call1 == {
+        "index": 1,
+        "function": {"arguments": '{"timezone": "UTC+8"}'},
+    }
+    assert tool_call_state["call_ids"] == {
+        0: first_call0["id"],
+        1: first_call1["id"],
+    }
+    assert tool_call_state["sent_names"] == {0, 1}
+    assert tool_call_state["sent_metadata"] == {0, 1}
+
+
+def test_post_process_completion_chunk_preserves_length_finish_reason():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IndexedToolParser()
+
+    result = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": ""},
+                    "finish_reason": "length",
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=["first"],
+        tool_call_state={"seen": True},
+    )
+
+    assert result is not None
+    assert result["choices"][0]["finish_reason"] == "length"
+
+
+def test_post_process_completion_preserves_chat_logprobs():
+    # Non-streaming tools path: _post_process_completion previously omitted the
+    # logprobs field entirely, so tool-enabled requests lost them. It must now
+    # carry the converted chat-shape logprobs from the source Completion choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion("test-family", "test-model", completion)
+
+    assert result["choices"][0]["logprobs"] is not None
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_post_process_completion_chunk_preserves_chat_logprobs():
+    # Streaming tools path: `_async_to_tool_completion_chunks` first converts each
+    # legacy CompletionChunk to a chat chunk via `_to_chat_completion_chunk` (which
+    # already turns the legacy parallel-list logprobs into the chat ``content[]``
+    # shape), then hands the chat chunk to `_post_process_completion_chunk`. That
+    # post-processor must pass the already-converted logprobs through unchanged;
+    # re-running the converter would find no ``tokens`` key and collapse a real
+    # one-token logprob to ``{"content": []}`` (regression flagged on #5252).
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    raw_chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello",
+                index=0,
+                logprobs=logprobs,
+                finish_reason=None,
+            )
+        ],
+    )
+
+    # Production order: convert to a chat chunk first, then post-process it.
+    chat_chunk = ChatModelMixin._to_chat_completion_chunk(raw_chunk)
+    expected_logprobs = chat_chunk["choices"][0]["logprobs"]
+    assert expected_logprobs is not None  # converted once to the chat shape
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion_chunk(
+        "test-family", "test-model", chat_chunk, chunk_id="cmpl-2"
+    )
+
+    assert result is not None
+    # Passed through unchanged -- not double-converted to {"content": []}.
+    assert result["choices"][0]["logprobs"] == expected_logprobs
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
     }
 
 
@@ -1890,6 +2693,7 @@ def test_post_process_completion_without_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -1946,6 +2750,7 @@ def test_post_process_completion_with_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -2009,6 +2814,7 @@ def test_post_process_completion_with_parser():
                     ],
                     "reasoning_content": '\n好的，用户问的是上海当前的天气。我需要调用get_current_weather这个工具来获取数据。首先，确认工具的参数是location，必须填写城市名称。用户提到的是上海，所以参数应该是"location": "上海"。然后，生成对应的JSON格式，确保正确无误。检查一下有没有其他必填项，这里只有location，所以没问题。最后，用工具调用的格式返回结果。\n',
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -2022,6 +2828,46 @@ def test_post_process_completion_with_parser():
     assert (
         result_filtered == expected_filtered
     ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
+
+
+def test_post_process_completion_stopped_while_thinking():
+    # Generation hits max_tokens inside the thinking block, so the output has
+    # no tool call and no content. Like the request without tools, the
+    # response must keep "length" and must not repeat the reasoning as content.
+    mixin = ChatModelMixin()
+    mixin.tool_parser = QwenToolParser()
+    mixin.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    test_case = {
+        "id": "1",
+        "object": "text_completion",
+        "created": 0,
+        "model": "qwen3",
+        "choices": [
+            {
+                "text": "The user asks for the weather in Shanghai, so I should call",
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {"prompt_tokens": 159, "completion_tokens": 12, "total_tokens": 171},
+    }
+
+    result = mixin._post_process_completion(None, model_uid="qwen3", c=test_case)
+
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "length"
+    assert choice["message"]["content"] == ""
+    assert choice["message"]["tool_calls"] == []
+    assert (
+        choice["message"]["reasoning_content"]
+        == "The user asks for the weather in Shanghai, so I should call"
+    )
 
 
 # ── Security tests for Llama3ToolParser ────────────────────
@@ -2185,13 +3031,19 @@ def test_normalize_tool_call_arguments_to_dict():
 
 def test_qwen3_family_get_full_context_handles_string_arguments():
     # Regression for the OpenAI-spec string tool_calls.function.arguments crash.
-    # Pre-fix: builtin templates Qwen3-Coder / qwen3.5 / qwen3.6 raised
+    # Pre-fix: builtin Qwen3 templates raised
     # "Can only get item pairs from a mapping" because their templates iterate
     # `tool_call.arguments|items` while OpenAI sends arguments as a JSON-encoded
     # string.
     from .. import BUILTIN_LLM_FAMILIES
 
-    targets = {"Qwen3-Coder", "qwen3.5", "qwen3.6"}
+    targets = {
+        "Qwen3-Coder",
+        "qwen3.5",
+        "qwen3.6",
+        "qwen3.8",
+        "qwen3.8-max",
+    }
     families = {
         f.model_name: f for f in BUILTIN_LLM_FAMILIES if f.model_name in targets
     }
@@ -2256,3 +3108,123 @@ def test_qwen3_family_get_full_context_handles_string_arguments():
         assert base_messages[2]["tool_calls"][0]["function"]["arguments"] == (
             '{"city":"北京"}'
         ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"
+
+
+def test_spark_x2_5_get_full_context_handles_string_arguments():
+    # Regression for Spark's official template, which rejects OpenAI's JSON
+    # string arguments before rendering tool-call continuation history.
+    spark_template = """
+{%- for message in messages %}
+    {%- if message.role == 'assistant' and message.tool_calls %}
+        {%- for tool_call in message.tool_calls %}
+            {%- if tool_call.function.arguments is not mapping %}
+                {{- raise_exception('tool_call.function.arguments must be a dictionary; normalize JSON strings before apply_chat_template') }}
+            {%- endif %}
+            {%- set args = tool_call.function.arguments %}
+            {{- '<tool_call>' + tool_call.function.name }}
+            {%- for k, v in args.items() %}
+                {{- '<arg_key>' ~ k ~ '</arg_key><arg_value>' ~ (v if v is string else v | tojson) ~ '</arg_value>' }}
+            {%- endfor %}
+            {{- '</tool_call>' }}
+        {%- endfor %}
+    {%- elif message.role == 'tool' %}
+        {{- '<tool_response>' + message.content + '</tool_response>' }}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}<|assistant|>{%- endif %}
+"""
+    messages = [
+        {"role": "user", "content": "北京天气？"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-weather",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call-weather",
+            "content": '{"temperature":25}',
+        },
+        {"role": "user", "content": "继续回答。"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="Spark-X2.5", model_ability=["chat", "tools"]
+    )
+
+    # SGLang passes the downloaded chat_template.jinja text directly.
+    sglang_prompt = mixin.get_full_context(messages, spark_template)
+
+    class Tokenizer:
+        chat_template = spark_template
+
+        def apply_chat_template(self, rendered_messages, **kwargs):
+            kwargs.pop("add_generation_prompt", None)
+            return mixin._build_from_raw_template(
+                rendered_messages, self.chat_template, **kwargs
+            )
+
+    # Transformers and vLLM pass ``None`` and let tokenizer select template.
+    tokenizer_prompt = mixin.get_full_context(messages, None, tokenizer=Tokenizer())
+    for prompt in (sglang_prompt, tokenizer_prompt):
+        assert "<tool_call>get_weather" in prompt
+        assert "<arg_key>city</arg_key><arg_value>北京</arg_value>" in prompt
+        assert '<tool_response>{"temperature":25}</tool_response>' in prompt
+        assert prompt.endswith("<|assistant|>")
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == ('{"city":"北京"}')
+
+
+def test_minicpm5_get_full_context_handles_string_arguments():
+    from .. import BUILTIN_LLM_FAMILIES
+
+    family = next(
+        family for family in BUILTIN_LLM_FAMILIES if family.model_name == "minicpm5-2b"
+    )
+    messages = [
+        {"role": "user", "content": "What is the weather in Beijing?"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"Beijing"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-1", "content": "Sunny"},
+    ]
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name=family.model_name,
+        model_ability=family.model_ability,
+        chat_template=family.chat_template,
+    )
+
+    prompt = mixin.get_full_context(
+        messages,
+        chat_template=family.chat_template,
+        tokenizer=None,
+    )
+
+    assert (
+        '<function name="get_weather"><param name="city">Beijing</param></function>'
+        in prompt
+    )
+    assert "<tool_response>\nSunny\n</tool_response>" in prompt
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city":"Beijing"}'
+    )

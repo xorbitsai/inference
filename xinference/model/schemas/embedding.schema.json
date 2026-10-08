@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Xinference embedding built-in model catalog",
+  "description": "Raw catalog records before runtime flattening. A file may contain multiple engine variants of the same model.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "$ref": "#/$defs/record"
+  },
+  "$defs": {
+    "spec": {
+      "type": "object",
+      "properties": {
+        "model_format": {
+          "type": "string",
+          "enum": [
+            "pytorch",
+            "ggufv2"
+          ]
+        },
+        "model_src": {
+          "$ref": "#/$defs/sources"
+        }
+      },
+      "required": [
+        "model_format",
+        "model_src"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/ggufSpec"
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/quantizedSource"
+        }
+      ],
+      "properties": {},
+      "unevaluatedProperties": false
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "enum": [
+          "huggingface",
+          "modelscope",
+          "openmind_hub",
+          "csghub"
+        ]
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "record": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/record"
+        }
+      ],
+      "properties": {
+        "version": {
+          "const": 2
+        },
+        "language": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "max_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dimensions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "model_ability": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "embed_vision",
+              "embed_video",
+              "embed_audio"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "model_specs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/spec"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "model_name",
+        "language",
+        "max_tokens",
+        "dimensions",
+        "model_specs"
+      ],
+      "unevaluatedProperties": false
+    }
+  }
+}

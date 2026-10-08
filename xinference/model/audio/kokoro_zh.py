@@ -97,8 +97,11 @@ class KokoroZHModel:
     ):
         import soundfile
 
+        from .utils import apply_audio_seed
+
         if stream:
             raise Exception("Kokoro does not support stream mode.")
+        apply_audio_seed(kwargs)
         assert self._model is not None
         if not voice:
             voice = "zf_001"

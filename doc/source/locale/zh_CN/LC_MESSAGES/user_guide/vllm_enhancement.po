@@ -68,6 +68,58 @@ msgstr ""
 "IP 地址，例如：``xinference-local -H 192.168.xx.xx`` 。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:23
-msgid "Xavier only works for Nvidia product."
-msgstr "Xavier 只支持 Nvidia 显卡。"
+msgid "The vLLM GPU transfer path requires NVIDIA GPUs."
+msgstr "vLLM GPU 传输路径需要 NVIDIA GPU。"
 
+#: source/user_guide/vllm_enhancement.rst:21
+msgid ""
+"Xavier retains the V0 adapter for vLLM >= ``0.7.0`` and < ``0.11.0``. The V1"
+" connector supports vLLM >= ``0.21.0``. See :ref:`user_guide_pd_separation` "
+"for community Prefill/Decode deployment."
+msgstr "Xavier 保留了适用于 vLLM >= ``0.7.0`` 且 < ``0.11.0`` 的 V0 适配器。V1 连接器支持 vLLM >= ``0.21.0``。社区版 Prefill/Decode 部署方式参见 :ref:`user_guide_pd_separation`。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang replicas"
+msgstr "SGLang 副本"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "SGLang >= ``0.5.21`` can share prefix KV cache through Xavier's HiCache storage backend. Launch multiple replicas with ``model_engine=\"SGLang\"`` and ``enable_xavier=True``. The initial adapter supports unquantized FP16 Qwen2, Qwen3 and Llama text models with full attention and TP=PP=DP=1; LoRA, speculation, hybrid attention and multimodal inputs are unsupported."
+msgstr "SGLang >= ``0.5.21`` 可通过 Xavier 的 HiCache 存储后端共享前缀 KV 缓存。启动多个副本时设置 ``model_engine=\"SGLang\"`` 和 ``enable_xavier=True``。初始适配器支持使用全注意力、未量化 FP16 权重且 TP=PP=DP=1 的 Qwen2、Qwen3 和 Llama 文本模型；不支持 LoRA、推测解码、混合注意力和多模态输入。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (default: ``536870912``, 512 MiB). Each SGLang replica also allocates its own GPU and HiCache host pools. Eviction or unavailable storage becomes a cache miss for ordinary replicas. Cache namespaces include the actual weights, tokenizer, model configuration, KV geometry and engine format; caches cannot yet be exchanged between vLLM and SGLang."
+msgstr "``xavier_cache_bytes`` 设置部署的共享 CPU 缓存预算（默认 ``536870912``，即 512 MiB）。每个 SGLang 副本还会分配自己的 GPU 和 HiCache 主机内存池。对于普通副本，缓存淘汰或存储不可用会作为缓存未命中处理。缓存命名空间包含实际权重、分词器、模型配置、KV 几何形状和引擎格式；目前还不能在 vLLM 与 SGLang 之间交换缓存。"
+
+#: source/user_guide/vllm_enhancement.rst
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
+msgstr "普通 SGLang 副本共享 CPU HiCache 页面。显式 prefill/decode 角色使用 Xavier GPU 直传，见 :ref:`user_guide_pd_separation`。尚不支持跨引擎 P/D。"
+#: ../../user_guide/vllm_enhancement.rst
+msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
+msgstr "Xavier 将 BF16 检查点加载为 FP16 并发出警告。权重和 KV 缓存均使用 FP16。"
+
+#: user_guide/vllm_enhancement.rst
+msgid "MLX replicas"
+msgstr "MLX 副本"
+
+#: user_guide/vllm_enhancement.rst
+msgid ""
+"MLX replicas can share prefix KV cache with ``model_engine=\"MLX\"`` and "
+"``enable_xavier=True``. The supported models and FP16 requirements are "
+"described in :ref:`user_guide_pd_separation`. ``xavier_cache_bytes`` bounds "
+"the shared CPU cache (default: 512 MiB). Each replica also owns its model "
+"and Metal KV cache. Ordinary replicas compute locally on a miss or "
+"unavailable storage; incompatible deployments cannot share pages. Returned "
+"usage reports reused tokens in ``prompt_tokens_details.cached_tokens``. "
+"Explicit prefill/decode roles enable MLX Xavier P/D automatically. Cross-"
+"engine cache sharing is not yet supported."
+msgstr ""
+"使用 ``model_engine=\"MLX\"`` 和 ``enable_xavier=True`` 可在 MLX 副本间共享前缀 KV "
+"缓存。支持的模型和 FP16 要求见 :ref:`user_guide_pd_separation`。``xavier_cache_bytes`` "
+"限制共享 CPU 缓存容量，默认 512 MiB。每个副本还拥有各自的模型和 Metal KV "
+"缓存。普通副本在未命中或存储不可用时本地计算；不兼容的部署不能共享缓存页。响应通过 "
+"``prompt_tokens_details.cached_tokens`` 报告复用 token 数。显式设置 prefill/decode "
+"角色会自动启用 MLX Xavier P/D。目前不支持跨引擎缓存共享。"
+
+#: source/user_guide/vllm_enhancement.rst:18
+msgid "For attention-only models on vLLM V1, Xavier preserves the model's ``enforce_eager`` setting, allowing CUDA Graph execution. Set ``enforce_eager=True`` at model launch to use eager execution. Recurrent models continue to use eager execution by default."
+msgstr "对于 vLLM V1 上仅使用注意力层的模型，Xavier 保留模型的 ``enforce_eager`` 设置，允许使用 CUDA Graph 执行。若要使用 eager 执行，请在启动模型时设置 ``enforce_eager=True``。循环模型仍默认使用 eager 执行。"

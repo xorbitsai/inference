@@ -98,6 +98,18 @@ msgstr "OpenAI 도구 호출"
 msgid "Output:"
 msgstr "출력:"
 
+msgid "OpenAI Client Responses API"
+msgstr "OpenAI 클라이언트 Responses API"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "Responses API 접속 주소: /v1/responses"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "Xinference의 Responses API는 상태를 저장하지 않습니다. 응답이 저장되지 않으므로 ``previous_response_id`` 와 ``conversation`` 은 거부됩니다. 매 요청마다 ``input`` 에 전체 대화를 보내야 합니다. 텍스트 및 이미지 입력, 함수 도구와 사용자 정의 도구, 추론, 구조화된 출력, 스트리밍을 지원합니다. ``web_search`` 같은 호스팅 도구는 무시됩니다."
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI는 이 API를 통해 사용자 정의 제공자를 호출합니다. ``~/.codex/config.toml`` 에 Xinference를 제공자로 추가하세요:"
+
 #: ../../source/user_guide/client_api.rst:142
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
@@ -181,3 +193,19 @@ msgstr "rerank 모델을 불러와 텍스트 유사도를 계산합니다:"
 #~ "model."
 #~ msgstr ""
 #~ "Anthropic을 사용하여 요청을 보낼 때, 모델 생성 외의 모든 요청은 Anthropic의 인터페이스와 호환성을 유지합니다."
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "캐시 적중 토큰 수"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "vLLM, SGLang, MLX에서 엔진이 통계를 제공하면 완성 및 채팅 완성 응답의 ``usage.prompt_tokens_details.cached_tokens``에 재사용된 프롬프트 토큰 수가 포함됩니다. 이 값에는 엔진이 보고한 기본 접두사 캐시 재사용과 Xavier 캐시 재사용이 포함됩니다. ``prompt_tokens``의 일부이며 추가 토큰 수가 아닙니다."
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "스트리밍 요청에서 ``stream_options={\"include_usage\": True}``를 설정하면 ``choices=[]``인 최종 사용량 청크를 받을 수 있습니다. Responses API는 동일한 값을 ``usage.input_tokens_details.cached_tokens``로 반환합니다. 엔진이 캐시 적중을 보고하지 않으면 완성 및 채팅 완성 응답에서 ``prompt_tokens_details``가 생략되고 Responses API는 기본값인 0을 반환합니다."
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "P/D 분리에서는 현재 요청을 위해 계산된 KV도 포함하여 프리필 엔진에서 전송된 KV를 이 값에 포함합니다. 프리필 엔진의 이전 접두사 캐시 적중 횟수를 별도로 나타내지는 않습니다."

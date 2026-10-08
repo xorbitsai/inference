@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 import tempfile
 
@@ -151,7 +152,7 @@ def test_cmdline(setup, stream, model_uid):
 
 def test_cmdline_model_path_error(setup):
     endpoint, _ = setup
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
 
     # launch model
     result = runner.invoke(
@@ -244,7 +245,7 @@ def test_cmdline_of_custom_model(setup):
         ],
     )
     assert result.exit_code == 0
-    assert "custom_model" in result.stdout
+    assert "custom_model" in result.output
 
     # unregister custom model
     result = runner.invoke(
@@ -271,7 +272,7 @@ def test_cmdline_of_custom_model(setup):
         ],
     )
     assert result.exit_code == 0
-    assert "custom_model" not in result.stdout
+    assert "custom_model" not in result.output
 
 
 def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
@@ -434,3 +435,174 @@ def test_launch_error_in_passing_parameters():
         "You must specify extra kwargs with `--` prefix. There is an error in parameter passing that is -l."
         in str(result)
     )
+
+
+def _invoke_launch_with_replica_config(monkeypatch, replica_config, *extra_args):
+    calls = {}
+
+    class DummyRESTfulClient:
+        def __init__(self, base_url, api_key=None):
+            calls["base_url"] = base_url
+            calls["api_key"] = api_key
+
+        def launch_model(self, **kwargs):
+            calls["launch_kwargs"] = kwargs
+            return "test-model-uid"
+
+        def get_instance_info(self, model_name, model_uid):
+            return [{"status": "READY"}]
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    result = CliRunner().invoke(
+        model_launch,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--api-key",
+            "test-key",
+            "--model-name",
+            "test-model",
+            "--model-engine",
+            "transformers",
+            *extra_args,
+            replica_config,
+        ],
+    )
+    return result, calls
+
+
+@pytest.mark.parametrize("option", ["--replica-config", "--replica_config"])
+def test_launch_replica_config_is_passed_to_client(monkeypatch, option):
+    replica_config = [
+        {"devices": [{"worker_ip": "worker-0:9978", "n_gpu": 1, "gpu_idx": [0]}]},
+        {"devices": [{"worker_ip": "worker-1:9978", "n_gpu": 1, "gpu_idx": [1]}]},
+    ]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(replica_config), option
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica"] == 2
+    assert calls["launch_kwargs"]["replica_config"] == replica_config
+
+
+def test_launch_replica_config_accepts_matching_explicit_replica(monkeypatch):
+    replica_config = [
+        {"devices": [{"worker_ip": "worker-0:9978"}]},
+        {"devices": [{"worker_ip": "worker-1:9978"}]},
+    ]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(replica_config),
+        "--replica",
+        "2",
+        "--replica-config",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica"] == 2
+
+
+@pytest.mark.parametrize(
+    ("replica_config", "expected_message"),
+    [
+        ("not-json", "must be valid JSON"),
+        (json.dumps({"devices": []}), "must be a JSON array"),
+        (json.dumps([]), "must be a non-empty JSON array"),
+    ],
+)
+def test_launch_replica_config_rejects_invalid_json(
+    monkeypatch, replica_config, expected_message
+):
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, replica_config, "--replica-config"
+    )
+
+    assert result.exit_code == 2
+    assert expected_message in result.output
+    assert "launch_kwargs" not in calls
+
+
+def test_launch_replica_config_rejects_mismatched_explicit_replica(monkeypatch):
+    replica_config = [
+        {"devices": [{"worker_ip": "worker-0:9978"}]},
+        {"devices": [{"worker_ip": "worker-1:9978"}]},
+    ]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(replica_config),
+        "--replica",
+        "1",
+        "--replica-config",
+    )
+
+    assert result.exit_code == 2
+    assert "must match the number of entries in --replica-config" in result.output
+    assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize(
+    "conflicting_args",
+    [
+        ["--worker-ip", "worker-0:9978"],
+        ["--gpu-idx", "0"],
+        ["--n-gpu", "1"],
+        ["--n-worker", "2"],
+    ],
+)
+def test_launch_replica_config_rejects_global_placement_options(
+    monkeypatch, conflicting_args
+):
+    replica_config = [{"devices": [{"worker_ip": "worker-0:9978"}]}]
+
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch,
+        json.dumps(replica_config),
+        *conflicting_args,
+        "--replica-config",
+    )
+
+    assert result.exit_code == 2
+    assert "cannot be used together with" in result.output
+    assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize("option", ["--replica-config", "--replica_config"])
+def test_launch_pd_roles_and_devices(monkeypatch, option):
+    config = [
+        {
+            "role": role,
+            "devices": [{"worker_ip": "worker:9978", "gpu_idx": [i], "n_gpu": 1}],
+        }
+        for i, role in enumerate(["prefill", "decode"])
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", "vLLM", option
+    )
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["replica_config"] == config
+    assert calls["launch_kwargs"]["replica"] == 2
+
+
+@pytest.mark.parametrize(
+    "roles,engine",
+    [
+        (["prefill"], "vLLM"),
+        (["prefill", "hybrid"], "vLLM"),
+        (["prefill", "decode"], "transformers"),
+        (["invalid", "decode"], "vLLM"),
+    ],
+)
+def test_launch_invalid_pd_config(monkeypatch, roles, engine):
+    config = [
+        {"role": role, "devices": [{"worker_ip": "worker:9978"}]} for role in roles
+    ]
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, json.dumps(config), "--model-engine", engine, "--replica-config"
+    )
+    assert result.exit_code == 2
+    assert "--replica-config" in result.output
+    assert "launch_kwargs" not in calls

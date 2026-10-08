@@ -211,6 +211,7 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
         "total": mem_info.total,
         "used": mem_info.used,
         "free": mem_info.free,
+        "free_memory_mib": mem_info.free / 1024**2,
         "util": util,
     }
 
@@ -225,7 +226,7 @@ def _get_info_by_torch(index: int) -> Dict[str, Any]:
     }
 
 
-def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int]]:
+def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int, float]]:
     from pymxsml import mxSmlGetDeviceInfo, mxSmlGetMemoryInfo
 
     info = mxSmlGetDeviceInfo(gpu_id)
@@ -237,6 +238,7 @@ def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int]]:
         "total": total,
         "used": used,
         "free": total - used,
+        "free_memory_mib": (total - used) / 1024**2,
         "util": 0,
     }
 
@@ -423,6 +425,8 @@ def get_npu_info() -> Dict:
                         "total": total,
                         "used": used,
                         "free": total - used,
+                        "free_memory_mib": total - used,
+                        "device_index": len(all_devices),
                         "util": 0,
                         "npu_id": len(all_devices),
                     }
@@ -626,16 +630,26 @@ def gpu_count():
 
 
 def get_gpu_info() -> Dict:
+    """Return backend device information.
+
+    Optional ``free_memory_mib`` is a measured, normalized memory value. Its
+    absence means unknown; legacy ``free`` may have backend-specific units or
+    sentinel values. ``device_index`` maps composite device keys to scheduling
+    indices when provided by the backend.
+    """
     spec = _find_device()
     if spec is None:
         return {}
     return spec.get_gpu_info_fn()
 
 
-def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
+def get_per_process_gpu_memory(*, strict: bool = False) -> Dict[int, Dict[int, int]]:
     """Query per-process GPU memory usage via pynvml.
 
-    Returns: {pid: {gpu_index: memory_bytes}}
+    Returns ``{pid: {gpu_index: memory_bytes}}``.  The historical default keeps
+    returning an empty mapping when NVML is unavailable.  Workers use
+    ``strict=True`` so collection failures are distinguishable from a
+    successful collection that found no GPU processes.
     """
     result: Dict[int, Dict[int, int]] = {}
     try:
@@ -648,34 +662,40 @@ def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
             nvmlShutdown,
         )
     except ImportError:
+        if strict:
+            raise
         return result
 
+    initialized = False
     try:
         nvmlInit()
-    except Exception:
-        return result
-
-    try:
+        initialized = True
         device_count = nvmlDeviceGetCount()
         for i in range(device_count):
             try:
                 handle = nvmlDeviceGetHandleByIndex(i)
                 processes = nvmlDeviceGetComputeRunningProcesses(handle)
             except NVMLError:
+                if strict:
+                    raise
                 continue
             for proc in processes:
                 mem = getattr(proc, "usedGpuMemory", None)
                 if mem is None:
                     continue
-                if proc.pid not in result:
-                    result[proc.pid] = {}
-                result[proc.pid][i] = mem
+                result.setdefault(proc.pid, {})[i] = mem
     except NVMLError:
-        pass
+        if strict:
+            raise
+    except Exception:
+        if strict:
+            raise
     finally:
-        try:
-            nvmlShutdown()
-        except Exception:
-            pass
+        if initialized:
+            try:
+                nvmlShutdown()
+            except Exception:
+                if strict:
+                    logger.warning("Failed to shut down NVML", exc_info=True)
 
     return result

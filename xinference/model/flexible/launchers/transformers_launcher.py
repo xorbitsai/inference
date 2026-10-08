@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from transformers import pipeline
-
 from ..core import FlexibleModel, FlexibleModelSpec
 
 
@@ -23,22 +21,21 @@ class MockModel(FlexibleModel):
 
 
 class AutoModel(FlexibleModel):
-    def load(self):
-        config = self.config or {}
-        self._pipeline = pipeline(model=self.model_path, device=self.device, **config)
+    def load(self) -> None:
+        from transformers import pipeline
+
+        config = dict(self.config or {})
+        # The worker injects this runtime option; it is not a pipeline argument.
+        config.pop("enable_virtual_env", None)
+        config.setdefault("device", self.device)
+        self._pipeline = pipeline(model=self.model_path, **config)
 
     def infer(self, *args, **kwargs):
         return self._pipeline(*args, **kwargs)
 
 
-class TransformersTextClassificationModel(FlexibleModel):
-    def load(self):
-        config = self.config or {}
-
-        self._pipeline = pipeline(model=self._model_path, device=self._device, **config)
-
-    def infer(self, *args, **kwargs):
-        return self._pipeline(*args, **kwargs)
+class TransformersTextClassificationModel(AutoModel):
+    """Run sequence classification with the Transformers pipeline interface."""
 
 
 def launcher(model_uid: str, model_spec: FlexibleModelSpec, **kwargs) -> FlexibleModel:

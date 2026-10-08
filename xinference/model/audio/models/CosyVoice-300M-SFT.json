@@ -1,0 +1,44 @@
+[
+  {
+    "version": 2,
+    "model_name": "CosyVoice-300M-SFT",
+    "model_family": "CosyVoice",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot"
+    ],
+    "multilingual": true,
+    "model_src": {
+      "huggingface": {
+        "model_id": "FunAudioLLM/CosyVoice-300M-SFT",
+        "model_revision": "096a5cff8d497fabb3dec2756a200f3688457a1b"
+      },
+      "modelscope": {
+        "model_id": "iic/CosyVoice-300M-SFT",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1783912359,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "librosa",
+        "tiktoken",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "inflect",
+        "conformer",
+        "diffusers==0.29.0",
+        "gdown",
+        "pyarrow",
+        "HyperPyYAML",
+        "onnxruntime>=1.16.0",
+        "pyworld>=0.3.4",
+        "wetext==0.0.9",
+        "transformers==4.51.3",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    }
+  }
+]

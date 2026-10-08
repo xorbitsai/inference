@@ -1,0 +1,192 @@
+[
+  {
+    "version": 2,
+    "context_length": 16384,
+    "model_name": "Yi-1.5-chat-16k",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Yi-1.5 is an upgraded version of Yi. It is continuously pre-trained on Yi with a high-quality corpus of 500B tokens and fine-tuned on 3M diverse fine-tuning samples.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01-ai/Yi-1.5-9B-Chat-16K",
+            "model_revision": "551220fb24d69b6bfec5defceeb160395ce5da8d",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-9B-Chat-16K/resolve/551220fb24d69b6bfec5defceeb160395ce5da8d/config.json",
+              "config_sha256": "84818d0aa650bb8f668a8bae5e569c4f1d79b913d329f59c1536ab2544e88250",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01ai/Yi-1.5-9B-Chat-16K",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-9B-Chat-16K/resolve/master/config.json",
+              "config_sha256": "84818d0aa650bb8f668a8bae5e569c4f1d79b913d329f59c1536ab2544e88250",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01-ai/Yi-1.5-34B-Chat-16K",
+            "model_revision": "dfdbc67be750972bfcc1ac7ffd7fe48689c856fd",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/01-ai/Yi-1.5-34B-Chat-16K/resolve/dfdbc67be750972bfcc1ac7ffd7fe48689c856fd/config.json",
+              "config_sha256": "c84abd7746bbbf0816f9e91ba4d1bc748dff956963fad36e3fe0157648eb7b4e",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "01ai/Yi-1.5-34B-Chat-16K",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://modelscope.cn/models/01ai/Yi-1.5-34B-Chat-16K/resolve/master/config.json",
+              "config_sha256": "c84abd7746bbbf0816f9e91ba4d1bc748dff956963fad36e3fe0157648eb7b4e",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_0",
+              "Q5_1",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "QuantFactory/Yi-1.5-9B-Chat-16K-GGUF",
+            "model_file_name_template": "Yi-1.5-9B-Chat-16K.{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 32,
+              "num_key_value_heads": 4,
+              "config_source": "https://huggingface.co/QuantFactory/Yi-1.5-9B-Chat-16K-GGUF/resolve/main/Yi-1.5-9B-Chat-16K.Q2_K.gguf",
+              "config_sha256": "0145bdd7623229a4fc6b1036516c83f2afbc56f598ffd3de771b9adcb7156424",
+              "hidden_size": 4096,
+              "intermediate_size": 11008,
+              "num_hidden_layers": 48
+            }
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 34,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q2_K",
+              "Q3_K_L",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "bartowski/Yi-1.5-34B-Chat-16K-GGUF",
+            "model_file_name_template": "Yi-1.5-34B-Chat-16K-{quantization}.gguf",
+            "model_metadata": {
+              "vocab_size": 64000,
+              "num_attention_heads": 56,
+              "num_key_value_heads": 8,
+              "config_source": "https://huggingface.co/bartowski/Yi-1.5-34B-Chat-16K-GGUF/resolve/main/Yi-1.5-34B-Chat-16K-Q2_K.gguf",
+              "config_sha256": "2c4abc18050dd2df5cc082268a4e23b4ed2295b0f7c59c5078c33eed5bf03f21",
+              "hidden_size": 7168,
+              "intermediate_size": 20480,
+              "num_hidden_layers": 60
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set system_message = messages[0]['content'] %}{% endif %}{% if system_message is defined %}{{ system_message }}{% endif %}{% for message in messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|im_start|>user\n' + content + '<|im_end|>\n<|im_start|>assistant\n' }}{% elif message['role'] == 'assistant' %}{{ content + '<|im_end|>' + '\n' }}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      2,
+      6,
+      7,
+      8
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|im_start|>",
+      "<|im_end|>",
+      "<|im_sep|>"
+    ],
+    "updated_at": 1769418495,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

@@ -1,0 +1,64 @@
+[
+  {
+    "version": 2,
+    "model_name": "Qwen3-Embedding-0.6B",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": [
+      "zh",
+      "en"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3-Embedding-0.6B",
+            "model_revision": "744169034862c8eec56628663995004342e4e449",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3-Embedding-0.6B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+            "model_revision": "48f36f50b4a081a6f56dd4a227f9b66668e1399f",
+            "quantizations": [
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Embedding-0.6B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+            "quantizations": [
+              "Q8_0"
+            ],
+            "model_file_name_template": "Qwen3-Embedding-0.6B-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "updated_at": 1784543822,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

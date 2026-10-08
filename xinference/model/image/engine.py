@@ -12,10 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import platform
 from typing import TYPE_CHECKING
 
+from ..utils import has_cuda_device
+from .docanalyze.mineru25 import Mineru2_5Model
 from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
+from .hidream_o1 import HIDREAM_O1_MODEL_NAMES, HiDreamO1Model
+from .ming_image import MingImageModel
+from .sensenova_u1 import SenseNovaU1Model
+from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
 from .stable_diffusion.core import DiffusionModel
+from .vllm.core import VLLM_SUPPORTED_IMAGE_MODELS, VLLMDiffusionModel
 
 if TYPE_CHECKING:
     from .core import ImageModelFamilyV2
@@ -28,38 +36,107 @@ class DiffusersImageModel(DiffusionModel, ImageEngineModel):
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_family != "ocr"
-
-
-class VLLMImageModel(ImageEngineModel):
-    @classmethod
-    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        _ = model_family
-        return False
-
-    @classmethod
-    def check_lib(cls):
-        return (
-            False,
-            "Engine vLLM is not compatible with current image model or environment",
+        return model_family.model_family not in (
+            "ocr",
+            "sensenova_u1",
+            "docanalyze",
+            "ming_image",
         )
 
 
-class SGLangImageModel(ImageEngineModel):
-    @classmethod
-    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        _ = model_family
-        return False
+class TransformersSenseNovaU1ImageModel(SenseNovaU1Model, ImageEngineModel):
+    engine_model_format = "pytorch"
+    engine_quantization = "none"
+    required_libs = ("torch", "transformers")
 
     @classmethod
-    def check_lib(cls):
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "sensenova_u1"
+
+
+class HiDreamO1ImageModel(HiDreamO1Model, ImageEngineModel):
+    engine_model_format = "pytorch"
+    engine_quantization = "none"
+    required_libs = ("transformers", "diffusers", "einops")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return (
-            False,
-            "Engine SGLang is not compatible with current image model or environment",
+            model_family.model_family == "hidream_o1"
+            and model_family.model_name in HIDREAM_O1_MODEL_NAMES
+        )
+
+
+class MingImageEngineModel(MingImageModel, ImageEngineModel):
+    engine_model_format = "pytorch"
+    engine_quantization = "none"
+    required_libs = ("torch", "transformers", "diffusers")
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_family == "ming_image"
+
+
+class VLLMImageModel(VLLMDiffusionModel, ImageEngineModel):
+    engine_model_format = "diffusers"
+    engine_quantization = "none"
+    required_libs = ("vllm_omni",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        if platform.system() != "Linux":
+            return False
+        if not has_cuda_device():
+            return False
+        return model_family.model_name in VLLM_SUPPORTED_IMAGE_MODELS
+
+
+class SGLangImageModel(SGLangDiffusionModel, ImageEngineModel):
+    engine_model_format = "diffusers"
+    engine_quantization = "none"
+    required_libs = ("sglang",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        if platform.system() != "Linux":
+            return False
+        if not has_cuda_device():
+            return False
+        return model_family.model_name in SGLANG_SUPPORTED_IMAGE_MODELS
+
+
+class TransformersMinerUImageModel(Mineru2_5Model, ImageEngineModel):
+    required_libs = ("torch", "transformers")
+
+    @classmethod
+    def match(cls, model_family):
+        return model_family.model_name == "MinerU2.5"
+
+
+class VLLMMinerUImageModel(Mineru2_5Model, ImageEngineModel):
+    required_libs = ("vllm",)
+
+    @classmethod
+    def match(cls, model_family):
+        return (
+            platform.system() == "Linux"
+            and has_cuda_device()
+            and model_family.model_name == "MinerU2.5"
         )
 
 
 def register_builtin_image_engines() -> None:
-    SUPPORTED_ENGINES["diffusers"] = [DiffusersImageModel]
-    SUPPORTED_ENGINES["vLLM"] = [VLLMImageModel]
+    SUPPORTED_ENGINES["diffusers"] = [
+        HiDreamO1ImageModel,
+        MingImageEngineModel,
+        DiffusersImageModel,
+    ]
+    SUPPORTED_ENGINES["transformers"] = [
+        TransformersSenseNovaU1ImageModel,
+        TransformersMinerUImageModel,
+    ]
+    SUPPORTED_ENGINES["vLLM"] = [
+        VLLMImageModel,
+        VLLMMinerUImageModel,
+    ]
     SUPPORTED_ENGINES["SGLang"] = [SGLangImageModel]

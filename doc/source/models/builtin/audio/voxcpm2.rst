@@ -12,8 +12,15 @@ VoxCPM2
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** openbmb/VoxCPM2
+- **PyTorch model ID:** openbmb/VoxCPM2
+- **MLX model ID:** mlx-community/VoxCPM2-8bit
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name VoxCPM2 --model-type audio
+   xinference launch --model-name VoxCPM2 --model-type audio --model-engine PyTorch
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``PyTorch``
+* ``MLX``

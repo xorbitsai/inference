@@ -21,6 +21,7 @@ def _install():
     from .llm import _install as llm_install
     from .rerank import _install as rerank_install
     from .video import _install as video_install
+    from .world import _install as world_install
 
     llm_install()
     audio_install()
@@ -29,6 +30,7 @@ def _install():
     image_install()
     rerank_install()
     video_install()
+    world_install()
 
 
 _install()

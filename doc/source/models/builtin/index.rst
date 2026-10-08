@@ -13,3 +13,4 @@ Builtin Models
    audio/index
    rerank/index
    video/index
+   world/index

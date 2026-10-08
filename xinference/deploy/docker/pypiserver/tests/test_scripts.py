@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import importlib.util
+import io
 import json
+import shlex
+import shutil
 import subprocess
 import sys
+from http.client import IncompleteRead
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+
+import pytest
+from packaging.requirements import InvalidRequirement, Requirement
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPT_DIR.parents[3]
@@ -54,6 +62,56 @@ def test_generate_package_list_classification():
     assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "git"
     assert generator.system_placeholder_name("#system_torch#") == "torch"
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
+    assert (
+        generator.normalize_mirror_spec("deepdoc-lib[gpu]~=0.2.2 ; has_cuda")
+        == "deepdoc-lib[gpu]~=0.2.2"
+    )
+    assert (
+        generator.normalize_mirror_spec("deepdoc-lib~=0.2.2 ; not has_cuda")
+        == "deepdoc-lib~=0.2.2"
+    )
+    standard_marker = 'decord2==3.4.0 ; platform_machine == "aarch64"'
+    assert generator.normalize_mirror_spec(standard_marker) == standard_marker
+
+
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+def test_generate_package_lists_from_docker_sources(tmp_path, platform):
+    src_root = tmp_path / "src"
+    dockerfile = (SCRIPT_DIR / "Dockerfile.pypiserver").read_text(encoding="utf-8")
+    for line in dockerfile.replace("\\\n", " ").splitlines():
+        fields = shlex.split(line)
+        if not fields or fields[0] != "COPY":
+            continue
+        destination = fields[-1]
+        if not destination.startswith("/build/src/"):
+            continue
+        target = src_root / destination.removeprefix("/build/src/")
+        target.mkdir(parents=True, exist_ok=True)
+        for source in fields[1:-1]:
+            source_path = REPO_ROOT / source
+            if source_path.is_dir():
+                shutil.copytree(source_path, target, dirs_exist_ok=True)
+            else:
+                shutil.copy2(source_path, target)
+
+    out = tmp_path / "out"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_DIR / "generate_package_lists.py"),
+            "--platform",
+            platform,
+            "--src-root",
+            str(src_root),
+            "--out",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (out / "manifest.json").is_file()
+    assert (out / "engines" / "transformers.in").is_file()
 
 
 def test_load_xinference_modules_restores_sys_modules():
@@ -117,6 +175,39 @@ def test_iter_virtualenv_packages_reads_json_as_utf8(monkeypatch, tmp_path):
     assert encodings == ["utf-8"]
 
 
+def test_all_decord_requirements_are_scoped_to_supported_architectures():
+    generator = _load_script("generate_package_lists")
+    expected_machines = {
+        "decord": {"x86_64"},
+        "decord2": {"aarch64"},
+    }
+    seen = set()
+
+    for rel, model_name, packages in generator.iter_virtualenv_packages(
+        REPO_ROOT / "xinference" / "model"
+    ):
+        for spec in packages:
+            try:
+                requirement = Requirement(generator.normalize_mirror_spec(spec))
+            except InvalidRequirement:
+                continue
+            name = requirement.name.lower().replace("_", "-")
+            if name not in expected_machines:
+                continue
+            seen.add(name)
+            allowed_machines = {
+                machine
+                for machine in ("x86_64", "aarch64")
+                if requirement.marker is not None
+                and requirement.marker.evaluate({"platform_machine": machine})
+            }
+            assert (
+                allowed_machines == expected_machines[name]
+            ), f"{rel}:{model_name} uses incompatible requirement {spec!r}"
+
+    assert seen == set(expected_machines)
+
+
 def test_selfcheck_wheel_url_to_spec():
     selfcheck = _load_script("selfcheck")
 
@@ -129,6 +220,17 @@ def test_selfcheck_wheel_url_to_spec():
     )
     assert selfcheck.wheel_url_to_spec("https://example.com/pkg.tar.gz") is None
     assert selfcheck.wheel_url_to_spec("https://example.com/invalid.whl") is None
+
+
+@pytest.mark.parametrize("marker", ["", ' ; platform_machine == "aarch64"'])
+def test_selfcheck_named_wheel_reference(marker):
+    selfcheck = _load_script("selfcheck")
+    assert (
+        selfcheck.wheel_url_to_spec(
+            "torchao @ https://example.com/torchao-0.16.0-py3-none-any.whl" + marker
+        )
+        == "torchao==0.16.0" + marker
+    )
 
 
 def test_download_report_wheel_filename_parsing():
@@ -162,6 +264,124 @@ def test_pip_download_forwards_package_build_environment(monkeypatch, tmp_path):
     )
 
     assert calls[0][1]["env"] is build_env
+
+
+def test_download_sdist_without_metadata_uses_simple_api(monkeypatch, tmp_path):
+    downloader = _load_script("download_packages")
+    content = b"source distribution"
+    digest = hashlib.sha256(content).hexdigest().upper()
+    simple_payload = json.dumps(
+        {
+            "files": [
+                {
+                    "filename": "flash_attn-2.8.3.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                },
+                {
+                    "filename": "flash_attn-2.8.3.post1.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.post1.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                },
+                {
+                    "filename": "flash_attn-2.9.0.tar.gz",
+                    "url": "../../files/flash_attn-2.9.0.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.13",
+                    "yanked": False,
+                },
+            ]
+        }
+    ).encode()
+    urls = []
+
+    def fake_urlopen(request, timeout):
+        url = request.full_url if hasattr(request, "full_url") else request
+        urls.append((url, timeout))
+        if url.endswith("/simple/flash-attn/"):
+            assert "application/vnd.pypi.simple.v1+json" in request.headers["Accept"]
+            return io.BytesIO(simple_payload)
+        assert url.endswith("/files/flash_attn-2.8.3.post1.tar.gz")
+        return io.BytesIO(content)
+
+    monkeypatch.setattr(downloader, "urlopen", fake_urlopen)
+
+    result = downloader.download_sdist_without_metadata(
+        "flash-attn<2.9",
+        tmp_path,
+        index_url="https://example.invalid/simple",
+        python_version="3.12",
+    )
+
+    assert result == tmp_path / "flash_attn-2.8.3.post1.tar.gz"
+    assert result.read_bytes() == content
+    assert urls == [
+        ("https://example.invalid/simple/flash-attn/", 30),
+        ("https://example.invalid/files/flash_attn-2.8.3.post1.tar.gz", 60),
+    ]
+
+
+def test_download_sdist_without_metadata_rejects_malformed_simple_api(
+    monkeypatch, tmp_path
+):
+    downloader = _load_script("download_packages")
+    monkeypatch.setattr(
+        downloader, "urlopen", lambda *_args, **_kwargs: io.BytesIO(b"[]")
+    )
+
+    assert (
+        downloader.download_sdist_without_metadata(
+            "flash-attn",
+            tmp_path,
+            index_url="https://example.invalid/simple",
+            python_version="3.12",
+        )
+        is None
+    )
+
+
+def test_download_sdist_without_metadata_cleans_up_incomplete_download(
+    monkeypatch, tmp_path
+):
+    downloader = _load_script("download_packages")
+    content = b"source distribution"
+    simple_payload = json.dumps(
+        {
+            "files": [
+                {
+                    "filename": "flash_attn-2.8.3.post1.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.post1.tar.gz",
+                    "hashes": {"sha256": hashlib.sha256(content).hexdigest()},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                }
+            ]
+        }
+    ).encode()
+
+    class BrokenResponse(io.BytesIO):
+        def read(self, *_args, **_kwargs):
+            raise IncompleteRead(b"partial")
+
+    responses = iter((io.BytesIO(simple_payload), BrokenResponse(content)))
+    monkeypatch.setattr(
+        downloader, "urlopen", lambda *_args, **_kwargs: next(responses)
+    )
+
+    assert (
+        downloader.download_sdist_without_metadata(
+            "flash-attn",
+            tmp_path,
+            index_url="https://example.invalid/simple",
+            python_version="3.12",
+        )
+        is None
+    )
+    assert not list(tmp_path.iterdir())
 
 
 def test_runtime_constraints_require_exact_pins(tmp_path):
@@ -229,6 +449,19 @@ def test_runtime_dockerfiles_keep_dependency_layers_source_independent():
         project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
         project_install = dockerfile.index("pip install", project_sources)
         assert dependency_install < project_sources < project_install
+
+
+def test_runtime_docker_dependency_skeleton_defers_model_spec_validation():
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+
+    dependency_install = dockerfile.index('".[otel]" transformers accelerate')
+    project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+    validation_skip = dockerfile.index("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1")
+
+    assert validation_skip < dependency_install < project_sources
+    assert dockerfile.count("XINFERENCE_SKIP_MODEL_SPEC_VALIDATION=1") == 1
 
 
 def test_transformers_optional_dependencies_are_scoped_and_mirrored(
@@ -303,6 +536,26 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         assert package not in mirrored
 
     pin_entries = json.loads((out / "pins.json").read_text())
+    pin_specs = {item["spec"] for item in pin_entries}
+    assert "deepdoc-lib[gpu]~=0.2.2" in pin_specs
+    assert "deepdoc-lib~=0.2.2" in pin_specs
+    assert all("has_cuda" not in spec for spec in pin_specs)
+    assert 'decord==0.6.0 ; platform_machine == "x86_64"' in pin_specs
+    assert 'decord2==3.4.0 ; platform_machine == "aarch64"' in pin_specs
+    assert "flash-attn==2.8.3.post1" not in pin_specs
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["find_links_only_pins"] == [
+        {
+            "spec": "flash-attn==2.8.3.post1",
+            "sources": [
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3",
+                "embedding/models/jina-embeddings-v3.json:jina-embeddings-v3 (sentence_transformers)",
+            ],
+        }
+    ]
+    for spec in pin_specs:
+        Requirement(spec)
+
     model_pins = {item["spec"].split(";", 1)[0].strip().lower() for item in pin_entries}
     for package in (
         "qwen-vl-utils!=0.0.9",
@@ -325,7 +578,7 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         if item["spec"].split(";", 1)[0].strip().lower() == "qwen-vl-utils!=0.0.9"
     )
     for model_name in ("qwen3.5", "qwen3.6"):
-        source = "llm/llm_family.json:" + model_name + " (Transformers)"
+        source = "llm/models/" + model_name + ".json:" + model_name + " (Transformers)"
         assert source in qwen_vl_sources
 
 
@@ -402,6 +655,7 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
         "pins": 1,
         "urls": 1,
         "git": 1,
+        "find_links_only": 0,
     }
 
 
@@ -517,6 +771,8 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
     )
     (manifest / "urls.txt").write_text(
         "https://example.invalid/direct-1.0-py3-none-any.whl\n"
+        "torchao @ https://example.invalid/torchao-0.16.0-py3-none-any.whl"
+        ' ; platform_machine == "aarch64"\n'
     )
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
@@ -553,6 +809,7 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
         ["engine-pkg>=1.0"],
         ["model-pin==1.0"],
         ["direct==1.0"],
+        ['torchao==0.16.0 ; platform_machine == "aarch64"'],
     ]
     output = capsys.readouterr().out
     assert "UNSUPPORTED offline direct reference " + git_source in output

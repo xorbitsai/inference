@@ -99,3 +99,105 @@ groups:
         annotations:
           summary: "封禁 IP 数量异常偏高"
           description: "当前封禁 IP 数 {{ $value }}，可能存在暴力攻击或滥用行为。"
+
+  - name: xinference-token-router-monitoring-v2
+    rules:
+      - alert: TokenRouterAgentSuspected
+        expr: xinference:token_router_agent_connectivity_status{status="suspected"} == 1
+        for: 30s
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterAgentSuspected"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterAgentOffline
+        expr: xinference:token_router_agent_connectivity_status{status="offline"} == 1
+        for: 0m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterAgentOffline"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterRuntimeUncontrollable
+        expr: xinference:token_router_runtime_effective_ready == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_controllable == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterRuntimeUncontrollable"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterRuntimeDown
+        expr: xinference:token_router_runtime_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterRuntimeDown"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterRuntimeConfigOutOfSync
+        expr: xinference:token_router_runtime_up == 1 and on (router_uid, assignment_id, instance_id) xinference:token_router_runtime_config_synced == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterRuntimeConfigOutOfSync"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterAssignmentNotReady
+        expr: xinference:token_router_assignment_desired_state{state="running"} == 1 and on (router_uid, assignment_id, replica_index, node_id) xinference:token_router_assignment_runtime_ready == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterAssignmentNotReady"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterTokenizerBindingFailed
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="failed"} == 1
+        for: 1m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterTokenizerBindingFailed"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterTokenizerBindingStale
+        expr: xinference:token_router_tokenizer_binding_state{observed_state="stale"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterTokenizerBindingStale"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterDegraded
+        expr: xinference:token_router_status{status="degraded"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterDegraded"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"
+
+      - alert: TokenRouterUnavailable
+        expr: xinference:token_router_desired_replicas > 0 and on (router_uid) xinference:token_router_effective_ready_replicas == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: token-router
+        annotations:
+          summary: "检测到 Token Router 监控异常: TokenRouterUnavailable"
+          description: "请根据标签检查 Router 控制面、Runtime、资产绑定或模型副本状态。"

@@ -21,7 +21,7 @@ export function FormList<T = any>({
   layout = 'vertical',
   className
 }: FormListProps<T>) {
-  const { form, clearFieldState } =
+  const { form, clearFieldState, notifyUserChange } =
     useFormContext();
 
   const fieldKey =
@@ -67,6 +67,7 @@ export function FormList<T = any>({
       ...values,
       defaultValue,
     ]);
+    notifyUserChange();
   };
 
   const remove = (
@@ -81,6 +82,7 @@ export function FormList<T = any>({
         ) => i !== index
       )
     );
+    notifyUserChange();
   };
 
   const renderProps: FormListRenderProps<T> =

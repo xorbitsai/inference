@@ -3,9 +3,9 @@ name: Python CI
 on:
   push:
     branches:
-      - '*'
+      - main
   pull_request:
-    types: ['opened', 'reopened', 'synchronize']
+    types: ['opened', 'reopened', 'synchronize', 'ready_for_review']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,6 +13,9 @@ concurrency:
 
 jobs:
   lint:
+    # A push event cannot tell whether its branch belongs to a draft PR, so
+    # branch CI is driven by pull_request events and push is limited to main.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -21,7 +24,7 @@ jobs:
         python-version: [ "3.10" ]
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -59,13 +62,14 @@ jobs:
 
 
   changes:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     outputs:
       gpu: ${{ steps.gpu.outputs.gpu }}
       groups: ${{ steps.gpu.outputs.groups }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -136,13 +140,20 @@ jobs:
                 # This also covers restful_api.py (the launch/inference
                 # endpoints), dependencies.py, and the models/videos routers.
                 xinference/core/*|xinference/api/*|xinference/client/*|xinference/deploy/*) full=true; break ;;
-                # Model families not broken out above (flexible, video, ...)
-                # and top-level files directly under xinference/model/ have
-                # no dedicated GPU test group; play it safe and run every group.
+                # video/ and flexible/ have no GPU test group at all: no
+                # group below runs a single test from either package, so a full
+                # run costs every GPU minute while covering none of the change.
+                # Their tests (video/tests/, flexible/tests/) run in the
+                # ubuntu/macos/windows CI, which is where they are covered.
+                xinference/model/video/*|xinference/model/flexible/*) ;;
+                # Remaining model families with no dedicated group, plus
+                # top-level files directly under xinference/model/ (batch.py,
+                # cache_manager.py, core.py, custom.py, utils.py) which are
+                # shared by every family; play it safe and run every group.
                 xinference/model/*) full=true; break ;;
                 # The rest of the package (deploy/, docs, examples, other
                 # top-level modules) is not exercised by any GPU test.
-                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml) full=true; break ;;
+                .github/workflows/python.yaml|.github/requirements/model-ci-constraints.txt|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
               esac
             done < changed-files.txt
           fi
@@ -176,19 +187,21 @@ jobs:
       fail-fast: false
       matrix:
         os: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
-        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         module: [ "xinference" ]
         exclude:
-          - { os: macos-latest, python-version: 3.11 }
-          - { os: macos-latest, python-version: 3.12 }
-          - { os: windows-latest, python-version: 3.11 }
-          - { os: windows-latest, python-version: 3.12 }
+          - { os: macos-latest, python-version: "3.11" }
+          - { os: macos-latest, python-version: "3.12" }
+          - { os: macos-latest, python-version: "3.13" }
+          - { os: windows-latest, python-version: "3.11" }
+          - { os: windows-latest, python-version: "3.12" }
+          - { os: windows-latest, python-version: "3.13" }
         include:
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -199,22 +212,19 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
 
-      # Important for python == 3.12 and 3.13
+      # Important for Python 3.12 and newer.
       - name: Update pip and setuptools
-        if: ${{ matrix.python-version == '3.12' || matrix.python-version == '3.13' }}
+        if: ${{ matrix.python-version == '3.12' || matrix.python-version == '3.13' || matrix.python-version == '3.14' }}
         run: |
           python -m pip install -U pip "setuptools<82"
 
-      # Install torch for Python 3.13 using nightly builds
-      - name: Install torch for Python 3.13
-        if: ${{ matrix.python-version == '3.13'}}
+      - name: Install PyTorch for Python 3.13 and newer
+        if: ${{ matrix.python-version == '3.13' || matrix.python-version == '3.14' }}
         run: |
           python -m pip install torch torchvision torchaudio
 
-      - name: Install numpy
-        if: |
-          (startsWith(matrix.os, 'macos') && (matrix.python-version == '3.13')) ||
-          (startsWith(matrix.os, 'windows'))
+      - name: Install NumPy 1.x where required
+        if: ${{ startsWith(matrix.os, 'windows') && matrix.python-version == '3.10' }}
         run: |
           python -m pip install "numpy<2"
 
@@ -223,12 +233,18 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
           OS: ${{ matrix.os }}
+          # Tests never touch the web UI; skip the npm build that the build
+          # backend would otherwise run on editable installs.
+          NO_WEB_UI: 1
         run: |
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
             sudo rm -rf /opt/ghc
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          fi
+          if [ "$MODULE" != "metal" ]; then
+            export PIP_CONSTRAINT="$PWD/.github/requirements/model-ci-constraints.txt"
           fi
           pip install -e ".[dev]"
           pip install "xllamacpp>=0.2.0"
@@ -238,21 +254,23 @@ jobs:
             pip install mlx-lm
             pip install "mlx-vlm>=0.3.4"
             pip install mlx-whisper
-            pip install f5-tts-mlx
+            # F5-TTS owns a model-specific MLX pin in its virtualenv recipe.
+            # Keep it out of the host env so the integration test exercises
+            # that isolated dependency set instead of inheriting this one.
             pip install qwen-vl-utils!=0.0.9
             pip install tomli
           else
-            pip install "transformers<4.49"
+            pip install transformers
             pip install attrdict
             pip install "timm>=0.9.16"
-            if [ "${{ matrix.python-version }}" != "3.13" ]; then
+            if [ "${{ matrix.python-version }}" != "3.13" ] && [ "${{ matrix.python-version }}" != "3.14" ]; then
               pip install torch torchvision
             fi
             pip install accelerate
             pip install sentencepiece
             pip install transformers_stream_generator
             pip install bitsandbytes
-            pip install "sentence-transformers>=5.1.1"
+            pip install "sentence-transformers>=5.1.1,<6"
             pip install modelscope
             pip install diffusers
             pip install protobuf
@@ -263,6 +281,8 @@ jobs:
             pip install qwen-vl-utils!=0.0.9
             pip install datamodel_code_generator
             pip install jsonschema
+            pip install -r .github/requirements/model-ci-constraints.txt
+            python -c "from datasets import Dataset; from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
           fi
         working-directory: .
 
@@ -315,17 +335,30 @@ jobs:
           run_pytest() {
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg \
+              --cov-config=pyproject.toml \
               --cov-report=xml \
               --cov=xinference \
               "$@"
           }
 
           if [ "$MODULE" == "metal" ]; then
-            run_pytest xinference/model/llm/mlx/tests/test_mlx.py && \
-            run_pytest xinference/model/audio/tests/test_whisper_mlx.py && \
-            run_pytest xinference/model/audio/tests/test_f5tts_mlx.py && \
-            run_pytest xinference/model/llm/mlx/tests/test_distributed_model.py
+            status=0
+            mkdir -p test-results
+            python -m pip freeze > test-results/metal-host-packages.txt
+            for test_file in \
+              xinference/model/llm/mlx/tests/test_mlx.py \
+              xinference/model/llm/mlx/tests/test_xavier.py \
+              xinference/model/audio/tests/test_whisper_mlx.py \
+              xinference/model/audio/tests/test_f5tts_mlx.py \
+              xinference/model/llm/mlx/tests/test_distributed_model.py; do
+              group=$(basename "$test_file" .py)
+              echo "::group::Metal tests: $group"
+              # Keep separate processes for model environments, and run every
+              # group even if an earlier one fails. Preserve the failure status.
+              run_pytest --junitxml="test-results/$group.xml" "$test_file" || status=1
+              echo "::endgroup::"
+            done
+            [ "$status" -eq 0 ]
           else
             run_pytest \
               -vv \
@@ -342,8 +375,51 @@ jobs:
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \
               xinference
+            run_pytest \
+              -vv \
+              benchmark/tests/test_benchmark_pd.py \
+              benchmark/tests/test_benchmark_sglang_pd.py \
+              benchmark/tests/test_analyze_pd_profile.py \
+              xinference/model/llm/sglang/tests/test_xavier.py \
+              xinference/model/llm/sglang/tests/test_xavier_pd.py \
+              xinference/model/llm/sglang/tests/test_pd.py \
+              xinference/model/llm/sglang/tests/test_xavier_gpu_lifecycle.py \
+              xinference/model/llm/sglang/tests/test_gc_lifecycle.py \
+              xinference/model/llm/sglang/tests/test_runtime.py \
+              xinference/model/llm/vllm/tests/test_distributed_executor_v1.py \
+              xinference/model/llm/vllm/tests/test_executor_routing.py \
+              xinference/model/llm/vllm/tests/test_speculative_config.py \
+              xinference/model/llm/vllm/xavier/test/test_profiling.py \
+              xinference/model/llm/vllm/xavier/test/test_actor_loop.py \
+              xinference/model/llm/vllm/tests/test_pd.py \
+              xinference/model/llm/vllm/xavier/test/test_block_tracker_reuse.py \
+              xinference/model/llm/vllm/xavier/test/test_remote_kvcache_manager.py \
+              xinference/model/llm/vllm/xavier/test/test_v1_engine.py \
+              xinference/model/llm/vllm/xavier/test/test_prefix_cache_hot_path.py \
+              xinference/model/llm/vllm/xavier/test/test_snapshot_export_ipc.py \
+              xinference/model/llm/vllm/xavier/test/test_snapshot_gc_lifecycle.py \
+              xinference/model/llm/vllm/xavier/test/test_packed_gather.py \
+              xinference/model/llm/vllm/xavier/test/test_local_directory.py \
+              xinference/model/llm/vllm/xavier/test/test_local_read.py \
+              xinference/model/llm/vllm/xavier/test/test_gpu_transfer.py \
+              xinference/model/llm/vllm/xavier/test/test_kv_schema.py \
+              xinference/model/llm/vllm/xavier/test/test_cross_engine.py \
+              xinference/model/llm/vllm/xavier/test/test_direct_handoff.py \
+              xinference/model/llm/vllm/xavier/test/test_direct_history.py \
+              xinference/model/llm/vllm/xavier/test/test_tiered_snapshot.py \
+              xinference/model/llm/vllm/xavier/test/test_request_transfer.py \
+              xinference/model/llm/vllm/xavier/test/test_transfer_blocks.py \
+              xinference/model/llm/vllm/xavier/test/test_review_regressions.py
           fi
         working-directory: .
+
+      - name: Upload Metal test results
+        if: ${{ always() && matrix.module == 'metal' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: metal-test-results-${{ matrix.python-version }}
+          path: test-results/
+          if-no-files-found: ignore
 
   gpu_test_job:
     name: build_test_job (gpu-t4, gpu, 3.12)
@@ -364,7 +440,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -379,7 +455,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', '.github/requirements/model-ci-constraints.txt', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
@@ -394,7 +470,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.xinference/modelscope
-          key: gpu-modelscope-${{ hashFiles('xinference/model/audio/model_spec.json') }}
+          key: gpu-modelscope-${{ hashFiles('xinference/model/audio/models/*.json') }}
           restore-keys: gpu-modelscope-
 
       - name: Update pip and setuptools
@@ -403,6 +479,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          export PIP_CONSTRAINT="$PWD/.github/requirements/model-ci-constraints.txt"
           pip install -U -e ".[audio,dev]"
           pip install -U "openai>1"
           pip install -U modelscope
@@ -414,7 +491,7 @@ jobs:
           pip install -U "passlib[bcrypt]"
           pip install -U "aioprometheus[starlette]"
           pip install -U "pynvml"
-          pip install "transformers==4.53.2"
+          pip install transformers
           pip install "funasr==1.2.7"
           conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
           pip install -U "nemo_text_processing<1.1.0"
@@ -452,20 +529,16 @@ jobs:
           pip install tensorizer
           pip install -U "sentence-transformers==5.1.1"
           pip install -U "FlagEmbedding==1.3.5"
-          pip install -U "peft<=0.17.1"
+          pip install -U "peft>=0.18.0"
           pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
           pip install hf_transfer
           # espeak-ng (TTS phonemization) is not packaged on conda-forge;
           # install it from apt.
           sudo apt-get update -qq
           sudo apt-get install -y -qq espeak-ng
-          # Final guard pins. The serial `pip install -U` calls above ignore
-          # the upper bounds of already-installed packages, letting shared
-          # deps drift past what the stack supports at runtime: numba needs
-          # numpy<2.5, and diffusers 0.35 / tensorizer still import
-          # is_offline_mode, which huggingface_hub 1.0 removed
-          # (transformers==4.53.2 declares the same <1.0 cap).
-          pip install "numpy>=2,<2.5" "huggingface_hub<1.0"
+          # Resolve the shared stack together, including transitive datasets.
+          pip install "numpy>=2" -r .github/requirements/model-ci-constraints.txt
+          python -c "from datasets import Dataset; from transformers import AutoModel; from peft import PeftModel; from sentence_transformers import SentenceTransformer, CrossEncoder; from FlagEmbedding import BGEM3FlagModel; from diffusers import DiffusionPipeline"
         working-directory: .
 
       - name: Test with pytest

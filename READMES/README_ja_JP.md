@@ -41,21 +41,27 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 
 ## 🔥 注目のトピック
 ### フレームワークの強化
-- Xinference 3.0.0 が公開され、移行メモと破壊的変更を確認できます: [リリースノート](https://xinference.io/release_notes/v3.0.0.html)
+- Xinference 3.0.0 が公開され、移行メモと破壊的変更を確認できます: [リリースノート](https://xinference.co/release_notes/v3.0.0.html)
 - Agent ネイティブ配信：Xinference は [Xagent](https://github.com/xorbitsai/xagent) と統合し、動的プランニング、ツール利用、自己完結型の複数ステップ推論を可能にし、静的なパイプラインの限界を超えます。
 - 自動バッチ処理：複数の同時リクエストを自動的にバッチ化し、スループットを大幅に向上させます。: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference チームが管理する新しい llama.cpp の Python バインディングは、継続的なバッチ処理をサポートし、より本番運用に適しています。: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 分散推論：ワーカー間でモデルを実行できます: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM の強化：複数レプリカ間で KV キャッシュを共有: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新規モデル
-- 組み込み VibeThinker シリーズ（[1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B)、[3B](https://huggingface.co/WeiboAI/VibeThinker-3B)）: [#5085](https://github.com/xorbitsai/inference/pull/5085)
-- 組み込み Nex-N2 シリーズ（[mini](https://huggingface.co/nex-agi/Nex-N2-mini)、[Pro](https://huggingface.co/nex-agi/Nex-N2-Pro)、[Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)）: [#5094](https://github.com/xorbitsai/inference/pull/5094)
-- 組み込み [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR): [#5103](https://github.com/xorbitsai/inference/pull/5103)
-- 組み込み [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B): [#5119](https://github.com/xorbitsai/inference/pull/5119)
-- 組み込み [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B): [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- 組み込み jina-embeddings-v5 シリーズ（[text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano)、[text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small)、[omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano)、[omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)）: [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- 組み込み MiniCPM-V-4.6 シリーズ（[MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6)、[MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)）: [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- 組み込み Tencent Hy-MT2 シリーズ（[1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B)、[7B](https://huggingface.co/tencent/Hy-MT2-7B)、[30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)）: [#5029](https://github.com/xorbitsai/inference/pull/5029)
+- [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) を組み込みでサポート: [#5583](https://github.com/xorbitsai/inference/pull/5583)
+- Ming-Image シリーズ（[Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design)、[Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)） を組み込みでサポート: [#5582](https://github.com/xorbitsai/inference/pull/5582)
+- [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) を組み込みでサポート: [#5571](https://github.com/xorbitsai/inference/pull/5571)
+- [MinerU2.5](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B) を組み込みでサポート: [#5550](https://github.com/xorbitsai/inference/pull/5550)
+- Spark-X2.5 シリーズ（[1.7B](https://huggingface.co/XHToken/Spark-X2.5-1.7B)、[4B](https://huggingface.co/XHToken/Spark-X2.5-4B)、[1.7B Base](https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base)、[4B Base](https://huggingface.co/XHToken/Spark-X2.5-4B-Base)） を組み込みでサポート: [#5538](https://github.com/xorbitsai/inference/pull/5538)
+- LingBot-World-V2 シリーズ（[14B Fast](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast)、[14B Pretrain](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain)、[1.3B Fast](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast)） を組み込みでサポート: [#5536](https://github.com/xorbitsai/inference/pull/5536)
+- Irodori-TTS v4.1 シリーズ（[Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime)、[Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)） を組み込みでサポート: [#5527](https://github.com/xorbitsai/inference/pull/5527)
+- [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) を組み込みでサポート: [#5526](https://github.com/xorbitsai/inference/pull/5526)
+- AuK シリーズ（[AuK](https://huggingface.co/tencent/AuK)、[AuK-Flash](https://huggingface.co/tencent/AuK-Flash)） を組み込みでサポート: [#5525](https://github.com/xorbitsai/inference/pull/5525)
+- [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) を組み込みでサポート: [#5506](https://github.com/xorbitsai/inference/pull/5506)
+- Fish Audio シリーズ（[S1-mini](https://huggingface.co/fishaudio/s1-mini)、[S2-Pro](https://huggingface.co/fishaudio/s2-pro)） を組み込みでサポート: [#5490](https://github.com/xorbitsai/inference/pull/5490)
+- [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR) を組み込みでサポート: [#5475](https://github.com/xorbitsai/inference/pull/5475)
+- [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr) を組み込みでサポート: [#5468](https://github.com/xorbitsai/inference/pull/5468)
+- JoyAI 画像編集シリーズ（[Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers)、[Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)） を組み込みでサポート: [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### 統合
 - [Xagent](https://github.com/xorbitsai/xagent): 計画、メモリ、ツール利用を備えたエンタープライズ向けエージェントプラットフォームです。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。
@@ -96,7 +102,8 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
   この [スターターガイド](#getting-started) に従って、自分の環境で Xinference を素早く起動してください。詳細はドキュメント（https://inference.readthedocs.io/）を参照してください。
 
 - **企業/組織向け Xinference**
-  企業向けの追加機能を提供しています。企業ニーズについてはメール（mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry）でお問い合わせください。
+  **Xinference Enterprise** は、本番環境でモデルを運用するチーム向けの商用版です。自社のクラウドやデータセンターに導入するか、**Xinference Cloud** によるマネージド専用環境を選択できます。ホスト型の **Model API** では、推論インフラを管理することなく、OpenAI 互換 API を通じて対応モデルにアクセスできます。詳細は [xinference.co](https://xinference.co) をご覧ください。
+  企業向けのお問い合わせは、[メール](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)でご連絡ください。
 
 ## 常に先を行くために
 
@@ -190,4 +197,4 @@ $ xinference-local
 
 ## Star 履歴
 
-[![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=xorbitsai/inference&type=Date)](https://star-history.dera.page/#xorbitsai/inference&Date)

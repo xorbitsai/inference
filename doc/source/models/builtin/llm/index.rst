@@ -61,16 +61,6 @@ The following is a list of built-in LLM in Xinference:
      - 65536
      - CodeQwen1.5 is the Code-Specific version of Qwen1.5. It is a transformer-based decoder-only language model pretrained on a large amount of data of codes.
 
-   * - :ref:`codeshell <models_llm_codeshell>`
-     - generate
-     - 8194
-     - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University. 
-
-   * - :ref:`codeshell-chat <models_llm_codeshell-chat>`
-     - chat
-     - 8194
-     - CodeShell is a multi-language code LLM developed by the Knowledge Computing Lab of Peking University.
-
    * - :ref:`codestral-v0.1 <models_llm_codestral-v0.1>`
      - generate
      - 32768
@@ -176,6 +166,11 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
 
+   * - :ref:`deepseek-v4-flash-0731 <models_llm_deepseek-v4-flash-0731>`
+     - chat, reasoning, hybrid, tools
+     - 1048576
+     - Official DeepSeek-V4-Flash release with enhanced agentic capabilities and an attached DSpark speculative decoding module.
+
    * - :ref:`deepseek-v4-pro <models_llm_deepseek-v4-pro>`
      - chat, reasoning, hybrid, tools
      - 163840
@@ -261,6 +256,11 @@ The following is a list of built-in LLM in Xinference:
      - 202752
      - GLM-5.1 is our next-generation flagship model for agentic engineering, with significantly stronger coding capabilities than its predecessor. It achieves state-of-the-art performance on SWE-Bench Pro and leads GLM-5 by a wide margin on NL2Repo (repo generation) and Terminal-Bench 2.0 (real-world terminal tasks).
 
+   * - :ref:`glm-5.2 <models_llm_glm-5.2>`
+     - chat, tools, reasoning, hybrid
+     - 1048576
+     - We're introducing GLM-5.2, our latest flagship model for long-horizon tasks
+
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
      - 8192
@@ -280,11 +280,6 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 1048576
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
-
-   * - :ref:`gorilla-openfunctions-v2 <models_llm_gorilla-openfunctions-v2>`
-     - chat
-     - 4096
-     - OpenFunctions is designed to extend Large Language Model (LLM) Chat Completion feature to formulate executable APIs call given natural language instructions and API context.
 
    * - :ref:`gpt-2 <models_llm_gpt-2>`
      - generate
@@ -340,6 +335,21 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision
      - 262144
      - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
+
+   * - :ref:`kimi-k3 <models_llm_kimi-k3>`
+     - chat, vision
+     - 1048576
+     - Kimi K3 is an open-weight, native multimodal agentic model and our most capable model to date.
+
+   * - :ref:`ling-3.0-flash <models_llm_ling-3.0-flash>`
+     - chat, tools, reasoning, hybrid
+     - 262144
+     - Ling-3.0-flash is a native hybrid-linear reasoning MoE model with 124B total parameters and 5.1B activated parameters per token.
+
+   * - :ref:`ling-3.0-tiny <models_llm_ling-3.0-tiny>`
+     - chat, tools, reasoning, hybrid
+     - 131072
+     - Ling-3.0-tiny is a lightweight hybrid-reasoning MoE model with 7.9B total parameters and 1.3B activated parameters per token.
 
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
@@ -471,6 +481,11 @@ The following is a list of built-in LLM in Xinference:
      - 204800
      - MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search
 
+   * - :ref:`minimax-m3 <models_llm_minimax-m3>`
+     - chat, vision, tools, reasoning, hybrid
+     - 1048576
+     - MiniMax-M3 is a native multimodal model with 1M context. It has ~428B parameters and ~23B activated parameters.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -545,6 +560,16 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision, tools, reasoning, hybrid
      - 262144
      - Ornith-1.0-35B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration). It combines hybrid linear/full attention, 256 routed experts (8 per token) plus a shared expert, multimodal RoPE, and multi-token prediction, with vision and video understanding via the Qwen3VL processor.
+
+   * - :ref:`ornith-1.5-35b-a3b <models_llm_ornith-1.5-35b-a3b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.5-35B-A3B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
+
+   * - :ref:`ornith-1.5-397b <models_llm_ornith-1.5-397b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.5-397B is a 397B-total Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration), supporting text, image, and video understanding with reasoning and tool-use capabilities.
 
    * - :ref:`ovis2 <models_llm_ovis2>`
      - chat, vision
@@ -701,6 +726,16 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
 
+   * - :ref:`qwen3.8 <models_llm_qwen3.8>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.
+
+   * - :ref:`qwen3.8-max <models_llm_qwen3.8-max>`
+     - chat, tools, reasoning
+     - 262144
+     - Qwen3.8-2.4T-A95B is a text-only Mixture-of-Experts model with 2.4 trillion total parameters and 95 billion activated parameters, designed for coding, research, professional work, and long-horizon agentic tasks.
+
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
      - 32768
@@ -736,16 +771,6 @@ The following is a list of built-in LLM in Xinference:
      - 524288
      - Seed-OSS is a series of open-source large language models developed by ByteDance's Seed Team, designed for powerful long-context, reasoning, agent and general capabilities, and versatile developer-friendly features. Although trained with only 12T tokens, Seed-OSS achieves excellent performance on several popular open benchmarks.
 
-   * - :ref:`skywork <models_llm_skywork>`
-     - generate
-     - 4096
-     - Skywork is a series of large models developed by the Kunlun Group · Skywork team.
-
-   * - :ref:`skywork-math <models_llm_skywork-math>`
-     - generate
-     - 4096
-     - Skywork is a series of large models developed by the Kunlun Group · Skywork team.
-
    * - :ref:`skywork-or1 <models_llm_skywork-or1>`
      - chat
      - 131072
@@ -755,6 +780,16 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 32768
      - The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes.
+
+   * - :ref:`spark-x2.5 <models_llm_spark-x2.5>`
+     - chat, tools, reasoning, hybrid
+     - 1048576
+     - Spark-X2.5 is a compact general-purpose instruction model series with 1.7B and 4B checkpoints, native 1M-token context, reasoning, and tool-use support.
+
+   * - :ref:`spark-x2.5-base <models_llm_spark-x2.5-base>`
+     - generate
+     - 1048576
+     - Spark-X2.5 base checkpoints in 1.7B and 4B sizes for continued pretraining and completion workloads.
 
    * - :ref:`telechat <models_llm_telechat>`
      - chat
@@ -771,30 +806,10 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - VibeThinker is a series of dense reasoning language models developed by WeiboAI. Built on the Qwen2 architecture with a post-training methodology centered on the Spectrum-to-Signal Principle (SSP), VibeThinker demonstrates strong reasoning capabilities in mathematics and coding despite its compact size.
 
-   * - :ref:`wizardcoder-python-v1.0 <models_llm_wizardcoder-python-v1.0>`
-     - chat
-     - 100000
-     - 
-
-   * - :ref:`wizardmath-v1.0 <models_llm_wizardmath-v1.0>`
-     - chat
-     - 2048
-     - WizardMath is an open-source LLM trained by fine-tuning Llama2 with Evol-Instruct, specializing in math.
-
    * - :ref:`xiyansql-qwencoder-2504 <models_llm_xiyansql-qwencoder-2504>`
      - chat, tools
      - 32768
      - The XiYanSQL-QwenCoder models, as multi-dialect SQL base models, demonstrating robust SQL generation capabilities.
-
-   * - :ref:`xverse <models_llm_xverse>`
-     - generate
-     - 2048
-     - XVERSE is a multilingual large language model, independently developed by Shenzhen Yuanxiang Technology.
-
-   * - :ref:`xverse-chat <models_llm_xverse-chat>`
-     - chat
-     - 2048
-     - XVERSEB-Chat is the aligned version of model XVERSE.
 
    * - :ref:`yi <models_llm_yi>`
      - generate
@@ -849,10 +864,6 @@ The following is a list of built-in LLM in Xinference:
   
    codeqwen1.5-chat
   
-   codeshell
-  
-   codeshell-chat
-  
    codestral-v0.1
   
    cogagent
@@ -895,6 +906,8 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-v4-flash
   
+   deepseek-v4-flash-0731
+  
    deepseek-v4-pro
   
    deepseek-vl2
@@ -929,6 +942,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-5.1
   
+   glm-5.2
+  
    glm-edge-chat
   
    glm4-0414
@@ -936,8 +951,6 @@ The following is a list of built-in LLM in Xinference:
    glm4-chat
   
    glm4-chat-1m
-  
-   gorilla-openfunctions-v2
   
    gpt-2
   
@@ -960,6 +973,12 @@ The following is a list of built-in LLM in Xinference:
    kat-v1
   
    kimi-k2.5
+  
+   kimi-k3
+  
+   ling-3.0-flash
+  
+   ling-3.0-tiny
   
    llama-2
   
@@ -1013,6 +1032,8 @@ The following is a list of built-in LLM in Xinference:
   
    minimax-m2.7
   
+   minimax-m3
+  
    mistral-instruct-v0.1
   
    mistral-instruct-v0.2
@@ -1042,6 +1063,10 @@ The following is a list of built-in LLM in Xinference:
    orion-chat
   
    ornith-1.0-35b
+  
+   ornith-1.5-35b-a3b
+  
+   ornith-1.5-397b
   
    ovis2
   
@@ -1105,6 +1130,10 @@ The following is a list of built-in LLM in Xinference:
   
    qwen3.6
   
+   qwen3.8
+  
+   qwen3.8-max
+  
    qwenlong-l1
   
    qwq-32b
@@ -1119,29 +1148,21 @@ The following is a list of built-in LLM in Xinference:
   
    seed-oss
   
-   skywork
-  
-   skywork-math
-  
    skywork-or1
   
    skywork-or1-preview
   
+   spark-x2.5
+
+   spark-x2.5-base
+
    telechat
   
    tiny-llama
   
    vibethinker
   
-   wizardcoder-python-v1.0
-  
-   wizardmath-v1.0
-  
    xiyansql-qwencoder-2504
-  
-   xverse
-  
-   xverse-chat
   
    yi
   
@@ -1155,4 +1176,3 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
-

@@ -96,6 +96,8 @@ export type FormContextType = {
   registerField: (name: FieldName, validate: () => string) => void;
 
   unregisterField: (name: FieldName) => void;
+
+  notifyUserChange: () => void;
 };
 
 export interface FormFieldProps {

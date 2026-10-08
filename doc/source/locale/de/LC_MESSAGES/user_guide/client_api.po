@@ -106,6 +106,18 @@ msgstr ""
 "Ich kann nichts ausgeben, da keine Eingabe vorhanden ist. Bitte geben Sie "
 "den zu übersetzenden Text an."
 
+msgid "OpenAI Client Responses API"
+msgstr "OpenAI-Client: Responses API"
+
+msgid "Responses API's access address is: /v1/responses"
+msgstr "Der API-Zugriffspunkt der Responses API lautet: /v1/responses"
+
+msgid "The Responses API is stateless in Xinference. Responses are not stored, so ``previous_response_id`` and ``conversation`` are rejected: send the whole conversation in ``input`` on every request. Text and image input, function and custom tools, reasoning, structured output and streaming are supported. Hosted tools such as ``web_search`` are ignored."
+msgstr "Die Responses API ist in Xinference zustandslos. Antworten werden nicht gespeichert, daher werden ``previous_response_id`` und ``conversation`` abgelehnt: Senden Sie bei jeder Anfrage die gesamte Konversation in ``input``. Unterstützt werden Text- und Bildeingaben, Funktions- und benutzerdefinierte Tools, Reasoning, strukturierte Ausgaben und Streaming. Gehostete Tools wie ``web_search`` werden ignoriert."
+
+msgid "Codex CLI calls custom providers through this API. Add Xinference as a provider in ``~/.codex/config.toml``:"
+msgstr "Codex CLI ruft benutzerdefinierte Anbieter über diese API auf. Fügen Sie Xinference in ``~/.codex/config.toml`` als Anbieter hinzu:"
+
 #: ../../source/user_guide/client_api.rst:142
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
@@ -197,3 +209,19 @@ msgstr "Starten Sie das Rerank-Modell und berechnen Sie die Textähnlichkeit:"
 #~ "Bei der Verwendung von Anthropic zum Senden von Anfragen bleibt die "
 #~ "Kompatibilität mit der Anthropic-Schnittstelle erhalten, mit Ausnahme der "
 #~ "Modellerstellung."
+
+#: user_guide/client_api.rst:96
+msgid "Cache hit token counts"
+msgstr "Tokenanzahl bei Cache-Treffern"
+
+#: user_guide/client_api.rst:99
+msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr "Bei vLLM, SGLang und MLX geben Completion- und Chat-Completion-Antworten die von der Engine gemeldete Anzahl wiederverwendeter Prompt-Token in ``usage.prompt_tokens_details.cached_tokens`` zurück, sofern verfügbar. Diese Anzahl umfasst die von der Engine gemeldete Wiederverwendung aus dem nativen Präfix-Cache und dem Xavier-Cache. Sie ist Teil von ``prompt_tokens`` und keine zusätzliche Tokenanzahl."
+
+#: user_guide/client_api.rst:103
+msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
+msgstr "Setzen Sie bei Streaming-Anfragen ``stream_options={\"include_usage\": True}``, um den abschließenden Nutzungs-Chunk mit ``choices=[]`` zu erhalten. Die Responses API gibt dieselbe Anzahl als ``usage.input_tokens_details.cached_tokens`` zurück. Wenn die Engine keine Cache-Treffer meldet, lassen Completion- und Chat-Completion-Antworten ``prompt_tokens_details`` weg; die Responses API verwendet standardmäßig null."
+
+#: user_guide/client_api.rst:101
+msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
+msgstr "Bei der P/D-Trennung umfasst diese Anzahl auch vom Prefill-Motor übertragene KV, selbst wenn sie für die aktuelle Anfrage berechnet wurden; historische Präfix-Cache-Treffer im Prefill-Motor werden nicht separat gezählt."

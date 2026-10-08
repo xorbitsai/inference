@@ -315,3 +315,7 @@ msgstr "Este exemplo exigirá 20GB de memória de vídeo."
 
 #~ msgid "/v1/video/generations/image"
 #~ msgstr ""
+
+#: ../../source/models/model_abilities/video.rst
+msgid "On Linux with CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` and ``Wan2.2-A14B`` also support text-to-video with ``SGLang`` (0.5.20 or newer) and ``vLLM`` (vLLM-Omni and vLLM 0.28). Concurrent requests are submitted to the native engine scheduler. Use ``batching_max_size`` and ``batching_delay_ms`` for SGLang, or ``max_num_seqs`` for vLLM. These engine variants do not expose image-to-video or Lightning/GGUF adapters. Diffusers remains the default."
+msgstr "No Linux com CUDA, ``Wan2.1-1.3B``, ``Wan2.1-14B`` e ``Wan2.2-A14B`` também suportam texto para vídeo com ``SGLang`` (0.5.20 ou posterior) e ``vLLM`` (vLLM-Omni e vLLM 0.28). As solicitações simultâneas são enviadas ao escalonador nativo do motor. Use ``batching_max_size`` e ``batching_delay_ms`` para SGLang ou ``max_num_seqs`` para vLLM. Essas variantes não oferecem imagem para vídeo nem adaptadores Lightning/GGUF. Diffusers continua sendo o motor padrão."

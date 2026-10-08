@@ -1,0 +1,94 @@
+# Irodori-TTS v4.1 Small model documentation.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"PO-Revision-Date: 2026-09-18 13:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: pt_BR\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:5
+msgid "Irodori-TTS-v4.1-Small"
+msgstr "Irodori-TTS-v4.1-Small"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:7
+msgid "**Model Name:** Irodori-TTS-v4.1-Small"
+msgstr "**Nome do modelo:** Irodori-TTS-v4.1-Small"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:8
+msgid "**Model Family:** Irodori-TTS"
+msgstr "**Família do modelo:** Irodori-TTS"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:9
+msgid "**Abilities:** ['text2audio', 'text2audio_voice_design', 'text2audio_voice_cloning', 'text2audio_emotion_control']"
+msgstr "**Recursos:** ['text2audio', 'text2audio_voice_design', 'text2audio_voice_cloning', 'text2audio_emotion_control']"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:10
+msgid "**Multilingual:** False"
+msgstr "**Multilíngue:** False"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:13
+msgid "Specifications"
+msgstr "Especificações"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:15
+msgid "**PyTorch (none) model ID:** Aratako/Irodori-TTS-v4.1-Small"
+msgstr "**PyTorch (none) ID do modelo:** Aratako/Irodori-TTS-v4.1-Small"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:16
+msgid "**PyTorch (INT8-Weight-Only) model ID:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+msgstr "**PyTorch (INT8-Weight-Only) ID do modelo:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:17
+msgid "**PyTorch (INT8-Dynamic) model ID:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+msgstr "**PyTorch (INT8-Dynamic) ID do modelo:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:18
+msgid "**PyTorch (INT4-Weight-Only) model ID:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+msgstr "**PyTorch (INT4-Weight-Only) ID do modelo:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:19
+msgid "**PyTorch (Float8-Weight-Only) model ID:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+msgstr "**PyTorch (Float8-Weight-Only) ID do modelo:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:20
+msgid "**PyTorch (Float8-Dynamic) model ID:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+msgstr "**PyTorch (Float8-Dynamic) ID do modelo:** Aratako/Irodori-TTS-v4.1-Small-Quantized"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:21
+msgid "**MLX (none) model ID:** mlx-community/Irodori-TTS-v4.1-Small-8bit"
+msgstr "**MLX (none) ID do modelo:** mlx-community/Irodori-TTS-v4.1-Small-8bit"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:23
+msgid "Execute the following command to launch the model::"
+msgstr "Execute o seguinte comando para iniciar o modelo::"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:28
+msgid "Available engines"
+msgstr "Mecanismos disponíveis"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:30
+msgid "``PyTorch``"
+msgstr "``PyTorch``"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:31
+msgid "``MLX``"
+msgstr "``MLX``"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:34
+msgid "Available quantizations by engine"
+msgstr "Quantizações disponíveis por mecanismo"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:36
+msgid "``PyTorch``: ``none``, ``INT8-Weight-Only``, ``INT8-Dynamic``, ``INT4-Weight-Only``, ``Float8-Weight-Only``, ``Float8-Dynamic``"
+msgstr "``PyTorch``: ``none``, ``INT8-Weight-Only``, ``INT8-Dynamic``, ``INT4-Weight-Only``, ``Float8-Weight-Only``, ``Float8-Dynamic``"
+
+#: ../../source/models/builtin/audio/irodori-tts-v4.1-small.rst:37
+msgid "``MLX``: ``none``"
+msgstr "``MLX``: ``none``"

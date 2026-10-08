@@ -16,6 +16,7 @@ import platform
 from ..utils import (
     filter_virtualenv_packages_by_markers,
     find_direct_reference_packages,
+    find_remote_direct_reference_packages,
     rewrite_direct_url_packages_for_index,
 )
 from ..virtual_env_manager import ENGINE_VIRTUALENV_PACKAGES
@@ -89,6 +90,36 @@ def test_find_direct_references_after_wheel_rewrite():
     assert find_direct_reference_packages(rewritten) == packages[1:4]
 
 
+def test_find_direct_references_supports_pep508_vcs_and_file_urls():
+    packages = [
+        "pkg-hg @ hg+https://example.invalid/repo",
+        "pkg-svn @ svn+ssh://example.invalid/repo",
+        "pkg-bzr @ bzr+https://example.invalid/repo",
+        'pkg-file @ file:///tmp/pkg ; python_version >= "3.10"',
+        "hg+https://example.invalid/bare-repo",
+        "transformers>=4.53.3",
+    ]
+
+    assert find_direct_reference_packages(packages) == packages[:-1]
+    assert find_remote_direct_reference_packages(packages) == [
+        packages[0],
+        packages[1],
+        packages[2],
+        packages[4],
+    ]
+
+
+def test_remote_direct_references_allow_bare_local_paths():
+    packages = [
+        "pkg-absolute @ /opt/local/pkg",
+        "pkg-relative @ ./local/pkg",
+        "pkg-parent @ ../local/pkg",
+        "pkg-remote @ https://example.invalid/pkg.tar.gz",
+    ]
+
+    assert find_remote_direct_reference_packages(packages) == [packages[-1]]
+
+
 def test_malformed_wheel_filename_unchanged():
     packages = [
         # too few dash-separated fields to be a valid wheel filename
@@ -107,13 +138,15 @@ def test_filter_then_rewrite_sglang_cu130():
         machine = None
 
     packages = filter_virtualenv_packages_by_markers(
-        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "13.0"
+        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "13.0", "linux"
     )
     rewritten = rewrite_direct_url_packages_for_index(packages)
 
     assert not any(p.startswith(("http://", "https://")) for p in rewritten)
     assert "sglang>=0.5.6" in rewritten
-    assert "numpy>=2.4.1" in rewritten
+    assert "numpy<2.3" in rewritten
+    assert "pandas<3" in rewritten
+    assert "nvidia-cusparselt-cu13==0.8.0" in rewritten
     if machine:
         # the arch-matching direct URL survives filtering and is rewritten
         assert "sgl_kernel==0.3.21+cu130" in rewritten
@@ -122,10 +155,11 @@ def test_filter_then_rewrite_sglang_cu130():
 def test_filter_sglang_keeps_cuda_12_fallback():
     """The cu130 offline mirror must not remove online CUDA 12 support."""
     packages = filter_virtualenv_packages_by_markers(
-        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "12.8"
+        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "12.8", "linux"
     )
 
     assert "sgl_kernel" in packages
+    assert "nvidia-cusparselt-cu13==0.8.0" not in packages
     assert not any("+cu130" in package for package in packages)
 
 

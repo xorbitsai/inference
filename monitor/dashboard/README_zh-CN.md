@@ -166,3 +166,13 @@ API Key 与封禁统计。**仅在 `XINFERENCE_AUTH_ADVANCED=true` 时可用。*
 - Xinference 已启用 metrics
 - DCGM Exporter，用于 GPU 硬件面板
 - node_exporter，用于主机资源面板
+
+## Token Router Dashboard
+
+Monitoring V2.1 在 `token-router/` 下新增四语言 Dashboard，统一使用 UID
+`xinference-token-router`。Dashboard 覆盖逻辑 Router 可用性、Router Agent 主机资源、
+Assignment 状态、Runtime 控制面与进程资源、请求/后端延迟和错误、并发池、Tokenization
+以及 Tokenizer 资产绑定。
+
+Prometheus 必须同时抓取 Supervisor 指标和动态发现的 Runtime 指标；Runtime target 请使用
+`../metrics/prometheus-token-router-http-sd.yml` 中的 HTTP-SD 示例配置。

@@ -27,8 +27,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if sys.platform == "win32":
     fcntl = None
+    import msvcrt
 else:
     import fcntl
+
+    msvcrt = None
 
 import xoscar as xo
 
@@ -36,6 +39,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_LOG_FILE_NAME,
     XINFERENCE_LOG_DIR,
     XINFERENCE_LOG_DOWNLOAD_PROGRESS,
+    XINFERENCE_LOG_POLLING_ACCESS,
 )
 
 if TYPE_CHECKING:
@@ -44,7 +48,136 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+class _SafeFileRotationMixin:
+    """Cross-process coordination shared by size and timed handlers."""
+
+    def _init_rotation_coordination(self, filename):
+        directory = os.path.dirname(filename)
+        basename = os.path.basename(filename)
+        self._lock_path = os.path.join(directory, basename + ".rotate.lock")
+        with open(self._lock_path, "a+b") as lock_fd:
+            if os.fstat(lock_fd.fileno()).st_size == 0:
+                lock_fd.write(b"\0")
+                lock_fd.flush()
+
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            generation, _ = self._read_rotation_state(lock_fd)
+            self._rotation_generation = generation
+        finally:
+            self._release_rotation_lock(lock_fd)
+
+    def _acquire_rotation_lock(self):
+        active_lock = getattr(self, "_rotation_lock_fd", None)
+        if active_lock is not None:
+            self._rotation_lock_depth += 1
+            return active_lock
+
+        lock_fd = open(self._lock_path, "r+b")
+        try:
+            if msvcrt is not None:
+                lock_fd.seek(0)
+                msvcrt.locking(lock_fd.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        except BaseException:
+            lock_fd.close()
+            raise
+        self._rotation_lock_fd = lock_fd
+        self._rotation_lock_depth = 1
+        return lock_fd
+
+    def _release_rotation_lock(self, lock_fd):
+        if lock_fd is None:
+            return
+        if lock_fd is getattr(self, "_rotation_lock_fd", None):
+            self._rotation_lock_depth -= 1
+            if self._rotation_lock_depth > 0:
+                return
+            self._rotation_lock_fd = None
+            self._rotation_lock_depth = 0
+        try:
+            if msvcrt is not None:
+                lock_fd.seek(0)
+                msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        finally:
+            lock_fd.close()
+
+    def emit(self, record):
+        if msvcrt is None:
+            return super().emit(record)
+
+        # Windows cannot rename a log file held open by sibling processes, so
+        # rotate() may need to copy and truncate it in place. Coordinate the
+        # entire rollover check and write to prevent a sibling from writing in
+        # the otherwise lossy interval between that copy and truncate.
+        try:
+            lock_fd = self._acquire_rotation_lock()
+            try:
+                return super().emit(record)
+            finally:
+                self._release_rotation_lock(lock_fd)
+        except Exception:
+            self.handleError(record)
+
+    def _read_rotation_state(self, lock_fd):
+        try:
+            lock_fd.seek(1)
+            payload = lock_fd.read().decode("ascii")
+            state = json.loads(payload) if payload else {}
+            generation = state.get("generation", 0)
+            timed_rollover = state.get("timed_rollover", 0)
+            if not isinstance(generation, int) or generation < 0:
+                generation = 0
+            if not isinstance(timed_rollover, (int, float)) or timed_rollover < 0:
+                timed_rollover = 0
+            return generation, timed_rollover
+        except (OSError, UnicodeError, ValueError, TypeError):
+            return 0, 0
+
+    def _write_rotation_state(self, lock_fd, generation, timed_rollover):
+        payload = json.dumps(
+            {
+                "generation": generation,
+                "timed_rollover": timed_rollover,
+            },
+            separators=(",", ":"),
+        ).encode("ascii")
+        lock_fd.seek(1)
+        lock_fd.truncate()
+        lock_fd.write(payload)
+        lock_fd.flush()
+        os.fsync(lock_fd.fileno())
+
+    def _record_rotation(self, lock_fd, state, timed_rollover=None):
+        generation, last_timed_rollover = state
+        generation += 1
+        if timed_rollover is not None:
+            last_timed_rollover = max(last_timed_rollover, timed_rollover)
+        self._write_rotation_state(lock_fd, generation, last_timed_rollover)
+        self._rotation_generation = generation
+
+    def rotate(self, source, dest):
+        try:
+            super().rotate(source, dest)
+        except PermissionError:
+            if msvcrt is None or self.rotator is not None:
+                raise
+            # Windows refuses to rename a log held by sibling processes. Copy
+            # the archive first, then truncate the live file in place so every
+            # process keeps writing through its existing handle.
+            import shutil
+
+            shutil.copy2(source, dest)
+            with open(source, "r+b") as source_file:
+                source_file.truncate(0)
+
+
+class SafeRotatingFileHandler(
+    _SafeFileRotationMixin, logging.handlers.RotatingFileHandler
+):
     """RotatingFileHandler that auto-creates parent directories.
 
     Python's standard RotatingFileHandler raises FileNotFoundError if
@@ -55,46 +188,24 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     calls ``dictConfig``.  This subclass ensures the directory is
     (re-)created before the file is opened.
 
-    Multi-process safety (2026-06-25):
-    1. fcntl file lock serializes ``doRollover`` across processes.
+    Multi-process safety:
+    1. A platform-native file lock serializes ``doRollover`` across processes.
+       On Windows it also serializes normal writes with copy/truncate rotation.
     2. ``shouldRollover`` checks inode at entry; if another process
        renamed the file, reopen the stream.
     3. Size check uses ``os.fstat().st_size`` instead of
        ``stream.tell()`` so it reflects the true file size (including
        writes from other processes).
+    4. On Windows, an in-place copy/truncate fallback preserves open sibling
+       handles, while a shared generation prevents duplicate rotations.
 
-    Assumption: log directory is on a local filesystem (fcntl.flock
-    is unreliable on NFS).
-
-    Windows caveat: ``fcntl`` is unavailable on Windows, so the
-    rotation lock is a no-op there. Single-process use is unaffected;
-    multi-process use on Windows may regress to lost archives or
-    cleanup of files still held by another process.
+    Assumption: the log directory is on a local filesystem.
     """
 
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         super().__init__(filename, *args, **kwargs)
-        self._lock_path = os.path.join(
-            os.path.dirname(filename),
-            os.path.basename(filename) + ".rotate.lock",
-        )
-        # Pre-create the lock file so it exists even if doRollover is never
-        # called (e.g. short-lived processes). The file is empty and harmless.
-        open(self._lock_path, "a").close()
-
-    def _acquire_rotation_lock(self):
-        if fcntl is None:
-            return None
-        lock_fd = open(self._lock_path, "w")
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        return lock_fd
-
-    def _release_rotation_lock(self, lock_fd):
-        if lock_fd is None:
-            return
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        lock_fd.close()
+        self._init_rotation_coordination(filename)
 
     def _check_inode_and_reopen(self):
         """Reopen stream if another process renamed the base file.
@@ -139,6 +250,11 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     def doRollover(self):
         lock_fd = self._acquire_rotation_lock()
         try:
+            state = self._read_rotation_state(lock_fd)
+            if state[0] != self._rotation_generation:
+                self._rotation_generation = state[0]
+                self._check_inode_and_reopen()
+                return
             # If another process rotated the file while we were waiting
             # for the lock, the stream has been reopened to a fresh file
             # and there is nothing to do.
@@ -147,6 +263,7 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
             # Trust shouldRollover's judgment: if we got here, either time
             # or size trigger fired and no other process has rotated since.
             self._do_rolling_rollover()
+            self._record_rotation(lock_fd, state)
         finally:
             self._release_rotation_lock(lock_fd)
 
@@ -170,12 +287,65 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
             self.stream = self._open()
 
 
-class SafeTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    """TimedRotatingFileHandler that auto-creates parent directories."""
+class SafeTimedRotatingFileHandler(
+    _SafeFileRotationMixin, logging.handlers.TimedRotatingFileHandler
+):
+    """Timed handler with cross-platform, cross-process rotation safety."""
 
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         super().__init__(filename, *args, **kwargs)
+        self._init_rotation_coordination(filename)
+
+    def _check_inode_and_reopen(self):
+        if self.stream is None:
+            return False
+        try:
+            current_inode = os.stat(self.baseFilename).st_ino
+            stream_inode = os.fstat(self.stream.fileno()).st_ino
+            if current_inode != stream_inode:
+                self.stream.close()
+                self.stream = self._open()
+                if time.time() >= self.rolloverAt:
+                    self.rolloverAt = self.computeRollover(time.time())
+                return True
+        except OSError:
+            try:
+                self.stream.close()
+            except Exception:
+                pass
+            self.stream = None
+        return False
+
+    def _foreign_rotation_handled(self, state, current_time):
+        self._rotation_generation = state[0]
+        self._check_inode_and_reopen()
+        if current_time < self.rolloverAt:
+            return True
+        if state[1] >= self.rolloverAt:
+            self.rolloverAt = self.computeRollover(current_time)
+            return True
+        return False
+
+    def shouldRollover(self, record):
+        self._check_inode_and_reopen()
+        return super().shouldRollover(record)
+
+    def doRollover(self):
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            state = self._read_rotation_state(lock_fd)
+            current_time = time.time()
+            if state[0] != self._rotation_generation:
+                if self._foreign_rotation_handled(state, current_time):
+                    return
+            elif self._check_inode_and_reopen():
+                return
+            scheduled_rollover = self.rolloverAt
+            logging.handlers.TimedRotatingFileHandler.doRollover(self)
+            self._record_rotation(lock_fd, state, scheduled_rollover)
+        finally:
+            self._release_rotation_lock(lock_fd)
 
 
 class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
@@ -195,21 +365,19 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
     ``%Y-%m-%d``). The handler is only used with midnight rotation
     in ``get_config_dict()``, so this assumption holds.
 
-    Multi-process safety (2026-06-25):
-    1. fcntl file lock serializes ``doRollover`` across processes.
+    Multi-process safety:
+    1. A platform-native file lock serializes ``doRollover`` across processes.
+       On Windows it also serializes normal writes with copy/truncate rotation.
     2. ``shouldRollover`` checks inode at entry; if another process
        renamed the file, reopen the stream.
     3. Size check uses ``os.fstat().st_size`` instead of
        ``stream.tell()`` so it reflects the true file size (including
        writes from other processes).
 
-    Assumption: log directory is on a local filesystem (fcntl.flock
-    is unreliable on NFS).
+    4. On Windows, copy/truncate keeps sibling handles valid and shared state
+       distinguishes time rotations from size rotations.
 
-    Windows caveat: ``fcntl`` is unavailable on Windows, so the
-    rotation lock is a no-op there. Single-process use is unaffected;
-    multi-process use on Windows may regress to lost archives or
-    cleanup of files still held by another process.
+    Assumption: the log directory is on a local filesystem.
     """
 
     _rotated_re = re.compile(r"^\d{4}-\d{2}-\d{2}(\.\d+)?$")
@@ -241,62 +409,10 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
             atTime=atTime,
             errors=errors,
         )
-        self._lock_path = os.path.join(
-            os.path.dirname(filename),
-            os.path.basename(filename) + ".rotate.lock",
-        )
-        # Pre-create the lock file so it exists even if doRollover is never
-        # called (e.g. short-lived processes). The file is empty and harmless.
-        open(self._lock_path, "a").close()
-
-    def _acquire_rotation_lock(self):
-        if fcntl is None:
-            return None
-        lock_fd = open(self._lock_path, "w")
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
-        return lock_fd
-
-    def _release_rotation_lock(self, lock_fd):
-        if lock_fd is None:
-            return
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        lock_fd.close()
-
-    def _check_inode_and_reopen(self):
-        """Reopen stream if another process renamed the base file.
-
-        Returns True if the stream was reopened (i.e. another process
-        rotated the file), False otherwise.
-        """
-        if self.stream is None:
-            return False
-        try:
-            current_inode = os.stat(self.baseFilename).st_ino
-            stream_inode = os.fstat(self.stream.fileno()).st_ino
-            if current_inode != stream_inode:
-                self.stream.close()
-                self.stream = self._open()
-                # Another process performed the time-based rollover for us.
-                # Advance rolloverAt so the next shouldRollover/doRollover
-                # does not see a stale past-due time and perform a redundant,
-                # destructive rotation (clobbers the archive just written by
-                # the other process). Only advance when we are actually past
-                # the scheduled time — a size-only foreign rotation leaves
-                # the pending time rollover intact.
-                if time.time() >= self.rolloverAt:
-                    self.rolloverAt = self.computeRollover(time.time())
-                return True
-        except OSError:
-            try:
-                self.stream.close()
-            except Exception:
-                pass
-            self.stream = None
-        return False
 
     def shouldRollover(self, record):
         self._check_inode_and_reopen()
-        if super().shouldRollover(record):
+        if logging.handlers.TimedRotatingFileHandler.shouldRollover(self, record):
             return True
         if self.maxBytes > 0:
             if self.stream is None:
@@ -313,15 +429,23 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
     def doRollover(self):
         lock_fd = self._acquire_rotation_lock()
         try:
+            state = self._read_rotation_state(lock_fd)
+            current_time = time.time()
+            if state[0] != self._rotation_generation:
+                if self._foreign_rotation_handled(state, current_time):
+                    return
             # If another process rotated the file while we were waiting
             # for the lock, the stream has been reopened to a fresh file
             # and there is nothing to do.
-            if self._check_inode_and_reopen():
+            elif self._check_inode_and_reopen():
                 return
-            if time.time() >= self.rolloverAt:
-                super().doRollover()
+            if current_time >= self.rolloverAt:
+                scheduled_rollover = self.rolloverAt
+                logging.handlers.TimedRotatingFileHandler.doRollover(self)
+                self._record_rotation(lock_fd, state, scheduled_rollover)
             else:
                 self._do_size_rollover()
+                self._record_rotation(lock_fd, state)
         finally:
             self._release_rotation_lock(lock_fd)
 
@@ -422,6 +546,37 @@ class LoggerNameFilter(logging.Filter):
             record.name.startswith("uvicorn.error")
             and record.getMessage().startswith("Uvicorn running on")
         )
+
+
+# Hit continuously by the Web UI, health checks and metrics scrapers.
+_POLLING_ENDPOINTS = ("/progress", "/replicas", "/metrics", "/status")
+
+
+class DropAccessLogFilter(logging.Filter):
+    """Keep Uvicorn access lines out of Xinference application logs."""
+
+    def filter(self, record):
+        return False
+
+
+class PollingAccessFilter(logging.Filter):
+    """Drop successful polling requests from uvicorn's access log.
+
+    uvicorn logs each request with
+    ``args = (client_addr, method, full_path, http_version, status_code)``;
+    anything that does not match that shape is left alone.
+    """
+
+    def filter(self, record):
+        if XINFERENCE_LOG_POLLING_ACCESS:
+            return True
+        args = record.args
+        if not isinstance(args, tuple) or len(args) != 5:
+            return True
+        _, method, full_path, _, status = args
+        if method != "GET" or not isinstance(status, int) or status >= 400:
+            return True
+        return not full_path.split("?", 1)[0].endswith(_POLLING_ENDPOINTS)
 
 
 _PROGRESS_RE = re.compile(r"(\d+)%\|")
@@ -685,8 +840,7 @@ class AddressFormatter(logging.Formatter):
 
     def __init__(self, fmt=None, datefmt=None, style="%", role="", address=""):
         super().__init__(fmt, datefmt, style)
-        self.role = role
-        self.address = address
+        self.role, self.address = _resolve_formatter_identity(role, address)
         AddressFormatter._instances.add(self)
 
     def format(self, record):
@@ -701,6 +855,46 @@ class AddressFormatter(logging.Formatter):
                 inst.address = address
 
 
+_XINFERENCE_BASE_LOG_FIELDS = frozenset(
+    {
+        "@timestamp",
+        "level",
+        "module",
+        "pid",
+        "role",
+        "address",
+        "node",
+        "message",
+        "exception",
+    }
+)
+
+
+def _get_xinference_fields(record: logging.LogRecord) -> dict:
+    """Return safe structured fields attached to a log record.
+
+    Callers may attach a mapping through ``extra={"xinference_fields": ...}``.
+    Invalid values are ignored so observability metadata can never break the
+    underlying application log call.  Core Xinference fields are protected
+    from being overwritten by application-specific metadata.
+    """
+
+    fields = getattr(record, "xinference_fields", None)
+    if not isinstance(fields, dict):
+        return {}
+
+    safe_fields = {}
+    for key, value in fields.items():
+        if not isinstance(key, str) or key in _XINFERENCE_BASE_LOG_FIELDS:
+            continue
+        try:
+            json.dumps(value, ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        safe_fields[key] = value
+    return safe_fields
+
+
 class JsonFileFormatter(logging.Formatter):
     """JSON formatter for file output — one JSON object per line."""
 
@@ -708,8 +902,7 @@ class JsonFileFormatter(logging.Formatter):
 
     def __init__(self, role="", address="", **kwargs):
         super().__init__()
-        self.role = role
-        self.address = address
+        self.role, self.address = _resolve_formatter_identity(role, address)
         self._hostname = socket.gethostname()
         JsonFileFormatter._instances.add(self)
 
@@ -731,6 +924,7 @@ class JsonFileFormatter(logging.Formatter):
         }
         if record.exc_info and record.exc_info[0] is not None:
             entry["exception"] = self.formatException(record.exc_info)
+        entry.update(_get_xinference_fields(record))
         return json.dumps(entry, ensure_ascii=False)
 
     @classmethod
@@ -747,8 +941,7 @@ class TextFileFormatter(logging.Formatter):
 
     def __init__(self, role="", address="", **kwargs):
         super().__init__()
-        self.role = role
-        self.address = address
+        self.role, self.address = _resolve_formatter_identity(role, address)
         self._hostname = socket.gethostname()
         TextFileFormatter._instances.add(self)
 
@@ -763,6 +956,12 @@ class TextFileFormatter(logging.Formatter):
         )
         msg = record.getMessage()
         line = f"{ts} {record.levelname} {record.name} pid:{record.process} role:{self.role} address:{self.address} node:{self._hostname} {msg}"
+        fields = _get_xinference_fields(record)
+        if fields:
+            line += " " + " ".join(
+                f"{key}={json.dumps(value, ensure_ascii=False, separators=(',', ':'))}"
+                for key, value in fields.items()
+            )
         if record.exc_info and record.exc_info[0] is not None:
             line += "\n" + self.formatException(record.exc_info)
         return line
@@ -774,8 +973,72 @@ class TextFileFormatter(logging.Formatter):
                 inst.address = address
 
 
+_PROCESS_LOG_IDENTITY_LOCK = threading.Lock()
+_PROCESS_LOG_IDENTITY = {
+    "role": "",
+    "address": "",
+    "node": socket.gethostname(),
+}
+
+
+def set_process_log_identity(role: str, address: str) -> None:
+    """Set the identity shared by application and model-request logs."""
+
+    with _PROCESS_LOG_IDENTITY_LOCK:
+        _PROCESS_LOG_IDENTITY["role"] = role
+        _PROCESS_LOG_IDENTITY["address"] = address
+        # Refresh the hostname after process/container startup.  This also keeps
+        # tests that patch ``socket.gethostname`` deterministic.
+        _PROCESS_LOG_IDENTITY["node"] = socket.gethostname()
+
+
+def get_process_log_identity() -> dict:
+    """Return a copy of the current process log identity."""
+
+    with _PROCESS_LOG_IDENTITY_LOCK:
+        return dict(_PROCESS_LOG_IDENTITY)
+
+
+def _resolve_formatter_identity(role: str, address: str) -> tuple[str, str]:
+    """Fill missing formatter identity fields from the process identity."""
+
+    if role and address:
+        return role, address
+    identity = get_process_log_identity()
+    return role or identity["role"], address or identity["address"]
+
+
+_XINFERENCE_FORMATTER_FACTORIES = (
+    AddressFormatter,
+    JsonFileFormatter,
+    TextFileFormatter,
+    "xinference.deploy.utils.AddressFormatter",
+    "xinference.deploy.utils.JsonFileFormatter",
+    "xinference.deploy.utils.TextFileFormatter",
+)
+
+
+def update_logging_config_addresses(
+    logging_conf: Optional[dict], role: str, address: str
+) -> None:
+    """Update Xinference formatter identities in a reusable logging config."""
+
+    if not logging_conf:
+        return
+    formatters = logging_conf.get("formatters")
+    if not isinstance(formatters, dict):
+        return
+    for formatter in formatters.values():
+        if not isinstance(formatter, dict):
+            continue
+        if formatter.get("()") in _XINFERENCE_FORMATTER_FACTORIES:
+            formatter["role"] = role
+            formatter["address"] = address
+
+
 def update_all_formatter_addresses(role: str, address: str):
-    """Update address on both text and JSON formatters."""
+    """Update the shared identity and all text/JSON formatter instances."""
+    set_process_log_identity(role, address)
     AddressFormatter.update_address(role, address)
     JsonFileFormatter.update_address(role, address)
     TextFileFormatter.update_address(role, address)
@@ -876,6 +1139,12 @@ def get_config_dict(
             "logger_name_filter": {
                 "()": __name__ + ".LoggerNameFilter",
             },
+            "polling_access_filter": {
+                "()": __name__ + ".PollingAccessFilter",
+            },
+            "drop_access_log_filter": {
+                "()": __name__ + ".DropAccessLogFilter",
+            },
         },
         "handlers": {
             "stream_handler": {
@@ -913,6 +1182,7 @@ def get_config_dict(
                 "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
+                "filters": ["drop_access_log_filter"],
             },
             "transformers": {
                 "handlers": (

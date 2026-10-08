@@ -321,6 +321,10 @@ msgid ""
 "to :ref:`this document <virtualenv>` for details."
 msgstr ""
 
+#: ../../source/models/custom.rst:321
+msgid "Besides ``file://``, ``model_uri`` accepts ``oci://<registry>/<repository>:<tag>`` for a model published as a `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ artifact in a container registry. Pulling one requires a running `llmman <https://github.com/llmmanorg/llmman>`_ daemon (``llmman serve``) and the ``llmman`` binary on ``PATH``. Set ``LLMMAN_HOST`` to reach a daemon elsewhere, or ``XINFERENCE_LLMMAN_BIN`` to point at a binary outside ``PATH``."
+msgstr "除 ``file://`` 之外，``model_uri`` 也支援 ``oci://<registry>/<repository>:<tag>``，用於以 `CNCF ModelPack <https://github.com/modelpack/model-spec>`_ 成品形式發布於容器映像登錄檔中的模型。拉取這類模型需要執行中的 `llmman <https://github.com/llmmanorg/llmman>`_ 常駐程式（``llmman serve``），且 ``llmman`` 執行檔位於 ``PATH`` 中。若常駐程式位於其他位置，可設定 ``LLMMAN_HOST``；若執行檔不在 ``PATH`` 中，可設定 ``XINFERENCE_LLMMAN_BIN``。"
+
 #: ../../source/models/custom.rst:319
 msgid "Register a Custom Model"
 msgstr "註冊一個自訂模型"

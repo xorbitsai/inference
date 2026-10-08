@@ -1,0 +1,70 @@
+[
+  {
+    "version": 2,
+    "model_name": "DeepSeek-OCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.46.3 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "mlx-vlm ; #engine# == \"mlx\"",
+        "tokenizers==0.20.3 ; #engine# == \"Transformers\"",
+        "PyMuPDF",
+        "img2pdf",
+        "einops",
+        "easydict",
+        "addict",
+        "Pillow",
+        "matplotlib==3.10.8",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy#"
+      ]
+    },
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "main",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "master",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          }
+        }
+      }
+    ],
+    "featured": false,
+    "updated_at": 1784198843
+  }
+]

@@ -25,9 +25,9 @@ from ..advanced.auth_service import (
     INITIAL_ADMIN_PERMISSIONS,
     PASSWORD_MIN_LENGTH,
     AdvancedAuthService,
-    _get_client_ip,
 )
 from ..advanced.crypto import get_password_hash
+from ..advanced.database import ApiKeyNameConflictError, ApiKeyNameRequiredError
 from ..scope_aliases import _normalize_scopes
 
 if TYPE_CHECKING:
@@ -171,46 +171,21 @@ def _reject_admin_target_takeover(
 
 
 async def advanced_login(request: Request) -> JSONResponse:
-    try:
-        from .audit import record_audit_event
-    except ImportError:
-        record_audit_event = None  # type: ignore[assignment]
-
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
     username = body.get("username", "")
     password = body.get("password", "")
-    client_ip = _get_client_ip(request)
+    request.state.audit_identity = {
+        "user": username,
+        "api_key_name": "",
+        "api_key_prefix": "",
+        "auth_type": "none",
+    }
     try:
         result = auth.login(username, password)
     except Exception:
-        if record_audit_event is not None:
-            record_audit_event(
-                user=username,
-                api_key_name="",
-                api_key_prefix="",
-                model_id="",
-                model_type="",
-                endpoint="/token",
-                status="login_failed",
-                client_ip=client_ip,
-                category="auth",
-                auth_type="none",
-            )
+        request.state.audit_status = "login_failed"
         raise
-    if record_audit_event is not None:
-        record_audit_event(
-            user=username,
-            api_key_name="",
-            api_key_prefix="",
-            model_id="",
-            model_type="",
-            endpoint="/token",
-            status="success",
-            client_ip=client_ip,
-            category="auth",
-            auth_type="none",
-        )
     return JSONResponse(content=result)
 
 
@@ -471,16 +446,21 @@ async def create_api_key(request: Request) -> JSONResponse:
     if not owner_id:
         raise HTTPException(status_code=400, detail="owner required")
 
-    result = auth.create_api_key_for_user(
-        user_id=owner_id,
-        name=body.get("name"),
-        description=body.get("description"),
-        expires_at=body.get("expires_at"),
-        model_permissions=body.get("model_permissions"),
-        rate_limit_max_failures=body.get("rate_limit_max_failures"),
-        rate_limit_window_seconds=body.get("rate_limit_window_seconds"),
-        rate_limit_ban_seconds=body.get("rate_limit_ban_seconds"),
-    )
+    try:
+        result = auth.create_api_key_for_user(
+            user_id=owner_id,
+            name=body.get("name"),
+            description=body.get("description"),
+            expires_at=body.get("expires_at"),
+            model_permissions=body.get("model_permissions"),
+            rate_limit_max_failures=body.get("rate_limit_max_failures"),
+            rate_limit_window_seconds=body.get("rate_limit_window_seconds"),
+            rate_limit_ban_seconds=body.get("rate_limit_ban_seconds"),
+        )
+    except ApiKeyNameRequiredError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ApiKeyNameConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     _refresh_key_gauges(auth)
     return JSONResponse(content=result, status_code=201)
 
@@ -579,7 +559,12 @@ async def update_api_key(key_id: int, request: Request) -> JSONResponse:
         if field in body:
             update_fields[field] = body[field]
     if update_fields:
-        auth.db.update_api_key(key_id, **update_fields)
+        try:
+            auth.db.update_api_key(key_id, **update_fields)
+        except ApiKeyNameRequiredError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except ApiKeyNameConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     if "model_permissions" in body:
         auth.db.set_api_key_model_permissions(key_id, body["model_permissions"])

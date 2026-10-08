@@ -8,7 +8,13 @@
     "postbuild": "node scripts/stage-export.mjs",
     "start": "next start",
     "lint": "eslint .",
-    "format": "prettier . --write"
+    "format": "prettier . --write",
+    "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs",
+    "test:recommendation": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/recommendation.integration.test.tsx",
+    "test:capability-task-panel": "node --test src/components/pages/running-model-detail/panels/capability-task-panel.test.mjs src/components/pages/running-model-detail/panels/speech-panel.test.mjs",
+    "test:log-center": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/log-center/runtime-log-utils.test.ts src/components/pages/log-center/elastic-logs.integration.test.tsx",
+    "test:launch-history": "node --test src/components/pages/launch-model/launch-dialog/launch-history-utils.test.mjs && node --require ./scripts/register-test-typescript.cjs --test src/components/pages/launch-model/launch-dialog/launch-history-form.integration.test.tsx",
+    "test:model-reload": "node --require ./scripts/register-test-typescript.cjs --test src/components/pages/running-model-detail/components/reload-dialog.integration.test.tsx"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -65,6 +71,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
     "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^26.1.0",
     "prettier": "^3.8.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

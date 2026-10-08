@@ -1,0 +1,77 @@
+[
+  {
+    "version": 2,
+    "context_length": 4096,
+    "model_name": "minicpm-2b-dpo-fp16",
+    "model_lang": [
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "MiniCPM is an End-Size LLM developed by ModelBest Inc. and TsinghuaNLP, with only 2.4B parameters excluding embeddings.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-2B-dpo-fp16",
+            "model_revision": "e7a50289e4f839674cf8d4a5a2ce032ccacf64ac",
+            "model_metadata": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://huggingface.co/openbmb/MiniCPM-2B-dpo-fp16/resolve/e7a50289e4f839674cf8d4a5a2ce032ccacf64ac/config.json",
+              "config_sha256": "c268a2020d08cb41ec0b1469170231fa53fbeea255d1447d630943d88255972e",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-2B-dpo-fp16",
+            "model_revision": "master",
+            "model_metadata": {
+              "vocab_size": 122753,
+              "num_attention_heads": 36,
+              "num_key_value_heads": 36,
+              "config_source": "https://modelscope.cn/models/OpenBMB/MiniCPM-2B-dpo-fp16/resolve/master/config.json",
+              "config_sha256": "91d06cde9d85575f32b03e80aeb8e3c1806bfee36b8df5179b5a39adefebface",
+              "hidden_size": 2304,
+              "intermediate_size": 5760,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      }
+    ],
+    "chat_template": "{% for message in messages %}{% if message['role'] == 'user' %}{{'<用户>' + message['content'].strip() + '<AI>'}}{% else %}{{message['content'].strip()}}{% endif %}{% endfor %}",
+    "stop_token_ids": [
+      1,
+      2
+    ],
+    "stop": [
+      "<s>",
+      "</s>"
+    ],
+    "updated_at": 1769418541,
+    "featured": false,
+    "architectures": [
+      "MiniCPMForCausalLM"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+]

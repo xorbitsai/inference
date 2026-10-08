@@ -513,3 +513,10 @@ msgstr "可以透過 cURL 或 Xinference 的 Python 客戶端來嘗試 OCR API�
 
 #~ msgid "Learn from a Stable Diffusion ControlNet example"
 #~ msgstr "學習一個 Stable Diffusion 控制網路的範例"
+
+#: ../../source/models/model_abilities/image.rst
+msgid "SGLang 0.5.20 or newer also accepts concurrent image requests for native dynamic batching. Set ``batching_max_size`` and optionally ``batching_delay_ms`` at launch. For vLLM-Omni 0.28, set ``max_num_seqs``; supported pipelines can additionally use ``step_execution=true`` for experimental continuous batching. Batching is opt-in, requires compatible requests and model support, and increases GPU memory usage. Send independent API requests concurrently; ``n`` only controls the number of outputs within one request."
+msgstr "SGLang 0.5.20 及更新版本支援並行圖片請求的原生動態批次處理。啟動時設定 ``batching_max_size``，並可選擇設定 ``batching_delay_ms``。vLLM-Omni 0.28 使用 ``max_num_seqs``；支援的管線還可透過 ``step_execution=true`` 啟用實驗性連續批次處理。批次處理須明確啟用，要求模型支援且請求參數相容，並會增加 GPU 記憶體用量。請並行傳送獨立 API 請求；``n`` 僅控制單一請求的輸出數量。"
+
+msgid "To use them, install SGLang with diffusion support via ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``, or vLLM-Omni together with a vLLM of the same major.minor version via ``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``, then launch the model with ``--model-engine SGLang`` or ``--model-engine vLLM``, for example:"
+msgstr "安裝支援 diffusion 的 SGLang：``pip install 'sglang[diffusion]>=0.5.20,<0.6'``，或安裝主次版本相符的 vLLM-Omni 和 vLLM：``pip install 'vllm-omni==0.28.*' 'vllm==0.28.*'``，然後使用 ``--model-engine SGLang`` 或 ``--model-engine vLLM`` 啟動模型，例如："

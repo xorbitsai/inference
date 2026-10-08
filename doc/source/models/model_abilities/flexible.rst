@@ -1,14 +1,13 @@
 .. _flexible:
 
-====================================
-Traditional ML models (Experimental)
-====================================
+=====================
+Traditional ML models
+=====================
 
 Learn how to inference traditional machine learning models with Xinference.
 These flexibly extensible models are referred to as **Flexible Models** within Xinference.
 
 .. versionadded:: v1.7.1
-  This ability is public since v1.7.1, now the API is not stable and may change during evolving.
 
 
 Introduction
@@ -115,6 +114,16 @@ After the model is successfully loaded, we can perform inference using the follo
   .. code-tab:: json output
 
     {"sequence":"one day I will see the world","labels":["travel","cooking","dancing"],"scores":[0.9799638986587524,0.010605016723275185,0.009431036189198494]}
+
+Local text classification models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Register a local BERT or other Transformers sequence classification model using
+the same launcher with ``task="text-classification"``. The directory must contain
+a trained classification model and tokenizer saved with ``save_pretrained``;
+a base encoder or a training checkpoint alone is insufficient. The model's
+``config.json`` supplies ``id2label``, ``label2id`` and ``problem_type``.
+The directory must be accessible on the worker that loads the model.
 
 ModelScope Pipeline Model
 ~~~~~~~~~~~~~~~~~~~~~~~~~

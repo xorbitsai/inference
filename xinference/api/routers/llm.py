@@ -1,4 +1,4 @@
-"""LLM route registration (completions, chat/completions, Anthropic messages, flexible infer)."""
+"""LLM route registration (completions, chat, Anthropic messages, responses, flexible infer)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import Security
 
-from ...types import ANTHROPIC_AVAILABLE, AnthropicMessage, ChatCompletion, Completion
+from ...types import ChatCompletion, Completion
 
 if TYPE_CHECKING:
     from ..restful_api import RESTfulAPI
@@ -25,32 +25,33 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
     )
 
-    if ANTHROPIC_AVAILABLE:
+    for path in ("/v1/messages", "/anthropic/v1/messages"):
         router.add_api_route(
-            "/anthropic/v1/messages",
+            path,
             api.create_message,
             methods=["POST"],
-            response_model=AnthropicMessage,
             dependencies=(
                 [Security(auth, scopes=["models:read"])] if is_auth else None
             ),
         )
-        router.add_api_route(
-            "/anthropic/v1/models",
-            api.anthropic_list_models,
-            methods=["GET"],
-            dependencies=(
-                [Security(auth, scopes=["models:list"])] if is_auth else None
-            ),
-        )
-        router.add_api_route(
-            "/anthropic/v1/models/{model_id}",
-            api.anthropic_get_model,
-            methods=["GET"],
-            dependencies=(
-                [Security(auth, scopes=["models:list"])] if is_auth else None
-            ),
-        )
+    router.add_api_route(
+        "/v1/responses",
+        api.create_response,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/anthropic/v1/models",
+        api.anthropic_list_models,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/anthropic/v1/models/{model_id}",
+        api.anthropic_get_model,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
 
     router.add_api_route(
         "/v1/chat/completions",

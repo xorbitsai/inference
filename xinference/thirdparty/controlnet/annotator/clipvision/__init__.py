@@ -1,0 +1,184 @@
+import os
+
+import cv2
+import numpy as np
+import torch
+from einops import rearrange
+from huggingface_hub import hf_hub_download
+from transformers import (
+    CLIPImageProcessor,
+    CLIPVisionConfig,
+    CLIPVisionModelWithProjection,
+)
+
+from .....device_utils import get_available_device
+from ...utils import load_file_from_url
+from ..annotator_path import models_path
+
+
+config_clip_g = {
+    "attention_dropout": 0.0,
+    "dropout": 0.0,
+    "hidden_act": "gelu",
+    "hidden_size": 1664,
+    "image_size": 224,
+    "initializer_factor": 1.0,
+    "initializer_range": 0.02,
+    "intermediate_size": 8192,
+    "layer_norm_eps": 1e-05,
+    "model_type": "clip_vision_model",
+    "num_attention_heads": 16,
+    "num_channels": 3,
+    "num_hidden_layers": 48,
+    "patch_size": 14,
+    "projection_dim": 1280,
+    "torch_dtype": "float32",
+}
+
+config_clip_h = {
+    "attention_dropout": 0.0,
+    "dropout": 0.0,
+    "hidden_act": "gelu",
+    "hidden_size": 1280,
+    "image_size": 224,
+    "initializer_factor": 1.0,
+    "initializer_range": 0.02,
+    "intermediate_size": 5120,
+    "layer_norm_eps": 1e-05,
+    "model_type": "clip_vision_model",
+    "num_attention_heads": 16,
+    "num_channels": 3,
+    "num_hidden_layers": 32,
+    "patch_size": 14,
+    "projection_dim": 1024,
+    "torch_dtype": "float32",
+}
+
+config_clip_vitl = {
+    "attention_dropout": 0.0,
+    "dropout": 0.0,
+    "hidden_act": "quick_gelu",
+    "hidden_size": 1024,
+    "image_size": 224,
+    "initializer_factor": 1.0,
+    "initializer_range": 0.02,
+    "intermediate_size": 4096,
+    "layer_norm_eps": 1e-05,
+    "model_type": "clip_vision_model",
+    "num_attention_heads": 16,
+    "num_channels": 3,
+    "num_hidden_layers": 24,
+    "patch_size": 14,
+    "projection_dim": 768,
+    "torch_dtype": "float32",
+}
+
+configs = {
+    "clip_g": config_clip_g,
+    "clip_h": config_clip_h,
+    "clip_vitl": config_clip_vitl,
+}
+
+downloads = {
+    "clip_vitl": {
+        "repo_id": "openai/clip-vit-large-patch14",
+        "file": "pytorch_model.bin"
+    },
+    "clip_g": {
+        "repo_id": "lllyasviel/Annotators",
+        "file": "clip_g.pth"
+    },
+    "clip_h": {
+        "repo_id": "h94/IP-Adapter",
+        "file": "models/image_encoder/pytorch_model.bin"
+    }
+}
+
+
+clip_vision_h_uc = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "clip_vision_h_uc.data"
+)
+clip_vision_h_uc = torch.load(
+    clip_vision_h_uc,
+    map_location=get_available_device()
+    if torch.cuda.is_available()
+    else torch.device("cpu"),
+)["uc"]
+
+clip_vision_vith_uc = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "clip_vision_vith_uc.data"
+)
+clip_vision_vith_uc = torch.load(
+    clip_vision_vith_uc,
+    map_location=get_available_device()
+    if torch.cuda.is_available()
+    else torch.device("cpu"),
+)["uc"]
+
+
+class ClipVisionDetector:
+    def __init__(self, config, low_vram: bool):
+        assert config in downloads
+        self.download_info = downloads[config]
+        self.model_path = os.path.join(models_path, "clip_vision")
+        self.file_name = config + ".pth"
+        self.config = configs[config]
+        self.device = (
+            torch.device("cpu") if low_vram else get_available_device()
+        )
+        os.makedirs(self.model_path, exist_ok=True)
+        file_path = os.path.join(self.model_path, self.file_name)
+        if not os.path.exists(file_path):
+            model_name = self.download_info["file"]
+            hf_hub_download(self.download_info["repo_id"], model_name, local_dir=self.model_path)
+            filename = os.path.join(self.model_path, model_name)
+            os.rename(filename, file_path)
+        config = CLIPVisionConfig(**self.config)
+
+        self.model = CLIPVisionModelWithProjection(config)
+        self.processor = CLIPImageProcessor(
+            crop_size=224,
+            do_center_crop=True,
+            do_convert_rgb=True,
+            do_normalize=True,
+            do_resize=True,
+            image_mean=[0.48145466, 0.4578275, 0.40821073],
+            image_std=[0.26862954, 0.26130258, 0.27577711],
+            resample=3,
+            size=224,
+        )
+        sd = torch.load(file_path, map_location=self.device)
+        self.model.load_state_dict(sd, strict=False)
+        del sd
+        self.model.to(self.device)
+        self.model.eval()
+
+    def unload_model(self):
+        if self.model is not None:
+            self.model.to("meta")
+
+    def __call__(self, input_image: np.ndarray):
+        assert isinstance(input_image, np.ndarray)
+        with torch.no_grad():
+            mask = None
+            input_image = cv2.resize(
+                input_image, (224, 224), interpolation=cv2.INTER_AREA
+            )
+            if input_image.shape[2] == 4:  # Has alpha channel.
+                mask = 255 - input_image[:, :, 3:4]  # Invert mask
+                input_image = input_image[:, :, :3]
+            feat = self.processor(images=input_image, return_tensors="pt")
+            feat["pixel_values"] = feat["pixel_values"].to(self.device)
+            # Apply CLIP mask.
+            if mask is not None:
+                mask_tensor = torch.from_numpy(mask).to(self.device).float() / 255.0
+                feat["pixel_values"] *= rearrange(mask_tensor, "h w c -> 1 c h w")
+            result = self.model(**feat, output_hidden_states=True)
+            result["hidden_states"] = [
+                v.to(self.device) for v in result["hidden_states"]
+            ]
+            result = {
+                k: v.to(self.device) if isinstance(v, torch.Tensor) else v
+                for k, v in result.items()
+            }
+        return result

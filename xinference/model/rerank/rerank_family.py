@@ -59,7 +59,9 @@ def match_rerank(
             f"Rerank model {model_name} not found, available models: {BUILTIN_RERANK_MODELS.keys()}"
         )
 
-    if download_hub == "modelscope" or download_from_modelscope():
+    if download_hub == "modelscope" or (
+        download_hub is None and download_from_modelscope()
+    ):
         specs = [
             x for x in target_family.model_specs if x.model_hub == "modelscope"
         ] + [x for x in target_family.model_specs if x.model_hub == "huggingface"]

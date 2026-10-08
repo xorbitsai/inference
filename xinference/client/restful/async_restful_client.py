@@ -18,10 +18,15 @@ from urllib.parse import quote
 
 import aiohttp
 
-from ..common import async_streaming_response_iterator, convert_float_to_int_or_str
+from ..common import (
+    async_streaming_response_iterator,
+    convert_float_to_int_or_str,
+    encode_world_reference,
+)
 
 if TYPE_CHECKING:
     from ...types import (
+        AudioEmbedding,
         ChatCompletion,
         ChatCompletionChunk,
         Completion,
@@ -65,6 +70,25 @@ async def _release_response(response: aiohttp.ClientResponse):
     await response.wait_for_close()
 
 
+def _schedule_session_close(client: Any) -> None:
+    if not getattr(client, "session", None):
+        return
+    loop = getattr(client, "_session_loop", None)
+    if loop is None or loop.is_closed():
+        return
+
+    def close_on_owner_loop():
+        loop.create_task(client.close())
+
+    try:
+        # Also queues cleanup while a manually driven loop is paused, and when
+        # the last reference is released by another thread.
+        loop.call_soon_threadsafe(close_on_owner_loop)
+    except RuntimeError:
+        # The owning loop may have closed since the check above.
+        pass
+
+
 class AsyncRESTfulModelHandle:
     """
     A sync model interface (for RESTful client) which provides type hints that makes it much easier to use xinference
@@ -76,6 +100,7 @@ class AsyncRESTfulModelHandle:
         self._base_url = base_url
         self.auth_headers = auth_headers
         self.timeout = aiohttp.ClientTimeout(total=1800)
+        self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True)
         )
@@ -87,23 +112,32 @@ class AsyncRESTfulModelHandle:
             self.session = None
 
     def __del__(self):
-        if self.session:
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.close())
+        _schedule_session_close(self)
 
 
 class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
     async def create_embedding(
-        self, input: Union[str, List[str]], **kwargs
+        self,
+        input: Union[
+            str,
+            List[str],
+            List[int],
+            List[List[int]],
+            Dict[str, Any],
+            List[Dict[str, Any]],
+            List[Union[str, Dict[str, Any]]],
+        ],
+        **kwargs,
     ) -> "Embedding":
         """
         Create an Embedding from user input via RESTful APIs.
 
         Parameters
         ----------
-        input: Union[str, List[str]]
-            Input text to embed, encoded as a string or array of tokens.
-            To embed multiple inputs in a single request, pass an array of strings or array of token arrays.
+        input: Union[str, List[str], List[int], List[List[int]], Dict[str, Any],
+                     List[Dict[str, Any]], List[Union[str, Dict[str, Any]]]]
+            Text, token IDs, or multimodal input. Multimodal dictionaries may
+            contain text, image, video, or interleaved role/content messages.
 
         Returns
         -------
@@ -178,8 +212,8 @@ class AsyncRESTfulEmbeddingModelHandle(AsyncRESTfulModelHandle):
 class AsyncRESTfulRerankModelHandle(AsyncRESTfulModelHandle):
     async def rerank(
         self,
-        documents: List[str],
-        query: str,
+        documents: List[Union[str, Dict[str, Any]]],
+        query: Union[str, Dict[str, Any]],
         top_n: Optional[int] = None,
         max_chunks_per_doc: Optional[int] = None,
         return_documents: Optional[bool] = None,
@@ -191,10 +225,10 @@ class AsyncRESTfulRerankModelHandle(AsyncRESTfulModelHandle):
 
         Parameters
         ----------
-        query: str
-            The search query
-        documents: List[str]
-            The documents to rerank
+        query: Union[str, Dict[str, Any]]
+            Text or multimodal query.
+        documents: List[Union[str, Dict[str, Any]]]
+            Text or multimodal documents to rerank.
         top_n: int
             The number of results to return, defaults to returning all results
         max_chunks_per_doc: int
@@ -601,16 +635,15 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
     async def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
-        params = {
-            "model": self._model_uid,
-            "kwargs": json.dumps(kwargs),
-        }
-        params = _filter_params(params)
-        files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+        # aiohttp does not understand requests-style (key, (filename, value))
+        # tuples; build a proper multipart form instead.
+        form = aiohttp.FormData()
+        form.add_field("model", self._model_uid)
+        form.add_field("kwargs", json.dumps(kwargs))
+        form.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
+        )
+        response = await self.session.post(url, data=form, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to ocr the images, detail: {await _get_error_string(response)}"
@@ -667,6 +700,7 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
+        video: Optional[Union[str, bytes]] = None,
         **kwargs,
     ) -> "VideoList":
         """
@@ -682,6 +716,8 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             The prompt or prompts not to guide the image generation.
         n: `int`, defaults to 1
             The number of videos to generate per prompt. Must be between 1 and 10.
+        video: `Union[str, bytes]`, optional
+            The driving video for character animation models.
         Returns
         -------
         VideoList
@@ -696,11 +732,25 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
+        data = aiohttp.FormData()
         for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+            data.add_field(key, str(value))
+        data.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
+        )
+        if video is not None:
+            if isinstance(video, str):
+                with open(video, "rb") as f:
+                    video_data = f.read()
+            else:
+                video_data = video
+            data.add_field(
+                "video",
+                video_data,
+                filename="video",
+                content_type="application/octet-stream",
+            )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to create the video from image, detail: {await _get_error_string(response)}"
@@ -778,6 +828,52 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         return response_data
 
 
+class AsyncRESTfulWorldModelHandle(AsyncRESTfulModelHandle):
+    async def generate(
+        self,
+        prompt: str,
+        image: Optional[Union[str, bytes]] = None,
+        video: Optional[Union[str, bytes]] = None,
+        generation_config: Optional[Dict[str, Any]] = None,
+        **model_kwargs,
+    ) -> "VideoList":
+        """Generate a world video from text and an optional image or video."""
+        if image is not None and video is not None:
+            raise ValueError("Only one of image and video may be provided")
+        encoded_image = (
+            await asyncio.to_thread(encode_world_reference, image, "image/png")
+            if image is not None
+            else None
+        )
+        encoded_video = (
+            await asyncio.to_thread(encode_world_reference, video, "video/mp4")
+            if video is not None
+            else None
+        )
+        request_body = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "image": encoded_image,
+            "video": encoded_video,
+            "generation_config": generation_config or {},
+            "extra_body": model_kwargs,
+        }
+        response = await self.session.post(
+            f"{self._base_url}/v1/worlds/generations",
+            json=request_body,
+            headers=self.auth_headers,
+            timeout=self.timeout,
+        )
+        if response.status != 200:
+            raise RuntimeError(
+                "Failed to generate the world, detail: "
+                f"{await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
+
 class AsyncRESTfulGenerateModelHandle(AsyncRESTfulModelHandle):
     async def generate(
         self,
@@ -827,7 +923,7 @@ class AsyncRESTfulGenerateModelHandle(AsyncRESTfulModelHandle):
             )
 
         if stream:
-            return async_streaming_response_iterator(response.content)
+            return async_streaming_response_iterator(response)
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -908,7 +1004,7 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
             )
 
         if stream:
-            return async_streaming_response_iterator(response.content)
+            return async_streaming_response_iterator(response)
 
         response_data = await response.json()
         await _release_response(response)
@@ -916,6 +1012,24 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
 
 
 class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
+    async def create_embedding(self, audio: bytes) -> "AudioEmbedding":
+        """Create a speaker embedding from encoded audio bytes."""
+        url = f"{self._base_url}/v1/audio/embeddings"
+        data = aiohttp.FormData()
+        data.add_field("model", self._model_uid)
+        data.add_field(
+            "file", audio, filename="file", content_type="application/octet-stream"
+        )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
+        if response.status != 200:
+            raise RuntimeError(
+                "Failed to create the audio embedding, "
+                f"detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
     async def transcriptions(
         self,
         audio: bytes,
@@ -1181,6 +1295,7 @@ class AsyncClient:
         self._headers: Dict[str, str] = {}
         self._cluster_authed = False
         self.timeout = aiohttp.ClientTimeout(total=1800)
+        self._session_loop = asyncio.get_running_loop()
         self.session = aiohttp.ClientSession(
             connector=aiohttp.TCPConnector(force_close=True), timeout=self.timeout
         )
@@ -1195,9 +1310,7 @@ class AsyncClient:
             self.session = None
 
     def __del__(self):
-        if self.session:
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.close())
+        _schedule_session_close(self)
 
     def _set_token(self, token: Optional[str]):
         if not self._cluster_authed or token is None:
@@ -1307,8 +1420,13 @@ class AsyncClient:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        replica_config: Optional[List[Dict]] = None,
         model_path: Optional[str] = None,
         enable_thinking: Optional[bool] = None,
+        enable_virtual_env: Optional[bool] = None,
+        virtual_env_packages: Optional[List[str]] = None,
+        envs: Optional[Dict[str, str]] = None,
+        virtual_env_find_links: Optional[List[str]] = None,
         **kwargs,
     ) -> str:
         """
@@ -1321,7 +1439,7 @@ class AsyncClient:
         model_type: str
             type of model.
         model_engine: Optional[str]
-            Specify the inference engine of the model when launching LLM.
+            Specify the inference engine to use when launching the model.
         model_uid: str
             UID of model, auto generate a UUID if is None.
         model_size_in_billions: Optional[Union[int, str, float]]
@@ -1348,11 +1466,26 @@ class AsyncClient:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        replica_config: Optional[List[Dict]]
+            Per-replica placement spec. Each item is ``{"replica_uid": str|None,
+            "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
+            "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
+            given worker/GPU. Do not combine it with worker_ip/n_gpu/gpu_idx.
+            An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
+            ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         enable_thinking: Optional[bool]
             Enable or disable thinking mode for hybrid reasoning LLMs (e.g., Qwen3). None uses
             the model default.
+        enable_virtual_env: Optional[bool]
+            If enable virtual env.
+        virtual_env_packages: Optional[List[str]]
+            Packages to specify in virtual env, can be used to override builtin packages in virtual env.
+        virtual_env_find_links: Optional[List[str]]
+            Worker-local wheel directories to use when installing virtual env packages.
+        envs: Optional[Dict[str, str]]
+            Environment variables to pass when launching model.
         **kwargs:
             Any other parameters been specified. e.g. multimodal_projector for multimodal inference with the llama.cpp backend.
 
@@ -1384,8 +1517,13 @@ class AsyncClient:
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "replica_config": replica_config,
             "model_path": model_path,
             "enable_thinking": enable_thinking,
+            "enable_virtual_env": enable_virtual_env,
+            "virtual_env_packages": virtual_env_packages,
+            "virtual_env_find_links": virtual_env_find_links,
+            "envs": envs,
         }
 
         wait_ready = kwargs.pop("wait_ready", True)
@@ -1452,6 +1590,52 @@ class AsyncClient:
         await _release_response(response)
         return response_data
 
+    async def reload_model(
+        self, model_uid: str, model_config: Dict[str, Any], drain_timeout: float = 300
+    ) -> Dict[str, Any]:
+        """Start an asynchronous reload, retaining GPU weights and model UID.
+
+        Launch with ``enable_weight_cache=True`` first. Use
+        ``get_model_reload_status`` to wait for ready/error after HTTP 202.
+        """
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        response = await self.session.post(
+            url,
+            json={"model_config": model_config, "drain_timeout": drain_timeout},
+            headers=self._headers,
+        )
+        if response.status != 202:
+            raise RuntimeError(
+                f"Failed to reload model, detail: {await _get_error_string(response)}"
+            )
+        data = await response.json()
+        await _release_response(response)
+        return data
+
+    async def get_model_reload_status(self, model_uid: str) -> Dict[str, Any]:
+        """Return the latest reload operation, including its stage and error."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get reload status, detail: {await _get_error_string(response)}"
+            )
+        data = await response.json()
+        await _release_response(response)
+        return data
+
+    async def get_model_reload_config(self, model_uid: str) -> Dict[str, Any]:
+        """Return editable parameters, their types and current explicit values."""
+        url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload/config"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get reload config, detail: {await _get_error_string(response)}"
+            )
+        data = await response.json()
+        await _release_response(response)
+        return data
+
     async def terminate_model(self, model_uid: str):
         """
         Terminate the specific model running on the server.
@@ -1476,6 +1660,63 @@ class AsyncClient:
                 f"Failed to terminate model, detail: {await _get_error_string(response)}"
             )
         await _release_response(response)
+
+    async def add_model_replica(
+        self,
+        model_uid: str,
+        replica_config: Optional[Union[dict, List[dict]]] = None,
+        replica: int = 1,
+        model_engine: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = None,
+    ) -> dict:
+        """Add one or more replicas to a running model (scale-up).
+
+        Parameters
+        ----------
+        model_uid : str
+            The UID of the running model to extend.
+        replica_config : Optional[Union[dict, List[dict]]]
+            Optional single-device placement config, e.g.::
+
+                {
+                  "replica_uid": "my-replica-label",
+                  "devices": [
+                    {"worker_ip": "192.168.1.100:9999", "gpu_idx": [0, 1]}
+                  ]
+                }
+
+            Omit to let the supervisor auto-select a worker and GPU.
+        replica : int
+            Number of replicas to add, default is 1.
+        model_engine : Optional[str]
+            Override the model engine for the new replicas only.
+        n_gpu : Optional[Union[int, str]]
+            Override GPU usage for the new replicas. Use 0 for CPU or ``"auto"``.
+
+        Returns
+        -------
+        dict
+            A single-replica result, or ``{"replica": int, "replicas": list}``
+            when more than one replica is requested.
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/replicas"
+        payload: Dict[str, Any] = {}
+        if replica_config is not None:
+            payload["replica_config"] = replica_config
+        if replica != 1:
+            payload["replica"] = replica
+        if model_engine is not None:
+            payload["model_engine"] = model_engine
+        if n_gpu is not None:
+            payload["n_gpu"] = n_gpu
+        response = await self.session.post(url, json=payload, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to add model replica, detail: {await _get_error_string(response)}"
+            )
+        result = await response.json()
+        await _release_response(response)
+        return result
 
     async def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
         """Terminate a specific replica of a running model."""
@@ -1628,6 +1869,10 @@ class AsyncClient:
             )
         elif desc["model_type"] == "video":
             return AsyncRESTfulVideoModelHandle(
+                model_uid, self.base_url, auth_headers=self._headers
+            )
+        elif desc["model_type"] == "world":
+            return AsyncRESTfulWorldModelHandle(
                 model_uid, self.base_url, auth_headers=self._headers
             )
         elif desc["model_type"] == "flexible":

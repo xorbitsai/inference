@@ -1,0 +1,67 @@
+[
+  {
+    "model_name": "Fun-ASR-Nano-2512",
+    "model_description": "This is a custom model description.",
+    "multilingual": false,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "funasr",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
+    "model_src": {
+      "modelscope": {
+        "model_id": "FunAudioLLM/Fun-ASR-Nano-2512",
+        "model_revision": "master"
+      },
+      "huggingface": {
+        "model_id": "FunAudioLLM/Fun-ASR-Nano-2512",
+        "model_revision": "main"
+      }
+    },
+    "default_model_config": {
+      "vad_model": "fsmn-vad",
+      "vad_kwargs": {
+        "max_single_segment_time": 30000
+      }
+    },
+    "default_transcription_config": {
+      "batch_size": 1
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "funasr~=1.3.0"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1783413976
+  },
+  {
+    "version": 2,
+    "model_name": "Fun-ASR-Nano-2512",
+    "cache_name": "Fun-ASR-Nano-2512-MLX",
+    "model_description": "Fun-ASR-Nano-2512 optimized for Apple Silicon with mlx-audio.",
+    "multilingual": false,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "funasr",
+    "engine": "MLX",
+    "model_format": "mlx",
+    "model_src": {
+      "huggingface": {
+        "model_id": "mlx-community/Fun-ASR-Nano-2512",
+        "model_revision": "a7bc96fceaafce39ed6748e0c0fa9a9508b67f86"
+      }
+    },
+    "default_transcription_config": {},
+    "virtualenv": {
+      "packages": [
+        "mlx-audio[stt]==0.4.6 ; #engine# == \"MLX\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786801843
+  }
+]

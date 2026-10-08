@@ -115,3 +115,32 @@ route:
         severity: warning
       receiver: warning-channel
 ```
+
+## Token Router Monitoring V2.1 告警
+
+`xinference-token-router-monitoring-v2` 规则组新增 Agent 连接、Assignment 就绪、
+Runtime 可用性/可控性/配置版本、Tokenizer 资产绑定和逻辑 Router 健康的分层告警。
+
+关键可用性语义如下：
+
+- Agent suspected/offline 是**警告**，不直接等于 Router 数据面不可用；
+- 有效 Runtime 失去控制链路时触发 `TokenRouterRuntimeUncontrollable`；
+- 仅当期望副本数大于 0 且有效 Ready Runtime 为 0 时，才触发严重级别的
+  `TokenRouterUnavailable`；
+- 不应因为 Agent Offline 警告而抑制 `TokenRouterUnavailable`，Runtime 有效性才是更高层的
+  服务可用性信号。
+
+### Alertmanager 告警抑制
+
+`alertmanager-inhibition.yml` 是集成片段，应将其中的 `inhibit_rules` 合并到生产
+`alertmanager.yml`，不能把它当作 Prometheus 告警规则文件加载。示例仅包含两条
+严格限定范围的抑制规则：
+
+- `TokenRouterUnavailable` 只抑制相同 `router_uid` 的
+  `TokenRouterRuntimeDown` 和 `TokenRouterAssignmentNotReady`；
+- `TokenRouterAgentOffline` 只抑制相同 `node_id` 的 Agent 低层连接性或容量派生告警。
+
+Agent 离线时不会抑制 `TokenRouterUnavailable`、Runtime 数据面告警或其他业务可用性
+告警。当前 `WorkerOffline` 是无 `worker_address` 标签的集群汇总告警，暂时无法安全
+表达“只抑制同一 Worker 的副本派生告警”；需要先将 Worker 离线告警调整为逐节点
+指标后再增加对应 inhibition。

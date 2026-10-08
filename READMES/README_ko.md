@@ -41,21 +41,27 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 
 ## 🔥 주요 하이라이트
 ### 프레임워크 개선
-- Xinference 3.0.0이 마이그레이션 안내와 호환되지 않는 변경 사항과 함께 제공됩니다: [릴리스 노트](https://xinference.io/release_notes/v3.0.0.html)
+- Xinference 3.0.0이 마이그레이션 안내와 호환되지 않는 변경 사항과 함께 제공됩니다: [릴리스 노트](https://xinference.co/release_notes/v3.0.0.html)
 - 에이전트 네이티브 배포: Xinference는 [Xagent](https://github.com/xorbitsai/xagent)와 통합되어 동적 플래닝, 도구 사용 및 자율적 다단계 추론을 지원하며 정적 파이프라인의 한계를 넘어섭니다.
 - 자동 배칭: 여러 동시 요청을 자동으로 묶어 처리량을 크게 향상시킵니다. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference 팀이 관리하는 새로운 llama.cpp Python 바인딩은 연속 배칭을 지원하며 프로덕션에 더 적합합니다. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 신규 모델
-- VibeThinker 시리즈 통합 ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)): [#5085](https://github.com/xorbitsai/inference/pull/5085)
-- Nex-N2 시리즈 통합 ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)): [#5094](https://github.com/xorbitsai/inference/pull/5094)
-- [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) 통합: [#5103](https://github.com/xorbitsai/inference/pull/5103)
-- [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) 통합: [#5119](https://github.com/xorbitsai/inference/pull/5119)
-- [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) 통합: [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- jina-embeddings-v5 시리즈 통합 ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)): [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- MiniCPM-V-4.6 시리즈 통합 ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)): [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- Tencent Hy-MT2 시리즈 통합 ([1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B), [7B](https://huggingface.co/tencent/Hy-MT2-7B), [30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)): [#5029](https://github.com/xorbitsai/inference/pull/5029)
+- [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) 기본 지원: [#5583](https://github.com/xorbitsai/inference/pull/5583)
+- Ming-Image 시리즈 기본 지원 ([Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design), [Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)): [#5582](https://github.com/xorbitsai/inference/pull/5582)
+- [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) 기본 지원: [#5571](https://github.com/xorbitsai/inference/pull/5571)
+- [MinerU2.5](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B) 기본 지원: [#5550](https://github.com/xorbitsai/inference/pull/5550)
+- Spark-X2.5 시리즈 기본 지원 ([1.7B](https://huggingface.co/XHToken/Spark-X2.5-1.7B), [4B](https://huggingface.co/XHToken/Spark-X2.5-4B), [1.7B Base](https://huggingface.co/XHToken/Spark-X2.5-1.7B-Base), [4B Base](https://huggingface.co/XHToken/Spark-X2.5-4B-Base)): [#5538](https://github.com/xorbitsai/inference/pull/5538)
+- LingBot-World-V2 시리즈 기본 지원 ([14B Fast](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-fast), [14B Pretrain](https://huggingface.co/robbyant/lingbot-world-v2-14b-causal-pretrain), [1.3B Fast](https://huggingface.co/robbyant/lingbot-world-v2-1.3b-causal-fast)): [#5536](https://github.com/xorbitsai/inference/pull/5536)
+- Irodori-TTS v4.1 시리즈 기본 지원 ([Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime), [Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)): [#5527](https://github.com/xorbitsai/inference/pull/5527)
+- [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) 기본 지원: [#5526](https://github.com/xorbitsai/inference/pull/5526)
+- AuK 시리즈 기본 지원 ([AuK](https://huggingface.co/tencent/AuK), [AuK-Flash](https://huggingface.co/tencent/AuK-Flash)): [#5525](https://github.com/xorbitsai/inference/pull/5525)
+- [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) 기본 지원: [#5506](https://github.com/xorbitsai/inference/pull/5506)
+- Fish Audio 시리즈 기본 지원 ([S1-mini](https://huggingface.co/fishaudio/s1-mini), [S2-Pro](https://huggingface.co/fishaudio/s2-pro)): [#5490](https://github.com/xorbitsai/inference/pull/5490)
+- [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR) 기본 지원: [#5475](https://github.com/xorbitsai/inference/pull/5475)
+- [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr) 기본 지원: [#5468](https://github.com/xorbitsai/inference/pull/5468)
+- JoyAI 이미지 편집 시리즈 기본 지원 ([Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers), [Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)): [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
@@ -96,7 +102,8 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
   스타터 가이드를 따라 로컬에서 Xinference를 시작하세요. 자세한 내용은 문서(https://inference.readthedocs.io/) 참조.
 
 - **기업용 Xinference**
-  엔터프라이즈 기능이 필요하면 다음으로 문의하세요: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
+  **Xinference Enterprise** 는 프로덕션 환경에서 모델을 운영하는 팀을 위한 상용 버전입니다. 자체 클라우드나 데이터 센터에 배포하거나 **Xinference Cloud** 의 관리형 전용 배포를 선택할 수 있습니다. 호스팅되는 **Model API** 를 통해 추론 인프라를 관리하지 않고도 OpenAI 호환 API로 지원 모델에 접근할 수 있습니다. 자세한 내용은 [xinference.co](https://xinference.co) 에서 확인하세요.
+  기업 관련 문의는 [이메일](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry)로 연락해 주세요.
 
 ## 최신 상태 유지
 
@@ -190,4 +197,4 @@ $ xinference-local
 
 ## 스타 히스토리
 
-[![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=xorbitsai/inference&type=Date)](https://star-history.dera.page/#xorbitsai/inference&Date)

@@ -135,6 +135,12 @@ is closely related to the inference engine.
 You can use ``xinference engine`` command to query the combination of parameters of the model you want to launch.
 This will demonstrate under what conditions a model can run on which inference engines.
 
+For LLM, embedding and rerank models, engine discovery combines results from all registered workers.
+Engine names and parameter combinations retain their first-seen order, with duplicate combinations
+removed; an available engine takes precedence over another worker's unavailability message. Empty
+worker results are skipped, and local discovery is used if all results are empty. A worker query
+error fails the request instead of returning an incomplete capability list.
+
 For example:
 
 #. I would like to query about which inference engines the ``qwen-chat`` model can run on, and what are their respective parameters.
@@ -333,6 +339,8 @@ The following OpenAI APIs are supported:
 - Completions: `https://platform.openai.com/docs/api-reference/completions <https://platform.openai.com/docs/api-reference/completions>`_
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
+
+- Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details.
 
 Xinference also supports Anthropic API via base url ``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code and so forth.
 Refer to :ref:`anthropic client <anthropic_client>` for more details.

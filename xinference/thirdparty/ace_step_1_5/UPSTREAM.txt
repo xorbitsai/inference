@@ -1,0 +1,24 @@
+ACE-Step 1.5 vendored source
+
+- Source: https://github.com/ace-step/ACE-Step-1.5
+- Commit: `14c0211d5a0653b0f63e27686f4c3f151b4d8629`
+- Imported paths: selected inference files under `acestep/` and the bundled
+  `acestep/third_parts/nano-vllm/nanovllm/` runtime
+- License: MIT; see `LICENSE`
+
+Only code required by Xinference music inference is retained. Upstream API
+servers, CLI/Gradio UI, dataset tools, training implementations, tests,
+examples, development metadata, unused DiT variants, and nano-vllm assets are
+excluded. Xinference supports only the bundled `acestep-v15-turbo` DiT here.
+
+Local integration patch: remove `LoraManagerMixin` and
+`TrainingPresetMixin` from `AceStepHandler`, because Xinference exposes neither
+training nor upstream LoRA-management endpoints. General generation, LM,
+PyTorch, MLX, model-code synchronization, and audio encoding remain intact.
+
+The retained nano-vllm runtime keeps its separate MIT license at
+`acestep/third_parts/nano-vllm/LICENSE`.
+
+Runtime dependencies such as PyTorch, Transformers, Diffusers, and TorchAO are
+not vendored. Xinference installs them through the ACE-Step model virtual
+environment.
