@@ -15,7 +15,7 @@
 """Explicit, process-local extension points for distribution wrappers.
 
 XINFERENCE_EXTENSIONS is a comma-separated list of ``module:factory`` entries.
-Factories are loaded lazily in every API/actor process, including spawn and
+Factories are loaded in every API/actor process at startup, including spawn and
 recovery. A configured extension that cannot load is a startup error. Unset
 configuration leaves upstream behavior unchanged and requires no extra package.
 
@@ -28,6 +28,7 @@ launches, and may reject an operation by raising an exception.
 from __future__ import annotations
 
 import importlib
+import inspect
 import os
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -40,7 +41,7 @@ class APIExtensionContext:
     app: Any
     router: Any
     auth_service: Any
-    is_authenticated: bool
+    auth_enabled: bool
     get_supervisor_ref: Callable[[], Awaitable[Any]]
 
 
@@ -57,10 +58,20 @@ def get_extensions() -> Tuple[Any, ...]:
     for entry in configured.split(","):
         if not entry.strip():
             continue
-        module, separator, factory = entry.strip().partition(":")
-        if not separator or not module or not factory:
-            raise ValueError("Extension entries must have the form module:factory")
-        extension = getattr(importlib.import_module(module), factory)()
+        entry = entry.strip()
+        parts = [part.strip() for part in entry.split(":")]
+        if len(parts) != 2 or not all(parts):
+            raise ValueError(
+                f"Extension entry {entry!r} must have the form module:factory"
+            )
+        module, factory = parts
+        try:
+            extension = getattr(importlib.import_module(module), factory)()
+            _require_sync_result(extension, f"factory {entry!r}")
+        except Exception as error:
+            raise RuntimeError(
+                f"Failed to load extension {entry!r}: {error}"
+            ) from error
         name = getattr(extension, "name", None)
         if not isinstance(name, str) or not name or name in names:
             raise ValueError("Extension names must be nonempty and unique")
@@ -73,13 +84,27 @@ def get_extensions() -> Tuple[Any, ...]:
     return result
 
 
+def _require_sync_result(result: Any, hook: str) -> Any:
+    if inspect.isawaitable(result):
+        if inspect.iscoroutine(result):
+            result.close()
+        raise TypeError(f"Extension {hook} must be synchronous and non-blocking")
+    return result
+
+
+def _call_hook(extension: Any, method: str, *args: Any) -> Any:
+    return _require_sync_result(
+        getattr(extension, method)(*args), f"{extension.name}.{method}"
+    )
+
+
 def configure_api(context: APIExtensionContext) -> None:
     for extension in get_extensions():
-        extension.configure_api(context)
+        _call_hook(extension, "configure_api", context)
 
 
 def worker_extension_metadata() -> Dict[str, Any]:
-    return {e.name: e.worker_metadata() for e in get_extensions()}
+    return {e.name: _call_hook(e, "worker_metadata") for e in get_extensions()}
 
 
 def filter_worker_resources(
@@ -90,7 +115,9 @@ def filter_worker_resources(
     for extension in get_extensions():
         if extension.name not in worker["extensions"]:
             raise RuntimeError(f"Worker is missing required extension {extension.name}")
-        filtered = set(extension.filter_worker_resources(worker, workers))
+        filtered = set(
+            _call_hook(extension, "filter_worker_resources", worker, workers)
+        )
         if not filtered <= set(original):
             raise ValueError("Extensions must not expand worker GPU visibility")
         allowed.intersection_update(filtered)
@@ -100,5 +127,5 @@ def filter_worker_resources(
 def call_extension(name: str, operation: str, payload: Dict[str, Any]) -> Any:
     for extension in get_extensions():
         if extension.name == name:
-            return extension.control_operation(operation, payload)
+            return _call_hook(extension, "control_operation", operation, payload)
     raise ValueError(f"Extension {name} is not configured")

@@ -714,3 +714,15 @@ msgstr "팩터리는 고유한 ``name``, ``api_version = 1`` 및 네 메서드 `
 #: ../../development/xinference_internals.rst
 msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
 msgstr "Supervisor는 Worker 확장이 일치하는지 확인하고 현재 활성 Worker 목록을 리소스 필터에 제공합니다. 필터는 표시되는 GPU 인덱스를 제한하거나 예외를 발생시켜 CPU 실행을 포함한 승인을 거부할 수 있습니다. 할당과 프로세스 생성 모두 정책을 검사하여 준비 및 복구 경로를 포함합니다. 이름이 지정된 제어 작업은 Supervisor에서 실행되며 확장은 작업 이름과 인수를 검증해야 합니다. 기본 프런트엔드 탐색 설정은 비어 있으며 배포판 빌드에서 구성할 수 있습니다."
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "팩토리와 네 가지 훅은 모두 동기식이며 비차단이어야 합니다. 대기 가능한 결과는 거부됩니다. API와 액터는 시작 시 설정된 팩토리를 로드한 후 요청을 처리하거나 워커를 등록합니다. 액터 훅은 액터의 이벤트 루프에서 실행됩니다."
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` 는 현재 요청이 아니라 서버 전체의 인증 설정을 나타냅니다. 확장 라우트 핸들러는 표준 API와 마찬가지로 반환 유형을 ``starlette.responses.Response`` 의 하위 클래스로 명시해야 합니다."
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "리소스 정책은 모델 배치, 할당 및 프로세스 생성에 적용되며 GPU 정리 전에 확인됩니다. 캐시 또는 다운로드만 수행하는 워커 배치는 필터링하지 않습니다."

@@ -1398,6 +1398,9 @@ class WorkerActor(xo.StatelessActor):
             logger.debug("Startup VRAM poll failed", exc_info=True)
 
     async def __post_create__(self):
+        from ..extensions import get_extensions
+
+        get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._supervisor_init_lock = asyncio.Lock()
 
@@ -2403,7 +2406,11 @@ class WorkerActor(xo.StatelessActor):
         balancing to work; deferring allocation until after preparation lets
         them all race for the same "idle" GPU snapshot instead.
         """
-        allowed_devices = await self._get_allowed_gpu_devices()
+        from ..extensions import get_extensions
+
+        allowed_devices = (
+            await self._get_allowed_gpu_devices() if get_extensions() else None
+        )
         env = {} if env is None else env
         devices = []
         env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
@@ -2453,6 +2460,19 @@ class WorkerActor(xo.StatelessActor):
         # live worker's vLLM processes on shared GPUs. Best-effort: any error
         # is logged and the launch proceeds (the timeout below is the backstop).
         _target_device_ints = [int(d) for d in devices] if devices else []
+        from ..extensions import get_extensions
+
+        # Preparation/download may outlive the admission snapshot. Revalidate
+        # before touching GPUs or spawning; outer launch cleanup releases any
+        # reservations if the distribution rejects this operation.
+        if get_extensions():
+            allowed_devices = await self._get_allowed_gpu_devices()
+            if allowed_devices is not None and not set(_target_device_ints) <= set(
+                allowed_devices
+            ):
+                raise ValueError(
+                    "Reserved GPUs are excluded by the worker resource policy"
+                )
         if _target_device_ints:
             try:
                 _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
@@ -2494,14 +2514,16 @@ class WorkerActor(xo.StatelessActor):
                     exc_info=True,
                 )
 
-        # Preparation/download may outlive the resource admission snapshot.
-        # Revalidate before process creation; outer launch cleanup releases any
-        # reservations if the distribution rejects this operation.
-        allowed_devices = await self._get_allowed_gpu_devices()
-        if allowed_devices is not None and not set(_target_device_ints) <= set(
-            allowed_devices
-        ):
-            raise ValueError("Reserved GPUs are excluded by the worker resource policy")
+        # VRAM reclamation can await for several seconds; admission may have
+        # changed during cleanup, so check again before creating the process.
+        if get_extensions():
+            allowed_devices = await self._get_allowed_gpu_devices()
+            if allowed_devices is not None and not set(_target_device_ints) <= set(
+                allowed_devices
+            ):
+                raise ValueError(
+                    "Reserved GPUs are excluded by the worker resource policy"
+                )
 
         # H3 + C: serialize sub-pool creation and bound it with a timeout.
         # H3: append_sub_pool has no internal lock; concurrent fork+exec

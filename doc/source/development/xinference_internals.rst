@@ -283,3 +283,9 @@ Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries befo
 A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes.
 
 The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build.
+
+Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop.
+
+``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API.
+
+Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement.

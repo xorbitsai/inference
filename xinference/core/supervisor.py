@@ -901,6 +901,9 @@ class SupervisorActor(xo.StatelessActor):
                 )
 
     async def __post_create__(self):
+        from ..extensions import get_extensions
+
+        get_extensions()
         self._uptime = time.time()
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -1649,7 +1652,10 @@ class SupervisorActor(xo.StatelessActor):
         return max_gpu_count
 
     async def _choose_worker(
-        self, available_workers: Optional[List[str]] = None
+        self,
+        available_workers: Optional[List[str]] = None,
+        *,
+        require_resource_admission: bool = False,
     ) -> xo.ActorRefType["WorkerActor"]:
         from ..extensions import get_extensions
 
@@ -1660,10 +1666,15 @@ class SupervisorActor(xo.StatelessActor):
         for worker_addr, worker in self._worker_address_to_worker.items():
             if available_workers and worker_addr not in available_workers:
                 continue
-            if get_extensions():
+            if require_resource_admission and get_extensions():
                 try:
                     self.get_worker_resource_policy(worker_addr)
-                except Exception:
+                except Exception as error:
+                    logger.warning(
+                        "Worker %s rejected during launch placement: %s",
+                        worker_addr,
+                        error,
+                    )
                     continue
             running_model_count = await worker.get_model_count()
             if (
@@ -3580,13 +3591,14 @@ class SupervisorActor(xo.StatelessActor):
                             )
                             continue
                         if isinstance(alloc, Exception):
-                            logger.debug(
+                            from ..extensions import get_extensions
+
+                            log = logger.warning if get_extensions() else logger.debug
+                            log(
                                 "Failed to fetch GPU allocation snapshot from worker %s: %s",
                                 w_ref.address,
                                 alloc,
                             )
-                            from ..extensions import get_extensions
-
                             if get_extensions():
                                 continue
                             alloc = None
@@ -3940,7 +3952,9 @@ class SupervisorActor(xo.StatelessActor):
                     )
                     worker_refs: List[xo.ActorRefType["WorkerActor"]] = []
                     for i_worker in range(n_worker):
-                        worker_ref = await self._choose_worker(remaining_workers)
+                        worker_ref = await self._choose_worker(
+                            remaining_workers, require_resource_admission=True
+                        )
                         if worker_ref.address in remaining_workers:
                             remaining_workers.remove(worker_ref.address)
                         self._model_uid_to_replica_info[
@@ -4714,6 +4728,7 @@ class SupervisorActor(xo.StatelessActor):
                     await self._handle_dead_worker(address)
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
+                    self._extension_worker_resources.pop(address, None)
                     self._discard_worker_metadata(address)
                     self._clear_worker_model_gpu_memory(address)
                 if dead_nodes:
@@ -4793,6 +4808,7 @@ class SupervisorActor(xo.StatelessActor):
                             await self._handle_dead_worker(address)
                             self._worker_status.pop(address, None)
                             self._worker_address_to_worker.pop(address, None)
+                            self._extension_worker_resources.pop(address, None)
                             self._discard_worker_metadata(address)
                             self._clear_worker_model_gpu_memory(address)
                             self._schedule_autostart()
@@ -5011,7 +5027,8 @@ class SupervisorActor(xo.StatelessActor):
                 )
                 continue
             if isinstance(alloc, Exception):
-                logger.debug(
+                log = logger.warning if get_extensions() else logger.debug
+                log(
                     "Failed to fetch GPU allocation snapshot from worker %s: %s",
                     worker_ref.address,
                     alloc,
@@ -6303,12 +6320,34 @@ class SupervisorActor(xo.StatelessActor):
         )
         from ..extensions import get_extensions
 
-        if get_extensions():
-            resources = await worker_ref.get_extension_resources()
-            expected = {extension.name for extension in get_extensions()}
-            if set(resources.get("extensions", {})) != expected:
+        expected = {extension.name for extension in get_extensions()}
+        try:
+            try:
+                resources = await worker_ref.get_extension_resources()
+            except AttributeError as error:
+                # Older upstream workers have no extension metadata RPC. Accept
+                # them only when this supervisor also has no extensions.
+                if "get_extension_resources" not in str(error):
+                    raise
+                if expected:
+                    raise RuntimeError(
+                        "Worker and supervisor extensions must match: "
+                        "worker does not support extensions"
+                    ) from error
+                resources = None
+            if set((resources or {}).get("extensions", {})) != expected:
                 raise RuntimeError("Worker and supervisor extensions must match")
+        except Exception:
+            # Rejected re-registration must not retain the old process's
+            # registration or extension inventory at this address.
+            self._worker_address_to_worker.pop(worker_address, None)
+            self._extension_worker_resources.pop(worker_address, None)
+            self._discard_worker_metadata(worker_address)
+            raise
+        if resources is not None:
             self._extension_worker_resources[worker_address] = resources
+        else:
+            self._extension_worker_resources.pop(worker_address, None)
         self._worker_address_to_worker[worker_address] = worker_ref
 
         # Refresh static node metadata on every registration. Clear and cancel
@@ -6441,6 +6480,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         self._worker_status.pop(worker_address, None)
+        self._extension_worker_resources.pop(worker_address, None)
         self._discard_worker_metadata(worker_address)
         self._clear_worker_model_gpu_memory(worker_address)
         self._invalidate_list_models_debounce_cache()

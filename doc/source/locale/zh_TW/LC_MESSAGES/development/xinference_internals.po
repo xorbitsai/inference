@@ -680,3 +680,15 @@ msgstr "工廠回傳的物件須包含唯一的 ``name``、``api_version = 1`` �
 #: ../../development/xinference_internals.rst
 msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
 msgstr "Supervisor 驗證 Worker 擴充是否一致，並向資源篩選器提供目前在線的 Worker 清單。篩選器可縮小可見 GPU 索引範圍，或拋出例外拒絕准入，包括 CPU 模型啟動。資源分配與程序建立皆檢查策略，涵蓋準備與復原路徑。具名控制操作在 Supervisor 執行；擴充必須驗證操作名稱與參數。預設前端導覽設定為空，發行版建置可組合自己的設定。"
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "工廠和全部四個 hook 必須同步且不阻塞；傳回可等待物件會被拒絕。API 和 Actor 在啟動時載入設定的工廠，之後才處理請求或註冊 Worker。Actor hook 在 Actor 的事件迴圈上執行。"
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` 表示伺服器整體的驗證設定，而非目前請求的驗證狀態。擴充路由處理函式必須如標準 API 一樣，將傳回型別標註為 ``starlette.responses.Response`` 的子類別。"
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "資源策略用於模型排程、分配和程序建立，並在 GPU 清理前檢查。僅快取或下載的 Worker 排程不受此篩選。"

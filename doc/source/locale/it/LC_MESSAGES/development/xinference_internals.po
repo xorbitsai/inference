@@ -795,3 +795,15 @@ msgstr "Una factory restituisce un oggetto con ``name`` univoco, ``api_version =
 #: ../../development/xinference_internals.rst
 msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
 msgstr "Il Supervisor verifica che le estensioni dei Worker coincidano e fornisce ai filtri i Worker attivi. I filtri possono limitare gli indici GPU visibili o sollevare un’eccezione per negare l’ammissione, inclusi gli avvii CPU. Allocazione e creazione dei processi verificano la politica, comprese preparazione e ripristino. Le operazioni di controllo nominate vengono eseguite sul Supervisor; le estensioni devono validare nomi e parametri. La navigazione frontend predefinita è vuota e può essere composta durante la build della distribuzione."
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "Le factory e tutti e quattro gli hook devono essere sincroni e non bloccanti; i risultati awaitable vengono rifiutati. API e attori caricano le factory configurate all’avvio, prima di servire richieste o registrare worker. Gli hook dell’attore vengono eseguiti nel suo ciclo di eventi."
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` descrive la configurazione di autenticazione del server, non la richiesta corrente. Come nell’API standard, i gestori delle route di estensione devono annotare una sottoclasse di ``starlette.responses.Response`` come tipo restituito."
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "Le politiche delle risorse si applicano al posizionamento dei modelli, all’allocazione e alla creazione dei processi, con una verifica prima della pulizia GPU. Non filtrano il posizionamento dei worker per sole operazioni di cache o download."
