@@ -43,14 +43,17 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
       NO_WEB_UI: '1'
-      UV_TOOL_DIR: ${{ runner.temp }}/xinference-tools
-      UV_TOOL_BIN_DIR: ${{ runner.temp }}/xinference-bin
       XINFERENCE_BACKEND: cpu
       XINFERENCE_START: '0'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Configure isolated tool paths
+        shell: bash
+        run: |
+          echo "UV_TOOL_DIR=$RUNNER_TEMP/xinference-tools" >> "$GITHUB_ENV"
+          echo "UV_TOOL_BIN_DIR=$RUNNER_TEMP/xinference-bin" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v6
         with:
           version: '0.11.26'
