@@ -158,14 +158,14 @@ class DeepseekV3_1ToolParser(ToolParser):
                 # In tool call mode, we suppress output until we find a complete tool call
                 return None
 
-            # Check for potential start of new pattern
-            for i in range(1, len(new_pattern_start)):
-                prefix = new_pattern_start[:i]
-                if current_text.endswith(prefix):
-                    return None
-
-            # No tool call detected and not forming one, return delta text as regular content
-            return (delta_text, None, None)
+            # No tool call yet. Hold back a trailing piece that may start the
+            # tool calls token, and release it once it turns out to be text.
+            content = self._plain_text_delta(
+                current_text, delta_text, [new_pattern_start]
+            )
+            if content is None:
+                return None if delta_text else (delta_text, None, None)
+            return (content, None, None)
 
         except json.JSONDecodeError as e:
             logger.error("JSON decode error in streaming tool call extraction: %s", e)

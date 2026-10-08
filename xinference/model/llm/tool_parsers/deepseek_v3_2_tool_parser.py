@@ -172,12 +172,12 @@ class DeepseekV3_2ToolParser(ToolParser):
                     self._use_dsml = self._detect_format(current_text)
                     self._build_regexes(self._use_dsml)
                 else:
-                    # Still in plain-text region — check for partial start tokens
-                    for tok in self.tool_call_start_tokens:
-                        for i in range(1, len(tok)):
-                            if current_text.endswith(tok[:i]):
-                                return None
-                    return (delta_text, None, None) if delta_text else None
+                    # Still in plain-text region. Hold back a trailing partial
+                    # start token and release it once it turns out to be text.
+                    content = self._plain_text_delta(
+                        current_text, delta_text, self.tool_call_start_tokens
+                    )
+                    return (content, None, None) if content else None
 
             # Inside tool-call region: check for newly completed invokes
             complete_invokes = self.invoke_complete_regex.findall(current_text)
