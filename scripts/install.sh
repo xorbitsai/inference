@@ -19,7 +19,9 @@ port="${XINFERENCE_PORT:-9997}"
 case "$start" in 0|1) ;; *) fail 'XINFERENCE_START must be 0 or 1.' ;; esac
 case "$service" in none|user|system) ;; *) fail 'XINFERENCE_SERVICE must be none, user, or system.' ;; esac
 case "$port" in ''|*[!0-9]*) fail 'XINFERENCE_PORT must be an integer.' ;; esac
-[ "$port" -ge 1 ] && [ "$port" -le 65535 ] || fail 'XINFERENCE_PORT must be between 1 and 65535.'
+if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+  fail 'XINFERENCE_PORT must be between 1 and 65535.'
+fi
 if [ "$service" = system ] && { [ "$(id -u)" -ne 0 ] || [ -n "${SUDO_USER:-}" ]; }; then
   fail 'System service installation requires root. Install normally first, then run xinference service --system install --start with sudo and an absolute command path.'
 fi

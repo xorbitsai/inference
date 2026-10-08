@@ -399,7 +399,11 @@ def test_shell_installer_uses_persistent_environment(tmp_path, mode):
         )
         path.chmod(0o755)
     env = dict(
-        os.environ,
+        {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("XINFERENCE_")
+        },
         PATH=str(binaries) + os.pathsep + os.environ["PATH"],
         XINFERENCE_SERVICE=mode,
         XINFERENCE_START="1",
