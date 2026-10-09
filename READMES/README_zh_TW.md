@@ -143,10 +143,6 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 
 [安裝指南](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
-服務啟動後，在瀏覽器中造訪 [http://localhost:9997](http://localhost:9997) 開啟 Web 介面。
-
-![web UI](../assets/screenshot.png)
-
 ### Docker
 
 具有 NVIDIA GPU 的使用者可以使用 Xinference Docker 映像。請在安裝前確認系統已安裝 Docker 與 CUDA。
@@ -172,6 +168,8 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 更多 K8s 選項請參閱文件。
+
+![web UI](../assets/screenshot.png)
 
 ## 參與專案
 

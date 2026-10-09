@@ -143,10 +143,6 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 
 [Guide d’installation](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Guide d’utilisation](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
-Une fois le serveur démarré, ouvrez l’interface Web à l’adresse [http://localhost:9997](http://localhost:9997).
-
-![web UI](../assets/screenshot.png)
-
 ### Docker
 
 Les utilisateurs de GPU NVIDIA peuvent utiliser l'[image Docker de Xinference](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html). Assurez-vous que Docker et CUDA sont installés avant de procéder à l'installation.
@@ -172,6 +168,8 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 Pour plus d'options K8s, veuillez consulter la documentation.
+
+![web UI](../assets/screenshot.png)
 
 ## Participer
 

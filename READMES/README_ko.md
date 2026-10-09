@@ -143,10 +143,6 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 
 [설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
-서버가 실행되면 [http://localhost:9997](http://localhost:9997)에서 웹 UI를 엽니다.
-
-![web UI](../assets/screenshot.png)
-
 ### Docker
 
 NVIDIA GPU 사용자는 [Xinference Docker 이미지](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html)를 사용할 수 있습니다. 설치 전에 Docker 및 CUDA가 설치되어 있는지 확인하세요.
@@ -172,6 +168,8 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 자세한 K8s 옵션은 문서를 참조하세요.
+
+![web UI](../assets/screenshot.png)
 
 ## 기여하기
 
