@@ -98,8 +98,9 @@ msgid "``xavier_cache_bytes`` sets the deployment's shared CPU cache budget (def
 msgstr "``xavier_cache_bytes`` establece el presupuesto de caché CPU compartida del despliegue (predeterminado: ``536870912``, 512 MiB). Cada réplica SGLang también asigna sus propios pools GPU y de memoria del host HiCache. Para las réplicas normales, la expulsión o la indisponibilidad del almacenamiento se trata como un fallo de caché. Los espacios de nombres incluyen los pesos reales, el tokenizador, la configuración del modelo, la geometría KV y el formato del motor; aún no se pueden intercambiar cachés entre vLLM y SGLang."
 
 #: source/user_guide/vllm_enhancement.rst
-msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead; see :ref:`user_guide_pd_separation`. Cross-engine P/D is not yet supported."
-msgstr "Las réplicas SGLang normales comparten páginas CPU HiCache. Los roles prefill/decode explícitos usan transferencia GPU directa de Xavier; consulte :ref:`user_guide_pd_separation`. Aún no se admite P/D entre motores."
+msgid "Ordinary SGLang replicas share CPU HiCache pages. Explicit prefill/decode roles use Xavier GPU-to-GPU transfer instead. For same-engine or cross-engine P/D and per-replica engine settings, see :ref:`user_guide_pd_separation`."
+msgstr "Las réplicas SGLang ordinarias comparten páginas de HiCache en CPU. Los roles explícitos de prefill/decode usan en su lugar la transferencia de GPU a GPU de Xavier. Para P/D con el mismo motor o entre motores y la configuración del motor por réplica, consulte :ref:`user_guide_pd_separation`."
+
 #: ../../user_guide/vllm_enhancement.rst
 msgid "Xavier loads BF16 checkpoints as FP16 and emits a warning. Both weights and KV caches use FP16."
 msgstr "Xavier carga los puntos de control BF16 como FP16 y emite una advertencia. Tanto los pesos como las cachés KV usan FP16."

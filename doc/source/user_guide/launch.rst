@@ -6,6 +6,8 @@ Model Launching Instructions
 
 This document aims to provide a functional overview of model launching.
 
+.. _launch_recommendations:
+
 LLM launch recommendations
 ==========================
 
@@ -411,8 +413,12 @@ user confirms **Use as Template**, Xinference keeps the current model name,
 removes the previous model UID and history or automatic-startup metadata, and
 copies the remaining launch options into the form without starting a model.
 
+.. _launch_weight_cache_reload:
+
 Reconfigure without reloading weights
 =====================================
+
+.. versionadded:: v4.0.0
 
 Enable ``enable_weight_cache=true`` when launching a model, or select **Keep GPU weights for reload** in the deployment dialog. This opt-in feature requires vLLM 0.31.0+ or SGLang 0.5.21+, Linux with CUDA or ROCm, one worker, one replica, and fixed tensor parallelism. It is disabled by default, even on supported engine versions.
 

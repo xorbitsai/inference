@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 
 from docutils import nodes
+from sphinx.transforms import SphinxTransform
+from sphinx_tabs.tabs import SphinxTabsTab
 
 _doc_root = Path(__file__).resolve().parent.parent
 if str(_doc_root) not in sys.path:
@@ -62,6 +64,20 @@ exclude_patterns = []
 # i18n
 locale_dirs = ["locale/"]  # path is example but recommended.
 gettext_compact = False  # optional
+
+
+class _TranslatableTabLabels(SphinxTransform):
+    """Restore source metadata for plain labels before Sphinx translates them."""
+
+    default_priority = 19
+
+    def apply(self, **kwargs: object) -> None:
+        for node in self.document.findall(SphinxTabsTab):
+            if not node.source and all(
+                isinstance(child, nodes.Text) for child in node.children
+            ):
+                node.rawsource = node.rawsource or node.astext()
+                node.source = self.document["source"]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -280,6 +296,8 @@ def _log_doc_progress(app, docname, source):
 
 
 def setup(app):
+    app.add_transform(_TranslatableTabLabels)
+    app.add_message_catalog("sphinx", str(_doc_root / "source" / "locale"))
     app.connect("config-inited", _apply_locale_theme_options)
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
     app.connect("source-read", _log_doc_progress)

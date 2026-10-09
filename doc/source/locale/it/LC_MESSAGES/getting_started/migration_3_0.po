@@ -19,8 +19,8 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/migration_3_0.rst:5
-msgid "Migrating to Xinference 3.0"
-msgstr "Migrazione a Xinference 3.0"
+msgid "Migrating to Xinference 3.0+"
+msgstr "Migrazione a Xinference 3.0+"
 
 #: ../../source/getting_started/migration_3_0.rst:7
 msgid ""

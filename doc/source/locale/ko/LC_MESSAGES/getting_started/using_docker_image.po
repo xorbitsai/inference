@@ -225,6 +225,18 @@ msgstr ""
 "<home_path>/.cache/huggingface와 <home_path>/.cache/modelscope에 위치합니다. 사용되는 "
 "명령어는 다음과 같습니다:"
 
+#: ../../source/getting_started/using_docker_image.rst:55
+msgid ""
+"For offline deployments that install engine dependencies into per-model "
+"virtual environments at model launch time, use the Docker Compose "
+"``offline`` profile to provide a private PyPI mirror. See :ref:`Docker "
+"Compose offline deployment <docker_compose_offline>` for image preparation "
+"and dependency source configuration."
+msgstr ""
+"오프라인 환경에서 모델을 시작할 때 모델별 가상 환경에 엔진 의존성을 설치하는 경우, Docker Compose의 ``offline`` "
+"프로필로 사설 PyPI 미러를 제공하세요. 이미지 준비 및 의존성 패키지 소스 설정 방법은 :ref:`Docker Compose 오프라인"
+" 배포 <docker_compose_offline>` 를 참조하세요."
+
 #~ msgid ""
 #~ "For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. "
 #~ "(Xinference version should be between v1.8.1 and v1.15.0)"

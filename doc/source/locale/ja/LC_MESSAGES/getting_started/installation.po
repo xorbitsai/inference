@@ -37,47 +37,6 @@ msgstr ""
 "モデルの仮想環境は、対応するエンジンの依存関係を必要に応じてインストールします。バックエンドを手動でインストールするには、対応する extra "
 "を使用してください。:ref:`inference_backend` を参照してください。"
 
-#: ../../source/getting_started/installation.rst:14
-msgid ""
-"Due to irreconcilable package dependency conflicts between vLLM and "
-"sglang, we have removed sglang from the all extra. If you want to use "
-"sglang, please install it separately via ``pip install "
-"'xinference[sglang]'``."
-msgstr ""
-"vllm と sglang はパッケージ依存関係の調整ができないため、all から sglang を削除しました。sglang "
-"を使用する場合は、``pip install 'xinference[sglang]'`` を実行してください。"
-
-#: ../../source/getting_started/installation.rst:17
-msgid "Several usage scenarios require special attention."
-msgstr "特定の使用シーンでは特に注意が必要です。"
-
-#: ../../source/getting_started/installation.rst:19
-msgid "**GGUF format** with **llama.cpp engine**"
-msgstr "**GGUF形式** を **llama.cppエンジン** と組み合わせて使用する"
-
-#: ../../source/getting_started/installation.rst:21
-msgid ""
-"In this situation, it's advised to install its dependencies manually "
-"based on your hardware specifications to enable acceleration. For more "
-"details, see the :ref:`installation_gguf` section."
-msgstr ""
-"この場合、お使いのハードウェア仕様に基づき、手動で依存関係をインストールしてアクセラレーションを有効にすることを推奨します。詳細は "
-":ref:`installation_gguf` セクションを参照してください。"
-
-#: ../../source/getting_started/installation.rst:23
-msgid "**AWQ or GPTQ** format with **transformers engine**"
-msgstr "**AWQ または GPTQ 形式** を **transformers エンジン** と組み合わせて使用する"
-
-#: ../../source/getting_started/installation.rst:25
-msgid "**This section is added in v1.6.0.**"
-msgstr "**本セクションの内容は v1.6.0 で新たに追加されました。**"
-
-#: ../../source/getting_started/installation.rst:27
-msgid ""
-"This is because the dependencies at this stage require special options "
-"and are difficult to install. Please run command below in advance"
-msgstr "これは、この段階の依存関係に特別なオプションが必要で、インストールが困難なためです。事前に以下のコマンドを実行してください。"
-
 #: ../../source/getting_started/installation.rst:127
 msgid ""
 "These dependencies can change versions of shared packages such as "
@@ -87,21 +46,9 @@ msgstr ""
 "これらの依存関係によって、``transformers`` "
 "などの共有パッケージのバージョンが変わることがあります。必要なバックエンドの依存関係のみを、分離された環境にインストールしてください。"
 
-#: ../../source/getting_started/installation.rst:36
-msgid ""
-"If you want to install only the necessary backends, here's a breakdown of"
-" how to do it."
-msgstr "必要な依存関係のみをインストールしたい場合、以下の手順で詳細に操作します。"
-
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
 msgstr "Transformers エンジン"
-
-#: ../../source/getting_started/installation.rst:42
-msgid ""
-"PyTorch (transformers) supports the inference of most state-of-art "
-"models. It is the default backend for models in PyTorch format::"
-msgstr "PyTorch（transformers）エンジンは、ほとんどすべての最新モデルをサポートしています。これは、Pytorchモデルがデフォルトで使用するエンジンです::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -114,13 +61,6 @@ msgid ""
 msgstr ""
 "Transformersエンジンは ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` "
 "形式をサポートしています。"
-
-#: ../../source/getting_started/installation.rst:49
-msgid ""
-"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If "
-"you see an import error, please upgrade ``transformers`` to a newer "
-"version."
-msgstr "FP4形式は、FPQuantConfigをサポートするtransformersライブラリが必要です。インポートエラーが発生した場合は、transformersを新しいバージョンにアップグレードしてください。"
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -334,10 +274,6 @@ msgstr ""
 msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:104
-msgid "To install Xinference and vLLM::"
-msgstr "xinference と vLLM をインストールする::"
-
 #: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp エンジン"
@@ -359,12 +295,6 @@ msgid ""
 msgstr ""
 "Xinference v1.5.0以降、``llama-cpp-python``は非推奨となりました。Xinference "
 "v1.6.0以降では、このバックエンドは削除されました。"
-
-#: ../../source/getting_started/installation.rst:127
-#: ../../source/getting_started/installation.rst:140
-#: ../../source/getting_started/installation.rst:149
-msgid "Initial setup::"
-msgstr "初期手順::"
 
 #: ../../source/getting_started/installation.rst:131
 msgid ""
@@ -401,6 +331,162 @@ msgstr "他のプラットフォーム"
 #: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#: ../../source/getting_started/installation.rst:6
+msgid "Install Xinference with ``pip`` on Linux, Windows, or macOS::"
+msgstr "Linux、Windows、macOS では ``pip`` で Xinference をインストールします::"
+
+#: ../../source/getting_started/installation.rst:11
+msgid "Automatic engine installation"
+msgstr "エンジンの自動インストール"
+
+#: ../../source/getting_started/installation.rst:12
+msgid ""
+"Model virtual environments are enabled by default. When you launch a "
+"model, Xinference prepares a virtual environment for that model and engine"
+" and automatically installs the dependencies declared by its "
+"configuration. You do not need to install ``xinference[all]`` or an engine"
+" extra first."
+msgstr ""
+"モデル仮想環境はデフォルトで有効です。モデルの起動時に、Xinference "
+"はそのモデルとエンジン用の仮想環境を準備し、設定で宣言された依存パッケージを自動的にインストールします。事前に "
+"``xinference[all]`` やエンジンの extra をインストールする必要はありません。"
+
+#: ../../source/getting_started/installation.rst:17
+msgid ""
+"This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and"
+" MLX. Choose a supported engine when launching the model; Xinference "
+"manages its Python dependencies. The engine's operating system, hardware, "
+"and driver requirements still apply."
+msgstr ""
+"これは Transformers、vLLM、SGLang、llama.cpp、MLX "
+"などのエンジンに適用されます。モデル起動時に対応するエンジンを選択すると、Xinference が Python "
+"の依存パッケージを管理します。エンジンの OS、ハードウェア、ドライバーの要件は引き続き満たす必要があります。"
+
+#: ../../source/getting_started/installation.rst:22
+msgid ""
+"The first launch may take longer while packages are downloaded and "
+"installed. Later launches reuse the prepared environment when its "
+"dependencies are unchanged. The Worker needs access to the configured "
+"package indexes, or a prepared offline package source. See "
+":ref:`model_virtual_env` for dependency overrides and local wheel sources,"
+" and :ref:`using_docker_compose` for offline deployments."
+msgstr ""
+"初回起動ではパッケージをダウンロードしてインストールするため、時間がかかる場合があります。依存パッケージに変更がなければ、次回以降は準備済みの環境を再利用します。Worker"
+" "
+"は設定済みのパッケージインデックス、または事前に準備したオフラインのパッケージソースにアクセスできる必要があります。依存パッケージの上書きとローカル"
+" wheel ソースは :ref:`model_virtual_env`、オフラインデプロイは "
+":ref:`using_docker_compose` を参照してください。"
+
+#: ../../source/getting_started/installation.rst:28
+msgid ""
+"The following sections describe the available engines. Manual installation"
+" is covered in :ref:`manual_backend_installation` for deployments that "
+"disable model virtual environments."
+msgstr ""
+"以下のセクションでは利用可能なエンジンを紹介します。モデル仮想環境を無効にするデプロイでの手動インストールは "
+":ref:`manual_backend_installation` を参照してください。"
+
+#: ../../source/getting_started/installation.rst:37
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models."
+" It is the default backend for models in PyTorch format."
+msgstr ""
+"PyTorch（transformers）は最先端モデルの多くの推論をサポートし、PyTorch 形式のモデルのデフォルトバックエンドです。"
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use "
+":ref:`model_virtual_env` to override dependencies for a model when needed."
+msgstr ""
+"FP4 形式には ``FPQuantConfig`` をサポートする ``transformers`` "
+"が必要です。モデルの依存パッケージを上書きする必要がある場合は :ref:`model_virtual_env` を参照してください。"
+
+#: ../../source/getting_started/installation.rst:101
+msgid ""
+"With model virtual environments enabled, Xinference installs the "
+"configured vLLM dependencies at launch. No separate vLLM or FlashInfer "
+"installation command is required for this path."
+msgstr ""
+"モデル仮想環境が有効な場合、Xinference は起動時に設定済みの vLLM 依存パッケージをインストールします。この手順では、vLLM や "
+"FlashInfer のインストールコマンドを別途実行する必要はありません。"
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"Select ``SGLang`` as the engine when launching a supported model. "
+"Xinference installs the configured SGLang dependencies in that model's "
+"virtual environment; you do not need to install ``xinference[sglang]`` "
+"separately."
+msgstr ""
+"対応モデルを起動するときに、エンジンとして ``SGLang`` を選択してください。Xinference がそのモデルの仮想環境に設定済みの "
+"SGLang 依存パッケージをインストールするため、``xinference[sglang]`` を別途インストールする必要はありません。"
+
+#: ../../source/getting_started/installation.rst:136
+msgid ""
+"Xinference installs the configured MLX dependencies automatically when you"
+" launch a supported model with the MLX engine."
+msgstr "対応モデルを MLX エンジンで起動すると、Xinference が設定済みの MLX 依存パッケージを自動的にインストールします。"
+
+#: ../../source/getting_started/installation.rst:140
+msgid "Optional components"
+msgstr "オプションのコンポーネント"
+
+#: ../../source/getting_started/installation.rst:144
+msgid ""
+"Token Router is an optional component for routing requests across model "
+"replicas. It is not required to install Xinference or launch models. If "
+"your deployment uses the Token Router Runtime or Router Agent, install the"
+" ``router`` extra in the environment where those processes run::"
+msgstr ""
+"Token Router はモデルのレプリカ間でリクエストをルーティングするオプションのコンポーネントです。Xinference "
+"のインストールやモデルの起動には必要ありません。Token Router Runtime または Router Agent "
+"を使用する場合は、それらのプロセスを実行する環境に ``router`` extra をインストールしてください::"
+
+#: ../../source/getting_started/installation.rst:151
+msgid "When installing from a source checkout, use::"
+msgstr "ソースのチェックアウトからインストールする場合は、次を使用します::"
+
+#: ../../source/getting_started/installation.rst:155
+msgid ""
+"Installing the package creates the ``xinference-router`` and ``xinference-"
+"router-agent`` commands. Installing the extra provides their dependencies;"
+" start the required processes separately."
+msgstr ""
+"パッケージをインストールすると、``xinference-router`` と ``xinference-router-agent`` "
+"コマンドが作成されます。extra のインストールは依存パッケージを提供します。必要なプロセスは別途起動してください。"
+
+#: ../../source/getting_started/installation.rst:162
+msgid "Manual backend installation"
+msgstr "バックエンドの手動インストール"
+
+#: ../../source/getting_started/installation.rst:163
+msgid ""
+"If you disable model virtual environments with "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model "
+"launch, install the required backend dependencies in the Xinference Worker"
+" environment yourself. Engine extras such as ``transformers``, ``vllm``, "
+"``sglang``, ``llama_cpp``, and ``mlx`` remain available for this use case,"
+" for example:"
+msgstr ""
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` またはモデル起動時の ``--disable-virtual-env`` "
+"でモデル仮想環境を無効にする場合は、必要なバックエンド依存パッケージを Xinference Worker "
+"環境に手動でインストールしてください。この用途では "
+"``transformers``、``vllm``、``sglang``、``llama_cpp``、``mlx`` などのエンジン extra "
+"を引き続き使用できます。例："
+
+#: ../../source/getting_started/installation.rst:173
+msgid ""
+"Some hardware or quantization configurations require additional "
+"installation steps. Follow the selected backend's installation "
+"instructions for compatible packages and GPU support. Avoid installing "
+"unrelated engines together, since their dependencies may conflict."
+msgstr ""
+"ハードウェアや量子化の設定によっては、追加のインストール手順が必要です。選択したバックエンドのインストール手順に従い、互換性のあるパッケージと "
+"GPU サポートを設定してください。依存パッケージが競合する可能性があるため、無関係なエンジンをまとめてインストールしないでください。"
+
+#: ../../source/getting_started/installation.rst:143
+msgid "Token Router"
+msgstr "Token Router"
 
 #~ msgid ""
 #~ "``code-llama``, ``code-llama-instruct``, "
@@ -445,9 +531,9 @@ msgstr ""
 #~ "GPU アクセラレーションを有効にするための詳細な ``xllamacpp`` "
 #~ "インストール手順については、以下を参照してください：https://github.com/xorbitsai/xllamacpp"
 
-#: ../../source/getting_started/installation.rst:42
-msgid "One-command installation and startup"
-msgstr "ワンコマンドでのインストールと起動"
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "ワンコマンドインストール"
 
 #: ../../source/getting_started/installation.rst:43
 msgid ""
@@ -704,3 +790,22 @@ msgstr ""
 "Windows のシステム用ワンコマンドインストーラーはインストールユーザーの uv ツールストアを使用し、実行環境やデータの ACL "
 "を制限しません。この既定の Python インストールは管理者だけが書き込めるものではありません。LocalSystem サービスを開始する前に "
 "Python（パッケージを含む）とモデルデータを保護するか、フォアグラウンドモードを使用してください。これらを変更できるアカウントはサービスアカウントの権限でコードを実行できます。"
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "インストールと起動"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "pip によるインストール"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"Xinference は :ref:`ワンコマンドインストーラー <one_line_install>` または :ref:`pip "
+"<pip_installation>` でインストールできます。管理されたツール環境を使う場合はインストーラーを、既存の Python 環境を使う場合は"
+" pip を選択してください。"

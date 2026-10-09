@@ -129,6 +129,14 @@ Currently, xinference supports the following inference engines:
 
 About the details of these inference engine, please refer to :ref:`here <inference_backend>`.
 
+.. tip::
+
+   .. versionadded:: v3.5.0
+
+   Use **Recommend configuration** in the Web UI's model deployment dialog to
+   fill in a suggested engine, format, size, and quantization. See
+   :ref:`launch recommendations <launch_recommendations>` for details.
+
 Note that when launching a LLM model, the ``model_format`` and ``quantization`` of the model you want to launch
 is closely related to the inference engine.
 

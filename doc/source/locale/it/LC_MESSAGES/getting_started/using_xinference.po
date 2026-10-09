@@ -647,6 +647,17 @@ msgid ""
 msgstr ""
 ":ref:`Scegliere il motore di inferenza corretto <user_guide_backends>`"
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"Nella finestra di deployment del modello dell’interfaccia Web, fare clic "
+"su **Consiglia configurazione** per compilare i valori suggeriti di "
+"motore, formato, dimensione e quantizzazione. Per i dettagli, consultare "
+":ref:`le raccomandazioni per l’avvio <launch_recommendations>`."
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 

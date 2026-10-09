@@ -20,16 +20,14 @@ Solution
 
 To address this issue, we have introduced the **Model Virtual Environment** feature.
 
-Install requirements for this functionality via
+Model virtual environments are included in the base Xinference installation:
 
 .. code-block:: bash
 
-    # all
-    pip install 'xinference[all]'
-    # or virtualenv
-    pip install 'xinference[virtualenv]'
+    pip install xinference
 
-Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``.
+The feature is enabled by default. You do not need to install engine extras
+before launching a model.
 
 Example usage:
 

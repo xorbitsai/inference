@@ -1,7 +1,7 @@
 .. _migration_3_0:
 
 ============================
-Migrating to Xinference 3.0
+Migrating to Xinference 3.0+
 ============================
 
 Xinference 3.0 modernizes authentication, the web UI, and container

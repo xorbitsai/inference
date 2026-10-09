@@ -641,6 +641,17 @@ msgid ""
 msgstr ""
 ":ref:`Selecionando o mecanismo de inferência correto <user_guide_backends>`"
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"Na caixa de diálogo de implantação do modelo da interface Web, clique em "
+"**Recomendar configuração** para preencher os valores sugeridos de "
+"mecanismo, formato, tamanho e quantização. Consulte :ref:`as recomendações"
+" de inicialização <launch_recommendations>` para obter detalhes."
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 

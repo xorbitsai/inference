@@ -55,9 +55,9 @@ msgstr ""
 "Xinference。使用以下命令拉起本地的 Xinference 服务："
 
 #: ../../source/getting_started/using_xinference.rst:23
-#: ../../source/getting_started/using_xinference.rst:65
+#: ../../source/getting_started/using_xinference.rst:73
 msgid "shell"
-msgstr "shell"
+msgstr "命令行"
 
 #: ../../source/getting_started/using_xinference.rst:29
 #: ../../source/getting_started/using_xinference.rst:71
@@ -93,13 +93,12 @@ msgstr ""
 
 #: ../../source/getting_started/using_xinference.rst:52
 msgid ""
-"You can visit the web UI at `http://127.0.0.1:9997/ui "
-"<http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs "
-"<http://127.0.0.1:9997/docs>`_ to inspect the API docs."
+"You can visit the web UI at `http://127.0.0.1:9997 <http://127.0.0.1:9997>`_"
+" and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_ to "
+"inspect the API docs."
 msgstr ""
-"可以通过访问 `http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ 来"
-"使用 UI，访问 `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_ "
-"来查看 API 文档。"
+"访问 `http://127.0.0.1:9997 <http://127.0.0.1:9997>`_ 即可使用 Web UI；访问 "
+"`http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_ 可以查看 API 文档。"
 
 #: ../../source/getting_started/using_xinference.rst:55
 msgid ""
@@ -135,25 +134,25 @@ msgstr ""
 "自 ``v0.11.0`` 版本开始，在加载 LLM 模型之前，你需要指定具体的推理引擎。"
 "当前，Xinference 支持以下推理引擎："
 
-#: ../../source/getting_started/using_xinference.rst:116
+#: ../../source/getting_started/using_xinference.rst:124
 msgid "``vllm``"
-msgstr ""
+msgstr "``vllm``"
 
-#: ../../source/getting_started/using_xinference.rst:117
+#: ../../source/getting_started/using_xinference.rst:125
 msgid "``sglang``"
-msgstr ""
+msgstr "``sglang``"
 
-#: ../../source/getting_started/using_xinference.rst:118
+#: ../../source/getting_started/using_xinference.rst:126
 msgid "``llama.cpp``"
-msgstr ""
+msgstr "``llama.cpp``"
 
-#: ../../source/getting_started/using_xinference.rst:119
+#: ../../source/getting_started/using_xinference.rst:127
 msgid "``transformers``"
-msgstr ""
+msgstr "``transformers``"
 
-#: ../../source/getting_started/using_xinference.rst:120
+#: ../../source/getting_started/using_xinference.rst:128
 msgid "``MLX``"
-msgstr ""
+msgstr "``MLX``"
 
 #: ../../source/getting_started/using_xinference.rst:122
 msgid ""
@@ -218,9 +217,9 @@ msgstr ""
 msgid "Here are some recommendations on when to use which engine:"
 msgstr "关于何时使用什么引擎，以下是一些建议："
 
-#: ../../source/getting_started/using_xinference.rst:160
+#: ../../source/getting_started/using_xinference.rst:182
 msgid "**Linux**"
-msgstr ""
+msgstr "**Linux**"
 
 #: ../../source/getting_started/using_xinference.rst:162
 msgid ""
@@ -234,15 +233,15 @@ msgid ""
 " quantization options."
 msgstr "如果资源有限，可以考虑使用 **llama.cpp**，因为他提供了更多的量化选项。"
 
-#: ../../source/getting_started/using_xinference.rst:164
+#: ../../source/getting_started/using_xinference.rst:186
 msgid ""
-"For other cases, consider using **Transformers**, which supports nearly "
-"all models."
-msgstr "其他使用考虑使用 **Transformers**，它几乎支持所有的模型。"
+"For other cases, consider using **Transformers**, which supports nearly all "
+"models."
+msgstr "其他情况下，可以考虑使用 **Transformers**，它几乎支持所有模型。"
 
-#: ../../source/getting_started/using_xinference.rst:166
+#: ../../source/getting_started/using_xinference.rst:188
 msgid "**Windows**"
-msgstr ""
+msgstr "**Windows**"
 
 #: ../../source/getting_started/using_xinference.rst:168
 msgid ""
@@ -258,9 +257,9 @@ msgstr ""
 "其他时候推荐使用 **llama.cpp**，对于不支持的模型，选择使用 **Transformers"
 "**。"
 
-#: ../../source/getting_started/using_xinference.rst:171
+#: ../../source/getting_started/using_xinference.rst:193
 msgid "**Mac**"
-msgstr ""
+msgstr "**Mac**"
 
 #: ../../source/getting_started/using_xinference.rst:173
 msgid ""
@@ -280,37 +279,35 @@ msgstr ""
 msgid "Run qwen2.5-instruct"
 msgstr "运行 qwen2.5-instruct"
 
-#: ../../source/getting_started/using_xinference.rst:180
+#: ../../source/getting_started/using_xinference.rst:202
 msgid ""
 "Let's start by running a built-in model: ``qwen2.5-instruct``. When you "
 "start a model for the first time, Xinference will download the model "
-"parameters from HuggingFace, which might take a few minutes depending on "
-"the size of the model weights. We cache the model files locally, so "
-"there's no need to redownload them for subsequent starts."
+"parameters from HuggingFace, which might take a few minutes depending on the"
+" size of the model weights. We cache the model files locally, so there's no "
+"need to redownload them for subsequent starts."
 msgstr ""
-"让我们来运行一个内置的 ``qwen2.5-instruct`` 模型。当你需要运行一个模型时"
-"，第一次运行是要从HuggingFace 下载模型参数，一般来说需要根据模型大小下载"
-"10到30分钟不等。当下载完成后，Xinference本地会有缓存的处理，以后再运行"
-"相同的模型不需要重新下载。"
+"让我们先运行一个内置模型：``qwen2.5-instruct``。首次启动模型时，Xinference 会从 HuggingFace "
+"下载模型参数。根据模型权重的大小，下载可能需要几分钟。模型文件会缓存在本地，后续启动时无需重新下载。"
 
-#: ../../source/getting_started/using_xinference.rst:185
+#: ../../source/getting_started/using_xinference.rst:207
 msgid ""
-"Xinference also allows you to download models from other sites. You can "
-"do this by setting an environment variable when launching Xinference. For"
-" example, if you want to download models from `modelscope "
+"Xinference also allows you to download models from other sites. You can do "
+"this by setting an environment variable when launching Xinference. For "
+"example, if you want to download models from `modelscope "
 "<https://modelscope.cn>`_, do the following:"
 msgstr ""
-"Xinference 也允许从其他模型托管平台下载模型。可以通过在拉起 Xinference 时"
-"指定环境变量，比如，如果想要从 ModelScope 中下载模型，可以使用如下命令："
+"Xinference 也支持从其他平台下载模型。启动 Xinference 时，可以通过环境变量指定下载来源。例如，从 `ModelScope "
+"<https://modelscope.cn>`_ 下载模型时，执行以下命令："
 
-#: ../../source/getting_started/using_xinference.rst:193
+#: ../../source/getting_started/using_xinference.rst:215
 msgid ""
-"We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. "
-"If not specified, Xinference will generate a unique ID. The default "
-"unique ID will be identical to the model name."
+"We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If "
+"not specified, Xinference will generate a unique ID. The default unique ID "
+"will be identical to the model name."
 msgstr ""
-"可以使用 ``--model-uid`` 或者 ``-u`` 参数指定模型的 UID，如果没有指定，"
-"Xinference 会随机生成一个 ID。默认的 ID 和模型名保持一致。``:"
+"可以使用 ``--model-uid`` 或 ``-u`` 参数指定模型的 UID。如果没有指定，Xinference 会生成一个唯一 "
+"ID，默认与模型名称相同。"
 
 #: ../../source/getting_started/using_xinference.rst:232
 msgid ""
@@ -329,15 +326,14 @@ msgstr "在运行模型时，`gpu_memory_utilization=0.9` 会传到 vllm 后端�
 msgid "For more tips on model launching, refer to :ref:`launch`."
 msgstr "关于模型加载更多技巧，参考 :ref:`launch`。"
 
-#: ../../source/getting_started/using_xinference.rst:245
+#: ../../source/getting_started/using_xinference.rst:267
 msgid ""
-"Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once "
-"the model is running, we can try it out either via cURL, or via "
-"Xinference's python client:"
+"Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once the "
+"model is running, we can try it out either via cURL, or via Xinference's "
+"python client:"
 msgstr ""
-"到这一步，恭喜你已经成功通过 Xinference 将 ``qwen2.5-instruct`` 运行起来"
-"了。一旦这个模型在运行中，我们可以通过命令行、cURL 或者是 Python 代码来"
-"预支交互："
+"恭喜！你已经通过 Xinference 启动了 ``qwen2.5-instruct``。模型运行后，可以通过 cURL 或 Xinference 的 "
+"Python 客户端与它交互："
 
 #: ../../source/getting_started/using_xinference.rst:305
 msgid ""
@@ -376,19 +372,26 @@ msgstr ""
 "向量生成：`https://platform.openai.com/docs/api-reference/embeddings <"
 "https://platform.openai.com/docs/api-reference/embeddings>`_"
 
-msgid "Responses (stateless, used by Codex CLI): `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_. Refer to :ref:`responses client <openai_responses_client>` for more details."
-msgstr "Responses（无状态，Codex CLI 使用）： `https://platform.openai.com/docs/api-reference/responses <https://platform.openai.com/docs/api-reference/responses>`_ 。更多详情请参阅 :ref:`responses client <openai_responses_client>` 。"
+#: ../../source/getting_started/using_xinference.rst:351
+msgid ""
+"Responses (stateless, used by Codex CLI): "
+"`https://platform.openai.com/docs/api-reference/responses "
+"<https://platform.openai.com/docs/api-reference/responses>`_. Refer to "
+":ref:`responses client <openai_responses_client>` for more details."
+msgstr ""
+"Responses（无状态，供 Codex CLI 使用）：`https://platform.openai.com/docs/api-"
+"reference/responses <https://platform.openai.com/docs/api-"
+"reference/responses>`_。详情请参阅 :ref:`Responses 客户端 <openai_responses_client>`。"
 
-#: ../../source/getting_started/using_xinference.rst:329
+#: ../../source/getting_started/using_xinference.rst:353
 msgid ""
 "Xinference also supports Anthropic API via base url "
-"``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude "
-"Code and so forth. Refer to :ref:`anthropic client <anthropic_client>` "
-"for more details."
+"``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code "
+"and so forth. Refer to :ref:`anthropic client <anthropic_client>` for more "
+"details."
 msgstr ""
-"Xinference 还支持通过基础 URL ``http://127.0.0.1:9997/anthropic`` 调用 "
-"Anthropic API，你可以在 Claude Code 等环境中使用 Xinference。更多详情"
-"请参阅 :ref:`anthropic client <anthropic_client>`。"
+"Xinference 还支持 Anthropic API，基础 URL 为 ``http://127.0.0.1:9997/anthropic``，可在"
+" Claude Code 等环境中使用。详情请参阅 :ref:`Anthropic 客户端 <anthropic_client>`。"
 
 #: ../../source/getting_started/using_xinference.rst:333
 msgid "Manage Models"
@@ -563,15 +566,24 @@ msgstr ""
 "恭喜你，已经初步掌握了 Xinference 的用法！为了帮助你更好地使用工具，下面"
 "是其他的一些文档和指导资源："
 
-#: ../../source/getting_started/using_xinference.rst:490
+#: ../../source/getting_started/using_xinference.rst:514
 msgid ""
 ":ref:`How to Use Client APIs for Different Types of Models "
 "<user_guide_client_api>`"
-msgstr ":ref:`如何使用 Python 创建不同类型的模型 <user_guide_client_api>`"
+msgstr ":ref:`如何使用客户端 API 调用不同类型的模型 <user_guide_client_api>`"
 
 #: ../../source/getting_started/using_xinference.rst:492
 msgid ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
+
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"在 Web UI 的模型部署对话框中，点击 **推荐配置**，自动填写建议的引擎、格式、模型大小和量化配置。详情见 :ref:`模型启动推荐 "
+"<launch_recommendations>`。"
 
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
@@ -582,6 +594,19 @@ msgstr ":ref:`选择正确的推理引擎 <user_guide_backends>` "
 #~ "xprobe/xinference:<your_version>-cu129 xinference-local"
 #~ " -H 0.0.0.0 --log-level debug"
 #~ msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:57
+msgid ""
+"The web UI is a Next.js application bundled into the ``xinference`` package "
+"as a static export and served by the backend itself, so no Node.js runtime "
+"is required at runtime. When developing Xinference from a source checkout, "
+"build it once with ``cd frontend && npm ci && npm run build``, or work on "
+"the frontend live with ``npm run dev`` (see the \"Creating a development "
+"environment\" page)."
+msgstr ""
+"Web UI 基于 Next.js 开发，以静态导出文件的形式随 ``xinference`` 软件包分发，并由后端直接提供服务，因此运行时无需安装 "
+"Node.js。基于源码开发 Xinference 时，可执行 ``cd frontend && npm ci && npm run build`` "
+"构建 Web UI；开发前端时，也可执行 ``npm run dev`` 启动开发服务器（参见“创建开发环境”页面）。"
 
 #: ../../source/getting_started/using_xinference.rst:138
 msgid "For LLM, embedding and rerank models, engine discovery combines results from all registered workers. Engine names and parameter combinations retain their first-seen order, with duplicate combinations removed; an available engine takes precedence over another worker's unavailability message. Empty worker results are skipped, and local discovery is used if all results are empty. A worker query error fails the request instead of returning an incomplete capability list."
