@@ -146,37 +146,14 @@ Pour plus d'options K8s, veuillez consulter la documentation.
 
 ### Démarrage rapide
 
-Installez Xinference via pip :
+Installez et démarrez Xinference :
 
 ```bash
 pip install "xinference[all]"
+xinference-local
 ```
 
-L’[installateur en une commande](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prépare Python, installe le paquet de base dans un environnement uv isolé et démarre le serveur local. Utilisez `XINFERENCE_EXTRAS` pour préinstaller des moteurs optionnels ; les environnements de modèles installent aussi les dépendances des moteurs pris en charge à la demande.
-
-Linux/macOS:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
-
-Relancez l’installateur pour passer à la dernière version stable, ou définissez `XINFERENCE_VERSION` pour choisir une version. Il détecte un service géré existant, conserve sa configuration et les données des modèles et restaure l’ancien environnement si la mise à jour ou le démarrage échoue. Avec la même version, il conserve l’environnement et ne redémarre pas un service actif.
-
-Définissez `XINFERENCE_START=0` pour installer sans démarrer. Utilisez `XINFERENCE_SERVICE=user` sous Linux/macOS ou `XINFERENCE_SERVICE=system` sur les plateformes prises en charge pour enregistrer et démarrer un service. Le mode système utilise sudo sous Linux/macOS et nécessite un terminal administrateur sous Windows. Les installations pip/Conda/uv existantes peuvent utiliser `xinference service install --start` ; consultez le guide pour la configuration, les mises à jour et les permissions Windows.
-
-Démarrez une instance locale avec :
-
-```bash
-$ xinference-local
-```
-
-Ensuite, vous pouvez utiliser l'interface Web, cURL, la CLI ou le client Python.
+Pour l’installation en une commande, les mises à jour et les services, consultez le [guide d’installation](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) ; pour exécuter des modèles, le [guide d’utilisation](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally).
 
 ![web UI](../assets/screenshot.png)
 

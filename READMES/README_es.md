@@ -147,37 +147,14 @@ Más opciones de K8s en la documentación.
 
 ### Quickstart
 
-Instala Xinference con pip:
+Instala e inicia Xinference:
 
 ```bash
 pip install "xinference[all]"
+xinference-local
 ```
 
-El [instalador con un comando](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prepara Python, instala el paquete base en un entorno uv aislado e inicia el servidor local. Use `XINFERENCE_EXTRAS` para preinstalar motores opcionales; los entornos de modelos también instalan dependencias de motores compatibles cuando se necesitan.
-
-Linux/macOS:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
-
-Ejecute de nuevo el instalador para actualizar a la versión estable más reciente, o use `XINFERENCE_VERSION` para elegir una versión. Detecta un servicio gestionado existente, conserva sus ajustes y datos de modelos y restaura el entorno anterior si falla la actualización o el inicio del servicio. Si la versión no cambia, conserva el entorno y no reinicia un servicio en ejecución.
-
-Configure `XINFERENCE_START=0` para instalar sin iniciar. Use `XINFERENCE_SERVICE=user` en Linux/macOS o `XINFERENCE_SERVICE=system` en plataformas compatibles para registrar e iniciar un servicio. El modo de sistema usa sudo en Linux/macOS y requiere una terminal de administrador en Windows. Las instalaciones pip/Conda/uv existentes pueden usar `xinference service install --start`; consulte la guía para configuración, actualizaciones y permisos de Windows.
-
-Inicia una instancia local con:
-
-```bash
-$ xinference-local
-```
-
-Después podrás usar la Web UI, cURL, CLI o el cliente Python.
+Para instalación con un comando, actualizaciones y servicios, consulta la [guía de instalación](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install); para ejecutar modelos, la [guía de uso](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally).
 
 ![web UI](../assets/screenshot.png)
 
