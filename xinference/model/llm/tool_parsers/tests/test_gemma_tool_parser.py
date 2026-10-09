@@ -113,3 +113,51 @@ def test_unterminated_string_is_reported_as_text(parser):
 
     # unparsable blocks come back as content rather than a bogus tool call
     assert result == [(output, None, None)]
+
+
+def _stream(parser, deltas):
+    previous = [""]
+    content = ""
+    calls = []
+    for delta in deltas:
+        current = previous[-1] + delta
+        result = parser.extract_tool_calls_streaming(previous, current, delta)
+        previous[-1] = current
+        if result is None:
+            continue
+        events = result if isinstance(result, list) else [result]
+        for event in events:
+            text, name, args = event[:3]
+            if text:
+                content += text
+            if name:
+                calls.append((name, args))
+    return content, calls
+
+
+def test_streaming_second_tool_call_is_not_content(parser):
+    deltas = [
+        "<|tool_call>",
+        'call:get_weather{location:<|"|>上海<|"|>}',
+        "<tool_call|>",
+        "<|tool_call>",
+        'call:get_time{zone:<|"|>UTC<|"|>}',
+        "<tool_call|>",
+    ]
+    content, calls = _stream(parser, deltas)
+    assert content == ""
+    assert calls == [
+        ("get_weather", {"location": "上海"}),
+        ("get_time", {"zone": "UTC"}),
+    ]
+
+
+def test_streaming_keeps_text_around_tool_calls(parser):
+    deltas = [
+        "Checking. <|tool_call>",
+        'call:get_weather{location:<|"|>上海<|"|>}',
+        "<tool_call|> Done.",
+    ]
+    content, calls = _stream(parser, deltas)
+    assert content == "Checking.  Done."
+    assert calls == [("get_weather", {"location": "上海"})]
