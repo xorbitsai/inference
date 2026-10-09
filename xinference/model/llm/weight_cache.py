@@ -180,6 +180,13 @@ def validate_reload_patch(engine: str, patch: Dict[str, Any]) -> None:
             raise ValueError(f"Invalid value for {key}: expected {kind}")
 
 
+def _watcher_command(parent_pid: int, command: list[str]) -> list[str]:
+    # Running with -m imports xinference.model.llm before the watcher can start.
+    # That loads engine registries and heavyweight libraries such as torch even
+    # though the watcher only manages processes. This file can run standalone.
+    return [sys.executable, str(Path(__file__).resolve()), str(parent_pid), *command]
+
+
 class WeightCacheDaemon:
     """Keep GPU weights alive across engine restarts within one ModelActor.
 
@@ -253,15 +260,7 @@ class WeightCacheDaemon:
                     for index, (_, processes) in _gpu_process_memory().items()
                 }
             self.process = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "xinference.model.llm.weight_cache",
-                    str(os.getpid()),
-                    *command,
-                    "--config",
-                    str(config_path),
-                ],
+                _watcher_command(os.getpid(), [*command, "--config", str(config_path)]),
                 env=env,
                 stdout=self._log,
                 stderr=subprocess.STDOUT,
