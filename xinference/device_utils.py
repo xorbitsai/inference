@@ -706,10 +706,10 @@ def get_per_process_gpu_memory(*, strict: bool = False) -> Dict[int, Dict[int, i
 
 def get_mac_address():
     """
-    获取 MAC 地址（优先使用网卡名，失败则回退到 uuid.getnode()）
+    Get MAC address (prefer using the network card name, fallback to uuid.getnode() if that fails).
 
     Returns:
-        str: 大写的 MAC 地址（格式 "XX:XX:XX:XX:XX:XX"），如果获取失败返回 None。
+        str: MAC address in uppercase (format "XX:XX:XX:XX:XX:XX"), returns None if retrieval fails.
     """
     try:
         import netifaces
