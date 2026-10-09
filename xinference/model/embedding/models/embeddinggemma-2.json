@@ -80,7 +80,9 @@
         "accelerate ; #engine# == \"sentence_transformers\"",
         "accelerate ; #engine# == \"transformers\"",
         "accelerate ; #engine# == \"vllm\"",
-        "pillow",
+        "pillow ; #engine# == \"sentence_transformers\"",
+        "pillow ; #engine# == \"transformers\"",
+        "pillow ; #engine# == \"vllm\"",
         "librosa ; #engine# == \"sentence_transformers\"",
         "librosa ; #engine# == \"transformers\"",
         "librosa ; #engine# == \"vllm\"",
@@ -94,6 +96,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1791525988
+    "updated_at": 1791529117
   }
 ]
