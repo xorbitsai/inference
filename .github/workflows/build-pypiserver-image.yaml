@@ -34,6 +34,12 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/check-release-permission
 
+  dependency-preflight:
+    needs: check-release-permission
+    uses: ./.github/workflows/pypiserver-preflight.yaml
+    permissions:
+      contents: read
+
   # ------------------------------------------------------------------
   # Build the image per architecture on native runners. The Dockerfile
   # downloads every index-compatible wheel, then a selfcheck stage proves
@@ -43,7 +49,7 @@ jobs:
   # ------------------------------------------------------------------
   build-and-push-image:
     name: Build and push ${{ matrix.arch }} image
-    needs: check-release-permission
+    needs: [check-release-permission, dependency-preflight]
     timeout-minutes: 180
     strategy:
       fail-fast: false

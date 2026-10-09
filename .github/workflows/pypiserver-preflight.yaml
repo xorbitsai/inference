@@ -1,0 +1,57 @@
+name: Offline mirror dependency preflight
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pypiserver-preflight.yaml'
+      - '.github/workflows/build-pypiserver-image.yaml'
+      - 'xinference/constants.py'
+      - 'xinference/core/utils.py'
+      - 'xinference/core/rpc_context.py'
+      - 'xinference/core/virtual_env_manager.py'
+      - 'xinference/model/**'
+      - 'xinference/deploy/docker/pypiserver/**'
+      - 'xinference/deploy/docker/requirements-runtime.txt'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pypiserver-preflight.yaml'
+      - '.github/workflows/build-pypiserver-image.yaml'
+      - 'xinference/constants.py'
+      - 'xinference/core/utils.py'
+      - 'xinference/core/rpc_context.py'
+      - 'xinference/core/virtual_env_manager.py'
+      - 'xinference/model/**'
+      - 'xinference/deploy/docker/pypiserver/**'
+      - 'xinference/deploy/docker/requirements-runtime.txt'
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-preflight:
+    name: Check offline dependencies (metadata only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install lightweight check dependencies
+        run: python -m pip install pydantic packaging orjson pytest
+      - name: Test mirror scripts and Docker source inputs
+        run: python -m pytest -q --confcutdir=xinference/deploy/docker/pypiserver/tests xinference/deploy/docker/pypiserver/tests
+      - name: Generate both architecture manifests
+        run: |
+          for arch in amd64 arm64; do
+            python xinference/deploy/docker/pypiserver/generate_package_lists.py \
+              --platform "$arch" --out "$RUNNER_TEMP/mirror-$arch"
+          done
+      - name: Check published Python and architecture candidates
+        run: |
+          python xinference/deploy/docker/pypiserver/check_package_availability.py \
+            --manifest-dir "$RUNNER_TEMP/mirror-amd64" \
+            --manifest-dir "$RUNNER_TEMP/mirror-arm64" \
+            --runtime-constraints xinference/deploy/docker/requirements-runtime.txt

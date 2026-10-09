@@ -53,6 +53,18 @@ SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_]+)#$")
 ENGINE_MARKER_RE = re.compile(r"#(?:model_)?engine#\s*==\s*['\"]([^'\"]+)['\"]")
 XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
 
+# This model's vLLM integration targets an upstream release that is not yet
+# published. Keep the runtime requirement intact, but do not block the offline
+# mirror for every other model. Remove this entry when that release is available.
+DEFERRED_MODEL_PINS: Dict[Tuple[str, str, Optional[str], str], str] = {
+    (
+        "embedding/models/embeddinggemma-2.json",
+        "embeddinggemma-2",
+        "vllm",
+        "vllm>=0.32.0",
+    ): "EmbeddingGemma 2 requires the unpublished vLLM release with EmbeddingGemma2Model",
+}
+
 
 def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
     """
@@ -258,6 +270,7 @@ def main() -> None:
     pins: Dict[str, Set[str]] = {}  # spec -> sources
     excluded_pins: Set[str] = set()
     find_links_only_pins: Dict[str, Set[str]] = {}
+    deferred_model_pins: List[Dict[str, str]] = []
 
     def _add(spec: str, source: str) -> None:
         spec = normalize_mirror_spec(spec)
@@ -326,6 +339,12 @@ def main() -> None:
                 if sysname is not None:
                     spec = sysname
                 source = rel + ":" + model_name + (f" ({cand})" if cand else "")
+                reason = DEFERRED_MODEL_PINS.get((rel, model_name, cand, spec))
+                if reason:
+                    deferred_model_pins.append(
+                        {"spec": spec, "source": source, "reason": reason}
+                    )
+                    continue
                 # Worker-local Find Links dependencies do not exist on the
                 # configured package indexes.  The runtime installs them via a
                 # dedicated hook when supplied, so mirroring them here would
@@ -357,6 +376,9 @@ def main() -> None:
             {"spec": spec, "sources": sorted(sources)}
             for spec, sources in sorted(find_links_only_pins.items())
         ],
+        "deferred_model_pins": sorted(
+            deferred_model_pins, key=lambda pin: (pin["source"], pin["spec"])
+        ),
         "engines": engines_meta,
         "counts": {
             "engines": len(engines_meta),
@@ -364,6 +386,7 @@ def main() -> None:
             "urls": len(urls),
             "git": len(git_sources),
             "find_links_only": len(find_links_only_pins),
+            "deferred_model_pins": len(deferred_model_pins),
         },
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
