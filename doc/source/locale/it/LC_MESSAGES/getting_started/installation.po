@@ -580,9 +580,9 @@ msgstr "Token Router"
 #~ " GPU, consultare: "
 #~ "https://github.com/xorbitsai/xllamacpp"
 
-#: ../../source/getting_started/installation.rst:42
-msgid "One-command installation and startup"
-msgstr "Installazione e avvio con un comando"
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "Installazione con un solo comando"
 
 #: ../../source/getting_started/installation.rst:43
 msgid ""
@@ -896,3 +896,23 @@ msgstr ""
 "modelli prima di avviare un servizio LocalSystem, oppure usare la modalità "
 "in primo piano. Qualsiasi account che possa modificarli può eseguire codice "
 "con i privilegi dell’account del servizio."
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "Installazione e avvio"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "Installazione con pip"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"Xinference può essere installato con :ref:`l’installer con un solo comando "
+"<one_line_install>` o con :ref:`pip <pip_installation>`. Scegliere "
+"l’installer per un ambiente di strumenti gestito, oppure pip per usare un "
+"ambiente Python esistente."

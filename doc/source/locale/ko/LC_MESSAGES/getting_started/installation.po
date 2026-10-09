@@ -531,9 +531,9 @@ msgstr "Token Router"
 #~ "GPU 가속을 위한 추가 ``xllamacpp`` 설치 설명은"
 #~ " 다음을 참조하세요: https://github.com/xorbitsai/xllamacpp"
 
-#: ../../source/getting_started/installation.rst:42
-msgid "One-command installation and startup"
-msgstr "한 명령으로 설치 및 시작"
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "명령 하나로 설치"
 
 #: ../../source/getting_started/installation.rst:43
 msgid ""
@@ -794,3 +794,22 @@ msgstr ""
 "않습니다. 이 기본 Python 설치는 관리자만 쓸 수 있는 설치가 아닙니다. LocalSystem 서비스를 시작하기 전에 "
 "Python(패키지 포함)과 모델 데이터를 보호하거나 포그라운드 모드를 사용하세요. 이를 수정할 수 있는 계정은 서비스 계정 권한으로 "
 "코드를 실행할 수 있습니다."
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "설치 및 시작"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "pip으로 설치"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"Xinference 설치에는 두 가지 방법이 있습니다: :ref:`단일 명령 설치 프로그램 <one_line_install>` 또는 "
+":ref:`pip <pip_installation>`. 관리되는 도구 환경을 사용하려면 설치 프로그램을 선택하고, 기존 Python "
+"환경을 사용하려면 pip을 선택하세요."

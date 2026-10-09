@@ -3,32 +3,17 @@
 ============
 Installation
 ============
-Install Xinference with ``pip`` on Linux, Windows, or macOS::
-
-   pip install xinference
-
-Automatic engine installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Model virtual environments are enabled by default. When you launch a model,
-Xinference prepares a virtual environment for that model and engine and
-automatically installs the dependencies declared by its configuration.
-You do not need to install ``xinference[all]`` or an engine extra first.
-
-This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and MLX.
-Choose a supported engine when launching the model; Xinference manages its
-Python dependencies. The engine's operating system, hardware, and driver
-requirements still apply.
-
-The first launch may take longer while packages are downloaded and installed.
-Later launches reuse the prepared environment when its dependencies are unchanged.
-The Worker needs access to the configured package indexes, or a prepared offline
-package source. See :ref:`model_virtual_env` for dependency overrides and local
-wheel sources, and :ref:`using_docker_compose` for offline deployments.
+Xinference can be installed with the :ref:`one-command installer <one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer for a managed tool environment, or pip to use an existing Python environment.
 
 .. _one_line_install:
 
-One-command installation and startup
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+One-command installation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. _one-command-installation-and-startup:
+
+Installation and startup
+------------------------
 The installer prepares uv, Python 3.12, and an isolated Xinference tool environment, then starts the local server in the foreground. Press Ctrl+C to stop it. On Linux and macOS::
 
    curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
@@ -48,7 +33,7 @@ To run without a persistent tool installation, use ``uvx``. This requires uv; th
 Use a recent uv supporting ``uv tool install --torch-backend`` (tested with uv 0.11.26). Services require a persistent installation; uvx environments can be removed by cache cleanup.
 
 Upgrading an installation
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 Run the same one-command installer again to update to the latest stable release. Set ``XINFERENCE_VERSION`` each time to select a specific release, including a downgrade. Without this variable, a previously pinned installation also updates to the latest stable release. If the selected version, Python, extras, and PyTorch backend are unchanged, the installer keeps the existing environment and does not restart a running service.
 
 The default ``XINFERENCE_SERVICE=auto`` detects an existing managed service for this tool environment. Upgrades preserve its service account, address, port, data directory, and registration. Python, extras, and the PyTorch backend are also retained unless explicitly overridden. Run as the original installation account and reuse any custom ``XINFERENCE_TOOL_DIR`` and ``UV_TOOL_BIN_DIR``. Stop a foreground server before updating it.
@@ -62,7 +47,7 @@ The installer checks the candidate's service installer API before stopping a ser
 Do not run ``xinference service`` commands while the installer is running; they do not share its lock. If a service was uninstalled after an interrupted upgrade, recovery restores the package without recreating the service. For manual recovery, stop processes using the tool, read ``.xinference-transaction.json`` in the tool store, copy its backup's ``environment`` and ``shims`` back to their original tool and command directories, and remove the journal only after restoration succeeds.
 
 System services
-~~~~~~~~~~~~~~~
+---------------
 After installing with pip, Conda, or uv, register and start a local service with::
 
    xinference service install --start
@@ -96,6 +81,32 @@ For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/m
 
 Services restart after failures. Starting waits for the cluster's ``/status`` response; a failed readiness check stops a newly started service. Repeated installation reuses the same configuration. Stop and uninstall before changing the installation environment or service settings. Uninstall preserves model data and logs. This service interface manages single-machine local mode.
 
+.. _pip_installation:
+
+Installation with pip
+~~~~~~~~~~~~~~~~~~~~~
+Install Xinference with ``pip`` on Linux, Windows, or macOS::
+
+   pip install xinference
+
+Automatic engine installation
+-----------------------------
+Model virtual environments are enabled by default. When you launch a model,
+Xinference prepares a virtual environment for that model and engine and
+automatically installs the dependencies declared by its configuration.
+You do not need to install ``xinference[all]`` or an engine extra first.
+
+This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and MLX.
+Choose a supported engine when launching the model; Xinference manages its
+Python dependencies. The engine's operating system, hardware, and driver
+requirements still apply.
+
+The first launch may take longer while packages are downloaded and installed.
+Later launches reuse the prepared environment when its dependencies are unchanged.
+The Worker needs access to the configured package indexes, or a prepared offline
+package source. See :ref:`model_virtual_env` for dependency overrides and local
+wheel sources, and :ref:`using_docker_compose` for offline deployments.
+
 The following sections describe the available engines. Manual installation is
 covered in :ref:`manual_backend_installation` for deployments that disable model
 virtual environments.
@@ -104,7 +115,7 @@ virtual environments.
 .. _inference_backend:
 
 Transformers Backend
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 PyTorch (transformers) supports the inference of most state-of-art models. It is the default backend for models in PyTorch format.
 
 Notes:
@@ -115,7 +126,7 @@ Notes:
 
 
 vLLM Backend
-~~~~~~~~~~~~
+------------
 vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
 
 - The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or ``bnb``.
@@ -176,7 +187,7 @@ is required for this path.
 .. _installation_gguf:
 
 Llama.cpp Backend
-~~~~~~~~~~~~~~~~~
+-----------------
 Xinference supports models in ``gguf`` format via ``xllamacpp``.
 `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team,
 and is the sole backend for llama.cpp since v1.6.0.
@@ -192,7 +203,7 @@ selects the matching ``xllamacpp`` GPU wheel for supported CUDA versions; see
 environment, refer to https://github.com/xorbitsai/xllamacpp.
 
 SGLang Backend
-~~~~~~~~~~~~~~
+--------------
 SGLang has a high-performance inference runtime with RadixAttention. It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls. And it also supports other common techniques like continuous batching and tensor parallelism.
 
 Select ``SGLang`` as the engine when launching a supported model. Xinference
@@ -201,17 +212,17 @@ you do not need to install ``xinference[sglang]`` separately.
 
 
 MLX Backend
-~~~~~~~~~~~
+-----------
 MLX-lm is designed for Apple silicon users to run LLM efficiently.
 
 Xinference installs the configured MLX dependencies automatically when you launch
 a supported model with the MLX engine.
 
 Optional components
-~~~~~~~~~~~~~~~~~~~
+-------------------
 
 Token Router
-------------
+^^^^^^^^^^^^
 Token Router is an optional component for routing requests across model replicas.
 It is not required to install Xinference or launch models. If your deployment
 uses the Token Router Runtime or Router Agent, install the ``router`` extra in
@@ -230,7 +241,7 @@ dependencies; start the required processes separately.
 .. _manual_backend_installation:
 
 Manual backend installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 If you disable model virtual environments with
 ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model launch,
 install the required backend dependencies in the Xinference Worker environment
@@ -249,6 +260,6 @@ their dependencies may conflict.
 .. only:: zh_cn
 
    Other Platforms
-   ~~~~~~~~~~~~~~~
+   ---------------
 
    * :ref:`Ascend NPU <installation_npu>`

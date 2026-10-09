@@ -518,9 +518,9 @@ msgstr "Token Router"
 #~ "GPU 加速，請參考：https://github."
 #~ "com/xorbitsai/xllamacpp"
 
-#: ../../source/getting_started/installation.rst:42
-msgid "One-command installation and startup"
-msgstr "一鍵安裝和啟動"
+#: ../../source/getting_started/installation.rst:10
+msgid "One-command installation"
+msgstr "一鍵安裝"
 
 #: ../../source/getting_started/installation.rst:43
 msgid ""
@@ -768,3 +768,21 @@ msgstr ""
 "Windows 系統一鍵安裝器使用安裝使用者的 uv 工具目錄，不會限制執行環境或資料的 ACL。此預設配置並非僅管理員可寫入的 Python "
 "安裝。在啟動 LocalSystem 服務前，請保護 "
 "Python（包括套件）和模型資料，或使用前景模式。任何能夠修改它們的帳戶都可以以服務帳戶的權限執行程式碼。"
+
+#: ../../source/getting_started/installation.rst:15
+msgid "Installation and startup"
+msgstr "安裝與啟動"
+
+#: ../../source/getting_started/installation.rst:86
+msgid "Installation with pip"
+msgstr "pip 安裝"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with the :ref:`one-command installer "
+"<one_line_install>` or :ref:`pip <pip_installation>`. Choose the installer "
+"for a managed tool environment, or pip to use an existing Python "
+"environment."
+msgstr ""
+"可以使用 :ref:`一鍵安裝腳本 <one_line_install>` 或 :ref:`pip <pip_installation>` 安裝 "
+"Xinference。若希望由安裝腳本管理工具環境，請選擇一鍵安裝；若要使用既有的 Python 環境，請選擇 pip。"
