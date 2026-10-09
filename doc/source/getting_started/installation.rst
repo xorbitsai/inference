@@ -3,11 +3,11 @@
 ============
 Installation
 ============
-Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To run models using Xinference, you will need to install the backend corresponding to the type of model you intend to serve.
+Install the base Xinference package with ``pip`` on Linux, Windows, or macOS::
 
-If you aim to serve all supported models, you can install all the necessary dependencies with a single command::
+   pip install xinference
 
-   pip install "xinference[all]"
+Model virtual environments install supported engine dependencies on demand. To install a backend manually, use its corresponding extra; see :ref:`inference_backend`.
 
 Token Router
 ~~~~~~~~~~~~
@@ -124,7 +124,7 @@ Several usage scenarios require special attention.
 
       pip install "xinference[transformers_quantization]" --no-build-isolation
 
-   Some dependencies like ``transformers`` might be downgraded, you can run ``pip install "xinference[all]"`` afterwards.
+   These dependencies can change versions of shared packages such as ``transformers``. Install only the backend dependencies you need in an isolated environment.
 
 
 If you want to install only the necessary backends, here's a breakdown of how to do it.

@@ -118,6 +118,31 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
 * [自訂模型](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [部署文件](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
+### 快速上手
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**一鍵安裝**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[安裝指南](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+
 ### Docker
 
 具有 NVIDIA GPU 的使用者可以使用 Xinference Docker 映像。請在安裝前確認系統已安裝 Docker 與 CUDA。
@@ -143,40 +168,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 更多 K8s 選項請參閱文件。
-
-### 快速上手
-
-使用 pip 安裝 Xinference：
-
-```bash
-pip install "xinference[all]"
-```
-
-[一鍵安裝器](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install)會準備 Python，在獨立的 uv 工具環境中安裝基礎套件，並啟動本地服務。可用 `XINFERENCE_EXTRAS` 預先安裝選用引擎；模型環境也會依需求安裝支援的引擎相依套件。
-
-Linux/macOS:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
-
-再次執行安裝器會升級至最新穩定版，也可用 `XINFERENCE_VERSION` 指定版本。安裝器會偵測既有的受管服務，保留設定和模型資料，並在升級或服務啟動失敗時還原舊環境。同版本重複安裝會保留環境，不重新啟動執行中的服務。
-
-設定 `XINFERENCE_START=0` 可僅安裝而不啟動。在 Linux/macOS 上使用 `XINFERENCE_SERVICE=user`，或在支援的平台上使用 `XINFERENCE_SERVICE=system`，即可註冊並啟動服務。系統模式在 Linux/macOS 上使用 sudo，在 Windows 上需要管理員終端機。既有的 pip/Conda/uv 安裝可使用 `xinference service install --start`；設定、升級和 Windows 權限要求請參閱安裝指南。
-
-啟動本地實例：
-
-```bash
-$ xinference-local
-```
-
-啟動後可透過 Web UI、cURL、CLI 或 Python 客戶端來使用。
 
 ![web UI](../assets/screenshot.png)
 

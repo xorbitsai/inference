@@ -134,7 +134,32 @@ Star Xinference on GitHub and be instantly notified of new releases.
 * [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker 
+### Quick Start
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**One-command installer**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[Installation guide](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Usage guide](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+
+### Docker
 
 Nvidia GPU users can start Xinference server using [Xinference Docker Image](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html). Prior to executing the installation command, ensure that both [Docker](https://docs.docker.com/get-docker/) and [CUDA](https://developer.nvidia.com/cuda-downloads) are set up on your system.
 
@@ -159,42 +184,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 For more customized installation methods on K8s, please refer to the [documentation](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html).
-
-### Quick Start
-
-Install Xinference by using pip as follows. (For more options, see [Installation page](https://inference.readthedocs.io/en/latest/getting_started/installation.html).)
-
-```bash
-pip install "xinference[all]"
-```
-
-A [one-command installer](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) prepares Python and installs the base package in an isolated uv tool environment, then starts the local server. Use `XINFERENCE_EXTRAS` to preinstall optional engines; model environments also install supported engine dependencies on demand.
-
-Linux/macOS:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
-
-Run the installer again to update to the latest stable release, or set `XINFERENCE_VERSION` to select a release. It detects an existing managed service, preserves its settings and model data, and restores the previous environment if an upgrade or service startup fails. Same-version repeats keep the environment and do not restart a running service.
-
-Set `XINFERENCE_START=0` to install without starting. Use `XINFERENCE_SERVICE=user` on Linux/macOS or `XINFERENCE_SERVICE=system` on any supported platform to register and start a service. System mode uses sudo on Linux/macOS and requires an Administrator Windows terminal. Existing pip/Conda/uv installs can use `xinference service install --start`; see the installation guide for configuration and upgrade details.
-
-
-To start a local instance of Xinference, run the following command:
-
-```bash
-$ xinference-local
-```
-
-Once Xinference is running, there are multiple ways you can try it: via the web UI, via cURL,
- via the command line, or via the Xinference’s python client. Check out our [docs]( https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally) for the guide.
 
 ![web UI](assets/screenshot.png)
 

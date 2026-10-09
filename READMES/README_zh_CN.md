@@ -123,6 +123,31 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 * [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)
 * [部署文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html)
 
+### 快速开始
+
+**pip**
+
+```bash
+pip install xinference
+xinference-local
+```
+
+**一键安装**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[安装指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)
+
 ### Docker
 
 Nvidia GPU 用户可以使用[Xinference Docker 镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html) 启动 Xinference 服务器。在执行安装命令之前，确保你的系统中已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [CUDA](https://developer.nvidia.com/cuda-downloads)。
@@ -144,40 +169,6 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 ```
 
 更多定制化安装方式，请参考[文档](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html)。
-
-### 快速开始
-
-使用 pip 安装 Xinference，操作如下。（更多选项，请参阅[安装页面](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html)。）
-
-```bash
-pip install "xinference[all]"
-```
-
-[一键安装器](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install)会准备 Python，在独立的 uv 工具环境中安装基础包，并启动本地服务。可用 `XINFERENCE_EXTRAS` 预装可选引擎；模型环境也会按需安装受支持的引擎依赖。
-
-Linux/macOS:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
-```
-
-Windows PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
-```
-
-再次运行安装器会升级到最新稳定版，也可用 `XINFERENCE_VERSION` 指定版本。安装器会检测已有的受管服务，保留设置和模型数据，并在升级或服务启动失败时恢复旧环境。同版本重复安装会保留环境，不重启正在运行的服务。
-
-设置 `XINFERENCE_START=0` 可只安装而不启动。在 Linux/macOS 上使用 `XINFERENCE_SERVICE=user`，或在受支持的平台上使用 `XINFERENCE_SERVICE=system`，即可注册并启动服务。系统模式在 Linux/macOS 上使用 sudo，在 Windows 上需要管理员终端。已有的 pip/Conda/uv 安装可使用 `xinference service install --start`；配置、升级和 Windows 权限要求请参阅安装指南。
-
-要启动一个本地的 Xinference 实例，请运行以下命令：
-
-```bash
-$ xinference-local
-```
-
-一旦 Xinference 运行起来，你可以通过多种方式尝试它：通过网络界面、通过 cURL、通过命令行或通过 Xinference 的 Python 客户端。更多指南，请查看我们的[文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)。
 
 ![网络界面](../assets/screenshot.png)
 
