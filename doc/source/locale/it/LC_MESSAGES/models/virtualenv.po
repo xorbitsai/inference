@@ -55,19 +55,6 @@ msgstr ""
 "Per risolvere questo problema, abbiamo introdotto la funzionalità **ambiente"
 " virtuale del modello**."
 
-#: ../../source/models/virtualenv.rst:23
-msgid "Install requirements for this functionality via"
-msgstr ""
-"Eseguire il seguente comando per installare le dipendenze necessarie per "
-"questa funzionalità."
-
-#: ../../source/models/virtualenv.rst:32
-msgid ""
-"Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
-msgstr ""
-"Abilita questa funzionalità impostando la variabile d'ambiente "
-"``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
-
 #: ../../source/models/virtualenv.rst:34
 #: ../../source/models/virtualenv.rst:217
 #: ../../source/models/virtualenv.rst:233
@@ -591,5 +578,18 @@ msgstr ""
 "minuscolo, quindi si consiglia di utilizzare valori minuscoli, ad esempio "
 "``#engine# == \"vllm\"`` o ``#engine# == \"transformers\"``."
 
-#~ msgid "Manage Virtual Enviroments"
-#~ msgstr "Gestione dell'ambiente virtuale"
+#: ../../source/models/virtualenv.rst:23
+msgid ""
+"Model virtual environments are included in the base Xinference "
+"installation:"
+msgstr ""
+"Gli ambienti virtuali dei modelli sono inclusi nell’installazione di base "
+"di Xinference:"
+
+#: ../../source/models/virtualenv.rst:29
+msgid ""
+"The feature is enabled by default. You do not need to install engine "
+"extras before launching a model."
+msgstr ""
+"Questa funzionalità è abilitata per impostazione predefinita. Non è "
+"necessario installare extra dei motori prima di avviare un modello."

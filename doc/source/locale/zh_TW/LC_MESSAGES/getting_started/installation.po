@@ -36,45 +36,6 @@ msgid ""
 msgstr ""
 "模型虛擬環境會按需安裝支援的推論引擎相依套件。若要手動安裝後端，請使用對應的 extra；詳見 :ref:`inference_backend`。"
 
-#: ../../source/getting_started/installation.rst:14
-msgid ""
-"Due to irreconcilable package dependency conflicts between vLLM and "
-"sglang, we have removed sglang from the all extra. If you want to use "
-"sglang, please install it separately via ``pip install "
-"'xinference[sglang]'``."
-msgstr ""
-"由於 vllm 和 sglang 在套件相依性上無法調和，因此我們從 all 中移除了 sglang，"
-"若需使用 sglang，請使用 ``pip install 'xinference[sglang]'``。"
-
-#: ../../source/getting_started/installation.rst:17
-msgid "Several usage scenarios require special attention."
-msgstr "某些使用場景需要特別注意。"
-
-#: ../../source/getting_started/installation.rst:19
-msgid "**GGUF format** with **llama.cpp engine**"
-msgstr "**GGUF 格式** 配合 **llama.cpp 引擎** 使用"
-
-#: ../../source/getting_started/installation.rst:21
-msgid ""
-"In this situation, it's advised to install its dependencies manually "
-"based on your hardware specifications to enable acceleration. For more "
-"details, see the :ref:`installation_gguf` section."
-msgstr "在這種情況下，建議根據您的硬體規格手動安裝其依賴項以啟用加速。更多詳情請參閱 :ref:`installation_gguf` 部分。"
-
-#: ../../source/getting_started/installation.rst:23
-msgid "**AWQ or GPTQ** format with **transformers engine**"
-msgstr "**AWQ 或 GPTQ 格式** 搭配 **transformers 引擎** 使用"
-
-#: ../../source/getting_started/installation.rst:25
-msgid "**This section is added in v1.6.0.**"
-msgstr "**本節內容新增於 v1.6.0。**"
-
-#: ../../source/getting_started/installation.rst:27
-msgid ""
-"This is because the dependencies at this stage require special options "
-"and are difficult to install. Please run command below in advance"
-msgstr "這是因為此階段的依賴項需要特殊選項，且安裝過程較為困難。請提前執行以下命令"
-
 #: ../../source/getting_started/installation.rst:127
 msgid ""
 "These dependencies can change versions of shared packages such as "
@@ -82,21 +43,9 @@ msgid ""
 "isolated environment."
 msgstr "這些相依套件可能變更 ``transformers`` 等共用套件的版本。請在隔離環境中僅安裝所需的後端相依套件。"
 
-#: ../../source/getting_started/installation.rst:36
-msgid ""
-"If you want to install only the necessary backends, here's a breakdown of"
-" how to do it."
-msgstr "如果你只想安裝必要的依賴，接下來是如何操作的詳細步驟。"
-
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
 msgstr "Transformers 引擎"
-
-#: ../../source/getting_started/installation.rst:42
-msgid ""
-"PyTorch (transformers) supports the inference of most state-of-art "
-"models. It is the default backend for models in PyTorch format::"
-msgstr "PyTorch(transformers) 引擎支援幾乎所有的最新模型，這是 PyTorch 模型預設使用的引擎::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -109,13 +58,6 @@ msgid ""
 msgstr ""
 "Transformers引擎支援 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4``"
 " 格式。"
-
-#: ../../source/getting_started/installation.rst:49
-msgid ""
-"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If "
-"you see an import error, please upgrade ``transformers`` to a newer "
-"version."
-msgstr "FP4格式需要支援FPQuantConfig的transformers庫。若遇到匯入錯誤，請將transformers升級至新版本。"
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -325,10 +267,6 @@ msgstr ""
 msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:104
-msgid "To install Xinference and vLLM::"
-msgstr "安裝 xinference 和 vLLM::"
-
 #: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
@@ -350,12 +288,6 @@ msgid ""
 msgstr ""
 "自 Xinference v1.5.0 起，``llama-cpp-python`` 已被棄用；從 Xinference v1.6.0"
 " 開始，該後端已被移除。"
-
-#: ../../source/getting_started/installation.rst:127
-#: ../../source/getting_started/installation.rst:140
-#: ../../source/getting_started/installation.rst:149
-msgid "Initial setup::"
-msgstr "初始步驟::"
 
 #: ../../source/getting_started/installation.rst:131
 msgid ""
@@ -395,6 +327,152 @@ msgstr "其他平台"
 #: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#: ../../source/getting_started/installation.rst:6
+msgid "Install Xinference with ``pip`` on Linux, Windows, or macOS::"
+msgstr "在 Linux、Windows 或 macOS 上，透過 ``pip`` 安裝 Xinference::"
+
+#: ../../source/getting_started/installation.rst:11
+msgid "Automatic engine installation"
+msgstr "自動安裝引擎"
+
+#: ../../source/getting_started/installation.rst:12
+msgid ""
+"Model virtual environments are enabled by default. When you launch a "
+"model, Xinference prepares a virtual environment for that model and engine"
+" and automatically installs the dependencies declared by its "
+"configuration. You do not need to install ``xinference[all]`` or an engine"
+" extra first."
+msgstr ""
+"模型虛擬環境預設啟用。啟動模型時，Xinference 會為該模型和引擎準備虛擬環境，並自動安裝設定中宣告的相依套件。無需預先安裝 "
+"``xinference[all]`` 或引擎 extra。"
+
+#: ../../source/getting_started/installation.rst:17
+msgid ""
+"This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and"
+" MLX. Choose a supported engine when launching the model; Xinference "
+"manages its Python dependencies. The engine's operating system, hardware, "
+"and driver requirements still apply."
+msgstr ""
+"這適用於 Transformers、vLLM、SGLang、llama.cpp 和 MLX 等引擎。啟動模型時選擇支援的引擎，Xinference "
+"會管理其 Python 相依套件。仍須符合引擎對作業系統、硬體和驅動程式的要求。"
+
+#: ../../source/getting_started/installation.rst:22
+msgid ""
+"The first launch may take longer while packages are downloaded and "
+"installed. Later launches reuse the prepared environment when its "
+"dependencies are unchanged. The Worker needs access to the configured "
+"package indexes, or a prepared offline package source. See "
+":ref:`model_virtual_env` for dependency overrides and local wheel sources,"
+" and :ref:`using_docker_compose` for offline deployments."
+msgstr ""
+"首次啟動需要下載和安裝套件，可能耗時較長。相依套件未變更時，後續啟動會重用已準備好的環境。Worker "
+"需要能夠存取設定的套件索引，或使用預先準備的離線套件來源。相依套件覆寫和本機 wheel 來源請參閱 "
+":ref:`model_virtual_env`，離線部署請參閱 :ref:`using_docker_compose`。"
+
+#: ../../source/getting_started/installation.rst:28
+msgid ""
+"The following sections describe the available engines. Manual installation"
+" is covered in :ref:`manual_backend_installation` for deployments that "
+"disable model virtual environments."
+msgstr ""
+"以下各節介紹可用引擎。停用模型虛擬環境的部署可參閱 :ref:`manual_backend_installation` 手動安裝相依套件。"
+
+#: ../../source/getting_started/installation.rst:37
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models."
+" It is the default backend for models in PyTorch format."
+msgstr "PyTorch（transformers）支援大多數先進模型的推論，是 PyTorch 格式模型的預設後端。"
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use "
+":ref:`model_virtual_env` to override dependencies for a model when needed."
+msgstr ""
+"FP4 格式需要支援 ``FPQuantConfig`` 的 ``transformers``。如需覆寫個別模型的相依套件，請參閱 "
+":ref:`model_virtual_env`。"
+
+#: ../../source/getting_started/installation.rst:101
+msgid ""
+"With model virtual environments enabled, Xinference installs the "
+"configured vLLM dependencies at launch. No separate vLLM or FlashInfer "
+"installation command is required for this path."
+msgstr ""
+"啟用模型虛擬環境時，Xinference 會在啟動模型時安裝設定的 vLLM 相依套件。此流程無需另外執行 vLLM 或 FlashInfer "
+"安裝命令。"
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"Select ``SGLang`` as the engine when launching a supported model. "
+"Xinference installs the configured SGLang dependencies in that model's "
+"virtual environment; you do not need to install ``xinference[sglang]`` "
+"separately."
+msgstr ""
+"啟動支援的模型時，選擇 ``SGLang`` 引擎。Xinference 會在該模型的虛擬環境中安裝設定的 SGLang 相依套件，無需另外安裝 "
+"``xinference[sglang]``。"
+
+#: ../../source/getting_started/installation.rst:136
+msgid ""
+"Xinference installs the configured MLX dependencies automatically when you"
+" launch a supported model with the MLX engine."
+msgstr "使用 MLX 引擎啟動支援的模型時，Xinference 會自動安裝設定的 MLX 相依套件。"
+
+#: ../../source/getting_started/installation.rst:140
+msgid "Optional components"
+msgstr "選用元件"
+
+#: ../../source/getting_started/installation.rst:144
+msgid ""
+"Token Router is an optional component for routing requests across model "
+"replicas. It is not required to install Xinference or launch models. If "
+"your deployment uses the Token Router Runtime or Router Agent, install the"
+" ``router`` extra in the environment where those processes run::"
+msgstr ""
+"Token Router 是在模型副本之間路由請求的選用元件，安裝 Xinference 或啟動模型無需使用它。如果部署使用 Token "
+"Router Runtime 或 Router Agent，請在這些程序執行的環境中安裝 ``router`` extra::"
+
+#: ../../source/getting_started/installation.rst:151
+msgid "When installing from a source checkout, use::"
+msgstr "從原始碼簽出目錄安裝時，使用::"
+
+#: ../../source/getting_started/installation.rst:155
+msgid ""
+"Installing the package creates the ``xinference-router`` and ``xinference-"
+"router-agent`` commands. Installing the extra provides their dependencies;"
+" start the required processes separately."
+msgstr ""
+"安裝套件會建立 ``xinference-router`` 和 ``xinference-router-agent`` 命令。安裝 extra "
+"會提供它們的相依套件；所需程序須另外啟動。"
+
+#: ../../source/getting_started/installation.rst:162
+msgid "Manual backend installation"
+msgstr "手動安裝後端"
+
+#: ../../source/getting_started/installation.rst:163
+msgid ""
+"If you disable model virtual environments with "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model "
+"launch, install the required backend dependencies in the Xinference Worker"
+" environment yourself. Engine extras such as ``transformers``, ``vllm``, "
+"``sglang``, ``llama_cpp``, and ``mlx`` remain available for this use case,"
+" for example:"
+msgstr ""
+"如果透過 ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` 或啟動模型時的 ``--disable-virtual-env``"
+" 停用模型虛擬環境，請自行在 Xinference Worker 環境中安裝所需的後端相依套件。此情境仍可使用 "
+"``transformers``、``vllm``、``sglang``、``llama_cpp`` 和 ``mlx`` 等引擎 extra，例如："
+
+#: ../../source/getting_started/installation.rst:173
+msgid ""
+"Some hardware or quantization configurations require additional "
+"installation steps. Follow the selected backend's installation "
+"instructions for compatible packages and GPU support. Avoid installing "
+"unrelated engines together, since their dependencies may conflict."
+msgstr ""
+"某些硬體或量化設定需要額外的安裝步驟。請依所選後端的安裝說明設定相容套件和 GPU 支援。避免同時安裝無關的引擎，以免產生相依套件衝突。"
+
+#: ../../source/getting_started/installation.rst:143
+msgid "Token Router"
+msgstr "Token Router"
 
 #~ msgid ""
 #~ "``code-llama``, ``code-llama-instruct``, "

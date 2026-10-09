@@ -89,6 +89,8 @@ automatically unless explicitly stopped (``restart: unless-stopped``). ``docker 
 shows the health state; orchestration on top of compose can rely on it.
 
 
+.. _docker_compose_offline:
+
 Offline / Air-gapped Deployment
 ===============================
 By default Xinference installs the extra Python packages declared by a model at launch time

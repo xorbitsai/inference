@@ -296,3 +296,43 @@ msgstr "v3.1.0"
 #: ../../source/getting_started/release_notes.rst:12
 msgid "`View release notes <https://xinference.co/release_notes/v3.1.0.html>`_"
 msgstr "`Voir les notes de version <https://xinference.co/release_notes/v3.1.0.html>`_"
+
+#: getting_started/release_notes.rst
+msgid "Xinference 4.0 overview"
+msgstr "Présentation de Xinference 4.0"
+
+#: getting_started/release_notes.rst
+msgid "The v4.0.0 community release expands cache reuse, heterogeneous deployment, and runtime model management. The highlights below summarize the major changes; detailed notes for individual versions follow this overview."
+msgstr "La version communautaire v4.0.0 étend la réutilisation des caches, le déploiement hétérogène et la gestion des modèles en cours d’exécution. Les points suivants résument les principales évolutions ; les notes détaillées de chaque version suivent cette présentation."
+
+#: getting_started/release_notes.rst
+msgid "**Multi-engine Xavier and P/D.** SGLang and MLX replicas gain prefix KV cache sharing. P/D deployments can combine vLLM, SGLang, and MLX, including NVIDIA and Apple silicon workers. Native NIXL backends are available for vLLM and SGLang; vLLM Xavier adds direct GPU handoff and tiered history. See :ref:`user_guide_vllm_enhancement` and :ref:`user_guide_pd_separation`."
+msgstr "**Xavier et P/D avec plusieurs moteurs.** Les répliques SGLang et MLX prennent désormais en charge le partage des caches KV de préfixes. Les déploiements P/D peuvent combiner vLLM, SGLang et MLX, notamment des workers NVIDIA et Apple Silicon. Des backends NIXL natifs sont disponibles pour vLLM et SGLang ; vLLM Xavier ajoute le transfert direct entre GPU et un cache d’historique à plusieurs niveaux. Voir :ref:`user_guide_vllm_enhancement` et :ref:`user_guide_pd_separation`."
+
+#: getting_started/release_notes.rst
+msgid "**Reconfigure without reloading weights.** Opt-in GPU weight caching lets vLLM and SGLang rebuild the engine with updated supported parameters while retaining the weights. Current requests drain before the change, and the model UID stays the same. See :ref:`launch_weight_cache_reload`."
+msgstr "**Reconfigurer sans recharger les poids.** Le cache optionnel des poids en GPU permet à vLLM et SGLang de reconstruire le moteur avec de nouveaux paramètres pris en charge tout en conservant les poids. Les requêtes en cours se terminent avant le changement et l’UID du modèle reste identique. Voir :ref:`launch_weight_cache_reload`."
+
+#: getting_started/release_notes.rst
+msgid "**Distributed vLLM V1 inference.** Supported models can combine tensor parallelism and pipeline parallelism across workers through Xinference's xoscar executor, without a separate Ray cluster. See :ref:`distributed_inference`."
+msgstr "**Inférence distribuée avec vLLM V1.** Les modèles pris en charge peuvent combiner parallélisme tensoriel et parallélisme de pipeline entre workers via l’exécuteur xoscar de Xinference, sans cluster Ray distinct. Voir :ref:`distributed_inference`."
+
+#: getting_started/release_notes.rst
+msgid "**OpenAI-compatible API additions.** A stateless Responses API supports clients using ``/v1/responses``. vLLM, SGLang, and MLX also expose reused prompt-token counts in usage responses when reported by the engine. See :ref:`openai_responses_client` and :ref:`user_guide_client_api`."
+msgstr "**Extensions de l’API compatible OpenAI.** Une API Responses sans état prend en charge les clients utilisant ``/v1/responses``. vLLM, SGLang et MLX indiquent également le nombre de tokens de prompt réutilisés dans les réponses d’usage lorsque le moteur le fournit. Voir :ref:`openai_responses_client` et :ref:`user_guide_client_api`."
+
+#: getting_started/release_notes.rst
+msgid "**Unified logging.** The Web UI Log Center provides recent runtime logs and, with Elasticsearch configured, historical indexed logs. Request IDs connect API, audit, and runtime events. See :ref:`logging` and :ref:`user_guide_audit_security`."
+msgstr "**Journaux unifiés.** Le Log Center de la Web UI affiche les journaux d’exécution récents et, avec Elasticsearch configuré, les journaux historiques indexés. Les identifiants de requête relient les événements d’API, d’audit et d’exécution. Voir :ref:`logging` et :ref:`user_guide_audit_security`."
+
+#: getting_started/release_notes.rst
+msgid "**Installation and local services.** The cross-platform installer and service commands simplify setup and local service management on Linux, macOS, and Windows. Engine dependencies continue to install on demand in per-model virtual environments. See :ref:`one_line_install` and :ref:`model_launching_virtualenv`."
+msgstr "**Installation et services locaux.** L’installateur multiplateforme et les commandes de service simplifient l’installation et la gestion des services locaux sous Linux, macOS et Windows. Les dépendances des moteurs continuent à être installées à la demande dans des environnements virtuels par modèle. Voir :ref:`one_line_install` et :ref:`model_launching_virtualenv`."
+
+#: getting_started/release_notes.rst
+msgid "If upgrading from a version earlier than 3.0, read :ref:`migration_3_0` for authentication, Web UI, and container deployment changes. Check each feature guide for its engine and hardware requirements."
+msgstr "Si vous effectuez une mise à niveau depuis une version antérieure à 3.0, consultez :ref:`migration_3_0` pour les changements d’authentification, de Web UI et de déploiement en conteneurs. Vérifiez les exigences de moteur et de matériel dans chaque guide de fonctionnalité."
+
+#: getting_started/release_notes.rst
+msgid "Detailed version notes"
+msgstr "Notes détaillées par version"

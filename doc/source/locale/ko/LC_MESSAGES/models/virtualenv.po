@@ -51,15 +51,6 @@ msgid ""
 "feature."
 msgstr "이 문제를 해결하기 위해 **모델 가상 환경** 기능을 도입했습니다."
 
-#: ../../source/models/virtualenv.rst:23
-msgid "Install requirements for this functionality via"
-msgstr "다음 명령어를 통해 해당 기능에 필요한 의존성을 설치하세요:"
-
-#: ../../source/models/virtualenv.rst:32
-msgid ""
-"Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
-msgstr "환경 변수 ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``를 설정하여 해당 기능을 활성화합니다."
-
 #: ../../source/models/virtualenv.rst:34
 #: ../../source/models/virtualenv.rst:217
 #: ../../source/models/virtualenv.rst:233
@@ -517,5 +508,14 @@ msgstr ""
 "전달되므로, ``#engine# == \"vllm\"`` 또는 ``#engine# == \"transformers\"``와 같이 소문자 "
 "값을 사용하는 것을 권장합니다."
 
-#~ msgid "Manage Virtual Enviroments"
-#~ msgstr "가상 환경 관리"
+#: ../../source/models/virtualenv.rst:23
+msgid ""
+"Model virtual environments are included in the base Xinference "
+"installation:"
+msgstr "모델 가상 환경은 Xinference 기본 설치에 포함되어 있습니다:"
+
+#: ../../source/models/virtualenv.rst:29
+msgid ""
+"The feature is enabled by default. You do not need to install engine "
+"extras before launching a model."
+msgstr "이 기능은 기본적으로 활성화되어 있습니다. 모델을 시작하기 전에 엔진 extra를 설치할 필요가 없습니다."

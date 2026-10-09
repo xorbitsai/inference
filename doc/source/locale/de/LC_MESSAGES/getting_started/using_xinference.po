@@ -653,6 +653,17 @@ msgstr ""
 ":ref:`Auswahl der richtigen Backends für Ihre Anforderungen "
 "<user_guide_backends>` "
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"Klicken Sie im Modellbereitstellungsdialog der Web UI auf **Konfiguration "
+"empfehlen**, um vorgeschlagene Werte für Engine, Format, Modellgröße und "
+"Quantisierung einzutragen. Details finden Sie unter :ref:`Empfehlungen zum"
+" Modellstart <launch_recommendations>`."
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 

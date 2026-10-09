@@ -40,51 +40,6 @@ msgstr ""
 "supportati quando necessario. Per installare manualmente un backend, usa il "
 "relativo extra; vedi :ref:`inference_backend`."
 
-#: ../../source/getting_started/installation.rst:14
-msgid ""
-"Due to irreconcilable package dependency conflicts between vLLM and "
-"sglang, we have removed sglang from the all extra. If you want to use "
-"sglang, please install it separately via ``pip install "
-"'xinference[sglang]'``."
-msgstr ""
-"Poiché vllm e sglang non possono coesistere a causa di conflitti di "
-"dipendenze dei pacchetti, abbiamo rimosso sglang da \"all\". Per "
-"utilizzare sglang, eseguire ``pip install 'xinference[sglang]'``."
-
-#: ../../source/getting_started/installation.rst:17
-msgid "Several usage scenarios require special attention."
-msgstr "Alcuni scenari di utilizzo richiedono particolare attenzione."
-
-#: ../../source/getting_started/installation.rst:19
-msgid "**GGUF format** with **llama.cpp engine**"
-msgstr "**Formato GGUF** utilizzato con il motore **llama.cpp**"
-
-#: ../../source/getting_started/installation.rst:21
-msgid ""
-"In this situation, it's advised to install its dependencies manually "
-"based on your hardware specifications to enable acceleration. For more "
-"details, see the :ref:`installation_gguf` section."
-msgstr ""
-"In questo caso, si consiglia di installare manualmente le dipendenze in "
-"base alle specifiche hardware per abilitare l'accelerazione. Per maggiori"
-" dettagli, consultare la sezione :ref:`installation_gguf`."
-
-#: ../../source/getting_started/installation.rst:23
-msgid "**AWQ or GPTQ** format with **transformers engine**"
-msgstr "Formato **AWQ o GPTQ** in combinazione con il motore **transformers**."
-
-#: ../../source/getting_started/installation.rst:25
-msgid "**This section is added in v1.6.0.**"
-msgstr "**Questa sezione è stata aggiunta nella v1.6.0.**"
-
-#: ../../source/getting_started/installation.rst:27
-msgid ""
-"This is because the dependencies at this stage require special options "
-"and are difficult to install. Please run command below in advance"
-msgstr ""
-"Questo perché in questa fase le dipendenze richiedono opzioni speciali e "
-"sono difficili da installare. Esegui in anticipo il seguente comando:"
-
 #: ../../source/getting_started/installation.rst:127
 msgid ""
 "These dependencies can change versions of shared packages such as "
@@ -95,25 +50,9 @@ msgstr ""
 " ``transformers``. Installa solo le dipendenze del backend necessarie in un "
 "ambiente isolato."
 
-#: ../../source/getting_started/installation.rst:36
-msgid ""
-"If you want to install only the necessary backends, here's a breakdown of"
-" how to do it."
-msgstr ""
-"Se desideri installare solo le dipendenze necessarie, ecco i passaggi "
-"dettagliati su come procedere."
-
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
 msgstr "Motore Transformers"
-
-#: ../../source/getting_started/installation.rst:42
-msgid ""
-"PyTorch (transformers) supports the inference of most state-of-art "
-"models. It is the default backend for models in PyTorch format::"
-msgstr ""
-"Il motore PyTorch (transformers) supporta quasi tutti i modelli più "
-"recenti, ed è il motore predefinito utilizzato dai modelli PyTorch."
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -126,16 +65,6 @@ msgid ""
 msgstr ""
 "Il motore Transformers supporta i formati ``pytorch`` / ``gptq`` / "
 "``awq`` / ``bnb`` / ``fp4``."
-
-#: ../../source/getting_started/installation.rst:49
-msgid ""
-"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If "
-"you see an import error, please upgrade ``transformers`` to a newer "
-"version."
-msgstr ""
-"La libreria transformers con supporto per FPQuantConfig è necessaria per "
-"il formato FP4. In caso di errori di importazione, aggiornare "
-"transformers alla versione più recente."
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -362,10 +291,6 @@ msgstr ""
 msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:104
-msgid "To install Xinference and vLLM::"
-msgstr "Installazione di xinference e vLLM:"
-
 #: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Motore Llama.cpp"
@@ -388,12 +313,6 @@ msgid ""
 msgstr ""
 "A partire da Xinference v1.5.0, ``llama-cpp-python`` è stato deprecato; a"
 " partire da Xinference v1.6.0, questo backend è stato rimosso."
-
-#: ../../source/getting_started/installation.rst:127
-#: ../../source/getting_started/installation.rst:140
-#: ../../source/getting_started/installation.rst:149
-msgid "Initial setup::"
-msgstr "Passaggi iniziali:"
 
 #: ../../source/getting_started/installation.rst:131
 msgid ""
@@ -437,6 +356,184 @@ msgstr "Altre piattaforme"
 #: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#: ../../source/getting_started/installation.rst:6
+msgid "Install Xinference with ``pip`` on Linux, Windows, or macOS::"
+msgstr "Installare Xinference con ``pip`` su Linux, Windows o macOS::"
+
+#: ../../source/getting_started/installation.rst:11
+msgid "Automatic engine installation"
+msgstr "Installazione automatica dei motori"
+
+#: ../../source/getting_started/installation.rst:12
+msgid ""
+"Model virtual environments are enabled by default. When you launch a "
+"model, Xinference prepares a virtual environment for that model and engine"
+" and automatically installs the dependencies declared by its "
+"configuration. You do not need to install ``xinference[all]`` or an engine"
+" extra first."
+msgstr ""
+"Gli ambienti virtuali dei modelli sono abilitati per impostazione "
+"predefinita. All’avvio di un modello, Xinference prepara un ambiente "
+"virtuale per quel modello e il suo motore e installa automaticamente le "
+"dipendenze dichiarate nella configurazione. Non è necessario installare "
+"prima ``xinference[all]`` o un extra del motore."
+
+#: ../../source/getting_started/installation.rst:17
+msgid ""
+"This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and"
+" MLX. Choose a supported engine when launching the model; Xinference "
+"manages its Python dependencies. The engine's operating system, hardware, "
+"and driver requirements still apply."
+msgstr ""
+"Questo vale per motori come Transformers, vLLM, SGLang, llama.cpp e MLX. "
+"Scegliere un motore supportato all’avvio del modello; Xinference ne "
+"gestisce le dipendenze Python. I requisiti del motore relativi a sistema "
+"operativo, hardware e driver restano validi."
+
+#: ../../source/getting_started/installation.rst:22
+msgid ""
+"The first launch may take longer while packages are downloaded and "
+"installed. Later launches reuse the prepared environment when its "
+"dependencies are unchanged. The Worker needs access to the configured "
+"package indexes, or a prepared offline package source. See "
+":ref:`model_virtual_env` for dependency overrides and local wheel sources,"
+" and :ref:`using_docker_compose` for offline deployments."
+msgstr ""
+"Il primo avvio può richiedere più tempo per il download e l’installazione "
+"dei pacchetti. Gli avvii successivi riutilizzano l’ambiente preparato se "
+"le dipendenze non cambiano. Il Worker deve poter accedere agli indici dei "
+"pacchetti configurati o a una fonte di pacchetti offline preparata in "
+"anticipo. Consultare :ref:`model_virtual_env` per sovrascrivere le "
+"dipendenze e usare fonti locali di wheel, e :ref:`using_docker_compose` "
+"per i deployment offline."
+
+#: ../../source/getting_started/installation.rst:28
+msgid ""
+"The following sections describe the available engines. Manual installation"
+" is covered in :ref:`manual_backend_installation` for deployments that "
+"disable model virtual environments."
+msgstr ""
+"Le sezioni seguenti descrivono i motori disponibili. L’installazione "
+"manuale per i deployment che disabilitano gli ambienti virtuali dei "
+"modelli è descritta in :ref:`manual_backend_installation`."
+
+#: ../../source/getting_started/installation.rst:37
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models."
+" It is the default backend for models in PyTorch format."
+msgstr ""
+"PyTorch (transformers) supporta l’inferenza della maggior parte dei "
+"modelli più avanzati. È il backend predefinito per i modelli in formato "
+"PyTorch."
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use "
+":ref:`model_virtual_env` to override dependencies for a model when needed."
+msgstr ""
+"Il formato FP4 richiede ``transformers`` con supporto per "
+"``FPQuantConfig``. Consultare :ref:`model_virtual_env` per sovrascrivere "
+"le dipendenze di un modello quando necessario."
+
+#: ../../source/getting_started/installation.rst:101
+msgid ""
+"With model virtual environments enabled, Xinference installs the "
+"configured vLLM dependencies at launch. No separate vLLM or FlashInfer "
+"installation command is required for this path."
+msgstr ""
+"Con gli ambienti virtuali dei modelli abilitati, Xinference installa le "
+"dipendenze vLLM configurate all’avvio. Questo percorso non richiede un "
+"comando di installazione separato per vLLM o FlashInfer."
+
+#: ../../source/getting_started/installation.rst:127
+msgid ""
+"Select ``SGLang`` as the engine when launching a supported model. "
+"Xinference installs the configured SGLang dependencies in that model's "
+"virtual environment; you do not need to install ``xinference[sglang]`` "
+"separately."
+msgstr ""
+"Selezionare ``SGLang`` come motore all’avvio di un modello supportato. "
+"Xinference installa le dipendenze SGLang configurate nell’ambiente "
+"virtuale di quel modello; non è necessario installare "
+"``xinference[sglang]`` separatamente."
+
+#: ../../source/getting_started/installation.rst:136
+msgid ""
+"Xinference installs the configured MLX dependencies automatically when you"
+" launch a supported model with the MLX engine."
+msgstr ""
+"Xinference installa automaticamente le dipendenze MLX configurate quando "
+"si avvia un modello supportato con il motore MLX."
+
+#: ../../source/getting_started/installation.rst:140
+msgid "Optional components"
+msgstr "Componenti opzionali"
+
+#: ../../source/getting_started/installation.rst:144
+msgid ""
+"Token Router is an optional component for routing requests across model "
+"replicas. It is not required to install Xinference or launch models. If "
+"your deployment uses the Token Router Runtime or Router Agent, install the"
+" ``router`` extra in the environment where those processes run::"
+msgstr ""
+"Token Router è un componente opzionale per instradare le richieste tra "
+"repliche dei modelli. Non è necessario per installare Xinference o avviare"
+" i modelli. Se il deployment usa Token Router Runtime o Router Agent, "
+"installare l’extra ``router`` nell’ambiente in cui vengono eseguiti questi"
+" processi::"
+
+#: ../../source/getting_started/installation.rst:151
+msgid "When installing from a source checkout, use::"
+msgstr ""
+"Per l’installazione da una copia locale del codice sorgente, usare::"
+
+#: ../../source/getting_started/installation.rst:155
+msgid ""
+"Installing the package creates the ``xinference-router`` and ``xinference-"
+"router-agent`` commands. Installing the extra provides their dependencies;"
+" start the required processes separately."
+msgstr ""
+"L’installazione del pacchetto crea i comandi ``xinference-router`` e "
+"``xinference-router-agent``. L’installazione dell’extra fornisce le "
+"relative dipendenze; avviare separatamente i processi necessari."
+
+#: ../../source/getting_started/installation.rst:162
+msgid "Manual backend installation"
+msgstr "Installazione manuale dei backend"
+
+#: ../../source/getting_started/installation.rst:163
+msgid ""
+"If you disable model virtual environments with "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model "
+"launch, install the required backend dependencies in the Xinference Worker"
+" environment yourself. Engine extras such as ``transformers``, ``vllm``, "
+"``sglang``, ``llama_cpp``, and ``mlx`` remain available for this use case,"
+" for example:"
+msgstr ""
+"Se si disabilitano gli ambienti virtuali dei modelli con "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` o ``--disable-virtual-env`` all’avvio "
+"del modello, installare le dipendenze necessarie del backend nell’ambiente"
+" del Worker Xinference. Gli extra dei motori come ``transformers``, "
+"``vllm``, ``sglang``, ``llama_cpp`` e ``mlx`` restano disponibili per "
+"questo caso, ad esempio:"
+
+#: ../../source/getting_started/installation.rst:173
+msgid ""
+"Some hardware or quantization configurations require additional "
+"installation steps. Follow the selected backend's installation "
+"instructions for compatible packages and GPU support. Avoid installing "
+"unrelated engines together, since their dependencies may conflict."
+msgstr ""
+"Alcune configurazioni hardware o di quantizzazione richiedono ulteriori "
+"passaggi di installazione. Seguire le istruzioni del backend scelto per i "
+"pacchetti compatibili e il supporto GPU. Evitare di installare insieme "
+"motori non necessari, poiché le relative dipendenze possono entrare in "
+"conflitto."
+
+#: ../../source/getting_started/installation.rst:143
+msgid "Token Router"
+msgstr "Token Router"
 
 #~ msgid ""
 #~ "``code-llama``, ``code-llama-instruct``, "

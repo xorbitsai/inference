@@ -251,3 +251,43 @@ msgstr "v3.1.0"
 #: ../../source/getting_started/release_notes.rst:12
 msgid "`View release notes <https://xinference.co/release_notes/v3.1.0.html>`_"
 msgstr "`查看版本說明 <https://xinference.cn/release_notes/v3.1.0.html>`_"
+
+#: getting_started/release_notes.rst
+msgid "Xinference 4.0 overview"
+msgstr "Xinference 4.0 大版本概覽"
+
+#: getting_started/release_notes.rst
+msgid "The v4.0.0 community release expands cache reuse, heterogeneous deployment, and runtime model management. The highlights below summarize the major changes; detailed notes for individual versions follow this overview."
+msgstr "v4.0.0 社群版增強了快取重用、異質部署和模型執行階段管理。以下歸納本次大版本的主要變更，各版本的詳細說明位於概覽之後。"
+
+#: getting_started/release_notes.rst
+msgid "**Multi-engine Xavier and P/D.** SGLang and MLX replicas gain prefix KV cache sharing. P/D deployments can combine vLLM, SGLang, and MLX, including NVIDIA and Apple silicon workers. Native NIXL backends are available for vLLM and SGLang; vLLM Xavier adds direct GPU handoff and tiered history. See :ref:`user_guide_vllm_enhancement` and :ref:`user_guide_pd_separation`."
+msgstr "**多引擎 Xavier 與 P/D。** SGLang 和 MLX 副本新增前綴 KV 快取共享能力。P/D 部署可以組合 vLLM、SGLang 和 MLX，包括 NVIDIA 與 Apple Silicon 工作節點。vLLM 和 SGLang 支援原生 NIXL 後端；vLLM Xavier 新增 GPU 直接傳輸和分層歷史快取。請見 :ref:`user_guide_vllm_enhancement` 和 :ref:`user_guide_pd_separation`。"
+
+#: getting_started/release_notes.rst
+msgid "**Reconfigure without reloading weights.** Opt-in GPU weight caching lets vLLM and SGLang rebuild the engine with updated supported parameters while retaining the weights. Current requests drain before the change, and the model UID stays the same. See :ref:`launch_weight_cache_reload`."
+msgstr "**重設參數而無需重新載入權重。** 選擇啟用 GPU 權重快取後，vLLM 和 SGLang 可以保留權重，以新的受支援參數重建引擎。變更前會等待目前的請求完成，模型 UID 保持不變。請見 :ref:`launch_weight_cache_reload`。"
+
+#: getting_started/release_notes.rst
+msgid "**Distributed vLLM V1 inference.** Supported models can combine tensor parallelism and pipeline parallelism across workers through Xinference's xoscar executor, without a separate Ray cluster. See :ref:`distributed_inference`."
+msgstr "**vLLM V1 分散式推論。** 受支援的模型可以透過 Xinference 的 xoscar 執行器，在多個工作節點間組合張量平行和管線平行，無需另外部署 Ray 叢集。請見 :ref:`distributed_inference`。"
+
+#: getting_started/release_notes.rst
+msgid "**OpenAI-compatible API additions.** A stateless Responses API supports clients using ``/v1/responses``. vLLM, SGLang, and MLX also expose reused prompt-token counts in usage responses when reported by the engine. See :ref:`openai_responses_client` and :ref:`user_guide_client_api`."
+msgstr "**OpenAI 相容 API 擴充。** 新增無狀態 Responses API，支援使用 ``/v1/responses`` 的用戶端。vLLM、SGLang 和 MLX 也會在引擎提供資料時，透過 usage 回應報告重用的提示 token 數。請見 :ref:`openai_responses_client` 和 :ref:`user_guide_client_api`。"
+
+#: getting_started/release_notes.rst
+msgid "**Unified logging.** The Web UI Log Center provides recent runtime logs and, with Elasticsearch configured, historical indexed logs. Request IDs connect API, audit, and runtime events. See :ref:`logging` and :ref:`user_guide_audit_security`."
+msgstr "**統一日誌中心。** Web UI 日誌中心提供近期執行日誌；設定 Elasticsearch 後，還可查詢歷史索引日誌。請求 ID 串聯 API、稽核和執行階段事件。請見 :ref:`logging` 和 :ref:`user_guide_audit_security`。"
+
+#: getting_started/release_notes.rst
+msgid "**Installation and local services.** The cross-platform installer and service commands simplify setup and local service management on Linux, macOS, and Windows. Engine dependencies continue to install on demand in per-model virtual environments. See :ref:`one_line_install` and :ref:`model_launching_virtualenv`."
+msgstr "**安裝與本地服務管理。** 跨平台安裝程式和服務命令簡化了 Linux、macOS 和 Windows 上的安裝及本地服務管理。引擎依賴仍在各模型的虛擬環境中按需安裝。請見 :ref:`one_line_install` 和 :ref:`model_launching_virtualenv`。"
+
+#: getting_started/release_notes.rst
+msgid "If upgrading from a version earlier than 3.0, read :ref:`migration_3_0` for authentication, Web UI, and container deployment changes. Check each feature guide for its engine and hardware requirements."
+msgstr "從低於 3.0 的版本升級時，請先閱讀 :ref:`migration_3_0`，了解驗證、Web UI 和容器部署方面的變更。各功能的引擎版本與硬體需求，請參閱對應功能指南。"
+
+#: getting_started/release_notes.rst
+msgid "Detailed version notes"
+msgstr "各版本詳細說明"

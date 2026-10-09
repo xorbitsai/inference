@@ -208,6 +208,18 @@ msgstr ""
 "作為模型倉庫，那麼需要將這兩個對應的目錄掛載到容器內，一般對應的 cache 目錄分別在 <home_path>/.cache/huggingface "
 "和 <home_path>/.cache/modelscope，使用的指令如下："
 
+#: ../../source/getting_started/using_docker_image.rst:55
+msgid ""
+"For offline deployments that install engine dependencies into per-model "
+"virtual environments at model launch time, use the Docker Compose "
+"``offline`` profile to provide a private PyPI mirror. See :ref:`Docker "
+"Compose offline deployment <docker_compose_offline>` for image preparation "
+"and dependency source configuration."
+msgstr ""
+"在離線環境中，如果需要在模型啟動時自動向各模型的虛擬環境安裝引擎依賴，請使用 Docker Compose 的 ``offline`` 設定提供私有 "
+"PyPI 套件鏡像站。映像檔準備和依賴來源設定步驟請參閱 :ref:`Docker Compose 離線部署 "
+"<docker_compose_offline>`。"
+
 #~ msgid ""
 #~ "For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. "
 #~ "(Xinference version should be between v1.8.1 and v1.15.0)"

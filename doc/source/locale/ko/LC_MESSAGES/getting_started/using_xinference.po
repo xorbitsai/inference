@@ -573,6 +573,15 @@ msgid ""
 ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`올바른 추론 엔진 선택 <user_guide_backends>`"
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"Web UI의 모델 배포 대화 상자에서 **구성 추천** 을 클릭하면 권장 엔진, 형식, 모델 크기 및 양자화 설정이 자동으로 "
+"입력됩니다. 자세한 내용은 :ref:`모델 시작 추천 <launch_recommendations>` 을 참고하세요."
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 

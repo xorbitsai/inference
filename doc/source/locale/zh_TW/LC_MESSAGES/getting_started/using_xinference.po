@@ -543,6 +543,15 @@ msgid ""
 ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`選擇正確的推理引擎 <user_guide_backends>`"
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"在 Web UI 的模型部署對話框中，點選 **推薦配置**，自動填入建議的引擎、格式、模型大小和量化設定。詳情請參閱 :ref:`模型啟動推薦 "
+"<launch_recommendations>`。"
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 

@@ -250,3 +250,43 @@ msgstr "v3.1.0"
 #: ../../source/getting_started/release_notes.rst:12
 msgid "`View release notes <https://xinference.co/release_notes/v3.1.0.html>`_"
 msgstr "`バージョン説明を確認 <https://xinference.co/release_notes/v3.1.0.html>`_"
+
+#: getting_started/release_notes.rst
+msgid "Xinference 4.0 overview"
+msgstr "Xinference 4.0 の概要"
+
+#: getting_started/release_notes.rst
+msgid "The v4.0.0 community release expands cache reuse, heterogeneous deployment, and runtime model management. The highlights below summarize the major changes; detailed notes for individual versions follow this overview."
+msgstr "コミュニティ版 v4.0.0 は、キャッシュの再利用、異種環境へのデプロイ、実行中モデルの管理を拡張します。以下に主要な変更をまとめ、その後に各バージョンの詳細なリリースノートを掲載しています。"
+
+#: getting_started/release_notes.rst
+msgid "**Multi-engine Xavier and P/D.** SGLang and MLX replicas gain prefix KV cache sharing. P/D deployments can combine vLLM, SGLang, and MLX, including NVIDIA and Apple silicon workers. Native NIXL backends are available for vLLM and SGLang; vLLM Xavier adds direct GPU handoff and tiered history. See :ref:`user_guide_vllm_enhancement` and :ref:`user_guide_pd_separation`."
+msgstr "**複数エンジンに対応する Xavier と P/D。** SGLang と MLX のレプリカでプレフィックス KV キャッシュを共有できるようになります。P/D デプロイでは、NVIDIA と Apple Silicon のワーカーを含め、vLLM、SGLang、MLX を組み合わせられます。vLLM と SGLang はネイティブ NIXL バックエンドに対応し、vLLM Xavier は GPU 間の直接転送と階層型履歴キャッシュを追加します。:ref:`user_guide_vllm_enhancement` と :ref:`user_guide_pd_separation` を参照してください。"
+
+#: getting_started/release_notes.rst
+msgid "**Reconfigure without reloading weights.** Opt-in GPU weight caching lets vLLM and SGLang rebuild the engine with updated supported parameters while retaining the weights. Current requests drain before the change, and the model UID stays the same. See :ref:`launch_weight_cache_reload`."
+msgstr "**重みを再読み込みせずにパラメーターを変更。** GPU 重みキャッシュを有効にすると、vLLM と SGLang は重みを保持したまま、対応するパラメーターを変更してエンジンを再構築できます。変更前に処理中のリクエストの完了を待ち、モデル UID は維持されます。:ref:`launch_weight_cache_reload` を参照してください。"
+
+#: getting_started/release_notes.rst
+msgid "**Distributed vLLM V1 inference.** Supported models can combine tensor parallelism and pipeline parallelism across workers through Xinference's xoscar executor, without a separate Ray cluster. See :ref:`distributed_inference`."
+msgstr "**vLLM V1 の分散推論。** 対応モデルは Xinference の xoscar エグゼキューターを通じて、複数のワーカー間でテンソル並列とパイプライン並列を組み合わせられます。別途 Ray クラスターを用意する必要はありません。:ref:`distributed_inference` を参照してください。"
+
+#: getting_started/release_notes.rst
+msgid "**OpenAI-compatible API additions.** A stateless Responses API supports clients using ``/v1/responses``. vLLM, SGLang, and MLX also expose reused prompt-token counts in usage responses when reported by the engine. See :ref:`openai_responses_client` and :ref:`user_guide_client_api`."
+msgstr "**OpenAI 互換 API の拡張。** ステートレスな Responses API が ``/v1/responses`` を使うクライアントに対応します。vLLM、SGLang、MLX は、エンジンが情報を提供する場合、usage レスポンスで再利用したプロンプトトークン数も報告します。:ref:`openai_responses_client` と :ref:`user_guide_client_api` を参照してください。"
+
+#: getting_started/release_notes.rst
+msgid "**Unified logging.** The Web UI Log Center provides recent runtime logs and, with Elasticsearch configured, historical indexed logs. Request IDs connect API, audit, and runtime events. See :ref:`logging` and :ref:`user_guide_audit_security`."
+msgstr "**ログの統合。** Web UI の Log Center は直近の実行ログを表示し、Elasticsearch を設定すると過去のインデックス済みログも検索できます。リクエスト ID により API、監査、実行時のイベントを関連付けます。:ref:`logging` と :ref:`user_guide_audit_security` を参照してください。"
+
+#: getting_started/release_notes.rst
+msgid "**Installation and local services.** The cross-platform installer and service commands simplify setup and local service management on Linux, macOS, and Windows. Engine dependencies continue to install on demand in per-model virtual environments. See :ref:`one_line_install` and :ref:`model_launching_virtualenv`."
+msgstr "**インストールとローカルサービス管理。** クロスプラットフォームのインストーラーとサービスコマンドにより、Linux、macOS、Windows でのセットアップとローカルサービス管理が容易になります。エンジンの依存関係は引き続きモデルごとの仮想環境に必要時にインストールされます。:ref:`one_line_install` と :ref:`model_launching_virtualenv` を参照してください。"
+
+#: getting_started/release_notes.rst
+msgid "If upgrading from a version earlier than 3.0, read :ref:`migration_3_0` for authentication, Web UI, and container deployment changes. Check each feature guide for its engine and hardware requirements."
+msgstr "3.0 より前のバージョンからアップグレードする場合は、:ref:`migration_3_0` を読み、認証、Web UI、コンテナデプロイの変更を確認してください。各機能のガイドでエンジンとハードウェアの要件も確認してください。"
+
+#: getting_started/release_notes.rst
+msgid "Detailed version notes"
+msgstr "各バージョンの詳細なリリースノート"

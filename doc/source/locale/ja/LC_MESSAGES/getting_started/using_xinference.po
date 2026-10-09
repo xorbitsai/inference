@@ -566,6 +566,16 @@ msgid ""
 ":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
 msgstr ":ref:`正しい推論エンジンを選択する <user_guide_backends>`"
 
+#: ../../source/getting_started/using_xinference.rst:134
+msgid ""
+"Use **Recommend configuration** in the Web UI's model deployment dialog to"
+" fill in a suggested engine, format, size, and quantization. See "
+":ref:`launch recommendations <launch_recommendations>` for details."
+msgstr ""
+"Web UI のモデルデプロイダイアログで **構成を推奨** "
+"をクリックすると、推奨されるエンジン、形式、モデルサイズ、量子化が自動入力されます。詳細は :ref:`モデル起動の推奨設定 "
+"<launch_recommendations>` を参照してください。"
+
 #~ msgid ". code-block:: bash"
 #~ msgstr ""
 

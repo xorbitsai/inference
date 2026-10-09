@@ -11,7 +11,9 @@ No enterprise package or License is required.
 Launch
 ------
 
-vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback.
+.. versionchanged:: v4.0.0
+
+   vLLM Xavier P/D uses GPU-to-GPU handoff by default. It requires Linux, NVIDIA GPUs, vLLM >= 0.21.0 and ``xoscar[nixl]>=0.11.1`` in both worker and model environments. Use a reachable host address (not ``0.0.0.0``). Missing NIXL fails the launch; there is no CPU fallback.
 
 The example starts one prefill replica on GPU 0 and one decode replica on GPU 1.
 Replace the worker address with the full ``ip:port`` reported by
@@ -53,6 +55,8 @@ The community launch path defaults to Xavier when P/D roles appear.
 SGLang with Xavier
 ------------------
 
+.. versionadded:: v4.0.0
+
 SGLang >= ``0.5.21`` accepts the same prefill/decode ``replica_config`` through the Python clients, REST API, CLI and Web UI. Change ``model_engine`` in the example to ``"SGLang"``. Explicit roles automatically enable Xavier; multiple prefill and decode replicas are supported.
 
 SGLang Xavier P/D transfers KV directly between GPUs through Xavier's NIXL transport. Prefill and decode run concurrently using SGLang's native P/D lifecycle. Source and destination GPU slots remain owned until transfers complete; decode also receives the first token sampled by prefill. Streaming and non-streaming responses are supported. Transfer failures raise errors.
@@ -73,6 +77,8 @@ For fixed-length benchmarks, completion and chat requests accept ``ignore_eos=tr
 
 MLX with Xavier
 ---------------
+
+.. versionadded:: v4.0.0
 
 MLX Xavier requires Apple silicon and ``mlx-lm>=0.31.2``. It supports unquantized, full-attention Qwen2, Qwen3 and Llama text models with one worker per replica. Weights and KV cache use FP16. Quantized weights or KV cache, rotating caches, hybrid attention, multimodal inputs, LoRA and speculative decoding are unsupported.
 
@@ -105,6 +111,8 @@ Use the default ``xavier`` transport for MLX; native NIXL is unsupported. All wo
 
 Cross-engine vLLM/SGLang P/D
 --------------------------------------------------------------------------------
+
+.. versionadded:: v4.0.0
 
 Set ``model_engine`` and ``engine_config`` on each ``replica_config`` entry to select vLLM or SGLang independently for each role. Cross-engine P/D requires Xavier GPU transport. Engine options inherit launch arguments; ``engine_config`` overrides them per replica.
 
@@ -142,6 +150,8 @@ Cross-engine P/D does not support CPU fallback, retained Xavier history, logprob
 
 NVIDIA and MLX cross-engine P/D
 --------------------------------------------------------------------------------
+
+.. versionadded:: v4.0.0
 
 Xavier supports both vLLM/SGLang prefill with MLX decode and MLX prefill with vLLM/SGLang decode, with streaming and non-streaming requests. FP16 64-token pages pass through CPU staging and actor RPC between CUDA and Metal. vLLM and MLX decode compute the last prompt token; SGLang decode imports the full prompt KV and the first output token sampled by P. MLX prefill publishes request-owned pages on its worker with a 512 MiB in-flight budget.
 
@@ -186,6 +196,8 @@ Compare end-to-end TTFT with the standalone decode engine on its own hardware, u
 
 Native NIXL backend
 -------------------
+
+.. versionadded:: v4.0.0
 
 Set ``vllm_transfer_backend_type="nixl"`` in the launch example to use vLLM's
 native NixlConnector. Install ``nixl`` in the model environment together with
@@ -254,6 +266,8 @@ After a worker restart, relaunch the native NIXL PD deployment.
 Hybrid/recurrent attention limitation
 -------------------------------------
 
+.. versionadded:: v4.0.0
+
 Qwen3.5 text requests are supported with Xavier and native NIXL. Set ``language_model_only=True``, ``enable_prefix_caching=False``, ``mamba_cache_mode="none"``, ``disable_hybrid_kv_cache_manager=False`` and ``async_scheduling=False`` on both replicas. Use TP=1 and PP=1. Xavier history caching is not available for these hybrid/recurrent attention models; their configured history budget is not allocated. Image/video inputs and speculative decoding are not supported in this configuration. Native NIXL requires vLLM >= 0.22.0 for this mode.
 
 vLLM Xavier requirements and memory
@@ -265,6 +279,8 @@ Xavier's CPU cache can consume as much memory as the engine's GPU KV cache. Allo
 
 Direct handoff and tiered history
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: v4.0.0
 
 ``xavier_gpu_cache_bytes`` defaults to ``268435456`` (256 MiB per replica) for P/D. History uses GPU first and spills to CPU when GPU capacity is exhausted. CPU history is bounded by the engine KV block capacity and can approach that cache size in host memory. CPU hits restore KV to GPU; misses compute locally. ``0`` disables history, retaining direct transfer. Transfer failures raise errors.
 

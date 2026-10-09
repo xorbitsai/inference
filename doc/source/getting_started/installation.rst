@@ -3,38 +3,27 @@
 ============
 Installation
 ============
-Install the base Xinference package with ``pip`` on Linux, Windows, or macOS::
+Install Xinference with ``pip`` on Linux, Windows, or macOS::
 
    pip install xinference
 
-Model virtual environments install supported engine dependencies on demand. To install a backend manually, use its corresponding extra; see :ref:`inference_backend`.
+Automatic engine installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Model virtual environments are enabled by default. When you launch a model,
+Xinference prepares a virtual environment for that model and engine and
+automatically installs the dependencies declared by its configuration.
+You do not need to install ``xinference[all]`` or an engine extra first.
 
-Token Router
-~~~~~~~~~~~~
-The Token Router Runtime and Router Agent can be installed separately from
-the model-serving backends::
+This applies to engines such as Transformers, vLLM, SGLang, llama.cpp, and MLX.
+Choose a supported engine when launching the model; Xinference manages its
+Python dependencies. The engine's operating system, hardware, and driver
+requirements still apply.
 
-   pip install "xinference[router]"
-
-When installing Xinference from a source checkout, use::
-
-   uv pip install -e ".[router]"
-
-The ``router`` extra provides the dependencies required by the Token Router
-Runtime and Router Agent. The ``all`` extra includes the ``router`` extra.
-
-The Supervisor can use the base installation::
-
-   pip install xinference
-
-Installing the package creates the ``xinference-router`` and
-``xinference-router-agent`` commands. The extra controls dependency
-installation; it does not start any Supervisor, Worker, Router, or Router
-Agent process.
-
-.. versionchanged:: v1.8.1
-
-   Due to irreconcilable package dependency conflicts between vLLM and sglang, we have removed sglang from the all extra. If you want to use sglang, please install it separately via ``pip install 'xinference[sglang]'``.
+The first launch may take longer while packages are downloaded and installed.
+Later launches reuse the prepared environment when its dependencies are unchanged.
+The Worker needs access to the configured package indexes, or a prepared offline
+package source. See :ref:`model_virtual_env` for dependency overrides and local
+wheel sources, and :ref:`using_docker_compose` for offline deployments.
 
 .. _one_line_install:
 
@@ -107,41 +96,22 @@ For one-command service installation, set ``XINFERENCE_SERVICE=user`` on Linux/m
 
 Services restart after failures. Starting waits for the cluster's ``/status`` response; a failed readiness check stops a newly started service. Repeated installation reuses the same configuration. Stop and uninstall before changing the installation environment or service settings. Uninstall preserves model data and logs. This service interface manages single-machine local mode.
 
+The following sections describe the available engines. Manual installation is
+covered in :ref:`manual_backend_installation` for deployments that disable model
+virtual environments.
 
-Several usage scenarios require special attention.
-
-.. admonition:: **GGUF format** with **llama.cpp engine**
-
-   In this situation, it's advised to install its dependencies manually based on your hardware specifications to enable acceleration. For more details, see the :ref:`installation_gguf` section.
-
-.. admonition:: **AWQ or GPTQ** format with **transformers engine**
-
-   **This section is added in v1.6.0.**
-
-   This is because the dependencies at this stage require special options and are difficult to install. Please run command below in advance
-
-   .. code-block:: bash
-
-      pip install "xinference[transformers_quantization]" --no-build-isolation
-
-   These dependencies can change versions of shared packages such as ``transformers``. Install only the backend dependencies you need in an isolated environment.
-
-
-If you want to install only the necessary backends, here's a breakdown of how to do it.
 
 .. _inference_backend:
 
 Transformers Backend
 ~~~~~~~~~~~~~~~~~~~~
-PyTorch (transformers) supports the inference of most state-of-art models. It is the default backend for models in PyTorch format::
-
-   pip install "xinference[transformers]"
+PyTorch (transformers) supports the inference of most state-of-art models. It is the default backend for models in PyTorch format.
 
 Notes:
 
 - The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` formats.
-- FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you see an import error,
-  please upgrade ``transformers`` to a newer version.
+- FP4 format requires ``transformers`` with ``FPQuantConfig`` support. Use
+  :ref:`model_virtual_env` to override dependencies for a model when needed.
 
 
 vLLM Backend
@@ -199,15 +169,9 @@ Currently, supported models include:
 
 .. vllm_end
 
-To install Xinference and vLLM::
-
-   pip install "xinference[vllm]"
-   
-   # FlashInfer is optional but required for specific functionalities such as sliding window attention with Gemma 2.
-   # For CUDA 12.4 & torch 2.4 to support sliding window attention for gemma 2 and llama 3.1 style rope
-   pip install flashinfer -i https://flashinfer.ai/whl/cu124/torch2.4
-   # For other CUDA & torch versions, please check https://docs.flashinfer.ai/installation.html
-   
+With model virtual environments enabled, Xinference installs the configured
+vLLM dependencies at launch. No separate vLLM or FlashInfer installation command
+is required for this path.
 
 .. _installation_gguf:
 
@@ -222,10 +186,6 @@ and is the sole backend for llama.cpp since v1.6.0.
     Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated.
     Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
 
-Initial setup::
-
-   pip install "xinference[llama_cpp]"
-
 With per-model virtual environments enabled, Xinference 3.0 automatically
 selects the matching ``xllamacpp`` GPU wheel for supported CUDA versions; see
 :ref:`user_guide_backends`. For a manual installation into the process
@@ -235,18 +195,56 @@ SGLang Backend
 ~~~~~~~~~~~~~~
 SGLang has a high-performance inference runtime with RadixAttention. It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls. And it also supports other common techniques like continuous batching and tensor parallelism.
 
-Initial setup::
-
-   pip install "xinference[sglang]"
+Select ``SGLang`` as the engine when launching a supported model. Xinference
+installs the configured SGLang dependencies in that model's virtual environment;
+you do not need to install ``xinference[sglang]`` separately.
 
 
 MLX Backend
 ~~~~~~~~~~~
 MLX-lm is designed for Apple silicon users to run LLM efficiently.
 
-Initial setup::
+Xinference installs the configured MLX dependencies automatically when you launch
+a supported model with the MLX engine.
 
-   pip install "xinference[mlx]"
+Optional components
+~~~~~~~~~~~~~~~~~~~
+
+Token Router
+------------
+Token Router is an optional component for routing requests across model replicas.
+It is not required to install Xinference or launch models. If your deployment
+uses the Token Router Runtime or Router Agent, install the ``router`` extra in
+the environment where those processes run::
+
+   pip install "xinference[router]"
+
+When installing from a source checkout, use::
+
+   uv pip install -e ".[router]"
+
+Installing the package creates the ``xinference-router`` and
+``xinference-router-agent`` commands. Installing the extra provides their
+dependencies; start the required processes separately.
+
+.. _manual_backend_installation:
+
+Manual backend installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you disable model virtual environments with
+``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` or ``--disable-virtual-env`` at model launch,
+install the required backend dependencies in the Xinference Worker environment
+yourself. Engine extras such as ``transformers``, ``vllm``, ``sglang``,
+``llama_cpp``, and ``mlx`` remain available for this use case, for example:
+
+.. code-block:: bash
+
+   pip install "xinference[transformers]"
+
+Some hardware or quantization configurations require additional installation
+steps. Follow the selected backend's installation instructions for compatible
+packages and GPU support. Avoid installing unrelated engines together, since
+their dependencies may conflict.
 
 .. only:: zh_cn
 
