@@ -216,6 +216,7 @@ def _install():
     )
     from .flag.core import FlagEmbeddingModel
     from .llama_cpp.core import XllamaCppEmbeddingModel
+    from .llama_cpp.embeddinggemma2 import XllamaCppEmbeddingGemma2Model
     from .sentence_transformers.core import SentenceTransformerEmbeddingModel
     from .vllm.core import VLLMEmbeddingModel
 
@@ -227,7 +228,10 @@ def _install():
         SENTENCE_TRANSFORMER_CLASSES.insert(0, SentenceTransformerEmbeddingGemma2Model)
     extend_classes_once(FLAG_EMBEDDER_CLASSES, [FlagEmbeddingModel])
     extend_classes_once(VLLM_CLASSES, [VLLMEmbeddingModel])
-    extend_classes_once(LLAMA_CPP_CLASSES, [XllamaCppEmbeddingModel])
+    extend_classes_once(
+        LLAMA_CPP_CLASSES,
+        [XllamaCppEmbeddingModel, XllamaCppEmbeddingGemma2Model],
+    )
 
     SUPPORTED_ENGINES["sentence_transformers"] = SENTENCE_TRANSFORMER_CLASSES
     SUPPORTED_ENGINES["flag"] = FLAG_EMBEDDER_CLASSES
