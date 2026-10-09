@@ -14,10 +14,13 @@
 
 import logging
 import os
+import uuid
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Literal, Optional, Union, cast
 
 import torch
+
+from .constants import XINFERENCE_INTERFACE_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -699,3 +702,33 @@ def get_per_process_gpu_memory(*, strict: bool = False) -> Dict[int, Dict[int, i
                     logger.warning("Failed to shut down NVML", exc_info=True)
 
     return result
+
+
+def get_mac_address():
+    """
+    获取 MAC 地址（优先使用网卡名，失败则回退到 uuid.getnode()）
+
+    Returns:
+        str: 大写的 MAC 地址（格式 "XX:XX:XX:XX:XX:XX"），如果获取失败返回 None。
+    """
+    try:
+        import netifaces
+
+        NIFACE_INSTALLED = True
+    except ImportError:
+        NIFACE_INSTALLED = False
+
+    if XINFERENCE_INTERFACE_NAME is not None and NIFACE_INSTALLED:
+        try:
+            addrs = netifaces.ifaddresses(XINFERENCE_INTERFACE_NAME)
+            mac = addrs[netifaces.AF_LINK][0]["addr"].upper()
+            return mac
+        except (ValueError, KeyError, AttributeError):
+            pass
+
+    try:
+        mac = uuid.getnode()
+        mac_str = ":".join(("%012X" % mac)[i : i + 2] for i in range(0, 12, 2))
+        return mac_str
+    except Exception:
+        return None
