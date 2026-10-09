@@ -728,3 +728,31 @@ msgstr ""
 #~ "Both Xinference and Xoscar highly "
 #~ "utilize coroutine programming of ``asyncio``."
 #~ msgstr "Xinference 和 Xoscar 都高度利用了 ``asyncio`` 进行协程编程。"
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "运行时扩展"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "启动 Xinference 前，将 ``XINFERENCE_EXTENSIONS`` 设置为逗号分隔的 ``module:factory`` 条目。每个进程独立加载扩展实例，包括新建的 API、Worker 和恢复进程。不设置此变量时保持标准运行行为；配置错误的扩展会明确报错。"
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "工厂返回的对象需要包含唯一的 ``name``、``api_version = 1`` 和四个方法：``configure_api(context)``、``worker_metadata()``、``filter_worker_resources(worker, workers)`` 与 ``control_operation(operation, payload)``。API 上下文包含应用、路由、认证服务、认证模式和异步获取 Supervisor 引用的方法。路由与中间件在静态前端回退之前组合。保护扩展路由时应复用认证服务。"
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "Supervisor 校验 Worker 扩展是否一致，并向资源过滤器提供当前在线的 Worker 清单。过滤器可以缩小可见 GPU 索引范围，也可以抛出异常拒绝准入，包括 CPU 模型启动。资源分配和进程创建均检查策略，覆盖准备与恢复路径。具名控制操作在 Supervisor 上运行；扩展必须校验操作名和参数。默认前端导航配置为空，发行版构建可以组合自己的配置。"
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "工厂和全部四个 hook 必须同步且不阻塞；返回可等待对象会被拒绝。API 和 Actor 在启动时加载配置的工厂，之后才处理请求或注册 Worker。Actor hook 在 Actor 的事件循环上运行。"
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` 表示服务器整体的认证配置，而非当前请求的认证状态。扩展路由处理函数必须像标准 API 一样，将返回类型标注为 ``starlette.responses.Response`` 的子类。"
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "资源策略用于模型调度、分配和进程创建，并在 GPU 清理前检查。仅缓存或下载的 Worker 调度不受此过滤。"

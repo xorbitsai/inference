@@ -31,6 +31,7 @@ import { usePathname } from 'next/navigation';
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
 import { getAccessToken } from '@/lib/auth-storage';
+import { navigationExtensions } from '@/lib/ui-extensions';
 import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
@@ -59,6 +60,7 @@ interface NavItem {
 }
 
 interface NavGroup {
+  id: string;
   name: string;
   items: NavItem[];
 }
@@ -197,6 +199,7 @@ export function Sidebar() {
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
       {
+        id: 'models',
         name: t('menu.modelManagement'),
         items: [
           {
@@ -240,6 +243,7 @@ export function Sidebar() {
         ],
       },
       {
+        id: 'monitoring',
         name: t('menu.monitoringManagement'),
         items: [
           {
@@ -265,6 +269,7 @@ export function Sidebar() {
         ],
       },
       {
+        id: 'system',
         name: t('menu.systemManagement'),
         items: [
           {
@@ -307,6 +312,7 @@ export function Sidebar() {
         ],
       },
       {
+        id: 'resources',
         name: t('menu.resourcesAndSupport'),
         items: [
           {
@@ -340,6 +346,17 @@ export function Sidebar() {
         ],
       },
     ];
+
+    const extensionGroup = groups.find((group) => group.id === 'system');
+    extensionGroup?.items.push(
+      ...navigationExtensions.map((item) => ({
+        path: item.path,
+        name: item.label,
+        Icon: Box,
+        Extra: ChevronRight,
+        show: !item.adminOnly || clusterAuth?.auth === false || isAdmin,
+      }))
+    );
 
     return groups
       .map((group) => ({
@@ -407,7 +424,7 @@ export function Sidebar() {
               {...group}
               collapsed={collapsed}
               showDivider={index > 0}
-              key={group.name}
+              key={group.id}
             />
           ))}
         </nav>

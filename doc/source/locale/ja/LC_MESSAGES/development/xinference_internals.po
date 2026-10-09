@@ -681,3 +681,31 @@ msgstr ""
 #~ "Both Xinference and Xoscar highly utilize coroutine programming of "
 #~ "``asyncio``."
 #~ msgstr "Xinference と Xoscar は、いずれも ``asyncio`` を高度に活用してコルーチンプログラミングを行っています。"
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "ランタイム拡張"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "Xinference の起動前に、``XINFERENCE_EXTENSIONS`` にコンマ区切りの ``module:factory`` を設定します。API、Worker、復旧時に生成されるプロセスを含め、各プロセスが独自の拡張インスタンスを読み込みます。未設定の場合は標準動作を維持し、設定された拡張が無効な場合は明示的に失敗します。"
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "ファクトリは一意の ``name``、``api_version = 1`` と四つのメソッド ``configure_api(context)``、``worker_metadata()``、``filter_worker_resources(worker, workers)``、``control_operation(operation, payload)`` を持つオブジェクトを返します。API コンテキストにはアプリ、ルータ、認証サービス、認証モード、Supervisor 参照を非同期に取得する関数が含まれます。ルートとミドルウェアは静的フロントエンドへのフォールバック前に組み込まれます。拡張ルートの保護には認証サービスを再利用してください。"
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "Supervisor は Worker の拡張が一致することを検証し、稼働中の Worker 一覧をリソースフィルタに渡します。フィルタは可視 GPU インデックスを制限するか、例外を送出して CPU 起動を含む利用を拒否できます。割り当てとプロセス作成の両方でポリシーを検証し、準備と復旧も対象にします。名前付き制御操作は Supervisor で実行され、拡張は操作名と引数を検証する必要があります。既定のフロントエンドナビゲーション設定は空で、配布版のビルドで構成できます。"
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "ファクトリと4つすべてのフックは同期的かつ非ブロッキングでなければなりません。待機可能な結果は拒否されます。API とアクターは起動時に設定済みファクトリを読み込み、その後にリクエストを処理したりワーカーを登録したりします。アクターフックはアクターのイベントループで実行されます。"
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` はサーバー全体の認証設定を表し、現在のリクエストの認証状態ではありません。拡張ルートのハンドラーは標準 API と同様に、戻り値の型を ``starlette.responses.Response`` のサブクラスとして注釈する必要があります。"
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "リソースポリシーはモデルの配置、割り当て、プロセス作成に適用され、GPU のクリーンアップ前にチェックされます。キャッシュやダウンロードのみのワーカー配置はフィルタリングしません。"

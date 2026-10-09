@@ -1398,6 +1398,9 @@ class WorkerActor(xo.StatelessActor):
             logger.debug("Startup VRAM poll failed", exc_info=True)
 
     async def __post_create__(self):
+        from ..extensions import get_extensions
+
+        get_extensions()
         self._actor_loop = asyncio.get_running_loop()
         self._supervisor_init_lock = asyncio.Lock()
 
@@ -2151,8 +2154,13 @@ class WorkerActor(xo.StatelessActor):
         model_ref = await supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
 
-    def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
-        if n_gpu > len(self._total_gpu_devices):
+    def allocate_devices(
+        self, model_uid: str, n_gpu: int, allowed_devices: Optional[List[int]] = None
+    ) -> List[int]:
+        total_devices = (
+            self._total_gpu_devices if allowed_devices is None else allowed_devices
+        )
+        if n_gpu > len(total_devices):
             raise RuntimeError("Requested GPUs exceed the number of available devices")
 
         # If multi-replica-per-GPU is disabled, only pick currently idle GPUs.
@@ -2165,7 +2173,7 @@ class WorkerActor(xo.StatelessActor):
                 if model_infos:
                     occupied_devices.add(dev)
             available_devices = [
-                dev for dev in self._total_gpu_devices if dev not in occupied_devices
+                dev for dev in total_devices if dev not in occupied_devices
             ]
             if n_gpu > len(available_devices):
                 raise RuntimeError("No available slot found for the model")
@@ -2176,7 +2184,7 @@ class WorkerActor(xo.StatelessActor):
 
         # Default: allow multi-tenant GPUs, pick least-loaded devices.
         gpu_loads: List[Tuple[int, int, int]] = []
-        for dev in self._total_gpu_devices:
+        for dev in total_devices:
             running_models = len(self._gpu_to_model_uids.get(dev, set()))
             load = running_models + len(
                 self._user_specified_gpu_to_model_uids.get(dev, set())
@@ -2197,7 +2205,11 @@ class WorkerActor(xo.StatelessActor):
         return sorted(devices)
 
     async def allocate_devices_with_gpu_idx(
-        self, model_uid: str, model_type: str, gpu_idx: List[int]
+        self,
+        model_uid: str,
+        model_type: str,
+        gpu_idx: List[int],
+        allowed_devices: Optional[List[int]] = None,
     ) -> List[int]:
         """
         When user specifies the gpu_idx, allocate models on user-specified GPUs whenever possible
@@ -2207,6 +2219,10 @@ class WorkerActor(xo.StatelessActor):
             raise ValueError(
                 f"Worker {self.address} cannot use the GPUs with these indexes: {gpu_idx}. "
                 f"Worker {self.address} can only see these GPUs: {self._total_gpu_devices}."
+            )
+        if allowed_devices is not None and not set(gpu_idx) <= set(allowed_devices):
+            raise ValueError(
+                "Requested GPUs are excluded by the worker resource policy"
             )
         # currently just report a warning log when there are already models on these GPUs
         for idx in gpu_idx:
@@ -2233,11 +2249,29 @@ class WorkerActor(xo.StatelessActor):
             self._user_specified_gpu_to_model_uids[idx].add((model_uid, model_type))
         return sorted(gpu_idx)
 
+    def get_extension_resources(self) -> Dict[str, Any]:
+        from ..extensions import worker_extension_metadata
+
+        return {
+            "address": self.address,
+            "gpu_devices": list(self._total_gpu_devices),
+            "extensions": worker_extension_metadata(),
+        }
+
+    async def _get_allowed_gpu_devices(self) -> Optional[List[int]]:
+        from ..extensions import get_extensions
+
+        if not get_extensions():
+            return None
+        supervisor = await self.get_supervisor_ref()
+        return await supervisor.get_worker_resource_policy(self.address)
+
     @log_async(logger=logger)
     async def get_gpu_allocation_status(self) -> Dict[str, Any]:
         """Return current device allocation snapshot for scheduling/diagnostics."""
+        allowed = await self._get_allowed_gpu_devices()
         return {
-            "total": list(self._total_gpu_devices),
+            "total": list(self._total_gpu_devices) if allowed is None else allowed,
             "models": {int(k): list(v) for k, v in self._gpu_to_model_uids.items()},
             "user_specified": {
                 int(k): [list(t) for t in v]
@@ -2372,6 +2406,11 @@ class WorkerActor(xo.StatelessActor):
         balancing to work; deferring allocation until after preparation lets
         them all race for the same "idle" GPU snapshot instead.
         """
+        from ..extensions import get_extensions
+
+        allowed_devices = (
+            await self._get_allowed_gpu_devices() if get_extensions() else None
+        )
         env = {} if env is None else env
         devices = []
         env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
@@ -2379,7 +2418,9 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
                 gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
-                devices = self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
+                devices = self.allocate_devices(
+                    model_uid=model_uid, n_gpu=gpu_cnt, allowed_devices=allowed_devices
+                )
                 env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
             if n_gpu is None:
@@ -2388,7 +2429,7 @@ class WorkerActor(xo.StatelessActor):
         else:
             assert isinstance(gpu_idx, list)
             devices = await self.allocate_devices_with_gpu_idx(
-                model_uid, model_type, gpu_idx  # type: ignore
+                model_uid, model_type, gpu_idx, allowed_devices=allowed_devices  # type: ignore
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
@@ -2419,6 +2460,19 @@ class WorkerActor(xo.StatelessActor):
         # live worker's vLLM processes on shared GPUs. Best-effort: any error
         # is logged and the launch proceeds (the timeout below is the backstop).
         _target_device_ints = [int(d) for d in devices] if devices else []
+        from ..extensions import get_extensions
+
+        # Preparation/download may outlive the admission snapshot. Revalidate
+        # before touching GPUs or spawning; outer launch cleanup releases any
+        # reservations if the distribution rejects this operation.
+        if get_extensions():
+            allowed_devices = await self._get_allowed_gpu_devices()
+            if allowed_devices is not None and not set(_target_device_ints) <= set(
+                allowed_devices
+            ):
+                raise ValueError(
+                    "Reserved GPUs are excluded by the worker resource policy"
+                )
         if _target_device_ints:
             try:
                 _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
@@ -2458,6 +2512,17 @@ class WorkerActor(xo.StatelessActor):
                     "Pre-launch VRAM check failed for model %s",
                     model_uid,
                     exc_info=True,
+                )
+
+        # VRAM reclamation can await for several seconds; admission may have
+        # changed during cleanup, so check again before creating the process.
+        if get_extensions():
+            allowed_devices = await self._get_allowed_gpu_devices()
+            if allowed_devices is not None and not set(_target_device_ints) <= set(
+                allowed_devices
+            ):
+                raise ValueError(
+                    "Reserved GPUs are excluded by the worker resource policy"
                 )
 
         # H3 + C: serialize sub-pool creation and bound it with a timeout.

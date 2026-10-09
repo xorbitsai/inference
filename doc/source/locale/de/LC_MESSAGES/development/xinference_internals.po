@@ -781,3 +781,31 @@ msgstr ""
 #~ msgstr ""
 #~ "Xinference und Xoscar nutzen beide intensiv ``asyncio`` für die Coroutine-"
 #~ "Programmierung."
+
+#: ../../development/xinference_internals.rst
+msgid "Runtime extensions"
+msgstr "Laufzeiterweiterungen"
+
+#: ../../development/xinference_internals.rst
+msgid "Set ``XINFERENCE_EXTENSIONS`` to comma-separated ``module:factory`` entries before starting Xinference. Each process loads its own extension instances, including spawned API, worker, and recovery processes. An unset variable preserves the standard runtime; an invalid configured extension fails explicitly."
+msgstr "Setzen Sie vor dem Start von Xinference ``XINFERENCE_EXTENSIONS`` auf kommagetrennte ``module:factory``-Einträge. Jeder Prozess lädt eigene Erweiterungsinstanzen, auch neu erzeugte API-, Worker- und Wiederherstellungsprozesse. Ohne diese Variable bleibt das Standardverhalten erhalten; eine ungültige konfigurierte Erweiterung führt zu einem ausdrücklichen Fehler."
+
+#: ../../development/xinference_internals.rst
+msgid "A factory returns an object with a unique ``name``, ``api_version = 1``, and four methods: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)``, and ``control_operation(operation, payload)``. API context includes the app, router, authentication service, authentication mode, and an asynchronous supervisor reference getter. Routes and middleware are composed before the static frontend fallback. Reuse the authentication service when protecting extension routes."
+msgstr "Eine Factory liefert ein Objekt mit eindeutigem ``name``, ``api_version = 1`` und vier Methoden: ``configure_api(context)``, ``worker_metadata()``, ``filter_worker_resources(worker, workers)`` und ``control_operation(operation, payload)``. Der API-Kontext enthält App, Router, Authentifizierungsdienst, Authentifizierungsmodus und eine asynchrone Funktion für die Supervisor-Referenz. Routen und Middleware werden vor dem statischen Frontend-Fallback eingebunden. Verwenden Sie den Authentifizierungsdienst zum Schutz der Erweiterungsrouten."
+
+#: ../../development/xinference_internals.rst
+msgid "The supervisor verifies matching worker extensions and supplies the live worker inventory to resource filters. Filters may narrow visible GPU indices or raise to reject admission, including CPU launches. Allocation and process creation both check policy, covering preparation and recovery. Named control operations run on the supervisor; extensions must validate their operation names and payloads. The default frontend navigation configuration is empty and can be composed by a distribution build."
+msgstr "Der Supervisor prüft übereinstimmende Worker-Erweiterungen und übergibt den Ressourcenfiltern die aktiven Worker. Filter dürfen sichtbare GPU-Indizes einschränken oder die Zulassung durch eine Ausnahme verweigern, auch für CPU-Starts. Zuweisung und Prozesserstellung prüfen die Richtlinie einschließlich Vorbereitung und Wiederherstellung. Benannte Steueroperationen laufen im Supervisor; Erweiterungen müssen Operationsnamen und Parameter prüfen. Die Standardkonfiguration der Frontend-Navigation ist leer und kann beim Distributionsbuild ergänzt werden."
+
+#: ../../development/xinference_internals.rst
+msgid "Factories and all four hooks must be synchronous and non-blocking; awaitable results are rejected. API and actor startup load configured factories before serving requests or registering workers. Actor hooks run on the actor's event loop."
+msgstr "Factories und alle vier Hooks müssen synchron und nicht blockierend sein; Awaitable-Ergebnisse werden abgewiesen. API und Actors laden konfigurierte Factories beim Start, bevor sie Anfragen bearbeiten oder Worker registrieren. Actor-Hooks laufen auf der Ereignisschleife des Actors."
+
+#: ../../development/xinference_internals.rst
+msgid "``context.auth_enabled`` describes server-wide authentication configuration, not the current request. Extension route handlers must annotate a ``starlette.responses.Response`` subclass as their return type, as required by the standard API."
+msgstr "``context.auth_enabled`` beschreibt die serverweite Authentifizierungskonfiguration, nicht die aktuelle Anfrage. Handler von Erweiterungsrouten müssen wie die Standard-API eine Unterklasse von ``starlette.responses.Response`` als Rückgabetyp annotieren."
+
+#: ../../development/xinference_internals.rst
+msgid "Resource policies apply to model placement, allocation, and process creation, with a check before GPU cleanup. They do not filter cache/download-only worker placement."
+msgstr "Ressourcenrichtlinien gelten für Modellplatzierung, Zuweisung und Prozesserstellung; vor der GPU-Bereinigung erfolgt eine Prüfung. Die Worker-Platzierung für reine Cache- oder Download-Aufgaben wird nicht gefiltert."
