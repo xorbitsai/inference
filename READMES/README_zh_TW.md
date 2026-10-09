@@ -146,14 +146,28 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 
 ### 快速上手
 
-安裝並啟動 Xinference：
+**pip**
 
 ```bash
 pip install "xinference[all]"
 xinference-local
 ```
 
-一鍵安裝、升級和系統服務請參閱[安裝指南](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install)，執行模型請參閱[使用指南](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)。
+**一鍵安裝（基礎套件）**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[安裝指南](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
 

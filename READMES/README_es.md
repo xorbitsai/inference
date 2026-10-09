@@ -147,14 +147,28 @@ Más opciones de K8s en la documentación.
 
 ### Quickstart
 
-Instala e inicia Xinference:
+**pip**
 
 ```bash
 pip install "xinference[all]"
 xinference-local
 ```
 
-Para instalación con un comando, actualizaciones y servicios, consulta la [guía de instalación](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install); para ejecutar modelos, la [guía de uso](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally).
+**Instalación con un comando (paquete base)**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[Guía de instalación](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Guía de uso](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
 

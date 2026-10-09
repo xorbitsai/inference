@@ -146,14 +146,28 @@ helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xi
 
 ### Quickstart
 
-Xinference를 설치하고 시작하세요:
+**pip**
 
 ```bash
 pip install "xinference[all]"
 xinference-local
 ```
 
-원커맨드 설치, 업그레이드, 서비스는 [설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install), 모델 실행은 [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)를 참조하세요.
+**원커맨드 설치 (기본 패키지)**
+
+Linux/macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.ps1 | iex
+```
+
+[설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
 
