@@ -16,6 +16,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
 import shlex
 import shutil
 import subprocess
@@ -123,6 +124,10 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
     assert (out / "manifest.json").is_file()
     assert (out / "engines" / "transformers.in").is_file()
     manifest = json.loads((out / "manifest.json").read_text())
+    cuda_suffix = re.search(r"^ARG CUDA_SUFFIX=(\S+)$", dockerfile, re.MULTILINE).group(
+        1
+    )
+    assert f"cu{manifest['cuda_version'].replace('.', '')}" == cuda_suffix
     assert len(manifest["deferred_model_pins"]) == 1
     deferred = manifest["deferred_model_pins"][0]
     assert deferred["spec"] == "vllm>=0.32.0"

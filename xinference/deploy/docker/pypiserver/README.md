@@ -35,6 +35,8 @@ in a custom runtime image when the corresponding model is needed air-gapped.
    is not published. Its vLLM backend is unavailable from this offline mirror;
    the runtime requirement is unchanged. Other models still include released
    vLLM versions. Remove this exception when the required release is published.
+   Preflight also checks deferred requirements and warns when a published
+   candidate becomes available, prompting removal of the exception.
 2. **`download_packages.py`** first locks the exact shared runtime pins from
    `xinference/deploy/docker/requirements-runtime.txt`, then locks each engine
    set with `uv pip compile`, and fetches the fully-pinned locks with
@@ -59,13 +61,15 @@ multiple versions, and any sdists that could not be built into wheels).
 PRs run a lightweight dependency preflight for Linux amd64 and arm64 on Python
 3.12. The release workflow runs the same gate before starting Docker builds.
 It fetches only Simple API index metadata, checks version ranges, Requires-Python
-and wheel Python/architecture tags, and accepts published sdists. It does not
-download artifacts, install engines or build images. Index request errors fail
+and wheel Python/architecture tags for the same manylinux 2.34 target as the
+build, and accepts published sdists. The CUDA index comes from each manifest;
+a regression test keeps the default Python target aligned with the Dockerfile.
+It does not download artifacts, install engines or build images. Index request errors fail
 the check rather than silently dropping requirements.
 
 This catches unpublished requirements such as `vllm>=0.32.0` before a long build.
 It does not resolve transitive dependencies, prove that sdists compile or check
-all native platform requirements (such as the host glibc version). The full
+all native platform requirements (such as external system libraries). The full
 image build and offline selfcheck remain required for releases.
 
 Run the same quick check from the repository root:

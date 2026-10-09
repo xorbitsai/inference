@@ -12,6 +12,7 @@ on:
       - 'xinference/model/**'
       - 'xinference/deploy/docker/pypiserver/**'
       - 'xinference/deploy/docker/requirements-runtime.txt'
+      - 'xinference/deploy/docker/Dockerfile*'
   push:
     branches: [main]
     paths:
@@ -24,6 +25,7 @@ on:
       - 'xinference/model/**'
       - 'xinference/deploy/docker/pypiserver/**'
       - 'xinference/deploy/docker/requirements-runtime.txt'
+      - 'xinference/deploy/docker/Dockerfile*'
   workflow_call:
 
 permissions:

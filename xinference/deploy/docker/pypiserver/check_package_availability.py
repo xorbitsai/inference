@@ -17,17 +17,19 @@ import json
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from html.parser import HTMLParser
+from http.client import HTTPException
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
 
 from packaging.markers import default_environment
 from packaging.requirements import Requirement
-from packaging.specifiers import SpecifierSet
-from packaging.tags import compatible_tags, cpython_tags
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.tags import Tag, compatible_tags, cpython_tags
 from packaging.utils import (
     InvalidSdistFilename,
     InvalidWheelFilename,
@@ -37,7 +39,8 @@ from packaging.utils import (
 )
 
 PYPI_INDEX = "https://pypi.org/simple"
-PYTORCH_INDEX = "https://download.pytorch.org/whl/cu130"
+DEFAULT_PYTHON_VERSION = "3.12.0"
+MAX_GLIBC_MINOR = 34  # Matches download_packages.py and selfcheck.py's uv target.
 
 
 class SimpleIndexParser(HTMLParser):
@@ -75,7 +78,14 @@ def fetch_files(index: str, name: str) -> List[Dict[str, Any]]:
             with urlopen(request, timeout=20) as response:
                 body = response.read().decode("utf-8")
                 if "json" in response.headers.get("Content-Type", ""):
-                    return json.loads(body)["files"]
+                    payload = json.loads(body)
+                    if not isinstance(payload, dict) or not isinstance(
+                        payload.get("files"), list
+                    ):
+                        raise RuntimeError(
+                            f"Invalid index response from {url}: missing files list"
+                        )
+                    return payload["files"]
                 parser = SimpleIndexParser()
                 parser.feed(body)
                 return parser.files
@@ -86,18 +96,43 @@ def fetch_files(index: str, name: str) -> List[Dict[str, Any]]:
                 and index.startswith("https://download.pytorch.org/whl/")
             ):
                 return []
-            if exc.code < 500:
+            if exc.code < 500 and exc.code != 429:
                 raise RuntimeError(f"Index request failed: {url}: {exc}") from exc
             error = exc
-        except (URLError, TimeoutError, OSError) as exc:
+        except (HTTPException, URLError, TimeoutError, OSError) as exc:
             error = exc
         if attempt < 2:
             time.sleep(attempt + 1)
     raise RuntimeError(f"Index request failed: {url}: {error}")
 
 
+@lru_cache(maxsize=8)
+def supported_tags(machine: str, python_version: str) -> Set[Tag]:
+    # uv's manylinux_2_34 target accepts legacy aliases and linux_* as well,
+    # but not wheels requiring a newer glibc. Match its target, not the host.
+    minimum = 5 if machine == "x86_64" else 17
+    platforms = [
+        f"manylinux_2_{minor}_{machine}"
+        for minor in range(MAX_GLIBC_MINOR, minimum - 1, -1)
+    ]
+    platforms.extend([f"manylinux2014_{machine}", f"linux_{machine}"])
+    if machine == "x86_64":
+        platforms.extend([f"manylinux2010_{machine}", f"manylinux1_{machine}"])
+    major, minor = (int(v) for v in python_version.split(".")[:2])
+    target = (major, minor)
+    return set(
+        cpython_tags(target, abis=[f"cp{major}{minor}"], platforms=platforms)
+    ) | set(
+        compatible_tags(target, interpreter=f"cp{major}{minor}", platforms=platforms)
+    )
+
+
 def matching_file(
-    requirement: Requirement, file: Dict[str, Any], machine: str, python_version: str
+    requirement: Requirement,
+    file: Dict[str, Any],
+    machine: str,
+    python_version: str,
+    prereleases: Optional[bool] = None,
 ) -> bool:
     exact_pin = any(
         spec.operator in {"==", "==="} and "*" not in spec.version
@@ -106,40 +141,18 @@ def matching_file(
     if file.get("yanked", False) is not False and not exact_pin:
         return False
     requires_python = file.get("requires-python")
-    if requires_python and not SpecifierSet(requires_python).contains(python_version):
-        return False
+    if requires_python:
+        try:
+            if not SpecifierSet(requires_python).contains(python_version):
+                return False
+        except InvalidSpecifier:
+            # Like pip, ignore malformed upstream Requires-Python metadata.
+            pass
     filename = file["filename"]
     try:
         if filename.endswith(".whl"):
             name, version, _, tags = parse_wheel_filename(filename)
-            platforms = {
-                tag.platform
-                for tag in tags
-                if tag.platform == "any"
-                or tag.platform == f"linux_{machine}"
-                or (
-                    tag.platform.startswith("manylinux")
-                    and tag.platform.endswith(f"_{machine}")
-                )
-            }
-            if not platforms:
-                return False
-            major, minor = (int(v) for v in python_version.split(".")[:2])
-            target_version = (major, minor)
-            supported = set(
-                cpython_tags(
-                    target_version,
-                    abis=[f"cp{major}{minor}"],
-                    platforms=sorted(platforms),
-                )
-            ) | set(
-                compatible_tags(
-                    target_version,
-                    interpreter=f"cp{target_version[0]}{target_version[1]}",
-                    platforms=sorted(platforms),
-                )
-            )
-            if not tags.intersection(supported):
+            if not tags.intersection(supported_tags(machine, python_version)):
                 return False
         else:
             # The image builder can build sdists; metadata alone cannot prove
@@ -150,7 +163,12 @@ def matching_file(
     return name == canonicalize_name(
         requirement.name
     ) and requirement.specifier.contains(
-        version, prereleases=bool(requirement.specifier.prereleases)
+        version,
+        prereleases=(
+            bool(requirement.specifier.prereleases)
+            if prereleases is None
+            else prereleases
+        ),
     )
 
 
@@ -158,6 +176,9 @@ def collect_requirements(
     manifest_dir: Path, runtime_constraints: Path, python_version: str
 ) -> List[Dict[str, Any]]:
     manifest = json.loads((manifest_dir / "manifest.json").read_text())
+    pytorch_index = "https://download.pytorch.org/whl/cu" + manifest[
+        "cuda_version"
+    ].replace(".", "")
     environment = default_environment()
     environment.update(
         sys_platform="linux",
@@ -171,7 +192,9 @@ def collect_requirements(
     )
     checks = []
 
-    def add(spec: str, sources: List[str], extra_indexes: List[str]) -> None:
+    def add(
+        spec: str, sources: List[str], extra_indexes: List[str], deferred: str = ""
+    ) -> None:
         requirement = Requirement(spec)
         if requirement.url:
             return
@@ -182,8 +205,9 @@ def collect_requirements(
                 "requirement": requirement,
                 "sources": sources,
                 "machine": manifest["machine"],
+                "deferred": deferred,
                 "indexes": tuple(
-                    dict.fromkeys([PYPI_INDEX, *extra_indexes, PYTORCH_INDEX])
+                    dict.fromkeys([PYPI_INDEX, *extra_indexes, pytorch_index])
                 ),
             }
         )
@@ -203,6 +227,8 @@ def collect_requirements(
                 )
     for pin in json.loads((manifest_dir / "pins.json").read_text()):
         add(pin["spec"], pin["sources"], [])
+    for pin in manifest.get("deferred_model_pins", []):
+        add(pin["spec"], [pin["source"]], [], deferred=pin["reason"])
     return checks
 
 
@@ -220,7 +246,7 @@ def check_requirements(checks: List[Dict[str, Any]], python_version: str) -> Lis
     def fetch(key: Tuple[str, str]) -> Any:
         try:
             return fetch_files(*key)
-        except (RuntimeError, ValueError) as exc:
+        except Exception as exc:
             return exc
 
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -238,11 +264,23 @@ def check_requirements(checks: List[Dict[str, Any]], python_version: str) -> Lis
         label = f"{check['machine']}: {requirement} ({', '.join(check['sources'])})"
         if errors:
             failures.add(f"{label}: {'; '.join(errors)}")
-        elif not any(
-            matching_file(requirement, file, check["machine"], python_version)
+            continue
+        # Prefer finals, then permit a prerelease-only solution as current
+        # pip/uv do. This is still only a direct candidate availability check.
+        available = any(
+            matching_file(
+                requirement, file, check["machine"], python_version, prereleases=allow
+            )
+            for allow in (False, True)
             for candidate in candidates
             for file in candidate
-        ):
+        )
+        if check.get("deferred"):
+            if available:
+                print(
+                    f"::warning::{label}: deferred dependency is now available; remove its mirror exception"
+                )
+        elif not available:
             failures.add(f"{label}: no published candidate for Python {python_version}")
     return sorted(failures)
 
@@ -251,7 +289,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest-dir", type=Path, action="append", required=True)
     parser.add_argument("--runtime-constraints", type=Path, required=True)
-    parser.add_argument("--python-version", default="3.12.0")
+    parser.add_argument("--python-version", default=DEFAULT_PYTHON_VERSION)
     args = parser.parse_args()
     checks = [
         check

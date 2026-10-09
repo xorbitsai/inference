@@ -6,9 +6,11 @@
 
 import importlib.util
 import json
+import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 import pytest
 from packaging.requirements import Requirement
@@ -76,6 +78,56 @@ def checker():
         ),
         ("pkg", "pkg-1.0-py3-none-any.whl", "aarch64", ">=3.13", False, False),
         ("pkg", "pkg-1.0-py3-none-any.whl", "aarch64", None, False, True),
+        ("pkg", "pkg-1.0-py3-none-any.whl", "aarch64", ">=3.6.*", False, True),
+        (
+            "pkg",
+            "pkg-1.0-cp312-cp312-manylinux_2_34_aarch64.whl",
+            "aarch64",
+            None,
+            False,
+            True,
+        ),
+        (
+            "pkg",
+            "pkg-1.0-cp312-cp312-manylinux_2_35_aarch64.whl",
+            "aarch64",
+            None,
+            False,
+            False,
+        ),
+        (
+            "pkg",
+            "pkg-1.0-cp312-cp312-manylinux1_x86_64.whl",
+            "x86_64",
+            None,
+            False,
+            True,
+        ),
+        (
+            "pkg",
+            "pkg-1.0-cp312-cp312-manylinux2010_x86_64.whl",
+            "x86_64",
+            None,
+            False,
+            True,
+        ),
+        (
+            "pkg",
+            "pkg-1.0-cp312-cp312-manylinux2014_x86_64.whl",
+            "x86_64",
+            None,
+            False,
+            True,
+        ),
+        ("pkg", "pkg-1.0-cp312-cp312-linux_x86_64.whl", "x86_64", None, False, True),
+        (
+            "pkg",
+            "pkg-1.0-cp312-cp312-musllinux_1_2_aarch64.whl",
+            "aarch64",
+            None,
+            False,
+            False,
+        ),
         (
             "pkg",
             "pkg-1.0-cp312-cp312-macosx_11_0_arm64.whl",
@@ -166,6 +218,14 @@ def test_collect_all_mirror_inputs_and_target_markers(checker, tmp_path):
         json.dumps(
             {
                 "machine": "aarch64",
+                "cuda_version": "13.1",
+                "deferred_model_pins": [
+                    {
+                        "spec": "vllm>=0.32.0",
+                        "source": "future-model",
+                        "reason": "unpublished backend",
+                    }
+                ],
                 "engines": {
                     "vllm": {
                         "engine": "vllm",
@@ -199,8 +259,11 @@ def test_collect_all_mirror_inputs_and_target_markers(checker, tmp_path):
     }
     engine = next(check for check in checks if check["requirement"].name == "vllm")
     assert "https://custom.example/simple" in engine["indexes"]
-    assert checker.PYTORCH_INDEX in engine["indexes"]
+    assert "https://download.pytorch.org/whl/cu131" in engine["indexes"]
     assert all(check["machine"] == "aarch64" for check in checks)
+    deferred = next(check for check in checks if check["deferred"])
+    assert deferred["sources"] == ["future-model"]
+    assert str(deferred["requirement"]) == "vllm>=0.32.0"
 
 
 @pytest.mark.parametrize("format", ["json", "html"])
@@ -247,6 +310,168 @@ def test_simple_index_requests_never_download_artifacts(checker, format):
             Requirement("pkg==1.0"), files[0], "aarch64", "3.12.0"
         )
         assert requests == ["/simple/pkg/"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_default_python_target_matches_dockerfile(checker):
+    dockerfile = Path(__file__).resolve().parents[1] / "Dockerfile.pypiserver"
+    target = re.search(
+        r"^ARG PYTHON_VERSION=(\S+)$", dockerfile.read_text(), re.MULTILINE
+    ).group(1)
+    assert checker.DEFAULT_PYTHON_VERSION.split(".")[:2] == target.split(".")[:2]
+
+
+def test_prerelease_only_candidates_are_accepted(checker, monkeypatch):
+    monkeypatch.setattr(
+        checker, "fetch_files", lambda *_: [{"filename": "pkg-2.0rc1.tar.gz"}]
+    )
+    calls = []
+    original = checker.matching_file
+
+    def match(*args, **kwargs):
+        calls.append(kwargs["prereleases"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(checker, "matching_file", match)
+    assert (
+        checker.check_requirements(
+            [
+                {
+                    "requirement": Requirement("pkg>=1.0"),
+                    "machine": "x86_64",
+                    "sources": ["model"],
+                    "indexes": ("https://index.example",),
+                }
+            ],
+            "3.12.0",
+        )
+        == []
+    )
+    assert calls == [False, True]
+
+
+@pytest.mark.parametrize("published", [False, True])
+def test_deferred_dependency_warns_only_when_published(
+    checker, monkeypatch, capsys, published
+):
+    version = "0.32.0" if published else "0.31.0"
+    requests = []
+
+    def fetch(*args):
+        requests.append(args)
+        return [{"filename": f"vllm-{version}.tar.gz"}]
+
+    monkeypatch.setattr(checker, "fetch_files", fetch)
+    checks = [
+        {
+            "requirement": Requirement(spec),
+            "machine": machine,
+            "sources": ["embeddinggemma-2"],
+            "indexes": ("https://index.example",),
+            "deferred": "future backend" if deferred else "",
+        }
+        for machine in ("x86_64", "aarch64")
+        for spec, deferred in [("vllm>=0.31.0", False), ("vllm>=0.32.0", True)]
+    ]
+    assert checker.check_requirements(checks, "3.12.0") == []
+    assert capsys.readouterr().out.count("::warning::") == (2 if published else 0)
+    assert requests == [("https://index.example", "vllm")]
+
+
+@pytest.mark.parametrize(
+    "status,pytorch,expected_requests",
+    [
+        (404, False, 1),
+        (403, True, 1),
+        (403, False, 1),
+        (400, False, 1),
+        (429, False, 3),
+        (500, False, 3),
+    ],
+)
+def test_index_http_status_classification(
+    checker, monkeypatch, status, pytorch, expected_requests
+):
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.path)
+            self.send_response(status)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    local_index = f"http://127.0.0.1:{server.server_port}/simple"
+
+    def open_local(request, timeout):
+        return urlopen(
+            Request(local_index + "/pkg/", headers=request.headers), timeout=timeout
+        )
+
+    monkeypatch.setattr(checker, "urlopen", open_local)
+    monkeypatch.setattr(checker.time, "sleep", lambda *_: None)
+    index = "https://download.pytorch.org/whl/cu130" if pytorch else local_index
+    try:
+        if status == 404 or (status == 403 and pytorch):
+            assert checker.fetch_files(index, "pkg") == []
+        else:
+            with pytest.raises(RuntimeError, match="Index request failed"):
+                checker.fetch_files(index, "pkg")
+        assert requests == ["/simple/pkg/"] * expected_requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize(
+    "broken_response", ["missing-files", "invalid-json", "truncated"]
+)
+def test_broken_index_responses_are_reported(checker, monkeypatch, broken_response):
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.path)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.pypi.simple.v1+json")
+            if broken_response == "truncated":
+                self.send_header("Content-Length", "100")
+            self.end_headers()
+            self.wfile.write(
+                b"not-json" if broken_response == "invalid-json" else b"{}"
+            )
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setattr(checker.time, "sleep", lambda *_: None)
+    try:
+        failures = checker.check_requirements(
+            [
+                {
+                    "requirement": Requirement("pkg"),
+                    "machine": "x86_64",
+                    "sources": ["test-model"],
+                    "indexes": (f"http://127.0.0.1:{server.server_port}/simple",),
+                }
+            ],
+            "3.12.0",
+        )
+        assert len(failures) == 1
+        assert "test-model" in failures[0]
+        assert len(requests) == (3 if broken_response == "truncated" else 1)
     finally:
         server.shutdown()
         server.server_close()
