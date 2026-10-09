@@ -24,22 +24,21 @@ msgstr "Installation"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To"
-" run models using Xinference, you will need to install the backend "
-"corresponding to the type of model you intend to serve."
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
 msgstr ""
-"Xinference peut être installé sur Linux, Windows et MacOS via ``pip``. Si"
-" vous souhaitez utiliser Xinference pour l'inférence de modèles, vous "
-"pouvez spécifier différents moteurs en fonction du modèle."
+"Installez le paquet de base Xinference avec ``pip`` sous Linux, Windows ou "
+"macOS::"
 
-#: ../../source/getting_started/installation.rst:8
+#: ../../source/getting_started/installation.rst:10
 msgid ""
-"If you aim to serve all supported models, you can install all the "
-"necessary dependencies with a single command::"
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
 msgstr ""
-"Si vous souhaitez pouvoir raisonner sur tous les modèles pris en charge, "
-"vous pouvez installer toutes les dépendances nécessaires avec la commande"
-" suivante::"
+"Les environnements virtuels des modèles installent les dépendances des "
+"moteurs pris en charge à la demande. Pour installer un backend manuellement,"
+" utilisez l’extra correspondant ; voir :ref:`inference_backend`."
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
@@ -88,13 +87,15 @@ msgstr ""
 "spéciales et sont difficiles à installer. Veuillez exécuter les commandes"
 " suivantes à l'avance."
 
-#: ../../source/getting_started/installation.rst:33
+#: ../../source/getting_started/installation.rst:127
 msgid ""
-"Some dependencies like ``transformers`` might be downgraded, you can run "
-"``pip install \"xinference[all]\"`` afterwards."
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
 msgstr ""
-"Certaines dépendances, comme ``transformers``, peuvent être rétrogradées."
-" Vous pouvez ensuite exécuter ``pip install \"xinference[all]\"``."
+"Ces dépendances peuvent modifier les versions de paquets partagés comme "
+"``transformers``. Installez uniquement les dépendances du backend dont vous "
+"avez besoin dans un environnement isolé."
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""

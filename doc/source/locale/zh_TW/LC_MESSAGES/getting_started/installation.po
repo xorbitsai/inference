@@ -24,18 +24,17 @@ msgstr "安裝"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To"
-" run models using Xinference, you will need to install the backend "
-"corresponding to the type of model you intend to serve."
-msgstr ""
-"Xinference 在 Linux, Windows, MacOS 上都可以透過 ``pip`` 來安裝。如果需要使用 "
-"Xinference 進行模型推理，可以根據不同的模型指定不同的引擎。"
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
+msgstr "在 Linux、Windows 或 macOS 上使用 ``pip`` 安裝 Xinference 基礎套件::"
 
-#: ../../source/getting_started/installation.rst:8
+#: ../../source/getting_started/installation.rst:10
 msgid ""
-"If you aim to serve all supported models, you can install all the "
-"necessary dependencies with a single command::"
-msgstr "如果你希望能夠推理所有支援的模型，可以使用以下命令安裝所有需要的依賴::"
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
+msgstr ""
+"模型虛擬環境會按需安裝支援的推論引擎相依套件。若要手動安裝後端，請使用對應的 extra；詳見 :ref:`inference_backend`。"
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
@@ -76,13 +75,12 @@ msgid ""
 "and are difficult to install. Please run command below in advance"
 msgstr "這是因為此階段的依賴項需要特殊選項，且安裝過程較為困難。請提前執行以下命令"
 
-#: ../../source/getting_started/installation.rst:33
+#: ../../source/getting_started/installation.rst:127
 msgid ""
-"Some dependencies like ``transformers`` might be downgraded, you can run "
-"``pip install \"xinference[all]\"`` afterwards."
-msgstr ""
-"某些依賴項，如 ``transformers``，可能會被降級，您可以之後執行 ``pip install \""
-"xinference[all]\"``。"
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
+msgstr "這些相依套件可能變更 ``transformers`` 等共用套件的版本。請在隔離環境中僅安裝所需的後端相依套件。"
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""

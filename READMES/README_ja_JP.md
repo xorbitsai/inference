@@ -123,11 +123,11 @@ GitHub で Xinference にスターを付けると、新しいリリースの通�
 **pip**
 
 ```bash
-pip install "xinference[all]"
+pip install xinference
 xinference-local
 ```
 
-**ワンコマンドインストール（基本パッケージ）**
+**ワンコマンドインストール**
 
 Linux/macOS:
 
@@ -142,6 +142,8 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 ```
 
 [インストールガイド](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [利用ガイド](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+
+サーバーが起動したら、[http://localhost:9997](http://localhost:9997) で Web UI を開きます。
 
 ![web UI](../assets/screenshot.png)
 

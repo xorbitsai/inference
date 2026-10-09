@@ -123,11 +123,11 @@ GitHub에서 Xinference에 별을 눌러 릴리스 알림을 받으세요.
 **pip**
 
 ```bash
-pip install "xinference[all]"
+pip install xinference
 xinference-local
 ```
 
-**원커맨드 설치 (기본 패키지)**
+**원커맨드 설치**
 
 Linux/macOS:
 
@@ -142,6 +142,8 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 ```
 
 [설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+
+서버가 실행되면 [http://localhost:9997](http://localhost:9997)에서 웹 UI를 엽니다.
 
 ![web UI](../assets/screenshot.png)
 

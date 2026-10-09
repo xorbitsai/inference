@@ -128,11 +128,11 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 **pip**
 
 ```bash
-pip install "xinference[all]"
+pip install xinference
 xinference-local
 ```
 
-**一键安装（基础包）**
+**一键安装**
 
 Linux/macOS:
 
@@ -147,6 +147,8 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 ```
 
 [安装指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)
+
+服务启动后，在浏览器中访问 [http://localhost:9997](http://localhost:9997) 打开 Web 界面。
 
 ![网络界面](../assets/screenshot.png)
 

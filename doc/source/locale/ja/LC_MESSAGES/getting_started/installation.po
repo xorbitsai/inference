@@ -24,16 +24,18 @@ msgstr "インストール"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To"
-" run models using Xinference, you will need to install the backend "
-"corresponding to the type of model you intend to serve."
-msgstr "XinferenceはLinux、Windows、MacOS上で``pip``を使ってインストールできます。Xinferenceでモデル推論を行う場合、モデルに応じて異なるエンジンを指定できます。"
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
+msgstr "Linux、Windows、macOS で ``pip`` を使用して Xinference の基本パッケージをインストールします::"
 
-#: ../../source/getting_started/installation.rst:8
+#: ../../source/getting_started/installation.rst:10
 msgid ""
-"If you aim to serve all supported models, you can install all the "
-"necessary dependencies with a single command::"
-msgstr "すべてのサポート対象モデルを推論できるようにしたい場合は、以下のコマンドで必要な依存関係をすべてインストールしてください::"
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
+msgstr ""
+"モデルの仮想環境は、対応するエンジンの依存関係を必要に応じてインストールします。バックエンドを手動でインストールするには、対応する extra "
+"を使用してください。:ref:`inference_backend` を参照してください。"
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
@@ -76,13 +78,14 @@ msgid ""
 "and are difficult to install. Please run command below in advance"
 msgstr "これは、この段階の依存関係に特別なオプションが必要で、インストールが困難なためです。事前に以下のコマンドを実行してください。"
 
-#: ../../source/getting_started/installation.rst:33
+#: ../../source/getting_started/installation.rst:127
 msgid ""
-"Some dependencies like ``transformers`` might be downgraded, you can run "
-"``pip install \"xinference[all]\"`` afterwards."
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
 msgstr ""
-"一部の依存関係（例：``transformers``）はダウングレードされる可能性があります。その場合は、後で ``pip install "
-"\"xinference[all]\"`` を実行してください。"
+"これらの依存関係によって、``transformers`` "
+"などの共有パッケージのバージョンが変わることがあります。必要なバックエンドの依存関係のみを、分離された環境にインストールしてください。"
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""

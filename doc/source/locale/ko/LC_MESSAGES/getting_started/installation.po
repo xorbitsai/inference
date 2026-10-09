@@ -24,18 +24,18 @@ msgstr "설치"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To"
-" run models using Xinference, you will need to install the backend "
-"corresponding to the type of model you intend to serve."
-msgstr ""
-"Xinference는 Linux, Windows, MacOS에서 ``pip``를 통해 설치할 수 있습니다. 모델 추론에 "
-"Xinference를 사용해야 하는 경우, 모델에 따라 다른 엔진을 지정할 수 있습니다."
+"Install the base Xinference package with ``pip`` on Linux, Windows, or "
+"macOS::"
+msgstr "Linux, Windows 또는 macOS에서 ``pip`` 을 사용해 Xinference 기본 패키지를 설치합니다::"
 
-#: ../../source/getting_started/installation.rst:8
+#: ../../source/getting_started/installation.rst:10
 msgid ""
-"If you aim to serve all supported models, you can install all the "
-"necessary dependencies with a single command::"
-msgstr "모든 지원되는 모델을 추론할 수 있기를 원한다면 다음 명령을 사용하여 필요한 모든 종속성을 설치할 수 있습니다::"
+"Model virtual environments install supported engine dependencies on demand. "
+"To install a backend manually, use its corresponding extra; see "
+":ref:`inference_backend`."
+msgstr ""
+"모델 가상 환경은 지원되는 엔진의 의존성을 필요할 때 설치합니다. 백엔드를 수동으로 설치하려면 해당 extra를 사용하세요. "
+":ref:`inference_backend` 를 참고하세요."
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
@@ -78,13 +78,14 @@ msgid ""
 "and are difficult to install. Please run command below in advance"
 msgstr "이는 이 단계의 종속 항목에 특별한 옵션이 필요하고 설치가 비교적 어렵기 때문입니다. 다음 명령을 미리 실행하십시오."
 
-#: ../../source/getting_started/installation.rst:33
+#: ../../source/getting_started/installation.rst:127
 msgid ""
-"Some dependencies like ``transformers`` might be downgraded, you can run "
-"``pip install \"xinference[all]\"`` afterwards."
+"These dependencies can change versions of shared packages such as "
+"``transformers``. Install only the backend dependencies you need in an "
+"isolated environment."
 msgstr ""
-"일부 종속성(예: ``transformers``)이 다운그레이드될 수 있으며, 이후에 ``pip install "
-"\"xinference[all]\"``을 실행할 수 있습니다."
+"이러한 의존성은 ``transformers`` 와 같은 공유 패키지의 버전을 변경할 수 있습니다. 격리된 환경에 필요한 백엔드 의존성만 "
+"설치하세요."
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""

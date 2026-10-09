@@ -139,11 +139,11 @@ Star Xinference on GitHub and be instantly notified of new releases.
 **pip**
 
 ```bash
-pip install "xinference[all]"
+pip install xinference
 xinference-local
 ```
 
-**One-command installer (base package)**
+**One-command installer**
 
 Linux/macOS:
 
@@ -158,6 +158,8 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 ```
 
 [Installation guide](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Usage guide](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
+
+Once the server is running, open the Web UI at [http://localhost:9997](http://localhost:9997).
 
 ![web UI](assets/screenshot.png)
 
