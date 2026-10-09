@@ -118,32 +118,6 @@ Sternen Sie Xinference auf GitHub, um Release-Updates zu erhalten.
 * [Custom-Modelle](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Deployment-Dokumentation](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker
-
-NVIDIA-GPU-Benutzer können das [Xinference Docker Image](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) verwenden. Stellen Sie sicher, dass Docker und CUDA vor der Installation vorhanden sind.
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s (Helm)
-
-Nach Aktivierung von GPU im Kubernetes-Cluster installieren Sie wie folgt:
-
-```
-# Repository hinzufügen
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# Index aktualisieren und Version prüfen
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# Xinference installieren
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-Weitere K8s-Optionen finden Sie in der Dokumentation.
-
 ### Quickstart
 
 **pip**
@@ -170,6 +144,32 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [Installationsanleitung](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Nutzungsanleitung](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
+
+### Docker
+
+NVIDIA-GPU-Benutzer können das [Xinference Docker Image](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) verwenden. Stellen Sie sicher, dass Docker und CUDA vor der Installation vorhanden sind.
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (Helm)
+
+Nach Aktivierung von GPU im Kubernetes-Cluster installieren Sie wie folgt:
+
+```
+# Repository hinzufügen
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# Index aktualisieren und Version prüfen
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# Xinference installieren
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+Weitere K8s-Optionen finden Sie in der Dokumentation.
 
 ## Mitmachen
 

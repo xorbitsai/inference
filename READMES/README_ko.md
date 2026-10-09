@@ -118,32 +118,6 @@ GitHub에서 Xinference에 별을 눌러 릴리스 알림을 받으세요.
 * [커스텀 모델](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [배포 문서](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker
-
-NVIDIA GPU 사용자는 [Xinference Docker 이미지](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html)를 사용할 수 있습니다. 설치 전에 Docker 및 CUDA가 설치되어 있는지 확인하세요.
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s (Helm)
-
-GPU가 활성화된 Kubernetes 클러스터에서 다음과 같이 설치하세요:
-
-```
-# 레포지토리 추가
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# 인덱스 업데이트 및 버전 확인
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# Xinference 설치
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-자세한 K8s 옵션은 문서를 참조하세요.
-
 ### Quickstart
 
 **pip**
@@ -170,6 +144,32 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [설치 가이드](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [사용 가이드](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
+
+### Docker
+
+NVIDIA GPU 사용자는 [Xinference Docker 이미지](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html)를 사용할 수 있습니다. 설치 전에 Docker 및 CUDA가 설치되어 있는지 확인하세요.
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (Helm)
+
+GPU가 활성화된 Kubernetes 클러스터에서 다음과 같이 설치하세요:
+
+```
+# 레포지토리 추가
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# 인덱스 업데이트 및 버전 확인
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# Xinference 설치
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+자세한 K8s 옵션은 문서를 참조하세요.
 
 ## 기여하기
 

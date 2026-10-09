@@ -118,32 +118,6 @@ GitHub で Xinference にスターを付けると、新しいリリースの通�
 * [カスタムモデル](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [デプロイメントドキュメント](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker
-
-Nvidia GPU ユーザーは [Xinference Docker イメージ](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) を使って Xinference サーバを起動できます。インストール実行前に、システムに [Docker](https://docs.docker.com/get-docker/) と [CUDA](https://developer.nvidia.com/cuda-downloads) が導入されていることを確認してください。
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s (helm)
-
-Kubernetes クラスタで GPU を有効にした後、次のようにインストールします。
-
-```
-# リポジトリを追加
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# インデックスを更新し、バージョンを確認
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# Xinference をインストール
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-詳細な K8s 向けカスタムインストールについてはドキュメントを参照してください。
-
 ### クイックスタート
 
 **pip**
@@ -170,6 +144,32 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [インストールガイド](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [利用ガイド](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
+
+### Docker
+
+Nvidia GPU ユーザーは [Xinference Docker イメージ](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html) を使って Xinference サーバを起動できます。インストール実行前に、システムに [Docker](https://docs.docker.com/get-docker/) と [CUDA](https://developer.nvidia.com/cuda-downloads) が導入されていることを確認してください。
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (helm)
+
+Kubernetes クラスタで GPU を有効にした後、次のようにインストールします。
+
+```
+# リポジトリを追加
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# インデックスを更新し、バージョンを確認
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# Xinference をインストール
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+詳細な K8s 向けカスタムインストールについてはドキュメントを参照してください。
 
 ## 参加方法
 

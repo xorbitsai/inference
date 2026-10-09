@@ -118,32 +118,6 @@ Xorbits Inference（Xinference）是一個強大且通用的函式庫，適用�
 * [自訂模型](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [部署文件](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker
-
-具有 NVIDIA GPU 的使用者可以使用 Xinference Docker 映像。請在安裝前確認系統已安裝 Docker 與 CUDA。
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s (Helm)
-
-在已啟用 GPU 的 Kubernetes 叢集中，執行下列指令安裝：
-
-```
-# 新增 Helm 倉庫
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# 更新索引並檢視版本
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# 安裝 Xinference
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-更多 K8s 選項請參閱文件。
-
 ### 快速上手
 
 **pip**
@@ -170,6 +144,32 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [安裝指南](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
+
+### Docker
+
+具有 NVIDIA GPU 的使用者可以使用 Xinference Docker 映像。請在安裝前確認系統已安裝 Docker 與 CUDA。
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (Helm)
+
+在已啟用 GPU 的 Kubernetes 叢集中，執行下列指令安裝：
+
+```
+# 新增 Helm 倉庫
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# 更新索引並檢視版本
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# 安裝 Xinference
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+更多 K8s 選項請參閱文件。
 
 ## 參與專案
 

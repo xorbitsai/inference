@@ -123,28 +123,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 * [自定义模型](https://inference.readthedocs.io/zh-cn/latest/models/custom.html)
 * [部署文档](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html)
 
-### Docker
-
-Nvidia GPU 用户可以使用[Xinference Docker 镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html) 启动 Xinference 服务器。在执行安装命令之前，确保你的系统中已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [CUDA](https://developer.nvidia.com/cuda-downloads)。
-
-### Kubernetes
-
-确保你的 Kubernetes 集群开启了 GPU 支持，然后通过 `helm` 进行如下方式的安装。
-
-```
-# 新增xinference仓库
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# 更新仓库，查询可安装的版本
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# 在K8s中安装xinference
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-更多定制化安装方式，请参考[文档](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html)。
-
 ### 快速开始
 
 **pip**
@@ -171,6 +149,28 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [安装指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/installation.html#one-line-install) · [使用指南](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![网络界面](../assets/screenshot.png)
+
+### Docker
+
+Nvidia GPU 用户可以使用[Xinference Docker 镜像](https://inference.readthedocs.io/zh-cn/latest/getting_started/using_docker_image.html) 启动 Xinference 服务器。在执行安装命令之前，确保你的系统中已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [CUDA](https://developer.nvidia.com/cuda-downloads)。
+
+### Kubernetes
+
+确保你的 Kubernetes 集群开启了 GPU 支持，然后通过 `helm` 进行如下方式的安装。
+
+```
+# 新增xinference仓库
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# 更新仓库，查询可安装的版本
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# 在K8s中安装xinference
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+更多定制化安装方式，请参考[文档](https://inference.readthedocs.io/en/latest/getting_started/using_kubernetes.html)。
 
 ## 参与其中
 

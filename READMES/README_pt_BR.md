@@ -118,32 +118,6 @@ Dê uma estrela no Xinference no GitHub para receber atualizações de release.
 * [Modelos customizados](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Documentação de deploy](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker
-
-Usuários com GPU NVIDIA podem usar a [imagem Docker do Xinference](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html). Certifique-se de ter Docker e CUDA antes de instalar.
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s (Helm)
-
-Após habilitar GPUs no cluster Kubernetes, instale com:
-
-```
-# Adicionar repositório
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# Atualizar índice e verificar versões
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# Instalar Xinference
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-Mais opções de K8s na documentação.
-
 ### Quickstart
 
 **pip**
@@ -170,6 +144,32 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [Guia de instalação](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Guia de uso](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
+
+### Docker
+
+Usuários com GPU NVIDIA podem usar a [imagem Docker do Xinference](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html). Certifique-se de ter Docker e CUDA antes de instalar.
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (Helm)
+
+Após habilitar GPUs no cluster Kubernetes, instale com:
+
+```
+# Adicionar repositório
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# Atualizar índice e verificar versões
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# Instalar Xinference
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+Mais opções de K8s na documentação.
 
 ## Contribuir
 

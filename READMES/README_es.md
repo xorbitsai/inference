@@ -119,32 +119,6 @@ Dale una estrella a Xinference en GitHub para recibir actualizaciones de lanzami
 * [Modelos personalizados](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Documentación de deployment](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker
-
-Usuarios con GPU NVIDIA pueden usar la imagen Docker de Xinference. Asegúrate de tener Docker y CUDA antes de la instalación.
-
-```bash
-docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
-```
-
-### K8s (Helm)
-
-Tras habilitar GPU en tu clúster Kubernetes, instala así:
-
-```
-# Añadir repositorio
-helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
-
-# Actualizar índice y comprobar versiones
-helm repo update xinference
-helm search repo xinference/xinference --devel --versions
-
-# Instalar Xinference
-helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
-```
-
-Más opciones de K8s en la documentación.
-
 ### Quickstart
 
 **pip**
@@ -171,6 +145,32 @@ irm https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.p
 [Guía de instalación](https://inference.readthedocs.io/en/latest/getting_started/installation.html#one-line-install) · [Guía de uso](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html#run-xinference-locally)
 
 ![web UI](../assets/screenshot.png)
+
+### Docker
+
+Usuarios con GPU NVIDIA pueden usar la imagen Docker de Xinference. Asegúrate de tener Docker y CUDA antes de la instalación.
+
+```bash
+docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
+```
+
+### K8s (Helm)
+
+Tras habilitar GPU en tu clúster Kubernetes, instala así:
+
+```
+# Añadir repositorio
+helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
+
+# Actualizar índice y comprobar versiones
+helm repo update xinference
+helm search repo xinference/xinference --devel --versions
+
+# Instalar Xinference
+helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
+```
+
+Más opciones de K8s en la documentación.
 
 ## Contribuir
 
