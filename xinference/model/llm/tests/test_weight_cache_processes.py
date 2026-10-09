@@ -98,12 +98,18 @@ def test_watcher_waits_for_ranks_and_escalates(tmp_path, mode):
         wait_until(lambda: not alive(rank) and not alive(pgid))
         assert cleaned.exists() is (mode == "graceful")
     finally:
-        if parent is not None and parent.poll() is None:
-            parent.terminate()
-            parent.wait(timeout=5)
         if pgid is not None and _process_group_alive(pgid):
             try:
                 os.killpg(pgid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-        daemon.stop()
+        try:
+            daemon.stop()
+        finally:
+            if parent is not None and parent.poll() is None:
+                parent.terminate()
+                try:
+                    parent.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    parent.kill()
+                    parent.wait(timeout=5)

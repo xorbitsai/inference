@@ -211,7 +211,8 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     command, options = calls[0]
     assert options["start_new_session"]
     assert Path(command[1]).name == "weight_cache.py"
-    assert "-m" not in command[:2]
+    assert Path(command[1]).is_absolute()
+    assert command[2] == str(os.getpid())
     if engine == "vllm":
         client = daemon.client_config()
         assert client["load_format"] == "ipc_cache"
@@ -227,7 +228,6 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     daemon.stop()
     assert kill.call_count == 2
     assert not daemon.directory.exists()
-    import os
 
     assert os.environ["SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE"] == "previous"
 
