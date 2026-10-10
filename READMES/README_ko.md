@@ -41,13 +41,16 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 
 ## 🔥 주요 하이라이트
 ### 프레임워크 개선
-- Xinference 3.0.0이 마이그레이션 안내와 호환되지 않는 변경 사항과 함께 제공됩니다: [릴리스 노트](https://xinference.co/release_notes/v3.0.0.html)
+- Xinference 4.0.0은 다중 엔진 Xavier, 이기종 P/D 분리, 런타임 모델 재구성을 지원합니다: [릴리스 노트](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - 에이전트 네이티브 배포: Xinference는 [Xagent](https://github.com/xorbitsai/xagent)와 통합되어 동적 플래닝, 도구 사용 및 자율적 다단계 추론을 지원하며 정적 파이프라인의 한계를 넘어섭니다.
 - 자동 배칭: 여러 동시 요청을 자동으로 묶어 처리량을 크게 향상시킵니다. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference 팀이 관리하는 새로운 llama.cpp Python 바인딩은 연속 배칭을 지원하며 프로덕션에 더 적합합니다. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 신규 모델
+- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) 기본 지원: [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) 기본 지원: [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) 기본 지원: [#5588](https://github.com/xorbitsai/inference/pull/5588)
 - [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) 기본 지원: [#5583](https://github.com/xorbitsai/inference/pull/5583)
 - Ming-Image 시리즈 기본 지원 ([Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design), [Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)): [#5582](https://github.com/xorbitsai/inference/pull/5582)
 - [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) 기본 지원: [#5571](https://github.com/xorbitsai/inference/pull/5571)
@@ -57,11 +60,6 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 - Irodori-TTS v4.1 시리즈 기본 지원 ([Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime), [Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)): [#5527](https://github.com/xorbitsai/inference/pull/5527)
 - [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) 기본 지원: [#5526](https://github.com/xorbitsai/inference/pull/5526)
 - AuK 시리즈 기본 지원 ([AuK](https://huggingface.co/tencent/AuK), [AuK-Flash](https://huggingface.co/tencent/AuK-Flash)): [#5525](https://github.com/xorbitsai/inference/pull/5525)
-- [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) 기본 지원: [#5506](https://github.com/xorbitsai/inference/pull/5506)
-- Fish Audio 시리즈 기본 지원 ([S1-mini](https://huggingface.co/fishaudio/s1-mini), [S2-Pro](https://huggingface.co/fishaudio/s2-pro)): [#5490](https://github.com/xorbitsai/inference/pull/5490)
-- [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR) 기본 지원: [#5475](https://github.com/xorbitsai/inference/pull/5475)
-- [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr) 기본 지원: [#5468](https://github.com/xorbitsai/inference/pull/5468)
-- JoyAI 이미지 편집 시리즈 기본 지원 ([Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers), [Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)): [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.

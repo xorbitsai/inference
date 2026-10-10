@@ -41,13 +41,16 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 
 ## 🔥 注目のトピック
 ### フレームワークの強化
-- Xinference 3.0.0 が公開され、移行メモと破壊的変更を確認できます: [リリースノート](https://xinference.co/release_notes/v3.0.0.html)
+- Xinference 4.0.0 が公開され、マルチエンジン Xavier、異種環境 P/D 分離、実行中のモデル再構成をサポートします: [リリースノート](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - Agent ネイティブ配信：Xinference は [Xagent](https://github.com/xorbitsai/xagent) と統合し、動的プランニング、ツール利用、自己完結型の複数ステップ推論を可能にし、静的なパイプラインの限界を超えます。
 - 自動バッチ処理：複数の同時リクエストを自動的にバッチ化し、スループットを大幅に向上させます。: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference チームが管理する新しい llama.cpp の Python バインディングは、継続的なバッチ処理をサポートし、より本番運用に適しています。: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 分散推論：ワーカー間でモデルを実行できます: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM の強化：複数レプリカ間で KV キャッシュを共有: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新規モデル
+- [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) を組み込みでサポート: [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) を組み込みでサポート: [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) を組み込みでサポート: [#5588](https://github.com/xorbitsai/inference/pull/5588)
 - [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) を組み込みでサポート: [#5583](https://github.com/xorbitsai/inference/pull/5583)
 - Ming-Image シリーズ（[Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design)、[Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)） を組み込みでサポート: [#5582](https://github.com/xorbitsai/inference/pull/5582)
 - [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) を組み込みでサポート: [#5571](https://github.com/xorbitsai/inference/pull/5571)
@@ -57,11 +60,6 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 - Irodori-TTS v4.1 シリーズ（[Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime)、[Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)） を組み込みでサポート: [#5527](https://github.com/xorbitsai/inference/pull/5527)
 - [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) を組み込みでサポート: [#5526](https://github.com/xorbitsai/inference/pull/5526)
 - AuK シリーズ（[AuK](https://huggingface.co/tencent/AuK)、[AuK-Flash](https://huggingface.co/tencent/AuK-Flash)） を組み込みでサポート: [#5525](https://github.com/xorbitsai/inference/pull/5525)
-- [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) を組み込みでサポート: [#5506](https://github.com/xorbitsai/inference/pull/5506)
-- Fish Audio シリーズ（[S1-mini](https://huggingface.co/fishaudio/s1-mini)、[S2-Pro](https://huggingface.co/fishaudio/s2-pro)） を組み込みでサポート: [#5490](https://github.com/xorbitsai/inference/pull/5490)
-- [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR) を組み込みでサポート: [#5475](https://github.com/xorbitsai/inference/pull/5475)
-- [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr) を組み込みでサポート: [#5468](https://github.com/xorbitsai/inference/pull/5468)
-- JoyAI 画像編集シリーズ（[Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers)、[Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)） を組み込みでサポート: [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### 統合
 - [Xagent](https://github.com/xorbitsai/xagent): 計画、メモリ、ツール利用を備えたエンタープライズ向けエージェントプラットフォームです。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。

@@ -41,13 +41,16 @@ Xorbits Inference (Xinference) est une bibliothèque puissante et polyvalente po
 
 ## 🔥 Sujets phares
 ### Améliorations du framework
-- Xinference 3.0.0 est disponible avec des notes de migration et des changements incompatibles : [Notes de version](https://xinference.co/release_notes/v3.0.0.html)
+- Xinference 4.0.0 est disponible avec Xavier multi-moteur, la séparation P/D hétérogène et la reconfiguration des modèles à l’exécution : [Notes de version](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - Déploiement natif d'agents : Xinference s'intègre à [Xagent](https://github.com/xorbitsai/xagent) et permet la planification dynamique, l'utilisation d'outils et des inférences multi-étapes autonomes, dépassant les limites des pipelines statiques.
 - Batching automatique : plusieurs requêtes simultanées sont automatiquement groupées pour augmenter significativement le débit. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp) : les nouvelles liaisons Python pour llama.cpp, maintenues par l'équipe Xinference, prennent en charge le batching continu et conviennent mieux à la production. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Inférence distribuée : les modèles peuvent être exécutés entre plusieurs workers : [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Améliorations de vLLM : partage du KV-cache entre plusieurs réplicas : [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Nouveaux modèles
+- Prise en charge intégrée de [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2) : [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- Prise en charge intégrée de [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS) : [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- Prise en charge intégrée de [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1) : [#5588](https://github.com/xorbitsai/inference/pull/5588)
 - Prise en charge intégrée de [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR) : [#5583](https://github.com/xorbitsai/inference/pull/5583)
 - Prise en charge intégrée de la série Ming-Image ([Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design), [Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)) : [#5582](https://github.com/xorbitsai/inference/pull/5582)
 - Prise en charge intégrée de [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) : [#5571](https://github.com/xorbitsai/inference/pull/5571)
@@ -57,11 +60,6 @@ Xorbits Inference (Xinference) est une bibliothèque puissante et polyvalente po
 - Prise en charge intégrée de la série Irodori-TTS v4.1 ([Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime), [Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)) : [#5527](https://github.com/xorbitsai/inference/pull/5527)
 - Prise en charge intégrée de [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B) : [#5526](https://github.com/xorbitsai/inference/pull/5526)
 - Prise en charge intégrée de la série AuK ([AuK](https://huggingface.co/tencent/AuK), [AuK-Flash](https://huggingface.co/tencent/AuK-Flash)) : [#5525](https://github.com/xorbitsai/inference/pull/5525)
-- Prise en charge intégrée de [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) : [#5506](https://github.com/xorbitsai/inference/pull/5506)
-- Prise en charge intégrée de la série Fish Audio ([S1-mini](https://huggingface.co/fishaudio/s1-mini), [S2-Pro](https://huggingface.co/fishaudio/s2-pro)) : [#5490](https://github.com/xorbitsai/inference/pull/5490)
-- Prise en charge intégrée de [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR) : [#5475](https://github.com/xorbitsai/inference/pull/5475)
-- Prise en charge intégrée de [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr) : [#5468](https://github.com/xorbitsai/inference/pull/5468)
-- Prise en charge intégrée de la série JoyAI d'édition d'images ([Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers), [Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)) : [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### Intégrations
 - [Xagent](https://github.com/xorbitsai/xagent) : plateforme d'agents pour entreprises avec planification, mémoire et intégration d'outils.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference) : plateforme LLMOps pour construire rapidement des applications avec visualisation et contrôle.

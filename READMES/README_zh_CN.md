@@ -43,7 +43,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 ## 🔥 近期热点
 ### 框架增强
-- Xinference 3.0.0 已发布，包含迁移说明和破坏性变更：[版本说明](https://xinference.cn/release_notes/v3.0.0.html)
+- Xinference 4.0.0 已发布，支持多引擎 Xavier、异构 P/D 分离和运行时模型重配置：[版本说明](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - Agent 原生服务能力：Xinference 与 [Xagent](https://github.com/xorbitsai/xagent) 深度集成，支持动态规划、工具调用与多步自主推理，突破传统静态流程的限制。
 - 自动 Batch: 多个并发请求会被自动合批处理，大幅提升吞吐量。: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - 支持寒武纪芯片：[#3693](https://github.com/xorbitsai/inference/pull/3693)
@@ -51,6 +51,9 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新模型
+- 内置支持 [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2): [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- 内置支持 [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS): [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- 内置支持 [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1): [#5588](https://github.com/xorbitsai/inference/pull/5588)
 - 内置支持 [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR): [#5583](https://github.com/xorbitsai/inference/pull/5583)
 - 内置支持 Ming-Image 系列（[Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design)、[Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)）: [#5582](https://github.com/xorbitsai/inference/pull/5582)
 - 内置支持 [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1): [#5571](https://github.com/xorbitsai/inference/pull/5571)
@@ -60,11 +63,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 内置支持 Irodori-TTS v4.1 系列（[Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime)、[Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)）: [#5527](https://github.com/xorbitsai/inference/pull/5527)
 - 内置支持 [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B): [#5526](https://github.com/xorbitsai/inference/pull/5526)
 - 内置支持 AuK 系列（[AuK](https://huggingface.co/tencent/AuK)、[AuK-Flash](https://huggingface.co/tencent/AuK-Flash)）: [#5525](https://github.com/xorbitsai/inference/pull/5525)
-- 内置支持 [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B): [#5506](https://github.com/xorbitsai/inference/pull/5506)
-- 内置支持 Fish Audio 系列（[S1-mini](https://huggingface.co/fishaudio/s1-mini)、[S2-Pro](https://huggingface.co/fishaudio/s2-pro)）: [#5490](https://github.com/xorbitsai/inference/pull/5490)
-- 内置支持 [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR): [#5475](https://github.com/xorbitsai/inference/pull/5475)
-- 内置支持 [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr): [#5468](https://github.com/xorbitsai/inference/pull/5468)
-- 内置支持 JoyAI 图像编辑系列（[Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers)、[Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)）: [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### 集成
 - [Xagent](https://github.com/xorbitsai/xagent)：企业级 Agent 平台，用于构建和运行具备规划、记忆与工具调用能力的智能体，不再受限于僵化的工作流。
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
