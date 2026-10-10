@@ -86,6 +86,7 @@ class LlamaCppEmbeddingSpecV1(BaseModel):
     model_file_name_template: str
     model_file_name_split_template: Optional[str]
     quantization_parts: Optional[Dict[str, List[str]]]
+    multimodal_projector: Optional[str] = None
 
 
 EmbeddingSpecV1 = Annotated[

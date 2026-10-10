@@ -40,7 +40,12 @@
           "$ref": "common.schema.json#/$defs/quantizedSource"
         }
       ],
-      "properties": {},
+      "properties": {
+        "multimodal_projector": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
       "unevaluatedProperties": false
     },
     "sources": {

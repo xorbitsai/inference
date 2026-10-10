@@ -91,6 +91,7 @@ def test_virtualenv_keeps_system_torch_pins_only_for_native_engines(engine):
         family.virtualenv.packages, engine, "13.0"
     )
     packages = ensure_system_torch_pin(packages)
+    assert "pillow" in packages
     for pin in ("#system_torch#", "#system_torchvision#"):
         assert packages.count(pin) == (0 if engine == "vllm" else 1)
     assert any(pkg.startswith("sentence-transformers") for pkg in packages) == (

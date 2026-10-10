@@ -31,25 +31,71 @@
             ]
           }
         }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/embeddinggemma-2-GGUF",
+            "model_revision": "main",
+            "quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL"
+            ],
+            "model_file_name_template": "embeddinggemma-2-{quantization}.gguf",
+            "multimodal_projector": "mmproj-BF16.gguf"
+          },
+          "modelscope": {
+            "model_id": "unsloth/embeddinggemma-2-GGUF",
+            "model_revision": "master",
+            "quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL"
+            ],
+            "model_file_name_template": "embeddinggemma-2-{quantization}.gguf",
+            "multimodal_projector": "mmproj-BF16.gguf"
+          }
+        }
       }
     ],
     "virtualenv": {
       "packages": [
-        "transformers>=5.19.0",
+        "transformers>=5.19.0 ; #engine# == \"sentence_transformers\"",
+        "transformers>=5.19.0 ; #engine# == \"transformers\"",
+        "transformers>=5.19.0 ; #engine# == \"vllm\"",
         "sentence-transformers>=6.1.0 ; #engine# == \"sentence_transformers\"",
         "vllm>=0.32.0 ; #engine# == \"vllm\"",
         "#system_torch# ; #engine# == \"sentence_transformers\"",
         "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "#system_torch# ; #engine# == \"transformers\"",
         "#system_torchvision# ; #engine# == \"transformers\"",
-        "accelerate",
-        "pillow",
-        "librosa",
-        "soundfile",
-        "torchcodec"
+        "accelerate ; #engine# == \"sentence_transformers\"",
+        "accelerate ; #engine# == \"transformers\"",
+        "accelerate ; #engine# == \"vllm\"",
+        "pillow ; #engine# == \"sentence_transformers\"",
+        "pillow ; #engine# == \"transformers\"",
+        "pillow ; #engine# == \"vllm\"",
+        "librosa ; #engine# == \"sentence_transformers\"",
+        "librosa ; #engine# == \"transformers\"",
+        "librosa ; #engine# == \"vllm\"",
+        "soundfile ; #engine# == \"sentence_transformers\"",
+        "soundfile ; #engine# == \"transformers\"",
+        "soundfile ; #engine# == \"vllm\"",
+        "torchcodec ; #engine# == \"sentence_transformers\"",
+        "torchcodec ; #engine# == \"transformers\"",
+        "torchcodec ; #engine# == \"vllm\"",
+        "xllamacpp>2026.9.11063 ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": true,
-    "updated_at": 1791324565
+    "updated_at": 1791529117
   }
 ]
