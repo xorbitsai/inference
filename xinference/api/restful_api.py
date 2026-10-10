@@ -1185,6 +1185,11 @@ class RESTfulAPI(CancelMixin):
 
             return await self._audit_middleware(request, check_ip)
 
+        # Optional fastapi-guard security middleware (no-op when disabled)
+        from .guard_integration import attach_guard
+
+        attach_guard(self._app)
+
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
         if XINFERENCE_ENABLE_OTEL:
             try:
