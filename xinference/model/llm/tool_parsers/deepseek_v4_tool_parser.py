@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @register_tool_parser("deepseek-v4")
-class DeepseekV42ToolParser(ToolParser):
+class DeepseekV4ToolParser(ToolParser):
     """
     Tool parser implementation for DeepSeek V4 model.
 

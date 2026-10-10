@@ -2,7 +2,7 @@ import pytest
 
 from ..deepseek_v3_1_tool_parser import DeepseekV3_1ToolParser
 from ..deepseek_v3_2_tool_parser import DeepseekV3_2ToolParser
-from ..deepseek_v4_tool_parser import DeepseekV42ToolParser
+from ..deepseek_v4_tool_parser import DeepseekV4ToolParser
 from ..glm5_tool_parser import Glm5ToolParser
 
 # Plain text that keeps ending a chunk on "<" or on a longer prefix of a tool
@@ -26,7 +26,7 @@ PARSERS = {
         "</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>",
     ),
     "deepseek-v4": (
-        DeepseekV42ToolParser,
+        DeepseekV4ToolParser,
         '<｜DSML｜tool_calls><｜DSML｜invoke name="get_weather">'
         '<｜DSML｜parameter name="location" string="true">Beijing'
         "</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜tool_calls>",
