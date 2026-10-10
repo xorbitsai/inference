@@ -27,13 +27,13 @@ from .. import load_model_family_from_json
 from ..stable_diffusion.core import DiffusionModel
 
 
-@pytest.fixture
-def families():
+@pytest.fixture(params=["Qwen-Image-2.1", "Qwen-Image-2.1-Turbo"])
+def families(request):
     result = {}
     load_model_family_from_json(
-        str(Path(__file__).parents[1] / "models" / "Qwen-Image-2.1.json"), result
+        str(Path(__file__).parents[1] / "models" / f"{request.param}.json"), result
     )
-    return result["Qwen-Image-2.1"]
+    return result[request.param]
 
 
 def test_metadata(families):
@@ -41,22 +41,28 @@ def test_metadata(families):
     assert set(specs) == {"huggingface", "modelscope"}
     for hub, revision in (("huggingface", "main"), ("modelscope", "master")):
         spec = specs[hub]
-        assert spec.model_id == "Qwen/Qwen-Image-2.1"
+        assert spec.model_id == f"Qwen/{spec.model_name}"
         assert spec.model_revision == revision
         assert spec.model_ability == ["text2image", "image2image"]
         assert spec.default_model_config == {"torch_dtype": "bfloat16"}
-        assert spec.default_generate_config == {"num_inference_steps": 40}
+        steps = 8 if spec.model_name.endswith("-Turbo") else 40
+        assert spec.default_generate_config == {"num_inference_steps": steps}
         assert "transformers>=5.17.0,<6" in spec.virtualenv.packages
+        assert (
+            'git+https://github.com/huggingface/diffusers ; #engine# == "diffusers"'
+            in spec.virtualenv.packages
+        )
 
 
 @pytest.fixture
 def loaded_model(monkeypatch, families):
     calls = []
+    model_path = f"/models/{families[0].model_name.lower()}"
 
     class FakePipeline:
         @classmethod
         def from_pretrained(cls, path, **kwargs):
-            assert path == "/models/qwen-image-2.1"
+            assert path == model_path
             assert kwargs == {
                 "torch_dtype": torch.bfloat16,
                 "device_map": "balanced",
@@ -72,6 +78,7 @@ def loaded_model(monkeypatch, families):
             num_inference_steps=40,
             num_images_per_prompt=1,
             generator=None,
+            sigmas=None,
         ):
             calls.append(
                 dict(
@@ -82,6 +89,7 @@ def loaded_model(monkeypatch, families):
                     steps=num_inference_steps,
                     n=num_images_per_prompt,
                     seed=generator.initial_seed() if generator is not None else None,
+                    sigmas=sigmas,
                 )
             )
             return SimpleNamespace(
@@ -102,7 +110,7 @@ def loaded_model(monkeypatch, families):
     )
     model = DiffusionModel(
         "qwen21",
-        "/models/qwen-image-2.1",
+        model_path,
         model_spec=families[0],
         torch_dtype="bfloat16",
         device_map="balanced",
@@ -130,11 +138,19 @@ def test_text_to_image(loaded_model):
             image=None,
             width=2048,
             height=2048,
-            steps=40,
+            steps=model._model_spec.default_generate_config["num_inference_steps"],
             n=2,
             seed=42,
+            sigmas=None,
         )
     ]
+
+
+def test_sampling_sigmas_override_reaches_pipeline(loaded_model):
+    model, calls = loaded_model
+    sigmas = [1.0, 0.75, 0.5, 0.25]
+    asyncio.run(model.text_to_image("A sticker", sigmas=sigmas, _return_images=True))
+    assert calls[0]["sigmas"] == sigmas
 
 
 @pytest.mark.parametrize("multiple", [False, True])
@@ -162,6 +178,7 @@ def test_edit_preserves_references_and_alpha(loaded_model, multiple, size):
             steps=12,
             n=1,
             seed=None,
+            sigmas=None,
         )
     ]
     output = Image.open(io.BytesIO(base64.b64decode(result["data"][0]["b64_json"])))

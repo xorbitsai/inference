@@ -217,7 +217,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
     def _is_qwen_image21_model(self) -> bool:
         return bool(
-            self._model_spec and self._model_spec.model_name.lower() == "qwen-image-2.1"
+            self._model_spec
+            and self._model_spec.model_name.lower()
+            in {"qwen-image-2.1", "qwen-image-2.1-turbo"}
         )
 
     def _is_joyai_image_model(self) -> bool:

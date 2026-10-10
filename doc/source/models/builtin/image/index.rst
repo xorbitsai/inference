@@ -83,6 +83,8 @@ The following is a list of built-in image models in Xinference:
   
    qwen-image-2.1
 
+   qwen-image-2.1-turbo
+
    qwen-image-2512
   
    qwen-image-edit
