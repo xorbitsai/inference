@@ -412,7 +412,11 @@ class ChatModelMixin:
                 messages
             )
         if tokenizer is not None:
-            if self.model_family.model_name.lower().startswith("deepseek-v4"):
+            if self.model_family.model_name.lower().startswith(
+                "deepseek-v4"
+            ) and "DeepseekV41ForCausalLM" not in (
+                getattr(self.model_family, "architectures", None) or []
+            ):
                 from ..utils import allow_trust_remote_code
 
                 if not allow_trust_remote_code(self.model_family):

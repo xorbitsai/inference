@@ -1,6 +1,6 @@
 import pytest
 
-from ..deepseek_v4_tool_parser import DeepseekV42ToolParser
+from ..deepseek_v4_tool_parser import DeepseekV4ToolParser
 
 
 def _tool_calls(invokes, dsml=True):
@@ -29,7 +29,7 @@ def _tool_calls(invokes, dsml=True):
 
 @pytest.mark.parametrize("dsml", [True, False])
 def test_extract_tool_calls_preserves_json_parameter_types(dsml):
-    parser = DeepseekV42ToolParser()
+    parser = DeepseekV4ToolParser()
     model_output = _tool_calls(
         [
             (
@@ -66,7 +66,7 @@ def test_extract_tool_calls_preserves_json_parameter_types(dsml):
 
 
 def test_extract_tool_calls_handles_multiple_invokes_and_parameters():
-    parser = DeepseekV42ToolParser()
+    parser = DeepseekV4ToolParser()
     model_output = _tool_calls(
         [
             ("first", [("city", True, "杭州"), ("days", False, "3")]),
@@ -81,14 +81,14 @@ def test_extract_tool_calls_handles_multiple_invokes_and_parameters():
 
 
 def test_extract_tool_calls_returns_plain_text_unchanged():
-    parser = DeepseekV42ToolParser()
+    parser = DeepseekV4ToolParser()
     text = "This is a normal response without tool calls."
 
     assert parser.extract_tool_calls(text) == [(text, None, None)]
 
 
 def test_extract_tool_calls_handles_malformed_non_string_json():
-    parser = DeepseekV42ToolParser()
+    parser = DeepseekV4ToolParser()
     model_output = _tool_calls([("broken", [("payload", False, '{"missing": }')])])
 
     assert parser.extract_tool_calls(model_output) == [
@@ -97,7 +97,7 @@ def test_extract_tool_calls_handles_malformed_non_string_json():
 
 
 def test_extract_tool_calls_streaming_waits_then_returns_typed_parameters():
-    parser = DeepseekV42ToolParser()
+    parser = DeepseekV4ToolParser()
     incomplete = (
         '<｜DSML｜tool_calls><｜DSML｜invoke name="typed_args">'
         '<｜DSML｜parameter name="count" string="false">7'
@@ -114,7 +114,7 @@ def test_extract_tool_calls_streaming_waits_then_returns_typed_parameters():
 
 
 def test_extract_tool_calls_streaming_returns_multiple_invokes_once_each():
-    parser = DeepseekV42ToolParser()
+    parser = DeepseekV4ToolParser()
     first = _tool_calls([("first", [("value", False, "1")])])
     second_invoke = (
         '<｜DSML｜invoke name="second">'

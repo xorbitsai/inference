@@ -1,0 +1,84 @@
+[
+  {
+    "model_name": "DeepSeek-V4.1-Flash",
+    "model_description": "We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively.",
+    "context_length": 1048576,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 552,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V4.1-Flash",
+            "quantizations": [
+              "fp8"
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash/resolve/main/config.json",
+              "config_sha256": "8be45ce0476004a3f529fd896115a4a2e800a129ad2d3ec05b16050f52e21879",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 2304,
+              "num_hidden_layers": 40
+            }
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V4.1-Flash",
+            "quantizations": [
+              "fp8"
+            ],
+            "model_metadata": {
+              "vocab_size": 129280,
+              "num_attention_heads": 64,
+              "num_key_value_heads": 1,
+              "head_dim": 512,
+              "config_source": "https://modelscope.cn/models/deepseek-ai/DeepSeek-V4.1-Flash/resolve/master/config.json",
+              "architecture_type": "multimodal",
+              "hidden_size": 5120,
+              "intermediate_size": 2304,
+              "num_hidden_layers": 40
+            }
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV41ForCausalLM"
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "tool_parser": "deepseek-v4.1",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "vllm>=0.30.0.dev0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "qwen-omni-utils ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1786099285
+  }
+]

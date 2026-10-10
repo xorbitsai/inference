@@ -497,6 +497,9 @@ def _update_vllm_supported_lists() -> None:
     if effective_version >= version.parse("0.28.0"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "BailingMoeV3ForCausalLM")
 
+    if effective_version >= version.parse("0.30.0.dev0"):
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "DeepseekV41ForCausalLM")
+
 
 _update_vllm_supported_lists()
 
@@ -1371,7 +1374,9 @@ class VLLMModel(WeightCachedModel, LLM):
             model_config = VLLMModelConfig()
 
         architectures = getattr(self.model_family, "architectures", []) or []
-        if "DeepseekV32ForCausalLM" in architectures:
+        if "DeepseekV41ForCausalLM" in architectures:
+            model_config.setdefault("tokenizer_mode", "deepseek_v41")
+        elif "DeepseekV32ForCausalLM" in architectures:
             model_config.setdefault("tokenizer_mode", "deepseek_v32")
         else:
             model_config.setdefault("tokenizer_mode", "auto")
@@ -1415,7 +1420,10 @@ class VLLMModel(WeightCachedModel, LLM):
             default_block_size = 128 if is_npu_available() else 256
         else:
             default_block_size = 16
-        model_config.setdefault("block_size", default_block_size)
+        # V4.1 has a different sparse-attention cache layout; let vLLM choose
+        # its block size rather than inheriting the generic or V4 defaults.
+        if "DeepseekV41ForCausalLM" not in architectures:
+            model_config.setdefault("block_size", default_block_size)
         if VLLM_VERSION < version.parse("0.18.0"):
             model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
@@ -2645,6 +2653,13 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         supported_architectures = list(VLLM_SUPPORTED_MULTI_MODEL_LIST)
         effective_version = _get_effective_vllm_version_for_family(llm_family)
+        if llm_family.has_architecture("DeepseekV41ForCausalLM"):
+            if effective_version < version.parse("0.30.0.dev0"):
+                return (
+                    False,
+                    "DeepSeek-V4.1-Flash requires vLLM >= 0.30.0.dev0 (nightly with DeepseekV41 support)",
+                )
+            _append_unique(supported_architectures, "DeepseekV41ForCausalLM")
         if effective_version >= version.parse("0.22.0"):
             _append_unique(
                 supported_architectures, "MiniCPMV4_6ForConditionalGeneration"
@@ -2884,7 +2899,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 chat_template = getattr(tokenizer, "chat_template", None)
         if not chat_template:
             supports_native_renderer = (
-                model_family in KIMI_K3_TOOL_CALL_FAMILY
+                (
+                    model_family in KIMI_K3_TOOL_CALL_FAMILY
+                    or self.model_family.has_architecture("DeepseekV41ForCausalLM")
+                )
                 and tokenizer is not None
                 and callable(getattr(tokenizer, "apply_chat_template", None))
             )
@@ -2928,6 +2946,13 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 ):
                     self._handle_base64_media(messages, temp_dir)
 
+                # The V4.1 prompt encoder accepts OpenAI image_url parts,
+                # while the media readers below need Qwen image parts.
+                prompt_messages = (
+                    messages
+                    if self.model_family.has_architecture("DeepseekV41ForCausalLM")
+                    else None
+                )
                 messages = self._transform_messages(messages)
 
                 chat_template_kwargs = (
@@ -2936,6 +2961,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     )
                     or {}
                 )
+                # V4.1's native tokenizer lets effort="none" override both
+                # thinking flags. Keep response parsing in the same mode.
+                if (
+                    self.model_family.has_architecture("DeepseekV41ForCausalLM")
+                    and chat_template_kwargs.get("reasoning_effort") == "none"
+                ):
+                    chat_template_kwargs["enable_thinking"] = False
+                    chat_template_kwargs["thinking"] = False
                 chat_context_var.set(chat_template_kwargs)
                 full_context_kwargs = chat_template_kwargs.copy()
                 if tools and (
@@ -2944,6 +2977,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     or model_family in GLM5_TOOL_CALL_FAMILY
                     or model_family in KIMI_K3_TOOL_CALL_FAMILY
                     or model_family in MINICPM5_TOOL_CALL_FAMILY
+                    or self.model_family.has_architecture("DeepseekV41ForCausalLM")
                 ):
                     full_context_kwargs["tools"] = tools
                 assert self.model_family.chat_template is not None
@@ -2973,7 +3007,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     )
 
                 prompt = self.get_full_context(
-                    messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
+                    prompt_messages if prompt_messages is not None else messages,
+                    chat_template,
+                    tokenizer=tokenizer,
+                    **full_context_kwargs,
                 )
             else:
                 # get_specific_prompt fetches through load_media_bytes, so the urls
