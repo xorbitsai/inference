@@ -16,6 +16,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import re
 import shlex
 import shutil
 import subprocess
@@ -95,6 +96,16 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
                 shutil.copy2(source_path, target)
 
     out = tmp_path / "out"
+    # The known future backend exception must not suppress the same requirement
+    # from a different model: new unavailable pins should fail preflight.
+    (src_root / "xinference" / "model" / "future-model.json").write_text(
+        json.dumps(
+            {
+                "model_name": "future-model",
+                "virtualenv": {"packages": ["vllm>=0.32.0"]},
+            }
+        )
+    )
     result = subprocess.run(
         [
             sys.executable,
@@ -112,6 +123,23 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
     assert result.returncode == 0, result.stdout + result.stderr
     assert (out / "manifest.json").is_file()
     assert (out / "engines" / "transformers.in").is_file()
+    manifest = json.loads((out / "manifest.json").read_text())
+    cuda_suffix = re.search(r"^ARG CUDA_SUFFIX=(\S+)$", dockerfile, re.MULTILINE).group(
+        1
+    )
+    assert f"cu{manifest['cuda_version'].replace('.', '')}" == cuda_suffix
+    assert len(manifest["deferred_model_pins"]) == 1
+    deferred = manifest["deferred_model_pins"][0]
+    assert deferred["spec"] == "vllm>=0.32.0"
+    assert (
+        deferred["source"]
+        == "embedding/models/embeddinggemma-2.json:embeddinggemma-2 (vllm)"
+    )
+    assert "unpublished" in deferred["reason"]
+    pins = json.loads((out / "pins.json").read_text())
+    assert next(pin for pin in pins if pin["spec"] == "vllm>=0.32.0")["sources"] == [
+        "future-model.json:future-model"
+    ]
 
 
 def test_load_xinference_modules_restores_sys_modules():
@@ -656,6 +684,7 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
         "urls": 1,
         "git": 1,
         "find_links_only": 0,
+        "deferred_model_pins": 0,
     }
 
 
