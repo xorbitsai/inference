@@ -8,6 +8,7 @@ import json
 import os
 import pickle
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -209,7 +210,9 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     assert "launch_timeout" not in config and "unused" not in config
     command, options = calls[0]
     assert options["start_new_session"]
-    assert "xinference.model.llm.weight_cache" in command
+    assert Path(command[1]).name == "weight_cache.py"
+    assert Path(command[1]).is_absolute()
+    assert command[2] == str(os.getpid())
     if engine == "vllm":
         client = daemon.client_config()
         assert client["load_format"] == "ipc_cache"
@@ -225,7 +228,6 @@ def test_daemon_lifecycle(monkeypatch, engine, tp):
     daemon.stop()
     assert kill.call_count == 2
     assert not daemon.directory.exists()
-    import os
 
     assert os.environ["SGLANG_WEIGHT_CACHE_SOCKET_TEMPLATE"] == "previous"
 

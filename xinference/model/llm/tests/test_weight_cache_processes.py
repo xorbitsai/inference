@@ -13,7 +13,7 @@ import time
 import psutil
 import pytest
 
-from ..weight_cache import WeightCacheDaemon, _process_group_alive
+from ..weight_cache import WeightCacheDaemon, _process_group_alive, _watcher_command
 
 
 def wait_until(predicate, timeout=15):
@@ -57,31 +57,39 @@ def test_watcher_waits_for_ranks_and_escalates(tmp_path, mode):
         f"subprocess.Popen([sys.executable, '-c', {rank_code!r}])\n"
         "while True: time.sleep(0.1)\n"
     )
-    command = [
-        sys.executable,
-        "-m",
-        "xinference.model.llm.weight_cache",
-        str(os.getpid()),
-        "-c",
-        child_code,
-    ]
+    command = _watcher_command(os.getpid(), ["-c", child_code])
+    # A watcher must start without importing the model package or GPU libraries.
+    # Block those imports in fresh interpreters rather than relaxing timeouts.
+    guard = tmp_path / "import-guard"
+    guard.mkdir()
+    (guard / "sitecustomize.py").write_text(
+        "import sys\n"
+        "class Guard:\n"
+        "    def find_spec(self, fullname, *args):\n"
+        "        if fullname.split('.')[0] in {'xinference', 'torch', 'xoscar'}:\n"
+        "            raise ImportError('Watcher imported a heavy package: ' + fullname)\n"
+        "sys.meta_path.insert(0, Guard())\n"
+    )
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(guard) + os.pathsep + env.get("PYTHONPATH", "")
     daemon = WeightCacheDaemon("sglang", "/unused", {})
     pgid = None
+    parent = None
     try:
         if mode == "parent_death":
             parent_code = (
                 "import os, subprocess, time\nfrom pathlib import Path\n"
-                f"command = {command!r}\ncommand[3] = str(os.getpid())\n"
+                f"command = {command!r}\ncommand[2] = str(os.getpid())\n"
                 "watcher = subprocess.Popen(command, start_new_session=True)\n"
                 f"Path({str(watcher_pid)!r}).write_text(str(watcher.pid))\n"
                 f"while not Path({str(rank_pid)!r}).exists(): time.sleep(0.05)\n"
             )
-            parent = subprocess.Popen([sys.executable, "-c", parent_code])
+            parent = subprocess.Popen([sys.executable, "-c", parent_code], env=env)
             wait_until(watcher_pid.exists)
             pgid = int(watcher_pid.read_text())
             parent.wait(timeout=15)
         else:
-            daemon.process = subprocess.Popen(command, start_new_session=True)
+            daemon.process = subprocess.Popen(command, start_new_session=True, env=env)
             pgid = daemon.process.pid
         wait_until(rank_pid.exists)
         rank = int(rank_pid.read_text())
@@ -95,4 +103,13 @@ def test_watcher_waits_for_ranks_and_escalates(tmp_path, mode):
                 os.killpg(pgid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-        daemon.stop()
+        try:
+            daemon.stop()
+        finally:
+            if parent is not None and parent.poll() is None:
+                parent.terminate()
+                try:
+                    parent.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    parent.kill()
+                    parent.wait(timeout=5)
