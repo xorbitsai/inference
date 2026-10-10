@@ -95,7 +95,7 @@ def test_gguf_virtualenv_excludes_native_engines():
     packages = filter_virtualenv_packages_by_markers(
         family.virtualenv.packages, "llama.cpp", "13.0"
     )
-    assert packages == ["#llama_cpp_dependencies#"]
+    assert packages == ["xllamacpp>2026.9.11063"]
 
 
 def test_multimodal_content_is_nested_and_ordered(tmp_path):
