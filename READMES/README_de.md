@@ -41,13 +41,16 @@ Xorbits Inference (Xinference) ist eine leistungsfähige und vielseitige Bibliot
 
 ## 🔥 Aktuelle Highlights
 ### Verbesserungen im Framework
-- Xinference 3.0.0 ist mit Migrationshinweisen und Breaking Changes verfügbar: [Versionshinweise](https://xinference.co/release_notes/v3.0.0.html)
+- Xinference 4.0.0 ist mit Multi-Engine-Xavier, heterogener P/D-Trennung und Modell-Neukonfiguration zur Laufzeit verfügbar: [Versionshinweise](https://github.com/xorbitsai/inference/releases/tag/v4.0.0)
 - Agent-native Bereitstellung: Xinference ist in [Xagent](https://github.com/xorbitsai/xagent) integriert und ermöglicht dynamische Planung, Tool-Nutzung und eigenständige mehrstufige Inferenz, wodurch die Grenzen statischer Pipelines überwunden werden.
 - Automatisches Batching: Mehrere gleichzeitige Anfragen werden automatisch gebündelt, was den Durchsatz deutlich erhöht.: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Neue Python-Bindings für llama.cpp, verwaltet vom Xinference-Team, unterstützen fortlaufendes Batching und sind produktionsfreundlicher.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Verteilte Inferenz: Modelle können über Worker verteilt ausgeführt werden: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Verbesserungen für vLLM: Gemeinsame KV-Cache-Nutzung über mehrere Replikate: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Neue Modelle
+- Integrierte Unterstützung für [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2): [#5644](https://github.com/xorbitsai/inference/pull/5644)
+- Integrierte Unterstützung für [Confucius4-TTS](https://huggingface.co/netease-youdao/Confucius4-TTS): [#5591](https://github.com/xorbitsai/inference/pull/5591)
+- Integrierte Unterstützung für [jina-ocr-v1](https://huggingface.co/jinaai/jina-ocr-v1): [#5588](https://github.com/xorbitsai/inference/pull/5588)
 - Integrierte Unterstützung für [TeleOCR](https://huggingface.co/StarDoc-AI/TeleOCR): [#5583](https://github.com/xorbitsai/inference/pull/5583)
 - Integrierte Unterstützung für die Ming-Image-Serie ([Design](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design), [Design Layer](https://huggingface.co/inclusionAI/Ming-Image-0.1-Design-Layer)): [#5582](https://github.com/xorbitsai/inference/pull/5582)
 - Integrierte Unterstützung für [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1): [#5571](https://github.com/xorbitsai/inference/pull/5571)
@@ -57,11 +60,6 @@ Xorbits Inference (Xinference) ist eine leistungsfähige und vielseitige Bibliot
 - Integrierte Unterstützung für die Irodori-TTS-v4.1-Serie ([Anime](https://huggingface.co/phasefield-audio/Irodori-TTS-v4.1-Anime), [Small](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small)): [#5527](https://github.com/xorbitsai/inference/pull/5527)
 - Integrierte Unterstützung für [YuE2-3B](https://huggingface.co/m-a-p/YuE2-3B): [#5526](https://github.com/xorbitsai/inference/pull/5526)
 - Integrierte Unterstützung für die AuK-Serie ([AuK](https://huggingface.co/tencent/AuK), [AuK-Flash](https://huggingface.co/tencent/AuK-Flash)): [#5525](https://github.com/xorbitsai/inference/pull/5525)
-- Integrierte Unterstützung für [MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B): [#5506](https://github.com/xorbitsai/inference/pull/5506)
-- Integrierte Unterstützung für die Fish-Audio-Serie ([S1-mini](https://huggingface.co/fishaudio/s1-mini), [S2-Pro](https://huggingface.co/fishaudio/s2-pro)): [#5490](https://github.com/xorbitsai/inference/pull/5490)
-- Integrierte Unterstützung für [MonkeyOCR](https://huggingface.co/echo840/MonkeyOCR): [#5475](https://github.com/xorbitsai/inference/pull/5475)
-- Integrierte Unterstützung für [dots.ocr](https://huggingface.co/rednote-hilab/dots.ocr): [#5468](https://github.com/xorbitsai/inference/pull/5468)
-- Integrierte Unterstützung für die JoyAI-Bildbearbeitungsserie ([Edit](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Diffusers), [Edit Plus](https://huggingface.co/jdopensource/JoyAI-Image-Edit-Plus-Diffusers)): [#5458](https://github.com/xorbitsai/inference/pull/5458)
 ### Integrationen
 - [Xagent](https://github.com/xorbitsai/xagent): Enterprise-Agentenplattform mit Planung, Speicher und Tool-Integration.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps-Plattform zur schnellen Anwendungsentwicklung mit Visualisierung und Bedienoberfläche.
