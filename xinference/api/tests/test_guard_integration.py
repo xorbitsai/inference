@@ -44,9 +44,7 @@ def _restore_env(saved):
 class TestGuardIntegration(unittest.TestCase):
     def setUp(self):
         self._saved = {
-            k: os.environ.pop(k)
-            for k in list(os.environ)
-            if k.startswith("XINFERENCE_GUARD_")
+            k: os.environ.pop(k) for k in list(os.environ) if k.startswith("XINFERENCE_GUARD_")
         }
 
     def tearDown(self):
@@ -70,9 +68,7 @@ class TestGuardIntegration(unittest.TestCase):
         from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=self._build_app(), client=(client_ip, 50000))
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as client:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             return (await client.get("/ping")).status_code
 
     def test_disabled_by_default(self):

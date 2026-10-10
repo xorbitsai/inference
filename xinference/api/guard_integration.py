@@ -84,9 +84,7 @@ def _build_guard_config() -> SecurityConfig:
         "enable_redis": False,
         "passive_mode": _env_bool("XINFERENCE_GUARD_PASSIVE_MODE"),
         "blacklist": _csv(os.environ.get("XINFERENCE_GUARD_BLOCKED_IPS")),
-        "blocked_user_agents": list(
-            _csv(os.environ.get("XINFERENCE_GUARD_BLOCKED_USER_AGENTS"))
-        ),
+        "blocked_user_agents": list(_csv(os.environ.get("XINFERENCE_GUARD_BLOCKED_USER_AGENTS"))),
         "trusted_proxies": _csv(os.environ.get("XINFERENCE_GUARD_TRUSTED_PROXIES"))
         or _csv(DEFAULT_TRUSTED_PROXIES),
         "trusted_proxy_depth": _env_int("XINFERENCE_GUARD_TRUSTED_PROXY_DEPTH", 1),
@@ -102,9 +100,7 @@ def _build_guard_config() -> SecurityConfig:
         kwargs["blocked_countries"] = frozenset(blocked_countries)
     if allowed_countries := _csv(os.environ.get("XINFERENCE_GUARD_ALLOWED_COUNTRIES")):
         kwargs["whitelist_countries"] = frozenset(allowed_countries)
-    if cloud_providers := _csv(
-        os.environ.get("XINFERENCE_GUARD_BLOCK_CLOUD_PROVIDERS")
-    ):
+    if cloud_providers := _csv(os.environ.get("XINFERENCE_GUARD_BLOCK_CLOUD_PROVIDERS")):
         kwargs["block_cloud_providers"] = frozenset(cloud_providers)
 
     if redis_url := os.environ.get("XINFERENCE_GUARD_REDIS_URL"):
