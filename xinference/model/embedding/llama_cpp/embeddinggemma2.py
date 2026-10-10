@@ -19,7 +19,8 @@ import mimetypes
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from ....types import Embedding, EmbeddingUsage
 from ..core import EmbeddingModelFamilyV2, EmbeddingSpecV1
@@ -57,7 +58,14 @@ def _media_url(value: Any, modality: str) -> str:
     if isinstance(value, str):
         if value.startswith(("http://", "https://", "data:")):
             return value
-        path = unquote(urlparse(value).path) if value.startswith("file://") else value
+        if value.startswith("file://"):
+            uri = urlparse(value)
+            path = uri.path
+            if uri.netloc and uri.netloc.lower() != "localhost":
+                path = f"//{uri.netloc}{path}"
+            path = url2pathname(path)
+        else:
+            path = value
         mime = mimetypes.guess_type(path)[0] or f"{modality}/octet-stream"
         data = Path(path).read_bytes()
     elif isinstance(value, bytes):

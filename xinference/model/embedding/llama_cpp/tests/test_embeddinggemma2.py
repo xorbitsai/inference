@@ -14,6 +14,7 @@
 
 import copy
 import math
+import os
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -119,22 +120,53 @@ def test_multimodal_content_is_nested_and_ordered(tmp_path):
     ]
     assert content[0]["text"] == "task: search result | query: describe"
     assert content[1]["image_url"]["url"] == item["image"][0]
-    assert content[3]["input_audio"]["url"] == "data:audio/x-wav;base64,d2F2ZS1kYXRh"
+    assert content[3]["input_audio"]["url"] in (
+        "data:audio/x-wav;base64,d2F2ZS1kYXRh",
+        "data:audio/wav;base64,d2F2ZS1kYXRh",
+    )
     assert content[4]["input_video"]["url"] == item["video"]
     assert len(inputs[1]["content"]) == 1
     assert inputs[1]["content"][0]["type"] == "image_url"
 
 
-def test_local_file_url_and_pil_image(tmp_path):
+@pytest.mark.parametrize("filename", ["test image.png", "test%20 image.png"])
+def test_local_file_url_and_pil_image(tmp_path, filename):
     from PIL import Image
 
-    image = tmp_path / "test image.png"
+    image = tmp_path / filename
     Image.new("RGB", (2, 2), "red").save(image)
     local = prepare_inputs({"image": image.as_uri()})
     pil = prepare_inputs({"image": Image.open(image)})
     assert local == pil
     assert local[0]["content"][0]["image_url"]["url"].startswith(
         "data:image/png;base64,"
+    )
+
+
+@pytest.mark.parametrize(
+    "uri,native_path",
+    [
+        ("file:///C:/media/test%20image%25.png", r"C:\media\test image%.png"),
+        ("file://server/share/test%20image.png", r"\\server\share\test image.png"),
+    ],
+)
+def test_windows_file_uri_conversion(monkeypatch, uri, native_path):
+    from nturl2path import url2pathname
+
+    from .. import embeddinggemma2
+
+    monkeypatch.setattr(embeddinggemma2, "url2pathname", url2pathname)
+    paths = []
+
+    def read_bytes(path):
+        paths.append(os.fspath(path))
+        return b"image-data"
+
+    monkeypatch.setattr(embeddinggemma2.Path, "read_bytes", read_bytes)
+    result = prepare_inputs({"image": uri})
+    assert paths == [native_path]
+    assert result[0]["content"][0]["image_url"]["url"] == (
+        "data:image/png;base64,aW1hZ2UtZGF0YQ=="
     )
 
 
@@ -224,7 +256,7 @@ def test_load_uses_mean_pooling_and_noncausal_batches(fake_xllamacpp):
     try:
         params = fake_xllamacpp.Server.call_args.args[0]
         assert params.model.endswith("embeddinggemma-2-UD-Q4_K_XL.gguf")
-        assert params.mmproj.path == "/unused/mmproj-BF16.gguf"
+        assert params.mmproj.path == os.path.join(model._model_path, "mmproj-BF16.gguf")
         assert params.pooling_type == 1
         assert (params.n_ctx, params.n_batch, params.n_ubatch, params.n_parallel) == (
             2048,
