@@ -1161,6 +1161,18 @@ class RESTfulAPI(CancelMixin):
         )
 
     def serve(self, logging_conf: Optional[dict] = None):
+        # Optional fastapi-guard security middleware (no-op when disabled).
+        # Attached FIRST so it nests INSIDE both CORS and the audited IP
+        # middleware (Starlette runs the last-added middleware outermost):
+        # the effective chain is audit/IP -> CORS -> guard -> app, so guard's
+        # own rejections (403/429) leave with CORS headers (cross-origin
+        # browser clients can read them) and still pass through the audit
+        # wrapper keeping X-Request-ID, while the XINFERENCE_ALLOWED_IPS
+        # allowlist stays first in line on the way in.
+        from .guard_integration import attach_guard, uvicorn_forwarded_allow_ips
+
+        attach_guard(self._app)
+
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -1331,7 +1343,12 @@ class RESTfulAPI(CancelMixin):
             port=self._port,
             log_config=logging_conf,
             proxy_headers=True,
-            forwarded_allow_ips="*",
+            # With the guard enabled, only explicitly trusted proxies may
+            # rewrite the client address from X-Forwarded-For; trusting any
+            # peer here would let a direct client forge its identity before
+            # guard (or the allowlist above) ever sees the request.
+            # No-op ("*") when the guard is disabled.
+            forwarded_allow_ips=uvicorn_forwarded_allow_ips(),
             # Slow HTTP DoS (Slowloris) protection, see xinference/core/http_protocol.py
             http=create_hardened_http_protocol(XINFERENCE_HTTP_REQUEST_TIMEOUT),
             timeout_keep_alive=XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
