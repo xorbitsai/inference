@@ -100,7 +100,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 ## 使用 Xinference
 
 - **自托管 Xinference 社区版</br>**
-使用 [入门指南](#getting-started) 快速在你自己的环境中运行 Xinference。
+使用 [入门指南](#入门指南) 快速在你自己的环境中运行 Xinference。
 参考 [文档](https://inference.readthedocs.io/zh-cn) 以获得参考和更多说明。
 
 - **面向企业/组织的 Xinference 版本</br>**
