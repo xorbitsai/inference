@@ -28,6 +28,7 @@ from ..restful_api import RESTfulAPI
     "model_name",
     [
         "Qwen-Image-2.1",
+        "Qwen-Image-2.1-Turbo",
         "Qwen-Image-Edit-2511",
         "Ming-Image-0.1-Design",
         "Ming-Image-0.1-Design-Layer",
@@ -76,6 +77,7 @@ def test_image_edits_alpha_depends_on_model_name(monkeypatch, model_name):
     for image in [kwargs["image"], *kwargs["reference_images"]]:
         if model_name in {
             "Qwen-Image-2.1",
+            "Qwen-Image-2.1-Turbo",
             "Ming-Image-0.1-Design",
             "Ming-Image-0.1-Design-Layer",
         }:

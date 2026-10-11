@@ -3709,6 +3709,7 @@ class RESTfulAPI(CancelMixin):
             )
             preserve_alpha = description.get("model_name", "").lower() in {
                 "qwen-image-2.1",
+                "qwen-image-2.1-turbo",
                 "ming-image-0.1-design",
                 "ming-image-0.1-design-layer",
             }
