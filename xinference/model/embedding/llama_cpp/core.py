@@ -19,7 +19,7 @@ import platform
 import pprint
 import queue
 import sys
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from packaging import version
 
@@ -60,6 +60,8 @@ def _get_error_payload(response: Any) -> Optional[Any]:
 
 
 class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
+    supports_dimensions = False
+
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
@@ -89,9 +91,15 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     def _is_linux(self):
         return sys.platform.startswith("linux")
 
+    def _configure_params(self, params: Any) -> None:
+        from xllamacpp import llama_pooling_type
+
+        params.n_parallel = min(8, os.cpu_count() or 1)
+        params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
+
     def load(self):
         # add truncate_dim args hint
-        if "dimensions" in self._kwargs:
+        if "dimensions" in self._kwargs and not self.supports_dimensions:
             raise NotImplementedError(
                 "LlamaCpp embedder does not support dimensions argument now."
             )
@@ -103,7 +111,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                 estimate_gpu_layers,
                 get_device_info,
                 ggml_backend_dev_type,
-                llama_pooling_type,
             )
 
             try:
@@ -148,9 +155,14 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
             except Exception:
                 params.model.path = model_path
 
-            # This is the default value, could be overwritten by _llamacpp_model_config
-            params.n_parallel = min(8, os.cpu_count() or 1)
-            params.pooling_type = llama_pooling_type.LLAMA_POOLING_TYPE_LAST
+            projector = getattr(self._model_spec, "multimodal_projector", None)
+            projector_path = (
+                os.path.join(self._model_path, projector) if projector else ""
+            )
+            if projector_path:
+                params.mmproj.path = projector_path
+            # Defaults may be overwritten by _llamacpp_model_config.
+            self._configure_params(params)
             for k, v in self._llamacpp_model_config.items():
                 try:
                     if "." in k:
@@ -189,7 +201,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                         estimate = estimate_gpu_layers(
                             gpus=gpus,
                             model_path=model_path,
-                            projectors=[],
+                            projectors=[projector_path] if projector_path else [],
                             context_length=params.n_ctx,
                             batch_size=params.n_batch,
                             num_parallel=params.n_parallel,
@@ -213,9 +225,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
         except AssertionError:
             raise RuntimeError(f"Load model {self._model_name} failed")
 
-    def _create_embedding(
-        self, sentences: Union[str, List[str]], **kwargs
-    ) -> Embedding:
+    def _create_embedding(self, sentences: Any, **kwargs) -> Embedding:
         if self._llm is None:
             raise RuntimeError("Model is not loaded.")
 
@@ -261,4 +271,6 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
     ) -> Union[bool, Tuple[bool, str]]:
         if model_spec.model_format not in ["ggufv2"]:
             return False, "llama.cpp embedding engine only supports ggufv2 format"
+        if model_family.model_name == "embeddinggemma-2":
+            return False
         return True
