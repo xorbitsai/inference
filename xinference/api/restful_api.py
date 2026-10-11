@@ -1169,6 +1169,16 @@ class RESTfulAPI(CancelMixin):
             allow_headers=["*"],
         )
 
+        # Optional fastapi-guard security middleware (no-op when disabled).
+        # Attached BEFORE the audited IP middleware below: Starlette runs the
+        # last-added middleware outermost, so this nesting keeps the
+        # XINFERENCE_ALLOWED_IPS allowlist first in line and puts the audit
+        # layer OUTSIDE the guard, meaning guard's own rejections (403/429)
+        # still pass through the audit wrapper and keep X-Request-ID.
+        from .guard_integration import attach_guard, uvicorn_forwarded_allow_ips
+
+        attach_guard(self._app)
+
         async def ip_restriction_middleware(request: Request, call_next):
             client_ip = request.client.host
             if not self._is_ip_allowed(client_ip):
@@ -1184,11 +1194,6 @@ class RESTfulAPI(CancelMixin):
                 return await ip_restriction_middleware(inner_request, call_next)
 
             return await self._audit_middleware(request, check_ip)
-
-        # Optional fastapi-guard security middleware (no-op when disabled)
-        from .guard_integration import attach_guard
-
-        attach_guard(self._app)
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
         if XINFERENCE_ENABLE_OTEL:
@@ -1336,7 +1341,12 @@ class RESTfulAPI(CancelMixin):
             port=self._port,
             log_config=logging_conf,
             proxy_headers=True,
-            forwarded_allow_ips="*",
+            # With the guard enabled, only explicitly trusted proxies may
+            # rewrite the client address from X-Forwarded-For; trusting any
+            # peer here would let a direct client forge its identity before
+            # guard (or the allowlist above) ever sees the request.
+            # No-op ("*") when the guard is disabled.
+            forwarded_allow_ips=uvicorn_forwarded_allow_ips(),
             # Slow HTTP DoS (Slowloris) protection, see xinference/core/http_protocol.py
             http=create_hardened_http_protocol(XINFERENCE_HTTP_REQUEST_TIMEOUT),
             timeout_keep_alive=XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
