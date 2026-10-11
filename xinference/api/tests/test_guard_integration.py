@@ -288,16 +288,20 @@ class TestGuardIntegration(unittest.TestCase):
 
     @unittest.skipUnless(_GUARD_AVAILABLE, "fastapi-guard not installed")
     def test_guard_rejection_stays_inside_audit_wrapping(self):
-        """serve() attaches guard before registering the audited IP
-        middleware, so guard rejections flow back out through the audit
-        layer: the request is audited and keeps X-Request-ID."""
+        """serve() attaches guard before CORS and the audited IP middleware,
+        so the effective chain is audit/IP -> CORS -> guard -> app: guard
+        rejections flow back out through CORS (readable cross-origin errors)
+        and the audit layer (audited, X-Request-ID set), while the existing
+        IP allowlist still rejects before the guard ever sees the request."""
         os.environ["XINFERENCE_GUARD_ENABLED"] = "true"
         blocked = _unique_ip()
         os.environ["XINFERENCE_GUARD_BLOCKED_IPS"] = blocked
 
         from fastapi import FastAPI
+        from fastapi.responses import PlainTextResponse
         from httpx import ASGITransport, AsyncClient
         from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.middleware.cors import CORSMiddleware
 
         from xinference.api.guard_integration import attach_guard
 
@@ -307,30 +311,117 @@ class TestGuardIntegration(unittest.TestCase):
         async def ping():
             return {"ok": True}
 
-        attach_guard(app)  # added first -> inner
+        attach_guard(app)  # added first -> innermost
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
         audited = []
 
         class _AuditedIP(BaseHTTPMiddleware):
             async def dispatch(self, request, call_next):
                 audited.append(request.url.path)
-                response = await call_next(request)
+
+                async def check_ip(inner_request):
+                    # stand-in for ip_restriction_middleware: the
+                    # XINFERENCE_ALLOWED_IPS allowlist, ahead of the guard
+                    if inner_request.client.host == "203.0.113.9":
+                        return PlainTextResponse(status_code=403, content="denied")
+                    return await call_next(inner_request)
+
+                # serve()'s audit wrapper calls check_ip as its call_next
+                response = await check_ip(request)
                 response.headers["X-Request-ID"] = "req-123"
                 return response
 
-        app.add_middleware(_AuditedIP)  # added last -> outer, like serve()
+        app.add_middleware(_AuditedIP)  # added last -> outermost, like serve()
 
-        async def _get():
-            transport = ASGITransport(app=app, client=(blocked, 50000))
+        async def _get(ip):
+            transport = ASGITransport(app=app, client=(ip, 50000))
             async with AsyncClient(
                 transport=transport, base_url="http://testserver"
             ) as client:
-                return await client.get("/ping")
+                return await client.get(
+                    "/ping", headers={"Origin": "https://client.example"}
+                )
 
-        response = asyncio.run(_get())
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.headers["x-request-id"], "req-123")
+        rejected = asyncio.run(_get(blocked))
+        self.assertEqual(rejected.status_code, 403)
+        self.assertIn(
+            rejected.headers.get("access-control-allow-origin"),
+            ("*", "https://client.example"),
+        )
+        self.assertEqual(rejected.headers["x-request-id"], "req-123")
         self.assertEqual(audited, ["/ping"])
+
+        # allowlist-first: the existing IP check denies before the guard
+        allowlisted_out = asyncio.run(_get("203.0.113.9"))
+        self.assertEqual(allowlisted_out.status_code, 403)
+        self.assertEqual(allowlisted_out.headers["x-request-id"], "req-123")
+        self.assertEqual(audited, ["/ping", "/ping"])
+
+    @unittest.skipUnless(_GUARD_AVAILABLE, "fastapi-guard not installed")
+    def test_rate_limited_response_carries_cors_headers(self):
+        """A guard-generated 429 passes back out through CORS, so
+        cross-origin clients read the rate-limit response instead of a
+        network failure."""
+        os.environ["XINFERENCE_GUARD_ENABLED"] = "true"
+        client_ip = _unique_ip()
+        os.environ["XINFERENCE_GUARD_RATE_LIMIT"] = "1"
+        os.environ["XINFERENCE_GUARD_RATE_LIMIT_WINDOW"] = "60"
+
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+        from starlette.middleware.base import BaseHTTPMiddleware
+        from starlette.middleware.cors import CORSMiddleware
+
+        from xinference.api.guard_integration import attach_guard
+
+        app = FastAPI()
+
+        @app.get("/ping")
+        async def ping():
+            return {"ok": True}
+
+        attach_guard(app)
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+        class _Audit(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                response = await call_next(request)
+                response.headers["X-Request-ID"] = "req-429"
+                return response
+
+        app.add_middleware(_Audit)
+
+        async def _get():
+            transport = ASGITransport(app=app, client=(client_ip, 50000))
+            async with AsyncClient(
+                transport=transport, base_url="http://testserver"
+            ) as client:
+                return await client.get(
+                    "/ping", headers={"Origin": "https://client.example"}
+                )
+
+        asyncio.run(_get())
+        limited = asyncio.run(_get())
+        self.assertEqual(limited.status_code, 429)
+        self.assertIn(
+            limited.headers.get("access-control-allow-origin"),
+            ("*", "https://client.example"),
+        )
+        self.assertEqual(limited.headers["x-request-id"], "req-429")
 
     @unittest.skipUnless(_GUARD_AVAILABLE, "fastapi-guard not installed")
     def test_inference_bodies_not_scanned_by_default(self):

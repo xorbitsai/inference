@@ -1161,6 +1161,18 @@ class RESTfulAPI(CancelMixin):
         )
 
     def serve(self, logging_conf: Optional[dict] = None):
+        # Optional fastapi-guard security middleware (no-op when disabled).
+        # Attached FIRST so it nests INSIDE both CORS and the audited IP
+        # middleware (Starlette runs the last-added middleware outermost):
+        # the effective chain is audit/IP -> CORS -> guard -> app, so guard's
+        # own rejections (403/429) leave with CORS headers (cross-origin
+        # browser clients can read them) and still pass through the audit
+        # wrapper keeping X-Request-ID, while the XINFERENCE_ALLOWED_IPS
+        # allowlist stays first in line on the way in.
+        from .guard_integration import attach_guard, uvicorn_forwarded_allow_ips
+
+        attach_guard(self._app)
+
         self._app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -1168,16 +1180,6 @@ class RESTfulAPI(CancelMixin):
             allow_methods=["*"],
             allow_headers=["*"],
         )
-
-        # Optional fastapi-guard security middleware (no-op when disabled).
-        # Attached BEFORE the audited IP middleware below: Starlette runs the
-        # last-added middleware outermost, so this nesting keeps the
-        # XINFERENCE_ALLOWED_IPS allowlist first in line and puts the audit
-        # layer OUTSIDE the guard, meaning guard's own rejections (403/429)
-        # still pass through the audit wrapper and keep X-Request-ID.
-        from .guard_integration import attach_guard, uvicorn_forwarded_allow_ips
-
-        attach_guard(self._app)
 
         async def ip_restriction_middleware(request: Request, call_next):
             client_ip = request.client.host
