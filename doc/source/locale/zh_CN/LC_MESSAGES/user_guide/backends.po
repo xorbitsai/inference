@@ -785,3 +785,7 @@ msgstr "这个 0.83 GB 的草稿模型，其计算开销约为 31B 单步解码�
 #: ../../source/user_guide/backends.rst:334
 msgid "So measure before leaving it on, and note that the verification step itself is not the problem: a four-token forward costs only ~40% more than a single-token one on either model."
 msgstr "因此，长期启用前应先实测。问题并不在验证步骤本身：对于这两个模型，四个 token 的前向计算开销都只比单个 token 高约 40%。"
+
+#: ../glm53-doc-check/user_guide/backends.rst:178
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"

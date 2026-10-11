@@ -312,6 +312,10 @@ class ChatModelMixin:
         # template style are covered automatically.
         return chat_template is not None and (
             "tool_call.arguments|items" in chat_template
+            or (
+                "_args = tc.arguments" in chat_template
+                and "_args.items()" in chat_template
+            )
             or "tool_call.function.arguments is not mapping" in chat_template
             or (
                 "args_dict = tool_call.arguments" in chat_template
@@ -498,6 +502,10 @@ class ChatModelMixin:
                         if isinstance(thinking, bool)
                         else reasoning_parser.enable_thinking
                     )
+                if reasoning_parser and not reasoning_parser.allow_disable_thinking:
+                    kwargs["enable_thinking"] = True
+                    if "thinking" in kwargs:
+                        kwargs["thinking"] = True
                 return kwargs
             else:
                 raise TypeError(
@@ -505,7 +513,10 @@ class ChatModelMixin:
                 )
         elif reasoning_parser:
             # pass enable_thinking to chat template
-            return {"enable_thinking": reasoning_parser.enable_thinking}
+            return {
+                "enable_thinking": reasoning_parser.enable_thinking
+                or not reasoning_parser.allow_disable_thinking
+            }
         return None
 
     @staticmethod

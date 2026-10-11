@@ -792,3 +792,7 @@ msgid ""
 msgstr ""
 "可以使用 :ref:`一键安装脚本 <one_line_install>` 或 :ref:`pip <pip_installation>` 安装 "
 "Xinference。若希望由安装脚本管理工具环境，请选择一键安装；若要使用已有的 Python 环境，请选择 pip。"
+
+#: ../glm53-doc-check/getting_started/installation.rst:176
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"

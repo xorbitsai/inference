@@ -266,6 +266,11 @@ The following is a list of built-in LLM in Xinference:
      - 1048576
      - We're introducing GLM-5.2, our latest flagship model for long-horizon tasks
 
+   * - :ref:`glm-5.3 <models_llm_glm-5.3>`
+     - chat, tools, reasoning
+     - 1048576
+     - GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks.
+
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
      - 8192
@@ -951,6 +956,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-5.2
   
+   glm-5.3
+
    glm-edge-chat
   
    glm4-0414

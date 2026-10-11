@@ -2408,6 +2408,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 False,
                 "vLLM chat mode supports pytorch/gptq/awq/fp4/fp8/bnb/ggufv2 formats only",
             )
+        model_family = llm_family.model_family or llm_family.model_name
+        if model_family == "glm-5.3":
+            if _get_effective_vllm_version_for_family(llm_family) < version.parse(
+                "0.28.0"
+            ):
+                return False, "GLM-5.3 requires vLLM >= 0.28.0"
         is_ling3 = llm_family.has_architecture("BailingMoeV3ForCausalLM")
         if is_ling3:
             if llm_spec.model_format not in ("pytorch", "fp8", "fp4"):
@@ -2546,6 +2552,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
             or {}
         )
+        if model_family == "glm-5.3":
+            # The shared parser normalizes this always-thinking model. Pass
+            # the effective mode to decoding too, to retain special tokens.
+            generate_config = dict(generate_config or {})
+            generate_config["chat_template_kwargs"] = chat_template_kwargs
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
         if tools:

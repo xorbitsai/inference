@@ -918,3 +918,7 @@ msgstr ""
 "commande <one_line_install>` ou avec :ref:`pip <pip_installation>`. "
 "Choisissez le programme d’installation pour un environnement d’outils géré, "
 "ou pip pour utiliser un environnement Python existant."
+
+#: ../glm53-doc-check/getting_started/installation.rst:176
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"

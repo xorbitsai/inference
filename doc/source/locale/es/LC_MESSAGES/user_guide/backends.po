@@ -630,3 +630,7 @@ msgstr "vLLM también admite algunos modelos de texto a imagen (como ``Qwen-Imag
 
 msgid "Besides LLMs, SGLang can also serve as the engine for some text-to-image models (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see :ref:`image engines <image>`. This requires SGLang with diffusion support: ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``."
 msgstr "SGLang también admite algunos modelos de texto a imagen (como ``Qwen-Image`` y ``Z-Image-Turbo``) en Linux con GPU NVIDIA; consulte :ref:`motores de imágenes <image>`. Requiere SGLang con soporte de difusión: ``pip install 'sglang[diffusion]>=0.5.20,<0.6'``."
+
+#: ../glm53-doc-check/user_guide/backends.rst:178
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
