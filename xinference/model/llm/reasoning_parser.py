@@ -22,6 +22,7 @@ class ReasoningParser:
         reasoning_end_tag: str = "",
         enable_thinking: bool = True,
         auto_insert_start_tag: bool = True,
+        allow_disable_thinking: bool = True,
     ):
         self.reasoning_content = reasoning_content
         self.reasoning_start_tag = reasoning_start_tag
@@ -34,6 +35,7 @@ class ReasoningParser:
         # e.g. qwen3, which can support both thinking and non-thinking
         self.enable_thinking = enable_thinking
         self.auto_insert_start_tag = auto_insert_start_tag
+        self.allow_disable_thinking = allow_disable_thinking
 
     def extract_reasoning_content_streaming(
         self,
@@ -287,6 +289,8 @@ class ReasoningParser:
         )
 
     def is_enable_thinking(self):
+        if not self.allow_disable_thinking:
+            return True
         from .core import chat_context_var
 
         context = chat_context_var.get({})

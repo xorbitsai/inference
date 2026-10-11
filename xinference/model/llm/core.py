@@ -225,6 +225,11 @@ class LLM(abc.ABC):
             self.model_family.reasoning_end_tag,  # type: ignore
             enable_thinking=enable_thinking,
             auto_insert_start_tag=auto_insert_start_tag,
+            allow_disable_thinking=(
+                getattr(self.model_family, "model_family", None)
+                or self.model_family.model_name
+            )
+            != "glm-5.3",
         )
 
     def prepare_parse_tool_calls(self):

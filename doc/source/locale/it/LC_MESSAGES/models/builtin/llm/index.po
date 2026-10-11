@@ -764,3 +764,13 @@ msgstr ""
 #: ../../models/builtin/llm/index.rst
 msgid "We introduce DeepSeek-V4.1-Flash, a multimodal Mixture-of-Experts (MoE) model with 552B backbone parameters and support for contexts of up to one million tokens. The model natively processes images and text, and generates text autoregressively."
 msgstr ""
+
+#: ../glm53-doc-check/models/builtin/llm/index.rst:269
+msgid ":ref:`glm-5.3 <models_llm_glm-5.3>`"
+msgstr ":ref:`glm-5.3 <models_llm_glm-5.3>`"
+
+#: ../glm53-doc-check/models/builtin/llm/index.rst:272
+msgid "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
+msgstr ""
+"GLM-5.3 è un modello di ragionamento per la programmazione e le attività "
+"agentiche di lunga durata."

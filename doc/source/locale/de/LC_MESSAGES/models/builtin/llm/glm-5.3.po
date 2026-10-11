@@ -1,0 +1,127 @@
+# German translations for Xinference.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the Xinference project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-11 12:45+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:5
+msgid "glm-5.3"
+msgstr "glm-5.3"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:7
+msgid "**Context Length:** 1048576"
+msgstr "**Context Length:** 1048576"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:8
+msgid "**Model Name:** glm-5.3"
+msgstr "**Model Name:** glm-5.3"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:9
+msgid "**Languages:** en, zh"
+msgstr "**Languages:** en, zh"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:10
+msgid "**Abilities:** chat, tools, reasoning"
+msgstr "**Abilities:** chat, tools, reasoning"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:11
+msgid ""
+"**Description:** GLM-5.3 is a reasoning model for coding and long-horizon "
+"agentic tasks."
+msgstr ""
+"**Description:** GLM-5.3 ist ein Reasoning-Modell für Programmierung und "
+"langfristige Agentenaufgaben."
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:14
+msgid "Specifications"
+msgstr "Specifications"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:18
+msgid "Model Spec 1 (pytorch, 753 Billion)"
+msgstr "Model Spec 1 (pytorch, 753 Billion)"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:20
+msgid "**Model Format:** pytorch"
+msgstr "**Model Format:** pytorch"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:21
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:37
+msgid "**Model Size (in billions):** 753"
+msgstr "**Model Size (in billions):** 753"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:22
+msgid "**Quantizations:** none"
+msgstr "**Quantizations:** none"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:23
+msgid "**Engines**: vLLM, Transformers"
+msgstr "**Engines**: vLLM, Transformers"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:24
+msgid "**Model ID:** zai-org/GLM-5.3-BF16"
+msgstr "**Model ID:** zai-org/GLM-5.3-BF16"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:25
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/zai-"
+"org/GLM-5.3-BF16>`__, `ModelScope "
+"<https://modelscope.cn/models/ZhipuAI/GLM-5.3-BF16>`__"
+msgstr ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/zai-"
+"org/GLM-5.3-BF16>`__, `ModelScope "
+"<https://modelscope.cn/models/ZhipuAI/GLM-5.3-BF16>`__"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:27
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:43
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options "
+"listed above::"
+msgstr ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options "
+"listed above::"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:34
+msgid "Model Spec 2 (fp8, 753 Billion)"
+msgstr "Model Spec 2 (fp8, 753 Billion)"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:36
+msgid "**Model Format:** fp8"
+msgstr "**Model Format:** fp8"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:38
+msgid "**Quantizations:** FP8"
+msgstr "**Quantizations:** FP8"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:39
+msgid "**Engines**: vLLM"
+msgstr "**Engines**: vLLM"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:40
+msgid "**Model ID:** zai-org/GLM-5.3"
+msgstr "**Model ID:** zai-org/GLM-5.3"
+
+#: ../glm53-doc-check/models/builtin/llm/glm-5.3.rst:41
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-5.3>`__, "
+"`ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-5.3>`__"
+msgstr ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-5.3>`__, "
+"`ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-5.3>`__"

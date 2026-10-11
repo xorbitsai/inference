@@ -809,3 +809,7 @@ msgstr ""
 "Xinference は :ref:`ワンコマンドインストーラー <one_line_install>` または :ref:`pip "
 "<pip_installation>` でインストールできます。管理されたツール環境を使う場合はインストーラーを、既存の Python 環境を使う場合は"
 " pip を選択してください。"
+
+#: ../glm53-doc-check/getting_started/installation.rst:176
+msgid "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
+msgstr "``glm-5``, ``glm-5.1``, ``glm-5.2``, ``glm-5.3``"
