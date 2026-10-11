@@ -161,10 +161,9 @@ class XllamaCppEmbeddingGemma2Model(XllamaCppEmbeddingModel):
             super().load()
         except RuntimeError as exc:
             raise RuntimeError(
-                f"{exc}. EmbeddingGemma 2 GGUF requires an xllamacpp build containing "
+                f"{exc}. EmbeddingGemma 2 GGUF requires xllamacpp>=2026.10.11549 with "
                 "llama.cpp support for gemma-embedding2 (ggml-org/llama.cpp#30054) "
-                "and multimodal /v1/embeddings content inputs. "
-                "The xllamacpp 2026.9.11063 release does not include this architecture."
+                "and multimodal /v1/embeddings content inputs."
             ) from exc
 
     def _create_embedding(self, sentences: Any, **kwargs: Any) -> Embedding:

@@ -92,7 +92,7 @@
         "torchcodec ; #engine# == \"sentence_transformers\"",
         "torchcodec ; #engine# == \"transformers\"",
         "torchcodec ; #engine# == \"vllm\"",
-        "xllamacpp>2026.9.11063 ; #engine# == \"llama.cpp\""
+        "xllamacpp>=2026.10.11549 ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": true,

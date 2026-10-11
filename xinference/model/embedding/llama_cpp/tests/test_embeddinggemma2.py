@@ -95,7 +95,7 @@ def test_gguf_virtualenv_excludes_native_engines():
     packages = filter_virtualenv_packages_by_markers(
         family.virtualenv.packages, "llama.cpp", "13.0"
     )
-    assert packages == ["xllamacpp>2026.9.11063"]
+    assert packages == ["xllamacpp>=2026.10.11549"]
 
 
 def test_multimodal_content_is_nested_and_ordered(tmp_path):
@@ -239,7 +239,7 @@ def fake_xllamacpp(monkeypatch):
             cpuparams_batch=SimpleNamespace(n_threads=1),
         ),
         Server=MagicMock(),
-        __version__="2026.9.11063",
+        __version__="2026.10.11549",
         estimate_gpu_layers=MagicMock(),
         get_device_info=lambda: [],
         ggml_backend_dev_type=SimpleNamespace(GGML_BACKEND_DEVICE_TYPE_GPU=1),
@@ -290,11 +290,12 @@ def test_invalid_runtime_config_is_rejected(fake_xllamacpp, config):
 
 
 def test_old_runtime_failure_explains_architecture_requirement(fake_xllamacpp):
+    fake_xllamacpp.__version__ = "2026.9.11063"
     fake_xllamacpp.Server.side_effect = AssertionError(
         "unknown model architecture: gemma-embedding2"
     )
     model = _make_model(llamacpp_model_config={"n_gpu_layers": 0})
-    with pytest.raises(RuntimeError, match="llama.cpp#30054"):
+    with pytest.raises(RuntimeError, match="xllamacpp>=2026.10.11549"):
         model.load()
 
 
