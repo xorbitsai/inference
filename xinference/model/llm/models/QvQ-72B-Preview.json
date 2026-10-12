@@ -214,6 +214,7 @@
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "mlx-vlm>=0.3.4 ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]

@@ -314,6 +314,7 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "mlx-vlm>=0.3.4 ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\""

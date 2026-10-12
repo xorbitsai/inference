@@ -548,6 +548,7 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "mlx-vlm>=0.6.4 ; #engine# == \"MLX\"",
         "vllm>=0.24.0 ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "sglang>=0.5.16 ; #engine# == \"sglang\"",

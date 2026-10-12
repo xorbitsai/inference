@@ -1765,12 +1765,13 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
 
 
 @pytest.mark.parametrize("lib_available", [False, True])
+@pytest.mark.parametrize("model_name", ["qwen3.5", "qwen3.6"])
 @pytest.mark.parametrize(
     "host_platform,processor",
     [("darwin", "arm"), ("darwin", "i386"), ("linux", "x86_64")],
 )
-def test_qwen3_5_mlx_engine_available_with_virtualenv(
-    monkeypatch, host_platform, processor, lib_available
+def test_qwen3_5_and_3_6_mlx_engine_available_with_virtualenv(
+    monkeypatch, host_platform, processor, lib_available, model_name
 ):
     from ... import utils as model_utils
     from .. import llm_family
@@ -1783,7 +1784,7 @@ def test_qwen3_5_mlx_engine_available_with_virtualenv(
     )
     # Start discovery without pre-populated engines so the result does not
     # depend on the host or optional libraries used at test collection time.
-    monkeypatch.setattr(llm_family, "LLM_ENGINES", {"qwen3.5": {}})
+    monkeypatch.setattr(llm_family, "LLM_ENGINES", {model_name: {}})
     monkeypatch.setattr(
         llm_family, "SUPPORTED_ENGINES", {"MLX": llm_family.MLX_CLASSES}
     )
@@ -1795,7 +1796,7 @@ def test_qwen3_5_mlx_engine_available_with_virtualenv(
         )
 
     params = model_utils.get_engine_params_by_name_with_virtual_env(
-        "LLM", "qwen3.5", enable_virtual_env=True
+        "LLM", model_name, enable_virtual_env=True
     )
     assert params is not None
     mlx_params = params["MLX"]
@@ -1804,16 +1805,10 @@ def test_qwen3_5_mlx_engine_available_with_virtualenv(
         return
 
     assert isinstance(mlx_params, list)
-    assert {param["model_size_in_billions"] for param in mlx_params} == {
-        "0_8",
-        2,
-        4,
-        9,
-        27,
-        35,
-        122,
-        397,
-    }
+    expected_sizes = {"0_8", 2, 4, 9, 27, 35, 122, 397}
+    if model_name == "qwen3.6":
+        expected_sizes = {35}
+    assert {param["model_size_in_billions"] for param in mlx_params} == expected_sizes
     assert all(param["model_format"] == "mlx" for param in mlx_params)
     assert all("4bit" in param["quantizations"] for param in mlx_params)
     assert all(
@@ -1850,6 +1845,98 @@ def test_qwen3_5_mlx_virtualenv_requirements(engine):
     assert "mlx-lm" in requirements
     assert requirements["mlx-vlm"].specifier.contains("0.3.12")
     assert not requirements["mlx-vlm"].specifier.contains("0.3.11")
+
+
+def test_builtin_mlx_families_have_virtualenv_dependencies(monkeypatch):
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ... import utils as model_utils
+    from .. import llm_family
+    from ..mlx import core as mlx_core
+
+    # These records need catalog or loader fixes before enabling their MLX
+    # paths: DeepSeek V4 is only implemented in mlx-vlm, Kimi's registered MLX
+    # quant is text-only, and GLM-5/5.1 incorrectly advertise vision ability.
+    incompatible_models = {
+        "DeepSeek-V4-Flash",
+        "DeepSeek-V4-Pro",
+        "Kimi-K2.5",
+        "glm-5",
+        "glm-5.1",
+    }
+    families = [
+        family
+        for family in llm_family.BUILTIN_LLM_FAMILIES
+        if any(spec.model_format == "mlx" for spec in family.model_specs)
+        and family.model_name not in incompatible_models
+    ]
+    assert families
+    monkeypatch.setattr(model_utils, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(mlx_core, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(mlx_core, "platform", SimpleNamespace(processor=lambda: "arm"))
+    monkeypatch.setattr(
+        llm_family, "LLM_ENGINES", {family.model_name: {} for family in families}
+    )
+    monkeypatch.setattr(
+        llm_family, "SUPPORTED_ENGINES", {"MLX": llm_family.MLX_CLASSES}
+    )
+    for model_cls in llm_family.MLX_CLASSES:
+        monkeypatch.setattr(model_cls, "check_lib", classmethod(lambda cls: False))
+
+    for family in families:
+        params = model_utils.get_engine_params_by_name_with_virtual_env(
+            "LLM", family.model_name, enable_virtual_env=True
+        )
+        assert params is not None, family.model_name
+        assert isinstance(params.get("MLX"), list), (family.model_name, params)
+        assert all(param["virtualenv_required"] for param in params["MLX"])
+        for spec in family.model_specs:
+            if spec.model_format != "mlx":
+                continue
+            packages = family.virtualenv.packages.copy() if family.virtualenv else []
+            spec_virtualenv = getattr(spec, "virtualenv", None)
+            if spec_virtualenv:
+                packages.extend(spec_virtualenv.packages)
+            packages = expand_engine_dependency_placeholders(packages, "MLX")
+            packages = merge_virtual_env_packages(packages, None)
+            packages = filter_virtualenv_packages_by_markers(
+                packages, "MLX", None, "darwin"
+            )
+            requirements = {
+                Requirement(package.split(";", 1)[0].strip()).name
+                for package in packages
+                if not package.lstrip().startswith("#")
+            }
+            assert "mlx-lm" in requirements, family.model_name
+            if "vision" in family.model_ability:
+                assert {"mlx-vlm", "mlx_vlm"} & requirements, family.model_name
+
+
+@pytest.mark.parametrize(
+    "model_name,minimum_version,unsupported_version",
+    [("qwen3.6", "0.5.0", "0.4.4"), ("MiniMax-M3", "0.6.4", "0.6.3")],
+)
+def test_new_mlx_vision_models_require_supported_runtime_versions(
+    model_name, minimum_version, unsupported_version
+):
+    from ....core.utils import filter_virtualenv_packages_by_markers
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name)
+    assert family.virtualenv is not None
+    packages = filter_virtualenv_packages_by_markers(
+        family.virtualenv.packages, "MLX", None, "darwin"
+    )
+    requirement = next(
+        Requirement(package.split(";", 1)[0].strip())
+        for package in packages
+        if package.startswith("mlx-vlm")
+    )
+    assert requirement.specifier.contains(minimum_version)
+    assert not requirement.specifier.contains(unsupported_version)
 
 
 def test_multimodal_vllm_engine_requires_gpu_even_with_virtualenv():
