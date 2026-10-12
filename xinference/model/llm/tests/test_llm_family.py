@@ -15,6 +15,7 @@
 import os
 import shutil
 import tempfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -1718,12 +1719,16 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
     simulated here to isolate the library-exemption behavior.
     """
     import xinference.model.llm as llm_pkg
+    from xinference.model.llm.mlx import core as mlx_core
     from xinference.model.llm.sglang import core as sglang_core
     from xinference.model.llm.vllm import core as vllm_core
 
-    from ...utils import get_engine_params_by_name_with_virtual_env
+    from ... import utils as model_utils
 
     llm_pkg._install()
+
+    monkeypatch.setattr(model_utils, "sys", SimpleNamespace(platform="linux"))
+    monkeypatch.setattr(mlx_core, "sys", SimpleNamespace(platform="linux"))
 
     # Simulate a supported worker: CUDA present and Linux. This isolates the
     # library-missing exemption from the (unconditional) hardware/OS gates.
@@ -1737,7 +1742,7 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
                     model_cls, "_is_linux", classmethod(lambda cls: True)
                 )
 
-    params = get_engine_params_by_name_with_virtual_env(
+    params = model_utils.get_engine_params_by_name_with_virtual_env(
         "LLM", "qwen3.5", enable_virtual_env=True
     )
     assert params is not None
@@ -1751,12 +1756,100 @@ def test_multimodal_engine_available_with_virtualenv(monkeypatch):
             params.get(engine), list
         ), f"{engine} should be available for qwen3.5 under virtualenv, got {params.get(engine)!r}"
 
-    # MLX and LMDEPLOY are not declared for qwen3.5, so they must NOT be listed
-    # as available (kept as string reasons instead).
+    # MLX cannot run on this simulated Linux worker, and LMDEPLOY is not
+    # declared for qwen3.5, so both remain unavailable reason strings.
     for engine in ("MLX", "LMDEPLOY"):
         assert not isinstance(
             params.get(engine), list
         ), f"{engine} should not be available for qwen3.5, got {params.get(engine)!r}"
+
+
+@pytest.mark.parametrize("lib_available", [False, True])
+@pytest.mark.parametrize(
+    "host_platform,processor",
+    [("darwin", "arm"), ("darwin", "i386"), ("linux", "x86_64")],
+)
+def test_qwen3_5_mlx_engine_available_with_virtualenv(
+    monkeypatch, host_platform, processor, lib_available
+):
+    from ... import utils as model_utils
+    from .. import llm_family
+    from ..mlx import core as mlx_core
+
+    monkeypatch.setattr(model_utils, "sys", SimpleNamespace(platform=host_platform))
+    monkeypatch.setattr(mlx_core, "sys", SimpleNamespace(platform=host_platform))
+    monkeypatch.setattr(
+        mlx_core, "platform", SimpleNamespace(processor=lambda: processor)
+    )
+    # Start discovery without pre-populated engines so the result does not
+    # depend on the host or optional libraries used at test collection time.
+    monkeypatch.setattr(llm_family, "LLM_ENGINES", {"qwen3.5": {}})
+    monkeypatch.setattr(
+        llm_family, "SUPPORTED_ENGINES", {"MLX": llm_family.MLX_CLASSES}
+    )
+    for model_cls in llm_family.MLX_CLASSES:
+        monkeypatch.setattr(
+            model_cls,
+            "check_lib",
+            classmethod(lambda cls: lib_available),
+        )
+
+    params = model_utils.get_engine_params_by_name_with_virtual_env(
+        "LLM", "qwen3.5", enable_virtual_env=True
+    )
+    assert params is not None
+    mlx_params = params["MLX"]
+    if host_platform != "darwin" or processor != "arm":
+        assert isinstance(mlx_params, str)
+        return
+
+    assert isinstance(mlx_params, list)
+    assert {param["model_size_in_billions"] for param in mlx_params} == {
+        "0_8",
+        2,
+        4,
+        9,
+        27,
+        35,
+        122,
+        397,
+    }
+    assert all(param["model_format"] == "mlx" for param in mlx_params)
+    assert all("4bit" in param["quantizations"] for param in mlx_params)
+    assert all(
+        param.get("virtualenv_required", False) is not lib_available
+        for param in mlx_params
+    )
+
+
+@pytest.mark.parametrize("engine", ["MLX", "Transformers"])
+def test_qwen3_5_mlx_virtualenv_requirements(engine):
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3.5")
+    assert family.virtualenv is not None
+    packages = expand_engine_dependency_placeholders(family.virtualenv.packages, engine)
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(packages, engine, None, "darwin")
+    requirements = {
+        requirement.name: requirement
+        for package in packages
+        if not package.lstrip().startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+    if engine != "MLX":
+        assert "mlx-lm" not in requirements
+        assert "mlx-vlm" not in requirements
+        return
+
+    assert "mlx-lm" in requirements
+    assert requirements["mlx-vlm"].specifier.contains("0.3.12")
+    assert not requirements["mlx-vlm"].specifier.contains("0.3.11")
 
 
 def test_multimodal_vllm_engine_requires_gpu_even_with_virtualenv():
