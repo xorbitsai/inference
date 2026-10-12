@@ -517,6 +517,8 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "mlx-vlm>=0.5.0 ; #engine# == \"MLX\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
         "audioread ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
