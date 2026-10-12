@@ -1466,7 +1466,6 @@ class RESTfulAPI(CancelMixin):
     async def anthropic_list_models(self) -> JSONResponse:
         """Anthropic-compatible models endpoint"""
         try:
-
             # Get running models from xinference
             running_models = await (await self._get_supervisor_ref()).list_models()
 
@@ -2331,6 +2330,81 @@ class RESTfulAPI(CancelMixin):
             ),
         )
 
+    async def count_anthropic_tokens(self, request: Request) -> Response:
+        request_id = request.headers.get("x-request-id") or f"req_{uuid.uuid4().hex}"
+        version = request.headers.get("anthropic-version")
+        if (
+            get_request_route_path(request) == "/v1/messages/count_tokens"
+            and not version
+        ):
+            return self._anthropic_error(
+                400, "The anthropic-version header is required", request_id
+            )
+        if version is not None and version not in _SUPPORTED_ANTHROPIC_VERSIONS:
+            return self._anthropic_error(
+                400, f"Unsupported anthropic-version header: {version}", request_id
+            )
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                raise AnthropicProtocolError(
+                    400, "invalid_request_error", "Request body must be an object"
+                )
+            body = dict(body)
+            thinking = body.get("thinking") or {}
+            budget = (
+                thinking.get("budget_tokens", 0) if isinstance(thinking, dict) else 0
+            )
+            body["max_tokens"] = max(1, budget + 1) if isinstance(budget, int) else 1
+            body["stream"] = False
+            canonical = await asyncio.to_thread(parse_anthropic_request, body)
+            self._check_model_access(request, canonical.requested_model, "LLM")
+            self._set_trace_model(canonical.requested_model)
+            self._set_trace_model_type("llm")
+            supervisor = await self._get_supervisor_ref()
+            if (
+                await supervisor.resolve_token_router_runtime(canonical.requested_model)
+                is not None
+            ):
+                raise NotImplementedError(
+                    "Token counting for Token Router virtual models is not available"
+                )
+            model = await require_model(
+                self._get_supervisor_ref,
+                canonical.requested_model,
+                self._report_error_event,
+            )
+            config = canonical.to_openai_body()
+            config.pop("model", None)
+            config.pop("messages", None)
+            # Use the identical backend preparation as generation (including effort).
+            prepared = await model.prepare_anthropic_request(canonical.messages, config)
+            if isinstance(prepared, (str, bytes)):
+                prepared = json.loads(prepared)
+            count = await model.count_tokens(
+                prepared["messages"], prepared["generate_config"]
+            )
+            if isinstance(count, (str, bytes)):
+                count = json.loads(count)
+            return JSONResponse(
+                {"input_tokens": count}, headers={"request-id": request_id}
+            )
+        except AnthropicProtocolError as exc:
+            return self._anthropic_error(
+                exc.status_code, exc.message, request_id, error_type=exc.error_type
+            )
+        except NotImplementedError as exc:
+            return self._anthropic_error(501, str(exc), request_id)
+        except HTTPException as exc:
+            return self._anthropic_error(
+                exc.status_code, str(exc.detail), request_id, headers=exc.headers
+            )
+        except ValueError as exc:
+            return self._anthropic_error(400, str(exc), request_id)
+        except Exception as exc:
+            logger.exception("Anthropic token counting failed")
+            return self._anthropic_error(500, str(exc), request_id)
+
     async def create_message(self, request: Request) -> Response:
         # Keep Anthropic protocol response IDs backward compatible. The route-level
         # correlation ID is exposed separately through ``X-Request-ID``.
@@ -2355,7 +2429,9 @@ class RESTfulAPI(CancelMixin):
             )
 
         try:
-            canonical = parse_anthropic_request(await request.json())
+            canonical = await asyncio.to_thread(
+                parse_anthropic_request, await request.json()
+            )
         except AnthropicProtocolError as exc:
             return self._anthropic_error(
                 exc.status_code,
@@ -2392,6 +2468,15 @@ class RESTfulAPI(CancelMixin):
 
         openai_body = canonical.to_openai_body()
         if token_router_runtime is not None:
+            if canonical.parallel_tool_calls is False:
+                return self._anthropic_error(
+                    501,
+                    "disable_parallel_tool_use is not supported by Token Router",
+                    request_id,
+                )
+            # This worker-local hint is not an OpenAI wire field. Router models
+            # retain their upstream engine's automatic prefix caching.
+            openai_body.pop("_anthropic_cache_control", None)
             if not token_router_runtime.get("available"):
                 return self._anthropic_error(
                     503,
@@ -2400,13 +2485,14 @@ class RESTfulAPI(CancelMixin):
                     headers={"Retry-After": "1"},
                 )
             try:
-                upstream_response, request_id = (
-                    await self._open_token_router_chat_completion(
-                        request,
-                        openai_body,
-                        token_router_runtime,
-                        forward_external_credential=False,
-                    )
+                (
+                    upstream_response,
+                    request_id,
+                ) = await self._open_token_router_chat_completion(
+                    request,
+                    openai_body,
+                    token_router_runtime,
+                    forward_external_credential=False,
                 )
             except httpx.HTTPError:
                 logger.exception(
@@ -2440,6 +2526,9 @@ class RESTfulAPI(CancelMixin):
                     headers={"Retry-After": retry_after} if retry_after else None,
                 )
 
+            router_response_headers = {"request-id": request_id}
+            if canonical.cache_control:
+                router_response_headers["x-xinference-cache-control"] = "automatic"
             if canonical.stream:
                 cleanup_task: asyncio.Task[None] | None = None
 
@@ -2478,7 +2567,10 @@ class RESTfulAPI(CancelMixin):
                         await release_resources()
 
                 anthropic_events = anthropic_stream_events(
-                    router_chunks(), model_uid, request_id
+                    router_chunks(),
+                    model_uid,
+                    request_id,
+                    include_thinking=canonical.thinking_enabled is True,
                 )
                 return EventSourceResponse(
                     observe_stream(
@@ -2487,7 +2579,7 @@ class RESTfulAPI(CancelMixin):
                         failure_origin=FailureOrigin.PROTOCOL,
                     ),
                     ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
-                    headers={"request-id": request_id},
+                    headers=router_response_headers,
                     background=BackgroundTask(release_resources),
                 )
 
@@ -2495,8 +2587,12 @@ class RESTfulAPI(CancelMixin):
                 raw_response = await upstream_response.aread()
                 openai_response = json.loads(raw_response)
                 return JSONResponse(
-                    content=openai_to_anthropic(openai_response, model_uid),
-                    headers={"request-id": request_id},
+                    content=openai_to_anthropic(
+                        openai_response,
+                        model_uid,
+                        include_thinking=canonical.thinking_enabled is True,
+                    ),
+                    headers=router_response_headers,
                 )
             except (json.JSONDecodeError, AnthropicProtocolError) as exc:
                 logger.error("Invalid Token Router response: %s", exc)
@@ -2522,13 +2618,36 @@ class RESTfulAPI(CancelMixin):
             if key not in {"model", "messages"}
         }
         raw_kwargs = dict(kwargs)
+        messages = canonical.messages
+        response_headers = {"request-id": request_id}
+        input_tokens = 0
+        if hasattr(model, "prepare_anthropic_request"):
+            try:
+                prepared = await model.prepare_anthropic_request(messages, kwargs)
+                if isinstance(prepared, (str, bytes)):
+                    prepared = json.loads(prepared)
+                messages = prepared["messages"]
+                kwargs = prepared["generate_config"]
+                raw_kwargs = dict(kwargs)
+                input_tokens = prepared["input_tokens"]
+                if canonical.cache_control is not None:
+                    response_headers["x-xinference-cache-control"] = (
+                        "breakpoint"
+                        if prepared.get("cache_control_applied")
+                        else "automatic"
+                    )
+            except NotImplementedError as exc:
+                return self._anthropic_error(501, str(exc), request_id)
+            except ValueError as exc:
+                return self._anthropic_error(400, str(exc), request_id)
+            except Exception as exc:
+                logger.exception("Anthropic backend preparation failed")
+                return self._anthropic_error(500, str(exc), request_id)
 
         if canonical.stream:
             iterator = None
             try:
-                iterator = await model.chat(
-                    canonical.messages, kwargs, raw_params=raw_kwargs
-                )
+                iterator = await model.chat(messages, kwargs, raw_params=raw_kwargs)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -2575,7 +2694,11 @@ class RESTfulAPI(CancelMixin):
                             await model.decrease_serve_count()
 
             anthropic_events = anthropic_stream_events(
-                physical_chunks(), model_uid, request_id
+                physical_chunks(),
+                model_uid,
+                request_id,
+                input_tokens=input_tokens,
+                include_thinking=canonical.thinking_enabled is True,
             )
             return EventSourceResponse(
                 observe_stream(
@@ -2584,17 +2707,21 @@ class RESTfulAPI(CancelMixin):
                     failure_origin=FailureOrigin.PROTOCOL,
                 ),
                 ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
-                headers={"request-id": request_id},
+                headers=response_headers,
             )
 
         try:
-            data = await model.chat(canonical.messages, kwargs, raw_params=raw_kwargs)
+            data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
             if isinstance(data, bytes):
                 data = data.decode("utf-8")
             openai_response = json.loads(data) if isinstance(data, str) else data
             return JSONResponse(
-                content=openai_to_anthropic(openai_response, model_uid),
-                headers={"request-id": request_id},
+                content=openai_to_anthropic(
+                    openai_response,
+                    model_uid,
+                    include_thinking=canonical.thinking_enabled is True,
+                ),
+                headers=response_headers,
             )
         except AnthropicProtocolError as exc:
             return self._anthropic_error(

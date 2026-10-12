@@ -285,6 +285,7 @@ def test_mlx_vision_model_checkpoints_reusable_prompt_prefix(monkeypatch):
     model = object.__new__(MLXVisionModel)
     model._reusable_prompt_cache = FakePromptCache()
     model._reusable_prompt_cache_model_key = "vision-model-key"
+    model._model_config = {"prompt_cache_size": 2}
     initial_cache = [{"state": "initial"}]
     monkeypatch.setattr(
         model,

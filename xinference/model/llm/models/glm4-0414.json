@@ -3,6 +3,7 @@
     "version": 2,
     "context_length": 32768,
     "model_name": "glm4-0414",
+    "tool_parser": "glm4",
     "model_lang": [
       "en",
       "zh"

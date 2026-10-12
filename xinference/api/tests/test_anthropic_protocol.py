@@ -113,6 +113,7 @@ def test_parse_request_maps_system_stop_tools_and_thinking():
     assert body["chat_template_kwargs"] == {
         "enable_thinking": True,
         "thinking": True,
+        "reasoning_content": True,
         "thinking_budget": 1024,
     }
     assert body["stream_options"] == {"include_usage": True}
@@ -370,7 +371,7 @@ async def test_stream_omits_unsigned_thinking_and_maps_text_tool_usage():
     ]
     assert tool_deltas == ['{"city":', '"Paris"}']
     assert payloads[-2]["delta"]["stop_reason"] == "tool_use"
-    assert payloads[-2]["usage"] == {"output_tokens": 5}
+    assert payloads[-2]["usage"] == {"input_tokens": 9, "output_tokens": 5}
 
     active_index = None
     for payload in payloads:

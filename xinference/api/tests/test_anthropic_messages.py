@@ -33,6 +33,37 @@ def make_app(api):
 
 
 @pytest.mark.asyncio
+async def test_backend_capability_error_is_reported_before_generation(monkeypatch):
+    class Model:
+        async def prepare_anthropic_request(self, messages, config):
+            raise NotImplementedError("Forced tool choice is not supported")
+
+        async def chat(self, *args, **kwargs):
+            pytest.fail("An unsupported request must not start generation")
+
+    async def require_model(*args):
+        return Model()
+
+    monkeypatch.setattr(restful_api_module, "require_model", require_model)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=make_app(make_rest_api())),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "local",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "tool_choice": {"type": "any"},
+            },
+        )
+    assert response.status_code == 501
+    assert response.json()["error"]["message"] == "Forced tool choice is not supported"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("root_path", ["", "/xinference", "/anthropic"])
 async def test_standard_path_requires_version_header(root_path):
     app = make_app(make_rest_api())

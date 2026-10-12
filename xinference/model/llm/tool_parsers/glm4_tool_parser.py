@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
@@ -24,7 +25,25 @@ class Glm4ToolParser(ToolParser):
         """
         super().__init__()
         # Regex pattern to match JSON code blocks
-        self.tool_calls_regex = r"\s*```json\s*(.*?)\s*```"
+        self.tool_calls_regex = re.compile(r"\s*```json\s*(.*?)\s*```", re.DOTALL)
+
+    @staticmethod
+    def _native_call(text: str):
+        match = re.match(
+            r"^\s*(?:<\|assistant\|>)?([\w.-]+)\s*\n(?:```json\s*)?(\{)", text
+        )
+        if match is None:
+            return None
+        try:
+            arguments, end = json.JSONDecoder().raw_decode(text[match.start(2) :])
+        except ValueError:
+            return None
+        trailing = text[match.start(2) + end :].strip()
+        if trailing not in {"", "```", "<|observation|>"} or not isinstance(
+            arguments, dict
+        ):
+            return None
+        return None, match.group(1), arguments
 
     def _parse_json_function_call(
         self,
@@ -73,6 +92,9 @@ class Glm4ToolParser(ToolParser):
             >>> print(result)
             [(None, 'get_weather', {'location': 'Beijing'})]
         """
+        if isinstance(model_output, str):
+            call = self._native_call(model_output)
+            return [call] if call is not None else [(model_output, None, None)]
         try:
             if isinstance(model_output, dict):
                 try:
@@ -97,15 +119,25 @@ class Glm4ToolParser(ToolParser):
         """
         Extract tool calls from streaming output.
 
-        Currently has limited support for GLM4 model streaming. This method raises
-        a ValueError indicating that streaming tool call extraction is only
-        available for specific model/backend combinations.
+        Hold native tool arguments until a complete JSON object is available,
+        and emit each completed call once. Preserve legacy dictionary outputs.
 
         Args:
             previous_text (List[str]): Previous text chunks from the stream.
             current_text (str): Current accumulated text.
             delta_text (str): New text delta in this chunk.
         """
+        if isinstance(current_text, str):
+            previous = previous_text[-1] if previous_text else ""
+            call = self._native_call(current_text)
+            if call is not None:
+                return call if self._native_call(previous) is None else None
+            # Hold an incomplete native tool call until its JSON is complete.
+            if re.match(
+                r"^\s*(?:<\|assistant\|>)?[\w.-]+\s*\n(?:```json\s*)?\{", current_text
+            ):
+                return None
+            return (delta_text, None, None) if delta_text else None
         try:
             if isinstance(current_text, dict):
                 try:

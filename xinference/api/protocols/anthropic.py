@@ -13,6 +13,9 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+from .anthropic_content import normalize_content
+from .anthropic_thinking import sign_thinking, verify_thinking
+
 
 class AnthropicProtocolError(ValueError):
     def __init__(
@@ -45,6 +48,10 @@ class CanonicalChatRequest:
     metadata: Dict[str, Any]
     thinking_enabled: Optional[bool]
     thinking_budget_tokens: Optional[int]
+    response_format: Optional[Dict[str, Any]] = None
+    reasoning_effort: Optional[str] = None
+    parallel_tool_calls: Optional[bool] = None
+    cache_control: Optional[Dict[str, Any]] = None
 
     def to_openai_body(self) -> Dict[str, Any]:
         body: Dict[str, Any] = {
@@ -65,11 +72,21 @@ class CanonicalChatRequest:
             body["tools"] = self.tools
         if self.tool_choice is not None:
             body["tool_choice"] = self.tool_choice
+        if self.response_format is not None:
+            body["response_format"] = self.response_format
+        if self.reasoning_effort is not None:
+            body["reasoning_effort"] = self.reasoning_effort
+        if self.parallel_tool_calls is not None:
+            body["parallel_tool_calls"] = self.parallel_tool_calls
+        if self.cache_control is not None:
+            body["_anthropic_cache_control"] = self.cache_control
         if self.thinking_enabled is not None:
             chat_template_kwargs: Dict[str, Any] = {
                 "enable_thinking": self.thinking_enabled,
                 "thinking": self.thinking_enabled,
             }
+            if self.thinking_enabled:
+                chat_template_kwargs["reasoning_content"] = True
             if self.thinking_budget_tokens is not None:
                 # Preserve Anthropic's requested reasoning budget for backends
                 # and custom chat templates that support a token budget.
@@ -108,7 +125,9 @@ def _text_from_blocks(content: Any) -> str:
     return "\n".join(parts)
 
 
-def _normalize_messages(raw_system: Any, raw_messages: Any) -> List[Dict[str, Any]]:
+def _normalize_messages(
+    raw_system: Any, raw_messages: Any, tool_names: Optional[set] = None
+) -> List[Dict[str, Any]]:
     if not isinstance(raw_messages, list) or not raw_messages:
         raise _invalid("Please specify at least one message")
 
@@ -139,6 +158,8 @@ def _normalize_messages(raw_system: Any, raw_messages: Any) -> List[Dict[str, An
             raise _invalid("Message content must be a string or an array of blocks")
 
         text_parts: List[str] = []
+        content_parts: List[Dict[str, Any]] = []
+        reasoning_parts: List[str] = []
         tool_calls: List[Dict[str, Any]] = []
         tool_results: List[Dict[str, Any]] = []
         for block in content:
@@ -153,10 +174,31 @@ def _normalize_messages(raw_system: Any, raw_messages: Any) -> List[Dict[str, An
                     )
                 if not block_text.startswith("x-anthropic-billing-header"):
                     text_parts.append(block_text)
+                    content_parts.append({"type": "text", "text": block_text})
+            elif block_type in {"image", "document", "tool_reference"}:
+                try:
+                    converted = normalize_content([block], tool_names)
+                except ValueError as exc:
+                    raise _invalid(str(exc)) from exc
+                if isinstance(converted, str):
+                    text_parts.append(converted)
+                    content_parts.append({"type": "text", "text": converted})
+                else:
+                    content_parts.extend(converted)
+            elif block_type == "thinking" and role == "assistant":
+                reasoning = block.get("thinking")
+                if not isinstance(reasoning, str):
+                    raise _invalid("thinking blocks require a string 'thinking' field")
+                reasoning_parts.append(reasoning)
+            elif block_type == "redacted_thinking" and role == "assistant":
+                if not isinstance(block.get("data"), str):
+                    raise _invalid("redacted_thinking blocks require string data")
             elif block_type == "tool_use" and role == "assistant":
                 tool_id = block.get("id")
                 name = block.get("name")
                 input_data = block.get("input", {})
+                if not isinstance(input_data, dict):
+                    raise _invalid("tool_use input must be an object")
                 if not isinstance(tool_id, str) or not isinstance(name, str):
                     raise _invalid("tool_use blocks require string 'id' and 'name'")
                 tool_calls.append(
@@ -175,9 +217,19 @@ def _normalize_messages(raw_system: Any, raw_messages: Any) -> List[Dict[str, An
                     raise _invalid("tool_result blocks require a string 'tool_use_id'")
                 result_content = block.get("content", "")
                 if isinstance(result_content, list):
-                    result_content = _text_from_blocks(result_content)
+                    try:
+                        result_content = normalize_content(result_content, tool_names)
+                    except ValueError as exc:
+                        raise _invalid(str(exc)) from exc
                 elif not isinstance(result_content, str):
                     result_content = json.dumps(result_content, ensure_ascii=False)
+                if block.get("is_error"):
+                    if isinstance(result_content, str):
+                        result_content = "Tool error: " + result_content
+                    else:
+                        result_content.insert(
+                            0, {"type": "text", "text": "Tool error:"}
+                        )
                 tool_results.append(
                     {
                         "role": "tool",
@@ -193,15 +245,30 @@ def _normalize_messages(raw_system: Any, raw_messages: Any) -> List[Dict[str, An
         if role == "assistant":
             message: Dict[str, Any] = {
                 "role": "assistant",
-                "content": "\n".join(text_parts) or None,
+                "content": (
+                    content_parts
+                    if any(p["type"] != "text" for p in content_parts)
+                    else "\n".join(text_parts) or None
+                ),
             }
+            if reasoning_parts:
+                message["reasoning_content"] = "\n".join(reasoning_parts)
             if tool_calls:
                 message["tool_calls"] = tool_calls
             normalized.append(message)
         else:
             normalized.extend(tool_results)
-            if text_parts:
-                normalized.append({"role": "user", "content": "\n".join(text_parts)})
+            if content_parts:
+                normalized.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            content_parts
+                            if any(p["type"] != "text" for p in content_parts)
+                            else "\n".join(text_parts)
+                        ),
+                    }
+                )
 
     if system_parts:
         normalized.insert(0, {"role": "system", "content": "\n".join(system_parts)})
@@ -281,6 +348,69 @@ def _optional_number(
     return number
 
 
+def _parse_cache_control(
+    raw_body: Dict[str, Any], tool_names: set
+) -> Optional[Dict[str, Any]]:
+    """Retain the furthest explicit cache boundary, including its lifetime."""
+    controls: List[Dict[str, Any]] = []
+    system = raw_body.get("system")
+    prefix_system = system
+    prefix_tools = None
+    for index, tool in enumerate(raw_body.get("tools") or []):
+        if tool.get("cache_control") is not None:
+            controls.append(tool["cache_control"])
+            prefix_tools = _normalize_tools(raw_body["tools"][: index + 1])
+    system_blocks = system if isinstance(system, list) else []
+    for index, block in enumerate(system_blocks):
+        if isinstance(block, dict) and block.get("cache_control") is not None:
+            controls.append(block["cache_control"])
+            prefix_system = system_blocks[: index + 1]
+            # Chat templates may place tools after the system text. Do not
+            # extend such a template's prefix past the marked system block.
+            prefix_tools = []
+    prefix = None
+    for index, message in enumerate(raw_body.get("messages") or []):
+        content = message.get("content")
+        for block_index, block in enumerate(
+            content if isinstance(content, list) else []
+        ):
+            if isinstance(block, dict) and block.get("cache_control") is not None:
+                controls.append(block["cache_control"])
+                prefix = [
+                    *raw_body["messages"][:index],
+                    {**message, "content": content[: block_index + 1]},
+                ]
+                prefix_system = system
+                prefix_tools = None
+    if raw_body.get("cache_control") is not None:
+        controls.append(raw_body["cache_control"])
+        prefix = raw_body.get("messages")
+        prefix_system = system
+        prefix_tools = None
+    if not controls:
+        return None
+    if len(controls) > 4:
+        raise _invalid("At most four cache_control breakpoints are supported")
+    for control in controls:
+        if not isinstance(control, dict) or control.get("type") != "ephemeral":
+            raise _invalid("cache_control requires type 'ephemeral'")
+        if control.get("ttl", "5m") not in {"5m", "1h"}:
+            raise _invalid("cache_control.ttl must be '5m' or '1h'")
+    ttl = 3600 if controls[-1].get("ttl") == "1h" else 300
+    if prefix is None:
+        prefix_messages = (
+            [{"role": "system", "content": _text_from_blocks(prefix_system)}]
+            if prefix_system
+            else []
+        )
+    else:
+        prefix_messages = _normalize_messages(system, prefix, tool_names)
+    result: Dict[str, Any] = {"messages": prefix_messages, "ttl": ttl}
+    if prefix_tools is not None:
+        result["tools"] = prefix_tools
+    return result
+
+
 def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
     if not isinstance(raw_body, dict):
         raise _invalid("Request body must be a JSON object")
@@ -321,10 +451,10 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         if not isinstance(thinking, dict):
             raise _invalid("The 'thinking' field must be an object")
         thinking_type = thinking.get("type")
-        if thinking_type not in {"enabled", "disabled"}:
+        if thinking_type not in {"enabled", "disabled", "adaptive"}:
             raise _invalid("Unsupported thinking type")
-        thinking_enabled = thinking_type == "enabled"
-        if thinking_enabled:
+        thinking_enabled = thinking_type != "disabled"
+        if thinking_type == "enabled":
             thinking_budget = thinking.get("budget_tokens")
             if (
                 isinstance(thinking_budget, bool)
@@ -339,20 +469,72 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
             if thinking_budget >= max_tokens:
                 raise _invalid("thinking.budget_tokens must be less than max_tokens")
 
+    tools = _normalize_tools(raw_body.get("tools"))
+    for message in raw_body.get("messages") or []:
+        if not isinstance(message, dict):
+            continue
+        content = message.get("content")
+        for block in content if isinstance(content, list) else []:
+            signature = block.get("signature", "") if isinstance(block, dict) else ""
+            if isinstance(signature, str) and signature.startswith("xinference_v1:"):
+                if (
+                    block.get("type") != "thinking"
+                    or not isinstance(block.get("thinking"), str)
+                    or not verify_thinking(block["thinking"], model.strip(), signature)
+                ):
+                    raise _invalid("Invalid Xinference thinking signature")
+    tool_names = {tool["function"]["name"] for tool in tools or []}
+    messages = _normalize_messages(
+        raw_body.get("system"), raw_body.get("messages"), tool_names
+    )
+    output_config = raw_body.get("output_config") or {}
+    if not isinstance(output_config, dict):
+        raise _invalid("output_config must be an object")
+    effort = output_config.get("effort")
+    if effort is not None and effort not in {"low", "medium", "high", "xhigh", "max"}:
+        raise _invalid("Unsupported output_config.effort")
+    response_format = None
+    format_config = output_config.get("format") or raw_body.get("output_format")
+    if format_config is not None:
+        if (
+            not isinstance(format_config, dict)
+            or format_config.get("type") != "json_schema"
+            or not isinstance(format_config.get("schema"), dict)
+        ):
+            raise _invalid("Structured output requires a JSON schema")
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "anthropic_output",
+                "schema": format_config["schema"],
+                "strict": True,
+            },
+        }
+    parallel = None
+    choice = raw_body.get("tool_choice")
+    if isinstance(choice, dict) and "disable_parallel_tool_use" in choice:
+        disabled = choice["disable_parallel_tool_use"]
+        if not isinstance(disabled, bool):
+            raise _invalid("disable_parallel_tool_use must be a boolean")
+        parallel = not disabled
     return CanonicalChatRequest(
         requested_model=model.strip(),
-        messages=_normalize_messages(raw_body.get("system"), raw_body.get("messages")),
+        messages=messages,
         max_output_tokens=max_tokens,
         stream=stream,
         stop=stop_sequences,
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
-        tools=_normalize_tools(raw_body.get("tools")),
+        tools=tools,
         tool_choice=_normalize_tool_choice(raw_body.get("tool_choice")),
         metadata=metadata,
         thinking_enabled=thinking_enabled,
         thinking_budget_tokens=thinking_budget,
+        response_format=response_format,
+        reasoning_effort=effort,
+        parallel_tool_calls=parallel,
+        cache_control=_parse_cache_control(raw_body, tool_names),
     )
 
 
@@ -366,7 +548,30 @@ def _stop_reason(finish_reason: Any, stop_sequence: Any = None) -> str:
     }.get(finish_reason, "end_turn")
 
 
-def openai_to_anthropic(openai_response: Dict[str, Any], model: str) -> Dict[str, Any]:
+def _anthropic_usage(usage: Dict[str, Any]) -> Dict[str, int]:
+    details = usage.get("prompt_tokens_details") or {}
+    cached = int(
+        details.get("cached_tokens") or usage.get("cache_read_input_tokens") or 0
+    )
+    created = int(usage.get("cache_creation_input_tokens") or 0)
+    result = {
+        "input_tokens": max(0, int(usage.get("prompt_tokens") or 0) - cached - created),
+        "output_tokens": int(usage.get("completion_tokens") or 0),
+    }
+    if (
+        details
+        or "cache_read_input_tokens" in usage
+        or "cache_creation_input_tokens" in usage
+    ):
+        result.update(
+            cache_read_input_tokens=cached, cache_creation_input_tokens=created
+        )
+    return result
+
+
+def openai_to_anthropic(
+    openai_response: Dict[str, Any], model: str, include_thinking: bool = False
+) -> Dict[str, Any]:
     content_blocks: List[Dict[str, Any]] = []
     finish_reason: Any = "stop"
     stop_sequence = openai_response.get("stop_sequence")
@@ -375,9 +580,17 @@ def openai_to_anthropic(openai_response: Dict[str, Any], model: str) -> Dict[str
         choice = choices[0]
         finish_reason = choice.get("finish_reason") or "stop"
         message = choice.get("message") or {}
-        # OpenAI-compatible reasoning_content does not carry Anthropic's
-        # required opaque signature. Omitting it avoids emitting an invalid
-        # thinking block or exposing internal reasoning as ordinary text.
+        reasoning = message.get("reasoning_content")
+        if include_thinking and isinstance(reasoning, str) and reasoning:
+            content_blocks.append(
+                {
+                    "type": "thinking",
+                    "thinking": reasoning,
+                    "signature": sign_thinking(reasoning, model),
+                }
+            )
+        # Reasoning is exposed only when requested, with this endpoint's opaque
+        # signature. Legacy callers continue to omit unsigned reasoning.
         content = message.get("content")
         if isinstance(content, str) and content:
             content_blocks.append({"type": "text", "text": content})
@@ -413,10 +626,7 @@ def openai_to_anthropic(openai_response: Dict[str, Any], model: str) -> Dict[str
         "model": model,
         "stop_reason": _stop_reason(finish_reason, stop_sequence),
         "stop_sequence": stop_sequence,
-        "usage": {
-            "input_tokens": int(usage.get("prompt_tokens") or 0),
-            "output_tokens": int(usage.get("completion_tokens") or 0),
-        },
+        "usage": _anthropic_usage(usage),
     }
 
 
@@ -431,16 +641,19 @@ def anthropic_error_response(
 
 
 async def anthropic_stream_events(
-    chunks: AsyncIterator[Dict[str, Any]], model: str, request_id: str
+    chunks: AsyncIterator[Dict[str, Any]],
+    model: str,
+    request_id: str,
+    input_tokens: int = 0,
+    include_thinking: bool = False,
 ) -> AsyncIterator[Dict[str, str]]:
     """Convert OpenAI chat-completion chunks into Anthropic SSE events.
 
     Anthropic content blocks are strictly sequential: a block must be stopped
     before the next block starts. OpenAI tool calls can be fragmented and even
     interleaved by index, so tool fragments are buffered and emitted as complete
-    sequential Anthropic blocks after text streaming finishes. Unsigned OpenAI
-    reasoning deltas are omitted because they cannot form valid Anthropic thinking
-    blocks.
+    sequential Anthropic blocks after text streaming finishes. Explicit thinking
+    requests receive reasoning with an opaque Xinference signature.
     """
 
     message_id = f"msg_{uuid.uuid4().hex}"
@@ -457,7 +670,7 @@ async def anthropic_stream_events(
                     "model": model,
                     "stop_reason": None,
                     "stop_sequence": None,
-                    "usage": {"input_tokens": 0, "output_tokens": 0},
+                    "usage": {"input_tokens": input_tokens, "output_tokens": 0},
                 },
             }
         ),
@@ -469,6 +682,8 @@ async def anthropic_stream_events(
     finish_reason: Any = "stop"
     stop_sequence: Any = None
     output_tokens = 0
+    total_usage: Dict[str, Any] = {"prompt_tokens": input_tokens}
+    thinking_text = ""
     tool_buffers: Dict[int, Dict[str, Any]] = {}
 
     def block_stop(index: int) -> Dict[str, str]:
@@ -476,6 +691,27 @@ async def anthropic_stream_events(
             "event": "content_block_stop",
             "data": json.dumps({"type": "content_block_stop", "index": index}),
         }
+
+    def finish_block(index: int) -> List[Dict[str, str]]:
+        events = []
+        if active_kind == "thinking":
+            events.append(
+                {
+                    "event": "content_block_delta",
+                    "data": json.dumps(
+                        {
+                            "type": "content_block_delta",
+                            "index": index,
+                            "delta": {
+                                "type": "signature_delta",
+                                "signature": sign_thinking(thinking_text, model),
+                            },
+                        }
+                    ),
+                }
+            )
+        events.append(block_stop(index))
+        return events
 
     try:
         async for chunk in chunks:
@@ -494,6 +730,7 @@ async def anthropic_stream_events(
                 return
 
             usage = chunk.get("usage") or {}
+            total_usage.update(usage)
             output_tokens = int(usage.get("completion_tokens") or output_tokens)
             choices = chunk.get("choices") or []
             if not choices:
@@ -501,11 +738,43 @@ async def anthropic_stream_events(
 
             choice = choices[0]
             delta = choice.get("delta") or {}
+            reasoning = delta.get("reasoning_content")
+            if include_thinking and isinstance(reasoning, str) and reasoning:
+                if active_kind != "thinking":
+                    if active_index is not None:
+                        for event in finish_block(active_index):
+                            yield event
+                    active_index = next_index
+                    next_index += 1
+                    active_kind = "thinking"
+                    thinking_text = ""
+                    yield {
+                        "event": "content_block_start",
+                        "data": json.dumps(
+                            {
+                                "type": "content_block_start",
+                                "index": active_index,
+                                "content_block": {"type": "thinking", "thinking": ""},
+                            }
+                        ),
+                    }
+                thinking_text += reasoning
+                yield {
+                    "event": "content_block_delta",
+                    "data": json.dumps(
+                        {
+                            "type": "content_block_delta",
+                            "index": active_index,
+                            "delta": {"type": "thinking_delta", "thinking": reasoning},
+                        }
+                    ),
+                }
             value = delta.get("content")
             if isinstance(value, str) and value:
                 if active_kind != "text":
                     if active_index is not None:
-                        yield block_stop(active_index)
+                        for event in finish_block(active_index):
+                            yield event
                     active_index = next_index
                     next_index += 1
                     active_kind = "text"
@@ -558,7 +827,8 @@ async def anthropic_stream_events(
             await close()
 
     if active_index is not None:
-        yield block_stop(active_index)
+        for event in finish_block(active_index):
+            yield event
 
     for source_index in sorted(tool_buffers):
         state = tool_buffers[source_index]
@@ -604,7 +874,9 @@ async def anthropic_stream_events(
                     "stop_reason": _stop_reason(finish_reason, stop_sequence),
                     "stop_sequence": stop_sequence,
                 },
-                "usage": {"output_tokens": output_tokens},
+                "usage": _anthropic_usage(
+                    {**total_usage, "completion_tokens": output_tokens}
+                ),
             }
         ),
     }

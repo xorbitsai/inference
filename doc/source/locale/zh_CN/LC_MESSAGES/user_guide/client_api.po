@@ -243,3 +243,52 @@ msgstr "流式请求设置 ``stream_options={\"include_usage\": True}`` 后，�
 #: user_guide/client_api.rst:101
 msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
 msgstr "使用 P/D 分离时，该数值包含从预填充引擎传输的 KV，即使这些 KV 是为当前请求计算的；它不单独统计预填充引擎的历史前缀缓存命中数。"
+
+#: user_guide/client_api.rst:219
+msgid ""
+"The standard ``/v1/messages/count_tokens`` endpoint and its "
+"``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat "
+"template and tokenizer, including tool definitions and images where "
+"supported. Both routes use the same model permissions and Xinference API key"
+" as message generation."
+msgstr ""
+"标准计数端点 ``/v1/messages/count_tokens`` 及别名 "
+"``/anthropic/v1/messages/count_tokens`` 使用已加载模型的聊天模板与 "
+"tokenizer，并在支持时计入工具定义和图像。两个接口使用与消息生成相同的模型权限和 Xinference API key。"
+
+#: user_guide/client_api.rst:221
+msgid ""
+"Messages support text, base64 or URL images, tool results containing images,"
+" and tool references to tools declared in the request. Plain-text documents "
+"are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
+"the ``image`` extra), require a vision model, and are limited to 20 pages "
+"per document. File IDs and document citations are not supported."
+msgstr ""
+"消息支持文本、base64 或 URL 图像、包含图像的工具结果，以及对请求中已声明工具的引用。支持纯文本文档；PDF 通过 ``pypdfium2``"
+" 渲染为图像（安装 ``image`` 扩展依赖），需要视觉模型，每份文档最多 20 页。不支持文件 ID 和文档引用标注。"
+
+#: user_guide/client_api.rst:223
+msgid ""
+"Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
+"maps to prompt guidance, with ``medium`` preserving the default prompt. "
+"Explicit thinking responses carry Xinference signatures, which can be "
+"replayed with the same model UID and signing key; configure "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers."
+msgstr ""
+"Adaptive thinking 启用模型的推理模式。``effort`` 映射为提示词指导，``medium`` "
+"保持默认提示词。显式请求的思考响应带有 Xinference 签名，可以使用相同的模型 UID 和签名密钥回传；多个 API 服务器应配置相同的 "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET``。"
+
+#: user_guide/client_api.rst:225
+msgid ""
+"For text requests, the MLX vision engine reuses the furthest "
+"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
+"actual cache writes and reads. Other paths retain automatic engine caching, "
+"indicated by the ``x-xinference-cache-control: automatic`` response header. "
+"Structured JSON output requires a supporting engine; unsupported controls "
+"such as forced tool choice and disabled parallel tool use return 501 instead"
+" of being ignored."
+msgstr ""
+"对于文本请求，MLX 视觉引擎按最远的 ``cache_control`` 边界复用前缀，生命周期为 ``5m`` 或 "
+"``1h``，并报告真实的缓存写入和读取。其他路径保留引擎自动缓存，通过 ``x-xinference-cache-control: "
+"automatic`` 响应头标识。结构化 JSON 输出需要支持该功能的引擎；强制选择工具和禁止并行工具调用等不支持的选项返回 501，不再被忽略。"

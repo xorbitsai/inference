@@ -230,8 +230,20 @@ class ReasoningParser:
             bool: True if reasoning content should be extracted, False otherwise
         """
         if self.is_enable_thinking():
-            return self.reasoning_content
+            from .core import chat_context_var
+
+            return chat_context_var.get({}).get(
+                "reasoning_content", self.reasoning_content
+            )
         return False
+
+    def should_insert_start_tag(self) -> bool:
+        from .core import chat_context_var
+
+        return self.auto_insert_start_tag or (
+            self.reasoning_start_tag == "<think>"
+            and chat_context_var.get({}).get("reasoning_content", False)
+        )
 
     def _create_chat_completion_chunk(
         self, chunk: Union[Dict[str, Any], CompletionChunk], content: str
@@ -314,7 +326,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             async for chunk in chunks:
                 yield chunk
@@ -395,7 +407,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             for chunk in chunks:
                 yield chunk
@@ -470,7 +482,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             return completion
 
@@ -516,7 +528,7 @@ class ReasoningParser:
         if (
             not self.reasoning_start_tag
             or not self.is_enable_thinking()
-            or not self.auto_insert_start_tag
+            or not self.should_insert_start_tag()
         ):
             return chunks
 

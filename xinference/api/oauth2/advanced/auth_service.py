@@ -387,6 +387,8 @@ class AdvancedAuthService:
         if get_request_route_path(request) in {
             "/v1/messages",
             "/anthropic/v1/messages",
+            "/v1/messages/count_tokens",
+            "/anthropic/v1/messages/count_tokens",
         }:
             # Anthropic clients send the same Xinference credential in
             # ``x-api-key`` rather than an Authorization header.

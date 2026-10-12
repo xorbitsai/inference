@@ -216,6 +216,24 @@ Anthropic Client
     )
     print(message.content)
 
+The standard ``/v1/messages/count_tokens`` endpoint and its ``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat template and tokenizer, including tool definitions and images where supported. Both routes use the same model permissions and Xinference API key as message generation.
+
+Messages support text, base64 or URL images, tool results containing images, and tool references to tools declared in the request. Plain-text documents are supported; PDF pages are rendered as images with ``pypdfium2`` (install the ``image`` extra), require a vision model, and are limited to 20 pages per document. File IDs and document citations are not supported.
+
+Adaptive thinking enables the model's reasoning mode. The ``effort`` option maps to prompt guidance, with ``medium`` preserving the default prompt. Explicit thinking responses carry Xinference signatures, which can be replayed with the same model UID and signing key; configure ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.
+
+For text requests, the MLX vision engine reuses the furthest ``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and reads. Other paths retain automatic engine caching, indicated by the ``x-xinference-cache-control: automatic`` response header. Structured JSON output requires a supporting engine; unsupported controls such as forced tool choice and disabled parallel tool use return 501 instead of being ignored.
+
+.. code-block:: bash
+
+    export ANTHROPIC_BASE_URL="http://localhost:9997"
+    export ANTHROPIC_API_KEY="YOUR_XINFERENCE_API_KEY"
+    export ANTHROPIC_MODEL="YOUR_LAUNCHED_MODEL_UID"
+    export ANTHROPIC_DEFAULT_HAIKU_MODEL="$ANTHROPIC_MODEL"
+    export ANTHROPIC_DEFAULT_SONNET_MODEL="$ANTHROPIC_MODEL"
+    export ANTHROPIC_DEFAULT_OPUS_MODEL="$ANTHROPIC_MODEL"
+    claude --model "$ANTHROPIC_MODEL"
+
 
 Embedding
 ~~~~~~~~~
