@@ -23,12 +23,12 @@ from .. import collect_memory_catalog as collector
 from ..gguf_model_metadata import read_gguf_config
 
 
-def gguf_header():
+def gguf_header(fields=None):
     def string(value):
         value = value.encode()
         return struct.pack("<Q", len(value)) + value
 
-    fields = {
+    fields = fields or {
         "general.architecture": "qwen3",
         "qwen3.embedding_length": 4096,
         "qwen3.block_count": 36,
@@ -126,6 +126,15 @@ def test_config_urls_encode_revision(hub):
     assert "refs%2Fpr%2F1" in url
 
 
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope", "openmind_hub", "csghub"])
+def test_weights_pin_older_config_snapshots(hub):
+    result = {"config_source": collector.config_url(hub, "org/model", "b" * 40)}
+    job = collector.checkpoint_weight_job(
+        {"model_format": "mlx"}, {}, "4bit", (hub, "org/model", "main"), result
+    )
+    assert job == (hub, "org/model", "b" * 40)
+
+
 def test_config_download_is_bounded_and_cached(tmp_path, monkeypatch):
     response = MagicMock()
     response.__enter__.return_value = response
@@ -145,3 +154,114 @@ def test_config_download_is_bounded_and_cached(tmp_path, monkeypatch):
         ("huggingface", "org/oversize", "main"), tmp_path, 1
     )
     assert "exceeds 2 MiB" in result["error"]
+
+
+@pytest.mark.parametrize("value_length", [256, 128])
+def test_gguf_hybrid_dimensions(value_length):
+    from ..memory import ModelLayersInfo, estimate_kv_cache_memory
+    from ..model_metadata import ModelMetadata
+
+    config, _, _ = read_gguf_config(
+        io.BytesIO(
+            gguf_header(
+                {
+                    "general.architecture": "qwen35moe",
+                    "qwen35moe.embedding_length": 2048,
+                    "qwen35moe.block_count": 40,
+                    "qwen35moe.attention.head_count": 16,
+                    "qwen35moe.attention.head_count_kv": 2,
+                    "qwen35moe.attention.key_length": 256,
+                    "qwen35moe.attention.value_length": value_length,
+                    "qwen35moe.expert_feed_forward_length": 512,
+                    "qwen35moe.expert_count": 256,
+                    "qwen35moe.expert_used_count": 8,
+                    "qwen35moe.vocab_size": 248320,
+                    "qwen35moe.full_attention_interval": 4,
+                    "qwen35moe.ssm.conv_kernel": 4,
+                    "qwen35moe.ssm.state_size": 128,
+                    "qwen35moe.ssm.group_count": 16,
+                    "qwen35moe.ssm.time_step_rank": 32,
+                    "qwen35moe.ssm.inner_size": 4096,
+                }
+            )
+        )
+    )
+    metadata = ModelMetadata.from_config(config)
+    if value_length != 256:
+        with pytest.raises(ValueError, match="unknown_attention_layout"):
+            ModelLayersInfo.from_metadata(metadata)
+        return
+    info = ModelLayersInfo.from_metadata(metadata)
+    assert metadata.full_attention_interval == 4
+    assert metadata.layer_types is None
+    assert info.active_experts == 8
+    assert info.linear_value_head_dim == 128
+    assert estimate_kv_cache_memory(info, 32768) == 640
+
+
+def test_shared_config_keeps_quantization_weight_sizes_separate(tmp_path, monkeypatch):
+    from .. import weights_metadata
+
+    catalog = tmp_path / "catalog"
+    catalog.mkdir()
+    (catalog / "test.json").write_text(
+        json.dumps(
+            [
+                dict(
+                    model_name="test",
+                    model_ability=["chat"],
+                    model_specs=[
+                        dict(
+                            model_format="ggufv2",
+                            model_size_in_billions=8,
+                            model_file_name_template="model-{quantization}.gguf",
+                            model_src={
+                                "huggingface": dict(
+                                    model_id="org/model",
+                                    quantizations=["Q4_K_M", "Q8_0"],
+                                )
+                            },
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    config = dict(
+        vocab_size=32000,
+        num_attention_heads=32,
+        hidden_size=4096,
+        intermediate_size=14336,
+        num_hidden_layers=32,
+    )
+    monkeypatch.setattr(
+        collector,
+        "collect_config",
+        lambda *args: {
+            "config": config,
+            "config_source": "pinned",
+            "config_sha256": "a" * 64,
+            "resolved_revision": "b" * 40,
+        },
+    )
+    calls = []
+
+    def weights(job, *args):
+        calls.append(job)
+        return dict(
+            weights_bytes=4000 if "Q4_K_M" in job[3][0] else 8000,
+            weights_source="pinned",
+            weights_sha256="c" * 64,
+        )
+
+    monkeypatch.setattr(weights_metadata, "collect_weights_size", weights)
+    output = tmp_path / "output"
+    collector.collect_catalog(catalog, output, tmp_path / "cache", 2, 1, weights=True)
+    source = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
+        "model_src"
+    ]["huggingface"]
+    assert "model_metadata" not in source
+    entries = source["model_metadata_by_quantization"]
+    assert entries["Q4_K_M"]["weights_bytes"] == 4000
+    assert entries["Q8_0"]["weights_bytes"] == 8000
+    assert all(job[2] == "b" * 40 for job in calls)

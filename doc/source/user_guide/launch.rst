@@ -43,13 +43,20 @@ Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights
 already cached on that worker get priority. A cached model does not override
 your selected size or the earlier preferences.
 
-Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and
-80% of currently free memory. Automatic GPU placement uses the lowest free memory
-among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple
-GPUs are not added together: multi-GPU requests keep compatibility-only selection.
-Known oversized candidates are excluded. Missing data remains unverified. Longer
-contexts, concurrency and engine preallocation can need more memory. No resources
-are reserved, and you still review and launch the model yourself.
+Estimates use offline architecture facts and checkpoint sizes when available.
+MoE weights include all resident experts. Full-attention KV cache, Gated DeltaNet
+recurrent state and workspace are counted separately. MLX, Transformers, vLLM,
+SGLang and llama.cpp share this accounting with different workspace bounds.
+Unknown layouts, including MLA, remain unverified.
+
+Defaults are one sequence, 2048 text tokens, FP16 KV cache, no image tokens and
+no retained prefix cache. The budget is 80% of currently free memory: the lowest
+free memory among eligible GPUs, or available system memory on CPU and Apple
+Silicon. Known vLLM and SGLang default GPU reservations are checked separately
+when total memory is known. Multi-GPU requests keep compatibility-only selection.
+Known oversized candidates are excluded. Workspace bounds are estimates, not
+measured peaks; custom engine settings require manual configuration. No resources
+are reserved.
 
 Using the API
 -------------
@@ -58,6 +65,13 @@ Using the API
 ``model_type="LLM"``; the optional ``constraints`` object accepts
 ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and
 ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed.
+
+LLM constraints also accept positive integers ``context_length`` (text input plus
+output tokens) and ``concurrency``, and non-negative integers ``vision_tokens``
+(encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained
+cache across the instance). These change the estimation workload only; they do
+not set launch or request limits. Image workloads require vision metadata.
+Concurrency multiplies caches and workspace, while model weights are counted once.
 
 .. code-block:: bash
 

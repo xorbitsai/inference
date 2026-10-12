@@ -24,7 +24,8 @@ import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from urllib.parse import quote
+from typing import Optional
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from .memory import unsupported_memory_reason
 from .model_metadata import ModelMetadata
@@ -69,6 +70,7 @@ def collect_config(job: tuple, cache_dir: Path, timeout: float) -> dict:
                 "config": config,
                 "config_source": source,
                 "config_sha256": hashlib.sha256(content).hexdigest(),
+                "resolved_revision": commit or revision,
             }
         cache.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
         return result
@@ -118,6 +120,7 @@ def collect_gguf_config(
                 "config_source": source,
                 "config_sha256": digest,
                 "header_bytes": consumed,
+                "resolved_revision": commit or revision,
             }
         cache.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
         return result
@@ -125,8 +128,52 @@ def collect_gguf_config(
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
+def checkpoint_weight_job(
+    spec: dict, source: dict, quant: str, job: tuple, result: dict
+) -> Optional[tuple]:
+    if spec["model_format"] == "bnb":
+        return None
+    revision = result.get("resolved_revision")
+    if not revision:
+        # Older successful config snapshots already contain the resolved URL,
+        # but predate resolved_revision. Do not mix them with today's main.
+        url = result.get("config_source", "")
+        if job[0] == "csghub":
+            revision = parse_qs(urlsplit(url).query).get("ref", [None])[0]
+        else:
+            prefix = config_url(job[0], job[1], "__revision__").split("__revision__")[0]
+            if url.startswith(prefix):
+                revision = unquote(url[len(prefix) :].split("/", 1)[0])
+    pinned = (job[0], job[1], revision or job[2])
+    if spec["model_format"] != "ggufv2":
+        return pinned
+    combined = dict(spec, **source)
+    parts = combined.get("quantization_parts", {}).get(quant)
+    template = (
+        combined.get("model_file_name_split_template")
+        if parts
+        else combined.get("model_file_name_template")
+    )
+    if not template:
+        return None
+    files = tuple(
+        template.format(quantization=quant, part=part) for part in (parts or [""])
+    )
+    projectors = tuple(
+        name.format(quantization=quant)
+        for name in combined.get("multimodal_projectors", [])
+    )
+    return pinned + (files, projectors)
+
+
 def collect_catalog(
-    catalog: Path, output: Path, cache: Path, workers: int, timeout: float
+    catalog: Path,
+    output: Path,
+    cache: Path,
+    workers: int,
+    timeout: float,
+    *,
+    weights: bool = False,
 ) -> None:
     output.mkdir(parents=True, exist_ok=False)
     cache.mkdir(parents=True, exist_ok=True)
@@ -207,8 +254,26 @@ def collect_catalog(
             if done % 25 == 0 or done == len(pending):
                 print(f"GGUF headers checked {done}/{len(pending)}", flush=True)
     report = []
+    weight_results = {}
+    if weights:
+        from .weights_metadata import collect_weights_size
+
+        possible_jobs = {
+            checkpoint_weight_job(spec, source, quant, job, results[job])
+            for _, _, spec, _, source, quant_jobs in entries
+            for quant, job in quant_jobs.items()
+            if "config" in results[job]
+        }
+        weight_jobs = {job for job in possible_jobs if job is not None}
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            weight_pending = {
+                pool.submit(collect_weights_size, job, cache, timeout): job
+                for job in weight_jobs
+            }
+            for future in as_completed(weight_pending):
+                weight_results[weight_pending[future]] = future.result()
     for filename, family, spec, hub, source, quant_jobs in entries:
-        by_quant = {}
+        by_quant = dict(source.get("model_metadata_by_quantization", {}))
         for quant, job in quant_jobs.items():
             result = results[job]
             row = {
@@ -233,8 +298,27 @@ def collect_catalog(
                 ):
                     metadata.architecture_type = "moe"
                 # Catalog abilities cover older multimodal configs without nested text_config.
-                if set(family["model_ability"]) & {"vision", "audio", "omni"}:
+                if (
+                    set(family["model_ability"]) & {"vision", "audio", "omni"}
+                    and not metadata.architecture_type
+                ):
                     metadata.architecture_type = "multimodal"
+                    metadata.layer_types = [
+                        "full_attention"
+                    ] * metadata.num_hidden_layers
+                weight_job = checkpoint_weight_job(spec, source, quant, job, result)
+                weight_info = (
+                    weight_results.get(weight_job) if weight_job is not None else None
+                )
+                if weight_info is not None:
+                    row["weights_status"] = (
+                        "unavailable" if "error" in weight_info else "collected"
+                    )
+                    if "error" in weight_info:
+                        row["weights_reason"] = weight_info["error"]
+                    else:
+                        for name, value in weight_info.items():
+                            setattr(metadata, name, value)
                 by_quant[quant] = metadata.dict(exclude_none=True)
                 reason = unsupported_memory_reason(metadata)
                 row["status"] = "metadata_only" if reason else "collected"
@@ -247,10 +331,15 @@ def collect_catalog(
             continue
         # Template repos can have different dimensions at each quantization.
         # Store exact matches rather than copying one quantization's config to all.
-        if len(set(quant_jobs.values())) == 1:
+        # One GGUF config can describe several quantizations with different
+        # resident weight sizes. Share facts only when the entire object agrees.
+        distinct = {json.dumps(value, sort_keys=True) for value in by_quant.values()}
+        if len(set(quant_jobs.values())) == 1 and len(distinct) == 1:
             source["model_metadata"] = next(iter(by_quant.values()))
+            source.pop("model_metadata_by_quantization", None)
         else:
             source["model_metadata_by_quantization"] = by_quant
+            source.pop("model_metadata", None)
     staging = output / "models"
     staging.mkdir()
     for filename, families in documents.items():
@@ -276,8 +365,20 @@ def main() -> None:
     )
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--timeout", type=float, default=15)
+    parser.add_argument(
+        "--weights",
+        action="store_true",
+        help="Collect bounded Safetensors index/header sizes at the same config revision",
+    )
     args = parser.parse_args()
-    collect_catalog(args.catalog, args.output, args.cache, args.workers, args.timeout)
+    collect_catalog(
+        args.catalog,
+        args.output,
+        args.cache,
+        args.workers,
+        args.timeout,
+        weights=args.weights,
+    )
 
 
 if __name__ == "__main__":

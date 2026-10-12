@@ -18,6 +18,10 @@ class RecommendationConstraints(BaseModel):
     enable_virtual_env: Optional[bool] = None
     n_gpu: Optional[Union[int, Literal["auto"]]] = "auto"
     gpu_idx: Optional[Union[int, List[int]]] = None
+    context_length: int = 2048
+    concurrency: int = 1
+    vision_tokens: int = 0
+    prefix_cache_bytes: int = 0
 
     class Config:
         extra = "forbid"
@@ -73,6 +77,25 @@ class RecommendationConstraints(BaseModel):
             )
         return value
 
+    @validator(
+        "context_length", "concurrency", "vision_tokens", "prefix_cache_bytes", pre=True
+    )
+    def validate_memory_workload(cls, value, field):
+        minimum = 1 if field.name in ("context_length", "concurrency") else 0
+        if type(value) is not int or value < minimum:
+            raise ValueError(f"{field.name} must be an integer >= {minimum}")
+        return value
+
+    def memory_options(self) -> dict:
+        return self.dict(
+            include={
+                "context_length",
+                "concurrency",
+                "vision_tokens",
+                "prefix_cache_bytes",
+            }
+        )
+
 
 class ModelRecommendationRequest(BaseModel):
     model_name: str
@@ -92,6 +115,15 @@ class ModelRecommendationRequest(BaseModel):
         ):
             raise ValueError(
                 "model_size_in_billions is only supported for LLM recommendations"
+            )
+        if values.get("model_type", "LLM") != "LLM" and value.__fields_set__ & {
+            "context_length",
+            "concurrency",
+            "vision_tokens",
+            "prefix_cache_bytes",
+        }:
+            raise ValueError(
+                "Memory workload constraints are only supported for LLM recommendations"
             )
         return value
 
@@ -130,15 +162,25 @@ def recommendation_memory_snapshot() -> dict:
     except Exception:
         pass
     try:
+        devices = get_gpu_info()
         snapshot["gpu_available_mib"] = {
             # Only backend-normalized measurements are usable. Legacy `free`
             # can be a sentinel or have backend-specific units.
             (f"gpu-{value['device_index']}" if "device_index" in value else key): value[
                 "free_memory_mib"
             ]
-            for key, value in get_gpu_info().items()
+            for key, value in devices.items()
             if "free_memory_mib" in value
         }
+        totals = {
+            (f"gpu-{value['device_index']}" if "device_index" in value else key): value[
+                "total_memory_mib"
+            ]
+            for key, value in devices.items()
+            if "total_memory_mib" in value
+        }
+        if totals:
+            snapshot["gpu_total_mib"] = totals
     except Exception:
         pass
     return snapshot
@@ -169,6 +211,45 @@ def recommendation_memory_budget(
     ):
         return None
     return min(values) * 0.8
+
+
+def recommendation_engine_budget(
+    worker: dict,
+    constraints: RecommendationConstraints,
+    device: str,
+    engine: str,
+    budget: Optional[float],
+) -> Optional[float]:
+    """Check the single-GPU default reservation separately from model footprint.
+
+    Xinference sets vLLM utilization to 0.90 and single-GPU SGLang static
+    fraction to 0.88. Custom engine options require manual configuration.
+    Never interpret unknown total-memory counters as a measured reservation.
+    """
+    fraction = {"vllm": 0.90, "sglang": 0.88}.get(engine.lower())
+    if fraction is None or device != "cuda" or budget is None:
+        return budget
+    indices = constraints.gpu_idx
+    indices = [indices] if isinstance(indices, int) else indices
+    indices = worker["gpu_indices"] if indices is None else indices
+    memory = worker.get("memory", {})
+    reservations = []
+    for index in indices:
+        total = memory.get("gpu_total_mib", {}).get(f"gpu-{index}")
+        free = memory.get("gpu_available_mib", {}).get(f"gpu-{index}")
+        if (
+            not isinstance(total, (float, int))
+            or not math.isfinite(total)
+            or total <= 0
+        ):
+            return budget
+        if not isinstance(free, (float, int)) or not math.isfinite(free) or free < 0:
+            return budget
+        reserved = total * fraction
+        if reserved > free:
+            return 0.0
+        reservations.append(reserved)
+    return min(budget, *reservations) if reservations else budget
 
 
 def select_recommendation(
@@ -226,6 +307,11 @@ def select_recommendation(
                 continue
             if engine.lower() == "mlx" and device != "mps":
                 continue
+            engine_budget = recommendation_engine_budget(
+                worker, constraints, device, engine, budget
+            )
+            if engine_budget == 0:
+                continue
             for param in params:
                 size = size_value(param["model_size_in_billions"])
                 if (
@@ -256,9 +342,11 @@ def select_recommendation(
                     installed = (engine, key) in ready
                     if not worker["enable_virtual_env"] and not installed:
                         continue
-                    estimate = worker.get("memory_estimates", {}).get(key)
-                    verified = budget is not None and estimate is not None
-                    if verified and estimate > budget:
+                    estimate = worker.get("engine_memory_estimates", {}).get(
+                        (engine, key), worker.get("memory_estimates", {}).get(key)
+                    )
+                    verified = engine_budget is not None and estimate is not None
+                    if verified and estimate > engine_budget:
                         continue
                     quant_order = [
                         "q4_k_m",
@@ -304,7 +392,7 @@ def select_recommendation(
                             installed,
                             cached,
                             estimate if verified else None,
-                            budget,
+                            engine_budget,
                         )
                     )
     warnings = list(warnings)
@@ -388,7 +476,7 @@ def select_recommendation(
         reasons.append(
             message(
                 "memory_estimate",
-                f"Estimated {estimate} MiB against an 80%-of-free-memory budget of {budget:.0f} MiB. Assumes one sequence, 2048 tokens and FP16 KV cache; not a launch guarantee. Multi-GPU sharding and engine preallocation are not modeled.",
+                f"Estimated {estimate} MiB against a memory budget of {budget:.0f} MiB (at most 80% of free memory). Assumes {constraints.concurrency} sequence(s), {constraints.context_length} text tokens plus {constraints.vision_tokens} vision tokens per sequence, FP16 KV cache and {constraints.prefix_cache_bytes} bytes of retained prefix cache. Includes recurrent state and conservative engine workspace bounds; not a launch guarantee. Multi-GPU sharding is not modeled.",
             )
         )
     if cached:

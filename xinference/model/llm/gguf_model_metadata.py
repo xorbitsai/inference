@@ -98,6 +98,8 @@ def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
         "head_dim": "attention.key_length",
         "num_experts": "expert_count",
         "kv_lora_rank": "attention.kv_lora_rank",
+        "num_experts_per_tok": "expert_used_count",
+        "shared_expert_intermediate_size": "expert_shared_feed_forward_length",
     }
     config = {
         name: fields[prefix + key]
@@ -109,10 +111,38 @@ def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
     )
     # Unknown/hybrid layouts must not silently look like ordinary dense attention.
     config["model_type"] = architecture
+    if (
+        "intermediate_size" not in config
+        and prefix + "expert_feed_forward_length" in fields
+    ):
+        config["intermediate_size"] = fields[prefix + "expert_feed_forward_length"]
+    if architecture in ("qwen35", "qwen35moe", "qwen3next"):
+        for name, key in {
+            "linear_conv_kernel_dim": "ssm.conv_kernel",
+            "linear_key_head_dim": "ssm.state_size",
+            "linear_num_key_heads": "ssm.group_count",
+            "linear_num_value_heads": "ssm.time_step_rank",
+            "full_attention_interval": "full_attention_interval",
+        }.items():
+            if prefix + key in fields:
+                config[name] = fields[prefix + key]
+        inner = fields.get(prefix + "ssm.inner_size")
+        heads = config.get("linear_num_value_heads")
+        if (
+            type(inner) is int
+            and type(heads) is int
+            and heads > 0
+            and inner % heads == 0
+        ):
+            config["linear_value_head_dim"] = inner // heads
     if any(key.startswith(prefix + "ssm.") for key in fields):
         config["ssm_cfg"] = True
     if fields.get(
         prefix + "attention.value_length", config.get("head_dim")
     ) != config.get("head_dim"):
-        config["ssm_cfg"] = True  # Different K/V dimensions are not modeled.
+        # Even a known recurrent layout cannot make unequal full-attention K/V
+        # dimensions compatible with the homogeneous KV formula.
+        config["layer_types"] = ["unsupported_attention"] * config.get(
+            "num_hidden_layers", 1
+        )
     return config, digest.hexdigest(), consumed

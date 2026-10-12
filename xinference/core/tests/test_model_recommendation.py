@@ -82,6 +82,77 @@ def test_largest_estimated_fit(device):
     assert recommend([worker], model_size_in_billions=14)["config"] is None
 
 
+def test_engine_specific_estimates_are_not_shared():
+    worker = memory_worker()
+    worker["engines"]["vLLM"] = worker["engines"]["transformers"]
+    worker["installed_engines"]["vLLM"] = worker["engines"]["vLLM"]
+    worker["engine_memory_estimates"] = {
+        ("vLLM", spec_key(param, "none")): 9000 for param in worker["engines"]["vLLM"]
+    }
+    result = recommend([worker])
+    assert result["config"]["model_engine"] == "vLLM"
+    assert result["config"]["model_size_in_billions"] == 14
+
+
+@pytest.mark.parametrize("engine,fraction", [("vLLM", 0.90), ("SGLang", 0.88)])
+def test_default_engine_reservation_must_fit_free_memory(engine, fraction):
+    worker = memory_worker()
+    worker["engines"][engine] = worker["engines"]["transformers"]
+    worker["installed_engines"][engine] = worker["engines"][engine]
+    worker["memory"]["gpu_total_mib"] = {"gpu-0": 24000, "gpu-1": 24000}
+    assert recommend([worker])["config"]["model_engine"] == "transformers"
+    worker["memory"]["gpu_available_mib"] = {"gpu-0": 24000, "gpu-1": 24000}
+    assert recommend([worker])["config"]["model_engine"] == engine
+    worker["memory"]["gpu_available_mib"]["gpu-1"] = 24000 * fraction - 1
+    assert recommend([worker])["config"]["model_engine"] == "transformers"
+    assert recommend([worker], gpu_idx=[0])["config"]["model_engine"] == engine
+
+
+@pytest.mark.parametrize(
+    "constraints",
+    [
+        {"context_length": 0},
+        {"concurrency": True},
+        {"vision_tokens": -1},
+        {"prefix_cache_bytes": "1000"},
+    ],
+)
+def test_memory_workload_constraints_are_strict(constraints):
+    with pytest.raises(ValidationError):
+        ModelRecommendationRequest(model_name="test", constraints=constraints)
+
+
+def test_non_llm_rejects_memory_workload_constraints():
+    with pytest.raises(ValidationError, match="only supported for LLM"):
+        ModelRecommendationRequest(
+            model_name="test", model_type="audio", constraints={"context_length": 4096}
+        )
+
+
+@pytest.mark.asyncio
+async def test_supervisor_passes_memory_workload_to_worker():
+    from xinference.core.supervisor import SupervisorActor
+
+    worker = SimpleNamespace(
+        get_model_recommendation_info=AsyncMock(return_value=snapshot())
+    )
+    supervisor = SimpleNamespace(_worker_address_to_worker={"test:1": worker})
+    await SupervisorActor.recommend_model(
+        supervisor,
+        {
+            "model_name": "test",
+            "constraints": {"context_length": 8192, "concurrency": 2},
+        },
+    )
+    options = worker.get_model_recommendation_info.call_args.kwargs["memory_options"]
+    assert options == {
+        "context_length": 8192,
+        "concurrency": 2,
+        "vision_tokens": 0,
+        "prefix_cache_bytes": 0,
+    }
+
+
 def test_memory_budget_does_not_sum_gpus_or_change_placement():
     worker = memory_worker()
     worker["memory"]["gpu_available_mib"]["gpu-1"] = 8000
@@ -382,6 +453,11 @@ def test_memory_snapshot_failure_and_units(monkeypatch):
         "host_available_mib": 1024,
         "gpu_available_mib": {"gpu-0": 2048},
     }
+    monkeypatch.setattr(
+        "xinference.device_utils.get_gpu_info",
+        lambda: {"gpu-0": {"free_memory_mib": 2048, "total_memory_mib": 4096}},
+    )
+    assert recommendation_memory_snapshot()["gpu_total_mib"] == {"gpu-0": 4096}
 
     def failed():
         raise RuntimeError("monitor unavailable")
@@ -473,6 +549,75 @@ async def test_qwen3_mlx_recommendation_uses_all_sizes_offline(monkeypatch, hub)
     assert result["config"]["model_size_in_billions"] == 14
     assert result["config"]["quantization"] == "4bit"
     assert any(reason["code"] == "memory_fit_size" for reason in result["reasons"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "engine,model_format,quantization,sizes,device,free,expected",
+    [
+        ("MLX", "mlx", "4bit", ("0_8", 4, 9, 27, 35), "mps", 20, 9),
+        ("MLX", "mlx", "4bit", ("0_8", 4, 9, 27, 35), "mps", 48, 35),
+        ("Transformers", "pytorch", "none", ("0_8", 4, 9, 27, 35), "cuda", 32, 9),
+        ("vLLM", "gptq", "Int4", (27, 35), "cuda", 32, 35),
+        ("SGLang", "fp8", "FP8", (27, 35), "cuda", 64, 35),
+        ("llama.cpp", "ggufv2", "Q4_K_M", ("0_8", 4, 9, 27, 35), "cuda", 32, 35),
+    ],
+)
+async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
+    monkeypatch, engine, model_format, quantization, sizes, device, free, expected
+):
+    from xinference.core.worker import WorkerActor
+    from xinference.model.llm import llm_family
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("Recommendation must remain offline")
+
+    monkeypatch.setattr(llm_family, "cache_model_config", no_network)
+    monkeypatch.setattr("requests.get", no_network)
+    monkeypatch.setattr("requests.head", no_network)
+    monkeypatch.setattr(llm_family, "download_from_modelscope", lambda: False)
+    monkeypatch.setattr(llm_family, "download_from_openmind_hub", lambda: False)
+    monkeypatch.setattr(llm_family, "download_from_csghub", lambda: False)
+    monkeypatch.setattr("xinference.device_utils.get_available_device", lambda: device)
+    monkeypatch.setattr(
+        "xinference.core.worker.gpu_count", lambda: 0 if device == "mps" else 1
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.platform.system",
+        lambda: "Linux" if device == "cuda" else "Darwin",
+    )
+    monkeypatch.setattr(
+        "xinference.core.model_recommendation.recommendation_memory_snapshot",
+        lambda: {
+            "host_available_mib": free * 1024,
+            "gpu_available_mib": {"gpu-0": free * 1024},
+            "gpu_total_mib": {"gpu-0": free * 1024},
+        },
+    )
+    engines = {
+        engine: [
+            dict(
+                model_format=model_format,
+                model_size_in_billions=size,
+                quantizations=[quantization],
+            )
+            for size in sizes
+        ]
+    }
+    worker = SimpleNamespace(
+        _total_gpu_devices=[] if device == "mps" else [0],
+        get_model_registration=AsyncMock(return_value=object()),
+        query_engines_by_model_name=AsyncMock(return_value=engines),
+    )
+    info = await WorkerActor.get_model_recommendation_info(worker, "qwen3.5", False)
+    assert len(info["engine_memory_estimates"]) == len(sizes)
+    info["worker_ip"] = "test:1"
+    result = select_recommendation(
+        ModelRecommendationRequest(model_name="qwen3.5"), [info], []
+    )
+    assert result["config"]["model_engine"] == engine
+    assert result["config"]["model_size_in_billions"] == expected
+    assert any(reason["code"] == "memory_estimate" for reason in result["reasons"])
 
 
 @pytest.mark.parametrize("model_type", ["embedding", "rerank", "audio"])

@@ -215,6 +215,7 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
         "used": mem_info.used,
         "free": mem_info.free,
         "free_memory_mib": mem_info.free / 1024**2,
+        "total_memory_mib": mem_info.total / 1024**2,
         "util": util,
     }
 
@@ -242,6 +243,7 @@ def _get_metax_gpu_mem_info(gpu_id: int) -> Dict[str, Union[str, int, float]]:
         "used": used,
         "free": total - used,
         "free_memory_mib": (total - used) / 1024**2,
+        "total_memory_mib": total / 1024**2,
         "util": 0,
     }
 
@@ -429,6 +431,7 @@ def get_npu_info() -> Dict:
                         "used": used,
                         "free": total - used,
                         "free_memory_mib": total - used,
+                        "total_memory_mib": total,
                         "device_index": len(all_devices),
                         "util": 0,
                         "npu_id": len(all_devices),

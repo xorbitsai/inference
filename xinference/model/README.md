@@ -56,8 +56,8 @@ filename order, rather than preserving the old cross-model array order.
 ## LLM model metadata
 
 An LLM `model_specs` entry can optionally include `model_metadata`. It stores
-architecture dimensions, not a fixed memory requirement: context length and
-quantization still affect the estimate. Store it per specification, since sizes
+architecture dimensions and optional checkpoint size, not a fixed memory requirement:
+context length and concurrency still affect the estimate. Store it per specification, since sizes
 within the same family can have different architectures.
 
 Maintainers and Models Hub jobs can extract this object from an already obtained
@@ -93,7 +93,7 @@ To refresh all registered LLM sources, use the explicit maintenance command:
 ```sh
 python -m xinference.model.llm.collect_memory_catalog \
   xinference/model/llm/models /tmp/new-memory-catalog \
-  --cache /tmp/model-config-snapshots
+  --cache /tmp/model-config-snapshots --weights
 ```
 
 This command contacts the registered hubs, reads bounded configuration files
@@ -105,11 +105,23 @@ guesses. Cached successful snapshots allow retrying failures; use a new cache
 directory to refresh moving revisions. The external Models Hub publisher must
 invoke this step explicitly and preserve its fields when syncing the catalog.
 
+`--weights` additionally reads bounded Safetensors indexes or headers and GGUF
+file-size responses at the resolved configuration revision. `weights_bytes`
+includes all resident experts and vision weights, including the largest registered
+GGUF projector and every model shard. It never uses the activated MoE parameter
+count as the resident weight size. `weights_source` records the selected revision,
+pinned when the hub provides a commit;
+`weights_sha256` hashes the collected index/header, or the filename-size manifest
+for GGUF, not the tensor payload. Missing sizes retain nominal weight estimates
+when supported; hybrid, MoE and multimodal GGUF require a measured checkpoint size.
+
 Template repositories with separate quantization checkpoints store
 `model_metadata_by_quantization` in each source. Runtime flattening selects
 only the matching quantization's metadata; an absent entry stays unknown and
 never borrows another quantization's dimensions. Common MLX 2/3/4/5/6/8-bit and
-FP16/BF16 names are accepted. Unsupported mixed quantizations remain unverified.
+FP16/BF16 names are accepted. Mixed quantizations can use a collected checkpoint
+size; otherwise unsupported quantizations remain unverified. Quantizations sharing
+one GGUF config still keep separate metadata when their weight sizes differ.
 
 `estimate_llm_gpu_memory(..., allow_download=False)` only uses the matching spec's
 metadata. It returns `None` when metadata is absent, including when no model name
@@ -127,16 +139,28 @@ means MHA. Weight quantization does not determine KV cache precision; the
 `estimate_kv_cache_memory(info, num_tokens, kv_cache_dtype)` returns MiB before
 rounding, across the whole model rather than per GPU. Pass the sum of cached
 tokens across requests for concurrent sequences without prefix sharing. The
-full model estimator uses one sequence's `context_length` for this component.
-Activation estimates use attention heads, not KV heads, but still use the old
-approximation rather than modeling FlashAttention or engine-specific workspaces.
+full model estimator accepts `concurrency` and counts `context_length` text tokens
+plus `vision_tokens` per sequence. Only full-attention layers contribute KV cache.
+`layer_types` or `full_attention_interval` records the layout; Gated DeltaNet's five
+`linear_*` dimensions describe its FP32 recurrent matrix and convolution history.
+Missing or unfamiliar layouts remain unverified, including MLA and other state
+spaces. Optional `vision` dimensions bound encoder workspace. Additional retained
+cache is supplied separately as `prefix_cache_bytes`.
 
-These estimates exclude cache block padding, quantization scales, prefix sharing
-and engine preallocation. MLA, sliding-window, hybrid and multimodal caches need
-their own accounting; MoE weight estimation also remains limited. This does not
-inspect free device memory itself. LLM recommendations separately compare it
-with 80% of the worker's current free memory, assuming one sequence, 2048 tokens
-and FP16 KV cache. Single-device candidates with a usable estimate are ranked
+The optional `engine` selects conservative workspace bounds. MLX and llama.cpp
+use a 2048-token prefill bound; Transformers, vLLM and SGLang use the full requested
+context bound. These account for attention scores, active-expert FFNs, logits and
+vision encoding, not calibrated kernel peaks. Weight storage is counted once;
+concurrent sequences multiply caches and workspace. Without `engine`, ordinary
+models retain the legacy activation approximation.
+
+The footprint does not model cache block padding or all runtime allocations.
+LLM recommendations compare it with 80% of the worker's current free memory,
+defaulting to one sequence, 2048 text tokens, FP16 KV cache and no image or retained
+prefix cache. CUDA single-GPU defaults for vLLM (90% of total memory) and SGLang
+(88%) are checked separately against free memory when normalized total counters
+are available. Workload constraints affect estimates, not launch settings.
+Single-device candidates with a usable estimate are ranked
 largest-first; known oversized candidates are excluded. Missing estimates or
 multi-GPU requests retain compatibility-only selection. Other model types do not
 use memory ranking. A successful estimate is not a guarantee that a model fits.

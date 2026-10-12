@@ -3298,6 +3298,7 @@ class WorkerActor(xo.StatelessActor):
         model_name: str,
         enable_virtual_env: Optional[bool] = None,
         model_type: str = "LLM",
+        memory_options: Optional[dict] = None,
     ) -> dict:
         """Worker-local discovery only; never prepare environments or allocate GPUs."""
         from ..device_utils import get_available_device
@@ -3338,8 +3339,10 @@ class WorkerActor(xo.StatelessActor):
         from .model_recommendation import recommendation_memory_snapshot, spec_key
 
         launch_specs, cached_specs = set(), set()
-        memory_estimates = {}
-        for params in (engines or {}).values():
+        memory_estimates, engine_memory_estimates = {}, {}
+        options = dict(memory_options or {})
+        context_length = options.pop("context_length", 2048)
+        for engine, params in (engines or {}).items():
             if not isinstance(params, list):
                 continue
             for param in params:
@@ -3356,17 +3359,27 @@ class WorkerActor(xo.StatelessActor):
                     key = spec_key(param, quant)
                     launch_specs.add(key)
                     metadata = getattr(matched.model_specs[0], "model_metadata", None)
-                    if metadata is not None and key not in memory_estimates:
+                    if metadata is not None:
                         try:
-                            memory_estimates[key] = estimate_llm_gpu_memory_details(
-                                ModelLayersInfo.from_metadata(metadata),
+                            info = ModelLayersInfo.from_metadata(metadata)
+                            arguments = (
+                                info,
                                 convert_model_size_to_float(
                                     param["model_size_in_billions"]
                                 ),
                                 quant,
-                                2048,
+                                context_length,
                                 param["model_format"],
-                            ).total
+                            )
+                            if key not in memory_estimates:
+                                memory_estimates[key] = estimate_llm_gpu_memory_details(
+                                    *arguments, **options
+                                ).total
+                            engine_memory_estimates[(engine, key)] = (
+                                estimate_llm_gpu_memory_details(
+                                    *arguments, engine=engine, **options
+                                ).total
+                            )
                         except (KeyError, ValueError, AssertionError):
                             # Unsupported quantizations remain compatible candidates,
                             # but must not be represented as a verified memory fit.
@@ -3390,6 +3403,7 @@ class WorkerActor(xo.StatelessActor):
             "launch_specs": launch_specs,
             "cached_specs": cached_specs,
             "memory_estimates": memory_estimates,
+            "engine_memory_estimates": engine_memory_estimates,
             "memory": recommendation_memory_snapshot(),
         }
 

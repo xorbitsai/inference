@@ -32,18 +32,45 @@ import math
 from dataclasses import dataclass
 from logging import getLogger
 from math import ceil
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from .llm_family import convert_model_size_to_float
-from .model_metadata import ModelMetadata
+from .model_metadata import ModelMetadata, VisionMetadata
 
 logger = getLogger(__name__)
 
 
 def unsupported_memory_reason(metadata: ModelMetadata) -> Optional[str]:
     """Keep this estimator's support policy separate from model facts."""
-    if metadata.architecture_type not in (None, "dense"):
+    if metadata.architecture_type not in (
+        None,
+        "dense",
+        "moe",
+        "multimodal",
+        "hybrid_attention",
+    ):
         return metadata.architecture_type
+    if metadata.architecture_type == "moe" and metadata.num_experts is None:
+        return "incomplete_expert_layout"
+    types = metadata.attention_layers()
+    if types is not None:
+        if len(types) != metadata.num_hidden_layers or any(
+            t not in ("full_attention", "linear_attention") for t in types
+        ):
+            return "unknown_attention_layout"
+        if "linear_attention" in types and any(
+            getattr(metadata, name) is None
+            for name in (
+                "linear_num_key_heads",
+                "linear_num_value_heads",
+                "linear_key_head_dim",
+                "linear_value_head_dim",
+                "linear_conv_kernel_dim",
+            )
+        ):
+            return "incomplete_linear_attention"
+    elif metadata.architecture_type in ("multimodal", "hybrid_attention"):
+        return "unknown_attention_layout"
     return None
 
 
@@ -56,6 +83,17 @@ class ModelLayersInfo:
     num_layers: int  # num_layers, num_hidden_layers or n_layer
     kv_heads: Optional[int] = None  # defaults to attention heads (MHA)
     head_dim: Optional[int] = None  # explicit config value takes precedence
+    layer_types: Optional[List[str]] = None
+    linear_num_key_heads: Optional[int] = None
+    linear_num_value_heads: Optional[int] = None
+    linear_key_head_dim: Optional[int] = None
+    linear_value_head_dim: Optional[int] = None
+    linear_conv_kernel_dim: Optional[int] = None
+    active_experts: int = 1
+    shared_inter_dim: int = 0
+    vision: Optional[VisionMetadata] = None
+    weights_bytes: Optional[int] = None
+    architecture_type: Optional[str] = None
 
     @classmethod
     def from_metadata(cls, metadata: ModelMetadata) -> "ModelLayersInfo":
@@ -70,6 +108,17 @@ class ModelLayersInfo:
             num_layers=metadata.num_hidden_layers,
             kv_heads=metadata.num_key_value_heads,
             head_dim=metadata.head_dim,
+            layer_types=metadata.attention_layers(),
+            linear_num_key_heads=metadata.linear_num_key_heads,
+            linear_num_value_heads=metadata.linear_num_value_heads,
+            linear_key_head_dim=metadata.linear_key_head_dim,
+            linear_value_head_dim=metadata.linear_value_head_dim,
+            linear_conv_kernel_dim=metadata.linear_conv_kernel_dim,
+            active_experts=metadata.num_experts_per_tok or metadata.num_experts or 1,
+            shared_inter_dim=metadata.shared_expert_intermediate_size or 0,
+            vision=metadata.vision,
+            weights_bytes=metadata.weights_bytes,
+            architecture_type=metadata.architecture_type,
         )
 
 
@@ -82,6 +131,9 @@ class ModelMemInfo:
     activation_mem: int
     overhead: int
     total: int
+    recurrent_state_mem: int = 0
+    vision_mem: int = 0
+    prefix_cache_mem: int = 0
 
 
 QUANT_NORMALIZE = {
@@ -142,6 +194,10 @@ def estimate_llm_gpu_memory(
     kv_cache_dtype: int = 16,
     *,
     allow_download: bool = True,
+    engine: Optional[str] = None,
+    concurrency: int = 1,
+    vision_tokens: int = 0,
+    prefix_cache_bytes: int = 0,
 ) -> Optional[ModelMemInfo]:
     """
     model_size_in_billions: must be str like 1_8 or 46_7, to match llm.
@@ -167,6 +223,10 @@ def estimate_llm_gpu_memory(
         context_length,
         model_format,
         kv_cache_dtype,
+        engine=engine,
+        concurrency=concurrency,
+        vision_tokens=vision_tokens,
+        prefix_cache_bytes=prefix_cache_bytes,
     )
 
 
@@ -177,8 +237,9 @@ def estimate_kv_cache_memory(
 
     num_tokens is the total cached tokens across sequences. This excludes block
     padding, quantization scales, prefix sharing and engine preallocation. It
-    assumes equal K/V head dimensions and homogeneous MHA/GQA/MQA layers; MLA,
-    sliding-window and hybrid caches need architecture-specific estimates.
+    assumes equal K/V head dimensions and MHA/GQA/MQA full-attention layers.
+    An explicit layout counts only its full-attention layers. MLA and sliding
+    windows need different cache accounting.
     """
     if kv_cache_dtype not in (8, 16, 32):
         raise ValueError(f"Invalid kv_cache_dtype {kv_cache_dtype}")
@@ -192,14 +253,13 @@ def estimate_kv_cache_memory(
     head_dim = info.hidden_dim / info.heads if info.head_dim is None else info.head_dim
     if head_dim <= 0:
         raise ValueError("head_dim must be positive")
+    layers = (
+        info.layer_types.count("full_attention")
+        if info.layer_types is not None
+        else info.num_layers
+    )
     return (
-        2
-        * num_tokens
-        * info.num_layers
-        * kv_heads
-        * head_dim
-        * (kv_cache_dtype / 8)
-        / (1024**2)
+        2 * num_tokens * layers * kv_heads * head_dim * (kv_cache_dtype / 8) / (1024**2)
     )
 
 
@@ -210,14 +270,54 @@ def estimate_llm_gpu_memory_details(
     context_length: int,  # input+output
     model_format: str,
     kv_cache_dtype: int = 16,
+    *,
+    engine: Optional[str] = None,
+    concurrency: int = 1,
+    vision_tokens: int = 0,
+    prefix_cache_bytes: int = 0,
 ) -> ModelMemInfo:
     """return model_mem, kv_cache, overhead, activation_mem"""
-    inference_mem = estimate_kv_cache_memory(info, context_length, kv_cache_dtype)
+    if type(context_length) is not int or context_length <= 0:
+        raise ValueError("context_length must be a positive integer")
+    if type(concurrency) is not int or concurrency <= 0:
+        raise ValueError("concurrency must be a positive integer")
+    if type(vision_tokens) is not int or vision_tokens < 0:
+        raise ValueError("vision_tokens must be a non-negative integer")
+    if type(prefix_cache_bytes) is not int or prefix_cache_bytes < 0:
+        raise ValueError("prefix_cache_bytes must be a non-negative integer")
+    tokens = context_length + vision_tokens
+    inference_mem = estimate_kv_cache_memory(info, tokens * concurrency, kv_cache_dtype)
+    recurrent_mem = estimate_recurrent_state_memory(info, concurrency, engine)
+    vision_mem = 0.0
+    if vision_tokens:
+        if info.vision is None:
+            raise ValueError("Vision workspace metadata is missing")
+        v = info.vision
+        patches = vision_tokens * v.spatial_merge_size**2
+        # A conservative unfused attention workspace, processed one image group
+        # at a time. Encoder weights are already included in checkpoint bytes.
+        vision_mem = (
+            patches * (5 * v.hidden_size + 3 * v.intermediate_size) * 2
+            + patches**2 * v.num_attention_heads * 4
+        ) / 1024**2
     overhead = 650.0
-    if model_format == "ggufv2":
+    if info.weights_bytes is not None and model_format != "bnb":
+        model_size_in_mb = info.weights_bytes / 1024**2
+        activation_mem = _compute_inference_only_activation_memory(tokens, info)
+        if model_format == "ggufv2":
+            overhead += context_length * 0.1
+    elif model_format == "ggufv2":
+        if (
+            info.architecture_type in ("moe", "multimodal", "hybrid_attention")
+            or info.active_experts > 1
+            or "linear_attention" in (info.layer_types or [])
+        ):
+            raise ValueError(
+                "Hybrid/MoE/multimodal GGUF requires checkpoint size metadata"
+            )
         assert quantization is not None and quantization != "none"
         model_size_in_mb = _compute_model_size_gguf(info, quantization)
-        activation_mem = _compute_inference_only_activation_memory(context_length, info)
+        activation_mem = _compute_inference_only_activation_memory(tokens, info)
         overhead = overhead + context_length * 0.1
     else:
         if quantization is not None and quantization.lower() in (
@@ -234,16 +334,71 @@ def estimate_llm_gpu_memory_details(
 
         model_size = size_in_billions * 1000000000.0
         model_size_in_mb = _convert_to_mb_model_size(model_size, quantization)
-        activation_mem = _compute_inference_only_activation_memory(context_length, info)
+        activation_mem = _compute_inference_only_activation_memory(tokens, info)
 
-    total_mem = ceil(inference_mem + model_size_in_mb + overhead + activation_mem)
+    if engine is not None:
+        # These are workspace bounds, not calibrated kernel peaks. Transformers
+        # may use eager attention; retain its quadratic score-buffer allowance.
+        # Chunked prefill is assumed only for the local engines' defaults.
+        # GPU schedulers and Transformers may profile a larger prefill batch.
+        chunk = min(tokens, 2048) if engine.lower() in ("mlx", "llama.cpp") else tokens
+        activation_mem = (
+            chunk
+            * (
+                5 * info.hidden_dim
+                + 3 * (info.inter_dim * info.active_experts + info.shared_inter_dim)
+            )
+            * 2
+            + chunk * tokens * info.heads * 2
+            + chunk * info.vocab_size * 4
+        ) / 1024**2
+    prefix_mem = prefix_cache_bytes / 1024**2
+    workspace = max(activation_mem, vision_mem) * concurrency
+
+    total_mem = ceil(
+        inference_mem
+        + recurrent_mem
+        + model_size_in_mb
+        + overhead
+        + workspace
+        + prefix_mem
+    )
     return ModelMemInfo(
         model_mem=ceil(model_size_in_mb),
         kv_cache_mem=ceil(inference_mem),
-        activation_mem=ceil(activation_mem),
+        activation_mem=ceil(workspace),
         overhead=ceil(overhead),
         total=total_mem,
+        recurrent_state_mem=ceil(recurrent_mem),
+        vision_mem=ceil(vision_mem * concurrency),
+        prefix_cache_mem=ceil(prefix_mem),
     )
+
+
+def estimate_recurrent_state_memory(
+    info: ModelLayersInfo, concurrency: int, engine: Optional[str] = None
+) -> float:
+    layers = (info.layer_types or []).count("linear_attention")
+    if not layers:
+        return 0.0
+    dimensions = (
+        info.linear_num_key_heads,
+        info.linear_num_value_heads,
+        info.linear_key_head_dim,
+        info.linear_value_head_dim,
+        info.linear_conv_kernel_dim,
+    )
+    if any(value is None or value <= 0 for value in dimensions):
+        raise ValueError("Linear attention state dimensions are missing")
+    key_heads, value_heads, key_dim, value_dim, kernel = (
+        int(value) for value in dimensions if value is not None
+    )
+    # Gated DeltaNet's recurrent accumulator is FP32. MLX retains kernel-1
+    # convolution steps; other backends may retain a full kernel buffer.
+    conv_steps = kernel - 1 if (engine or "").lower() == "mlx" else kernel
+    state = value_heads * key_dim * value_dim * 4
+    conv = conv_steps * (2 * key_heads * key_dim + value_heads * value_dim) * 2
+    return layers * concurrency * (state + conv) / 1024**2
 
 
 def load_model_config_json(config_path: str) -> ModelLayersInfo:

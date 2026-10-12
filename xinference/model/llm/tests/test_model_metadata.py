@@ -271,7 +271,6 @@ def test_per_quantization_metadata_never_leaks(config):
 @pytest.mark.parametrize(
     "extra,reason",
     [
-        ({"num_experts": 8}, "moe"),
         ({"kv_lora_rank": 512}, "mla"),
         ({"layer_types": ["linear_attention", "full_attention"]}, "hybrid_attention"),
     ],
@@ -285,10 +284,26 @@ def test_unsupported_architecture_is_not_a_dense_estimate(config, extra, reason)
         ModelLayersInfo.from_metadata(metadata)
 
 
-def test_multimodal_metadata_is_collected_but_not_estimated(config):
+def test_multimodal_metadata_preserves_attention_layout(config):
+    from ..memory import ModelLayersInfo
+
     metadata = ModelMetadata.from_config({"text_config": config})
     assert metadata.hidden_size == config["hidden_size"]
     assert metadata.architecture_type == "multimodal"
+    assert metadata.layer_types == ["full_attention"] * config["num_hidden_layers"]
+    assert (
+        ModelLayersInfo.from_metadata(metadata).heads == config["num_attention_heads"]
+    )
+
+
+def test_moe_metadata_uses_total_weights_and_active_experts(config):
+    from ..memory import ModelLayersInfo
+
+    metadata = ModelMetadata.from_config(
+        dict(config, num_experts=64, num_experts_per_tok=8)
+    )
+    assert metadata.architecture_type == "moe"
+    assert ModelLayersInfo.from_metadata(metadata).active_experts == 8
 
 
 def test_estimator_support_policy_is_not_stored_in_metadata(config):

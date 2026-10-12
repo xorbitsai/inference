@@ -2184,6 +2184,18 @@ class SupervisorActor(xo.StatelessActor):
                     body.model_name,
                     body.constraints.enable_virtual_env,
                     model_type=body.model_type,
+                    **(
+                        {"memory_options": body.constraints.memory_options()}
+                        if body.model_type == "LLM"
+                        and body.constraints.__fields_set__
+                        & {
+                            "context_length",
+                            "concurrency",
+                            "vision_tokens",
+                            "prefix_cache_bytes",
+                        }
+                        else {}
+                    ),
                 )
                 for _, worker in workers
             ],
