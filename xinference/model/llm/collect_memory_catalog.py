@@ -128,6 +128,27 @@ def collect_gguf_config(
         return {"error": f"{type(exc).__name__}: {exc}"}
 
 
+def gguf_filenames(spec: dict, source: dict, quant: str) -> tuple:
+    combined = dict(spec, **source)
+    parts = combined.get("quantization_parts", {}).get(quant)
+    template = (
+        combined.get("model_file_name_split_template")
+        if parts
+        else combined.get("model_file_name_template")
+    )
+    if not template:
+        return (), ()
+    return (
+        tuple(
+            template.format(quantization=quant, part=part) for part in (parts or [""])
+        ),
+        tuple(
+            name.format(quantization=quant)
+            for name in combined.get("multimodal_projectors", [])
+        ),
+    )
+
+
 def checkpoint_weight_job(
     spec: dict, source: dict, quant: str, job: tuple, result: dict
 ) -> Optional[tuple]:
@@ -147,22 +168,9 @@ def checkpoint_weight_job(
     pinned = (job[0], job[1], revision or job[2])
     if spec["model_format"] != "ggufv2":
         return pinned
-    combined = dict(spec, **source)
-    parts = combined.get("quantization_parts", {}).get(quant)
-    template = (
-        combined.get("model_file_name_split_template")
-        if parts
-        else combined.get("model_file_name_template")
-    )
-    if not template:
+    files, projectors = gguf_filenames(spec, source, quant)
+    if not files:
         return None
-    files = tuple(
-        template.format(quantization=quant, part=part) for part in (parts or [""])
-    )
-    projectors = tuple(
-        name.format(quantization=quant)
-        for name in combined.get("multimodal_projectors", [])
-    )
     return pinned + (files, projectors)
 
 
@@ -228,18 +236,10 @@ def collect_catalog(
                 pass
             if job in fallback:
                 continue
-            combined = dict(spec, **source)
-            parts = combined.get("quantization_parts", {}).get(quant)
-            template = (
-                combined.get("model_file_name_split_template")
-                if parts
-                else combined.get("model_file_name_template")
-            )
-            if not template:
+            files, _ = gguf_filenames(spec, source, quant)
+            if not files:
                 continue
-            fallback[job] = template.format(
-                quantization=quant, part=parts[0] if parts else ""
-            )
+            fallback[job] = files[0]
     print(f"Checking {len(fallback)} GGUF metadata headers", flush=True)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         pending = {
@@ -255,16 +255,16 @@ def collect_catalog(
                 print(f"GGUF headers checked {done}/{len(pending)}", flush=True)
     report = []
     weight_results = {}
+    weight_jobs_by_spec = {
+        (index, quant): checkpoint_weight_job(spec, source, quant, job, results[job])
+        for index, (_, _, spec, _, source, quant_jobs) in enumerate(entries)
+        for quant, job in quant_jobs.items()
+        if "config" in results[job]
+    }
     if weights:
         from .weights_metadata import collect_weights_size
 
-        possible_jobs = {
-            checkpoint_weight_job(spec, source, quant, job, results[job])
-            for _, _, spec, _, source, quant_jobs in entries
-            for quant, job in quant_jobs.items()
-            if "config" in results[job]
-        }
-        weight_jobs = {job for job in possible_jobs if job is not None}
+        weight_jobs = {job for job in weight_jobs_by_spec.values() if job is not None}
         with ThreadPoolExecutor(max_workers=workers) as pool:
             weight_pending = {
                 pool.submit(collect_weights_size, job, cache, timeout): job
@@ -272,8 +272,13 @@ def collect_catalog(
             }
             for future in as_completed(weight_pending):
                 weight_results[weight_pending[future]] = future.result()
-    for filename, family, spec, hub, source, quant_jobs in entries:
-        by_quant = dict(source.get("model_metadata_by_quantization", {}))
+    for index, (filename, family, spec, hub, source, quant_jobs) in enumerate(entries):
+        old_entries = source.get("model_metadata_by_quantization")
+        by_quant = {
+            q: old_entries[q] for q in quant_jobs if old_entries and q in old_entries
+        }
+        if not old_entries and source.get("model_metadata"):
+            by_quant = dict.fromkeys(quant_jobs, source["model_metadata"])
         for quant, job in quant_jobs.items():
             result = results[job]
             row = {
@@ -306,7 +311,16 @@ def collect_catalog(
                     metadata.layer_types = [
                         "full_attention"
                     ] * metadata.num_hidden_layers
-                weight_job = checkpoint_weight_job(spec, source, quant, job, result)
+                previous = by_quant.get(quant, {})
+                if (
+                    metadata.config_sha256
+                    and previous.get("config_sha256") == metadata.config_sha256
+                    and previous.get("config_source") == metadata.config_source
+                ):
+                    for name in ("weights_bytes", "weights_source", "weights_sha256"):
+                        if name in previous:
+                            setattr(metadata, name, previous[name])
+                weight_job = weight_jobs_by_spec.get((index, quant))
                 weight_info = (
                     weight_results.get(weight_job) if weight_job is not None else None
                 )

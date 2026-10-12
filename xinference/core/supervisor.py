@@ -2170,6 +2170,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def recommend_model(self, request: Dict[str, Any]) -> dict:
         from .model_recommendation import (
+            MEMORY_WORKLOAD_FIELDS,
             ModelRecommendationRequest,
             RecommendationModelNotFound,
             message,
@@ -2187,13 +2188,7 @@ class SupervisorActor(xo.StatelessActor):
                     **(
                         {"memory_options": body.constraints.memory_options()}
                         if body.model_type == "LLM"
-                        and body.constraints.__fields_set__
-                        & {
-                            "context_length",
-                            "concurrency",
-                            "vision_tokens",
-                            "prefix_cache_bytes",
-                        }
+                        and body.constraints.__fields_set__ & MEMORY_WORKLOAD_FIELDS
                         else {}
                     ),
                 )

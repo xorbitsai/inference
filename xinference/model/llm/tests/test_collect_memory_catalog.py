@@ -173,6 +173,7 @@ def test_gguf_hybrid_dimensions(value_length):
                     "qwen35moe.attention.key_length": 256,
                     "qwen35moe.attention.value_length": value_length,
                     "qwen35moe.expert_feed_forward_length": 512,
+                    "qwen35moe.feed_forward_length": 6144,
                     "qwen35moe.expert_count": 256,
                     "qwen35moe.expert_used_count": 8,
                     "qwen35moe.vocab_size": 248320,
@@ -195,6 +196,7 @@ def test_gguf_hybrid_dimensions(value_length):
     assert metadata.full_attention_interval == 4
     assert metadata.layer_types is None
     assert info.active_experts == 8
+    assert info.inter_dim == 512
     assert info.linear_value_head_dim == 128
     assert estimate_kv_cache_memory(info, 32768) == 640
 
@@ -265,3 +267,111 @@ def test_shared_config_keeps_quantization_weight_sizes_separate(tmp_path, monkey
     assert entries["Q4_K_M"]["weights_bytes"] == 4000
     assert entries["Q8_0"]["weights_bytes"] == 8000
     assert all(job[2] == "b" * 40 for job in calls)
+
+
+@pytest.mark.parametrize("weights", [False, True])
+@pytest.mark.parametrize("same_snapshot", [False, True])
+@pytest.mark.parametrize("common", [False, True])
+def test_collector_preserves_sizes_only_for_same_snapshot(
+    tmp_path, monkeypatch, weights, same_snapshot, common
+):
+    from .. import weights_metadata
+
+    config = dict(
+        vocab_size=32000,
+        num_attention_heads=32,
+        hidden_size=4096,
+        intermediate_size=14336,
+        num_hidden_layers=32,
+    )
+    old = dict(
+        config,
+        config_source="pinned",
+        config_sha256="a" * 64,
+        weights_bytes=1000,
+        weights_source="weights",
+        weights_sha256="c" * 64,
+    )
+    source = dict(model_id="org/model-{quantization}", quantizations=["4bit"])
+    if common:
+        source["model_metadata"] = old
+    else:
+        source["model_metadata_by_quantization"] = {"4bit": old, "8bit": old}
+    catalog = tmp_path / "catalog"
+    catalog.mkdir()
+    (catalog / "test.json").write_text(
+        json.dumps(
+            [
+                dict(
+                    model_name="test",
+                    model_ability=["chat"],
+                    model_specs=[
+                        dict(
+                            model_format="mlx",
+                            model_size_in_billions=8,
+                            model_src={"huggingface": source},
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    monkeypatch.setattr(
+        collector,
+        "collect_config",
+        lambda *args: dict(
+            config=config,
+            config_source="pinned",
+            config_sha256=("a" if same_snapshot else "b") * 64,
+        ),
+    )
+    monkeypatch.setattr(
+        weights_metadata,
+        "collect_weights_size",
+        lambda *args: {"error": "temporary failure"},
+    )
+    output = tmp_path / "output"
+    collector.collect_catalog(
+        catalog, output, tmp_path / "cache", 2, 1, weights=weights
+    )
+    result = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
+        "model_src"
+    ]["huggingface"]
+    assert "model_metadata_by_quantization" not in result
+    if same_snapshot:
+        assert result["model_metadata"]["weights_bytes"] == 1000
+    else:
+        assert "weights_bytes" not in result["model_metadata"]
+
+
+def test_checkpoint_job_splits_and_projectors_and_bnb():
+    spec = dict(
+        model_format="ggufv2",
+        model_file_name_split_template="model-{quantization}-{part}.gguf",
+        quantization_parts={"Q4_K_M": ["00001", "00002"]},
+        multimodal_projectors=["vision-{quantization}.gguf"],
+    )
+    result = collector.checkpoint_weight_job(
+        spec,
+        {},
+        "Q4_K_M",
+        ("huggingface", "org/model", "main"),
+        {"resolved_revision": "pinned"},
+    )
+    assert result == (
+        "huggingface",
+        "org/model",
+        "pinned",
+        ("model-Q4_K_M-00001.gguf", "model-Q4_K_M-00002.gguf"),
+        ("vision-Q4_K_M.gguf",),
+    )
+    assert (
+        collector.checkpoint_weight_job(
+            {"model_format": "bnb"},
+            {},
+            "4bit",
+            ("huggingface", "org/model", "main"),
+            {},
+        )
+        is None
+    )

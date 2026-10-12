@@ -19,6 +19,13 @@ from typing import Any, Dict, List, Optional
 from ..._compat import BaseModel, Field
 
 
+def _periodic_layers(n: int, interval: int) -> List[str]:
+    return [
+        "full_attention" if (i + 1) % interval == 0 else "linear_attention"
+        for i in range(n)
+    ]
+
+
 class VisionMetadata(BaseModel):
     hidden_size: int = Field(gt=0)
     intermediate_size: int = Field(gt=0)
@@ -57,14 +64,9 @@ class ModelMetadata(BaseModel):
         if self.layer_types is not None:
             return self.layer_types
         if self.full_attention_interval is not None:
-            return [
-                (
-                    "full_attention"
-                    if (i + 1) % self.full_attention_interval == 0
-                    else "linear_attention"
-                )
-                for i in range(self.num_hidden_layers)
-            ]
+            return _periodic_layers(
+                self.num_hidden_layers, self.full_attention_interval
+            )
         return None
 
     @classmethod
@@ -132,6 +134,11 @@ class ModelMetadata(BaseModel):
                     break
         if config.get("multi_query_attention") and "multi_query_group_num" in config:
             values["num_key_value_heads"] = config["multi_query_group_num"]
+        if any(
+            config.get(key)
+            for key in ("num_experts", "num_local_experts", "n_routed_experts")
+        ) and config.get("moe_intermediate_size"):
+            values["intermediate_size"] = config["moe_intermediate_size"]
         if architecture_type:
             values["architecture_type"] = architecture_type
         for field in (
@@ -148,10 +155,9 @@ class ModelMetadata(BaseModel):
             interval = config["full_attention_interval"]
             if type(interval) is not int or interval <= 0:
                 raise ValueError("full_attention_interval must be a positive integer")
-            periodic_types = [
-                "full_attention" if (i + 1) % interval == 0 else "linear_attention"
-                for i in range(values.get("num_hidden_layers", 0))
-            ]
+            periodic_types = _periodic_layers(
+                values.get("num_hidden_layers", 0), interval
+            )
             values["full_attention_interval"] = interval
             if values.get("layer_types", periodic_types) == periodic_types:
                 values.pop("layer_types", None)

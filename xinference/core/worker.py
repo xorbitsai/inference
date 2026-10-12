@@ -3342,6 +3342,7 @@ class WorkerActor(xo.StatelessActor):
         memory_estimates, engine_memory_estimates = {}, {}
         options = dict(memory_options or {})
         context_length = options.pop("context_length", 2048)
+        device = get_available_device()
         for engine, params in (engines or {}).items():
             if not isinstance(params, list):
                 continue
@@ -3375,12 +3376,20 @@ class WorkerActor(xo.StatelessActor):
                                 memory_estimates[key] = estimate_llm_gpu_memory_details(
                                     *arguments, **options
                                 ).total
+                            # Fused CUDA kernels do not describe other backends
+                            # (e.g. NPU attention masks). Keep their eager bound.
+                            profile = (
+                                "eager"
+                                if engine.lower() in ("vllm", "sglang")
+                                and device != "cuda"
+                                else engine
+                            )
                             engine_memory_estimates[(engine, key)] = (
                                 estimate_llm_gpu_memory_details(
-                                    *arguments, engine=engine, **options
+                                    *arguments, engine=profile, **options
                                 ).total
                             )
-                        except (KeyError, ValueError, AssertionError):
+                        except (KeyError, ValueError, AssertionError, ArithmeticError):
                             # Unsupported quantizations remain compatible candidates,
                             # but must not be represented as a verified memory fit.
                             pass

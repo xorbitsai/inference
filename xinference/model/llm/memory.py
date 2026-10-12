@@ -55,7 +55,8 @@ def unsupported_memory_reason(metadata: ModelMetadata) -> Optional[str]:
     types = metadata.attention_layers()
     if types is not None:
         if len(types) != metadata.num_hidden_layers or any(
-            t not in ("full_attention", "linear_attention") for t in types
+            t not in ("full_attention", "sliding_attention", "linear_attention")
+            for t in types
         ):
             return "unknown_attention_layout"
         if "linear_attention" in types and any(
@@ -197,6 +198,7 @@ def estimate_llm_gpu_memory(
     engine: Optional[str] = None,
     concurrency: int = 1,
     vision_tokens: int = 0,
+    vision_tokens_per_image: int = 0,
     prefix_cache_bytes: int = 0,
 ) -> Optional[ModelMemInfo]:
     """
@@ -226,6 +228,7 @@ def estimate_llm_gpu_memory(
         engine=engine,
         concurrency=concurrency,
         vision_tokens=vision_tokens,
+        vision_tokens_per_image=vision_tokens_per_image,
         prefix_cache_bytes=prefix_cache_bytes,
     )
 
@@ -254,7 +257,7 @@ def estimate_kv_cache_memory(
     if head_dim <= 0:
         raise ValueError("head_dim must be positive")
     layers = (
-        info.layer_types.count("full_attention")
+        sum(t in ("full_attention", "sliding_attention") for t in info.layer_types)
         if info.layer_types is not None
         else info.num_layers
     )
@@ -274,6 +277,7 @@ def estimate_llm_gpu_memory_details(
     engine: Optional[str] = None,
     concurrency: int = 1,
     vision_tokens: int = 0,
+    vision_tokens_per_image: int = 0,
     prefix_cache_bytes: int = 0,
 ) -> ModelMemInfo:
     """return model_mem, kv_cache, overhead, activation_mem"""
@@ -285,6 +289,8 @@ def estimate_llm_gpu_memory_details(
         raise ValueError("vision_tokens must be a non-negative integer")
     if type(prefix_cache_bytes) is not int or prefix_cache_bytes < 0:
         raise ValueError("prefix_cache_bytes must be a non-negative integer")
+    if type(vision_tokens_per_image) is not int or vision_tokens_per_image < 0:
+        raise ValueError("vision_tokens_per_image must be a non-negative integer")
     tokens = context_length + vision_tokens
     inference_mem = estimate_kv_cache_memory(info, tokens * concurrency, kv_cache_dtype)
     recurrent_mem = estimate_recurrent_state_memory(info, concurrency, engine)
@@ -294,32 +300,44 @@ def estimate_llm_gpu_memory_details(
             raise ValueError("Vision workspace metadata is missing")
         v = info.vision
         patches = vision_tokens * v.spatial_merge_size**2
-        # A conservative unfused attention workspace, processed one image group
-        # at a time. Encoder weights are already included in checkpoint bytes.
+        image_patches = (
+            min(vision_tokens, vision_tokens_per_image or vision_tokens)
+            * v.spatial_merge_size**2
+        )
+        # Bound a batch of independent images, without cross-image scores.
+        # Without a declared per-image limit, use one image as the upper bound.
         vision_mem = (
             patches * (5 * v.hidden_size + 3 * v.intermediate_size) * 2
-            + patches**2 * v.num_attention_heads * 4
+            + patches * image_patches * v.num_attention_heads * 4
         ) / 1024**2
     overhead = 650.0
+    complex_weights = (
+        info.architecture_type in ("moe", "multimodal", "hybrid_attention")
+        or info.active_experts > 1
+        or "linear_attention" in (info.layer_types or [])
+        or info.vision is not None
+    )
     if info.weights_bytes is not None and model_format != "bnb":
         model_size_in_mb = info.weights_bytes / 1024**2
-        activation_mem = _compute_inference_only_activation_memory(tokens, info)
         if model_format == "ggufv2":
             overhead += context_length * 0.1
     elif model_format == "ggufv2":
-        if (
-            info.architecture_type in ("moe", "multimodal", "hybrid_attention")
-            or info.active_experts > 1
-            or "linear_attention" in (info.layer_types or [])
-        ):
+        if complex_weights:
             raise ValueError(
                 "Hybrid/MoE/multimodal GGUF requires checkpoint size metadata"
             )
         assert quantization is not None and quantization != "none"
         model_size_in_mb = _compute_model_size_gguf(info, quantization)
-        activation_mem = _compute_inference_only_activation_memory(tokens, info)
         overhead = overhead + context_length * 0.1
     else:
+        if (
+            complex_weights
+            and quantization is not None
+            and quantization.lower() not in ("none", "bf16", "fp16", "f16")
+        ):
+            raise ValueError(
+                "Quantized hybrid/MoE/multimodal models require checkpoint size metadata"
+            )
         if quantization is not None and quantization.lower() in (
             "none",
             "bf16",
@@ -334,13 +352,28 @@ def estimate_llm_gpu_memory_details(
 
         model_size = size_in_billions * 1000000000.0
         model_size_in_mb = _convert_to_mb_model_size(model_size, quantization)
+    serving_engine = (engine or "").lower() in ("vllm", "sglang")
+    if engine is None:
         activation_mem = _compute_inference_only_activation_memory(tokens, info)
-
-    if engine is not None:
-        # These are workspace bounds, not calibrated kernel peaks. Transformers
-        # may use eager attention; retain its quadratic score-buffer allowance.
-        # Chunked prefill is assumed only for the local engines' defaults.
-        # GPU schedulers and Transformers may profile a larger prefill batch.
+    elif serving_engine:
+        # Serving engines share a bounded prefill batch and fused attention
+        # buffers. The 16K-token profile covers larger hardware defaults;
+        # custom batching and attention settings require manual configuration.
+        batch = min(tokens * concurrency, 16384)
+        head_dim = info.head_dim or info.hidden_dim / info.heads
+        activation_mem = (
+            batch
+            * (
+                5 * info.hidden_dim
+                + 3 * (info.inter_dim * info.active_experts + info.shared_inter_dim)
+            )
+            * 2
+            + batch * info.heads * (head_dim + 4) * 4
+            + min(concurrency, batch) * info.vocab_size * 4
+        ) / 1024**2
+    else:
+        # Transformers can use eager attention. Local engines use their
+        # default prefill bound; these are estimates, not calibrated peaks.
         chunk = min(tokens, 2048) if engine.lower() in ("mlx", "llama.cpp") else tokens
         activation_mem = (
             chunk
@@ -352,8 +385,9 @@ def estimate_llm_gpu_memory_details(
             + chunk * tokens * info.heads * 2
             + chunk * info.vocab_size * 4
         ) / 1024**2
+    workspace_multiplier = 1 if serving_engine else concurrency
+    workspace = max(activation_mem, vision_mem) * workspace_multiplier
     prefix_mem = prefix_cache_bytes / 1024**2
-    workspace = max(activation_mem, vision_mem) * concurrency
 
     total_mem = ceil(
         inference_mem
@@ -370,7 +404,7 @@ def estimate_llm_gpu_memory_details(
         overhead=ceil(overhead),
         total=total_mem,
         recurrent_state_mem=ceil(recurrent_mem),
-        vision_mem=ceil(vision_mem * concurrency),
+        vision_mem=ceil(vision_mem * workspace_multiplier),
         prefix_cache_mem=ceil(prefix_mem),
     )
 

@@ -7,6 +7,15 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from .._compat import BaseModel, Field, validator
 
+MEMORY_WORKLOAD_LIMITS = {
+    "context_length": 2**31 - 1,
+    "concurrency": 65535,
+    "vision_tokens": 2**31 - 1,
+    "vision_tokens_per_image": 2**31 - 1,
+    "prefix_cache_bytes": 2**63 - 1,
+}
+MEMORY_WORKLOAD_FIELDS = set(MEMORY_WORKLOAD_LIMITS)
+
 
 class RecommendationModelNotFound(LookupError):
     """All workers confirmed the model is absent."""
@@ -21,6 +30,7 @@ class RecommendationConstraints(BaseModel):
     context_length: int = 2048
     concurrency: int = 1
     vision_tokens: int = 0
+    vision_tokens_per_image: int = 0
     prefix_cache_bytes: int = 0
 
     class Config:
@@ -77,24 +87,18 @@ class RecommendationConstraints(BaseModel):
             )
         return value
 
-    @validator(
-        "context_length", "concurrency", "vision_tokens", "prefix_cache_bytes", pre=True
-    )
+    @validator(*MEMORY_WORKLOAD_LIMITS, pre=True)
     def validate_memory_workload(cls, value, field):
         minimum = 1 if field.name in ("context_length", "concurrency") else 0
-        if type(value) is not int or value < minimum:
-            raise ValueError(f"{field.name} must be an integer >= {minimum}")
+        maximum = MEMORY_WORKLOAD_LIMITS[field.name]
+        if type(value) is not int or not minimum <= value <= maximum:
+            raise ValueError(
+                f"{field.name} must be an integer between {minimum} and {maximum}"
+            )
         return value
 
     def memory_options(self) -> dict:
-        return self.dict(
-            include={
-                "context_length",
-                "concurrency",
-                "vision_tokens",
-                "prefix_cache_bytes",
-            }
-        )
+        return self.dict(include=MEMORY_WORKLOAD_FIELDS)
 
 
 class ModelRecommendationRequest(BaseModel):
@@ -116,12 +120,10 @@ class ModelRecommendationRequest(BaseModel):
             raise ValueError(
                 "model_size_in_billions is only supported for LLM recommendations"
             )
-        if values.get("model_type", "LLM") != "LLM" and value.__fields_set__ & {
-            "context_length",
-            "concurrency",
-            "vision_tokens",
-            "prefix_cache_bytes",
-        }:
+        if (
+            values.get("model_type", "LLM") != "LLM"
+            and value.__fields_set__ & MEMORY_WORKLOAD_FIELDS
+        ):
             raise ValueError(
                 "Memory workload constraints are only supported for LLM recommendations"
             )
@@ -213,27 +215,25 @@ def recommendation_memory_budget(
     return min(values) * 0.8
 
 
-def recommendation_engine_budget(
+def recommendation_reservation_fits(
     worker: dict,
     constraints: RecommendationConstraints,
     device: str,
     engine: str,
     budget: Optional[float],
-) -> Optional[float]:
+) -> bool:
     """Check the single-GPU default reservation separately from model footprint.
 
-    Xinference sets vLLM utilization to 0.90 and single-GPU SGLang static
-    fraction to 0.88. Custom engine options require manual configuration.
+    Xinference sets vLLM utilization to 0.90 of total GPU memory. SGLang
+    derives its cache budget from memory available at initialization.
     Never interpret unknown total-memory counters as a measured reservation.
     """
-    fraction = {"vllm": 0.90, "sglang": 0.88}.get(engine.lower())
-    if fraction is None or device != "cuda" or budget is None:
-        return budget
+    if engine.lower() != "vllm" or device != "cuda" or budget is None:
+        return True
     indices = constraints.gpu_idx
     indices = [indices] if isinstance(indices, int) else indices
     indices = worker["gpu_indices"] if indices is None else indices
     memory = worker.get("memory", {})
-    reservations = []
     for index in indices:
         total = memory.get("gpu_total_mib", {}).get(f"gpu-{index}")
         free = memory.get("gpu_available_mib", {}).get(f"gpu-{index}")
@@ -242,14 +242,13 @@ def recommendation_engine_budget(
             or not math.isfinite(total)
             or total <= 0
         ):
-            return budget
+            continue
         if not isinstance(free, (float, int)) or not math.isfinite(free) or free < 0:
-            return budget
-        reserved = total * fraction
+            continue
+        reserved = total * 0.90
         if reserved > free:
-            return 0.0
-        reservations.append(reserved)
-    return min(budget, *reservations) if reservations else budget
+            return False
+    return True
 
 
 def select_recommendation(
@@ -307,10 +306,9 @@ def select_recommendation(
                 continue
             if engine.lower() == "mlx" and device != "mps":
                 continue
-            engine_budget = recommendation_engine_budget(
+            if not recommendation_reservation_fits(
                 worker, constraints, device, engine, budget
-            )
-            if engine_budget == 0:
+            ):
                 continue
             for param in params:
                 size = size_value(param["model_size_in_billions"])
@@ -345,8 +343,8 @@ def select_recommendation(
                     estimate = worker.get("engine_memory_estimates", {}).get(
                         (engine, key), worker.get("memory_estimates", {}).get(key)
                     )
-                    verified = engine_budget is not None and estimate is not None
-                    if verified and estimate > engine_budget:
+                    verified = budget is not None and estimate is not None
+                    if verified and estimate > budget:
                         continue
                     quant_order = [
                         "q4_k_m",
@@ -392,7 +390,7 @@ def select_recommendation(
                             installed,
                             cached,
                             estimate if verified else None,
-                            engine_budget,
+                            budget,
                         )
                     )
     warnings = list(warnings)

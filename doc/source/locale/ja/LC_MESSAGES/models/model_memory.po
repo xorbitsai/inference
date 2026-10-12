@@ -34,8 +34,8 @@ msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
 msgstr "アルゴリズム出典：https://github.com/RahulSChand/gpu_poor"
 
 #: ../../source/models/model_memory.rst:11
-msgid "Output: model_mem, kv_cache, overhead, active_mem"
-msgstr "model_mem, kv_cache, overhead, active_mem"
+msgid "Output: model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
+msgstr "model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
 
 #: ../../source/models/model_memory.rst:13
 msgid ""
@@ -137,3 +137,6 @@ msgstr ""
 "環境変数 ``HF_ENDPOINT`` を使用して HuggingFace "
 "サーバーのエンドポイントを設定できます。例えば、ネットワークが不安定な場合は hf-mirror をエンドポイントとして選択できます。詳細は "
 ":ref:`このドキュメント <models_download>` を参照してください。"
+
+msgid "The total includes recurrent state and retained prefix cache. Activation memory includes vision workspace when present, so vision workspace is not added again. Sliding attention uses a full-attention cache upper bound. Unsupported layouts or missing checkpoint-size facts produce an explanatory error instead of an estimate."
+msgstr "合計には再帰状態と保持プレフィックスキャッシュを含めます。視覚ワークスペースは存在する場合に活性化メモリへ含めるため、重複加算しません。スライディング注意には完全注意キャッシュを上限として使用します。未対応の構成やチェックポイントサイズ情報の不足には、推定値ではなく理由を示すエラーを出力します。"

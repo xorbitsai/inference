@@ -52,8 +52,9 @@ Unknown layouts, including MLA, remain unverified.
 Defaults are one sequence, 2048 text tokens, FP16 KV cache, no image tokens and
 no retained prefix cache. The budget is 80% of currently free memory: the lowest
 free memory among eligible GPUs, or available system memory on CPU and Apple
-Silicon. Known vLLM and SGLang default GPU reservations are checked separately
-when total memory is known. Multi-GPU requests keep compatibility-only selection.
+Silicon. The default vLLM GPU reservation is checked separately when total memory
+is known; SGLang budgets from memory available at initialization. Multi-GPU
+requests keep compatibility-only selection.
 Known oversized candidates are excluded. Workspace bounds are estimates, not
 measured peaks; custom engine settings require manual configuration. No resources
 are reserved.
@@ -71,7 +72,10 @@ output tokens) and ``concurrency``, and non-negative integers ``vision_tokens``
 (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained
 cache across the instance). These change the estimation workload only; they do
 not set launch or request limits. Image workloads require vision metadata.
-Concurrency multiplies caches and workspace, while model weights are counted once.
+For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded
+token count; zero assumes all image tokens belong to one image. Cached states grow
+with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a
+16,384-token prefill workspace profile with fused attention and sampled-row logits.
 
 .. code-block:: bash
 

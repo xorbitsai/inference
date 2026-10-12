@@ -112,9 +112,8 @@ def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
     # Unknown/hybrid layouts must not silently look like ordinary dense attention.
     config["model_type"] = architecture
     if (
-        "intermediate_size" not in config
-        and prefix + "expert_feed_forward_length" in fields
-    ):
+        "intermediate_size" not in config or config.get("num_experts")
+    ) and prefix + "expert_feed_forward_length" in fields:
         config["intermediate_size"] = fields[prefix + "expert_feed_forward_length"]
     if architecture in ("qwen35", "qwen35moe", "qwen3next"):
         for name, key in {

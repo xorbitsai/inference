@@ -113,7 +113,11 @@ count as the resident weight size. `weights_source` records the selected revisio
 pinned when the hub provides a commit;
 `weights_sha256` hashes the collected index/header, or the filename-size manifest
 for GGUF, not the tensor payload. Missing sizes retain nominal weight estimates
-when supported; hybrid, MoE and multimodal GGUF require a measured checkpoint size.
+when supported; quantized hybrid, MoE and multimodal models require a measured
+checkpoint size. GGUF collection falls back to a streamed one-byte range response
+when HEAD omits size. Config-only refreshes and failed weight reads preserve
+previous sizes only when the config hash and source remain unchanged. Removed
+quantizations are pruned.
 
 Template repositories with separate quantization checkpoints store
 `model_metadata_by_quantization` in each source. Runtime flattening selects
@@ -140,7 +144,9 @@ means MHA. Weight quantization does not determine KV cache precision; the
 rounding, across the whole model rather than per GPU. Pass the sum of cached
 tokens across requests for concurrent sequences without prefix sharing. The
 full model estimator accepts `concurrency` and counts `context_length` text tokens
-plus `vision_tokens` per sequence. Only full-attention layers contribute KV cache.
+plus `vision_tokens` per sequence. Sliding-attention layers use the conservative
+full-cache bound. `vision_tokens_per_image` bounds attention within each image;
+zero treats all image tokens as one image. No attention scores cross image boundaries.
 `layer_types` or `full_attention_interval` records the layout; Gated DeltaNet's five
 `linear_*` dimensions describe its FP32 recurrent matrix and convolution history.
 Missing or unfamiliar layouts remain unverified, including MLA and other state
@@ -148,18 +154,26 @@ spaces. Optional `vision` dimensions bound encoder workspace. Additional retaine
 cache is supplied separately as `prefix_cache_bytes`.
 
 The optional `engine` selects conservative workspace bounds. MLX and llama.cpp
-use a 2048-token prefill bound; Transformers, vLLM and SGLang use the full requested
-context bound. These account for attention scores, active-expert FFNs, logits and
-vision encoding, not calibrated kernel peaks. Weight storage is counted once;
-concurrent sequences multiply caches and workspace. Without `engine`, ordinary
+use a 2048-token prefill bound; Transformers retains the full requested context
+and eager-attention bound. CUDA profiles for vLLM and SGLang use a shared 16,384-token batch profile,
+fused-attention buffers and logits only for sampled rows. Their prefill workspace
+is not multiplied by sequence count after reaching that batch cap. Other devices
+retain an eager-attention bound. These account
+for active-expert FFNs and vision encoding, not calibrated kernel peaks. Weight
+storage is counted once; cached states grow with concurrency. Without `engine`, ordinary
 models retain the legacy activation approximation.
 
 The footprint does not model cache block padding or all runtime allocations.
 LLM recommendations compare it with 80% of the worker's current free memory,
 defaulting to one sequence, 2048 text tokens, FP16 KV cache and no image or retained
-prefix cache. CUDA single-GPU defaults for vLLM (90% of total memory) and SGLang
-(88%) are checked separately against free memory when normalized total counters
-are available. Workload constraints affect estimates, not launch settings.
+prefix cache. The CUDA single-GPU vLLM default (90% of total memory) is checked
+separately against free memory when normalized total counters are available.
+SGLang derives its cache budget from available initialization memory. Automatic
+placement still uses the smallest free-memory value among eligible devices,
+because the allocator chooses by process load rather than free-memory counters.
+Workload integers are bounded to avoid arithmetic overflow; they affect estimates,
+not launch settings. The CLI prints recurrent state and retained prefix cache
+separately and reports unsupported estimates without a traceback.
 Single-device candidates with a usable estimate are ranked
 largest-first; known oversized candidates are excluded. Missing estimates or
 multi-GPU requests retain compatibility-only selection. Other model types do not

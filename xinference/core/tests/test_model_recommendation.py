@@ -94,7 +94,7 @@ def test_engine_specific_estimates_are_not_shared():
     assert result["config"]["model_size_in_billions"] == 14
 
 
-@pytest.mark.parametrize("engine,fraction", [("vLLM", 0.90), ("SGLang", 0.88)])
+@pytest.mark.parametrize("engine,fraction", [("vLLM", 0.90)])
 def test_default_engine_reservation_must_fit_free_memory(engine, fraction):
     worker = memory_worker()
     worker["engines"][engine] = worker["engines"]["transformers"]
@@ -149,6 +149,7 @@ async def test_supervisor_passes_memory_workload_to_worker():
         "context_length": 8192,
         "concurrency": 2,
         "vision_tokens": 0,
+        "vision_tokens_per_image": 0,
         "prefix_cache_bytes": 0,
     }
 
@@ -552,19 +553,21 @@ async def test_qwen3_mlx_recommendation_uses_all_sizes_offline(monkeypatch, hub)
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
 @pytest.mark.parametrize(
     "engine,model_format,quantization,sizes,device,free,expected",
     [
         ("MLX", "mlx", "4bit", ("0_8", 4, 9, 27, 35), "mps", 20, 9),
         ("MLX", "mlx", "4bit", ("0_8", 4, 9, 27, 35), "mps", 48, 35),
         ("Transformers", "pytorch", "none", ("0_8", 4, 9, 27, 35), "cuda", 32, 9),
-        ("vLLM", "gptq", "Int4", (27, 35), "cuda", 32, 35),
+        ("vLLM", "gptq", "Int4", (27, 35), "cuda", 64, 27),
+        ("vLLM", "gptq", "Int4", (27, 35), "npu", 64, 27),
         ("SGLang", "fp8", "FP8", (27, 35), "cuda", 64, 35),
         ("llama.cpp", "ggufv2", "Q4_K_M", ("0_8", 4, 9, 27, 35), "cuda", 32, 35),
     ],
 )
 async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
-    monkeypatch, engine, model_format, quantization, sizes, device, free, expected
+    monkeypatch, hub, engine, model_format, quantization, sizes, device, free, expected
 ):
     from xinference.core.worker import WorkerActor
     from xinference.model.llm import llm_family
@@ -575,7 +578,9 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
     monkeypatch.setattr(llm_family, "cache_model_config", no_network)
     monkeypatch.setattr("requests.get", no_network)
     monkeypatch.setattr("requests.head", no_network)
-    monkeypatch.setattr(llm_family, "download_from_modelscope", lambda: False)
+    monkeypatch.setattr(
+        llm_family, "download_from_modelscope", lambda: hub == "modelscope"
+    )
     monkeypatch.setattr(llm_family, "download_from_openmind_hub", lambda: False)
     monkeypatch.setattr(llm_family, "download_from_csghub", lambda: False)
     monkeypatch.setattr("xinference.device_utils.get_available_device", lambda: device)
@@ -610,7 +615,31 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
         query_engines_by_model_name=AsyncMock(return_value=engines),
     )
     info = await WorkerActor.get_model_recommendation_info(worker, "qwen3.5", False)
-    assert len(info["engine_memory_estimates"]) == len(sizes)
+    assert len(info["engine_memory_estimates"]) == len(sizes) - (
+        1 if model_format == "gptq" else 0
+    )
+    if model_format == "mlx":
+        workload = await WorkerActor.get_model_recommendation_info(
+            worker,
+            "qwen3.5",
+            False,
+            memory_options={
+                "context_length": 8192,
+                "concurrency": 2,
+                "vision_tokens": 128,
+                "vision_tokens_per_image": 64,
+                "prefix_cache_bytes": 1024**3,
+            },
+        )
+        assert all(
+            workload["engine_memory_estimates"][key] > value + 1024
+            for key, value in info["engine_memory_estimates"].items()
+        )
+    if device == "npu":
+        long = await WorkerActor.get_model_recommendation_info(
+            worker, "qwen3.5", False, memory_options={"context_length": 32768}
+        )
+        assert min(long["engine_memory_estimates"].values()) > 64 * 1024
     info["worker_ip"] = "test:1"
     result = select_recommendation(
         ModelRecommendationRequest(model_name="qwen3.5"), [info], []
@@ -618,6 +647,69 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
     assert result["config"]["model_engine"] == engine
     assert result["config"]["model_size_in_billions"] == expected
     assert any(reason["code"] == "memory_estimate" for reason in result["reasons"])
+
+
+def test_sglang_uses_available_memory_and_zero_budget_is_not_a_sentinel():
+    worker = memory_worker()
+    worker["engines"] = {"SGLang": worker["engines"]["transformers"]}
+    worker["installed_engines"] = worker["engines"]
+    worker["memory"]["gpu_total_mib"] = {"gpu-0": 80000, "gpu-1": 80000}
+    assert recommend([worker])["config"]["model_engine"] == "SGLang"
+    worker["memory"]["gpu_available_mib"] = {"gpu-0": 0, "gpu-1": 0}
+    worker["memory_estimates"] = {}
+    assert recommend([worker])["config"]["model_size_in_billions"] == 4
+
+
+@pytest.mark.parametrize(
+    "engine,device,budget,total",
+    [
+        ("vLLM", "cuda", 1000, None),
+        ("vLLM", "cuda", 1000, float("nan")),
+        ("vLLM", "mps", 1000, 24000),
+        ("vLLM", "cuda", None, 24000),
+        ("SGLang", "cuda", 1000, 24000),
+    ],
+)
+def test_reservation_unknown_and_non_cuda_fallbacks(engine, device, budget, total):
+    from xinference.core.model_recommendation import (
+        RecommendationConstraints,
+        recommendation_reservation_fits,
+    )
+
+    worker = memory_worker()
+    worker["memory"]["gpu_total_mib"] = {"gpu-0": total, "gpu-1": total}
+    assert recommendation_reservation_fits(
+        worker, RecommendationConstraints(), device, engine, budget
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("context_length", 2**31),
+        ("concurrency", 65536),
+        ("vision_tokens", 2**31),
+        ("vision_tokens_per_image", 2**31),
+        ("prefix_cache_bytes", 10**400),
+    ],
+)
+def test_unbounded_memory_workload_is_rejected(field, value):
+    with pytest.raises(ValidationError):
+        ModelRecommendationRequest(model_name="test", constraints={field: value})
+
+
+@pytest.mark.asyncio
+async def test_supervisor_default_request_omits_workload_kwargs():
+    from xinference.core.supervisor import SupervisorActor
+
+    worker = SimpleNamespace(
+        get_model_recommendation_info=AsyncMock(return_value=snapshot())
+    )
+    supervisor = SimpleNamespace(_worker_address_to_worker={"test:1": worker})
+    await SupervisorActor.recommend_model(supervisor, {"model_name": "test"})
+    assert worker.get_model_recommendation_info.call_args.kwargs == {
+        "model_type": "LLM"
+    }
 
 
 @pytest.mark.parametrize("model_type", ["embedding", "rerank", "audio"])

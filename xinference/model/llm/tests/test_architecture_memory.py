@@ -92,6 +92,7 @@ def test_hybrid_cache_for_every_engine(hybrid, engine, model_format, quantizatio
 
 
 def test_recurrent_state_does_not_grow_with_context(hybrid):
+    hybrid.weights_bytes = 20 * 1024**3
     info = ModelLayersInfo.from_metadata(hybrid)
     assert estimate_recurrent_state_memory(info, 1, "MLX") == pytest.approx(61.40625)
     assert estimate_recurrent_state_memory(info, 1, "Transformers") > 61.40625
@@ -158,6 +159,7 @@ def test_moe_gguf_does_not_use_a_dense_weight_formula(hybrid):
 
 
 def test_engine_workspace_bound_changes_for_long_context(hybrid):
+    hybrid.weights_bytes = 20 * 1024**3
     info = ModelLayersInfo.from_metadata(hybrid)
     mlx = estimate_llm_gpu_memory_details(info, 35, "4bit", 8192, "mlx", engine="MLX")
     transformers = estimate_llm_gpu_memory_details(
@@ -168,6 +170,7 @@ def test_engine_workspace_bound_changes_for_long_context(hybrid):
 
 
 def test_vision_and_prefix_cache_are_separate(hybrid):
+    hybrid.weights_bytes = 20 * 1024**3
     info = ModelLayersInfo.from_metadata(hybrid)
     text = estimate_llm_gpu_memory_details(info, 35, "4bit", 2048, "mlx", engine="MLX")
     image = estimate_llm_gpu_memory_details(
@@ -259,3 +262,148 @@ def test_gguf_sizes_sum_shards_and_only_one_projector(tmp_path, monkeypatch):
         ("vision-f16.gguf", "vision-f32.gguf"),
     )
     assert collect_weights_size(job, tmp_path, 1)["weights_bytes"] == 3400
+
+
+@pytest.mark.parametrize(
+    "fmt,quant", [("gptq", "Int4"), ("awq", "Int4"), ("fp8", "FP8"), ("mlx", "4bit")]
+)
+def test_quantized_hybrid_without_checkpoint_size_is_unverified(hybrid, fmt, quant):
+    with pytest.raises(ValueError, match="require checkpoint size"):
+        estimate_llm_gpu_memory_details(
+            ModelLayersInfo.from_metadata(hybrid), 35, quant, 2048, fmt
+        )
+
+
+@pytest.mark.parametrize("engine", ["vLLM", "SGLang"])
+def test_serving_workspace_is_bounded_and_shared(hybrid, engine):
+    hybrid.weights_bytes = 20 * 1024**3
+    info = ModelLayersInfo.from_metadata(hybrid)
+    first = estimate_llm_gpu_memory_details(
+        info, 35, "FP8", 32768, "fp8", engine=engine
+    )
+    long = estimate_llm_gpu_memory_details(
+        info, 35, "FP8", 65536, "fp8", engine=engine, concurrency=4
+    )
+    assert first.activation_mem < 2 * 1024
+    assert long.activation_mem < first.activation_mem + 10
+    assert long.kv_cache_mem == 8 * first.kv_cache_mem
+    assert long.recurrent_state_mem >= 4 * first.recurrent_state_mem - 3
+
+
+def test_image_attention_does_not_cross_image_boundaries(hybrid):
+    hybrid.weights_bytes = 20 * 1024**3
+    info = ModelLayersInfo.from_metadata(hybrid)
+    image = estimate_llm_gpu_memory_details(
+        info, 35, "4bit", 2048, "mlx", vision_tokens=256, vision_tokens_per_image=256
+    )
+    four = estimate_llm_gpu_memory_details(
+        info, 35, "4bit", 2048, "mlx", vision_tokens=1024, vision_tokens_per_image=256
+    )
+    assert four.vision_mem <= 4 * image.vision_mem
+
+
+def test_sliding_attention_uses_full_cache_upper_bound(hybrid):
+    hybrid.layer_types = ["sliding_attention"] * hybrid.num_hidden_layers
+    info = ModelLayersInfo.from_metadata(hybrid)
+    from ..memory import estimate_kv_cache_memory
+
+    assert estimate_kv_cache_memory(info, 32768) == 2560
+
+
+@pytest.mark.parametrize(
+    "headers,status,size",
+    [
+        ({"Content-Range": "bytes 0-0/123456", "Content-Length": "1"}, 206, 123456),
+        ({"Content-Length": "123456"}, 200, 123456),
+        ({"Content-Range": "bytes 0-0/*", "Content-Length": "1"}, 206, None),
+    ],
+)
+def test_gguf_range_size_fallback(tmp_path, monkeypatch, headers, status, size):
+    head = MagicMock()
+    head.__enter__.return_value = head
+    head.headers = {}
+    get = MagicMock()
+    get.__enter__.return_value = get
+    get.headers = headers
+    get.status_code = status
+    monkeypatch.setattr("requests.head", MagicMock(return_value=head))
+    request_get = MagicMock(return_value=get)
+    monkeypatch.setattr("requests.get", request_get)
+    result = collect_weights_size(
+        ("modelscope", "test/model", "master", ("model.gguf",), ()), tmp_path, 1
+    )
+    if size is None:
+        assert "error" in result
+    else:
+        assert result["weights_bytes"] == size
+    assert request_get.call_args.kwargs["headers"]["Range"] == "bytes=0-0"
+    get.raw.read.assert_not_called()
+    get.iter_content.assert_not_called()
+
+
+def test_single_safetensors_fallback_is_header_only(tmp_path, monkeypatch):
+    index = MagicMock()
+    index.__enter__.return_value = index
+    index.status_code = 404
+    header = json.dumps({"w": {"data_offsets": [0, 20]}}).encode()
+    stream = io.BytesIO(struct.pack("<Q", len(header)) + header + b"WEIGHT PAYLOAD")
+    weights = MagicMock()
+    weights.__enter__.return_value = weights
+    weights.raw = stream
+    get = MagicMock(side_effect=[index, weights])
+    monkeypatch.setattr("requests.get", get)
+    result = collect_weights_size(("huggingface", "test/model", "pinned"), tmp_path, 1)
+    assert result["weights_bytes"] == 20
+    assert stream.tell() == 8 + len(header)
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        b"[]",
+        b"{}",
+        b'{"w":{"data_offsets":[1,0]}}',
+        b'{"w":{"data_offsets":[false,20]}}',
+    ],
+)
+def test_invalid_safetensors_header_is_rejected(header):
+    with pytest.raises(ValueError):
+        read_safetensors_size(io.BytesIO(struct.pack("<Q", len(header)) + header))
+
+
+def test_moe_prefers_expert_ffn_dimensions(hybrid):
+    config = hybrid.dict()
+    config.update(intermediate_size=6144, moe_intermediate_size=768)
+    assert ModelMetadata.from_config(config).intermediate_size == 768
+
+
+def test_cli_prints_new_components_and_reports_unsupported(monkeypatch):
+    from click.testing import CliRunner
+
+    from xinference.deploy.cmdline import cal_model_mem
+
+    from ..memory import ModelMemInfo
+
+    monkeypatch.setattr(
+        "xinference.model.llm.memory.estimate_llm_gpu_memory",
+        lambda **kwargs: ModelMemInfo(
+            10, 2, 4, 1, 25, recurrent_state_mem=3, prefix_cache_mem=5
+        ),
+    )
+    args = ["-s", "35", "-f", "mlx", "-q", "4bit", "-c", "2048"]
+    result = CliRunner().invoke(cal_model_mem, args)
+    assert result.exit_code == 0
+    assert (
+        "recurrent state: 3 MB" in result.output
+        and "retained prefix cache: 5 MB" in result.output
+    )
+
+    def unsupported(**kwargs):
+        raise ValueError("unknown_attention_layout")
+
+    monkeypatch.setattr(
+        "xinference.model.llm.memory.estimate_llm_gpu_memory", unsupported
+    )
+    result = CliRunner().invoke(cal_model_mem, args)
+    assert result.exit_code == 1
+    assert "Memory estimate unavailable: unknown_attention_layout" in result.output
