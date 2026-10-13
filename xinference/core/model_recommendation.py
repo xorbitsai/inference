@@ -165,22 +165,15 @@ def recommendation_memory_snapshot() -> dict:
         pass
     try:
         devices = get_gpu_info()
-        snapshot["gpu_available_mib"] = {
-            # Only backend-normalized measurements are usable. Legacy `free`
-            # can be a sentinel or have backend-specific units.
-            (f"gpu-{value['device_index']}" if "device_index" in value else key): value[
-                "free_memory_mib"
-            ]
-            for key, value in devices.items()
-            if "free_memory_mib" in value
-        }
-        totals = {
-            (f"gpu-{value['device_index']}" if "device_index" in value else key): value[
-                "total_memory_mib"
-            ]
-            for key, value in devices.items()
-            if "total_memory_mib" in value
-        }
+        available, totals = {}, {}
+        for key, value in devices.items():
+            key = f"gpu-{value['device_index']}" if "device_index" in value else key
+            # Legacy `free` can be a sentinel or have backend-specific units.
+            if "free_memory_mib" in value:
+                available[key] = value["free_memory_mib"]
+            if "total_memory_mib" in value:
+                totals[key] = value["total_memory_mib"]
+        snapshot["gpu_available_mib"] = available
         if totals:
             snapshot["gpu_total_mib"] = totals
     except Exception:
@@ -258,6 +251,7 @@ def select_recommendation(
         return select_non_llm_recommendation(request, workers, warnings)
     constraints = request.constraints
     candidates = []
+    warnings = list(warnings)
     for worker in workers:
         indices = constraints.gpu_idx
         indices = [indices] if isinstance(indices, int) else indices
@@ -309,6 +303,12 @@ def select_recommendation(
             if not recommendation_reservation_fits(
                 worker, constraints, device, engine, budget
             ):
+                warnings.append(
+                    message(
+                        "vllm_reservation_exceeds_free",
+                        f"vLLM's default GPU reservation exceeds free memory on worker {worker['worker_ip']}; its candidates were excluded.",
+                    )
+                )
                 continue
             for param in params:
                 size = size_value(param["model_size_in_billions"])
@@ -393,7 +393,6 @@ def select_recommendation(
                             budget,
                         )
                     )
-    warnings = list(warnings)
     warnings.append(
         message(
             "memory_not_verified",
@@ -430,6 +429,15 @@ def select_recommendation(
             if k in ("n_gpu", "gpu_idx")
         }
     )
+    tokens = constraints.context_length + constraints.vision_tokens
+    if engine.lower() == "vllm":
+        config["max_model_len"] = tokens
+    elif engine.lower() == "sglang":
+        config["context_length"] = tokens
+    elif engine.lower() == "llama.cpp":
+        # llama.cpp divides the instance's context among its parallel slots.
+        config["n_ctx"] = tokens * constraints.concurrency
+        config["n_parallel"] = constraints.concurrency
     reasons = [
         message(
             "selection_policy",
@@ -474,7 +482,7 @@ def select_recommendation(
         reasons.append(
             message(
                 "memory_estimate",
-                f"Estimated {estimate} MiB against a memory budget of {budget:.0f} MiB (at most 80% of free memory). Assumes {constraints.concurrency} sequence(s), {constraints.context_length} text tokens plus {constraints.vision_tokens} vision tokens per sequence, FP16 KV cache and {constraints.prefix_cache_bytes} bytes of retained prefix cache. Includes recurrent state and conservative engine workspace bounds; not a launch guarantee. Multi-GPU sharding is not modeled.",
+                f"Estimated {estimate} MiB against a memory budget of {budget:.0f} MiB (at most 80% of free memory). Assumes {constraints.concurrency} sequence(s), {constraints.context_length} text tokens plus {constraints.vision_tokens} vision tokens per sequence, FP16 KV cache and {constraints.prefix_cache_bytes} bytes of retained prefix cache. Includes recurrent state and conservative engine workspace bounds; not a launch guarantee. Engine preallocation and multi-GPU sharding are not modeled.",
             )
         )
     if cached:

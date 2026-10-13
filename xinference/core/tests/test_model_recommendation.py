@@ -100,7 +100,9 @@ def test_default_engine_reservation_must_fit_free_memory(engine, fraction):
     worker["engines"][engine] = worker["engines"]["transformers"]
     worker["installed_engines"][engine] = worker["engines"][engine]
     worker["memory"]["gpu_total_mib"] = {"gpu-0": 24000, "gpu-1": 24000}
-    assert recommend([worker])["config"]["model_engine"] == "transformers"
+    result = recommend([worker])
+    assert result["config"]["model_engine"] == "transformers"
+    assert any(w["code"] == "vllm_reservation_exceeds_free" for w in result["warnings"])
     worker["memory"]["gpu_available_mib"] = {"gpu-0": 24000, "gpu-1": 24000}
     assert recommend([worker])["config"]["model_engine"] == engine
     worker["memory"]["gpu_available_mib"]["gpu-1"] = 24000 * fraction - 1
@@ -561,6 +563,7 @@ async def test_qwen3_mlx_recommendation_uses_all_sizes_offline(monkeypatch, hub)
         ("MLX", "mlx", "4bit", ("0_8", 4, 9, 27, 35), "mps", 48, 35),
         ("Transformers", "pytorch", "none", ("0_8", 4, 9, 27, 35), "cuda", 32, 9),
         ("vLLM", "gptq", "Int4", (27, 35), "cuda", 64, 27),
+        ("vLLM", "awq", "Int4", (9, 27), "cuda", 32, 27),
         ("vLLM", "gptq", "Int4", (27, 35), "npu", 64, 27),
         ("SGLang", "fp8", "FP8", (27, 35), "cuda", 64, 35),
         ("llama.cpp", "ggufv2", "Q4_K_M", ("0_8", 4, 9, 27, 35), "cuda", 32, 35),
@@ -646,7 +649,78 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
     )
     assert result["config"]["model_engine"] == engine
     assert result["config"]["model_size_in_billions"] == expected
+    if engine == "vLLM":
+        assert result["config"]["max_model_len"] == 2048
+    elif engine == "llama.cpp":
+        assert result["config"]["n_ctx"] == 2048
+        assert result["config"]["n_parallel"] == 1
     assert any(reason["code"] == "memory_estimate" for reason in result["reasons"])
+
+
+@pytest.mark.parametrize(
+    "engine,expected",
+    [
+        ("vLLM", {"max_model_len": 8320}),
+        ("SGLang", {"context_length": 8320}),
+        ("llama.cpp", {"n_ctx": 16640, "n_parallel": 2}),
+    ],
+)
+def test_recommendation_launch_context_matches_workload(engine, expected):
+    result = recommend(
+        [snapshot(engine=engine)], context_length=8192, vision_tokens=128, concurrency=2
+    )
+    for key, value in expected.items():
+        assert result["config"][key] == value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("context_length", [2048, 8192])
+async def test_supervisor_retries_older_workers_without_trusting_estimates(
+    context_length,
+):
+    from xinference.core.supervisor import SupervisorActor
+
+    old = memory_worker()
+
+    async def discover(model_name, enable_virtual_env, *, model_type):
+        return old
+
+    worker = SimpleNamespace(
+        get_model_recommendation_info=AsyncMock(side_effect=discover)
+    )
+    supervisor = SimpleNamespace(_worker_address_to_worker={"test:1": worker})
+    result = await SupervisorActor.recommend_model(
+        supervisor,
+        {"model_name": "test", "constraints": {"context_length": context_length}},
+    )
+    assert worker.get_model_recommendation_info.await_count == 2
+    assert worker.get_model_recommendation_info.call_args.kwargs == {
+        "model_type": "LLM"
+    }
+    assert result["config"]["model_size_in_billions"] == 4
+    assert not any(r["code"] == "memory_estimate" for r in result["reasons"])
+    assert any(
+        w["code"] == "worker_memory_options_unsupported" for w in result["warnings"]
+    )
+    assert old["memory_estimates"]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_does_not_retry_internal_type_errors():
+    from xinference.core.supervisor import SupervisorActor
+
+    worker = SimpleNamespace(
+        get_model_recommendation_info=AsyncMock(
+            side_effect=TypeError("invalid memory_options value")
+        )
+    )
+    result = await SupervisorActor.recommend_model(
+        SimpleNamespace(_worker_address_to_worker={"test:1": worker}),
+        {"model_name": "test", "constraints": {"context_length": 8192}},
+    )
+    assert worker.get_model_recommendation_info.await_count == 1
+    assert result["status"] == "no_recommendation"
+    assert any(w["code"] == "worker_discovery_failed" for w in result["warnings"])
 
 
 def test_sglang_uses_available_memory_and_zero_budget_is_not_a_sentinel():

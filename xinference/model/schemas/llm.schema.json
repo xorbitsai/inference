@@ -286,6 +286,8 @@
     "visionMetadata": {
       "type": "object",
       "properties": {
+        "config_source": { "type": ["string", "null"] },
+        "config_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
         "hidden_size": {
           "type": "integer",
           "minimum": 1

@@ -45,6 +45,15 @@ def config_url(hub: str, repo: str, revision: str) -> str:
     raise ValueError(f"Unsupported hub: {hub}")
 
 
+def response_revision(response) -> Optional[str]:
+    # HF LFS/CDN responses carry the repository commit on the redirect hop.
+    for hop in [response, *reversed(response.history)]:
+        commit = hop.headers.get("x-repo-commit")
+        if commit:
+            return commit
+    return None
+
+
 def collect_config(job: tuple, cache_dir: Path, timeout: float) -> dict:
     import requests
 
@@ -64,7 +73,7 @@ def collect_config(job: tuple, cache_dir: Path, timeout: float) -> dict:
             config = json.loads(content)
             if not isinstance(config, dict):
                 raise ValueError("config.json must contain an object")
-            commit = response.headers.get("x-repo-commit")
+            commit = response_revision(response)
             source = config_url(hub, repo, commit) if commit else url
             result = {
                 "config": config,
@@ -107,7 +116,7 @@ def collect_gguf_config(
             # read_gguf_config stops at the end of key/value metadata, before
             # tensor descriptors or payloads even when the server ignores Range.
             config, digest, consumed = read_gguf_config(response.raw)
-            commit = response.headers.get("x-repo-commit")
+            commit = response_revision(response)
             source = (
                 config_url(hub, repo, commit).replace(
                     "config.json", quote(filename, safe="/")
@@ -172,6 +181,20 @@ def checkpoint_weight_job(
     if not files:
         return None
     return pinned + (files, projectors)
+
+
+def weights_match_job(metadata: dict, job: Optional[tuple]) -> bool:
+    if job is None:
+        return False
+    base = config_url(*job[:3])
+    names = (
+        (job[3][0],)
+        if len(job) == 5
+        else ("model.safetensors", "model.safetensors.index.json")
+    )
+    return metadata.get("weights_source") in {
+        base.replace("config.json", quote(name, safe="/")) for name in names
+    }
 
 
 def collect_catalog(
@@ -261,6 +284,26 @@ def collect_catalog(
         for quant, job in quant_jobs.items()
         if "config" in results[job]
     }
+    # GGUF text files may omit the vision tower stored in a separate projector.
+    projector_jobs = {}
+    for (index, quant), weight_job in weight_jobs_by_spec.items():
+        if weight_job is None or len(weight_job) != 5 or not weight_job[4]:
+            continue
+        job = entries[index][-1][quant]
+        if results[job]["config"].get("vision_config"):
+            continue
+        projector_jobs[index, quant] = (weight_job[:3], weight_job[4][0])
+    projector_results = {}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        projector_pending = {
+            pool.submit(collect_gguf_config, job, filename, cache, timeout): (
+                job,
+                filename,
+            )
+            for job, filename in set(projector_jobs.values())
+        }
+        for future in as_completed(projector_pending):
+            projector_results[projector_pending[future]] = future.result()
     if weights:
         from .weights_metadata import collect_weights_size
 
@@ -279,6 +322,16 @@ def collect_catalog(
         }
         if not old_entries and source.get("model_metadata"):
             by_quant = dict.fromkeys(quant_jobs, source["model_metadata"])
+        for quant, previous in list(by_quant.items()):
+            previous_job = checkpoint_weight_job(
+                spec, source, quant, quant_jobs[quant], previous
+            )
+            if not weights_match_job(previous, previous_job):
+                by_quant[quant] = {
+                    name: value
+                    for name, value in previous.items()
+                    if not name.startswith("weights_")
+                }
         for quant, job in quant_jobs.items():
             result = results[job]
             row = {
@@ -294,7 +347,23 @@ def collect_catalog(
             try:
                 if "error" in result:
                     raise ValueError(result["error"])
-                metadata = ModelMetadata.from_config(result["config"])
+                config = result["config"]
+                projector_job = projector_jobs.get((index, quant))
+                projector = (
+                    projector_results.get(projector_job) if projector_job else None
+                )
+                if projector:
+                    vision = projector.get("config", {}).get("vision_config")
+                    if vision:
+                        config = {**config, "vision_config": vision}
+                    else:
+                        row["vision_reason"] = projector.get(
+                            "error", "Projector vision dimensions are unavailable"
+                        )
+                metadata = ModelMetadata.from_config(config)
+                if projector and metadata.vision:
+                    metadata.vision.config_source = projector["config_source"]
+                    metadata.vision.config_sha256 = projector["config_sha256"]
                 metadata.config_source = result["config_source"]
                 metadata.config_sha256 = result["config_sha256"]
                 if (
@@ -312,15 +381,16 @@ def collect_catalog(
                         "full_attention"
                     ] * metadata.num_hidden_layers
                 previous = by_quant.get(quant, {})
+                weight_job = weight_jobs_by_spec.get((index, quant))
                 if (
                     metadata.config_sha256
                     and previous.get("config_sha256") == metadata.config_sha256
                     and previous.get("config_source") == metadata.config_source
+                    and weights_match_job(previous, weight_job)
                 ):
                     for name in ("weights_bytes", "weights_source", "weights_sha256"):
                         if name in previous:
                             setattr(metadata, name, previous[name])
-                weight_job = weight_jobs_by_spec.get((index, quant))
                 weight_info = (
                     weight_results.get(weight_job) if weight_job is not None else None
                 )
@@ -339,7 +409,10 @@ def collect_catalog(
                 if reason:
                     row["reason"] = reason
             except ValueError as exc:
-                row.update(status="unavailable", reason=str(exc))
+                row.update(
+                    status="stale_retained" if quant in by_quant else "unavailable",
+                    reason=str(exc),
+                )
             report.append(row)
         if not by_quant:
             continue
@@ -348,7 +421,11 @@ def collect_catalog(
         # One GGUF config can describe several quantizations with different
         # resident weight sizes. Share facts only when the entire object agrees.
         distinct = {json.dumps(value, sort_keys=True) for value in by_quant.values()}
-        if len(set(quant_jobs.values())) == 1 and len(distinct) == 1:
+        if (
+            set(by_quant) == set(quant_jobs)
+            and len(set(quant_jobs.values())) == 1
+            and len(distinct) == 1
+        ):
             source["model_metadata"] = next(iter(by_quant.values()))
             source.pop("model_metadata_by_quantization", None)
         else:

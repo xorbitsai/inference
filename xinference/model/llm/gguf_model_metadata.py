@@ -111,6 +111,17 @@ def read_gguf_config(stream, limit: int = 16 * 1024**2) -> tuple:
     )
     # Unknown/hybrid layouts must not silently look like ordinary dense attention.
     config["model_type"] = architecture
+    if architecture == "clip":
+        config["vision_config"] = {
+            name: fields["clip.vision." + key]
+            for name, key in {
+                "hidden_size": "embedding_length",
+                "intermediate_size": "feed_forward_length",
+                "num_attention_heads": "attention.head_count",
+                "spatial_merge_size": "spatial_merge_size",
+            }.items()
+            if "clip.vision." + key in fields
+        }
     if (
         "intermediate_size" not in config or config.get("num_experts")
     ) and prefix + "expert_feed_forward_length" in fields:

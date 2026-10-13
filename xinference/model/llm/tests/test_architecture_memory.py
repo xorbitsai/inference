@@ -318,7 +318,12 @@ def test_sliding_attention_uses_full_cache_upper_bound(hybrid):
         ({"Content-Range": "bytes 0-0/*", "Content-Length": "1"}, 206, None),
     ],
 )
-def test_gguf_range_size_fallback(tmp_path, monkeypatch, headers, status, size):
+@pytest.mark.parametrize("head_failure", [None, "transport", 403, 405])
+def test_gguf_range_size_fallback(
+    tmp_path, monkeypatch, headers, status, size, head_failure
+):
+    import requests
+
     head = MagicMock()
     head.__enter__.return_value = head
     head.headers = {}
@@ -326,7 +331,13 @@ def test_gguf_range_size_fallback(tmp_path, monkeypatch, headers, status, size):
     get.__enter__.return_value = get
     get.headers = headers
     get.status_code = status
-    monkeypatch.setattr("requests.head", MagicMock(return_value=head))
+    if head_failure == "transport":
+        head_request = MagicMock(side_effect=requests.ConnectionError("HEAD failed"))
+    else:
+        head_request = MagicMock(return_value=head)
+        if head_failure:
+            head.raise_for_status.side_effect = requests.HTTPError(str(head_failure))
+    monkeypatch.setattr("requests.head", head_request)
     request_get = MagicMock(return_value=get)
     monkeypatch.setattr("requests.get", request_get)
     result = collect_weights_size(
@@ -407,3 +418,52 @@ def test_cli_prints_new_components_and_reports_unsupported(monkeypatch):
     result = CliRunner().invoke(cal_model_mem, args)
     assert result.exit_code == 1
     assert "Memory estimate unavailable: unknown_attention_layout" in result.output
+
+
+def test_refreshed_qwen_gguf_catalog_has_pinned_sizes_and_vision():
+    from pathlib import Path
+
+    from ..model_metadata import ModelMetadata
+
+    catalog = Path(__file__).parents[1] / "models"
+    for name in ["qwen3.5", "qwen3.6"]:
+        for family in json.loads((catalog / f"{name}.json").read_text()):
+            for spec in family["model_specs"]:
+                if spec["model_format"] != "ggufv2":
+                    continue
+                for hub, source in spec["model_src"].items():
+                    entries = source.get(
+                        "model_metadata_by_quantization"
+                    ) or dict.fromkeys(
+                        source["quantizations"], source["model_metadata"]
+                    )
+                    for quant, raw in entries.items():
+                        metadata = ModelMetadata.parse_obj(raw)
+                        if hub == "huggingface":
+                            assert "/resolve/main/" not in metadata.config_source
+                            if metadata.weights_source:
+                                assert "/resolve/main/" not in metadata.weights_source
+                        if name == "qwen3.6":
+                            assert metadata.shared_expert_intermediate_size == 512
+                            assert metadata.vision.spatial_merge_size == 2
+                            assert metadata.vision.config_source.endswith(
+                                "mmproj-BF16.gguf"
+                            )
+                            assert metadata.vision.config_sha256
+                            if metadata.weights_bytes:
+                                memory = estimate_llm_gpu_memory_details(
+                                    ModelLayersInfo.from_metadata(metadata),
+                                    35,
+                                    quant,
+                                    2048,
+                                    "ggufv2",
+                                    engine="llama.cpp",
+                                    vision_tokens=128,
+                                )
+                                assert memory.vision_mem > 0
+                        if (
+                            name == "qwen3.5"
+                            and hub == "huggingface"
+                            and spec["model_size_in_billions"] == 9
+                        ):
+                            assert metadata.weights_bytes

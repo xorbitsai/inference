@@ -56,8 +56,9 @@ Silicon. The default vLLM GPU reservation is checked separately when total memor
 is known; SGLang budgets from memory available at initialization. Multi-GPU
 requests keep compatibility-only selection.
 Known oversized candidates are excluded. Workspace bounds are estimates, not
-measured peaks; custom engine settings require manual configuration. No resources
-are reserved.
+measured peaks. Engine preallocation is not modeled beyond the separate vLLM
+default reservation check; custom engine settings require manual configuration.
+No resources are reserved.
 
 Using the API
 -------------
@@ -70,8 +71,13 @@ Using the API
 LLM constraints also accept positive integers ``context_length`` (text input plus
 output tokens) and ``concurrency``, and non-negative integers ``vision_tokens``
 (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained
-cache across the instance). These change the estimation workload only; they do
-not set launch or request limits. Image workloads require vision metadata.
+cache across the instance). Recommended vLLM ``max_model_len`` and SGLang
+``context_length`` equal text plus vision tokens per sequence. llama.cpp uses
+``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency``
+because its context is divided across slots. The Web UI applies these advanced
+launch parameters. Other workload fields affect estimates rather than request
+limits. Older workers that do not support workload options are retried without
+them and remain unverified, with a version warning. Image workloads require vision metadata.
 For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded
 token count; zero assumes all image tokens belong to one image. Cached states grow
 with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a

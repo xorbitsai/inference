@@ -105,6 +105,11 @@ guesses. Cached successful snapshots allow retrying failures; use a new cache
 directory to refresh moving revisions. The external Models Hub publisher must
 invoke this step explicitly and preserve its fields when syncing the catalog.
 
+For GGUF sources without vision dimensions in their text configuration, the
+collector also reads the first registered projector's metadata at the same
+revision. Its dimensions, source URL and header hash are stored in `vision`.
+Unreadable projector metadata leaves image workloads unverified.
+
 `--weights` additionally reads bounded Safetensors indexes or headers and GGUF
 file-size responses at the resolved configuration revision. `weights_bytes`
 includes all resident experts and vision weights, including the largest registered
@@ -116,8 +121,13 @@ for GGUF, not the tensor payload. Missing sizes retain nominal weight estimates
 when supported; quantized hybrid, MoE and multimodal models require a measured
 checkpoint size. GGUF collection falls back to a streamed one-byte range response
 when HEAD omits size. Config-only refreshes and failed weight reads preserve
-previous sizes only when the config hash and source remain unchanged. Removed
-quantizations are pruned.
+previous sizes only when the config hash and source remain unchanged and
+`weights_source` matches that quantization's checkpoint file at the resolved
+revision. If configuration collection fails, existing metadata is retained with
+coverage status `stale_retained`; it has not been refreshed or verified against
+the current remote configuration. Sizes from another quantization are never
+retained. Removed quantizations are pruned, and shared metadata is emitted only
+when every registered quantization has an identical entry.
 
 Template repositories with separate quantization checkpoints store
 `model_metadata_by_quantization` in each source. Runtime flattening selects
@@ -171,8 +181,15 @@ separately against free memory when normalized total counters are available.
 SGLang derives its cache budget from available initialization memory. Automatic
 placement still uses the smallest free-memory value among eligible devices,
 because the allocator chooses by process load rather than free-memory counters.
-Workload integers are bounded to avoid arithmetic overflow; they affect estimates,
-not launch settings. The CLI prints recurrent state and retained prefix cache
+Workload integers are bounded to avoid arithmetic overflow. Recommended vLLM
+`max_model_len` and SGLang `context_length` equal text plus vision tokens per
+sequence. llama.cpp receives `n_parallel=concurrency` and
+`n_ctx=(context_length + vision_tokens) * concurrency`, since it divides context
+across slots. The Web UI applies these as advanced launch parameters. Other
+workload fields affect estimates rather than request limits. Engine preallocation
+is not modeled beyond the separate vLLM default reservation check. Older workers
+that cannot accept workload options are retried without them and their estimates
+are discarded, with a version warning. The CLI prints recurrent state and retained prefix cache
 separately and reports unsupported estimates without a traceback.
 Single-device candidates with a usable estimate are ranked
 largest-first; known oversized candidates are excluded. Missing estimates or

@@ -195,11 +195,6 @@ def estimate_llm_gpu_memory(
     kv_cache_dtype: int = 16,
     *,
     allow_download: bool = True,
-    engine: Optional[str] = None,
-    concurrency: int = 1,
-    vision_tokens: int = 0,
-    vision_tokens_per_image: int = 0,
-    prefix_cache_bytes: int = 0,
 ) -> Optional[ModelMemInfo]:
     """
     model_size_in_billions: must be str like 1_8 or 46_7, to match llm.
@@ -225,11 +220,6 @@ def estimate_llm_gpu_memory(
         context_length,
         model_format,
         kv_cache_dtype,
-        engine=engine,
-        concurrency=concurrency,
-        vision_tokens=vision_tokens,
-        vision_tokens_per_image=vision_tokens_per_image,
-        prefix_cache_bytes=prefix_cache_bytes,
     )
 
 
@@ -241,8 +231,8 @@ def estimate_kv_cache_memory(
     num_tokens is the total cached tokens across sequences. This excludes block
     padding, quantization scales, prefix sharing and engine preallocation. It
     assumes equal K/V head dimensions and MHA/GQA/MQA full-attention layers.
-    An explicit layout counts only its full-attention layers. MLA and sliding
-    windows need different cache accounting.
+    An explicit layout counts full-attention layers and sliding-attention layers
+    at the conservative full-cache upper bound. MLA needs different accounting.
     """
     if kv_cache_dtype not in (8, 16, 32):
         raise ValueError(f"Invalid kv_cache_dtype {kv_cache_dtype}")

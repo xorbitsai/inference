@@ -31,6 +31,8 @@ class VisionMetadata(BaseModel):
     intermediate_size: int = Field(gt=0)
     num_attention_heads: int = Field(gt=0)
     spatial_merge_size: int = Field(default=1, gt=0)
+    config_source: Optional[str] = None
+    config_sha256: Optional[str] = None
 
 
 class ModelMetadata(BaseModel):
