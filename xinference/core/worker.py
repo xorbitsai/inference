@@ -3336,12 +3336,17 @@ class WorkerActor(xo.StatelessActor):
         from ..model.llm.cache_manager import LLMCacheManager
         from ..model.llm.llm_family import convert_model_size_to_float, match_llm
         from ..model.llm.memory import ModelLayersInfo, estimate_llm_gpu_memory_details
-        from .model_recommendation import recommendation_memory_snapshot, spec_key
+        from .model_recommendation import (
+            recommendation_context_length,
+            recommendation_memory_snapshot,
+            spec_key,
+        )
 
         launch_specs, cached_specs = set(), set()
         memory_estimates, engine_memory_estimates = {}, {}
+        model_context_lengths = {}
         options = dict(memory_options or {})
-        context_length = options.pop("context_length", 2048)
+        requested_context = options.pop("context_length", None)
         device = get_available_device()
         for engine, params in (engines or {}).items():
             if not isinstance(params, list):
@@ -3359,8 +3364,13 @@ class WorkerActor(xo.StatelessActor):
                         continue
                     key = spec_key(param, quant)
                     launch_specs.add(key)
+                    model_max = getattr(matched, "context_length", None)
+                    model_context_lengths[key] = model_max
+                    context_length = recommendation_context_length(
+                        requested_context, model_max, options.get("vision_tokens", 0)
+                    )
                     metadata = getattr(matched.model_specs[0], "model_metadata", None)
-                    if metadata is not None:
+                    if metadata is not None and context_length is not None:
                         try:
                             info = ModelLayersInfo.from_metadata(metadata)
                             arguments = (
@@ -3408,6 +3418,7 @@ class WorkerActor(xo.StatelessActor):
             "gpu_count": gpu_count(),
             "enable_virtual_env": effective_venv,
             "installed_engines": installed or {},
+            "model_context_lengths": model_context_lengths,
             "engines": engines or {},
             "launch_specs": launch_specs,
             "cached_specs": cached_specs,

@@ -49,7 +49,7 @@ recurrent state and workspace are counted separately. MLX, Transformers, vLLM,
 SGLang and llama.cpp share this accounting with different workspace bounds.
 Unknown layouts, including MLA, remain unverified.
 
-Defaults are one sequence, 2048 text tokens, FP16 KV cache, no image tokens and
+Defaults are one sequence, the model's registered maximum context, FP16 KV cache, no image tokens and
 no retained prefix cache. The budget is 80% of currently free memory: the lowest
 free memory among eligible GPUs, or available system memory on CPU and Apple
 Silicon. The default vLLM GPU reservation is checked separately when total memory
@@ -71,7 +71,9 @@ Using the API
 LLM constraints also accept positive integers ``context_length`` (text input plus
 output tokens) and ``concurrency``, and non-negative integers ``vision_tokens``
 (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained
-cache across the instance). Recommended vLLM ``max_model_len`` and SGLang
+cache across the instance). Omitting ``context_length`` uses each candidate's
+registered maximum context, including encoded image tokens. Models without a
+known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang
 ``context_length`` equal text plus vision tokens per sequence. llama.cpp uses
 ``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency``
 because its context is divided across slots. The Web UI applies these advanced

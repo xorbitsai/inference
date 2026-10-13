@@ -42,6 +42,7 @@ def snapshot(
         "installed_engines": {engine: params} if installed else {},
         "launch_specs": keys,
         "cached_specs": keys if cached else set(),
+        "model_context_lengths": dict.fromkeys(keys, 32768),
     }
 
 
@@ -392,7 +393,7 @@ async def test_worker_read_only_default_hub_and_exact_cache(monkeypatch, tmp_pat
 
     def match(*args):
         calls.append(args)
-        return SimpleNamespace(model_specs=[spec])
+        return SimpleNamespace(model_specs=[spec], context_length=32768)
 
     monkeypatch.setattr(llm_family, "match_llm", match)
     monkeypatch.setattr("xinference.constants.XINFERENCE_CACHE_DIR", str(tmp_path))
@@ -544,10 +545,14 @@ async def test_qwen3_mlx_recommendation_uses_all_sizes_offline(monkeypatch, hub)
         get_model_registration=AsyncMock(return_value=object()),
         query_engines_by_model_name=AsyncMock(return_value=engines),
     )
-    info = await WorkerActor.get_model_recommendation_info(worker, "qwen3", False)
+    info = await WorkerActor.get_model_recommendation_info(
+        worker, "qwen3", False, memory_options={"context_length": 2048}
+    )
     assert len(info["memory_estimates"]) == 6
     info["worker_ip"] = "test:1"
-    request = ModelRecommendationRequest(model_name="qwen3")
+    request = ModelRecommendationRequest(
+        model_name="qwen3", constraints={"context_length": 2048}
+    )
     result = select_recommendation(request, [info], [])
     assert result["config"]["model_size_in_billions"] == 14
     assert result["config"]["quantization"] == "4bit"
@@ -556,6 +561,7 @@ async def test_qwen3_mlx_recommendation_uses_all_sizes_offline(monkeypatch, hub)
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("hub", ["huggingface", "modelscope"])
+@pytest.mark.parametrize("context_length", [2048, None])
 @pytest.mark.parametrize(
     "engine,model_format,quantization,sizes,device,free,expected",
     [
@@ -570,7 +576,16 @@ async def test_qwen3_mlx_recommendation_uses_all_sizes_offline(monkeypatch, hub)
     ],
 )
 async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
-    monkeypatch, hub, engine, model_format, quantization, sizes, device, free, expected
+    monkeypatch,
+    hub,
+    context_length,
+    engine,
+    model_format,
+    quantization,
+    sizes,
+    device,
+    free,
+    expected,
 ):
     from xinference.core.worker import WorkerActor
     from xinference.model.llm import llm_family
@@ -617,11 +632,17 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
         get_model_registration=AsyncMock(return_value=object()),
         query_engines_by_model_name=AsyncMock(return_value=engines),
     )
-    info = await WorkerActor.get_model_recommendation_info(worker, "qwen3.5", False)
+    # Explicit short-context cases retain coverage of the caller's override.
+    info = await WorkerActor.get_model_recommendation_info(
+        worker,
+        "qwen3.5",
+        False,
+        memory_options={"context_length": 2048} if context_length else None,
+    )
     assert len(info["engine_memory_estimates"]) == len(sizes) - (
         1 if model_format == "gptq" else 0
     )
-    if model_format == "mlx":
+    if model_format == "mlx" and context_length:
         workload = await WorkerActor.get_model_recommendation_info(
             worker,
             "qwen3.5",
@@ -645,8 +666,34 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
         assert min(long["engine_memory_estimates"].values()) > 64 * 1024
     info["worker_ip"] = "test:1"
     result = select_recommendation(
-        ModelRecommendationRequest(model_name="qwen3.5"), [info], []
+        ModelRecommendationRequest(
+            model_name="qwen3.5",
+            constraints={"context_length": context_length} if context_length else {},
+        ),
+        [info],
+        [],
     )
+    if context_length is None:
+        if result["status"] == "recommended":
+            estimates = [
+                reason
+                for reason in result["reasons"]
+                if reason["code"] == "memory_estimate"
+            ]
+            assert all(
+                "262144 text tokens" in reason["message"] for reason in estimates
+            )
+            assert result["config"].get("max_model_len", 262144) == 262144
+            if engine == "vLLM" and model_format == "awq" and free == 32:
+                assert result["config"]["model_size_in_billions"] == 9
+            if engine == "llama.cpp":
+                assert result["config"]["n_ctx"] == 262144
+        else:
+            assert all(
+                value > free * 1024 * 0.8
+                for value in info["engine_memory_estimates"].values()
+            )
+        return
     assert result["config"]["model_engine"] == engine
     assert result["config"]["model_size_in_billions"] == expected
     if engine == "vLLM":
@@ -671,6 +718,25 @@ def test_recommendation_launch_context_matches_workload(engine, expected):
     )
     for key, value in expected.items():
         assert result["config"][key] == value
+
+
+@pytest.mark.parametrize("vision_tokens", [0, 128])
+def test_default_context_uses_registered_limit_including_images(vision_tokens):
+    worker = memory_worker()
+    worker["engines"] = {"vLLM": worker["engines"]["transformers"]}
+    worker["installed_engines"] = worker["engines"]
+    result = recommend([worker], vision_tokens=vision_tokens)
+    assert result["config"]["max_model_len"] == 32768
+    reason = next(r for r in result["reasons"] if r["code"] == "memory_estimate")
+    assert f"{32768 - vision_tokens} text tokens" in reason["message"]
+
+
+def test_old_fixed_context_estimates_are_unverified_by_default():
+    worker = memory_worker()
+    worker.pop("model_context_lengths")
+    result = recommend([worker])
+    assert result["config"]["model_size_in_billions"] == 4
+    assert not any(r["code"] == "memory_estimate" for r in result["reasons"])
 
 
 @pytest.mark.asyncio

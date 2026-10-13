@@ -27,7 +27,7 @@ class RecommendationConstraints(BaseModel):
     enable_virtual_env: Optional[bool] = None
     n_gpu: Optional[Union[int, Literal["auto"]]] = "auto"
     gpu_idx: Optional[Union[int, List[int]]] = None
-    context_length: int = 2048
+    context_length: Optional[int] = None
     concurrency: int = 1
     vision_tokens: int = 0
     vision_tokens_per_image: int = 0
@@ -98,7 +98,7 @@ class RecommendationConstraints(BaseModel):
         return value
 
     def memory_options(self) -> dict:
-        return self.dict(include=MEMORY_WORKLOAD_FIELDS)
+        return self.dict(include=MEMORY_WORKLOAD_FIELDS, exclude_none=True)
 
 
 class ModelRecommendationRequest(BaseModel):
@@ -142,6 +142,17 @@ def size_value(size: Union[int, str]) -> Decimal:
 
 def message(code: str, text: str) -> Dict[str, str]:
     return {"code": code, "message": text}
+
+
+def recommendation_context_length(
+    requested: Optional[int], model_max: Optional[int], vision_tokens: int
+) -> Optional[int]:
+    """Default to the model's total context, including encoded image tokens."""
+    if requested is not None:
+        return requested
+    if type(model_max) is int and model_max > vision_tokens:
+        return model_max - vision_tokens
+    return None
 
 
 def spec_key(param: Dict[str, Any], quantization: str) -> tuple:
@@ -343,6 +354,13 @@ def select_recommendation(
                     estimate = worker.get("engine_memory_estimates", {}).get(
                         (engine, key), worker.get("memory_estimates", {}).get(key)
                     )
+                    context_length = recommendation_context_length(
+                        constraints.context_length,
+                        worker.get("model_context_lengths", {}).get(key),
+                        constraints.vision_tokens,
+                    )
+                    if context_length is None:
+                        estimate = None
                     verified = budget is not None and estimate is not None
                     if verified and estimate > budget:
                         continue
@@ -429,12 +447,21 @@ def select_recommendation(
             if k in ("n_gpu", "gpu_idx")
         }
     )
-    tokens = constraints.context_length + constraints.vision_tokens
-    if engine.lower() == "vllm":
+    context_length = recommendation_context_length(
+        constraints.context_length,
+        worker.get("model_context_lengths", {}).get(spec_key(param, quant)),
+        constraints.vision_tokens,
+    )
+    tokens = (
+        context_length + constraints.vision_tokens
+        if context_length is not None
+        else None
+    )
+    if tokens is not None and engine.lower() == "vllm":
         config["max_model_len"] = tokens
-    elif engine.lower() == "sglang":
+    elif tokens is not None and engine.lower() == "sglang":
         config["context_length"] = tokens
-    elif engine.lower() == "llama.cpp":
+    elif tokens is not None and engine.lower() == "llama.cpp":
         # llama.cpp divides the instance's context among its parallel slots.
         config["n_ctx"] = tokens * constraints.concurrency
         config["n_parallel"] = constraints.concurrency
@@ -482,7 +509,7 @@ def select_recommendation(
         reasons.append(
             message(
                 "memory_estimate",
-                f"Estimated {estimate} MiB against a memory budget of {budget:.0f} MiB (at most 80% of free memory). Assumes {constraints.concurrency} sequence(s), {constraints.context_length} text tokens plus {constraints.vision_tokens} vision tokens per sequence, FP16 KV cache and {constraints.prefix_cache_bytes} bytes of retained prefix cache. Includes recurrent state and conservative engine workspace bounds; not a launch guarantee. Engine preallocation and multi-GPU sharding are not modeled.",
+                f"Estimated {estimate} MiB against a memory budget of {budget:.0f} MiB (at most 80% of free memory). Assumes {constraints.concurrency} sequence(s), {context_length} text tokens plus {constraints.vision_tokens} vision tokens per sequence, FP16 KV cache and {constraints.prefix_cache_bytes} bytes of retained prefix cache. Includes recurrent state and conservative engine workspace bounds; not a launch guarantee. Engine preallocation and multi-GPU sharding are not modeled.",
             )
         )
     if cached:

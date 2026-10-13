@@ -175,13 +175,17 @@ models retain the legacy activation approximation.
 
 The footprint does not model cache block padding or all runtime allocations.
 LLM recommendations compare it with 80% of the worker's current free memory,
-defaulting to one sequence, 2048 text tokens, FP16 KV cache and no image or retained
+defaulting to one sequence, the registered model's maximum context, FP16 KV cache and no image or retained
 prefix cache. The CUDA single-GPU vLLM default (90% of total memory) is checked
 separately against free memory when normalized total counters are available.
 SGLang derives its cache budget from available initialization memory. Automatic
 placement still uses the smallest free-memory value among eligible devices,
 because the allocator chooses by process load rather than free-memory counters.
-Workload integers are bounded to avoid arithmetic overflow. Recommended vLLM
+Workload integers are bounded to avoid arithmetic overflow. An explicit
+`context_length` overrides the default; otherwise encoded image tokens share
+the model's maximum context with text tokens. Missing model context metadata
+stays unverified, including older worker estimates made at a fixed context.
+Recommended vLLM
 `max_model_len` and SGLang `context_length` equal text plus vision tokens per
 sequence. llama.cpp receives `n_parallel=concurrency` and
 `n_ctx=(context_length + vision_tokens) * concurrency`, since it divides context
