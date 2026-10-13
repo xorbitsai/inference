@@ -1,0 +1,155 @@
+# Translations for the Anthropic API compatibility chapter.
+# Copyright (C) 2026 XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 11:07+0800\n"
+"PO-Revision-Date: 2026-10-13 12:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: user_guide/anthropic.rst:4
+msgid "Anthropic API compatibility"
+msgstr "Anthropic API 호환성"
+
+#: user_guide/anthropic.rst:6
+msgid ""
+"Xinference exposes Anthropic-compatible Messages APIs for already launched "
+"models. Use the model UID in requests. The available features depend on the "
+"model and engine."
+msgstr ""
+"Xinference는 이미 시작된 모델에 대해 Anthropic 호환 Messages API를 제공합니다. 요청에 모델 UID를 "
+"사용하세요. 사용 가능한 기능은 모델과 엔진에 따라 다릅니다."
+
+#: user_guide/anthropic.rst:11
+msgid "Endpoints and authentication"
+msgstr "엔드포인트 및 인증"
+
+#: user_guide/anthropic.rst:13
+msgid ""
+"Send message requests to ``/v1/messages`` and token-count requests to "
+"``/v1/messages/count_tokens``. The standard routes require ``anthropic-"
+"version: 2023-06-01``. The ``/anthropic/v1/messages`` and "
+"``/anthropic/v1/messages/count_tokens`` aliases remain available."
+msgstr ""
+"메시지 요청은 ``/v1/messages`` 로, 토큰 수 계산 요청은 ``/v1/messages/count_tokens`` 로 "
+"보냅니다. 표준 경로에는 ``anthropic-version: 2023-06-01`` 이 필요합니다. "
+"``/anthropic/v1/messages`` 및 ``/anthropic/v1/messages/count_tokens`` 별칭도 계속 "
+"사용할 수 있습니다."
+
+#: user_guide/anthropic.rst:18
+msgid ""
+"Use your Xinference API key when authentication is enabled. An arbitrary non-"
+"empty key is sufficient when authentication is disabled."
+msgstr ""
+"인증이 활성화되어 있으면 Xinference API 키를 사용하세요. 인증이 비활성화되어 있으면 비어 있지 않은 임의의 키로 충분합니다."
+
+#: user_guide/anthropic.rst:22
+msgid "Claude Code"
+msgstr "Claude Code"
+
+#: user_guide/anthropic.rst:24
+msgid ""
+"Launch a model with chat and tool-calling support first (see :ref:`launch`), "
+"then configure Claude Code to use the Xinference server and model UID:"
+msgstr ""
+"먼저 채팅과 도구 호출을 지원하는 모델을 시작한 다음(:ref:`launch` 참조), Xinference 서버와 모델 UID를 사용하도록"
+" Claude Code를 설정하세요:"
+
+#: user_guide/anthropic.rst:38
+msgid "Python SDK"
+msgstr "Python SDK"
+
+#: user_guide/anthropic.rst:57
+msgid "Token counting"
+msgstr "토큰 수 계산"
+
+#: user_guide/anthropic.rst:59
+msgid ""
+"The standard ``/v1/messages/count_tokens`` endpoint and its "
+"``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat "
+"template and tokenizer, including tool definitions and images where "
+"supported. Both routes use the same model permissions and Xinference API key "
+"as message generation."
+msgstr ""
+"표준 ``/v1/messages/count_tokens`` 엔드포인트와 "
+"``/anthropic/v1/messages/count_tokens`` 별칭은 로드된 모델의 채팅 템플릿과 tokenizer를 사용하며, "
+"지원되는 경우 도구 정의와 이미지도 포함합니다. 두 경로는 메시지 생성과 동일한 모델 권한 및 Xinference API key를 "
+"사용합니다."
+
+#: user_guide/anthropic.rst:74
+msgid "Images and documents"
+msgstr "이미지 및 문서"
+
+#: user_guide/anthropic.rst:76
+msgid ""
+"Messages support text, base64 or URL images, tool results containing images,"
+" and tool references to tools declared in the request. Plain-text documents "
+"are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
+"the ``image`` extra), require a vision model, and are limited to 20 pages "
+"per document. File IDs and document citations are not supported."
+msgstr ""
+"메시지는 텍스트, base64 또는 URL 이미지, 이미지가 포함된 도구 결과, 요청에 선언된 도구에 대한 참조를 지원합니다. 일반 "
+"텍스트 문서도 지원합니다. PDF는 ``pypdfium2`` 로 이미지로 렌더링되며(``image`` 추가 의존성 설치), 비전 모델이 "
+"필요하고 문서당 최대 20페이지입니다. 파일 ID와 문서 인용 표시는 지원하지 않습니다."
+
+#: user_guide/anthropic.rst:83
+msgid "Thinking"
+msgstr "사고"
+
+#: user_guide/anthropic.rst:85
+msgid ""
+"Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
+"maps to prompt guidance, with ``medium`` preserving the default prompt. "
+"Explicit thinking responses carry Xinference signatures, which can be "
+"replayed with the same model UID and signing key; configure "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers."
+msgstr ""
+"Adaptive thinking은 모델의 추론 모드를 활성화합니다. ``effort`` 는 프롬프트 지침으로 매핑되며 ``medium``"
+" 은 기본 프롬프트를 유지합니다. 명시적으로 요청한 사고 응답에는 Xinference 서명이 포함되며 동일한 모델 UID와 서명 키로 "
+"다시 전달할 수 있습니다. 여러 API 서버에서 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` 을 동일하게 "
+"설정하세요."
+
+#: user_guide/anthropic.rst:92
+msgid "Tool choice and structured output"
+msgstr "도구 선택 및 구조화된 출력"
+
+#: user_guide/anthropic.rst:94
+msgid ""
+"Structured JSON output requires a supporting engine. The vLLM engine "
+"supports named and required tool choice through constrained JSON decoding, "
+"and disabled parallel tool use returns at most one tool per response. Forced"
+" tool arguments are buffered until complete. Combining adaptive thinking "
+"with forced tools requires a matching "
+"``structured_outputs_config.reasoning_parser`` at model launch (``qwen3`` "
+"for Qwen3.5); manual thinking cannot be combined with forced tool choice. "
+"Other engines return 501 for unsupported controls."
+msgstr ""
+"구조화된 JSON 출력에는 지원 엔진이 필요합니다. vLLM 엔진은 제약된 JSON 디코딩으로 지정된 도구 및 필수 도구 선택을 "
+"지원하며, 병렬 도구 사용을 비활성화하면 응답당 최대 하나의 도구 호출을 반환합니다. 강제 도구의 인수는 완성될 때까지 버퍼링됩니다. "
+"적응형 사고와 강제 도구를 조합하려면 모델 시작 시 알맞은 "
+"``structured_outputs_config.reasoning_parser`` 를 설정해야 합니다(Qwen3.5는 ``qwen3``"
+" 사용). 수동 사고는 강제 도구 선택과 함께 사용할 수 없습니다. 다른 엔진은 지원하지 않는 제어에 대해 501을 반환합니다."
+
+#: user_guide/anthropic.rst:103
+msgid "Prompt caching"
+msgstr "프롬프트 캐싱"
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"For text requests, the MLX vision engine reuses the furthest "
+"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
+"actual cache writes and reads. Other paths retain automatic engine caching, "
+"indicated by the ``x-xinference-cache-control: automatic`` response header."
+msgstr ""
+"텍스트 요청에서 MLX 비전 엔진은 마지막 ``cache_control`` 경계까지의 접두사를 ``5m`` 또는 ``1h`` 수명으로 "
+"재사용하고 실제 캐시 쓰기 및 읽기 양을 보고합니다. 다른 경로는 엔진의 자동 캐싱을 유지하며 ``x-xinference-cache-"
+"control: automatic`` 응답 헤더로 표시합니다."

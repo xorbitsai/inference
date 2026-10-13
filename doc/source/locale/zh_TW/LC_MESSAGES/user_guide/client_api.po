@@ -113,10 +113,6 @@ msgstr "Codex CLI 透過此 API 呼叫自訂提供者。在 ``~/.codex/config.to
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
 
-#: ../../source/user_guide/client_api.rst:144
-msgid "Anthropic API's access address is: /anthropic/v1/messages"
-msgstr "Anthropic的API訪問地址為：/anthropic/v1/messages"
-
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
 msgstr "Embedding"
@@ -205,59 +201,8 @@ msgstr "串流請求設定 ``stream_options={\"include_usage\": True}`` 後，�
 msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
 msgstr "使用 P/D 分離時，此數值包含從預填充引擎傳輸的 KV，即使這些 KV 是為目前請求計算的；它不單獨統計預填充引擎的歷史前綴快取命中數。"
 
-#: user_guide/client_api.rst:219
+#: user_guide/client_api.rst:200
 msgid ""
-"The standard ``/v1/messages/count_tokens`` endpoint and its "
-"``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat "
-"template and tokenizer, including tool definitions and images where "
-"supported. Both routes use the same model permissions and Xinference API key"
-" as message generation."
-msgstr ""
-"標準計數端點 ``/v1/messages/count_tokens`` 與別名 "
-"``/anthropic/v1/messages/count_tokens`` 使用已載入模型的聊天範本與 "
-"tokenizer，並在支援時計入工具定義和影像。兩個介面使用與訊息生成相同的模型權限和 Xinference API key。"
-
-#: user_guide/client_api.rst:221
-msgid ""
-"Messages support text, base64 or URL images, tool results containing images,"
-" and tool references to tools declared in the request. Plain-text documents "
-"are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
-"the ``image`` extra), require a vision model, and are limited to 20 pages "
-"per document. File IDs and document citations are not supported."
-msgstr ""
-"訊息支援文字、base64 或 URL 影像、包含影像的工具結果，以及對請求中已宣告工具的參照。支援純文字文件；PDF 透過 ``pypdfium2``"
-" 渲染為影像（安裝 ``image`` 擴充相依套件），需要視覺模型，每份文件最多 20 頁。不支援檔案 ID 和文件引用標註。"
-
-#: user_guide/client_api.rst:223
-msgid ""
-"Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
-"maps to prompt guidance, with ``medium`` preserving the default prompt. "
-"Explicit thinking responses carry Xinference signatures, which can be "
-"replayed with the same model UID and signing key; configure "
-"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers."
-msgstr ""
-"Adaptive thinking 啟用模型的推理模式。``effort`` 對應為提示詞指引，``medium`` "
-"保持預設提示詞。明確要求的思考回應帶有 Xinference 簽章，可使用相同的模型 UID 和簽章金鑰回傳；多個 API 伺服器應設定相同的 "
-"``XINFERENCE_ANTHROPIC_THINKING_SECRET``。"
-
-#: user_guide/client_api.rst:225
-msgid ""
-"For text requests, the MLX vision engine reuses the furthest "
-"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
-"actual cache writes and reads. Other paths retain automatic engine caching, "
-"indicated by the ``x-xinference-cache-control: automatic`` response header. "
-"Structured JSON output requires a supporting engine. The vLLM engine "
-"supports named and required tool choice through constrained JSON decoding, "
-"and disabled parallel tool use returns at most one tool per response. Forced"
-" tool arguments are buffered until complete. Combining adaptive thinking "
-"with forced tools requires a matching "
-"``structured_outputs_config.reasoning_parser`` at model launch (``qwen3`` "
-"for Qwen3.5); manual thinking cannot be combined with forced tool choice. "
-"Other engines return 501 for unsupported controls."
-msgstr ""
-"對於文字請求，MLX 視覺引擎重用到最後一個 ``cache_control`` 邊界的前綴，生命週期為 ``5m`` 或 "
-"``1h``，並回報實際快取寫入和讀取量。其他路徑保留引擎自動快取，並透過 ``x-xinference-cache-control: "
-"automatic`` 回應標頭標示。結構化 JSON 輸出需要引擎支援。vLLM 引擎透過受約束的 JSON "
-"解碼支援指定工具和必須呼叫工具；停用平行工具呼叫時，每次回應最多回傳一個工具呼叫。強制呼叫的工具參數會緩衝至完整後再回傳。自適應思考與強制工具呼叫的組合需要在啟動模型時設定相符的"
-" ``structured_outputs_config.reasoning_parser``（Qwen3.5 使用 "
-"``qwen3``）；手動思考模式不能與強制工具選擇組合。其他引擎對不支援的控制項回傳 501。"
+"See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
+"supported features and limitations."
+msgstr "Claude Code 設定、Python SDK 範例以及支援的功能和限制，請參見 :ref:`anthropic_api`。"
