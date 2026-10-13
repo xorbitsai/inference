@@ -624,3 +624,62 @@ def test_launch_context_rejects_invalid_integer(monkeypatch, value):
     )
     assert result.exit_code != 0
     assert "launch_kwargs" not in calls
+
+
+def _invoke_launch_with_instance_info(monkeypatch, instance_info):
+    class DummyRESTfulClient:
+        def __init__(self, base_url, api_key=None):
+            pass
+
+        def launch_model(self, **kwargs):
+            return "test-model-uid"
+
+        def get_instance_info(self, model_name, model_uid):
+            return instance_info
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    return CliRunner().invoke(
+        model_launch,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--api-key",
+            "test-key",
+            "--model-name",
+            "test-model",
+            "--model-engine",
+            "transformers",
+        ],
+    )
+
+
+def test_launch_reports_ready_model_uid(monkeypatch):
+    result = _invoke_launch_with_instance_info(monkeypatch, [{"status": "READY"}])
+
+    assert result.exit_code == 0, result.output
+    assert "Model uid: test-model-uid" in result.output
+
+
+def test_launch_fails_when_model_launch_errors(monkeypatch):
+    instance_info = [
+        {
+            "status": "ERROR",
+            "replica_statuses": [
+                {"replica_id": 0, "status": "ERROR", "error_message": "CUDA OOM"}
+            ],
+        }
+    ]
+    result = _invoke_launch_with_instance_info(monkeypatch, instance_info)
+
+    assert result.exit_code == 1
+    assert "Failed to launch model test-model-uid: CUDA OOM" in result.output
+    assert "Model uid: test-model-uid" not in result.output
+
+
+def test_launch_fails_when_model_is_terminated(monkeypatch):
+    # Terminated instances are dropped from the instance info.
+    result = _invoke_launch_with_instance_info(monkeypatch, [])
+
+    assert result.exit_code == 1
+    assert "test-model-uid was terminated before it became ready" in result.output
+    assert "Model uid: test-model-uid" not in result.output
