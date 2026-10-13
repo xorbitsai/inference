@@ -114,6 +114,22 @@ msgstr ""
 "citations de documents ne sont pas pris en charge."
 
 #: user_guide/anthropic.rst:83
+msgid ""
+"Xinference's vLLM vision models default to two images per prompt. The limit "
+"includes images in conversation history and tool results, so successive "
+"single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when "
+"launching the model, for example ``{\"image\": 8, \"video\": 0}``, to allow "
+"more images within the model's context length and available GPU memory."
+msgstr ""
+"Les modèles de vision vLLM de Xinference autorisent par défaut deux images "
+"par prompt. Cette limite inclut les images de l’historique de conversation "
+"et des résultats d’outils ; des messages successifs contenant chacun une "
+"image peuvent donc aussi la dépasser. Définissez ``limit_mm_per_prompt`` au "
+"lancement du modèle, par exemple sur ``{\"image\": 8, \"video\": 0}``, pour "
+"autoriser davantage d’images dans les limites de la longueur de contexte du "
+"modèle et de la mémoire GPU disponible."
+
+#: user_guide/anthropic.rst:83
 msgid "Thinking"
 msgstr "Réflexion"
 

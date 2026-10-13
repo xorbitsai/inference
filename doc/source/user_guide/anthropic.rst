@@ -80,6 +80,12 @@ supported; PDF pages are rendered as images with ``pypdfium2`` (install the
 ``image`` extra), require a vision model, and are limited to 20 pages per
 document. File IDs and document citations are not supported.
 
+Xinference's vLLM vision models default to two images per prompt. The limit
+includes images in conversation history and tool results, so successive
+single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when
+launching the model, for example ``{"image": 8, "video": 0}``, to allow more
+images within the model's context length and available GPU memory.
+
 Thinking
 --------
 

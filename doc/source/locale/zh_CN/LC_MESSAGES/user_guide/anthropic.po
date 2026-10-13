@@ -98,6 +98,19 @@ msgstr ""
 "渲染为图像（安装 ``image`` 扩展依赖），需要视觉模型，每份文档最多 20 页。不支持文件 ID 和文档引用标注。"
 
 #: user_guide/anthropic.rst:83
+msgid ""
+"Xinference's vLLM vision models default to two images per prompt. The limit "
+"includes images in conversation history and tool results, so successive "
+"single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when "
+"launching the model, for example ``{\"image\": 8, \"video\": 0}``, to allow "
+"more images within the model's context length and available GPU memory."
+msgstr ""
+"Xinference 的 vLLM "
+"视觉模型默认每个提示词最多接收两张图片。该上限包括对话历史和工具结果中的图片，因此连续发送单图消息也可能超限。启动模型时设置 "
+"``limit_mm_per_prompt``，例如 ``{\"image\": 8, \"video\": 0}``，即可在模型上下文长度和可用 "
+"GPU 显存范围内接收更多图片。"
+
+#: user_guide/anthropic.rst:83
 msgid "Thinking"
 msgstr "思考模式"
 
