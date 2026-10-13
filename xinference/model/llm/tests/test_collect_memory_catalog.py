@@ -23,12 +23,12 @@ from .. import collect_memory_catalog as collector
 from ..gguf_model_metadata import read_gguf_config
 
 
-def gguf_header():
+def gguf_header(fields=None):
     def string(value):
         value = value.encode()
         return struct.pack("<Q", len(value)) + value
 
-    fields = {
+    fields = fields or {
         "general.architecture": "qwen3",
         "qwen3.embedding_length": 4096,
         "qwen3.block_count": 36,
@@ -126,10 +126,25 @@ def test_config_urls_encode_revision(hub):
     assert "refs%2Fpr%2F1" in url
 
 
-def test_config_download_is_bounded_and_cached(tmp_path, monkeypatch):
+@pytest.mark.parametrize("hub", ["huggingface", "modelscope", "openmind_hub", "csghub"])
+def test_weights_pin_older_config_snapshots(hub):
+    result = {"config_source": collector.config_url(hub, "org/model", "b" * 40)}
+    job = collector.checkpoint_weight_job(
+        {"model_format": "mlx"}, {}, "4bit", (hub, "org/model", "main"), result
+    )
+    assert job == (hub, "org/model", "b" * 40)
+
+
+@pytest.mark.parametrize("redirect", [False, True])
+def test_config_download_is_bounded_and_cached(tmp_path, monkeypatch, redirect):
     response = MagicMock()
     response.__enter__.return_value = response
     response.headers = {"x-repo-commit": "a" * 40}
+    response.history = []
+    if redirect:
+        hop = MagicMock(headers=response.headers)
+        response.headers = {}
+        response.history = [hop]
     response.iter_content.return_value = [b'{"hidden_size": 4096}']
     get = MagicMock(return_value=response)
     monkeypatch.setattr("requests.get", get)
@@ -145,3 +160,414 @@ def test_config_download_is_bounded_and_cached(tmp_path, monkeypatch):
         ("huggingface", "org/oversize", "main"), tmp_path, 1
     )
     assert "exceeds 2 MiB" in result["error"]
+
+
+def test_gguf_download_pins_redirect_commit(tmp_path, monkeypatch):
+    response = MagicMock()
+    response.__enter__.return_value = response
+    response.headers = {}
+    response.history = [MagicMock(headers={"x-repo-commit": "b" * 40})]
+    response.raw = io.BytesIO(gguf_header() + b"tensor payload")
+    monkeypatch.setattr("requests.get", MagicMock(return_value=response))
+    result = collector.collect_gguf_config(
+        ("huggingface", "org/model", "main"), "model.gguf", tmp_path, 1
+    )
+    assert result["resolved_revision"] == "b" * 40
+    assert f"/resolve/{'b' * 40}/model.gguf" in result["config_source"]
+    assert response.raw.tell() == result["header_bytes"]
+
+
+@pytest.mark.parametrize("value_length", [256, 128])
+def test_gguf_hybrid_dimensions(value_length):
+    from ..memory import ModelLayersInfo, estimate_kv_cache_memory
+    from ..model_metadata import ModelMetadata
+
+    config, _, _ = read_gguf_config(
+        io.BytesIO(
+            gguf_header(
+                {
+                    "general.architecture": "qwen35moe",
+                    "qwen35moe.embedding_length": 2048,
+                    "qwen35moe.block_count": 40,
+                    "qwen35moe.attention.head_count": 16,
+                    "qwen35moe.attention.head_count_kv": 2,
+                    "qwen35moe.attention.key_length": 256,
+                    "qwen35moe.attention.value_length": value_length,
+                    "qwen35moe.expert_feed_forward_length": 512,
+                    "qwen35moe.feed_forward_length": 6144,
+                    "qwen35moe.expert_count": 256,
+                    "qwen35moe.expert_used_count": 8,
+                    "qwen35moe.vocab_size": 248320,
+                    "qwen35moe.full_attention_interval": 4,
+                    "qwen35moe.ssm.conv_kernel": 4,
+                    "qwen35moe.ssm.state_size": 128,
+                    "qwen35moe.ssm.group_count": 16,
+                    "qwen35moe.ssm.time_step_rank": 32,
+                    "qwen35moe.ssm.inner_size": 4096,
+                }
+            )
+        )
+    )
+    metadata = ModelMetadata.from_config(config)
+    if value_length != 256:
+        with pytest.raises(ValueError, match="unknown_attention_layout"):
+            ModelLayersInfo.from_metadata(metadata)
+        return
+    info = ModelLayersInfo.from_metadata(metadata)
+    assert metadata.full_attention_interval == 4
+    assert metadata.layer_types is None
+    assert info.active_experts == 8
+    assert info.inter_dim == 512
+    assert info.linear_value_head_dim == 128
+    assert estimate_kv_cache_memory(info, 32768) == 640
+
+
+def test_shared_config_keeps_quantization_weight_sizes_separate(tmp_path, monkeypatch):
+    from .. import weights_metadata
+
+    catalog = tmp_path / "catalog"
+    catalog.mkdir()
+    (catalog / "test.json").write_text(
+        json.dumps(
+            [
+                dict(
+                    model_name="test",
+                    model_ability=["chat"],
+                    model_specs=[
+                        dict(
+                            model_format="ggufv2",
+                            model_size_in_billions=8,
+                            model_file_name_template="model-{quantization}.gguf",
+                            model_src={
+                                "huggingface": dict(
+                                    model_id="org/model",
+                                    quantizations=["Q4_K_M", "Q8_0"],
+                                )
+                            },
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    config = dict(
+        vocab_size=32000,
+        num_attention_heads=32,
+        hidden_size=4096,
+        intermediate_size=14336,
+        num_hidden_layers=32,
+    )
+    monkeypatch.setattr(
+        collector,
+        "collect_config",
+        lambda *args: {
+            "config": config,
+            "config_source": "pinned",
+            "config_sha256": "a" * 64,
+            "resolved_revision": "b" * 40,
+        },
+    )
+    calls = []
+
+    def weights(job, *args):
+        calls.append(job)
+        return dict(
+            weights_bytes=4000 if "Q4_K_M" in job[3][0] else 8000,
+            weights_source="pinned",
+            weights_sha256="c" * 64,
+        )
+
+    monkeypatch.setattr(weights_metadata, "collect_weights_size", weights)
+    output = tmp_path / "output"
+    collector.collect_catalog(catalog, output, tmp_path / "cache", 2, 1, weights=True)
+    source = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
+        "model_src"
+    ]["huggingface"]
+    assert "model_metadata" not in source
+    entries = source["model_metadata_by_quantization"]
+    assert entries["Q4_K_M"]["weights_bytes"] == 4000
+    assert entries["Q8_0"]["weights_bytes"] == 8000
+    assert all(job[2] == "b" * 40 for job in calls)
+
+
+@pytest.mark.parametrize("weights", [False, True])
+@pytest.mark.parametrize("same_snapshot", [False, True])
+@pytest.mark.parametrize("common", [False, True])
+def test_collector_preserves_sizes_only_for_same_snapshot(
+    tmp_path, monkeypatch, weights, same_snapshot, common
+):
+    from .. import weights_metadata
+
+    config = dict(
+        vocab_size=32000,
+        num_attention_heads=32,
+        hidden_size=4096,
+        intermediate_size=14336,
+        num_hidden_layers=32,
+    )
+    old = dict(
+        config,
+        config_source=collector.config_url("huggingface", "org/model-4bit", "a" * 40),
+        config_sha256="a" * 64,
+        weights_bytes=1000,
+        weights_source=collector.config_url(
+            "huggingface", "org/model-4bit", "a" * 40
+        ).replace("config.json", "model.safetensors.index.json"),
+        weights_sha256="c" * 64,
+    )
+    source = dict(model_id="org/model-{quantization}", quantizations=["4bit"])
+    if common:
+        source["model_metadata"] = old
+    else:
+        source["model_metadata_by_quantization"] = {"4bit": old, "8bit": old}
+    catalog = tmp_path / "catalog"
+    catalog.mkdir()
+    (catalog / "test.json").write_text(
+        json.dumps(
+            [
+                dict(
+                    model_name="test",
+                    model_ability=["chat"],
+                    model_specs=[
+                        dict(
+                            model_format="mlx",
+                            model_size_in_billions=8,
+                            model_src={"huggingface": source},
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    monkeypatch.setattr(
+        collector,
+        "collect_config",
+        lambda *args: dict(
+            config=config,
+            config_source=old["config_source"],
+            config_sha256=("a" if same_snapshot else "b") * 64,
+        ),
+    )
+    monkeypatch.setattr(
+        weights_metadata,
+        "collect_weights_size",
+        lambda *args: {"error": "temporary failure"},
+    )
+    output = tmp_path / "output"
+    collector.collect_catalog(
+        catalog, output, tmp_path / "cache", 2, 1, weights=weights
+    )
+    result = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
+        "model_src"
+    ]["huggingface"]
+    assert "model_metadata_by_quantization" not in result
+    if same_snapshot:
+        assert result["model_metadata"]["weights_bytes"] == 1000
+    else:
+        assert "weights_bytes" not in result["model_metadata"]
+
+
+def test_checkpoint_job_splits_and_projectors_and_bnb():
+    spec = dict(
+        model_format="ggufv2",
+        model_file_name_split_template="model-{quantization}-{part}.gguf",
+        quantization_parts={"Q4_K_M": ["00001", "00002"]},
+        multimodal_projectors=["vision-{quantization}.gguf"],
+    )
+    result = collector.checkpoint_weight_job(
+        spec,
+        {},
+        "Q4_K_M",
+        ("huggingface", "org/model", "main"),
+        {"resolved_revision": "pinned"},
+    )
+    assert result == (
+        "huggingface",
+        "org/model",
+        "pinned",
+        ("model-Q4_K_M-00001.gguf", "model-Q4_K_M-00002.gguf"),
+        ("vision-Q4_K_M.gguf",),
+    )
+    assert (
+        collector.checkpoint_weight_job(
+            {"model_format": "bnb"},
+            {},
+            "4bit",
+            ("huggingface", "org/model", "main"),
+            {},
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize("weights", [False, True])
+@pytest.mark.parametrize("config_failure", [False, True])
+@pytest.mark.parametrize("common", [False, True])
+def test_shared_config_never_copies_quantization_weights(
+    tmp_path, monkeypatch, weights, config_failure, common
+):
+    from .. import weights_metadata
+
+    config = dict(
+        vocab_size=32000,
+        num_attention_heads=32,
+        hidden_size=4096,
+        intermediate_size=14336,
+        num_hidden_layers=32,
+    )
+    base = collector.config_url("huggingface", "org/model", "a" * 40)
+    old = dict(
+        config,
+        config_source=base,
+        config_sha256="b" * 64,
+        weights_bytes=1000,
+        weights_source=base.replace("config.json", "model-Q4.gguf"),
+        weights_sha256="c" * 64,
+    )
+    source = dict(model_id="org/model", quantizations=["Q4", "Q8"])
+    source["model_metadata" if common else "model_metadata_by_quantization"] = (
+        old if common else {"Q4": old}
+    )
+    catalog = tmp_path / "catalog"
+    catalog.mkdir()
+    (catalog / "test.json").write_text(
+        json.dumps(
+            [
+                dict(
+                    model_name="test",
+                    model_ability=["chat"],
+                    model_specs=[
+                        dict(
+                            model_format="ggufv2",
+                            model_size_in_billions=8,
+                            model_file_name_template="model-{quantization}.gguf",
+                            model_src={"huggingface": source},
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    result = (
+        {"error": "config unavailable"}
+        if config_failure
+        else dict(
+            config=config,
+            config_source=base,
+            config_sha256="b" * 64,
+            resolved_revision="a" * 40,
+        )
+    )
+    monkeypatch.setattr(collector, "collect_config", lambda *args: result)
+    monkeypatch.setattr(collector, "collect_gguf_config", lambda *args: result)
+    monkeypatch.setattr(
+        weights_metadata,
+        "collect_weights_size",
+        lambda *args: {"error": "weight unavailable"},
+    )
+    output = tmp_path / "output"
+    collector.collect_catalog(
+        catalog, output, tmp_path / "cache", 2, 1, weights=weights
+    )
+    source = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
+        "model_src"
+    ]["huggingface"]
+    assert "model_metadata" not in source
+    by_quant = source["model_metadata_by_quantization"]
+    assert by_quant["Q4"]["weights_bytes"] == 1000
+    assert "weights_bytes" not in by_quant.get("Q8", {})
+    report = json.loads((output / "coverage.json").read_text())
+    if config_failure:
+        assert report[0]["status"] == "stale_retained"
+        assert report[1]["status"] == ("stale_retained" if common else "unavailable")
+    else:
+        assert set(by_quant) == {"Q4", "Q8"}
+
+
+def test_projector_vision_metadata_is_collected_at_checkpoint_revision(
+    tmp_path, monkeypatch
+):
+    from .. import weights_metadata
+
+    dimensions = {
+        "hidden_size": 1152,
+        "intermediate_size": 4304,
+        "num_attention_heads": 16,
+        "spatial_merge_size": 2,
+    }
+    header = gguf_header(
+        {
+            "general.architecture": "clip",
+            "clip.vision.embedding_length": 1152,
+            "clip.vision.feed_forward_length": 4304,
+            "clip.vision.attention.head_count": 16,
+            "clip.vision.spatial_merge_size": 2,
+        }
+    )
+    assert read_gguf_config(io.BytesIO(header))[0]["vision_config"] == dimensions
+    catalog = tmp_path / "catalog"
+    catalog.mkdir()
+    (catalog / "test.json").write_text(
+        json.dumps(
+            [
+                dict(
+                    model_name="test",
+                    model_ability=["chat", "vision"],
+                    model_specs=[
+                        dict(
+                            model_format="ggufv2",
+                            model_size_in_billions=8,
+                            model_src={
+                                "huggingface": dict(
+                                    model_id="org/model",
+                                    quantizations=["Q4"],
+                                    model_file_name_template="model-{quantization}.gguf",
+                                    multimodal_projectors=["mmproj.gguf"],
+                                )
+                            },
+                        )
+                    ],
+                )
+            ]
+        )
+    )
+    base = collector.config_url("huggingface", "org/model", "a" * 40)
+    monkeypatch.setattr(
+        collector,
+        "collect_config",
+        lambda *args: dict(
+            config=dict(
+                vocab_size=32000,
+                num_attention_heads=32,
+                hidden_size=4096,
+                intermediate_size=14336,
+                num_hidden_layers=32,
+            ),
+            config_source=base,
+            config_sha256="b" * 64,
+            resolved_revision="a" * 40,
+        ),
+    )
+    calls = []
+
+    def projector(job, filename, cache, timeout):
+        calls.append((job, filename))
+        return dict(
+            config={"vision_config": dimensions},
+            config_source=base.replace("config.json", filename),
+            config_sha256="c" * 64,
+        )
+
+    monkeypatch.setattr(collector, "collect_gguf_config", projector)
+    monkeypatch.setattr(weights_metadata, "collect_weights_size", lambda *args: {})
+    output = tmp_path / "output"
+    collector.collect_catalog(catalog, output, tmp_path / "cache", 2, 1)
+    vision = json.loads((output / "models/test.json").read_text())[0]["model_specs"][0][
+        "model_src"
+    ]["huggingface"]["model_metadata"]["vision"]
+    assert calls == [(("huggingface", "org/model", "a" * 40), "mmproj.gguf")]
+    assert vision == {
+        **dimensions,
+        "config_source": base.replace("config.json", "mmproj.gguf"),
+        "config_sha256": "c" * 64,
+    }

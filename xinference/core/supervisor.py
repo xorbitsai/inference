@@ -2170,6 +2170,7 @@ class SupervisorActor(xo.StatelessActor):
 
     async def recommend_model(self, request: Dict[str, Any]) -> dict:
         from .model_recommendation import (
+            MEMORY_WORKLOAD_FIELDS,
             ModelRecommendationRequest,
             RecommendationModelNotFound,
             message,
@@ -2184,6 +2185,12 @@ class SupervisorActor(xo.StatelessActor):
                     body.model_name,
                     body.constraints.enable_virtual_env,
                     model_type=body.model_type,
+                    **(
+                        {"memory_options": body.constraints.memory_options()}
+                        if body.model_type == "LLM"
+                        and body.constraints.__fields_set__ & MEMORY_WORKLOAD_FIELDS
+                        else {}
+                    ),
                 )
                 for _, worker in workers
             ],
@@ -2191,7 +2198,29 @@ class SupervisorActor(xo.StatelessActor):
         )
         snapshots, warnings = [], []
         found = False
-        for (address, _), result in zip(workers, results):
+        for (address, worker), result in zip(workers, results):
+            if isinstance(
+                result, TypeError
+            ) and "unexpected keyword argument 'memory_options'" in str(result):
+                warnings.append(
+                    message(
+                        "worker_memory_options_unsupported",
+                        f"Worker {address} does not support memory workload options; its candidates are unverified. Upgrade the worker to enable workload estimates.",
+                    )
+                )
+                try:
+                    result = await worker.get_model_recommendation_info(
+                        body.model_name,
+                        body.constraints.enable_virtual_env,
+                        model_type=body.model_type,
+                    )
+                    result = {
+                        **result,
+                        "memory_estimates": {},
+                        "engine_memory_estimates": {},
+                    }
+                except Exception as exc:
+                    result = exc
             if isinstance(result, BaseException):
                 logger.warning(
                     "Recommendation discovery failed on %s: %s", address, result

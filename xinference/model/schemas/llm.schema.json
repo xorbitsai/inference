@@ -20,7 +20,21 @@
         "num_hidden_layers": { "type": "integer", "minimum": 1 },
         "config_source": { "type": ["string", "null"] },
         "config_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "architecture_type": { "type": ["string", "null"] }
+        "architecture_type": { "type": ["string", "null"] },
+        "linear_num_key_heads": { "type": ["integer", "null"], "minimum": 1 },
+        "linear_num_value_heads": { "type": ["integer", "null"], "minimum": 1 },
+        "linear_key_head_dim": { "type": ["integer", "null"], "minimum": 1 },
+        "linear_value_head_dim": { "type": ["integer", "null"], "minimum": 1 },
+        "linear_conv_kernel_dim": { "type": ["integer", "null"], "minimum": 1 },
+        "num_experts": { "type": ["integer", "null"], "minimum": 1 },
+        "num_experts_per_tok": { "type": ["integer", "null"], "minimum": 1 },
+        "weights_bytes": { "type": ["integer", "null"], "minimum": 1 },
+        "layer_types": { "type": ["array", "null"], "items": {"type": "string"} },
+        "weights_source": { "type": ["string", "null"] },
+        "weights_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "vision": { "anyOf": [{"type": "null"}, {"$ref": "#/$defs/visionMetadata"}] },
+        "full_attention_interval": { "type": ["integer", "null"], "minimum": 1 },
+        "shared_expert_intermediate_size": { "type": ["integer", "null"], "minimum": 1 }
       },
       "required": [
         "vocab_size",
@@ -108,7 +122,9 @@
         },
         "model_metadata_by_quantization": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/modelMetadata" }
+          "additionalProperties": {
+            "$ref": "#/$defs/modelMetadata"
+          }
         },
         "model_metadata": {
           "$ref": "#/$defs/modelMetadata"
@@ -266,6 +282,35 @@
         "model_specs"
       ],
       "unevaluatedProperties": false
+    },
+    "visionMetadata": {
+      "type": "object",
+      "properties": {
+        "config_source": { "type": ["string", "null"] },
+        "config_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "hidden_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "intermediate_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "num_attention_heads": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "spatial_merge_size": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "hidden_size",
+        "intermediate_size",
+        "num_attention_heads"
+      ],
+      "additionalProperties": false
     }
   }
 }

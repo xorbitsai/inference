@@ -43,13 +43,22 @@ Q4_K_M and Int4 are preferred when supported. If choices are still tied, weights
 already cached on that worker get priority. A cached model does not override
 your selected size or the earlier preferences.
 
-Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and
-80% of currently free memory. Automatic GPU placement uses the lowest free memory
-among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple
-GPUs are not added together: multi-GPU requests keep compatibility-only selection.
-Known oversized candidates are excluded. Missing data remains unverified. Longer
-contexts, concurrency and engine preallocation can need more memory. No resources
-are reserved, and you still review and launch the model yourself.
+Estimates use offline architecture facts and checkpoint sizes when available.
+MoE weights include all resident experts. Full-attention KV cache, Gated DeltaNet
+recurrent state and workspace are counted separately. MLX, Transformers, vLLM,
+SGLang and llama.cpp share this accounting with different workspace bounds.
+Unknown layouts, including MLA, remain unverified.
+
+Defaults are one sequence, the model's registered maximum context, FP16 KV cache, no image tokens and
+no retained prefix cache. The budget is 80% of currently free memory: the lowest
+free memory among eligible GPUs, or available system memory on CPU and Apple
+Silicon. The default vLLM GPU reservation is checked separately when total memory
+is known; SGLang budgets from memory available at initialization. Multi-GPU
+requests keep compatibility-only selection.
+Known oversized candidates are excluded. Workspace bounds are estimates, not
+measured peaks. Engine preallocation is not modeled beyond the separate vLLM
+default reservation check; custom engine settings require manual configuration.
+No resources are reserved.
 
 Using the API
 -------------
@@ -58,6 +67,23 @@ Using the API
 ``model_type="LLM"``; the optional ``constraints`` object accepts
 ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and
 ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed.
+
+LLM constraints also accept positive integers ``context_length`` (text input plus
+output tokens) and ``concurrency``, and non-negative integers ``vision_tokens``
+(encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained
+cache across the instance). Omitting ``context_length`` uses each candidate's
+registered maximum context, including encoded image tokens. Models without a
+known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang
+``context_length`` equal text plus vision tokens per sequence. llama.cpp uses
+``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency``
+because its context is divided across slots. The Web UI applies these advanced
+launch parameters. Other workload fields affect estimates rather than request
+limits. Older workers that do not support workload options are retried without
+them and remain unverified, with a version warning. Image workloads require vision metadata.
+For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded
+token count; zero assumes all image tokens belong to one image. Cached states grow
+with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a
+16,384-token prefill workspace profile with fused attention and sampled-row logits.
 
 .. code-block:: bash
 

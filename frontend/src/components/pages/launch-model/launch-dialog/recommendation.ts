@@ -11,6 +11,10 @@ export interface RecommendationResponse {
     quantization?: string;
     worker_ip: string | null;
     enable_virtual_env: boolean;
+    max_model_len?: number;
+    context_length?: number;
+    n_ctx?: number;
+    n_parallel?: number;
   };
   reasons: { code: string; message: string }[];
   warnings: { code: string; message: string }[];
@@ -112,12 +116,29 @@ export function recommendationPatch(
   ) {
     throw new Error('size constraint mismatch');
   }
+  const contextFields =
+    modelType !== 'LLM'
+      ? []
+      : config.model_engine.toLowerCase() === 'vllm'
+        ? (['max_model_len'] as const)
+        : config.model_engine.toLowerCase() === 'sglang'
+          ? (['context_length'] as const)
+          : config.model_engine.toLowerCase() === 'llama.cpp'
+            ? (['n_ctx', 'n_parallel'] as const)
+            : [];
+  const kwargs = contextFields.flatMap((key) => {
+    const value = config[key];
+    if (value === undefined) return [];
+    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('invalid context setting');
+    return [{ key, value }];
+  });
   return {
     model_engine: config.model_engine,
     model_format: config.model_format,
     // Use the catalog's value type so linked selects retain the selection.
     ...(modelType === 'LLM' ? { model_size_in_billions: size!.value } : {}),
     quantization: config.quantization,
+    ...(kwargs.length ? { kwargs } : {}),
     ...(config.worker_ip ? { worker_ip: [config.worker_ip] } : {}),
     ...(typeof values.enable_virtual_env !== 'boolean'
       ? { enable_virtual_env: config.enable_virtual_env }

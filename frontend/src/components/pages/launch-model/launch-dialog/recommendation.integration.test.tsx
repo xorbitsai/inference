@@ -67,6 +67,7 @@ const LaunchDialog = launchDialogModule.default;
 const { getNGpuOptions } = launchDialogModule;
 const { recommendationRequest, recommendationUnavailable, recommendationPatch } =
   require('./recommendation') as typeof import('./recommendation');
+const { transformFormToFetch } = require('../utils') as typeof import('../utils');
 
 const engines = {
   'llama.cpp': [{ model_format: 'ggufv2', model_size_in_billions: 7, quantizations: ['Q4_K_M'] }],
@@ -374,6 +375,26 @@ it('rejects results absent from refreshed engine options or violating selected s
   await finish({ ...recommended, config: { ...recommended.config!, model_size_in_billions: 14 } });
   assert.equal(form.getFieldValue('model_size_in_billions'), 7);
 });
+
+for (const [engine, contextSettings] of [
+  ['vLLM', { max_model_len: 2048 }],
+  ['SGLang', { context_length: 4096 }],
+  ['llama.cpp', { n_ctx: 8192, n_parallel: 2 }],
+] as const) {
+  it(`applies ${engine} context settings through the launch form`, async () => {
+    const params = engines.vLLM;
+    request.get = (async (url: string) =>
+      url.startsWith('/v1/engines/') ? { ...engines, [engine]: params } : []) as typeof request.get;
+    await start();
+    await finish({
+      ...recommended,
+      config: { ...recommended.config!, model_engine: engine, ...contextSettings },
+    });
+    const payload = transformFormToFetch(form.getFieldsValue());
+    for (const [key, value] of Object.entries(contextSettings)) assert.equal(payload[key], value);
+    assert.equal(payload.kwargs, undefined);
+  });
+}
 
 it('blocks llama.cpp custom engine parameters without changing the form or requesting a recommendation', async () => {
   await act(async () => {

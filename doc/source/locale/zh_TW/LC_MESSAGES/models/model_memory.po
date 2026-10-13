@@ -34,8 +34,8 @@ msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
 msgstr "算法來自：https://github.com/RahulSChand/gpu_poor"
 
 #: ../../source/models/model_memory.rst:11
-msgid "Output: model_mem, kv_cache, overhead, active_mem"
-msgstr "model_mem, kv_cache, overhead, active_mem"
+msgid "Output: model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
+msgstr "model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem"
 
 #: ../../source/models/model_memory.rst:13
 msgid ""
@@ -135,3 +135,6 @@ msgid ""
 msgstr ""
 "利用環境變數 ``HF_ENDPOINT`` 可設定 HuggingFace 伺服器的 Endpoint。例如，當網路不佳時可以選擇 hf-mirror"
 " 作為 Endpoint。更多請參考 :ref:`此文件 <models_download>`"
+
+msgid "The total includes recurrent state and retained prefix cache. Activation memory includes vision workspace when present, so vision workspace is not added again. Sliding attention uses a full-attention cache upper bound. Unsupported layouts or missing checkpoint-size facts produce an explanatory error instead of an estimate."
+msgstr "總量包含循環狀態和保留前綴快取。存在視覺工作區時，它已計入啟用記憶體，不會再單獨相加。滑動視窗注意力使用完整注意力快取作為上界。布局不受支援或缺少檢查點大小資訊時，指令會提供說明性錯誤，不提供估算。"
