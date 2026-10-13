@@ -775,3 +775,11 @@ msgid "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
 msgstr ""
 "GLM-5.3 est un modèle de raisonnement pour la programmation et les tâches "
 "agentiques de longue durée."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control."
+msgstr "Qwen3.8-Flash-Next est un modèle natif de vision et de langage à mélange d’experts. Son modèle principal comporte 125 milliards de paramètres, dont 6 milliards activés par token, auxquels s’ajoute une table de plongements de n-grammes de 51 milliards de paramètres. Son architecture expérimentale Qwen4 associe Gated DeltaNet, Qwen Sparse Attention, des connexions résiduelles à portes et un contrôle flexible de la réflexion."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "chat, vision, tools, reasoning, hybrid"
+msgstr "conversation, vision, appels d’outils, raisonnement, mode de réflexion hybride"

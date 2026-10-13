@@ -499,6 +499,9 @@ def _update_vllm_supported_lists() -> None:
 
     if effective_version >= version.parse("0.30.0.dev0"):
         _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "DeepseekV41ForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen4ExpForConditionalGeneration"
+        )
 
 
 _update_vllm_supported_lists()
@@ -2664,6 +2667,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     return False, "gptq quantization must be 4 bit for vLLM <0.3.3"
         supported_architectures = list(VLLM_SUPPORTED_MULTI_MODEL_LIST)
         effective_version = _get_effective_vllm_version_for_family(llm_family)
+        if llm_family.has_architecture("Qwen4ExpForConditionalGeneration"):
+            if effective_version < version.parse("0.30.0.dev0"):
+                return (
+                    False,
+                    "Qwen3.8-Flash-Next requires vLLM >= 0.30.0.dev0 "
+                    f"(nightly with Qwen4Exp support); found {effective_version}",
+                )
+            _append_unique(supported_architectures, "Qwen4ExpForConditionalGeneration")
         if llm_family.has_architecture("DeepseekV41ForCausalLM"):
             if effective_version < version.parse("0.30.0.dev0"):
                 return (
