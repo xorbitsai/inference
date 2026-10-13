@@ -619,10 +619,23 @@ class VLLMModel(WeightCachedModel, LLM):
         self._validate_forced_tools(config)
         stream = config.get("stream", False)
         include_usage = (config.get("stream_options") or {}).get("include_usage", False)
+        context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
+        expose_reasoning = context.get(
+            "reasoning_content",
+            getattr(self.reasoning_parser, "reasoning_content", False),
+        )
+        config = {
+            **config,
+            "chat_template_kwargs": {**context, "reasoning_content": True},
+        }
         messages, config = prepare_forced_tools(messages, config)
+        config["_anthropic_request"] = True
         config["stream"] = False
         completion = await self.async_chat(messages, config, request_id=request_id)  # type: ignore[attr-defined]
         completion = convert_forced_completion(completion)
+        if self.reasoning_parser and not expose_reasoning:
+            for choice in completion["choices"]:
+                choice["message"].pop("reasoning_content", None)
         if stream:
             return stream_forced_completion(completion, include_usage)
         return completion
@@ -2747,14 +2760,36 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
-        if is_forced_tool_choice(generate_config):
+        anthropic = generate_config.pop("_anthropic_request", False)
+        if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
+        structured = getattr(
+            getattr(self._engine, "vllm_config", None),
+            "structured_outputs_config",
+            None,
+        )
+        plain_json = bool(
+            not anthropic
+            and (generate_config.get("response_format") or {}).get("type")
+            in {"json_schema", "json_object"}
+            and str(getattr(structured, "reasoning_parser", "")).startswith(
+                "xinference_"
+            )
+        )
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         generate_config.pop("tool_choice", None)
         full_prompt, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
         generate_config = generate_config or {}
+        parser = self.reasoning_parser
+        chat_template_kwargs = {
+            **(chat_template_kwargs or {}),
+            "_anthropic_request": anthropic,
+        }
+        if plain_json:
+            full_prompt = self._close_reasoning_prompt(full_prompt, parser)
+            parser = None
         stream = generate_config.get("stream", False)
 
         if stream:
@@ -2768,7 +2803,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
-                    agen, self.reasoning_parser, chat_template_kwargs
+                    agen, parser, chat_template_kwargs
                 )
             if parallel_tool_calls is False:
                 return cast(
@@ -2786,7 +2821,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     self.model_family, self.model_uid, c
                 )
             else:
-                result = self._to_chat_completion(c, self.reasoning_parser)
+                result = self._to_chat_completion(c, parser)
             if "_pd_kv_transfer_params" in c:
                 result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
                     "_pd_kv_transfer_params"
@@ -3232,14 +3267,36 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         generate_config = dict(generate_config or {})
-        if is_forced_tool_choice(generate_config):
+        anthropic = generate_config.pop("_anthropic_request", False)
+        if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
+        structured = getattr(
+            getattr(self._engine, "vllm_config", None),
+            "structured_outputs_config",
+            None,
+        )
+        plain_json = bool(
+            not anthropic
+            and (generate_config.get("response_format") or {}).get("type")
+            in {"json_schema", "json_object"}
+            and str(getattr(structured, "reasoning_parser", "")).startswith(
+                "xinference_"
+            )
+        )
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         generate_config.pop("tool_choice", None)
         inputs, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
         generate_config = generate_config or {}
+        parser = self.reasoning_parser
+        chat_template_kwargs = {
+            **(chat_template_kwargs or {}),
+            "_anthropic_request": anthropic,
+        }
+        if plain_json:
+            inputs["prompt"] = self._close_reasoning_prompt(inputs["prompt"], parser)
+            parser = None
         stream = generate_config.get("stream", False)
 
         if stream:
@@ -3256,7 +3313,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
             else:
                 result_stream = self._async_to_chat_completion_chunks(
-                    agen, self.reasoning_parser, chat_template_kwargs
+                    agen, parser, chat_template_kwargs
                 )
             if parallel_tool_calls is False:
                 return cast(
@@ -3277,7 +3334,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     self.model_family, self.model_uid, c
                 )
             else:
-                result = self._to_chat_completion(c, self.reasoning_parser)
+                result = self._to_chat_completion(c, parser)
             if "_pd_kv_transfer_params" in c:
                 result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
                     "_pd_kv_transfer_params"

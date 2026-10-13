@@ -53,9 +53,14 @@ def create_reasoning_plugin(
 def configure_structured_reasoning(
     model_config: Dict[str, Any], parser: Optional[ReasoningParser], cache_dir: str
 ) -> None:
-    if parser is None:
+    if parser is None or any(
+        key in model_config for key in ("reasoning_parser", "reasoning_parser_plugin")
+    ):
         return
-    structured = dict(model_config.get("structured_outputs_config") or {})
+    configured = model_config.get("structured_outputs_config")
+    if configured is not None and not isinstance(configured, dict):
+        return
+    structured = dict(configured or {})
     if "reasoning_parser" in structured or "reasoning_parser_plugin" in structured:
         return
     try:

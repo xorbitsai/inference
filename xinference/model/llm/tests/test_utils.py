@@ -3228,3 +3228,131 @@ def test_minicpm5_get_full_context_handles_string_arguments():
     assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
         '{"city":"Beijing"}'
     )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "glm4-chat",
+        "glm4-chat-1m",
+        "glm4-0414",
+        "glm-4.5",
+        "glm-4.6",
+        "glm-4.7",
+        "glm-4.7-flash",
+        "glm-4.5v",
+    ],
+)
+def test_glm_tool_history_uses_the_actual_family_template(name):
+    import copy
+    from types import SimpleNamespace
+
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+    from ..tool_parsers.glm4_tool_parser import Glm4ToolParser
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name.lower() == name)
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_family=name, model_name=name, model_ability=family.model_ability
+    )
+    mixin.tool_parser = Glm4ToolParser()
+    messages = [
+        {"role": "user", "content": "weather in Beijing?"},
+        {
+            "role": "assistant",
+            "content": "Let me check.",
+            "tool_calls": [
+                {
+                    "id": "call",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"Beijing"}',
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call", "content": "SUNNY_25C"},
+    ]
+    original = copy.deepcopy(messages)
+    prompt = mixin.get_full_context(messages, family.chat_template)
+    assert "Let me check." in prompt
+    assert "get_weather" in prompt
+    assert "SUNNY_25C" in prompt
+    assert messages == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("anthropic", [False, True])
+async def test_initial_prompt_usage_is_anthropic_only(anthropic):
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 1,
+        "total_tokens": 101,
+        "prompt_tokens_details": {"cached_tokens": 60},
+    }
+
+    async def source():
+        yield {
+            "id": "test",
+            "model": "test",
+            "created": 1,
+            "choices": [{"index": 0, "text": "answer", "finish_reason": None}],
+            "usage": usage,
+        }
+
+    chunks = [
+        c
+        async for c in ChatModelMixin._async_to_chat_completion_chunks(
+            source(), ctx={"_anthropic_request": anthropic}
+        )
+    ]
+    if anthropic:
+        assert chunks[0]["usage"]["prompt_tokens"] == 100
+        assert chunks[0]["usage"]["prompt_tokens_details"]["cached_tokens"] == 60
+    else:
+        assert chunks[0].get("usage") is None
+
+
+@pytest.mark.asyncio
+async def test_synthetic_reasoning_start_preserves_initial_cache_usage():
+    from ..reasoning_parser import ReasoningParser
+
+    parser = ReasoningParser(
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        reasoning_content=True,
+        auto_insert_start_tag=True,
+    )
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 1,
+        "total_tokens": 101,
+        "prompt_tokens_details": {"cached_tokens": 60},
+    }
+
+    async def source():
+        yield {
+            "id": "test",
+            "model": "test",
+            "created": 1,
+            "choices": [
+                {"index": 0, "text": "plan</think>answer", "finish_reason": None}
+            ],
+            "usage": usage,
+        }
+
+    chunks = [
+        c
+        async for c in ChatModelMixin._async_to_chat_completion_chunks(
+            source(),
+            parser,
+            ctx={
+                "_anthropic_request": True,
+                "reasoning_content": True,
+                "enable_thinking": True,
+            },
+        )
+    ]
+    assert chunks[0]["usage"]["prompt_tokens"] == 100
+    assert chunks[0]["usage"]["prompt_tokens_details"]["cached_tokens"] == 60

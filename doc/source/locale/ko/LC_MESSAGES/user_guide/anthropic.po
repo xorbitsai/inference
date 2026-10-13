@@ -115,6 +115,18 @@ msgstr ""
 "``limit_mm_per_prompt`` 를 예를 들어 ``{\"image\": 8, \"video\": 0}`` 으로 설정하면 모델의"
 " 컨텍스트 길이와 사용 가능한 GPU 메모리 범위에서 더 많은 이미지를 허용할 수 있습니다."
 
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"PDF 제한은 전체 요청에 적용됩니다. 최대 20페이지와 렌더링된 총 2천만 픽셀을 허용합니다. 디코딩된 PDF 바이트와 렌더링된 PNG"
+" 바이트에는 각각 ``XINFERENCE_MEDIA_MAX_BYTES`` (기본값 64 MiB)가 적용됩니다. 각 PDF 블록은 요청당 "
+"한 번 렌더링되며 내용을 가져오거나 렌더링하기 전에 모델 접근 권한을 확인합니다."
+
 #: user_guide/anthropic.rst:83
 msgid "Thinking"
 msgstr "사고"
@@ -134,6 +146,14 @@ msgstr ""
 "다시 전달할 수 있습니다. 여러 API 서버에서 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` 을 동일하게 "
 "설정하세요. MLX, vLLM 및 SGLang 어댑터는 현재 수동 ``budget_tokens`` 를 별도의 추론 토큰 제한으로 강제하지"
 " 않습니다."
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr ""
+"오래되었거나 서명이 없거나 다른 출처의 thinking 블록은 기록을 재사용할 때 무시됩니다. 함께 기록된 답변과 도구 호출은 "
+"유지됩니다."
 
 #: user_guide/anthropic.rst:92
 msgid "Tool choice and structured output"

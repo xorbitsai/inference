@@ -86,6 +86,11 @@ single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when
 launching the model, for example ``{"image": 8, "video": 0}``, to allow more
 images within the model's context length and available GPU memory.
 
+PDF limits apply to the entire request: at most 20 pages and 20 million
+rendered pixels. Decoded PDF bytes and rendered PNG bytes each use
+``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is rendered
+once per request, and model access is checked before fetching or rendering content.
+
 Thinking
 --------
 
@@ -96,6 +101,9 @@ with the same model UID and signing key; configure
 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.
 The MLX, vLLM and SGLang adapters do not currently enforce manual
 ``budget_tokens`` as a separate reasoning-token limit.
+
+Stale, unsigned or foreign thinking blocks are ignored during replay;
+accompanying answers and tool calls are preserved.
 
 Tool choice and structured output
 ---------------------------------

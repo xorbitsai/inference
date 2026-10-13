@@ -110,6 +110,18 @@ msgstr ""
 "``limit_mm_per_prompt``，例如 ``{\"image\": 8, \"video\": 0}``，即可在模型上下文長度和可用 "
 "GPU 記憶體範圍內接收更多圖片。"
 
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"PDF 限制針對整個請求：最多 20 頁、2000 萬個渲染像素。解碼後的 PDF 位元組和渲染後的 PNG 位元組各自受 "
+"``XINFERENCE_MEDIA_MAX_BYTES`` 限制（預設為 64 MiB）。每個 PDF "
+"內容區塊在一次請求中僅渲染一次，取得或渲染內容前會檢查模型存取權限。"
+
 #: user_guide/anthropic.rst:83
 msgid "Thinking"
 msgstr "思考模式"
@@ -128,6 +140,12 @@ msgstr ""
 "保持預設提示詞。明確要求的思考回應帶有 Xinference 簽章，可使用相同的模型 UID 和簽章金鑰回傳；多個 API 伺服器應設定相同的 "
 "``XINFERENCE_ANTHROPIC_THINKING_SECRET``。 MLX、vLLM 和 SGLang 適配層目前不會將手動 "
 "``budget_tokens`` 強制執行為獨立的思考 token 上限。"
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr "重播歷史時會忽略失效、未簽章或外來的 thinking 區塊，同時保留其附帶的回答和工具呼叫。"
 
 #: user_guide/anthropic.rst:92
 msgid "Tool choice and structured output"

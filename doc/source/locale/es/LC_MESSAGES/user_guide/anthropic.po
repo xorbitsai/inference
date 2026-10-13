@@ -128,6 +128,21 @@ msgstr ""
 "8, \"video\": 0}``, para permitir más imágenes dentro de la longitud de "
 "contexto del modelo y de la memoria GPU disponible."
 
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"Los límites de PDF se aplican a toda la solicitud: como máximo 20 páginas y "
+"20 millones de píxeles renderizados. Los bytes de PDF decodificados y los "
+"bytes de PNG renderizados usan cada uno ``XINFERENCE_MEDIA_MAX_BYTES`` (64 "
+"MiB de forma predeterminada). Cada bloque PDF se renderiza una vez por "
+"solicitud y el acceso al modelo se comprueba antes de descargar o renderizar"
+" el contenido."
+
 #: user_guide/anthropic.rst:83
 msgid "Thinking"
 msgstr "Razonamiento"
@@ -150,6 +165,15 @@ msgstr ""
 "``XINFERENCE_ANTHROPIC_THINKING_SECRET`` de forma uniforme en los servidores"
 " API. Los adaptadores de MLX, vLLM y SGLang no aplican actualmente "
 "``budget_tokens`` manuales como límite separado de tokens de razonamiento."
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr ""
+"Los bloques de pensamiento antiguos, sin firma o de otro origen se ignoran "
+"al reproducir el historial; las respuestas y llamadas a herramientas que los"
+" acompañan se conservan."
 
 #: user_guide/anthropic.rst:92
 msgid "Tool choice and structured output"

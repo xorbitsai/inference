@@ -108,6 +108,7 @@ from .pdf_ocr import (
 from .protocols import (
     AnthropicProtocolError,
     anthropic_error_response,
+    anthropic_request_model,
     anthropic_stream_events,
     openai_to_anthropic,
     parse_anthropic_request,
@@ -2357,8 +2358,8 @@ class RESTfulAPI(CancelMixin):
             )
             body["max_tokens"] = max(1, budget + 1) if isinstance(budget, int) else 1
             body["stream"] = False
+            self._check_model_access(request, anthropic_request_model(body), "LLM")
             canonical = await asyncio.to_thread(parse_anthropic_request, body)
-            self._check_model_access(request, canonical.requested_model, "LLM")
             self._set_trace_model(canonical.requested_model)
             self._set_trace_model_type("llm")
             supervisor = await self._get_supervisor_ref()
@@ -2430,8 +2431,12 @@ class RESTfulAPI(CancelMixin):
             )
 
         try:
-            canonical = await asyncio.to_thread(
-                parse_anthropic_request, await request.json()
+            body = await request.json()
+            self._check_model_access(request, anthropic_request_model(body), "LLM")
+            canonical = await asyncio.to_thread(parse_anthropic_request, body)
+        except HTTPException as exc:
+            return self._anthropic_error(
+                exc.status_code, str(exc.detail), request_id, headers=exc.headers
             )
         except AnthropicProtocolError as exc:
             return self._anthropic_error(
@@ -2449,12 +2454,6 @@ class RESTfulAPI(CancelMixin):
         model_uid = canonical.requested_model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
-        try:
-            self._check_model_access(request, model_uid, "LLM")
-        except HTTPException as exc:
-            return self._anthropic_error(
-                exc.status_code, str(exc.detail), request_id, headers=exc.headers
-            )
 
         try:
             supervisor_ref = await self._get_supervisor_ref()

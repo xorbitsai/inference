@@ -15,6 +15,7 @@
 import abc
 import copy
 import inspect
+import json
 import logging
 import os
 import platform
@@ -102,7 +103,13 @@ class LLM(abc.ABC):
     ) -> Dict[str, Any]:
         """Validate backend capabilities before starting an Anthropic response."""
         config = copy.deepcopy(config)
+        context = config.get("chat_template_kwargs") or {}
+        if isinstance(context, str):
+            context = json.loads(context)
+        config["chat_template_kwargs"] = {**context, "_anthropic_request": True}
         engine = type(self).__module__.split(".")[-2]
+        if engine in {"vllm", "sglang"}:
+            config["_anthropic_request"] = True
         if config.get("response_format") and engine not in {
             "vllm",
             "sglang",

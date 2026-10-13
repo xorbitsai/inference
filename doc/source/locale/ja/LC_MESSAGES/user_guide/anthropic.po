@@ -116,6 +116,18 @@ msgstr ""
 "``{\"image\": 8, \"video\": 0}`` に設定すると、モデルのコンテキスト長と利用可能な GPU "
 "メモリの範囲内で画像数を増やせます。"
 
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"PDF の上限はリクエスト全体に適用され、最大 20 ページ、描画後の合計画素数は 2000 万です。デコードした PDF と描画した PNG "
+"のバイト数には、それぞれ ``XINFERENCE_MEDIA_MAX_BYTES`` （デフォルトは 64 MiB）が適用されます。各 PDF "
+"ブロックはリクエストごとに 1 回描画され、内容の取得や描画の前にモデルへのアクセス権を確認します。"
+
 #: user_guide/anthropic.rst:83
 msgid "Thinking"
 msgstr "思考"
@@ -135,6 +147,13 @@ msgstr ""
 " API サーバーでは ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` "
 "を統一してください。MLX、vLLM、SGLang のアダプターは現在、手動の ``budget_tokens`` "
 "を独立した推論トークン数の上限として強制しません。"
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr ""
+"古い署名、署名なし、または外部の thinking ブロックは履歴の再利用時に無視されます。併せて記録された回答とツール呼び出しは保持されます。"
 
 #: user_guide/anthropic.rst:92
 msgid "Tool choice and structured output"

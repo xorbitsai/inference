@@ -1109,10 +1109,28 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         self._validate_forced_tools(config)
         stream = config.get("stream", False)
         include_usage = (config.get("stream_options") or {}).get("include_usage", False)
+        context = (
+            self._get_chat_template_kwargs_from_generate_config(
+                config, self.reasoning_parser
+            )
+            or {}
+        )
+        expose_reasoning = context.get(
+            "reasoning_content",
+            getattr(self.reasoning_parser, "reasoning_content", False),
+        )
+        config = {
+            **config,
+            "chat_template_kwargs": {**context, "reasoning_content": True},
+        }
         messages, config = prepare_forced_tools(messages, config)
+        config["_anthropic_request"] = True
         config["stream"] = False
         completion = await self.async_chat(messages, config, request_id=request_id)
         completion = convert_forced_completion(completion)
+        if self.reasoning_parser and not expose_reasoning:
+            for choice in completion["choices"]:
+                choice["message"].pop("reasoning_content", None)
         if stream:
             return stream_forced_completion(completion, include_usage)
         return completion
@@ -1129,8 +1147,14 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
         config = dict(generate_config or {})
-        if is_forced_tool_choice(config):
+        anthropic = config.get("_anthropic_request", False)
+        if anthropic and is_forced_tool_choice(config):
             return await self._forced_tool_chat(messages, config, request_id)
+        plain_json = bool(
+            not anthropic
+            and (config.get("response_format") or {}).get("type")
+            in {"json_schema", "json_object"}
+        )
         parallel = config.pop("parallel_tool_calls", True)
         choice = config.pop("tool_choice", None)
         if choice == "none":
@@ -1138,6 +1162,8 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         prompt, images, tools, context, config = await self._prepare_chat_inputs(
             messages, config
         )
+        parser = None if plain_json else self.reasoning_parser
+        context = {**context, "_anthropic_request": anthropic}
         completion = await self.async_generate(
             prompt,
             image_data=images,
@@ -1148,10 +1174,10 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         if config.get("stream"):
             assert isinstance(completion, AsyncGenerator)
             if tools:
-                chunks = self._async_to_tool_completion_chunks(completion)
+                chunks = self._async_to_tool_completion_chunks(completion, context)
             else:
                 chunks = self._async_to_chat_completion_chunks(
-                    completion, self.reasoning_parser, context
+                    completion, parser, context
                 )
             return (
                 cast(
@@ -1167,7 +1193,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                 self.model_family, self.model_uid, completion
             )
         else:
-            result = self._to_chat_completion(completion, self.reasoning_parser)
+            result = self._to_chat_completion(completion, parser)
         transfer = cast(Dict[str, Any], completion).get("_pd_kv_transfer_params")
         if transfer is not None:
             result["_pd_kv_transfer_params"] = transfer
@@ -1187,6 +1213,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         request_id: Optional[str] = None,
     ) -> Union[Completion, AsyncGenerator[CompletionChunk, None]]:
         config = dict(generate_config or {})
+        anthropic = config.pop("_anthropic_request", False)
         transfer = config.pop("_pd_kv_transfer_params", None)
         pd: Any = getattr(self, "_xavier_handoff", None) or getattr(
             self, "_nixl_handoff", None
@@ -1227,13 +1254,21 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         )
         if thinking or tools:
             sanitized_generate_config["skip_special_tokens"] = False
-        if sanitized_generate_config.get("json_schema") and getattr(
-            self, "_model_config", {}
-        ).get("reasoning_parser"):
-            self._validate_structured_reasoning(thinking)
-            sanitized_generate_config["require_reasoning"] = thinking
-        elif sanitized_generate_config.get("json_schema") and thinking:
-            self._validate_structured_reasoning(True)
+        if sanitized_generate_config.get("json_schema"):
+            if anthropic:
+                self._validate_structured_reasoning(thinking)
+                if getattr(self, "_model_config", {}).get("reasoning_parser"):
+                    sanitized_generate_config["require_reasoning"] = thinking
+            else:
+                # OpenAI historically constrained from the first generated token.
+                # Old engines need neither a plugin nor the new request field.
+                try:
+                    self._validate_structured_reasoning(False)
+                except NotImplementedError:
+                    pass
+                else:
+                    if getattr(self, "_model_config", {}).get("reasoning_parser"):
+                        sanitized_generate_config["require_reasoning"] = False
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )

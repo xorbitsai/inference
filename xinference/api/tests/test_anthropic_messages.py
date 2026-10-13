@@ -303,3 +303,52 @@ async def test_physical_stream_failure_is_reported_as_model_generator(monkeypatc
     assert "physical backend failed" in response.text
     assert reporter.outcome.state is StreamState.FAILED
     assert reporter.outcome.failure_origin is FailureOrigin.MODEL_GENERATOR
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["/v1/messages", "/v1/messages/count_tokens"])
+async def test_model_access_is_checked_before_media_normalization(
+    monkeypatch, endpoint
+):
+    api = make_rest_api()
+
+    def denied(*args):
+        raise HTTPException(403, "Model access denied")
+
+    api._check_model_access = denied
+
+    def parse(*args):
+        pytest.fail("Denied requests must not fetch or render media")
+
+    monkeypatch.setattr(restful_api_module, "parse_anthropic_request", parse)
+    app = make_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            endpoint,
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "denied",
+                "max_tokens": 32,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "document",
+                                "source": {
+                                    "type": "url",
+                                    "url": "https://example.com/file.pdf",
+                                },
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == "Model access denied"

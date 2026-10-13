@@ -186,3 +186,31 @@ async def test_cleaned_template_config_keeps_request_thinking_mode(
         chat_context_var.reset(context)
     config = model._sanitize_generate_config.call_args.args[0]
     assert config.get("skip_special_tokens", True) is not enabled
+
+
+@pytest.mark.parametrize(
+    "explicit",
+    [
+        {"reasoning_parser": "qwen3"},
+        {"reasoning_parser_plugin": "/native.py"},
+        {"reasoning_parser": ""},
+    ],
+)
+def test_top_level_engine_override_prevents_automatic_dict_injection(
+    tmp_path, vllm_reasoning, explicit
+):
+    parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    config = dict(explicit)
+    configure_structured_reasoning(config, parser, str(tmp_path))
+    assert config == explicit
+    assert "structured_outputs_config" not in config
+    assert not list(tmp_path.iterdir())
+
+
+def test_explicit_config_object_is_preserved(tmp_path, vllm_reasoning):
+    configured = SimpleNamespace(reasoning_parser="native")
+    config = {"structured_outputs_config": configured}
+    configure_structured_reasoning(config, ReasoningParser(), str(tmp_path))
+    assert config["structured_outputs_config"] is configured

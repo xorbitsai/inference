@@ -137,6 +137,7 @@ async def test_forced_tool_uses_schema_and_buffers_stream(cls):
     config = {
         "tools": tools(),
         "tool_choice": "required",
+        "_anthropic_request": True,
         "parallel_tool_calls": False,
         "stream": True,
         "stream_options": {"include_usage": True},
@@ -198,7 +199,9 @@ async def test_generate_passes_per_request_reasoning_and_preserves_markers(think
     )
     token = chat_context_var.set({"enable_thinking": thinking})
     try:
-        await instance.async_generate("prompt", {"json_schema": "{}"})
+        await instance.async_generate(
+            "prompt", {"json_schema": "{}", "_anthropic_request": True}
+        )
     finally:
         chat_context_var.reset(token)
     params = instance._non_stream_generate.call_args.kwargs
@@ -240,3 +243,61 @@ async def test_vision_preparation_includes_tools_and_consumes_template_kwargs(
     assert captured["tools"] == render_tools == tools()
     assert context["enable_thinking"] is False
     assert "chat_template_kwargs" not in config
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", [SGLANGChatModel, SGLANGVisionModel])
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+async def test_openai_choice_does_not_enter_forced_decoding(cls, choice):
+    instance = model(cls)
+    instance.reasoning_parser = None
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("prompt", None, None, {}, {})
+    )
+    instance.async_generate = AsyncMock(return_value=completion("answer"))
+    instance._forced_tool_chat = AsyncMock(
+        side_effect=AssertionError("not an Anthropic request")
+    )
+    result = await instance.async_chat([], {"tools": tools(), "tool_choice": choice})
+    assert result["choices"][0]["message"]["content"] == "answer"
+    instance._forced_tool_chat.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("configured", [False, True])
+async def test_openai_json_schema_works_without_request_reasoning_capability(
+    monkeypatch, configured
+):
+    import json
+
+    instance = model()
+    instance._model_config = {"reasoning_parser": "native"} if configured else {}
+    monkeypatch.setitem(
+        sys.modules,
+        "sglang.srt.managers.io_struct",
+        SimpleNamespace(GenerateReqInput=SimpleNamespace(__dataclass_fields__={})),
+    )
+    instance._non_stream_generate = AsyncMock(
+        return_value={
+            "text": '{"answer":42}',
+            "meta_info": {
+                "prompt_tokens": 12,
+                "completion_tokens": 2,
+                "finish_reason": {"type": "stop"},
+            },
+        }
+    )
+    result = await instance.async_generate(
+        "prompt",
+        {
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"schema": {"type": "object"}},
+            }
+        },
+    )
+    assert json.loads(result["choices"][0]["text"]) == {"answer": 42}
+    assert "require_reasoning" not in instance._non_stream_generate.call_args.kwargs
+    assert "_anthropic_request" not in instance._non_stream_generate.call_args.kwargs

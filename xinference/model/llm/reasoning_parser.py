@@ -329,7 +329,7 @@ class ReasoningParser:
         Returns:
             ChatCompletionChunk: A new chat completion chunk
         """
-        return ChatCompletionChunk(
+        result = ChatCompletionChunk(
             id="chat" + chunk["id"],
             model=chunk["model"],
             created=chunk["created"],
@@ -344,6 +344,10 @@ class ReasoningParser:
                 }
             ],
         )
+        usage = chunk.get("usage")
+        if usage is not None:
+            result["usage"] = usage
+        return result
 
     def _create_completion_chunk(
         self, chunk: Union[Dict[str, Any], CompletionChunk], text: str
@@ -357,7 +361,7 @@ class ReasoningParser:
         Returns:
             CompletionChunk: A new completion chunk
         """
-        return CompletionChunk(
+        result = CompletionChunk(
             id=chunk["id"],
             model=chunk["model"],
             created=chunk["created"],
@@ -371,6 +375,10 @@ class ReasoningParser:
                 }
             ],
         )
+        usage = chunk.get("usage")
+        if usage is not None:
+            result["usage"] = usage
+        return result
 
     def is_enable_thinking(self):
         if not self.allow_disable_thinking:

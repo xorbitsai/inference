@@ -346,3 +346,129 @@ async def test_backend_preparation_preserves_controls_and_counts_prompt(monkeypa
     assert prepared["generate_config"]["tool_choice"] == "required"
     assert prepared["generate_config"]["parallel_tool_calls"] is False
     assert prepared["input_tokens"] == 42
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
+@pytest.mark.parametrize(
+    "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
+)
+async def test_openai_tool_choice_keeps_the_legacy_path(cls, choice):
+    instance = object.__new__(cls)
+    instance._engine = None
+    instance.reasoning_parser = None
+    prompt = {"prompt": "prompt"} if cls is core.VLLMMultiModel else "prompt"
+    instance._prepare_chat_inputs = AsyncMock(return_value=(prompt, [], {}, {}))
+    instance._forced_tool_chat = AsyncMock(
+        side_effect=AssertionError("OpenAI must not opt into new forced decoding")
+    )
+    generated = {
+        "id": "test",
+        "model": "test",
+        "created": 1,
+        "choices": [{"text": "answer", "finish_reason": "stop"}],
+        "usage": {},
+    }
+    instance.async_generate = AsyncMock(return_value=generated)
+    result = await cls.async_chat.__wrapped__(
+        instance, [], {"tools": tools(), "tool_choice": choice}
+    )
+    assert result["choices"][0]["message"]["content"] == "answer"
+    assert "tool_choice" not in instance._prepare_chat_inputs.call_args.args[1]
+    instance._forced_tool_chat.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
+@pytest.mark.parametrize("format_type", ["json_schema", "json_object", "text"])
+async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
+    cls, format_type
+):
+    import json
+
+    from ...reasoning_parser import ReasoningParser
+
+    instance = object.__new__(cls)
+    instance.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        reasoning_content=False,
+    )
+    instance._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            structured_outputs_config=SimpleNamespace(
+                reasoning_parser="xinference_auto"
+            )
+        )
+    )
+    prompt = (
+        {"prompt": "assistant<think>\n"}
+        if cls is core.VLLMMultiModel
+        else "assistant<think>\n"
+    )
+    instance._prepare_chat_inputs = AsyncMock(return_value=(prompt, [], {}, {}))
+    generated = {
+        "id": "test",
+        "model": "test",
+        "created": 1,
+        "choices": [{"text": '{"answer":42}', "finish_reason": "stop"}],
+        "usage": {},
+    }
+    instance.async_generate = AsyncMock(return_value=generated)
+    result = await cls.async_chat.__wrapped__(
+        instance, [], {"response_format": {"type": format_type}}
+    )
+    rendered = instance.async_generate.call_args.args[0]
+    if isinstance(rendered, dict):
+        rendered = rendered["prompt"]
+    assert rendered.endswith("</think>\n") is (format_type != "text")
+    content = result["choices"][0]["message"]["content"]
+    if format_type == "text":
+        assert content.startswith("<think>\n")
+    else:
+        assert json.loads(content) == {"answer": 42}
+    assert "reasoning_content" not in result["choices"][0]["message"]
+
+
+@pytest.mark.asyncio
+async def test_forced_json_extraction_does_not_require_reasoning_content_display(
+    monkeypatch,
+):
+    from ...core import chat_context_var
+    from ...reasoning_parser import ReasoningParser
+
+    instance = object.__new__(core.VLLMChatModel)
+    instance.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        reasoning_content=False,
+    )
+    instance._validate_forced_tools = lambda _: None
+
+    async def chat(messages, config, **kwargs):
+        token = chat_context_var.set(config["chat_template_kwargs"])
+        try:
+            generated = {
+                "id": "test",
+                "model": "test",
+                "created": 1,
+                "choices": [
+                    {
+                        "text": '<think>plan</think>[{"name":"Read","arguments":{"file_path":"a"}}]',
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {},
+            }
+            return instance._to_chat_completion(generated, instance.reasoning_parser)
+        finally:
+            chat_context_var.reset(token)
+
+    instance.async_chat = chat
+    result = await instance._forced_tool_chat(
+        [], {"tools": tools(), "tool_choice": "required"}, "rid"
+    )
+    assert (
+        result["choices"][0]["message"]["tool_calls"][0]["function"]["name"] == "Read"
+    )
+    assert "reasoning_content" not in result["choices"][0]["message"]

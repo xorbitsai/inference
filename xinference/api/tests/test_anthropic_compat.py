@@ -95,7 +95,7 @@ def test_adaptive_effort_and_reasoning_history():
             {"role": "user", "content": "continue"},
         ],
     )
-    assert result.messages[0]["reasoning_content"] == "previous reasoning"
+    assert "reasoning_content" not in result.messages[0]
     body = result.to_openai_body()
     assert body["reasoning_effort"] == "high"
     assert body["chat_template_kwargs"] == {
@@ -264,7 +264,7 @@ async def test_stream_reports_initial_and_final_input_and_cache_usage():
             chunks(), "local", "req", input_tokens=100
         )
     ]
-    assert events[0]["message"]["usage"]["input_tokens"] == 100
+    assert events[0]["message"]["usage"]["input_tokens"] == 0
     assert events[-2]["usage"] == {
         "input_tokens": 30,
         "output_tokens": 2,
@@ -336,5 +336,149 @@ async def test_signed_reasoning_stream_and_history_round_trip(monkeypatch):
     ]
     assert request(messages=body).messages[0]["reasoning_content"] == "think carefully"
     body[0]["content"][0]["thinking"] = "tampered"
-    with pytest.raises(AnthropicProtocolError, match="signature"):
-        request(messages=body)
+    assert "reasoning_content" not in request(messages=body).messages[0]
+
+
+def pdf_block(pages=1, size=100):
+    pypdf = pytest.importorskip("pypdf")
+    writer = pypdf.PdfWriter()
+    for _ in range(pages):
+        writer.add_blank_page(size, size)
+    data = io.BytesIO()
+    writer.write(data)
+    return {
+        "type": "document",
+        "source": {
+            "type": "base64",
+            "media_type": "application/pdf",
+            "data": base64.b64encode(data.getvalue()).decode(),
+        },
+    }
+
+
+def test_pdf_requests_share_the_ocr_lock_and_render_once(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    import pypdfium2
+
+    from xinference.api import pdf_ocr
+
+    original = pypdfium2.PdfDocument
+    calls = []
+
+    def open_document(data):
+        assert pdf_ocr._pdfium_lock.locked()
+        calls.append(1)
+        return original(data)
+
+    monkeypatch.setattr(pypdfium2, "PdfDocument", open_document)
+    block = pdf_block(2)
+    block["cache_control"] = {"type": "ephemeral"}
+
+    def parse(_):
+        parsed = request(messages=[{"role": "user", "content": [block]}])
+        assert len(parsed.messages[0]["content"]) == 2
+        assert parsed.cache_control["messages"] == []
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(parse, range(32)))
+    assert len(calls) == 32
+    assert not pdf_ocr._pdfium_lock.locked()
+
+
+def test_pdf_total_pages_and_pixels_are_bounded_per_request():
+    block = pdf_block(11)
+    with pytest.raises(AnthropicProtocolError, match="20 pages per request"):
+        request(messages=[{"role": "user", "content": [block, dict(block)]}])
+    with pytest.raises(AnthropicProtocolError, match="rendered pixels per request"):
+        request(messages=[{"role": "user", "content": [pdf_block(5, 3000)]}])
+
+
+def test_pdf_decoded_bytes_are_bounded_before_open(monkeypatch):
+    monkeypatch.setenv("XINFERENCE_MEDIA_MAX_BYTES", "32")
+    with pytest.raises(AnthropicProtocolError, match="request byte limit"):
+        request(messages=[{"role": "user", "content": [pdf_block()]}])
+
+
+@pytest.mark.parametrize("citations", [None, {}, {"enabled": False}])
+def test_null_document_citations_are_valid(citations):
+    block = {
+        "type": "document",
+        "citations": citations,
+        "source": {"type": "text", "media_type": "text/plain", "data": "hello"},
+    }
+    assert request(messages=[{"role": "user", "content": [block]}]).messages == [
+        {"role": "user", "content": "hello"}
+    ]
+
+
+@pytest.mark.parametrize("kind", ["unsigned", "foreign", "other_model", "new_key"])
+def test_unverifiable_thinking_does_not_block_answer_or_tool_history(monkeypatch, kind):
+    from xinference.api.protocols import anthropic_thinking
+
+    monkeypatch.setattr(anthropic_thinking, "_key", lambda: b"first")
+    signature = anthropic_thinking.sign_thinking("old thought", "local")
+    if kind == "unsigned":
+        signature = ""
+    if kind == "foreign":
+        signature = "foreign signature"
+    if kind == "other_model":
+        signature = anthropic_thinking.sign_thinking("old thought", "old-model")
+    if kind == "new_key":
+        monkeypatch.setattr(anthropic_thinking, "_key", lambda: b"second")
+    messages = [
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "thinking", "thinking": "old thought", "signature": signature},
+                {"type": "text", "text": "answer"},
+                {
+                    "type": "tool_use",
+                    "id": "call",
+                    "name": "Read",
+                    "input": {"path": "/tmp/a"},
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "call", "content": "done"}
+            ],
+        },
+    ]
+    parsed = request(messages=messages)
+    assert parsed.messages[0]["content"] == "answer"
+    assert "reasoning_content" not in parsed.messages[0]
+    assert parsed.messages[0]["tool_calls"][0]["function"]["name"] == "Read"
+    assert parsed.messages[1]["content"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_message_start_and_delta_use_the_same_uncached_token_accounting():
+    usage = {
+        "prompt_tokens": 100,
+        "completion_tokens": 2,
+        "prompt_tokens_details": {"cached_tokens": 60},
+        "cache_creation_input_tokens": 10,
+    }
+
+    async def chunks():
+        yield {
+            "choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}],
+            "usage": usage,
+        }
+
+    events = [
+        json.loads(e["data"])
+        async for e in anthropic_stream_events(
+            chunks(), "local", "req", input_tokens=100
+        )
+    ]
+    assert events[0]["message"]["usage"] == {
+        "input_tokens": 30,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 60,
+        "cache_creation_input_tokens": 10,
+    }
+    assert events[-2]["usage"]["input_tokens"] == 30

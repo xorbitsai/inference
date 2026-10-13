@@ -5,8 +5,30 @@ from __future__ import annotations
 
 import base64
 import io
+import math
 from contextlib import closing
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Union
+
+
+@dataclass
+class ContentBudget:
+    """Share PDF resource accounting and decoded blocks across one request."""
+
+    pages: int = 0
+    pixels: int = 0
+    decoded_bytes: int = 0
+    rendered_bytes: int = 0
+    documents: Dict[int, List[Dict[str, Any]]] = field(default_factory=dict)
+
+    def add_bytes(self, size: int, *, rendered: bool = False) -> None:
+        from ...model.llm.media import _max_bytes
+
+        name = "rendered_bytes" if rendered else "decoded_bytes"
+        total = getattr(self, name) + size
+        if total > _max_bytes():
+            raise ValueError("PDF input exceeds the request byte limit")
+        setattr(self, name, total)
 
 
 def _image(block: Dict[str, Any]) -> Dict[str, Any]:
@@ -36,7 +58,7 @@ def _image(block: Dict[str, Any]) -> Dict[str, Any]:
     return {"type": "image_url", "image_url": {"url": url}}
 
 
-def _document(block: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _document(block: Dict[str, Any], budget: ContentBudget) -> List[Dict[str, Any]]:
     source = block.get("source") or {}
     if not isinstance(source, dict):
         raise ValueError("Anthropic document source must be an object")
@@ -48,7 +70,7 @@ def _document(block: Dict[str, Any]) -> List[Dict[str, Any]]:
         return [{"type": "text", "text": data}]
     if kind == "content":
         content = source.get("content")
-        result = normalize_content(content)
+        result = normalize_content(content, budget=budget)
         return [{"type": "text", "text": result}] if isinstance(result, str) else result
     if kind not in {"base64", "url"}:
         raise ValueError("Unsupported Anthropic document source")
@@ -58,6 +80,10 @@ def _document(block: Dict[str, Any]) -> List[Dict[str, Any]]:
         data = source.get("data")
         if not isinstance(data, str):
             raise ValueError("PDF documents require base64 data")
+        from ...model.llm.media import _max_bytes
+
+        if len(data) > ((_max_bytes() - budget.decoded_bytes + 2) // 3) * 4:
+            raise ValueError("PDF input exceeds the request byte limit")
         url = f"data:application/pdf;base64,{data}"
     else:
         candidate = source.get("url")
@@ -69,6 +95,7 @@ def _document(block: Dict[str, Any]) -> List[Dict[str, Any]]:
     from ...model.llm.media import load_media_bytes
 
     raw = load_media_bytes(url)
+    budget.add_bytes(len(raw))
     try:
         import pypdfium2 as pdfium
     except ImportError as exc:
@@ -76,16 +103,28 @@ def _document(block: Dict[str, Any]) -> List[Dict[str, Any]]:
             "PDF input requires pypdfium2; install xinference[image]"
         ) from exc
     parts: List[Dict[str, Any]] = []
-    with closing(pdfium.PdfDocument(raw)) as pdf:
-        if len(pdf) > 20:
-            raise ValueError("PDF input supports at most 20 pages per document")
+    from ..pdf_ocr import _pdfium_lock
+
+    # PDFium operations on different documents must also share the OCR lock.
+    with _pdfium_lock, closing(pdfium.PdfDocument(raw)) as pdf:
+        budget.pages += len(pdf)
+        if budget.pages > 20:
+            raise ValueError("PDF input supports at most 20 pages per request")
         for page in pdf:
             with closing(page):
                 width, height = page.get_size()
+                if not all(math.isfinite(v) and v > 0 for v in (width, height)):
+                    raise ValueError("PDF page dimensions must be positive and finite")
                 scale = min(1.5, 2048 / max(width, height))
+                budget.pixels += math.ceil(width * scale) * math.ceil(height * scale)
+                if budget.pixels > 20_000_000:
+                    raise ValueError(
+                        "PDF input exceeds 20000000 rendered pixels per request"
+                    )
                 with closing(page.render(scale=scale)) as bitmap:
                     output = io.BytesIO()
                     bitmap.to_pil().save(output, format="PNG")
+                    budget.add_bytes(output.tell(), rendered=True)
                     encoded = base64.b64encode(output.getvalue()).decode("ascii")
                     parts.append(
                         {
@@ -97,12 +136,16 @@ def _document(block: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def normalize_content(
-    content: Any, tool_names: Optional[Set[str]] = None
+    content: Any,
+    tool_names: Optional[Set[str]] = None,
+    budget: Optional[ContentBudget] = None,
 ) -> Union[str, List[Dict[str, Any]]]:
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
         raise ValueError("Message content must be a string or an array of blocks")
+    if budget is None:
+        budget = ContentBudget()
     parts: List[Dict[str, Any]] = []
     for block in content:
         if not isinstance(block, dict):
@@ -117,14 +160,20 @@ def normalize_content(
         elif kind == "image":
             parts.append(_image(block))
         elif kind == "document":
-            if block.get("citations", {}).get("enabled"):
+            citations = block.get("citations")
+            if citations is not None and not isinstance(citations, dict):
+                raise ValueError("Document citations must be an object or null")
+            if citations and citations.get("enabled"):
                 raise ValueError("Document citations are not supported")
             prefix = "\n".join(
                 str(block[key]) for key in ("title", "context") if block.get(key)
             )
             if prefix:
                 parts.append({"type": "text", "text": prefix})
-            parts.extend(_document(block))
+            key = id(block)
+            if key not in budget.documents:
+                budget.documents[key] = _document(block, budget)
+            parts.extend(budget.documents[key])
         elif kind == "tool_reference":
             name = block.get("tool_name")
             if (

@@ -403,6 +403,16 @@ class ChatModelMixin:
         )
         return rendered
 
+    @staticmethod
+    def _close_reasoning_prompt(prompt: str, parser: Optional[ReasoningParser]) -> str:
+        """Start legacy JSON constraints immediately after an open thinking prefix."""
+        if parser and parser.reasoning_start_tag and parser.reasoning_end_tag:
+            if prompt.rfind(parser.reasoning_start_tag) > prompt.rfind(
+                parser.reasoning_end_tag
+            ):
+                return prompt + parser.reasoning_end_tag + "\n"
+        return prompt
+
     def get_full_context(
         self,
         messages: List,
@@ -411,12 +421,22 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
-        if isinstance(getattr(self, "tool_parser", None), Glm4ToolParser):
+        family = (
+            getattr(self.model_family, "model_family", None)
+            or self.model_family.model_name
+        )
+        if isinstance(
+            getattr(self, "tool_parser", None), Glm4ToolParser
+        ) and family.lower() in {"glm4-chat", "glm4-chat-1m", "glm4-0414"}:
             glm_messages = []
             for message in messages:
                 if message.get("role") == "tool":
                     glm_messages.append({**message, "role": "observation"})
                 elif message.get("tool_calls"):
+                    if message.get("content"):
+                        glm_messages.append(
+                            {"role": "assistant", "content": message["content"]}
+                        )
                     for call in message["tool_calls"]:
                         function = call["function"]
                         glm_messages.append(
@@ -966,6 +986,10 @@ class ChatModelMixin:
                         previous_texts,
                         ensure_role=is_first_chunk,
                     )
+                    if is_first_chunk and ctx and ctx.get("_anthropic_request"):
+                        first_usage = cls._sanitize_usage(chunk.get("usage"))
+                        if first_usage is not None:
+                            chat_chunk["usage"] = first_usage
                     fallback_chunk = chunk
                     is_first_chunk = False
                 yield chat_chunk
@@ -1519,6 +1543,10 @@ class ChatModelMixin:
                     previous_texts,
                     ensure_role=i == 0,
                 )
+                if i == 0 and ctx and ctx.get("_anthropic_request"):
+                    first_usage = self._sanitize_usage(completion_chunk.get("usage"))
+                    if first_usage is not None:
+                        chat_chunk["usage"] = first_usage
                 i += 1
                 reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(
                     chat_chunk

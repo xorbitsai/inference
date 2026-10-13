@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from .anthropic_content import normalize_content
+from .anthropic_content import ContentBudget, normalize_content
 from .anthropic_thinking import sign_thinking, verify_thinking
 
 
@@ -126,7 +126,12 @@ def _text_from_blocks(content: Any) -> str:
 
 
 def _normalize_messages(
-    raw_system: Any, raw_messages: Any, tool_names: Optional[set] = None
+    raw_system: Any,
+    raw_messages: Any,
+    tool_names: Optional[set] = None,
+    *,
+    budget: Optional[ContentBudget] = None,
+    model: str = "",
 ) -> List[Dict[str, Any]]:
     if not isinstance(raw_messages, list) or not raw_messages:
         raise _invalid("Please specify at least one message")
@@ -177,7 +182,7 @@ def _normalize_messages(
                     content_parts.append({"type": "text", "text": block_text})
             elif block_type in {"image", "document", "tool_reference"}:
                 try:
-                    converted = normalize_content([block], tool_names)
+                    converted = normalize_content([block], tool_names, budget)
                 except ValueError as exc:
                     raise _invalid(str(exc)) from exc
                 if isinstance(converted, str):
@@ -189,7 +194,15 @@ def _normalize_messages(
                 reasoning = block.get("thinking")
                 if not isinstance(reasoning, str):
                     raise _invalid("thinking blocks require a string 'thinking' field")
-                reasoning_parts.append(reasoning)
+                signature = block.get("signature")
+                # Stale, foreign and unsigned reasoning is opaque history. Keep
+                # the answer/tool calls usable across model or signing-key changes.
+                if (
+                    isinstance(signature, str)
+                    and signature.startswith("xinference_v1:")
+                    and verify_thinking(reasoning, model, signature)
+                ):
+                    reasoning_parts.append(reasoning)
             elif block_type == "redacted_thinking" and role == "assistant":
                 if not isinstance(block.get("data"), str):
                     raise _invalid("redacted_thinking blocks require string data")
@@ -218,7 +231,9 @@ def _normalize_messages(
                 result_content = block.get("content", "")
                 if isinstance(result_content, list):
                     try:
-                        result_content = normalize_content(result_content, tool_names)
+                        result_content = normalize_content(
+                            result_content, tool_names, budget
+                        )
                     except ValueError as exc:
                         raise _invalid(str(exc)) from exc
                 elif not isinstance(result_content, str):
@@ -351,7 +366,10 @@ def _optional_number(
 
 
 def _parse_cache_control(
-    raw_body: Dict[str, Any], tool_names: set
+    raw_body: Dict[str, Any],
+    tool_names: set,
+    messages: List[Dict[str, Any]],
+    budget: ContentBudget,
 ) -> Optional[Dict[str, Any]]:
     """Retain the furthest explicit cache boundary, including its lifetime."""
     controls: List[Dict[str, Any]] = []
@@ -399,26 +417,43 @@ def _parse_cache_control(
         if control.get("ttl", "5m") not in {"5m", "1h"}:
             raise _invalid("cache_control.ttl must be '5m' or '1h'")
     ttl = 3600 if controls[-1].get("ttl") == "1h" else 300
-    if prefix is None:
+    has_images = any(
+        isinstance(message.get("content"), list)
+        and any(part.get("type") == "image_url" for part in message["content"])
+        for message in messages
+    )
+    if has_images:
+        # Current image paths use automatic engine caching. Do not carry a
+        # second copy of rendered pages through the preparation/generation RPCs.
+        prefix_messages = []
+    elif prefix is None:
         prefix_messages = (
             [{"role": "system", "content": _text_from_blocks(prefix_system)}]
             if prefix_system
             else []
         )
     else:
-        prefix_messages = _normalize_messages(system, prefix, tool_names)
+        prefix_messages = _normalize_messages(
+            system, prefix, tool_names, budget=budget, model=raw_body["model"].strip()
+        )
     result: Dict[str, Any] = {"messages": prefix_messages, "ttl": ttl}
     if prefix_tools is not None:
         result["tools"] = prefix_tools
     return result
 
 
-def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
+def anthropic_request_model(raw_body: Any) -> str:
+    """Validate the model name without decoding or fetching request content."""
     if not isinstance(raw_body, dict):
         raise _invalid("Request body must be a JSON object")
     model = raw_body.get("model")
     if not isinstance(model, str) or not model.strip():
         raise _invalid("The 'model' field is required")
+    return model.strip()
+
+
+def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
+    model = anthropic_request_model(raw_body)
     max_tokens = raw_body.get("max_tokens")
     if (
         isinstance(max_tokens, bool)
@@ -472,22 +507,14 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
                 raise _invalid("thinking.budget_tokens must be less than max_tokens")
 
     tools = _normalize_tools(raw_body.get("tools"))
-    for message in raw_body.get("messages") or []:
-        if not isinstance(message, dict):
-            continue
-        content = message.get("content")
-        for block in content if isinstance(content, list) else []:
-            signature = block.get("signature", "") if isinstance(block, dict) else ""
-            if isinstance(signature, str) and signature.startswith("xinference_v1:"):
-                if (
-                    block.get("type") != "thinking"
-                    or not isinstance(block.get("thinking"), str)
-                    or not verify_thinking(block["thinking"], model.strip(), signature)
-                ):
-                    raise _invalid("Invalid Xinference thinking signature")
     tool_names = {tool["function"]["name"] for tool in tools or []}
+    budget = ContentBudget()
     messages = _normalize_messages(
-        raw_body.get("system"), raw_body.get("messages"), tool_names
+        raw_body.get("system"),
+        raw_body.get("messages"),
+        tool_names,
+        budget=budget,
+        model=model,
     )
     output_config = raw_body.get("output_config") or {}
     if not isinstance(output_config, dict):
@@ -536,7 +563,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         response_format=response_format,
         reasoning_effort=effort,
         parallel_tool_calls=parallel,
-        cache_control=_parse_cache_control(raw_body, tool_names),
+        cache_control=_parse_cache_control(raw_body, tool_names, messages, budget),
     )
 
 
@@ -659,24 +686,6 @@ async def anthropic_stream_events(
     """
 
     message_id = f"msg_{uuid.uuid4().hex}"
-    yield {
-        "event": "message_start",
-        "data": json.dumps(
-            {
-                "type": "message_start",
-                "message": {
-                    "id": message_id,
-                    "type": "message",
-                    "role": "assistant",
-                    "content": [],
-                    "model": model,
-                    "stop_reason": None,
-                    "stop_sequence": None,
-                    "usage": {"input_tokens": input_tokens, "output_tokens": 0},
-                },
-            }
-        ),
-    }
 
     next_index = 0
     active_index: Optional[int] = None
@@ -716,7 +725,42 @@ async def anthropic_stream_events(
         return events
 
     try:
-        async for chunk in chunks:
+        iterator = chunks.__aiter__()
+        try:
+            first = await anext(iterator)
+        except StopAsyncIteration:
+            first = None
+        # Native engines expose prompt/cache counters with their first output.
+        # If an upstream reports usage only at the end, start with unknown (0)
+        # rather than mislabeling cached tokens as uncached input.
+        initial_usage = _anthropic_usage((first or {}).get("usage") or {})
+        initial_usage["output_tokens"] = 0
+        yield {
+            "event": "message_start",
+            "data": json.dumps(
+                {
+                    "type": "message_start",
+                    "message": {
+                        "id": message_id,
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [],
+                        "model": model,
+                        "stop_reason": None,
+                        "stop_sequence": None,
+                        "usage": initial_usage,
+                    },
+                }
+            ),
+        }
+
+        async def remaining_chunks():
+            if first is not None:
+                yield first
+            async for item in iterator:
+                yield item
+
+        async for chunk in remaining_chunks():
             if "error" in chunk:
                 error = chunk.get("error") or {}
                 yield {
