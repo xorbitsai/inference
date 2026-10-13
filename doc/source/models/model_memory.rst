@@ -8,7 +8,12 @@ For better planning of VMEM usage, xinference provided tool for model memory cal
 
 Use algorithm from https://github.com/RahulSChand/gpu_poor
 
-Output: model_mem, kv_cache, overhead, active_mem
+Output: model_mem, kv_cache, recurrent_state_mem, prefix_cache_mem, overhead, active_mem
+
+The total includes recurrent state and retained prefix cache. Activation memory
+includes vision workspace when present, so vision workspace is not added again.
+Sliding attention uses a full-attention cache upper bound. Unsupported layouts
+or missing checkpoint-size facts produce an explanatory error instead of an estimate.
 
 Example: 
 To calculate memory usage for qwen1.5-chat, run the following command:
@@ -29,6 +34,8 @@ To calculate memory usage for qwen1.5-chat, run the following command:
     gpu mem usage:
       model mem: 4139 MB
       kv_cache: 8192 MB
+      recurrent state: 0 MB
+      retained prefix cache: 0 MB
       overhead: 650 MB
       active: 17024 MB
       total: 30005 MB (30 GB)

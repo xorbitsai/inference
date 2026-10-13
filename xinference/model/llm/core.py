@@ -466,6 +466,9 @@ def create_llm_model_instance(
 
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
+    from .context_length import map_context_length
+
+    kwargs = map_context_length(model_engine, kwargs)
     llm_family = match_llm(
         model_name, model_format, model_size_in_billions, quantization, download_hub
     )

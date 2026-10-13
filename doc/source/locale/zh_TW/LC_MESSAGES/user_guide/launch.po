@@ -40,8 +40,11 @@ msgid "Next comes the platform's default engine order. With the earlier conditio
 msgstr "接著會依平台預設的引擎順序選擇。在前述條件相同的情況下，Apple Silicon 上優先選擇 MLX，使用 CUDA 的 Linux 上優先選擇 vLLM，其次是 SGLang，CPU 上則優先選擇 llama.cpp。對於同一個引擎，在支援的情況下，優先選擇 Q4_K_M、Int4 等常見的 4 位元量化方式。如果仍有多個選項並列，則優先選擇該工作節點上已快取的權重。模型已快取並不會改變您選定的模型大小，也不會優先於前述偏好。"
 
 #: ../../source/user_guide/launch.rst:45
-msgid "Estimates use offline metadata, one sequence, 2048 tokens, FP16 KV cache and 80% of currently free memory. Automatic GPU placement uses the lowest free memory among eligible GPUs; CPU and Apple Silicon use available system memory. Multiple GPUs are not added together: multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Missing data remains unverified. Longer contexts, concurrency and engine preallocation can need more memory. No resources are reserved, and you still review and launch the model yourself."
-msgstr "估算使用離線中繼資料，按單請求、2048 tokens、FP16 KV cache 與目前可用記憶體的 80% 計算。自動分配 GPU 時，以候選 GPU 中最少的可用顯示記憶體為準；CPU 和 Apple Silicon 使用可用系統記憶體。不會將多張卡的記憶體相加：多卡請求仍只檢查相容性。已知估算超出預算的設定會被排除，缺少資料的設定仍標記為未驗證。更長的上下文、並行請求和引擎預先配置可能需要更多記憶體。推薦不會預留資源，仍需您確認後啟動。"
+msgid "Estimates use offline architecture facts and checkpoint sizes when available. MoE weights include all resident experts. Full-attention KV cache, Gated DeltaNet recurrent state and workspace are counted separately. MLX, Transformers, vLLM, SGLang and llama.cpp share this accounting with different workspace bounds. Unknown layouts, including MLA, remain unverified."
+msgstr "估算使用離線架構資訊和可取得的檢查點大小。MoE 權重包含全部駐留專家。完整注意力的 KV cache、Gated DeltaNet 循環狀態和工作區分別計算。MLX、Transformers、vLLM、SGLang 和 llama.cpp 共用這套計算方式，但工作區上界各不相同。包括 MLA 在內的未知布局仍標記為未驗證。"
+
+msgid "Defaults are one sequence, the model's registered maximum context, FP16 KV cache, no image tokens and no retained prefix cache. The budget is 80% of currently free memory: the lowest free memory among eligible GPUs, or available system memory on CPU and Apple Silicon. The default vLLM GPU reservation is checked separately when total memory is known; SGLang budgets from memory available at initialization. Multi-GPU requests keep compatibility-only selection. Known oversized candidates are excluded. Workspace bounds are estimates, not measured peaks. Engine preallocation is not modeled beyond the separate vLLM default reservation check; custom engine settings require manual configuration. No resources are reserved."
+msgstr "預設按一個序列、模型註冊的最大 context、FP16 KV cache、無影像 tokens 和無保留前綴快取估算。預算為目前可用記憶體的 80%：GPU 使用候選卡中最少的可用顯示記憶體，CPU 和 Apple Silicon 使用可用系統記憶體。已知總顯示記憶體時，另外檢查 vLLM 的預設 GPU 保留量；SGLang 按初始化時的可用記憶體計算預算。多卡請求仍只檢查相容性。已知超出預算的設定會被排除。工作區上界是估算值，不是實測峰值。除單獨檢查 vLLM 預設保留量外，不對引擎預先配置建模；自訂引擎設定需要手動配置。推薦不會預留資源。"
 
 #: ../../source/user_guide/launch.rst:51
 msgid "Using the API"
@@ -62,8 +65,8 @@ msgid "Embedding, rerank, and audio models use the same **Recommend configuratio
 msgstr "Embedding、Rerank 和音訊模型也可以點選 **推薦配置**，或呼叫 ``POST /v1/models/recommend``，將 ``model_type`` 分別設為 ``embedding``、``rerank`` 或 ``audio``。推薦只填寫該類型支援的欄位，不選擇模型大小。Embedding 和 Rerank 優先使用可用的 sentence-transformers 引擎；音訊模型在 Apple Silicon 上優先使用可用的 MLX，否則優先考慮標準的 Transformers 或 PyTorch 後端。已安裝的引擎優先於需要虛擬環境安裝相依套件的引擎，同一引擎內優先選擇未量化版本。與 LLM 不同，這些類型暫不以權重是否快取來決定同等候選的順序。指定的工作節點、GPU 和虛擬環境條件仍然有效，但這些類型不接受 ``model_size_in_billions``。推薦只是起始配置，不保證記憶體足夠。圖片和影片模型暫不支援推薦。"
 
 #: ../../source/user_guide/launch.rst:16
-msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
-msgstr "``POST /v1/models/recommend`` 是唯讀介面。提供 ``model_name`` 和 ``model_type=\"LLM\"``；選用的 ``constraints`` 物件接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的限制皆為必要條件，不會在未告知的情況下放寬。"
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. LLM constraints also accept ``context_length``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 是唯讀介面。提供 ``model_name`` 和 ``model_type=\"LLM\"``；選用的 ``constraints`` 物件接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的限制皆為必要條件，不會在未告知的情況下放寬。 LLM 約束還接受 ``context_length``。"
 
 #: ../../source/user_guide/launch.rst:31
 msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
@@ -369,3 +372,26 @@ msgstr "SGLang 支援修改 ``max_running_requests``、``max_prefill_tokens``、
 #: ../../user_guide/launch.rst:427
 msgid "Parallelism, GPU placement, model path, precision, quantization and weight-layout options cannot change through reload. Pipeline/data parallelism, multi-worker deployments, LoRA, speculative decoding, weight offloading and PD deployments are not supported by this integration yet. Quantized models must pass the upstream IPC compatibility checks. For vLLM, multi-GPU caching uses its native multiprocessing executor. In the running-model detail page, choose **Reload parameters** to edit the supported values and follow progress."
 msgstr "不能透過重載修改平行度、GPU 分配、模型路徑、精度、量化方式及權重布局選項。此整合暫不支援管線或資料平行、多 worker 部署、LoRA、推測解碼、權重卸載及 PD 部署。量化模型須通過上游的 IPC 相容性檢查。vLLM 的多 GPU 快取使用原生多程序執行器。在執行中模型詳情頁選擇 **重載參數**，即可編輯支援的值並查看進度。"
+
+msgid "LLM constraints also accept positive integers ``context_length`` (text input plus output tokens) and ``concurrency``, and non-negative integers ``vision_tokens`` (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained cache across the instance). Omitting ``context_length`` uses each candidate's registered maximum context, including encoded image tokens. Models without a known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang ``context_length`` equal text plus vision tokens per sequence. llama.cpp uses ``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency`` because its context is divided across slots. The Web UI applies these advanced launch parameters. Other workload fields affect estimates rather than request limits. Older workers that do not support workload options are retried without them and remain unverified, with a version warning. Image workloads require vision metadata. For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded token count; zero assumes all image tokens belong to one image. Cached states grow with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a 16,384-token prefill workspace profile with fused attention and sampled-row logits."
+msgstr "LLM 約束還接受正整數 ``context_length``（文字輸入加輸出 tokens）和 ``concurrency``，以及非負整數 ``vision_tokens``（每個序列編碼後的影像 tokens）和 ``prefix_cache_bytes``（整個實例額外保留的快取）。省略 ``context_length`` 時，使用各個候選模型註冊的最大 context，編碼後的影像 tokens 也計入這個上限。最大值未知的模型仍保持未驗證。推薦的 vLLM ``max_model_len`` 和 SGLang ``context_length`` 等於每個序列的文字加影像 tokens。llama.cpp 使用 ``n_parallel=concurrency`` 和 ``n_ctx=(context_length + vision_tokens) * concurrency``，因為 context 會在各個槽位間分配。Web UI 會套用這些進階啟動參數。其他工作負載欄位影響估算，不設定請求限制。不支援工作負載選項的舊 worker 會移除這些選項後重試，其候選保持未驗證，並附帶版本警告。影像工作負載需要視覺中繼資料。 多個影像可透過 ``vision_tokens_per_image`` 指定單個影像編碼後的最大 token 數；零表示將全部影像 tokens 視為一個影像。快取狀態隨並行數增加，模型權重只計算一份。vLLM (CUDA) 和 SGLang 共用 16,384-token 的預填充工作區估算，使用融合注意力和取樣行 logits。"
+
+#: ../source/user_guide/launch.rst:95
+msgid "Unified LLM context length"
+msgstr "統一 LLM 上下文長度"
+
+#: ../source/user_guide/launch.rst:97
+msgid "Set ``context_length`` in the launch API or use ``--context-length`` in the CLI to choose the input plus output token limit per request. In the Web UI, use the context slider or enter an exact integer; **Model default** clears the override. The slider's upper bound comes from the registered model. Context selections are preserved in configuration history and passed to the recommendation API."
+msgstr "在啟動 API 中設定 ``context_length``，或在 CLI 中使用 ``--context-length``，指定每個請求的輸入加輸出 token 上限。在 Web UI 中使用上下文滑動條，或輸入精確整數；**模型預設值** 會清空覆寫值。滑動條上限取自註冊模型。上下文選擇會保存在設定歷史中，並傳給推薦 API。"
+
+#: ../source/user_guide/launch.rst:103
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "啟動層會映射到 vLLM 的 ``max_model_len``，SGLang、Transformers 和 MLX 的 ``context_length``，LMDeploy 的 ``session_len``，以及 llama.cpp 的總槽位容量 ``n_ctx=context_length*n_parallel``。原有引擎參數仍可使用，但統一值與原生值矛盾時會拒絕。省略此設定會保留引擎預設行為。此設定不會擴展模型的位置嵌入，也不會啟用上下文縮放。"
+
+#: ../source/user_guide/launch.rst
+msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
+msgstr "推薦設定透過 ``context_length`` 回傳每個請求的總 token 上限，包括編碼後的圖像 tokens。llama.cpp 還會回傳 ``n_parallel``，與估算的並行數一致；啟動層會將統一上限映射到各個引擎。"
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "明確設定上下文上限後，MLX 會拒絕沒有剩餘輸出空間的提示詞，並將 ``max_tokens`` 限制在剩餘 token 預算內。快取命中的提示詞 tokens 和處理後的圖像 tokens 都計入輸入上限。非串流請求超出輸入上限時回傳 HTTP 400；串流請求透過 SSE 回報錯誤，不會開始生成。"

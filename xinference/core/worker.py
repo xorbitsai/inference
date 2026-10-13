@@ -3298,6 +3298,7 @@ class WorkerActor(xo.StatelessActor):
         model_name: str,
         enable_virtual_env: Optional[bool] = None,
         model_type: str = "LLM",
+        memory_options: Optional[dict] = None,
     ) -> dict:
         """Worker-local discovery only; never prepare environments or allocate GPUs."""
         from ..device_utils import get_available_device
@@ -3335,11 +3336,19 @@ class WorkerActor(xo.StatelessActor):
         from ..model.llm.cache_manager import LLMCacheManager
         from ..model.llm.llm_family import convert_model_size_to_float, match_llm
         from ..model.llm.memory import ModelLayersInfo, estimate_llm_gpu_memory_details
-        from .model_recommendation import recommendation_memory_snapshot, spec_key
+        from .model_recommendation import (
+            recommendation_context_length,
+            recommendation_memory_snapshot,
+            spec_key,
+        )
 
         launch_specs, cached_specs = set(), set()
-        memory_estimates = {}
-        for params in (engines or {}).values():
+        memory_estimates, engine_memory_estimates = {}, {}
+        model_context_lengths = {}
+        options = dict(memory_options or {})
+        requested_context = options.pop("context_length", None)
+        device = get_available_device()
+        for engine, params in (engines or {}).items():
             if not isinstance(params, list):
                 continue
             for param in params:
@@ -3355,19 +3364,42 @@ class WorkerActor(xo.StatelessActor):
                         continue
                     key = spec_key(param, quant)
                     launch_specs.add(key)
+                    model_max = getattr(matched, "context_length", None)
+                    model_context_lengths[key] = model_max
+                    context_length = recommendation_context_length(
+                        requested_context, model_max, options.get("vision_tokens", 0)
+                    )
                     metadata = getattr(matched.model_specs[0], "model_metadata", None)
-                    if metadata is not None and key not in memory_estimates:
+                    if metadata is not None and context_length is not None:
                         try:
-                            memory_estimates[key] = estimate_llm_gpu_memory_details(
-                                ModelLayersInfo.from_metadata(metadata),
+                            info = ModelLayersInfo.from_metadata(metadata)
+                            arguments = (
+                                info,
                                 convert_model_size_to_float(
                                     param["model_size_in_billions"]
                                 ),
                                 quant,
-                                2048,
+                                context_length,
                                 param["model_format"],
-                            ).total
-                        except (KeyError, ValueError, AssertionError):
+                            )
+                            if key not in memory_estimates:
+                                memory_estimates[key] = estimate_llm_gpu_memory_details(
+                                    *arguments, **options
+                                ).total
+                            # Fused CUDA kernels do not describe other backends
+                            # (e.g. NPU attention masks). Keep their eager bound.
+                            profile = (
+                                "eager"
+                                if engine.lower() in ("vllm", "sglang")
+                                and device != "cuda"
+                                else engine
+                            )
+                            engine_memory_estimates[(engine, key)] = (
+                                estimate_llm_gpu_memory_details(
+                                    *arguments, engine=profile, **options
+                                ).total
+                            )
+                        except (KeyError, ValueError, AssertionError, ArithmeticError):
                             # Unsupported quantizations remain compatible candidates,
                             # but must not be represented as a verified memory fit.
                             pass
@@ -3386,10 +3418,12 @@ class WorkerActor(xo.StatelessActor):
             "gpu_count": gpu_count(),
             "enable_virtual_env": effective_venv,
             "installed_engines": installed or {},
+            "model_context_lengths": model_context_lengths,
             "engines": engines or {},
             "launch_specs": launch_specs,
             "cached_specs": cached_specs,
             "memory_estimates": memory_estimates,
+            "engine_memory_estimates": engine_memory_estimates,
             "memory": recommendation_memory_snapshot(),
         }
 
@@ -4574,6 +4608,9 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        from ..model.llm.context_length import validate_context_length_launch
+
+        validate_context_length_launch(model_type, model_engine, kwargs)
         if model_type.lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 

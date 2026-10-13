@@ -7,6 +7,15 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from .._compat import BaseModel, Field, validator
 
+MEMORY_WORKLOAD_LIMITS = {
+    "context_length": 2**31 - 1,
+    "concurrency": 65535,
+    "vision_tokens": 2**31 - 1,
+    "vision_tokens_per_image": 2**31 - 1,
+    "prefix_cache_bytes": 2**63 - 1,
+}
+MEMORY_WORKLOAD_FIELDS = set(MEMORY_WORKLOAD_LIMITS)
+
 
 class RecommendationModelNotFound(LookupError):
     """All workers confirmed the model is absent."""
@@ -18,6 +27,11 @@ class RecommendationConstraints(BaseModel):
     enable_virtual_env: Optional[bool] = None
     n_gpu: Optional[Union[int, Literal["auto"]]] = "auto"
     gpu_idx: Optional[Union[int, List[int]]] = None
+    context_length: Optional[int] = None
+    concurrency: int = 1
+    vision_tokens: int = 0
+    vision_tokens_per_image: int = 0
+    prefix_cache_bytes: int = 0
 
     class Config:
         extra = "forbid"
@@ -73,6 +87,19 @@ class RecommendationConstraints(BaseModel):
             )
         return value
 
+    @validator(*MEMORY_WORKLOAD_LIMITS, pre=True)
+    def validate_memory_workload(cls, value, field):
+        minimum = 1 if field.name in ("context_length", "concurrency") else 0
+        maximum = MEMORY_WORKLOAD_LIMITS[field.name]
+        if type(value) is not int or not minimum <= value <= maximum:
+            raise ValueError(
+                f"{field.name} must be an integer between {minimum} and {maximum}"
+            )
+        return value
+
+    def memory_options(self) -> dict:
+        return self.dict(include=MEMORY_WORKLOAD_FIELDS, exclude_none=True)
+
 
 class ModelRecommendationRequest(BaseModel):
     model_name: str
@@ -93,6 +120,13 @@ class ModelRecommendationRequest(BaseModel):
             raise ValueError(
                 "model_size_in_billions is only supported for LLM recommendations"
             )
+        if (
+            values.get("model_type", "LLM") != "LLM"
+            and value.__fields_set__ & MEMORY_WORKLOAD_FIELDS
+        ):
+            raise ValueError(
+                "Memory workload constraints are only supported for LLM recommendations"
+            )
         return value
 
     @validator("model_name", pre=True)
@@ -108,6 +142,17 @@ def size_value(size: Union[int, str]) -> Decimal:
 
 def message(code: str, text: str) -> Dict[str, str]:
     return {"code": code, "message": text}
+
+
+def recommendation_context_length(
+    requested: Optional[int], model_max: Optional[int], vision_tokens: int
+) -> Optional[int]:
+    """Default to the model's total context, including encoded image tokens."""
+    if requested is not None:
+        return requested
+    if type(model_max) is int and model_max > vision_tokens:
+        return model_max - vision_tokens
+    return None
 
 
 def spec_key(param: Dict[str, Any], quantization: str) -> tuple:
@@ -130,15 +175,18 @@ def recommendation_memory_snapshot() -> dict:
     except Exception:
         pass
     try:
-        snapshot["gpu_available_mib"] = {
-            # Only backend-normalized measurements are usable. Legacy `free`
-            # can be a sentinel or have backend-specific units.
-            (f"gpu-{value['device_index']}" if "device_index" in value else key): value[
-                "free_memory_mib"
-            ]
-            for key, value in get_gpu_info().items()
-            if "free_memory_mib" in value
-        }
+        devices = get_gpu_info()
+        available, totals = {}, {}
+        for key, value in devices.items():
+            key = f"gpu-{value['device_index']}" if "device_index" in value else key
+            # Legacy `free` can be a sentinel or have backend-specific units.
+            if "free_memory_mib" in value:
+                available[key] = value["free_memory_mib"]
+            if "total_memory_mib" in value:
+                totals[key] = value["total_memory_mib"]
+        snapshot["gpu_available_mib"] = available
+        if totals:
+            snapshot["gpu_total_mib"] = totals
     except Exception:
         pass
     return snapshot
@@ -171,13 +219,52 @@ def recommendation_memory_budget(
     return min(values) * 0.8
 
 
+def recommendation_reservation_fits(
+    worker: dict,
+    constraints: RecommendationConstraints,
+    device: str,
+    engine: str,
+    budget: Optional[float],
+) -> bool:
+    """Check the single-GPU default reservation separately from model footprint.
+
+    Xinference sets vLLM utilization to 0.90 of total GPU memory. SGLang
+    derives its cache budget from memory available at initialization.
+    Never interpret unknown total-memory counters as a measured reservation.
+    """
+    if engine.lower() != "vllm" or device != "cuda" or budget is None:
+        return True
+    indices = constraints.gpu_idx
+    indices = [indices] if isinstance(indices, int) else indices
+    indices = worker["gpu_indices"] if indices is None else indices
+    memory = worker.get("memory", {})
+    for index in indices:
+        total = memory.get("gpu_total_mib", {}).get(f"gpu-{index}")
+        free = memory.get("gpu_available_mib", {}).get(f"gpu-{index}")
+        if (
+            not isinstance(total, (float, int))
+            or not math.isfinite(total)
+            or total <= 0
+        ):
+            continue
+        if not isinstance(free, (float, int)) or not math.isfinite(free) or free < 0:
+            continue
+        reserved = total * 0.90
+        if reserved > free:
+            return False
+    return True
+
+
 def select_recommendation(
     request: ModelRecommendationRequest, workers: List[dict], warnings: List[dict]
 ) -> dict:
     if request.model_type != "LLM":
         return select_non_llm_recommendation(request, workers, warnings)
+    from ..model.llm.context_length import CONTEXT_LENGTH_KEYS
+
     constraints = request.constraints
     candidates = []
+    warnings = list(warnings)
     for worker in workers:
         indices = constraints.gpu_idx
         indices = [indices] if isinstance(indices, int) else indices
@@ -222,9 +309,24 @@ def select_recommendation(
         for engine, params in worker["engines"].items():
             if not isinstance(params, list):
                 continue
+            if (
+                constraints.context_length is not None
+                and engine.lower() not in CONTEXT_LENGTH_KEYS
+            ):
+                continue
             if device == "cpu" and engine.lower() not in ("transformers", "llama.cpp"):
                 continue
             if engine.lower() == "mlx" and device != "mps":
+                continue
+            if not recommendation_reservation_fits(
+                worker, constraints, device, engine, budget
+            ):
+                warnings.append(
+                    message(
+                        "vllm_reservation_exceeds_free",
+                        f"vLLM's default GPU reservation exceeds free memory on worker {worker['worker_ip']}; its candidates were excluded.",
+                    )
+                )
                 continue
             for param in params:
                 size = size_value(param["model_size_in_billions"])
@@ -256,7 +358,19 @@ def select_recommendation(
                     installed = (engine, key) in ready
                     if not worker["enable_virtual_env"] and not installed:
                         continue
-                    estimate = worker.get("memory_estimates", {}).get(key)
+                    estimate = worker.get("engine_memory_estimates", {}).get(
+                        (engine, key), worker.get("memory_estimates", {}).get(key)
+                    )
+                    context_length = recommendation_context_length(
+                        constraints.context_length,
+                        worker.get("model_context_lengths", {}).get(key),
+                        constraints.vision_tokens,
+                    )
+                    if (
+                        context_length is None
+                        or engine.lower() not in CONTEXT_LENGTH_KEYS
+                    ):
+                        estimate = None
                     verified = budget is not None and estimate is not None
                     if verified and estimate > budget:
                         continue
@@ -307,7 +421,6 @@ def select_recommendation(
                             budget,
                         )
                     )
-    warnings = list(warnings)
     warnings.append(
         message(
             "memory_not_verified",
@@ -344,6 +457,21 @@ def select_recommendation(
             if k in ("n_gpu", "gpu_idx")
         }
     )
+    context_length = recommendation_context_length(
+        constraints.context_length,
+        worker.get("model_context_lengths", {}).get(spec_key(param, quant)),
+        constraints.vision_tokens,
+    )
+    tokens = (
+        context_length + constraints.vision_tokens
+        if context_length is not None
+        else None
+    )
+    if tokens is not None and engine.lower() in CONTEXT_LENGTH_KEYS:
+        config["context_length"] = tokens
+        if engine.lower() == "llama.cpp":
+            # Match the number of KV slots included in the workload estimate.
+            config["n_parallel"] = constraints.concurrency
     reasons = [
         message(
             "selection_policy",
@@ -388,7 +516,7 @@ def select_recommendation(
         reasons.append(
             message(
                 "memory_estimate",
-                f"Estimated {estimate} MiB against an 80%-of-free-memory budget of {budget:.0f} MiB. Assumes one sequence, 2048 tokens and FP16 KV cache; not a launch guarantee. Multi-GPU sharding and engine preallocation are not modeled.",
+                f"Estimated {estimate} MiB against a memory budget of {budget:.0f} MiB (at most 80% of free memory). Assumes {constraints.concurrency} sequence(s), {context_length} text tokens plus {constraints.vision_tokens} vision tokens per sequence, FP16 KV cache and {constraints.prefix_cache_bytes} bytes of retained prefix cache. Includes recurrent state and conservative engine workspace bounds; not a launch guarantee. Engine preallocation and multi-GPU sharding are not modeled.",
             )
         )
     if cached:

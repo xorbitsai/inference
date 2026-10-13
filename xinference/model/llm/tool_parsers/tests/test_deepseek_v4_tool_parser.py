@@ -135,3 +135,34 @@ def test_extract_tool_calls_streaming_returns_multiple_invokes_once_each():
         "second",
         {"value": 2},
     )
+
+
+def _stream(parser, history, chunk):
+    current = history[-1] + chunk
+    result = parser.extract_tool_calls_streaming(history, current, chunk)
+    history[-1] = current
+    if result is None:
+        return []
+    return result if isinstance(result, list) else [result]
+
+
+@pytest.mark.parametrize("chunk_size", [1, 7, 64, 1024])
+def test_extract_tool_calls_streaming_keeps_interleaved_requests_apart(chunk_size):
+    # One parser instance serves every request to the model, so concurrent
+    # streams feed it their chunks in turn.
+    parser = DeepseekV4ToolParser()
+    texts = [
+        _tool_calls([("a1", [("n", False, "1")]), ("a2", [("n", False, "2")])]),
+        _tool_calls([("b1", [("city", True, "杭州")]), ("b2", [])]),
+        "1 < 2.",
+    ]
+    histories = [[""] for _ in texts]
+    events = [[] for _ in texts]
+    for offset in range(0, max(map(len, texts)), chunk_size):
+        for text, history, received in zip(texts, histories, events):
+            chunk = text[offset : offset + chunk_size]
+            received.extend(_stream(parser, history, chunk))
+
+    assert events[0] == [(None, "a1", {"n": 1}), (None, "a2", {"n": 2})]
+    assert events[1] == [(None, "b1", {"city": "杭州"}), (None, "b2", {})]
+    assert "".join(event[0] for event in events[2]) == "1 < 2."

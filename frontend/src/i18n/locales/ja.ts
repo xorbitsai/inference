@@ -635,6 +635,11 @@ const ja = {
     replicaPlacementIncomplete:
       '各レプリカの Worker を選択し、GPU インデックスを非負整数のカンマ区切りで入力してください。',
     replicaAliasDuplicate: 'レプリカの別名は一意である必要があります。',
+    contextLengthTip:
+      'リクエストごとの入力と出力の合計トークン上限です。未設定の場合はモデルの既定値を使用します。',
+    contextLengthDefault: 'モデルの既定値',
+    contextLengthUnknown: '最大コンテキストが不明です。トークン上限を入力してください。',
+    contextLengthInvalid: '1 から {{max}} までの整数を入力してください。',
     advancedConfiguration: '高度な設定',
     runtimeEnvironment: '実行環境',
     engineParameters: 'エンジンパラメータ',

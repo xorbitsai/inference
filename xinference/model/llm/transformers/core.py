@@ -1083,6 +1083,11 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 False,
                 "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
+        if llm_family.has_architecture("Qwen4ExpForConditionalGeneration"):
+            return (
+                False,
+                "Qwen3.8-Flash-Next requires a dedicated multimodal Transformers adapter; use vLLM",
+            )
         if llm_family.has_architecture("KimiK3ForConditionalGeneration"):
             return (
                 False,

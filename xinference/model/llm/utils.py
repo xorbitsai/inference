@@ -192,12 +192,20 @@ def _collect_context_length_candidates(
 
 
 def get_context_length_from_config(
-    config: Union[dict, Any], nested_attrs: Iterable[str] = ("text_config",)
+    config: Union[dict, Any],
+    nested_attrs: Iterable[str] = ("text_config",),
+    *,
+    context_length: Optional[int] = None,
 ) -> int:
     """
     Determine a reasonable context length from model config dictionaries or
     HuggingFace config objects.
     """
+    if context_length is not None:
+        from .context_length import validate_context_length
+
+        validate_context_length(context_length)
+        return context_length
     candidates = _collect_context_length_candidates(config, nested_attrs)
     if not candidates:
         return 2048
