@@ -117,7 +117,8 @@ Xinference automatically connects its existing reasoning parser to
 vLLM and SGLang structured decoding for supported reasoning markers and engines with parser
 plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
 parser settings are preserved. Manual thinking cannot be combined with forced
-tool choice. Other engines return 501 for unsupported controls.
+tool choice. P/D models return 501 for forced tool choice. Other engines return
+501 for unsupported controls.
 
 Prompt caching
 --------------
@@ -125,5 +126,6 @@ Prompt caching
 For text requests, the MLX vision engine reuses the furthest ``cache_control``
 boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and
 reads. Earlier cache breakpoints do not have independently enforced lifetimes
-in this path. Other paths retain automatic engine caching, indicated by the
+in this path. Cache hits do not currently refresh the lifetime, and expiry
+clears the reusable cache. Other paths retain automatic engine caching, indicated by the
 ``x-xinference-cache-control: automatic`` response header.

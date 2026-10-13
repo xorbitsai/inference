@@ -161,31 +161,33 @@ msgstr ""
 "结构化 JSON 输出需要引擎支持。vLLM 和 SGLang 引擎通过受约束的 JSON "
 "解码支持指定工具和必须调用工具；禁用并行工具调用时，每次响应最多返回一个工具调用。强制调用的工具参数会缓冲到完整后再返回。"
 
-#: user_guide/anthropic.rst:100
+#: ../docs-source/user_guide/anthropic.rst:116
 msgid ""
 "Xinference automatically connects its existing reasoning parser to vLLM and "
 "SGLang structured decoding for supported reasoning markers and engines with "
 "parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
 " engine parser settings are preserved. Manual thinking cannot be combined "
-"with forced tool choice. Other engines return 501 for unsupported controls."
+"with forced tool choice. P/D models return 501 for forced tool choice. Other"
+" engines return 501 for unsupported controls."
 msgstr ""
 "对于支持的思考标记和具备 parser 插件能力的引擎，Xinference 会自动将已有的 reasoning parser 接入 vLLM 和 "
 "SGLang 的结构化解码。Qwen3.5 无需额外配置 parser。用户显式指定的引擎 parser "
-"设置会保留。手动思考模式不能与强制工具选择组合。其他引擎对不支持的控制项返回 501。"
+"设置会保留。手动思考模式不能与强制工具选择组合。其他引擎对不支持的控制项返回 501。 P/D 模型对强制工具选择返回 501。"
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
 msgstr "提示词缓存"
 
-#: user_guide/anthropic.rst:111
+#: ../docs-source/user_guide/anthropic.rst:126
 msgid ""
 "For text requests, the MLX vision engine reuses the furthest "
 "``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
 "actual cache writes and reads. Earlier cache breakpoints do not have "
-"independently enforced lifetimes in this path. Other paths retain automatic "
-"engine caching, indicated by the ``x-xinference-cache-control: automatic`` "
-"response header."
+"independently enforced lifetimes in this path. Cache hits do not currently "
+"refresh the lifetime, and expiry clears the reusable cache. Other paths "
+"retain automatic engine caching, indicated by the ``x-xinference-cache-"
+"control: automatic`` response header."
 msgstr ""
 "对于文本请求，MLX 视觉引擎复用到最后一个 ``cache_control`` 边界的前缀，生命周期为 ``5m`` 或 "
 "``1h``，并报告实际缓存写入和读取量。其他路径保留引擎自动缓存，并通过 ``x-xinference-cache-control: "
-"automatic`` 响应头标明。 此路径不会对更早的缓存断点分别执行独立的有效期。"
+"automatic`` 响应头标明。 此路径不会对更早的缓存断点分别执行独立的有效期。 目前缓存命中不会刷新有效期，过期时会清空可复用缓存。"

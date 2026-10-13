@@ -266,6 +266,34 @@ async def test_openai_choice_does_not_enter_forced_decoding(cls, choice):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("parallel,expected", [(None, 2), (True, 2), (False, 1)])
+async def test_only_explicit_false_disables_parallel_tools(parallel, expected):
+    instance = model()
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=("prompt", None, tools(), {}, {})
+    )
+    instance.async_generate = AsyncMock(return_value=completion(""))
+    instance._post_process_completion = lambda *args: {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": str(i),
+                            "type": "function",
+                            "function": {"name": "Read", "arguments": "{}"},
+                        }
+                        for i in range(2)
+                    ]
+                }
+            }
+        ]
+    }
+    result = await instance.async_chat([], {"parallel_tool_calls": parallel})
+    assert len(result["choices"][0]["message"]["tool_calls"]) == expected
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("configured", [False, True])
 async def test_openai_json_schema_works_without_request_reasoning_capability(
     monkeypatch, configured

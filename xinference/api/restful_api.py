@@ -2382,9 +2382,13 @@ class RESTfulAPI(CancelMixin):
             prepared = await model.prepare_anthropic_request(canonical.messages, config)
             if isinstance(prepared, (str, bytes)):
                 prepared = json.loads(prepared)
-            count = await model.count_tokens(
-                prepared["messages"], prepared["generate_config"]
-            )
+            count = prepared["input_tokens"]
+            if count == 0:
+                # Preparation uses zero when counting is unavailable. Preserve
+                # the backend's explicit unsupported/rate-limit error in that case.
+                count = await model.count_tokens(
+                    prepared["messages"], prepared["generate_config"]
+                )
             if isinstance(count, (str, bytes)):
                 count = json.loads(count)
             return JSONResponse(

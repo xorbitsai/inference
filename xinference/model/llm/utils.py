@@ -405,12 +405,15 @@ class ChatModelMixin:
 
     @staticmethod
     def _close_reasoning_prompt(prompt: str, parser: Optional[ReasoningParser]) -> str:
-        """Start legacy JSON constraints immediately after an open thinking prefix."""
+        """Start legacy JSON constraints in a reasoning-ended prompt state."""
         if parser and parser.reasoning_start_tag and parser.reasoning_end_tag:
-            if prompt.rfind(parser.reasoning_start_tag) > prompt.rfind(
-                parser.reasoning_end_tag
-            ):
-                return prompt + parser.reasoning_end_tag + "\n"
+            start = prompt.rfind(parser.reasoning_start_tag)
+            end = prompt.rfind(parser.reasoning_end_tag)
+            if end > start:
+                return prompt
+            if start < 0:
+                prompt += parser.reasoning_start_tag
+            return prompt + parser.reasoning_end_tag + "\n"
         return prompt
 
     def get_full_context(

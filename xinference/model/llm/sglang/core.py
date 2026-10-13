@@ -1184,7 +1184,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
                     AsyncGenerator[ChatCompletionChunk, None],
                     single_tool_stream(chunks),
                 )
-                if not parallel
+                if parallel is False
                 else chunks
             )
         assert not isinstance(completion, AsyncGenerator)
@@ -1199,7 +1199,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
             result["_pd_kv_transfer_params"] = transfer
         return (
             cast(ChatCompletion, single_tool_completion(result))
-            if not parallel
+            if parallel is False
             else result
         )
 

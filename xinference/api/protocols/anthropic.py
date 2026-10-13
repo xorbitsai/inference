@@ -547,7 +547,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
             raise _invalid("disable_parallel_tool_use must be a boolean")
         parallel = not disabled
     return CanonicalChatRequest(
-        requested_model=model.strip(),
+        requested_model=model,
         messages=messages,
         max_output_tokens=max_tokens,
         stream=stream,

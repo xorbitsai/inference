@@ -93,6 +93,7 @@ def convert_forced_completion(completion: Dict[str, Any]) -> Dict[str, Any]:
     for choice in completion["choices"]:
         if choice.get("finish_reason") == "length":
             # Truncated arguments cannot be executed as a tool call.
+            choice["message"]["content"] = None
             continue
         try:
             calls = json.loads(choice["message"]["content"])

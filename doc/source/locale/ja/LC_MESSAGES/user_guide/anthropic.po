@@ -169,33 +169,36 @@ msgstr ""
 "構造化 JSON 出力には対応エンジンが必要です。vLLM と SGLang エンジンは制約付き JSON "
 "デコードで名前指定と必須のツール選択をサポートし、並列ツール使用を無効にすると応答ごとに最大一つのツール呼び出しを返します。強制ツールの引数は完成するまでバッファリングされます。"
 
-#: user_guide/anthropic.rst:100
+#: ../docs-source/user_guide/anthropic.rst:116
 msgid ""
 "Xinference automatically connects its existing reasoning parser to vLLM and "
 "SGLang structured decoding for supported reasoning markers and engines with "
 "parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
 " engine parser settings are preserved. Manual thinking cannot be combined "
-"with forced tool choice. Other engines return 501 for unsupported controls."
+"with forced tool choice. P/D models return 501 for forced tool choice. Other"
+" engines return 501 for unsupported controls."
 msgstr ""
 "Xinference は、対応する思考マーカーとパーサープラグインをサポートするエンジンに対して、既存の推論パーサーを vLLM と SGLang "
 "の構造化デコードに自動接続します。Qwen3.5 "
 "では追加のパーサー設定は不要です。エンジンのパーサー設定が明示されている場合は、その設定を維持します。手動思考モードと強制ツール選択は併用できません。他のエンジンは未対応の制御に対して"
-" 501 を返します。"
+" 501 を返します。 P/D モデルは強制ツール選択に対して 501 を返します。"
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
 msgstr "プロンプトキャッシュ"
 
-#: user_guide/anthropic.rst:111
+#: ../docs-source/user_guide/anthropic.rst:126
 msgid ""
 "For text requests, the MLX vision engine reuses the furthest "
 "``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
 "actual cache writes and reads. Earlier cache breakpoints do not have "
-"independently enforced lifetimes in this path. Other paths retain automatic "
-"engine caching, indicated by the ``x-xinference-cache-control: automatic`` "
-"response header."
+"independently enforced lifetimes in this path. Cache hits do not currently "
+"refresh the lifetime, and expiry clears the reusable cache. Other paths "
+"retain automatic engine caching, indicated by the ``x-xinference-cache-"
+"control: automatic`` response header."
 msgstr ""
 "テキストリクエストでは、MLX ビジョンエンジンが最後の ``cache_control`` 境界までのプレフィックスを ``5m`` または "
 "``1h`` "
 "の有効期間で再利用し、実際のキャッシュ書き込み量と読み取り量を報告します。他の経路ではエンジンの自動キャッシュを維持し、``x-xinference-"
 "cache-control: automatic`` レスポンスヘッダーで示します。この経路では、前のキャッシュ境界に独立した有効期間は適用されません。"
+" 現在、キャッシュヒットによって有効期間は更新されず、期限切れになると再利用可能なキャッシュ全体が消去されます。"

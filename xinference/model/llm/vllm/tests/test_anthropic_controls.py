@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock
 import jsonschema
 import pytest
 
-from .. import core
-from ..tool_controls import (
+from ...tool_controls import (
     convert_forced_completion,
     prepare_forced_tools,
     single_tool_stream,
 )
+from .. import core
 
 
 def tools():
@@ -98,6 +98,7 @@ def test_truncated_arguments_never_become_executable_calls():
     result = convert_forced_completion(completion('[{"name":', "length"))
     assert result["choices"][0]["finish_reason"] == "length"
     assert not result["choices"][0]["message"].get("tool_calls")
+    assert result["choices"][0]["message"]["content"] is None
     with pytest.raises(RuntimeError, match="invalid JSON"):
         convert_forced_completion(completion("not JSON"))
 
@@ -349,6 +350,29 @@ async def test_backend_preparation_preserves_controls_and_counts_prompt(monkeypa
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("format_type", ["json_schema", "json_object"])
+async def test_json_thinking_requires_structured_reasoning_at_preparation(
+    monkeypatch, format_type
+):
+    from ...reasoning_parser import ReasoningParser
+
+    model = object.__new__(core.VLLMChatModel)
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    model._engine = None
+    monkeypatch.setattr(core, "StructuredOutputsParams", object)
+    with pytest.raises(NotImplementedError, match="with thinking"):
+        await model.async_prepare_anthropic_request(
+            [],
+            {
+                "response_format": {"type": format_type},
+                "chat_template_kwargs": {"enable_thinking": True},
+            },
+        )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
 @pytest.mark.parametrize(
     "choice", ["required", {"type": "function", "function": {"name": "Read"}}]
@@ -381,8 +405,11 @@ async def test_openai_tool_choice_keeps_the_legacy_path(cls, choice):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
 @pytest.mark.parametrize("format_type", ["json_schema", "json_object", "text"])
+@pytest.mark.parametrize(
+    "prefix", ["qwen3_hybrid", "assistant<think>\n", "assistant<think>\n</think>\n"]
+)
 async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
-    cls, format_type
+    cls, format_type, prefix
 ):
     import json
 
@@ -393,6 +420,7 @@ async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
         reasoning_start_tag="<think>",
         reasoning_end_tag="</think>",
         reasoning_content=False,
+        enable_thinking=True,
     )
     instance._engine = SimpleNamespace(
         vllm_config=SimpleNamespace(
@@ -401,11 +429,20 @@ async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
             )
         )
     )
-    prompt = (
-        {"prompt": "assistant<think>\n"}
-        if cls is core.VLLMMultiModel
-        else "assistant<think>\n"
-    )
+    if prefix == "qwen3_hybrid":
+        from pathlib import Path
+
+        family = json.loads(
+            (Path(__file__).parents[2] / "models/qwen3.json").read_text()
+        )[0]
+        prefix = instance._build_from_raw_template(
+            [{"role": "user", "content": "hello"}],
+            family["chat_template"],
+            enable_thinking=True,
+        )
+        assert prefix.endswith("<|im_start|>assistant\n")
+        assert "<think>" not in prefix
+    prompt = {"prompt": prefix} if cls is core.VLLMMultiModel else prefix
     instance._prepare_chat_inputs = AsyncMock(return_value=(prompt, [], {}, {}))
     generated = {
         "id": "test",
@@ -421,7 +458,11 @@ async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
     rendered = instance.async_generate.call_args.args[0]
     if isinstance(rendered, dict):
         rendered = rendered["prompt"]
-    assert rendered.endswith("</think>\n") is (format_type != "text")
+    if format_type == "text":
+        assert rendered == prefix
+    else:
+        assert rendered.endswith("</think>\n")
+        assert rendered.count("<think>") == 1
     content = result["choices"][0]["message"]["content"]
     if format_type == "text":
         assert content.startswith("<think>\n")

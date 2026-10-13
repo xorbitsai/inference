@@ -518,11 +518,30 @@ class VLLMModel(WeightCachedModel, LLM):
     support_draft_model = True
     supports_tool_controls = True
 
+    def _use_legacy_json_constraints(self, config: Dict, anthropic: bool) -> bool:
+        if anthropic or (config.get("response_format") or {}).get("type") not in {
+            "json_schema",
+            "json_object",
+        }:
+            return False
+        structured = getattr(
+            getattr(self._engine, "vllm_config", None),
+            "structured_outputs_config",
+            None,
+        )
+        return str(getattr(structured, "reasoning_parser", "")).startswith(
+            "xinference_"
+        )
+
     def _validate_forced_tools(self, config: Dict) -> None:
-        if is_forced_tool_choice(config):
+        forced = is_forced_tool_choice(config)
+        if forced or (config.get("response_format") or {}).get("type") in {
+            "json_schema",
+            "json_object",
+        }:
             if GuidedDecodingParams is None and StructuredOutputsParams is None:
                 raise NotImplementedError(
-                    "Forced tool choice requires vLLM structured decoding"
+                    "Structured output requires vLLM structured decoding"
                 )
             context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
             if (
@@ -530,7 +549,7 @@ class VLLMModel(WeightCachedModel, LLM):
                 and self.reasoning_parser
                 and self.reasoning_parser.reasoning_end_tag
             ):
-                if context.get("thinking_budget") is not None:
+                if forced and context.get("thinking_budget") is not None:
                     raise ValueError(
                         "Forced tool choice is incompatible with manual thinking"
                     )
@@ -540,7 +559,7 @@ class VLLMModel(WeightCachedModel, LLM):
                     structured, "enable_in_reasoning", False
                 ):
                     raise NotImplementedError(
-                        "This engine cannot combine forced tool choice with thinking; "
+                        "This engine cannot combine structured output with thinking; "
                         "it requires reasoning boundary support with constraints "
                         "disabled during thinking"
                     )
@@ -2763,19 +2782,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
-        structured = getattr(
-            getattr(self._engine, "vllm_config", None),
-            "structured_outputs_config",
-            None,
-        )
-        plain_json = bool(
-            not anthropic
-            and (generate_config.get("response_format") or {}).get("type")
-            in {"json_schema", "json_object"}
-            and str(getattr(structured, "reasoning_parser", "")).startswith(
-                "xinference_"
-            )
-        )
+        plain_json = self._use_legacy_json_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         generate_config.pop("tool_choice", None)
         full_prompt, tools, chat_template_kwargs, generate_config = (
@@ -3270,19 +3277,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
-        structured = getattr(
-            getattr(self._engine, "vllm_config", None),
-            "structured_outputs_config",
-            None,
-        )
-        plain_json = bool(
-            not anthropic
-            and (generate_config.get("response_format") or {}).get("type")
-            in {"json_schema", "json_object"}
-            and str(getattr(structured, "reasoning_parser", "")).startswith(
-                "xinference_"
-            )
-        )
+        plain_json = self._use_legacy_json_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         generate_config.pop("tool_choice", None)
         inputs, tools, chat_template_kwargs, generate_config = (

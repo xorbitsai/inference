@@ -106,32 +106,41 @@ def _document(block: Dict[str, Any], budget: ContentBudget) -> List[Dict[str, An
     from ..pdf_ocr import _pdfium_lock
 
     # PDFium operations on different documents must also share the OCR lock.
-    with _pdfium_lock, closing(pdfium.PdfDocument(raw)) as pdf:
-        budget.pages += len(pdf)
-        if budget.pages > 20:
-            raise ValueError("PDF input supports at most 20 pages per request")
-        for page in pdf:
-            with closing(page):
-                width, height = page.get_size()
-                if not all(math.isfinite(v) and v > 0 for v in (width, height)):
-                    raise ValueError("PDF page dimensions must be positive and finite")
-                scale = min(1.5, 2048 / max(width, height))
-                budget.pixels += math.ceil(width * scale) * math.ceil(height * scale)
-                if budget.pixels > 20_000_000:
-                    raise ValueError(
-                        "PDF input exceeds 20000000 rendered pixels per request"
+    try:
+        with _pdfium_lock, closing(pdfium.PdfDocument(raw)) as pdf:
+            budget.pages += len(pdf)
+            if budget.pages > 20:
+                raise ValueError("PDF input supports at most 20 pages per request")
+            for page in pdf:
+                with closing(page):
+                    width, height = page.get_size()
+                    if not all(math.isfinite(v) and v > 0 for v in (width, height)):
+                        raise ValueError(
+                            "PDF page dimensions must be positive and finite"
+                        )
+                    scale = min(1.5, 2048 / max(width, height))
+                    budget.pixels += math.ceil(width * scale) * math.ceil(
+                        height * scale
                     )
-                with closing(page.render(scale=scale)) as bitmap:
-                    output = io.BytesIO()
-                    bitmap.to_pil().save(output, format="PNG")
-                    budget.add_bytes(output.tell(), rendered=True)
-                    encoded = base64.b64encode(output.getvalue()).decode("ascii")
-                    parts.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/png;base64,{encoded}"},
-                        }
-                    )
+                    if budget.pixels > 20_000_000:
+                        raise ValueError(
+                            "PDF input exceeds 20000000 rendered pixels per request"
+                        )
+                    with closing(page.render(scale=scale)) as bitmap:
+                        output = io.BytesIO()
+                        bitmap.to_pil().save(output, format="PNG")
+                        budget.add_bytes(output.tell(), rendered=True)
+                        encoded = base64.b64encode(output.getvalue()).decode("ascii")
+                        parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/png;base64,{encoded}"
+                                },
+                            }
+                        )
+    except pdfium.PdfiumError as exc:
+        raise ValueError("Invalid PDF document") from exc
     return parts
 
 

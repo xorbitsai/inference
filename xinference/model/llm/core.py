@@ -153,14 +153,7 @@ class LLM(abc.ABC):
             # Markers are cache hints: keep other engines' automatic caching
             # usable, and expose the difference through the response header.
             config.pop("_anthropic_cache_control", None)
-        if (
-            any(
-                isinstance(m.get("content"), list)
-                and any(p.get("type") == "image_url" for p in m["content"])
-                for m in messages
-            )
-            and "vision" not in self.model_family.model_ability
-        ):
+        if has_images and "vision" not in self.model_family.model_ability:
             raise ValueError("Image input requires a model with vision support")
         # Effort is a soft preference. Engines without a native effort API use
         # explicit prompt guidance, without forcing thinking on non-thinking runs.
@@ -169,7 +162,6 @@ class LLM(abc.ABC):
         if effort and effort != "medium":
             guidance = {
                 "low": "Use brief reasoning and prioritize a direct answer.",
-                "medium": "Use an appropriate amount of reasoning for the task.",
                 "high": "Reason carefully and check your work before answering.",
                 "xhigh": "Use thorough reasoning and check difficult edge cases.",
                 "max": "Use the reasoning needed to solve the task thoroughly.",

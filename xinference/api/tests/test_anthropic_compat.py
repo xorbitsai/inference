@@ -356,6 +356,24 @@ def pdf_block(pages=1, size=100):
     }
 
 
+def test_corrupt_pdf_is_a_client_error():
+    import base64
+
+    pytest.importorskip("pypdfium2")
+    block = {
+        "type": "document",
+        "source": {
+            "type": "base64",
+            "media_type": "application/pdf",
+            "data": base64.b64encode(b"not a PDF").decode(),
+        },
+    }
+    with pytest.raises(ValueError, match="Invalid PDF document"):
+        parse_anthropic_request(
+            request(messages=[{"role": "user", "content": [block]}])
+        )
+
+
 def test_pdf_requests_share_the_ocr_lock_and_render_once(monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
 

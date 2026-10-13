@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 import xoscar as xo
 
+from ..model.llm.tool_controls import is_forced_tool_choice
 from ..model.llm.xavier.constants import CROSS_ENGINE_TRANSFER_ACTOR_UID
 from .rpc_context import actor_call
 from .utils import log_async
@@ -308,6 +309,34 @@ class PDModelActor(xo.StatelessActor):
 
     async def is_vllm_backend(self):
         return True
+
+    @log_async(logger=logger)
+    async def prepare_anthropic_request(
+        self, messages: List[Dict], generate_config: Dict
+    ):
+        if is_forced_tool_choice(generate_config):
+            raise NotImplementedError(
+                "Forced tool choice is not supported for P/D models"
+            )
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+        replica = next(iter(self._decode_replicas.values()))
+        return await actor_call(
+            replica, "prepare_anthropic_request", messages, generate_config
+        )
+
+    @log_async(logger=logger)
+    async def count_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ):
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+        replica = next(iter(self._decode_replicas.values()))
+        return await actor_call(replica, "count_tokens", messages, generate_config)
 
     async def _infer(self, method, inputs, *args, **kwargs):
         if not self._prefill_policy or not self._decode_policy:

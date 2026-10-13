@@ -24,7 +24,7 @@ async def test_count_tokens_uses_backend_and_model_access(monkeypatch, path):
             ).encode()
 
         async def count_tokens(self, messages, config):
-            return b"23"
+            pytest.fail("Preparation already counted the prompt")
 
     async def require_model(*args):
         return Model()
@@ -49,6 +49,79 @@ async def test_count_tokens_uses_backend_and_model_access(monkeypatch, path):
     assert response.json() == {"input_tokens": 23}
     assert seen[0][0][0] == {"role": "system", "content": "system"}
     assert seen[0][1]["tools"][0]["function"]["name"] == "Read"
+
+
+@pytest.mark.asyncio
+async def test_anthropic_endpoints_use_pd_decode_preparation(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from xinference.core.pd_model import PDModelActor
+
+    actor = PDModelActor("local")
+    decode = AsyncMock()
+    decode.prepare_anthropic_request.return_value = (
+        b'{"messages":[],"generate_config":{},"input_tokens":23}'
+    )
+    await actor.add_decode_actor("d", decode)
+    actor._infer = AsyncMock(
+        return_value=b'{"choices":[{"message":{"content":"answer"},"finish_reason":"stop"}],"usage":{}}'
+    )
+    monkeypatch.setattr(module, "require_model", AsyncMock(return_value=actor))
+    api = make_rest_api()
+    app = make_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+    payload = {
+        "model": "local",
+        "messages": [{"role": "user", "content": "hello"}],
+        "max_tokens": 32,
+    }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        for path in ("/v1/messages", "/v1/messages/count_tokens"):
+            response = await client.post(
+                path, json=payload, headers={"anthropic-version": "2023-06-01"}
+            )
+            assert response.status_code == 200
+            if path.endswith("count_tokens"):
+                assert response.json() == {"input_tokens": 23}
+            else:
+                assert response.json()["content"] == [
+                    {"type": "text", "text": "answer"}
+                ]
+    assert decode.prepare_anthropic_request.await_count == 2
+    decode.count_tokens.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unknown_prepared_count_preserves_unsupported_error(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    model = AsyncMock()
+    model.prepare_anthropic_request.return_value = {
+        "messages": [],
+        "generate_config": {},
+        "input_tokens": 0,
+    }
+    model.count_tokens.side_effect = NotImplementedError("Tokenizer unavailable")
+    monkeypatch.setattr(module, "require_model", AsyncMock(return_value=model))
+    api = make_rest_api()
+    app = make_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/messages/count_tokens",
+            headers={"anthropic-version": "2023-06-01"},
+            json={"model": "local", "messages": [{"role": "user", "content": "hello"}]},
+        )
+    assert response.status_code == 501
+    assert response.json()["error"]["message"] == "Tokenizer unavailable"
 
 
 @pytest.mark.asyncio

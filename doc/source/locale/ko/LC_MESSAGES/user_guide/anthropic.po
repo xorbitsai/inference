@@ -170,31 +170,35 @@ msgstr ""
 "선택을 지원하며, 병렬 도구 사용을 비활성화하면 응답당 최대 하나의 도구 호출을 반환합니다. 강제 도구의 인수는 완성될 때까지 "
 "버퍼링됩니다."
 
-#: user_guide/anthropic.rst:100
+#: ../docs-source/user_guide/anthropic.rst:116
 msgid ""
 "Xinference automatically connects its existing reasoning parser to vLLM and "
 "SGLang structured decoding for supported reasoning markers and engines with "
 "parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
 " engine parser settings are preserved. Manual thinking cannot be combined "
-"with forced tool choice. Other engines return 501 for unsupported controls."
+"with forced tool choice. P/D models return 501 for forced tool choice. Other"
+" engines return 501 for unsupported controls."
 msgstr ""
 "Xinference는 지원되는 사고 마커와 파서 플러그인을 지원하는 엔진에서 기존 추론 파서를 vLLM과 SGLang의 구조화된 디코딩에"
 " 자동으로 연결합니다. Qwen3.5에는 추가 파서 설정이 필요하지 않습니다. 명시적인 엔진 파서 설정은 유지됩니다. 수동 사고는 강제 "
-"도구 선택과 함께 사용할 수 없습니다. 다른 엔진은 지원하지 않는 제어에 대해 501을 반환합니다."
+"도구 선택과 함께 사용할 수 없습니다. 다른 엔진은 지원하지 않는 제어에 대해 501을 반환합니다. P/D 모델은 강제 도구 선택에 대해"
+" 501을 반환합니다."
 
 #: user_guide/anthropic.rst:103
 msgid "Prompt caching"
 msgstr "프롬프트 캐싱"
 
-#: user_guide/anthropic.rst:111
+#: ../docs-source/user_guide/anthropic.rst:126
 msgid ""
 "For text requests, the MLX vision engine reuses the furthest "
 "``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
 "actual cache writes and reads. Earlier cache breakpoints do not have "
-"independently enforced lifetimes in this path. Other paths retain automatic "
-"engine caching, indicated by the ``x-xinference-cache-control: automatic`` "
-"response header."
+"independently enforced lifetimes in this path. Cache hits do not currently "
+"refresh the lifetime, and expiry clears the reusable cache. Other paths "
+"retain automatic engine caching, indicated by the ``x-xinference-cache-"
+"control: automatic`` response header."
 msgstr ""
 "텍스트 요청에서 MLX 비전 엔진은 마지막 ``cache_control`` 경계까지의 접두사를 ``5m`` 또는 ``1h`` 수명으로 "
 "재사용하고 실제 캐시 쓰기 및 읽기 양을 보고합니다. 다른 경로는 엔진의 자동 캐싱을 유지하며 ``x-xinference-cache-"
-"control: automatic`` 응답 헤더로 표시합니다. 이 경로에서는 앞선 캐시 경계의 수명이 독립적으로 적용되지 않습니다."
+"control: automatic`` 응답 헤더로 표시합니다. 이 경로에서는 앞선 캐시 경계의 수명이 독립적으로 적용되지 않습니다. 현재"
+" 캐시 적중 시 수명이 갱신되지 않으며, 만료 시 재사용 가능한 캐시 전체가 삭제됩니다."
