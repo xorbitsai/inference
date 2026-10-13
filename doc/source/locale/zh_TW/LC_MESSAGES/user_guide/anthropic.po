@@ -101,17 +101,20 @@ msgstr ""
 msgid "Thinking"
 msgstr "思考模式"
 
-#: user_guide/anthropic.rst:85
+#: user_guide/anthropic.rst:86
 msgid ""
 "Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
 "maps to prompt guidance, with ``medium`` preserving the default prompt. "
 "Explicit thinking responses carry Xinference signatures, which can be "
 "replayed with the same model UID and signing key; configure "
-"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers."
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers. "
+"The MLX, vLLM and SGLang adapters do not currently enforce manual "
+"``budget_tokens`` as a separate reasoning-token limit."
 msgstr ""
 "Adaptive thinking 啟用模型的推理模式。``effort`` 對應為提示詞指引，``medium`` "
 "保持預設提示詞。明確要求的思考回應帶有 Xinference 簽章，可使用相同的模型 UID 和簽章金鑰回傳；多個 API 伺服器應設定相同的 "
-"``XINFERENCE_ANTHROPIC_THINKING_SECRET``。"
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET``。 MLX、vLLM 和 SGLang 適配層目前不會將手動 "
+"``budget_tokens`` 強制執行為獨立的思考 token 上限。"
 
 #: user_guide/anthropic.rst:92
 msgid "Tool choice and structured output"
@@ -143,13 +146,15 @@ msgstr ""
 msgid "Prompt caching"
 msgstr "提示詞快取"
 
-#: user_guide/anthropic.rst:105
+#: user_guide/anthropic.rst:111
 msgid ""
 "For text requests, the MLX vision engine reuses the furthest "
 "``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
-"actual cache writes and reads. Other paths retain automatic engine caching, "
-"indicated by the ``x-xinference-cache-control: automatic`` response header."
+"actual cache writes and reads. Earlier cache breakpoints do not have "
+"independently enforced lifetimes in this path. Other paths retain automatic "
+"engine caching, indicated by the ``x-xinference-cache-control: automatic`` "
+"response header."
 msgstr ""
 "對於文字請求，MLX 視覺引擎重用到最後一個 ``cache_control`` 邊界的前綴，生命週期為 ``5m`` 或 "
 "``1h``，並回報實際快取寫入和讀取量。其他路徑保留引擎自動快取，並透過 ``x-xinference-cache-control: "
-"automatic`` 回應標頭標示。"
+"automatic`` 回應標頭標示。 此路徑不會對較早的快取斷點分別執行獨立的有效期限。"

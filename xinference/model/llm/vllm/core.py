@@ -525,7 +525,11 @@ class VLLMModel(WeightCachedModel, LLM):
                     "Forced tool choice requires vLLM structured decoding"
                 )
             context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
-            if context.get("enable_thinking"):
+            if (
+                context.get("enable_thinking")
+                and self.reasoning_parser
+                and self.reasoning_parser.reasoning_end_tag
+            ):
                 if context.get("thinking_budget") is not None:
                     raise ValueError(
                         "Forced tool choice is incompatible with manual thinking"

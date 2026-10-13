@@ -241,8 +241,12 @@ async def test_multimodal_count_uses_engine_preprocessor_without_generation(
 
 
 def test_forced_choice_requires_engine_constraints_and_disallows_thinking(monkeypatch):
+    from ...reasoning_parser import ReasoningParser
+
     model = object.__new__(core.VLLMChatModel)
-    model.reasoning_parser = None
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
     model._engine = None
     monkeypatch.setattr(core, "GuidedDecodingParams", None)
     monkeypatch.setattr(core, "StructuredOutputsParams", None)
@@ -276,6 +280,20 @@ def test_forced_choice_requires_engine_constraints_and_disallows_thinking(monkey
                 },
             }
         )
+
+
+def test_non_reasoning_model_can_force_tools_without_reasoning_plugin(monkeypatch):
+    from ...reasoning_parser import ReasoningParser
+
+    model = object.__new__(core.VLLMChatModel)
+    model.reasoning_parser = ReasoningParser(enable_thinking=True)
+    model._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            structured_outputs_config=SimpleNamespace(reasoning_parser="")
+        )
+    )
+    monkeypatch.setattr(core, "StructuredOutputsParams", object)
+    model._validate_forced_tools({"tool_choice": "required"})
 
 
 @pytest.mark.asyncio

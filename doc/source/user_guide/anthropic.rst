@@ -88,6 +88,8 @@ maps to prompt guidance, with ``medium`` preserving the default prompt.
 Explicit thinking responses carry Xinference signatures, which can be replayed
 with the same model UID and signing key; configure
 ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.
+The MLX, vLLM and SGLang adapters do not currently enforce manual
+``budget_tokens`` as a separate reasoning-token limit.
 
 Tool choice and structured output
 ---------------------------------
@@ -108,5 +110,6 @@ Prompt caching
 
 For text requests, the MLX vision engine reuses the furthest ``cache_control``
 boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and
-reads. Other paths retain automatic engine caching, indicated by the
+reads. Earlier cache breakpoints do not have independently enforced lifetimes
+in this path. Other paths retain automatic engine caching, indicated by the
 ``x-xinference-cache-control: automatic`` response header.
