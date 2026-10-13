@@ -240,6 +240,9 @@ def get_metrics_from_url(metrics_url):
 
 
 def _can_use_transformers_legacy(model, model_spec):
+    # The generic causal-LM loader cannot serve this multimodal architecture.
+    if "Qwen4ExpForConditionalGeneration" in model.get("architectures", []):
+        return False
     if model_spec.get("model_format") not in _LEGACY_TRANSFORMERS_FORMATS:
         return False
     abilities = set(model.get("model_ability", []))

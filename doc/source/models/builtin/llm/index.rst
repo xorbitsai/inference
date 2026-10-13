@@ -741,6 +741,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.
 
+   * - :ref:`qwen3.8-flash-next <models_llm_qwen3.8-flash-next>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control.
+
    * - :ref:`qwen3.8-max <models_llm_qwen3.8-max>`
      - chat, tools, reasoning
      - 262144
@@ -1145,6 +1150,7 @@ The following is a list of built-in LLM in Xinference:
    qwen3.6
   
    qwen3.8
+   qwen3.8-flash-next
   
    qwen3.8-max
   

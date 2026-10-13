@@ -577,7 +577,7 @@ class RESTfulAPI(CancelMixin):
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
     _cluster_metrics_task: Optional[asyncio.Task[None]] = None
     QWEN38_REASONING_EFFORTS = {"xhigh", "medium", "low"}
-    QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max"}
+    QWEN38_REASONING_MODEL_NAMES = {"qwen3.8", "qwen3.8-max", "qwen3.8-Flash-Next"}
 
     @asynccontextmanager
     async def _lifespan(self, _app: FastAPI) -> AsyncIterator[None]:

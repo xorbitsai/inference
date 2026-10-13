@@ -773,3 +773,11 @@ msgstr ":ref:`glm-5.3 <models_llm_glm-5.3>`"
 #: ../glm53-doc-check/models/builtin/llm/index.rst:272
 msgid "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
 msgstr "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control."
+msgstr "Qwen3.8-Flash-Next 是原生視覺語言混合專家模型，主模型包含 1250 億參數，每個 token 啟用 60 億參數，另有 510 億參數的 n-gram 嵌入表。其 Qwen4 實驗性架構結合了門控 DeltaNet、Qwen 稀疏注意力、門控殘差和靈活的思考控制。"
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "chat, vision, tools, reasoning, hybrid"
+msgstr "對話、視覺、工具呼叫、推理、混合思考模式"

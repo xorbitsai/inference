@@ -773,3 +773,11 @@ msgstr ":ref:`glm-5.3 <models_llm_glm-5.3>`"
 #: ../glm53-doc-check/models/builtin/llm/index.rst:272
 msgid "GLM-5.3 is a reasoning model for coding and long-horizon agentic tasks."
 msgstr "GLM-5.3은 코딩과 장기 에이전트 작업을 위한 추론 모델입니다."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "Qwen3.8-Flash-Next is a native vision-language Mixture-of-Experts model with 125B main-model parameters, 6B activated per token, and an additional 51B n-gram embedding table. Its Qwen4 experimental architecture combines Gated DeltaNet, Qwen Sparse Attention, gated residuals, and flexible thinking control."
+msgstr "Qwen3.8-Flash-Next는 시각과 언어를 기본적으로 처리하는 혼합 전문가 모델입니다. 주 모델은 1,250억 개의 매개변수를 가지며 토큰당 60억 개가 활성화되고, 별도로 510억 개의 매개변수를 가진 n-gram 임베딩 테이블이 있습니다. 실험적인 Qwen4 아키텍처는 Gated DeltaNet, Qwen Sparse Attention, 게이트 잔차 연결 및 유연한 사고 제어를 결합합니다."
+
+#: doc/source/models/builtin/llm/index.rst
+msgid "chat, vision, tools, reasoning, hybrid"
+msgstr "채팅, 시각, 도구 호출, 추론, 하이브리드 사고 모드"
