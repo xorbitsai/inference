@@ -67,6 +67,7 @@ import { FormField } from '@/components/ui/form-field';
 import { shouldApplyPreferredDownloadSource } from './download-source-utils.mjs';
 import { recommendationUnavailable, recommendationWarningKeys } from './recommendation';
 import { useRecommendation } from './use-recommendation';
+import ContextLengthField from './context-length-field';
 
 interface LaunchDialogProps {
   model?: CatalogModel;
@@ -137,6 +138,7 @@ const DOWNLOAD_ONLY_EXCLUDED_FIELDS = new Set([
   'n_gpu_layers',
   'n_worker',
   'request_limits',
+  'context_length',
   'enable_thinking',
   'reasoning_content',
   'cpu_offload',
@@ -754,6 +756,18 @@ export default function LaunchDialog({
         disabled: !modelSizeInBillionsValue,
         show: Boolean(multimodalProjectorOptions.length),
         fieldProps: { options: multimodalProjectorOptions },
+      },
+      {
+        name: 'contextLength',
+        type: 'custom',
+        colSpan: 2,
+        content: (
+          <ContextLengthField
+            modelMaximum={
+              typeof model?.context_length === 'number' ? model.context_length : undefined
+            }
+          />
+        ),
       },
       {
         name: 'n_gpu',

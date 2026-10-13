@@ -140,6 +140,7 @@ export const ALL_FORM_KEYS = [
   'replica_config',
   'replica_placement_mode',
   'request_limits',
+  'context_length',
   'worker_ip',
   'gpu_idx',
   'download_hub',

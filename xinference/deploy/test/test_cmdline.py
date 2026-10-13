@@ -606,3 +606,21 @@ def test_launch_invalid_pd_config(monkeypatch, roles, engine):
     assert result.exit_code == 2
     assert "--replica-config" in result.output
     assert "launch_kwargs" not in calls
+
+
+@pytest.mark.parametrize(
+    "args", [["--context-length", "32768"], ["--context_length", "32768"]]
+)
+def test_launch_unified_context_reaches_client(monkeypatch, args):
+    result, calls = _invoke_launch_with_replica_config(monkeypatch, "32768", *args[:-1])
+    assert result.exit_code == 0, result.output
+    assert calls["launch_kwargs"]["context_length"] == 32768
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "1.5", str(2**31)])
+def test_launch_context_rejects_invalid_integer(monkeypatch, value):
+    result, calls = _invoke_launch_with_replica_config(
+        monkeypatch, value, "--context-length"
+    )
+    assert result.exit_code != 0
+    assert "launch_kwargs" not in calls

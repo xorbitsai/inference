@@ -65,8 +65,8 @@ msgid "Embedding, rerank, and audio models use the same **Recommend configuratio
 msgstr "Embedding、Rerank 和音频模型也可以点击 **推荐配置**，或调用 ``POST /v1/models/recommend``，将 ``model_type`` 分别设为 ``embedding``、``rerank`` 或 ``audio``。推荐只填写该类型支持的字段，不选择模型大小。Embedding 和 Rerank 优先使用可用的 sentence-transformers 引擎；音频模型在 Apple Silicon 上优先使用可用的 MLX，否则优先考虑常规的 Transformers 或 PyTorch 后端。已经安装的引擎优先于需要虚拟环境安装依赖的引擎，同一引擎内优先选择未量化版本。与 LLM 不同，这些类型暂不按权重是否缓存来打破平局。您指定的工作节点、GPU 和虚拟环境条件仍然有效，但这些类型不接受 ``model_size_in_billions``。推荐只是起步配置，不保证内存够用。图片和视频模型暂不支持推荐。"
 
 #: ../../source/user_guide/launch.rst:16
-msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed."
-msgstr "``POST /v1/models/recommend`` 是只读接口。提供 ``model_name`` 和 ``model_type=\"LLM\"``；可选的 ``constraints`` 对象接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的约束均为硬性要求，不会被静默放宽。"
+msgid "``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and ``model_type=\"LLM\"``; the optional ``constraints`` object accepts ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and ``gpu_idx``. LLM constraints also accept ``context_length``. Supplied constraints are hard requirements, never silently relaxed."
+msgstr "``POST /v1/models/recommend`` 是只读接口。提供 ``model_name`` 和 ``model_type=\"LLM\"``；可选的 ``constraints`` 对象接受 ``model_size_in_billions``、``worker_ip``、``enable_virtual_env``、``n_gpu`` 和 ``gpu_idx``。提供的约束均为硬性要求，不会被静默放宽。 LLM 约束还接受 ``context_length``。"
 
 #: ../../source/user_guide/launch.rst:31
 msgid "The response ``status`` is ``recommended`` or ``no_recommendation``. On success, ``config`` contains launch-compatible fields such as ``model_engine``, ``model_format``, ``model_size_in_billions``, ``quantization``, and ``worker_ip``. ``reasons`` and ``warnings`` contain entries with ``code`` and ``message`` fields. If no configuration satisfies the constraints, review the explanation and adjust the constraints or configure the launch manually."
@@ -421,3 +421,23 @@ msgstr "不能通过重载修改并行度、GPU 分配、模型路径、精度�
 
 msgid "LLM constraints also accept positive integers ``context_length`` (text input plus output tokens) and ``concurrency``, and non-negative integers ``vision_tokens`` (encoded image tokens per sequence) and ``prefix_cache_bytes`` (additional retained cache across the instance). Omitting ``context_length`` uses each candidate's registered maximum context, including encoded image tokens. Models without a known maximum remain unverified. Recommended vLLM ``max_model_len`` and SGLang ``context_length`` equal text plus vision tokens per sequence. llama.cpp uses ``n_parallel=concurrency`` and ``n_ctx=(context_length + vision_tokens) * concurrency`` because its context is divided across slots. The Web UI applies these advanced launch parameters. Other workload fields affect estimates rather than request limits. Older workers that do not support workload options are retried without them and remain unverified, with a version warning. Image workloads require vision metadata. For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded token count; zero assumes all image tokens belong to one image. Cached states grow with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a 16,384-token prefill workspace profile with fused attention and sampled-row logits."
 msgstr "LLM 约束还接受正整数 ``context_length``（文本输入加输出 tokens）和 ``concurrency``，以及非负整数 ``vision_tokens``（每个序列编码后的图像 tokens）和 ``prefix_cache_bytes``（整个实例额外保留的缓存）。省略 ``context_length`` 时，使用各个候选模型注册的最大 context，编码后的图像 tokens 也计入这个上限。最大值未知的模型仍保持未验证。推荐的 vLLM ``max_model_len`` 和 SGLang ``context_length`` 等于每个序列的文本加图像 tokens。llama.cpp 使用 ``n_parallel=concurrency`` 和 ``n_ctx=(context_length + vision_tokens) * concurrency``，因为 context 会在各个槽位间分配。Web UI 会应用这些高级启动参数。其他工作负载字段影响估算，不设置请求限制。不支持工作负载选项的旧 worker 会去掉这些选项后重试，其候选保持未验证，并附带版本警告。图像工作负载需要视觉元数据。 多个图像可通过 ``vision_tokens_per_image`` 指定单个图像编码后的最大 token 数；零表示将全部图像 tokens 视为一个图像。缓存状态随并发增加，模型权重只计算一份。vLLM (CUDA) 和 SGLang 共用 16,384-token 的预填充工作区估算，使用融合注意力和采样行 logits。"
+
+#: ../source/user_guide/launch.rst:95
+msgid "Unified LLM context length"
+msgstr "统一 LLM 上下文长度"
+
+#: ../source/user_guide/launch.rst:97
+msgid "Set ``context_length`` in the launch API or use ``--context-length`` in the CLI to choose the input plus output token limit per request. In the Web UI, use the context slider or enter an exact integer; **Model default** clears the override. The slider's upper bound comes from the registered model. Context selections are preserved in configuration history and passed to the recommendation API."
+msgstr "在启动 API 中设置 ``context_length``，或在 CLI 中使用 ``--context-length``，指定每个请求的输入加输出 token 上限。在 Web UI 中使用上下文滑动条，或输入精确整数；**模型默认值** 会清空覆盖值。滑动条上限取自注册模型。上下文选择会保存在配置历史中，并传给推荐 API。"
+
+#: ../source/user_guide/launch.rst:103
+msgid "The launch layer maps this setting to vLLM's ``max_model_len``, SGLang, Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine parameters still work; contradictory unified and native values are rejected. Omitting the setting preserves engine defaults. This setting does not extend the model's positional embeddings or enable context scaling."
+msgstr "启动层会映射到 vLLM 的 ``max_model_len``，SGLang、Transformers 和 MLX 的 ``context_length``，LMDeploy 的 ``session_len``，以及 llama.cpp 的总槽位容量 ``n_ctx=context_length*n_parallel``。原有引擎参数仍可使用，但统一值与原生值矛盾时会拒绝。省略此设置会保留引擎默认行为。此设置不会扩展模型的位置嵌入，也不会启用上下文缩放。"
+
+#: ../source/user_guide/launch.rst
+msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
+msgstr "推荐配置通过 ``context_length`` 返回每个请求的总 token 上限，包括编码后的图像 tokens。llama.cpp 还返回 ``n_parallel``，与估算的并发数一致；启动层会把统一上限映射到各个引擎。"
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "显式设置上下文上限后，MLX 会拒绝没有剩余输出空间的提示词，并把 ``max_tokens`` 限制在剩余 token 预算内。缓存命中的提示词 tokens 和处理后的图像 tokens 都计入输入上限。非流式请求超出输入上限时返回 HTTP 400；流式请求通过 SSE 报告错误，不会开始生成。"

@@ -453,6 +453,9 @@ function transformWorkerIpToForm(value: unknown) {
 
 export function transformFormToFetch(values: FormValues) {
   const nextValues = { ...values };
+  if (nextValues.context_length === '' || nextValues.context_length == null) {
+    delete nextValues.context_length;
+  }
 
   if (!['vllm', 'sglang'].includes(toOptionValue(values.model_engine).toLowerCase())) {
     delete nextValues.enable_weight_cache;
@@ -604,6 +607,7 @@ export function transformFetchToForm(values: FormValues) {
 }
 
 const commandLineKeyMap: Record<string, string> = {
+  context_length: '--context-length',
   model_size_in_billions: '--size-in-billions',
   download_hub: '--download_hub',
   enable_thinking: '--enable-thinking',
@@ -972,6 +976,19 @@ export function parseXinferenceCommand(command: string) {
         .split(',')
         .map((item) => Number(item.trim()))
         .filter((item) => Number.isFinite(item));
+      continue;
+    }
+    if (normalizedKey === 'context_length') {
+      const context = Number(value);
+      if (
+        !/^\d+$/.test(value) ||
+        !Number.isInteger(context) ||
+        context < 1 ||
+        context > 2 ** 31 - 1
+      ) {
+        throw new Error('--context-length must be a positive integer no greater than 2147483647.');
+      }
+      params.context_length = context;
       continue;
     }
 

@@ -391,7 +391,17 @@ for (const [engine, contextSettings] of [
       config: { ...recommended.config!, model_engine: engine, ...contextSettings },
     });
     const payload = transformFormToFetch(form.getFieldsValue());
-    for (const [key, value] of Object.entries(contextSettings)) assert.equal(payload[key], value);
+    const expected =
+      'max_model_len' in contextSettings
+        ? contextSettings.max_model_len
+        : 'n_ctx' in contextSettings
+          ? contextSettings.n_ctx / contextSettings.n_parallel
+          : contextSettings.context_length;
+    assert.equal(payload.context_length, expected);
+    assert.equal(payload.max_model_len, undefined);
+    assert.equal(payload.n_ctx, undefined);
+    if ('n_parallel' in contextSettings)
+      assert.equal(payload.n_parallel, contextSettings.n_parallel);
     assert.equal(payload.kwargs, undefined);
   });
 }
@@ -682,4 +692,73 @@ it('clears GPU indexes only when the target device makes them incompatible', () 
   assert.equal(reconcileGpuIndexesForDevice('0,1', 2, 1, ModelType.LLM), undefined);
   assert.equal(reconcileGpuIndexesForDevice('0,1', 2, 2, ModelType.LLM), '0,1');
   assert.equal(reconcileGpuIndexesForDevice('invalid', 2, 1, ModelType.LLM), 'invalid');
+});
+
+it('uses the context slider as a recommendation constraint and preserves it for launch and history', async () => {
+  await render({ ...model, context_length: 262144 });
+  const slider = document.querySelector('input[type="range"]') as HTMLInputElement;
+  assert.ok(slider);
+  assert.equal(slider.max, '262144');
+  assert.equal(slider.value, '262144');
+  assert.equal(form.getFieldValue('context_length'), undefined);
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(
+      slider,
+      '32768'
+    );
+    slider.dispatchEvent(new window.Event('input', { bubbles: true }));
+    slider.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  assert.equal(form.getFieldValue('context_length'), 32768);
+  assert.equal(button().disabled, false);
+  await start();
+  assert.equal(
+    (posts.at(-1)!.data as { constraints: { context_length: number } }).constraints.context_length,
+    32768
+  );
+  await finish({ ...recommended, config: { ...recommended.config!, context_length: 32768 } });
+  const {
+    transformFormToFetch,
+    transformFetchToForm,
+    parseXinferenceCommand,
+    generateCommandLineStatement,
+  } = require('../utils') as typeof import('../utils');
+  const payload = transformFormToFetch(form.getFieldsValue());
+  assert.equal(payload.context_length, 32768);
+  const command = generateCommandLineStatement(payload);
+  assert.match(command, /--context-length 32768/);
+  assert.equal(parseXinferenceCommand(command).context_length, 32768);
+  const restored = transformFetchToForm(payload);
+  assert.equal(restored.context_length, 32768);
+  assert.ok(!restored.kwargs?.some((entry: { key: string }) => entry.key === 'context_length'));
+  assert.equal(button().disabled, false);
+  const reset = Array.from(document.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Model default'
+  )!;
+  await act(async () => reset.click());
+  assert.equal(transformFormToFetch(form.getFieldsValue()).context_length, undefined);
+});
+
+it('does not send LLM context for other model types and rejects a changed context recommendation', async () => {
+  assert.ok(
+    !(
+      'context_length' in
+      recommendationRequest('demo', { context_length: 32768 }, 'audio').constraints
+    )
+  );
+  await act(async () => form.setFieldValue('context_length', 32768));
+  await start();
+  await finish({ ...recommended, config: { ...recommended.config!, context_length: 8192 } });
+  assert.match(document.body.textContent!, /Could not apply/);
+  assert.equal(form.getFieldValue('context_length'), 32768);
+});
+
+it('accepts legacy recommendation engine context fields without copying them into extra parameters', () => {
+  const patch = recommendationPatch(
+    { ...recommended, config: { ...recommended.config!, max_model_len: 32768 } },
+    {},
+    engines as unknown as import('@/types/services').ModelEngine
+  )!;
+  assert.equal(patch.context_length, 32768);
+  assert.ok(!('max_model_len' in patch));
 });

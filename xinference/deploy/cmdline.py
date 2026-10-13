@@ -807,6 +807,12 @@ def remove_cache(
     help="Define the quantization settings for the model.",
 )
 @click.option(
+    "--context-length",
+    type=click.IntRange(1, 2**31 - 1),
+    default=None,
+    help="Per-request input plus output token limit for LLMs; mapped to the selected engine. Unset keeps the engine default.",
+)
+@click.option(
     "--replica",
     "-r",
     default=1,
@@ -944,6 +950,7 @@ def model_launch(
     size_in_billions: str,
     model_format: str,
     quantization: str,
+    context_length: Optional[int],
     replica: int,
     replica_config: Optional[str],
     n_worker: int,
@@ -981,6 +988,12 @@ def model_launch(
             else:
                 raise ValueError("Cannot set both for --model-path and --model_path")
         kwargs[param_name] = param_value
+    if context_length is not None:
+        if "context_length" in kwargs and kwargs["context_length"] != context_length:
+            raise click.BadParameter(
+                "conflicts with --context_length", param_hint="--context-length"
+            )
+        kwargs["context_length"] = context_length
     print(f"Launch model name: {model_name} with kwargs: {kwargs}", file=sys.stderr)
 
     if model_type == "LLM" and model_engine is None:

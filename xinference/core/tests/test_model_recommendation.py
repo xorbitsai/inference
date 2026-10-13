@@ -683,11 +683,11 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
             assert all(
                 "262144 text tokens" in reason["message"] for reason in estimates
             )
-            assert result["config"].get("max_model_len", 262144) == 262144
+            assert result["config"]["context_length"] == 262144
             if engine == "vLLM" and model_format == "awq" and free == 32:
                 assert result["config"]["model_size_in_billions"] == 9
             if engine == "llama.cpp":
-                assert result["config"]["n_ctx"] == 262144
+                assert result["config"]["n_parallel"] == 1
         else:
             assert all(
                 value > free * 1024 * 0.8
@@ -696,10 +696,8 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
         return
     assert result["config"]["model_engine"] == engine
     assert result["config"]["model_size_in_billions"] == expected
-    if engine == "vLLM":
-        assert result["config"]["max_model_len"] == 2048
-    elif engine == "llama.cpp":
-        assert result["config"]["n_ctx"] == 2048
+    assert result["config"]["context_length"] == 2048
+    if engine == "llama.cpp":
         assert result["config"]["n_parallel"] == 1
     assert any(reason["code"] == "memory_estimate" for reason in result["reasons"])
 
@@ -707,17 +705,26 @@ async def test_qwen35_recommendation_with_bundled_hybrid_metadata(
 @pytest.mark.parametrize(
     "engine,expected",
     [
-        ("vLLM", {"max_model_len": 8320}),
+        ("vLLM", {"context_length": 8320}),
         ("SGLang", {"context_length": 8320}),
-        ("llama.cpp", {"n_ctx": 16640, "n_parallel": 2}),
+        ("llama.cpp", {"context_length": 8320, "n_parallel": 2}),
     ],
 )
 def test_recommendation_launch_context_matches_workload(engine, expected):
+    from ...model.llm.context_length import map_context_length
+
     result = recommend(
         [snapshot(engine=engine)], context_length=8192, vision_tokens=128, concurrency=2
     )
     for key, value in expected.items():
         assert result["config"][key] == value
+    mapped = map_context_length(engine, result["config"])
+    native_key = {
+        "vLLM": "max_model_len",
+        "SGLang": "context_length",
+        "llama.cpp": "n_ctx",
+    }[engine]
+    assert mapped[native_key] == (16640 if engine == "llama.cpp" else 8320)
 
 
 @pytest.mark.parametrize("vision_tokens", [0, 128])
@@ -726,7 +733,7 @@ def test_default_context_uses_registered_limit_including_images(vision_tokens):
     worker["engines"] = {"vLLM": worker["engines"]["transformers"]}
     worker["installed_engines"] = worker["engines"]
     result = recommend([worker], vision_tokens=vision_tokens)
-    assert result["config"]["max_model_len"] == 32768
+    assert result["config"]["context_length"] == 32768
     reason = next(r for r in result["reasons"] if r["code"] == "memory_estimate")
     assert f"{32768 - vision_tokens} text tokens" in reason["message"]
 
@@ -1007,3 +1014,67 @@ def test_non_llm_excludes_unlaunchable_spec(monkeypatch):
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    "engine", ["vLLM", "SGLang", "MLX", "Transformers", "llama.cpp", "LMDeploy"]
+)
+def test_recommendation_preserves_unified_context(engine):
+    result = recommend(
+        [snapshot(engine=engine, device="mps" if engine == "MLX" else "cuda")],
+        context_length=32768,
+    )
+    assert result["config"]["context_length"] == 32768
+    if engine == "llama.cpp":
+        assert result["config"]["n_parallel"] == 1
+    assert not any(
+        key in result["config"] for key in ["max_model_len", "n_ctx", "session_len"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_supervisor_passes_context_to_worker_and_retries_old_worker():
+    from xinference.core.supervisor import SupervisorActor
+
+    info = memory_worker()
+    worker = SimpleNamespace(get_model_recommendation_info=AsyncMock(return_value=info))
+    supervisor = SimpleNamespace(_worker_address_to_worker={"test:1": worker})
+    request = {"model_name": "test", "constraints": {"context_length": 32768}}
+    result = await SupervisorActor.recommend_model(supervisor, request)
+    assert worker.get_model_recommendation_info.call_args.kwargs["memory_options"] == {
+        "context_length": 32768,
+        "concurrency": 1,
+        "vision_tokens": 0,
+        "vision_tokens_per_image": 0,
+        "prefix_cache_bytes": 0,
+    }
+    assert result["config"]["context_length"] == 32768
+    worker.get_model_recommendation_info.side_effect = [
+        TypeError("got an unexpected keyword argument 'memory_options'"),
+        info,
+    ]
+    result = await SupervisorActor.recommend_model(supervisor, request)
+    assert result["config"]
+    assert not any(r["code"] == "memory_estimate" for r in result["reasons"])
+    assert any(
+        w["code"] == "worker_memory_options_unsupported" for w in result["warnings"]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [0, True, "32768", 2**31])
+async def test_supervisor_rejects_invalid_launch_context_before_placement(value):
+    from xinference.core.supervisor import SupervisorActor
+
+    with pytest.raises(ValueError, match="context_length"):
+        await SupervisorActor.launch_builtin_model(
+            SimpleNamespace(),
+            "test",
+            "test",
+            4,
+            "pytorch",
+            "none",
+            "vLLM",
+            "LLM",
+            context_length=value,
+        )

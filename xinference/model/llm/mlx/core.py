@@ -53,6 +53,7 @@ from ....types import (
     LoRA,
 )
 from ...utils import check_dependency_available
+from ..context_length import ContextLengthExceeded
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..media import validate_messages_media
@@ -662,6 +663,7 @@ class MLXModelConfig(TypedDict, total=False):
     revision: Optional[str]
     max_gpu_memory: str
     trust_remote_code: bool
+    context_length: Optional[int]
     reasoning_content: bool
     enable_thinking: bool
     # distributed
@@ -707,6 +709,7 @@ class PromptCache:
 
 class MLXModel(LLM, ChatModelMixin):
     _rank_to_addresses: Optional[Dict[int, str]]
+    _context_length_limit: Optional[int] = None
     allow_batch: bool = False
 
     def __init__(
@@ -721,6 +724,7 @@ class MLXModel(LLM, ChatModelMixin):
         ChatModelMixin.__init__(self)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
+        self._context_length_limit = self._model_config.get("context_length")
         self._context_length: Optional[int] = None
         # for distributed
         assert model_config is not None
@@ -1110,7 +1114,9 @@ class MLXModel(LLM, ChatModelMixin):
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
         self._update_model_generation_config(config)
-        self._context_length = get_context_length_from_config(config)
+        self._context_length = get_context_length_from_config(
+            config, context_length=self._model_config.get("context_length")
+        )
         if self._xavier_config and self._xavier_config.get("heterogeneous"):
             self._context_length = (
                 self._model_config.get("context_length") or self._context_length
@@ -1246,11 +1252,27 @@ class MLXModel(LLM, ChatModelMixin):
             # after completing the inference, clear the memory.
             self._cleanup_memory()
 
+    def _get_max_tokens(self, input_length: int, max_tokens: Optional[int]) -> int:
+        if self._context_length_limit is not None:
+            remaining = self._context_length_limit - input_length
+            if remaining <= 0:
+                raise ContextLengthExceeded(
+                    f"Prompt has {input_length} tokens, but context_length is "
+                    f"{self._context_length_limit}; at least one output token is required."
+                )
+            return remaining if max_tokens is None else min(max_tokens, remaining)
+        if max_tokens is not None:
+            return max_tokens
+        assert self._context_length is not None
+        return self._context_length - input_length
+
     def _prepare_inputs(
         self, prompt: Union[str, Dict[str, Any]], kwargs
     ) -> Tuple[Any, int, int]:
         prompt_token_ids = self._tokenizer.encode(prompt)
         input_echo_len = len(prompt_token_ids)
+        if self._context_length_limit is not None:
+            self._get_max_tokens(input_echo_len, kwargs.get("max_tokens"))
         uncached_prompt_token_ids = self._get_prompt_cache(
             prompt_token_ids, kwargs.get("lora_name")
         )
@@ -1258,11 +1280,14 @@ class MLXModel(LLM, ChatModelMixin):
         return uncached_prompt_token_ids, input_echo_len, cached_prompt_tokens
 
     def _generate_stream(
-        self, prompt: Union[str, Dict[str, Any]], kwargs: MLXGenerateConfig
+        self,
+        prompt: Union[str, Dict[str, Any]],
+        kwargs: MLXGenerateConfig,
+        prepared_inputs: Optional[Tuple[Any, int, int]] = None,
     ):
         model_uid = self.model_uid
         tokenizer = self._tokenizer
-        max_tokens = kwargs["max_tokens"]
+        max_tokens = kwargs.get("max_tokens")
         chunk_id = str(uuid.uuid4())
         stop_token_ids = kwargs.get("stop_token_ids", [])
         stream = kwargs.get("stream", False)
@@ -1273,14 +1298,12 @@ class MLXModel(LLM, ChatModelMixin):
             else False
         )
 
-        prompt_token_ids, input_echo_len, cached_prompt_tokens = self._prepare_inputs(
-            prompt, kwargs
+        prompt_token_ids, input_echo_len, cached_prompt_tokens = (
+            prepared_inputs
+            if prepared_inputs is not None
+            else self._prepare_inputs(prompt, kwargs)
         )
-
-        if max_tokens is None:
-            # not set max_tokens
-            max_tokens = self._context_length - input_echo_len
-            logger.debug("No max_tokens set, setting to: %s", max_tokens)
+        max_tokens = self._get_max_tokens(input_echo_len, max_tokens)
 
         i = 0
         start = time.time()
@@ -1438,6 +1461,10 @@ class MLXModel(LLM, ChatModelMixin):
                 if not isinstance(prompt, str):
                     raise ValueError("MLX Xavier requires a text prompt")
                 tokens = self._tokenizer.encode(prompt)
+                if self._context_length_limit is not None:
+                    generate_config["max_tokens"] = self._get_max_tokens(
+                        len(tokens), generate_config.get("max_tokens")
+                    )
                 prefill_options = (
                     dict(transfer=transfer, generate_config=generate_config)
                     if getattr(xavier, "config", {}).get("heterogeneous")
@@ -1487,6 +1514,15 @@ class MLXModel(LLM, ChatModelMixin):
                 prompt_token_ids=tokens,
             )
 
+        if self._batch_model is None and self._context_length_limit is not None:
+            prompt_text = (
+                prompt.get("prompt", "") if isinstance(prompt, dict) else prompt
+            )
+            generate_config["max_tokens"] = self._get_max_tokens(
+                len(self._tokenizer.encode(prompt_text)),
+                generate_config.get("max_tokens"),
+            )
+
         stream = generate_config.get("stream", False)
 
         # If batch model is available (non-distributed inference), use continuous batching
@@ -1497,16 +1533,13 @@ class MLXModel(LLM, ChatModelMixin):
             else:
                 prompt_text = prompt
 
-            # Handle max_tokens - use auto-calculation if not set
             max_tokens = generate_config.get("max_tokens")
-            if max_tokens is None:
-                # Calculate max_tokens automatically based on context length and prompt length
-                prompt_tokens = self._tokenizer.encode(prompt_text)
-                input_echo_len = len(prompt_tokens)
-                max_tokens = self._context_length - input_echo_len
-                logger.debug(
-                    f"Auto-calculated max_tokens: {max_tokens} (context_length: {self._context_length}, input_echo_len: {input_echo_len})"
-                )
+            if max_tokens is None or self._context_length_limit is not None:
+                prompt_tokens = xavier_inputs.get("prompt_token_ids")
+                if prompt_tokens is None:
+                    prompt_tokens = self._tokenizer.encode(prompt_text)
+                max_tokens = self._get_max_tokens(len(prompt_tokens), max_tokens)
+                xavier_inputs["prompt_token_ids"] = prompt_tokens
 
             if stream:
                 # Return async generator for streaming
@@ -1916,13 +1949,23 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         assert self._model is not None
         assert self._tokenizer is not None
 
+        prepared_inputs = None
+        if self._context_length_limit is not None:
+            # Count processed image tokens before returning a lazy stream.
+            prepared_inputs = self._prepare_inputs(prompt, generate_config)
+            generate_config["max_tokens"] = self._get_max_tokens(
+                prepared_inputs[1], generate_config.get("max_tokens")
+            )
+
         stream = generate_config.get("stream", False)
 
         if stream:
             # _generate_stream yields (chunk, usage) tuples; unwrap for the caller
             # so that _to_chat_completion_chunks receives plain CompletionChunk objects.
             def _unwrap():
-                for chunk, _usage in self._generate_stream(prompt, generate_config):
+                for chunk, _usage in self._generate_stream(
+                    prompt, generate_config, prepared_inputs
+                ):
                     yield chunk
 
             return _unwrap()
@@ -1931,7 +1974,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             text = ""
             finish_reason = None
             usage: Optional[CompletionUsage] = None
-            for chunk, chunk_usage in self._generate_stream(prompt, generate_config):
+            for chunk, chunk_usage in self._generate_stream(
+                prompt, generate_config, prepared_inputs
+            ):
                 if chunk.get("choices") and len(chunk["choices"]) > 0:
                     text += chunk["choices"][0].get("text", "")
                     finish_reason = chunk["choices"][0].get("finish_reason")
@@ -2067,7 +2112,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
         self._update_model_generation_config(config)
-        self._context_length = get_context_length_from_config(config)
+        self._context_length = get_context_length_from_config(
+            config, context_length=self._model_config.get("context_length")
+        )
 
     def _init_reusable_prompt_cache(self) -> None:
         generate_step = _ensure_mlx_vlm_thread_local_stream().generate_step
@@ -2266,6 +2313,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         cached_prompt_tokens = 0
 
         if not images:
+            if self._context_length_limit is not None:
+                self._get_max_tokens(input_token_len, kwargs.get("max_tokens"))
             (
                 prompt_token_ids,
                 prompt_cache_kwargs,

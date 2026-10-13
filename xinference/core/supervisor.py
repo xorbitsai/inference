@@ -3021,6 +3021,9 @@ class SupervisorActor(xo.StatelessActor):
         **kwargs,
     ) -> str:
         n_worker = normalize_n_worker(n_worker)
+        from ..model.llm.context_length import validate_context_length_launch
+
+        validate_context_length_launch(model_type or "LLM", model_engine, kwargs)
         from ..model.llm.weight_cache import parse_weight_cache_option
 
         if parse_weight_cache_option(kwargs.get("enable_weight_cache", False)):

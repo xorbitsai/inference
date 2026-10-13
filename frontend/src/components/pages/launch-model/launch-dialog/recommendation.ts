@@ -1,6 +1,6 @@
 import type { FormValues } from '@/types/form';
 import type { ModelEngine } from '@/types/services';
-import { buildEngineIndex, GPU_IDX_PATTERN, transformFormToFetch } from '../utils';
+import { buildEngineIndex, GPU_IDX_PATTERN, toOptionValue, transformFormToFetch } from '../utils';
 
 export interface RecommendationResponse {
   status: 'recommended' | 'no_recommendation';
@@ -11,8 +11,8 @@ export interface RecommendationResponse {
     quantization?: string;
     worker_ip: string | null;
     enable_virtual_env: boolean;
-    max_model_len?: number;
     context_length?: number;
+    max_model_len?: number;
     n_ctx?: number;
     n_parallel?: number;
   };
@@ -28,7 +28,15 @@ export function recommendationUnavailable(values: FormValues) {
         .filter(Boolean);
   return Boolean(
     values.model_path ||
-    values.kwargs?.some((entry: { key?: string }) => Boolean(entry?.key?.trim())) ||
+    values.kwargs?.some(
+      (entry: { key?: string; value?: unknown }) =>
+        Boolean(entry?.key?.trim()) &&
+        !(
+          toOptionValue(values.model_engine).toLowerCase() === 'llama.cpp' &&
+          entry.key === 'n_parallel' &&
+          Number(entry.value) === 1
+        )
+    ) ||
     values.replica_placement_mode === 'custom' ||
     values.replica_config?.length ||
     Number(values.replica || 1) !== 1 ||
@@ -47,16 +55,28 @@ export function recommendationRequest(modelName: string, values: FormValues, mod
     throw new Error('gpu_idx');
   // Only convert the supported constraints: kwargs must not override these fields.
   const selected = Object.fromEntries(
-    ['model_size_in_billions', 'worker_ip', 'enable_virtual_env', 'n_gpu', 'gpu_idx']
+    [
+      'model_size_in_billions',
+      'context_length',
+      'worker_ip',
+      'enable_virtual_env',
+      'n_gpu',
+      'gpu_idx',
+    ]
       .filter(
         (key) =>
-          (key !== 'model_size_in_billions' || modelType === 'LLM') &&
+          (!['model_size_in_billions', 'context_length'].includes(key) || modelType === 'LLM') &&
           values[key] !== undefined &&
           values[key] !== ''
       )
       .map((key) => [key, values[key]])
   );
   if (selected.n_gpu === 0 || selected.n_gpu === '0') throw new Error('n_gpu');
+  if (
+    selected.context_length !== undefined &&
+    (!Number.isSafeInteger(selected.context_length) || selected.context_length <= 0)
+  )
+    throw new Error('context_length');
   return {
     model_name: modelName,
     model_type: modelType,
@@ -116,29 +136,29 @@ export function recommendationPatch(
   ) {
     throw new Error('size constraint mismatch');
   }
-  const contextFields =
-    modelType !== 'LLM'
-      ? []
-      : config.model_engine.toLowerCase() === 'vllm'
-        ? (['max_model_len'] as const)
-        : config.model_engine.toLowerCase() === 'sglang'
-          ? (['context_length'] as const)
-          : config.model_engine.toLowerCase() === 'llama.cpp'
-            ? (['n_ctx', 'n_parallel'] as const)
-            : [];
-  const kwargs = contextFields.flatMap((key) => {
-    const value = config[key];
-    if (value === undefined) return [];
-    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('invalid context setting');
-    return [{ key, value }];
-  });
+  const context =
+    config.context_length ??
+    config.max_model_len ??
+    (config.n_ctx ? config.n_ctx / (config.n_parallel || 1) : undefined);
+  if (context !== undefined && (!Number.isSafeInteger(context) || context <= 0))
+    throw new Error('invalid context length');
+  if (constraints.context_length != null && context !== constraints.context_length)
+    throw new Error('context constraint mismatch');
+  const slots = config.model_engine.toLowerCase() === 'llama.cpp' ? config.n_parallel : undefined;
+  if (slots !== undefined && (!Number.isSafeInteger(slots) || slots <= 0))
+    throw new Error('invalid parallel slots');
   return {
     model_engine: config.model_engine,
     model_format: config.model_format,
     // Use the catalog's value type so linked selects retain the selection.
     ...(modelType === 'LLM' ? { model_size_in_billions: size!.value } : {}),
     quantization: config.quantization,
-    ...(kwargs.length ? { kwargs } : {}),
+    ...(modelType === 'LLM' && context !== undefined ? { context_length: context } : {}),
+    ...(slots !== undefined
+      ? { kwargs: [{ key: 'n_parallel', value: slots }] }
+      : values.kwargs?.some((entry: { key?: string }) => entry.key === 'n_parallel')
+        ? { kwargs: [] }
+        : {}),
     ...(config.worker_ip ? { worker_ip: [config.worker_ip] } : {}),
     ...(typeof values.enable_virtual_env !== 'boolean'
       ? { enable_virtual_env: config.enable_virtual_env }

@@ -944,6 +944,10 @@ class RESTfulAPI(CancelMixin):
 
     @staticmethod
     def handle_request_limit_error(e: Exception):
+        from ..model.llm.context_length import ContextLengthExceeded
+
+        if isinstance(e, ContextLengthExceeded):
+            raise HTTPException(status_code=400, detail=str(e))
         if "Rate limit reached" in str(e):
             raise HTTPException(status_code=429, detail=str(e))
 
