@@ -633,6 +633,11 @@ const ko = {
     replicaPlacementIncomplete:
       '각 레플리카의 Worker를 선택하고 GPU 인덱스를 음이 아닌 정수의 쉼표 구분 형식으로 입력하세요.',
     replicaAliasDuplicate: '레플리카 별칭은 고유해야 합니다.',
+    contextLengthTip:
+      '요청별 입력과 출력의 총 토큰 상한입니다. 비워 두면 모델 기본값을 사용합니다.',
+    contextLengthDefault: '모델 기본값',
+    contextLengthUnknown: '최대 컨텍스트를 알 수 없습니다. 토큰 상한을 입력하세요.',
+    contextLengthInvalid: '1에서 {{max}} 사이의 정수를 입력하세요.',
     advancedConfiguration: '고급 설정',
     runtimeEnvironment: '실행 환경',
     engineParameters: '엔진 매개변수',

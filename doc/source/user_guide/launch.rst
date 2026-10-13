@@ -66,7 +66,8 @@ Using the API
 ``POST /v1/models/recommend`` is read-only. Supply ``model_name`` and
 ``model_type="LLM"``; the optional ``constraints`` object accepts
 ``model_size_in_billions``, ``worker_ip``, ``enable_virtual_env``, ``n_gpu``, and
-``gpu_idx``. Supplied constraints are hard requirements, never silently relaxed.
+``gpu_idx``. LLM constraints also accept ``context_length``. Supplied constraints
+are hard requirements, never silently relaxed.
 
 LLM constraints also accept positive integers ``context_length`` (text input plus
 output tokens) and ``concurrency``, and non-negative integers ``vision_tokens``
@@ -84,6 +85,10 @@ For multiple images, ``vision_tokens_per_image`` specifies their maximum encoded
 token count; zero assumes all image tokens belong to one image. Cached states grow
 with concurrency, while model weights are counted once. CUDA profiles for vLLM and SGLang share a
 16,384-token prefill workspace profile with fused attention and sampled-row logits.
+
+Recommendation configs expose ``context_length`` as the total per-request budget,
+including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the
+estimated concurrency; the launch layer maps the unified budget to each engine.
 
 .. code-block:: bash
 
@@ -114,6 +119,28 @@ launch allocation policy rather than calculating the required GPU count.
 Both ``recommended`` and ``no_recommendation`` return HTTP 200. An unknown model
 returns HTTP 404; invalid requests return HTTP 422. Reason and warning codes use
 lower snake_case. The ``memory_not_verified`` warning is always included.
+
+Unified LLM context length
+==========================
+
+Set ``context_length`` in the launch API or use ``--context-length`` in the CLI
+to choose the input plus output token limit per request. In the Web UI, use the
+context slider or enter an exact integer; **Model default** clears the override.
+The slider's upper bound comes from the registered model. Context selections are
+preserved in configuration history and passed to the recommendation API.
+
+The launch layer maps this setting to vLLM's ``max_model_len``, SGLang,
+Transformers and MLX's ``context_length``, LMDeploy's ``session_len``, and
+llama.cpp's ``n_ctx=context_length*n_parallel`` total slot capacity. Existing engine
+parameters still work; contradictory unified and native values are rejected.
+Omitting the setting preserves engine defaults. This setting does not extend the
+model's positional embeddings or enable context scaling.
+
+.. code-block:: bash
+
+    xinference launch --model-name qwen3.5 --model-engine vLLM \
+      --size-in-billions 9 --model-format awq --quantization Int4 \
+      --context-length 32768
 
 Recommendations for other model types
 ======================================

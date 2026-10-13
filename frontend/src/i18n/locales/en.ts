@@ -567,7 +567,7 @@ const en = {
     clickToLaunchModel: 'Click with mouse to launch the model',
     dimensions: 'dimensions',
     maxTokens: 'max tokens',
-    contextLength: 'context length',
+    contextLength: 'Context length',
     chatModel: 'chat model',
     generateModel: 'generate model',
     otherModel: 'other model',
@@ -648,6 +648,11 @@ const en = {
     replicaPlacementIncomplete:
       'Select a worker for every replica and use comma-separated non-negative GPU indexes.',
     replicaAliasDuplicate: 'Replica aliases must be unique.',
+    contextLengthTip:
+      'Maximum input plus output tokens per request. Leave unset to use the model default.',
+    contextLengthDefault: 'Model default',
+    contextLengthUnknown: 'Maximum context is unknown; enter a token limit.',
+    contextLengthInvalid: 'Enter a whole number between 1 and {{max}}.',
     advancedConfiguration: 'Advanced Configuration',
     runtimeEnvironment: 'Runtime Environment',
     engineParameters: 'Engine Parameters',

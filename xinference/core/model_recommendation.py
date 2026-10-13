@@ -260,6 +260,8 @@ def select_recommendation(
 ) -> dict:
     if request.model_type != "LLM":
         return select_non_llm_recommendation(request, workers, warnings)
+    from ..model.llm.context_length import CONTEXT_LENGTH_KEYS
+
     constraints = request.constraints
     candidates = []
     warnings = list(warnings)
@@ -306,6 +308,11 @@ def select_recommendation(
         }
         for engine, params in worker["engines"].items():
             if not isinstance(params, list):
+                continue
+            if (
+                constraints.context_length is not None
+                and engine.lower() not in CONTEXT_LENGTH_KEYS
+            ):
                 continue
             if device == "cpu" and engine.lower() not in ("transformers", "llama.cpp"):
                 continue
@@ -359,7 +366,10 @@ def select_recommendation(
                         worker.get("model_context_lengths", {}).get(key),
                         constraints.vision_tokens,
                     )
-                    if context_length is None:
+                    if (
+                        context_length is None
+                        or engine.lower() not in CONTEXT_LENGTH_KEYS
+                    ):
                         estimate = None
                     verified = budget is not None and estimate is not None
                     if verified and estimate > budget:
@@ -457,14 +467,11 @@ def select_recommendation(
         if context_length is not None
         else None
     )
-    if tokens is not None and engine.lower() == "vllm":
-        config["max_model_len"] = tokens
-    elif tokens is not None and engine.lower() == "sglang":
+    if tokens is not None and engine.lower() in CONTEXT_LENGTH_KEYS:
         config["context_length"] = tokens
-    elif tokens is not None and engine.lower() == "llama.cpp":
-        # llama.cpp divides the instance's context among its parallel slots.
-        config["n_ctx"] = tokens * constraints.concurrency
-        config["n_parallel"] = constraints.concurrency
+        if engine.lower() == "llama.cpp":
+            # Match the number of KV slots included in the workload estimate.
+            config["n_parallel"] = constraints.concurrency
     reasons = [
         message(
             "selection_policy",

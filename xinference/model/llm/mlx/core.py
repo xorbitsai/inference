@@ -662,6 +662,7 @@ class MLXModelConfig(TypedDict, total=False):
     revision: Optional[str]
     max_gpu_memory: str
     trust_remote_code: bool
+    context_length: Optional[int]
     reasoning_content: bool
     enable_thinking: bool
     # distributed
@@ -1110,7 +1111,9 @@ class MLXModel(LLM, ChatModelMixin):
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
         self._update_model_generation_config(config)
-        self._context_length = get_context_length_from_config(config)
+        self._context_length = get_context_length_from_config(
+            config, context_length=self._model_config.get("context_length")
+        )
         if self._xavier_config and self._xavier_config.get("heterogeneous"):
             self._context_length = (
                 self._model_config.get("context_length") or self._context_length
@@ -2067,7 +2070,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
         self._update_model_generation_config(config)
-        self._context_length = get_context_length_from_config(config)
+        self._context_length = get_context_length_from_config(
+            config, context_length=self._model_config.get("context_length")
+        )
 
     def _init_reusable_prompt_cache(self) -> None:
         generate_step = _ensure_mlx_vlm_thread_local_stream().generate_step

@@ -4608,6 +4608,9 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        from ..model.llm.context_length import validate_context_length_launch
+
+        validate_context_length_launch(model_type, model_engine, kwargs)
         if model_type.lower() == "audio":
             from ..model.audio.core import resolve_audio_model_name_and_engine
 

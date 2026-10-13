@@ -86,3 +86,37 @@ def test_recommendation_route_uses_model_list_permission(authenticated):
     assert routes.index(recommendation) < next(
         i for i, c in enumerate(routes) if c.args[0] == "/v1/models/{model_uid}"
     )
+
+
+@pytest.mark.asyncio
+async def test_launch_api_forwards_unified_context_and_rejects_invalid_values():
+    from xinference.core.supervisor import SupervisorActor
+
+    supervisor = SimpleNamespace(
+        launch_builtin_model=AsyncMock(return_value="test-model")
+    )
+    api = SimpleNamespace(
+        _get_supervisor_ref=AsyncMock(return_value=supervisor), _uid_to_model_name={}
+    )
+    app = FastAPI()
+    app.add_api_route(
+        "/v1/models", RESTfulAPI.launch_model.__get__(api), methods=["POST"]
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        body = {"model_name": "test", "model_engine": "vLLM", "context_length": 32768}
+        response = await client.post("/v1/models", json=body)
+        assert response.status_code == 200
+        assert (
+            supervisor.launch_builtin_model.call_args.kwargs["context_length"] == 32768
+        )
+        supervisor.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(
+            SimpleNamespace()
+        )
+        for value in [0, -1, True, 32768.5, "32768"]:
+            response = await client.post(
+                "/v1/models", json={**body, "context_length": value}
+            )
+            assert response.status_code == 400
+            assert "context_length" in response.json()["detail"]
