@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import copy
 import json
 import logging
 import multiprocessing
@@ -38,7 +39,6 @@ from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
-    ChatCompletionMessage,
     Completion,
     CompletionChoice,
     CompletionChunk,
@@ -49,6 +49,14 @@ from ...utils import check_dependency_available
 from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..media import materialize_messages_media, media_workspace
+from ..tool_controls import (
+    convert_forced_completion,
+    is_forced_tool_choice,
+    prepare_forced_tools,
+    single_tool_completion,
+    single_tool_stream,
+    stream_forced_completion,
+)
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -104,7 +112,10 @@ class SGLANGGenerateConfig(TypedDict, total=False):
     cache_salt: str
     stream: bool
     stream_options: Optional[Union[dict, None]]
-    json_schema: Optional[dict]
+    json_schema: Optional[Union[str, dict]]
+    _require_structured_output: bool
+    skip_special_tokens: bool
+    require_reasoning: bool
     response_format: dict
 
 
@@ -180,6 +191,7 @@ class SGLANGModel(WeightCachedModel, LLM):
     _weight_cache_engine = "sglang"
     allow_batch = True
     support_draft_model = True
+    supports_tool_controls = True
 
     def __init__(
         self,
@@ -271,6 +283,11 @@ class SGLANGModel(WeightCachedModel, LLM):
             reasoning_content, enable_thinking=enable_thinking
         )
         self.prepare_parse_tool_calls()
+        from .reasoning import configure_structured_reasoning
+
+        configure_structured_reasoning(
+            self._model_config, getattr(self, "reasoning_parser", None)
+        )
 
         # Fix: GH#2169
         if sgl.__version__ >= "0.2.14":
@@ -548,14 +565,19 @@ class SGLANGModel(WeightCachedModel, LLM):
         generate_config.setdefault("ignore_eos", False)
         response_format = generate_config.pop("response_format", None)
         if response_format:
-            json_schema_config = response_format.pop("json_schema", None)
-            json_schema = None
-            if "schema_" in json_schema_config:
-                json_schema = json_schema_config.pop("schema_")
-            elif "schema" in json_schema_config:
-                json_schema = json_schema_config.pop("schema")
-            if json_schema:
-                generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
+            if response_format.get("type") == "json_object":
+                generate_config.setdefault(
+                    "json_schema", json.dumps({"type": "object"})
+                )
+            elif response_format.get("type") == "json_schema":
+                schema_config = response_format.get("json_schema") or {}
+                schema = schema_config.get("schema_", schema_config.get("schema"))
+                if not isinstance(schema, dict):
+                    raise ValueError("Structured output requires a JSON schema object")
+                generate_config.setdefault("json_schema", json.dumps(schema))
+        require_structured = generate_config.pop("_require_structured_output", False)
+        if require_structured and not generate_config.get("json_schema"):
+            raise NotImplementedError("SGLang requires a structured output constraint")
 
         # Map the OpenAI logprobs request to sglang's native engine params. The
         # raw OpenAI keys must not reach sglang's SamplingParams (#3553: passing
@@ -818,6 +840,7 @@ class SGLANGModel(WeightCachedModel, LLM):
             "top_logprobs_num",
             "return_text_in_logprobs",
             "cache_salt",
+            "require_reasoning",
             "bootstrap_host",
             "bootstrap_port",
             "bootstrap_room",
@@ -992,6 +1015,150 @@ class SGLANGModel(WeightCachedModel, LLM):
                 response.raise_for_status()
         return "DONE"
 
+    def _validate_structured_reasoning(self, thinking: bool) -> None:
+        if not thinking and not getattr(self, "_model_config", {}).get(
+            "reasoning_parser"
+        ):
+            return
+        try:
+            from sglang.srt.managers.io_struct import GenerateReqInput
+
+            supported = "require_reasoning" in getattr(
+                GenerateReqInput, "__dataclass_fields__", {}
+            )
+        except (ImportError, AttributeError):
+            supported = False
+        if not supported or not getattr(self, "_model_config", {}).get(
+            "reasoning_parser"
+        ):
+            raise NotImplementedError(
+                "This SGLang engine cannot combine structured output with thinking; "
+                "it requires a reasoning parser and request-level reasoning constraints"
+            )
+
+    def _validate_forced_tools(self, config: Dict) -> None:
+        if is_forced_tool_choice(config):
+            context = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    config, self.reasoning_parser
+                )
+                or {}
+            )
+            if (
+                context.get("enable_thinking")
+                and self.reasoning_parser
+                and self.reasoning_parser.reasoning_end_tag
+            ):
+                if context.get("thinking_budget") is not None:
+                    raise ValueError(
+                        "Forced tool choice is incompatible with manual thinking"
+                    )
+                self._validate_structured_reasoning(True)
+
+    async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
+        self._validate_forced_tools(config)
+        if config.get("response_format"):
+            context = (
+                self._get_chat_template_kwargs_from_generate_config(
+                    config, self.reasoning_parser
+                )
+                or {}
+            )
+            self._validate_structured_reasoning(
+                bool(
+                    context.get("enable_thinking")
+                    and self.reasoning_parser
+                    and self.reasoning_parser.reasoning_end_tag
+                )
+            )
+        prepared = super().prepare_anthropic_request(messages, config)
+        try:
+            prepared["input_tokens"] = await self.async_count_tokens(
+                prepared["messages"], prepared["generate_config"]
+            )
+        except NotImplementedError:
+            pass
+        return prepared
+
+    async def async_count_tokens(
+        self, messages: List[Dict], config: Optional[Dict] = None
+    ) -> int:
+        # Native multimodal processing expands image tokens after templating.
+        if any(
+            isinstance(m.get("content"), list)
+            and any(part.get("type") != "text" for part in m["content"])
+            for m in messages
+        ):
+            raise NotImplementedError(
+                "SGLang does not expose multimodal token counting"
+            )
+        config = copy.deepcopy(config or {})
+        messages = copy.deepcopy(messages)
+        if is_forced_tool_choice(config):
+            messages, config = prepare_forced_tools(messages, config)
+        prepare = getattr(self, "_prepare_chat_inputs", None)
+        tokenizer = self._get_tokenizer()
+        if prepare is None or tokenizer is None:
+            raise NotImplementedError(
+                "This SGLang model does not expose chat token counting"
+            )
+        prompt, _images, _tools, _context, _config = await prepare(messages, config)
+        return len(tokenizer.encode(prompt))
+
+    async def _forced_tool_chat(self, messages, config, request_id):
+        self._validate_forced_tools(config)
+        stream = config.get("stream", False)
+        include_usage = (config.get("stream_options") or {}).get("include_usage", False)
+        messages, config = prepare_forced_tools(messages, config)
+        config["stream"] = False
+        completion = await self.async_chat(messages, config, request_id=request_id)
+        completion = convert_forced_completion(completion)
+        if stream:
+            return stream_forced_completion(completion, include_usage)
+        return completion
+
+    async def async_chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        config = dict(generate_config or {})
+        if is_forced_tool_choice(config):
+            return await self._forced_tool_chat(messages, config, request_id)
+        parallel = config.pop("parallel_tool_calls", True)
+        choice = config.pop("tool_choice", None)
+        if choice == "none":
+            config.pop("tools", None)
+        prompt, images, tools, context, config = await self._prepare_chat_inputs(
+            messages, config
+        )
+        completion = await self.async_generate(
+            prompt,
+            image_data=images,
+            generate_config=cast(SGLANGGenerateConfig, config),
+            tools=tools,
+            request_id=request_id,
+        )
+        if config.get("stream"):
+            if tools:
+                chunks = self._async_to_tool_completion_chunks(completion)
+            else:
+                chunks = self._async_to_chat_completion_chunks(
+                    completion, self.reasoning_parser, context
+                )
+            return single_tool_stream(chunks) if not parallel else chunks
+        if tools:
+            result = self._post_process_completion(
+                self.model_family, self.model_uid, completion
+            )
+        else:
+            result = self._to_chat_completion(completion, self.reasoning_parser)
+        transfer = cast(Dict[str, Any], completion).get("_pd_kv_transfer_params")
+        if transfer is not None:
+            result["_pd_kv_transfer_params"] = transfer
+        return single_tool_completion(result) if not parallel else result
+
     async def async_generate(
         self,
         prompt: str,
@@ -1036,6 +1203,19 @@ class SGLANGModel(WeightCachedModel, LLM):
         sanitized_generate_config = self._sanitize_generate_config(
             cast(SGLANGGenerateConfig, config)
         )
+        parser = getattr(self, "reasoning_parser", None)
+        thinking = bool(
+            parser and parser.reasoning_end_tag and parser.is_enable_thinking()
+        )
+        if thinking or tools:
+            sanitized_generate_config["skip_special_tokens"] = False
+        if sanitized_generate_config.get("json_schema") and getattr(
+            self, "_model_config", {}
+        ).get("reasoning_parser"):
+            self._validate_structured_reasoning(thinking)
+            sanitized_generate_config["require_reasoning"] = thinking
+        elif sanitized_generate_config.get("json_schema") and thinking:
+            self._validate_structured_reasoning(True)
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -1307,12 +1487,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    async def async_chat(
-        self,
-        messages: List[Dict],
-        generate_config: Optional[Dict] = None,
-        request_id: Optional[str] = None,
-    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+    async def _prepare_chat_inputs(self, messages: List[Dict], generate_config: Dict):
         # Handle empty chat_template by using empty string (sglang server will use model's default)
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
@@ -1353,28 +1528,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             messages, chat_template, **full_context_kwargs
         )
         generate_config = self._sanitize_chat_config(generate_config)
-        stream = generate_config.get("stream", None)
-        if stream:
-            agen = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools, request_id=request_id)  # type: ignore
-            assert isinstance(agen, AsyncGenerator)
-            if tools:
-                return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(
-                agen, self.reasoning_parser, chat_template_kwargs
-            )
-        else:
-            c = await self.async_generate(full_prompt, generate_config=generate_config, tools=tools, request_id=request_id)  # type: ignore
-            assert not isinstance(c, AsyncGenerator)
-            if tools:
-                result = self._post_process_completion(
-                    self.model_family, self.model_uid, c
-                )
-            else:
-                result = self._to_chat_completion(c, self.reasoning_parser)
-            transfer = cast(Dict[str, Any], c).get("_pd_kv_transfer_params")
-            if transfer is not None:
-                cast(Dict[str, Any], result)["_pd_kv_transfer_params"] = transfer
-            return result
+        return full_prompt, None, tools, chat_template_kwargs, generate_config
 
 
 class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
@@ -1429,12 +1583,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                 generate_config["stop"] = self.model_family.stop.copy()
         return generate_config
 
-    async def async_chat(
-        self,
-        messages: List[ChatCompletionMessage],  # type: ignore
-        generate_config: Optional[Dict] = None,
-        request_id: Optional[str] = None,
-    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+    async def _prepare_chat_inputs(self, messages: List[Dict], generate_config: Dict):
         import base64
         import copy
         from io import BytesIO
@@ -1477,6 +1626,8 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
+        if tools:
+            full_context_kwargs["tools"] = tools
         prompt = self.get_full_context(
             messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
         )
@@ -1497,18 +1648,5 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                     )
 
         generate_config = self._sanitize_chat_config(generate_config)
-        stream = generate_config.get("stream", None)
-        if stream:
-            agen = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
-            assert isinstance(agen, AsyncGenerator)
-            if tools:
-                return self._async_to_tool_completion_chunks(agen)
-            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
-        else:
-            c = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
-            assert not isinstance(c, AsyncGenerator)
-            if tools:
-                return self._post_process_completion(
-                    self.model_family, self.model_uid, c
-                )
-            return self._to_chat_completion(c, self.reasoning_parser)
+        generate_config.pop("chat_template_kwargs", None)
+        return prompt, base64_images, tools, chat_template_kwargs, generate_config

@@ -67,6 +67,14 @@ from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import cache_model_tokenizer_and_config
 from ..media import materialize_messages_media, media_workspace, validate_messages_media
+from ..tool_controls import (
+    convert_forced_completion,
+    is_forced_tool_choice,
+    prepare_forced_tools,
+    single_tool_completion,
+    single_tool_stream,
+    stream_forced_completion,
+)
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -79,14 +87,6 @@ from ..utils import (
     generate_completion_chunk,
 )
 from ..weight_cache import WeightCachedModel
-from .tool_controls import (
-    convert_forced_completion,
-    is_forced_tool_choice,
-    prepare_forced_tools,
-    single_tool_completion,
-    single_tool_stream,
-    stream_forced_completion,
-)
 from .utils import vllm_check
 
 logger = logging.getLogger(__name__)

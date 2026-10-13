@@ -60,7 +60,8 @@ The standard ``/v1/messages/count_tokens`` endpoint and its
 ``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat
 template and tokenizer, including tool definitions and images where supported.
 Both routes use the same model permissions and Xinference API key as message
-generation.
+generation. SGLang supports text and tool token counting; image counting returns
+501.
 
 .. code-block:: python
 
@@ -91,13 +92,13 @@ with the same model UID and signing key; configure
 Tool choice and structured output
 ---------------------------------
 
-Structured JSON output requires a supporting engine. The vLLM engine supports
+Structured JSON output requires a supporting engine. The vLLM and SGLang engines support
 named and required tool choice through constrained JSON decoding, and disabled
 parallel tool use returns at most one tool per response. Forced tool arguments
 are buffered until complete.
 
-Xinference automatically connects its existing reasoning parser to vLLM's
-structured decoding for supported reasoning markers and engines with parser
+Xinference automatically connects its existing reasoning parser to
+vLLM and SGLang structured decoding for supported reasoning markers and engines with parser
 plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
 parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. Other engines return 501 for unsupported controls.
