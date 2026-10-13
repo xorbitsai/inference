@@ -136,6 +136,12 @@ parameters still work; contradictory unified and native values are rejected.
 Omitting the setting preserves engine defaults. This setting does not extend the
 model's positional embeddings or enable context scaling.
 
+With an explicit context limit, MLX rejects prompts that leave no room for output
+and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and
+processed image tokens count toward the input limit. Non-streaming requests that
+exceed the input limit return HTTP 400; streaming requests report an SSE error
+without starting generation.
+
 .. code-block:: bash
 
     xinference launch --model-name qwen3.5 --model-engine vLLM \

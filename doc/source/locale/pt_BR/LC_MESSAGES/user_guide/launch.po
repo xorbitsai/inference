@@ -429,3 +429,7 @@ msgstr "A camada de inicialização converte essa configuração em ``max_model_
 #: ../source/user_guide/launch.rst
 msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
 msgstr "As configurações recomendadas retornam ``context_length`` como o limite total por solicitação, incluindo tokens de imagens codificadas. llama.cpp também retorna ``n_parallel`` para corresponder à concorrência estimada; a camada de inicialização converte o limite unificado para cada mecanismo."
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "Com um limite de contexto explícito, o MLX rejeita prompts que não deixam espaço para a saída e limita ``max_tokens`` ao orçamento restante. Tokens do prompt em cache e tokens de imagens processadas contam no limite de entrada. Solicitações sem streaming que excedem o limite retornam HTTP 400; solicitações com streaming informam um erro SSE sem iniciar a geração."

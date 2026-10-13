@@ -28,6 +28,10 @@ CONTEXT_LENGTH_KEYS = {
 }
 
 
+class ContextLengthExceeded(ValueError):
+    """The request leaves no output capacity within its configured context."""
+
+
 def validate_context_length(value: Optional[int]) -> Optional[int]:
     if value is not None and (
         type(value) is not int or not 1 <= value <= MAX_CONTEXT_LENGTH

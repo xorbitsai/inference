@@ -120,3 +120,61 @@ async def test_launch_api_forwards_unified_context_and_rejects_invalid_values():
             )
             assert response.status_code == 400
             assert "context_length" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("chat", [False, True])
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("context_error", [False, True])
+async def test_context_overflow_is_a_client_error(
+    chat, stream, context_error, monkeypatch
+):
+    from xinference.api import restful_api
+    from xinference.model.llm.context_length import ContextLengthExceeded
+
+    error_cls = ContextLengthExceeded if context_error else ValueError
+    error = error_cls("Prompt has 5000 tokens, but context_length is 4096")
+    model = SimpleNamespace(
+        uid="test",
+        is_vllm_backend=AsyncMock(return_value=False),
+        generate=AsyncMock(side_effect=error),
+        chat=AsyncMock(side_effect=error),
+        abort_request=AsyncMock(return_value="DONE"),
+        decrease_serve_count=AsyncMock(),
+    )
+    monkeypatch.setattr(restful_api, "require_model", AsyncMock(return_value=model))
+    supervisor = SimpleNamespace(
+        describe_model=AsyncMock(return_value={}),
+        resolve_token_router_runtime=AsyncMock(return_value=None),
+    )
+    api = SimpleNamespace(
+        extract_guided_params=lambda **kwargs: {},
+        _set_trace_model=lambda *args: None,
+        _set_trace_model_type=lambda *args: None,
+        _check_model_access=lambda *args: None,
+        _get_supervisor_ref=AsyncMock(return_value=supervisor),
+        _report_error_event=AsyncMock(),
+        _get_model_last_error=AsyncMock(side_effect=lambda uid, error: error),
+        _is_qwen38_description=lambda desc: False,
+        handle_request_limit_error=RESTfulAPI.handle_request_limit_error,
+    )
+    app = FastAPI()
+    method = RESTfulAPI.create_chat_completion if chat else RESTfulAPI.create_completion
+    path = "/v1/chat/completions" if chat else "/v1/completions"
+    app.add_api_route(path, method.__get__(api), methods=["POST"])
+    body = {"model": "test", "stream": stream}
+    body.update(
+        {"messages": [{"role": "user", "content": "hello"}]}
+        if chat
+        else {"prompt": "hello"}
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(path, json=body)
+    if stream:
+        assert response.status_code == 200
+        assert '"error":' in response.text and str(error) in response.text
+    else:
+        assert response.status_code == (400 if context_error else 500)
+        assert response.json()["detail"] == str(error)

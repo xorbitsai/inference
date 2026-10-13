@@ -391,3 +391,7 @@ msgstr "啟動層會映射到 vLLM 的 ``max_model_len``，SGLang、Transformers
 #: ../source/user_guide/launch.rst
 msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
 msgstr "推薦設定透過 ``context_length`` 回傳每個請求的總 token 上限，包括編碼後的圖像 tokens。llama.cpp 還會回傳 ``n_parallel``，與估算的並行數一致；啟動層會將統一上限映射到各個引擎。"
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "明確設定上下文上限後，MLX 會拒絕沒有剩餘輸出空間的提示詞，並將 ``max_tokens`` 限制在剩餘 token 預算內。快取命中的提示詞 tokens 和處理後的圖像 tokens 都計入輸入上限。非串流請求超出輸入上限時回傳 HTTP 400；串流請求透過 SSE 回報錯誤，不會開始生成。"

@@ -392,3 +392,7 @@ msgstr "起動層はこの設定を vLLM の ``max_model_len``、SGLang、Transf
 #: ../source/user_guide/launch.rst
 msgid "Recommendation configs expose ``context_length`` as the total per-request budget, including encoded image tokens. llama.cpp also returns ``n_parallel`` to match the estimated concurrency; the launch layer maps the unified budget to each engine."
 msgstr "推奨設定は、エンコードされた画像トークンを含むリクエストごとの総トークン数として ``context_length`` を返します。llama.cpp は推定した同時実行数に合わせて ``n_parallel`` も返し、起動処理が統一されたトークン数を各エンジンの設定に変換します。"
+
+#: ../source/user_guide/launch.rst
+msgid "With an explicit context limit, MLX rejects prompts that leave no room for output and caps ``max_tokens`` to the remaining budget. Cached prompt tokens and processed image tokens count toward the input limit. Non-streaming requests that exceed the input limit return HTTP 400; streaming requests report an SSE error without starting generation."
+msgstr "コンテキスト上限を明示すると、MLX は出力用の余地がないプロンプトを拒否し、``max_tokens`` を残りのトークン数に制限します。キャッシュ済みのプロンプトトークンと処理済みの画像トークンも入力上限に含まれます。入力上限を超える非ストリーミング要求は HTTP 400 を返し、ストリーミング要求は生成を開始せずに SSE エラーを報告します。"
