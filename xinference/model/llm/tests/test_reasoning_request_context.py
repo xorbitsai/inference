@@ -1,3 +1,5 @@
+import pytest
+
 from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
 from ..utils import ChatModelMixin
@@ -52,3 +54,29 @@ def test_raw_template_supports_model_json_filter_options():
         [], "{{ tools | tojson(ensure_ascii=False) }}", tools=[{"name": "中文工具"}]
     )
     assert rendered == '[{"name": "中文工具"}]'
+
+
+@pytest.mark.parametrize("anthropic", [False, True])
+def test_synthetic_chunks_preserve_usage_only_for_anthropic(anthropic):
+    from ..core import chat_context_var
+    from ..reasoning_parser import ReasoningParser
+
+    parser = ReasoningParser()
+    source = {
+        "id": "test",
+        "model": "test",
+        "created": 1,
+        "usage": {"prompt_tokens": 100, "completion_tokens": 1, "total_tokens": 101},
+        "choices": [],
+    }
+    token = chat_context_var.set({"_anthropic_request": anthropic})
+    try:
+        for output in [
+            parser._create_completion_chunk(source, "<think>"),
+            parser._create_chat_completion_chunk(source, "<think>"),
+        ]:
+            assert ("usage" in output) is anthropic
+            if anthropic:
+                assert output["usage"] == source["usage"]
+    finally:
+        chat_context_var.reset(token)

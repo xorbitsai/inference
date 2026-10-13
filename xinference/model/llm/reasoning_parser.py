@@ -344,8 +344,10 @@ class ReasoningParser:
                 }
             ],
         )
+        from .core import chat_context_var
+
         usage = chunk.get("usage")
-        if usage is not None:
+        if usage is not None and chat_context_var.get({}).get("_anthropic_request"):
             result["usage"] = usage
         return result
 
@@ -375,8 +377,10 @@ class ReasoningParser:
                 }
             ],
         )
+        from .core import chat_context_var
+
         usage = chunk.get("usage")
-        if usage is not None:
+        if usage is not None and chat_context_var.get({}).get("_anthropic_request"):
             result["usage"] = usage
         return result
 
