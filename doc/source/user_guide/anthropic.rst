@@ -94,9 +94,12 @@ Tool choice and structured output
 Structured JSON output requires a supporting engine. The vLLM engine supports
 named and required tool choice through constrained JSON decoding, and disabled
 parallel tool use returns at most one tool per response. Forced tool arguments
-are buffered until complete. Combining adaptive thinking with forced tools
-requires a matching ``structured_outputs_config.reasoning_parser`` at model
-launch (``qwen3`` for Qwen3.5); manual thinking cannot be combined with forced
+are buffered until complete.
+
+Xinference automatically connects its existing reasoning parser to vLLM's
+structured decoding for supported reasoning markers and engines with parser
+plugin support. Qwen3.5 needs no extra parser configuration. Explicit engine
+parser settings are preserved. Manual thinking cannot be combined with forced
 tool choice. Other engines return 501 for unsupported controls.
 
 Prompt caching

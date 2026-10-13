@@ -536,8 +536,9 @@ class VLLMModel(WeightCachedModel, LLM):
                     structured, "enable_in_reasoning", False
                 ):
                     raise NotImplementedError(
-                        "Forced tool choice with thinking requires a matching vLLM "
-                        "structured_outputs_config.reasoning_parser"
+                        "This engine cannot combine forced tool choice with thinking; "
+                        "it requires reasoning boundary support with constraints "
+                        "disabled during thinking"
                     )
 
     async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
@@ -893,6 +894,14 @@ class VLLMModel(WeightCachedModel, LLM):
         self.prepare_parse_reasoning_content(
             reasoning_content, enable_thinking=enable_thinking
         )
+        parser = getattr(self, "reasoning_parser", None)
+        if parser is not None:
+            from ....constants import XINFERENCE_CACHE_DIR
+            from .reasoning import configure_structured_reasoning
+
+            configure_structured_reasoning(
+                self._model_config, parser, XINFERENCE_CACHE_DIR
+            )
         self.prepare_parse_tool_calls()
         self._prepare_weight_cache()
 
@@ -2011,7 +2020,7 @@ class VLLMModel(WeightCachedModel, LLM):
                     except json.JSONDecodeError:
                         pass
             elif not enable_thinking and self.reasoning_parser:
-                enable_thinking = self.reasoning_parser.enable_thinking
+                enable_thinking = self.reasoning_parser.is_enable_thinking()
 
         if (enable_thinking or tools) and generate_config:
             generate_config["skip_special_tokens"] = False
