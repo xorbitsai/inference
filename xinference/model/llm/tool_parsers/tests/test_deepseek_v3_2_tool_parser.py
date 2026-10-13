@@ -503,3 +503,54 @@ def test_extract_tool_calls_streaming_returns_typed_parameters():
     assert parser.extract_tool_calls_streaming(
         [incomplete], complete, complete[len(incomplete) :]
     ) == (None, "typed_args", {"count": 7, "label": "007"})
+
+
+def _stream(parser, history, chunk):
+    current = history[-1] + chunk
+    result = parser.extract_tool_calls_streaming(history, current, chunk)
+    history[-1] = current
+    if result is None:
+        return []
+    return result if isinstance(result, list) else [result]
+
+
+def _function_calls(*names):
+    invokes = "".join(
+        f'<｜DSML｜invoke name="{name}">'
+        '<｜DSML｜parameter name="city" string="true">杭州</｜DSML｜parameter>'
+        "</｜DSML｜invoke>"
+        for name in names
+    )
+    return f"<｜DSML｜function_calls>{invokes}</｜DSML｜function_calls>"
+
+
+def test_extract_tool_calls_streaming_parser_reused_by_next_request():
+    parser = DeepseekV3_2ToolParser()
+
+    def run(text):
+        # The model layer starts every request with previous_texts == [""].
+        history = [""]
+        return [event for char in text for event in _stream(parser, history, char)]
+
+    calls = [(None, "get_weather", {"city": "杭州"})]
+    assert run(_function_calls("get_weather")) == calls
+    assert "".join(event[0] for event in run("Sunny.")) == "Sunny."
+    assert run(_function_calls("get_weather")) == calls
+
+
+@pytest.mark.parametrize("chunk_size", [1, 7, 64, 1024])
+def test_extract_tool_calls_streaming_keeps_interleaved_requests_apart(chunk_size):
+    # One parser instance serves every request to the model, so concurrent
+    # streams feed it their chunks in turn.
+    parser = DeepseekV3_2ToolParser()
+    texts = [_function_calls("a1", "a2"), _function_calls("b1", "b2"), "1 < 2."]
+    histories = [[""] for _ in texts]
+    events = [[] for _ in texts]
+    for offset in range(0, max(map(len, texts)), chunk_size):
+        for text, history, received in zip(texts, histories, events):
+            chunk = text[offset : offset + chunk_size]
+            received.extend(_stream(parser, history, chunk))
+
+    assert events[0] == [(None, name, {"city": "杭州"}) for name in ("a1", "a2")]
+    assert events[1] == [(None, name, {"city": "杭州"}) for name in ("b1", "b2")]
+    assert "".join(event[0] for event in events[2]) == "1 < 2."
