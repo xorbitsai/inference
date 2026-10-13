@@ -1533,13 +1533,13 @@ class MLXModel(LLM, ChatModelMixin):
             else:
                 prompt_text = prompt
 
-            prompt_tokens = xavier_inputs.get("prompt_token_ids")
-            if prompt_tokens is None:
-                prompt_tokens = self._tokenizer.encode(prompt_text)
-            max_tokens = self._get_max_tokens(
-                len(prompt_tokens), generate_config.get("max_tokens")
-            )
-            xavier_inputs["prompt_token_ids"] = prompt_tokens
+            max_tokens = generate_config.get("max_tokens")
+            if max_tokens is None or self._context_length_limit is not None:
+                prompt_tokens = xavier_inputs.get("prompt_token_ids")
+                if prompt_tokens is None:
+                    prompt_tokens = self._tokenizer.encode(prompt_text)
+                max_tokens = self._get_max_tokens(len(prompt_tokens), max_tokens)
+                xavier_inputs["prompt_token_ids"] = prompt_tokens
 
             if stream:
                 # Return async generator for streaming
