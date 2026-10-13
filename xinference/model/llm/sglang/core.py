@@ -187,7 +187,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 LING3_FLASH_SGLANG_LAUNCH_TIMEOUT = 900.0
 
 
-class SGLANGModel(WeightCachedModel, LLM):
+class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
     _weight_cache_engine = "sglang"
     allow_batch = True
     support_draft_model = True
@@ -1117,6 +1117,11 @@ class SGLANGModel(WeightCachedModel, LLM):
             return stream_forced_completion(completion, include_usage)
         return completion
 
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
+        raise NotImplementedError("This SGLang model does not support chat")
+
     async def async_chat(
         self,
         messages: List[Dict],
@@ -1141,13 +1146,22 @@ class SGLANGModel(WeightCachedModel, LLM):
             request_id=request_id,
         )
         if config.get("stream"):
+            assert isinstance(completion, AsyncGenerator)
             if tools:
                 chunks = self._async_to_tool_completion_chunks(completion)
             else:
                 chunks = self._async_to_chat_completion_chunks(
                     completion, self.reasoning_parser, context
                 )
-            return single_tool_stream(chunks) if not parallel else chunks
+            return (
+                cast(
+                    AsyncGenerator[ChatCompletionChunk, None],
+                    single_tool_stream(chunks),
+                )
+                if not parallel
+                else chunks
+            )
+        assert not isinstance(completion, AsyncGenerator)
         if tools:
             result = self._post_process_completion(
                 self.model_family, self.model_uid, completion
@@ -1157,7 +1171,11 @@ class SGLANGModel(WeightCachedModel, LLM):
         transfer = cast(Dict[str, Any], completion).get("_pd_kv_transfer_params")
         if transfer is not None:
             result["_pd_kv_transfer_params"] = transfer
-        return single_tool_completion(result) if not parallel else result
+        return (
+            cast(ChatCompletion, single_tool_completion(result))
+            if not parallel
+            else result
+        )
 
     async def async_generate(
         self,
@@ -1430,7 +1448,7 @@ class SGLANGModel(WeightCachedModel, LLM):
             return pd_stream()
 
 
-class SGLANGChatModel(SGLANGModel, ChatModelMixin):
+class SGLANGChatModel(SGLANGModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -1487,7 +1505,9 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def is_tool_call_chunk_end(chunk):
         return chunk["choices"][0]["text"].endswith(QWEN_TOOL_CALL_SYMBOLS[1])
 
-    async def _prepare_chat_inputs(self, messages: List[Dict], generate_config: Dict):
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
         # Handle empty chat_template by using empty string (sglang server will use model's default)
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
@@ -1531,7 +1551,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         return full_prompt, None, tools, chat_template_kwargs, generate_config
 
 
-class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
+class SGLANGVisionModel(SGLANGModel):
     @classmethod
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
@@ -1583,7 +1603,9 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                 generate_config["stop"] = self.model_family.stop.copy()
         return generate_config
 
-    async def _prepare_chat_inputs(self, messages: List[Dict], generate_config: Dict):
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Dict
+    ) -> Tuple[str, Optional[List[str]], Optional[List[Dict]], Dict, Dict]:
         import base64
         import copy
         from io import BytesIO
