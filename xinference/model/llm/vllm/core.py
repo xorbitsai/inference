@@ -3089,6 +3089,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
+        chat_template_kwargs: Dict[str, Any] = {}
         workspace = contextlib.ExitStack()
         try:
             if "internvl" not in model_family.lower():
