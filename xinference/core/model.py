@@ -1103,7 +1103,9 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         return await self._call_wrapper_json(
-            self._model.count_tokens, messages, generate_config
+            getattr(self._model, "async_count_tokens", self._model.count_tokens),
+            messages,
+            generate_config,
         )
 
     @request_limit
@@ -1113,7 +1115,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     ):
         self._require_ready()
         return await self._call_wrapper_json(
-            self._model.prepare_anthropic_request, messages, generate_config
+            getattr(
+                self._model,
+                "async_prepare_anthropic_request",
+                self._model.prepare_anthropic_request,
+            ),
+            messages,
+            generate_config,
         )
 
     @request_limit

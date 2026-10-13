@@ -33,10 +33,19 @@ def make_app(api):
 
 
 @pytest.mark.asyncio
-async def test_backend_capability_error_is_reported_before_generation(monkeypatch):
+@pytest.mark.parametrize(
+    "error,status",
+    [
+        (NotImplementedError("Forced tool choice is not supported"), 501),
+        (RuntimeError("Rate limit reached"), 429),
+    ],
+)
+async def test_backend_capability_error_is_reported_before_generation(
+    monkeypatch, error, status
+):
     class Model:
         async def prepare_anthropic_request(self, messages, config):
-            raise NotImplementedError("Forced tool choice is not supported")
+            raise error
 
         async def chat(self, *args, **kwargs):
             pytest.fail("An unsupported request must not start generation")
@@ -59,8 +68,8 @@ async def test_backend_capability_error_is_reported_before_generation(monkeypatc
                 "tool_choice": {"type": "any"},
             },
         )
-    assert response.status_code == 501
-    assert response.json()["error"]["message"] == "Forced tool choice is not supported"
+    assert response.status_code == status
+    assert response.json()["error"]["message"] == str(error)
 
 
 @pytest.mark.asyncio

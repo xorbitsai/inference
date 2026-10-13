@@ -222,7 +222,7 @@ Messages support text, base64 or URL images, tool results containing images, and
 
 Adaptive thinking enables the model's reasoning mode. The ``effort`` option maps to prompt guidance, with ``medium`` preserving the default prompt. Explicit thinking responses carry Xinference signatures, which can be replayed with the same model UID and signing key; configure ``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers.
 
-For text requests, the MLX vision engine reuses the furthest ``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and reads. Other paths retain automatic engine caching, indicated by the ``x-xinference-cache-control: automatic`` response header. Structured JSON output requires a supporting engine; unsupported controls such as forced tool choice and disabled parallel tool use return 501 instead of being ignored.
+For text requests, the MLX vision engine reuses the furthest ``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports actual cache writes and reads. Other paths retain automatic engine caching, indicated by the ``x-xinference-cache-control: automatic`` response header. Structured JSON output requires a supporting engine. The vLLM engine supports named and required tool choice through constrained JSON decoding, and disabled parallel tool use returns at most one tool per response. Forced tool arguments are buffered until complete. Combining adaptive thinking with forced tools requires a matching ``structured_outputs_config.reasoning_parser`` at model launch (``qwen3`` for Qwen3.5); manual thinking cannot be combined with forced tool choice. Other engines return 501 for unsupported controls.
 
 .. code-block:: bash
 

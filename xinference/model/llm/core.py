@@ -47,6 +47,7 @@ def get_llm_version_infos():
 
 class LLM(abc.ABC):
     allow_batch = False
+    supports_tool_controls = False
     # whether the engine can run speculative decoding with a paired drafter
     support_draft_model = False
 
@@ -110,18 +111,26 @@ class LLM(abc.ABC):
             raise NotImplementedError(
                 f"Structured JSON output is not supported by the {engine} engine"
             )
-        if config.get("parallel_tool_calls") is False:
+        if (
+            config.get("parallel_tool_calls") is False
+            and not self.supports_tool_controls
+        ):
             raise NotImplementedError(
                 f"disable_parallel_tool_use is not supported by the {engine} engine"
             )
-        config.pop("parallel_tool_calls", None)
+        if not self.supports_tool_controls:
+            config.pop("parallel_tool_calls", None)
         choice = config.pop("tool_choice", None)
         if choice == "none":
             config.pop("tools", None)
-        elif choice is not None and choice != "auto":
+        elif (
+            choice is not None and choice != "auto" and not self.supports_tool_controls
+        ):
             raise NotImplementedError(
                 f"Forced tool_choice is not supported by the {engine} engine"
             )
+        elif choice is not None and self.supports_tool_controls:
+            config["tool_choice"] = choice
         cache_control = config.get("_anthropic_cache_control")
         has_images = any(
             isinstance(m.get("content"), list)

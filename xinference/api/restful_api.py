@@ -2403,7 +2403,8 @@ class RESTfulAPI(CancelMixin):
             return self._anthropic_error(400, str(exc), request_id)
         except Exception as exc:
             logger.exception("Anthropic token counting failed")
-            return self._anthropic_error(500, str(exc), request_id)
+            status_code = 429 if "Rate limit reached" in str(exc) else 500
+            return self._anthropic_error(status_code, str(exc), request_id)
 
     async def create_message(self, request: Request) -> Response:
         # Keep Anthropic protocol response IDs backward compatible. The route-level
@@ -2642,12 +2643,15 @@ class RESTfulAPI(CancelMixin):
                 return self._anthropic_error(400, str(exc), request_id)
             except Exception as exc:
                 logger.exception("Anthropic backend preparation failed")
-                return self._anthropic_error(500, str(exc), request_id)
+                status_code = 429 if "Rate limit reached" in str(exc) else 500
+                return self._anthropic_error(status_code, str(exc), request_id)
 
         if canonical.stream:
             iterator = None
             try:
                 iterator = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+            except NotImplementedError as exc:
+                return self._anthropic_error(501, str(exc), request_id)
             except Exception as exc:
                 exc = await self._get_model_last_error(model.uid, exc)
                 logger.error(exc, exc_info=True)
@@ -2730,6 +2734,8 @@ class RESTfulAPI(CancelMixin):
                 request_id,
                 error_type=exc.error_type,
             )
+        except NotImplementedError as exc:
+            return self._anthropic_error(501, str(exc), request_id)
         except Exception as exc:
             exc = await self._get_model_last_error(model.uid, exc)
             logger.error(exc, exc_info=True)

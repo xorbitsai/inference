@@ -79,6 +79,14 @@ from ..utils import (
     generate_completion_chunk,
 )
 from ..weight_cache import WeightCachedModel
+from .tool_controls import (
+    convert_forced_completion,
+    is_forced_tool_choice,
+    prepare_forced_tools,
+    single_tool_completion,
+    single_tool_stream,
+    stream_forced_completion,
+)
 from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
@@ -508,6 +516,111 @@ class VLLMModel(WeightCachedModel, LLM):
     _weight_cache_engine = "vllm"
     allow_batch = True
     support_draft_model = True
+    supports_tool_controls = True
+
+    def _validate_forced_tools(self, config: Dict) -> None:
+        if is_forced_tool_choice(config):
+            if GuidedDecodingParams is None and StructuredOutputsParams is None:
+                raise NotImplementedError(
+                    "Forced tool choice requires vLLM structured decoding"
+                )
+            context = self._get_chat_template_kwargs_from_generate_config(config, self.reasoning_parser) or {}  # type: ignore[attr-defined]
+            if context.get("enable_thinking"):
+                if context.get("thinking_budget") is not None:
+                    raise ValueError(
+                        "Forced tool choice is incompatible with manual thinking"
+                    )
+                engine_config = getattr(self._engine, "vllm_config", None)
+                structured = getattr(engine_config, "structured_outputs_config", None)
+                if not getattr(structured, "reasoning_parser", None) or getattr(
+                    structured, "enable_in_reasoning", False
+                ):
+                    raise NotImplementedError(
+                        "Forced tool choice with thinking requires a matching vLLM "
+                        "structured_outputs_config.reasoning_parser"
+                    )
+
+    async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
+        self._validate_forced_tools(config)
+        prepared = super().prepare_anthropic_request(messages, config)
+        try:
+            prepared["input_tokens"] = await self.async_count_tokens(
+                prepared["messages"], prepared["generate_config"]
+            )
+        except NotImplementedError:
+            pass
+        return prepared
+
+    async def async_count_tokens(
+        self, messages: List[Dict], config: Optional[Dict] = None
+    ) -> int:
+        prepare_inputs = getattr(self, "_prepare_chat_inputs", None)
+        if prepare_inputs is None:
+            raise NotImplementedError(
+                "This vLLM model does not expose chat token counting"
+            )
+        config = copy.deepcopy(config or {})
+        messages = copy.deepcopy(messages)
+        if is_forced_tool_choice(config):
+            messages, config = prepare_forced_tools(messages, config)
+        prompt, _tools, _context, config = await prepare_inputs(messages, config)
+        config = config or {}
+        lora = next(
+            (
+                item
+                for item in self.lora_requests
+                if item.lora_name == config.get("lora_name")
+            ),
+            None,
+        )
+        tokenizer = await self._get_tokenizer(lora)
+        engine_prompt = await self._gen_tokens_prompt(tokenizer, prompt, config)
+        if isinstance(prompt, dict) and prompt.get("multi_modal_data"):
+            from vllm import SamplingParams
+
+            processor = getattr(self._engine, "input_processor", None)
+            renderer = getattr(processor, "renderer", None)
+            mm_processor = getattr(renderer, "mm_processor", None)
+            if processor is None or renderer is None or mm_processor is None:
+                raise NotImplementedError(
+                    "This vLLM version does not expose multimodal token counting"
+                )
+            # Counting must not mark media as sent to EngineCore: a subsequent
+            # generation would otherwise send only a cache hash whose data was
+            # never delivered. Use a cache-free processor copy for this request.
+            processor = copy.copy(processor)
+            processor.renderer = copy.copy(renderer)
+            processor.renderer.mm_processor = copy.copy(mm_processor)
+            processor.renderer.mm_processor.cache = None
+            processor.renderer._mm_cache_stats = None
+            preprocessor = getattr(processor, "input_preprocessor", None)
+            if preprocessor is not None:
+                processor.input_preprocessor = copy.copy(preprocessor)
+                processor.input_preprocessor.renderer = processor.renderer
+            assert self._engine is not None
+            tasks = await self._engine.get_supported_tasks()
+            processed = await asyncio.to_thread(
+                processor.process_inputs,
+                f"count-{uuid.uuid4().hex}",
+                engine_prompt,
+                SamplingParams(max_tokens=1),
+                supported_tasks=tasks,
+                lora_request=lora,
+            )
+            return len(processed.prompt_token_ids)
+        return len(engine_prompt["prompt_token_ids"])
+
+    async def _forced_tool_chat(self, messages, config, request_id):
+        self._validate_forced_tools(config)
+        stream = config.get("stream", False)
+        include_usage = (config.get("stream_options") or {}).get("include_usage", False)
+        messages, config = prepare_forced_tools(messages, config)
+        config["stream"] = False
+        completion = await self.async_chat(messages, config, request_id=request_id)  # type: ignore[attr-defined]
+        completion = convert_forced_completion(completion)
+        if stream:
+            return stream_forced_completion(completion, include_usage)
+        return completion
 
     def __init__(
         self,
@@ -1446,6 +1559,7 @@ class VLLMModel(WeightCachedModel, LLM):
             "additional_config",
             "compilation_config",
             "model_loader_extra_config",
+            "structured_outputs_config",
         ]
         for field in config_dict_list:
             if field in model_config:
@@ -1875,6 +1989,13 @@ class VLLMModel(WeightCachedModel, LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        require_structured = (generate_config or {}).pop(
+            "_require_structured_output", False
+        )
+        if require_structured and VLLM_VERSION < version.parse("0.6.3"):
+            raise NotImplementedError(
+                "Forced tool choice requires vLLM structured decoding"
+            )
         # When enable_thinking is True, don't skip special tokens
         # Check chat_template_kwargs or reasoning_parser for enable_thinking
         enable_thinking = False
@@ -1974,6 +2095,11 @@ class VLLMModel(WeightCachedModel, LLM):
                     logger.warning(f"Failed to create StructuredOutputsParams: {e}")
                     guided_options = None
 
+            if require_structured and guided_options is None:
+                raise NotImplementedError(
+                    "vLLM could not construct the required structured output constraint"
+                )
+
             try:
                 import inspect
 
@@ -2007,6 +2133,8 @@ class VLLMModel(WeightCachedModel, LLM):
                         )
                     except TypeError as e:
                         if "structured_outputs" in str(e):
+                            if require_structured:
+                                raise
                             # structured_outputs parameter exists but doesn't accept GuidedDecodingParams
                             # Fall back to no guided decoding
                             logger.warning(
@@ -2019,8 +2147,14 @@ class VLLMModel(WeightCachedModel, LLM):
                         else:
                             raise
                 else:
+                    if require_structured:
+                        raise NotImplementedError(
+                            "This vLLM SamplingParams does not support constrained decoding"
+                        )
                     sampling_params = SamplingParams(**sanitized_generate_config)
             except Exception as e:
+                if require_structured:
+                    raise
                 logger.warning(
                     f"Failed to create SamplingParams with guided decoding: {e}"
                 )
@@ -2534,13 +2668,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
 
         return processed_messages
 
-    @vllm_check
-    async def async_chat(
-        self,
-        messages: List[Dict],
-        generate_config: Optional[Dict] = None,
-        request_id: Optional[str] = None,
-    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+    async def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Optional[Dict]
+    ):
         # Preprocess messages to ensure content is not None
         messages = self.prefill_messages(messages)
 
@@ -2578,8 +2708,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         )
 
         generate_config = self._sanitize_chat_config(generate_config)
-        stream = generate_config.get("stream", None)
-
         lora_request = None
         lora_model = generate_config.get("lora_name")
         if lora_model is not None:
@@ -2596,16 +2724,45 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             **full_context_kwargs,
         )
 
+        return full_prompt, tools, chat_template_kwargs, generate_config
+
+    @vllm_check
+    async def async_chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        generate_config = dict(generate_config or {})
+        if is_forced_tool_choice(generate_config):
+            return await self._forced_tool_chat(messages, generate_config, request_id)
+        parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
+        generate_config.pop("tool_choice", None)
+        full_prompt, tools, chat_template_kwargs, generate_config = (
+            await self._prepare_chat_inputs(messages, generate_config)
+        )
+        generate_config = generate_config or {}
+        stream = generate_config.get("stream", False)
+
         if stream:
             agen = await self.async_generate(
                 full_prompt, generate_config, tools, request_id=request_id
             )
             assert isinstance(agen, AsyncGenerator)
             if tools:
-                return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
-            return self._async_to_chat_completion_chunks(
-                agen, self.reasoning_parser, chat_template_kwargs
-            )
+                result_stream = self._async_to_tool_completion_chunks(
+                    agen, chat_template_kwargs
+                )
+            else:
+                result_stream = self._async_to_chat_completion_chunks(
+                    agen, self.reasoning_parser, chat_template_kwargs
+                )
+            if parallel_tool_calls is False:
+                return cast(
+                    AsyncGenerator[ChatCompletionChunk, None],
+                    single_tool_stream(result_stream),
+                )
+            return result_stream
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, tools, request_id=request_id
@@ -2621,6 +2778,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
                     "_pd_kv_transfer_params"
                 ]
+            if parallel_tool_calls is False:
+                single_tool_completion(result)
             return result
 
 
@@ -2923,13 +3082,9 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
         return chat_template, tokenizer
 
-    @vllm_check
-    async def async_chat(
-        self,
-        messages: List[ChatCompletionMessage],  # type: ignore
-        generate_config: Optional[Dict] = None,
-        request_id: Optional[str] = None,
-    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+    async def _prepare_chat_inputs(
+        self, messages: List[ChatCompletionMessage], generate_config: Optional[Dict]
+    ):
         tools = list(generate_config.pop("tools", [])) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -3053,7 +3208,25 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             inputs.pop("mm_processor_kwargs")
         generate_config = self._sanitize_chat_config(generate_config)
 
-        stream = generate_config.get("stream", None)
+        return inputs, tools, chat_template_kwargs, generate_config
+
+    @vllm_check
+    async def async_chat(
+        self,
+        messages: List[ChatCompletionMessage],  # type: ignore
+        generate_config: Optional[Dict] = None,
+        request_id: Optional[str] = None,
+    ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        generate_config = dict(generate_config or {})
+        if is_forced_tool_choice(generate_config):
+            return await self._forced_tool_chat(messages, generate_config, request_id)
+        parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
+        generate_config.pop("tool_choice", None)
+        inputs, tools, chat_template_kwargs, generate_config = (
+            await self._prepare_chat_inputs(messages, generate_config)
+        )
+        generate_config = generate_config or {}
+        stream = generate_config.get("stream", False)
 
         if stream:
             agen = await self.async_generate(
@@ -3064,10 +3237,19 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
             assert isinstance(agen, AsyncGenerator)
             if tools:
-                return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
-            return self._async_to_chat_completion_chunks(
-                agen, self.reasoning_parser, chat_template_kwargs
-            )
+                result_stream = self._async_to_tool_completion_chunks(
+                    agen, chat_template_kwargs
+                )
+            else:
+                result_stream = self._async_to_chat_completion_chunks(
+                    agen, self.reasoning_parser, chat_template_kwargs
+                )
+            if parallel_tool_calls is False:
+                return cast(
+                    AsyncGenerator[ChatCompletionChunk, None],
+                    single_tool_stream(result_stream),
+                )
+            return result_stream
         else:
             c = await self.async_generate(
                 inputs,
@@ -3086,4 +3268,6 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 result["_pd_kv_transfer_params"] = cast(Dict[str, Any], c)[
                     "_pd_kv_transfer_params"
                 ]
+            if parallel_tool_calls is False:
+                single_tool_completion(result)
             return result

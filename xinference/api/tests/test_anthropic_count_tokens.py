@@ -80,3 +80,30 @@ async def test_count_tokens_rejects_missing_version_and_unsupported_engine(monke
     assert missing_version.status_code == 400
     assert unsupported.status_code == 501
     assert unsupported.json()["error"]["message"] == "Tokenizer unavailable"
+
+
+@pytest.mark.asyncio
+async def test_count_tokens_preserves_rate_limit_errors(monkeypatch):
+    api = make_rest_api()
+
+    class Model:
+        async def prepare_anthropic_request(self, *args):
+            raise RuntimeError("Rate limit reached")
+
+    async def require_model(*args):
+        return Model()
+
+    monkeypatch.setattr(module, "require_model", require_model)
+    app = make_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            "/v1/messages/count_tokens",
+            headers={"anthropic-version": "2023-06-01"},
+            json={"model": "local", "messages": [{"role": "user", "content": "hello"}]},
+        )
+    assert response.status_code == 429

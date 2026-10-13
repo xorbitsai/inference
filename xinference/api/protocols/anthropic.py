@@ -308,6 +308,8 @@ def _normalize_tool_choice(raw_choice: Any) -> Any:
     if raw_choice is None:
         return None
     if isinstance(raw_choice, str):
+        if raw_choice not in {"auto", "any", "required", "none"}:
+            raise _invalid(f"Unsupported Anthropic tool_choice type: {raw_choice}")
         return {"any": "required"}.get(raw_choice, raw_choice)
     if not isinstance(raw_choice, dict):
         raise _invalid("The 'tool_choice' field must be a string or object")
