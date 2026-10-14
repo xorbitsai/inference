@@ -92,10 +92,10 @@ msgid ""
 "and tool references to tools declared in the request. Plain-text documents "
 "are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
 "the ``image`` extra), require a vision model, and are limited to 20 pages per"
-" document. File IDs and document citations are not supported."
+" request. File IDs and document citations are not supported."
 msgstr ""
 "訊息支援文字、base64 或 URL 影像、包含影像的工具結果，以及對請求中已宣告工具的參照。支援純文字文件；PDF 透過 ``pypdfium2`` "
-"渲染為影像（安裝 ``image`` 擴充相依套件），需要視覺模型，每份文件最多 20 頁。不支援檔案 ID 和文件引用標註。"
+"渲染為影像（安裝 ``image`` 擴充相依套件），需要視覺模型，每個請求最多 20 頁。不支援檔案 ID 和文件引用標註。"
 
 #: user_guide/anthropic.rst:83
 msgid ""

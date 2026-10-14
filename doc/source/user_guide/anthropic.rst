@@ -78,7 +78,7 @@ Messages support text, base64 or URL images, tool results containing images,
 and tool references to tools declared in the request. Plain-text documents are
 supported; PDF pages are rendered as images with ``pypdfium2`` (install the
 ``image`` extra), require a vision model, and are limited to 20 pages per
-document. File IDs and document citations are not supported.
+request. File IDs and document citations are not supported.
 
 Xinference's vLLM vision models default to two images per prompt. The limit
 includes images in conversation history and tool results, so successive

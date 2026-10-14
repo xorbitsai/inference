@@ -581,6 +581,30 @@ class VLLMModel(WeightCachedModel, LLM):
                         "disabled during thinking"
                     )
 
+    def _prepare_structured_reasoning_prompt(
+        self, prompt: Union[str, dict], config: Dict, context: Dict
+    ) -> Union[str, dict]:
+        parser = getattr(self, "reasoning_parser", None)
+        if (
+            not config.get("_anthropic_request")
+            or (config.get("response_format") or {}).get("type")
+            not in {"json_schema", "json_object"}
+            or not context.get("enable_thinking")
+            or not parser
+            or not parser.reasoning_start_tag
+            or not parser.reasoning_end_tag
+        ):
+            return prompt
+        text = prompt["prompt"] if isinstance(prompt, dict) else prompt
+        if text.rfind(parser.reasoning_start_tag) <= text.rfind(
+            parser.reasoning_end_tag
+        ):
+            # Hybrid templates can replay closed reasoning in history without
+            # opening this generation. Keep its grammar disabled until thinking ends.
+            text += parser.reasoning_start_tag + "\n"
+            return {**prompt, "prompt": text} if isinstance(prompt, dict) else text
+        return prompt
+
     async def async_prepare_anthropic_request(self, messages: List[Dict], config: Dict):
         self._validate_forced_tools(config)
         prepared = super().prepare_anthropic_request(messages, config)
@@ -604,8 +628,9 @@ class VLLMModel(WeightCachedModel, LLM):
         messages = copy.deepcopy(messages)
         if is_forced_tool_choice(config):
             messages, config = prepare_forced_tools(messages, config)
-        prompt, _tools, _context, config = await prepare_inputs(messages, config)
+        prompt, _tools, context, config = await prepare_inputs(messages, config)
         config = config or {}
+        prompt = self._prepare_structured_reasoning_prompt(prompt, config, context)
         lora = next(
             (
                 item
@@ -2828,6 +2853,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if plain_json:
             full_prompt = self._close_reasoning_prompt(full_prompt, parser)
             parser = None
+        full_prompt = self._prepare_structured_reasoning_prompt(
+            full_prompt, generate_config, chat_template_kwargs
+        )
         stream = generate_config.get("stream", False)
 
         if stream:
@@ -3332,6 +3360,9 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         if plain_json:
             inputs["prompt"] = self._close_reasoning_prompt(inputs["prompt"], parser)
             parser = None
+        inputs = self._prepare_structured_reasoning_prompt(
+            inputs, generate_config, chat_template_kwargs
+        )
         stream = generate_config.get("stream", False)
 
         if stream:

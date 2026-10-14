@@ -1,6 +1,8 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import copy
+import json
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -48,6 +50,113 @@ def completion(text, finish_reason="stop"):
         ],
         "usage": {"prompt_tokens": 42, "completion_tokens": 10, "total_tokens": 52},
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
+@pytest.mark.parametrize("forced", [False, True])
+@pytest.mark.parametrize("preopened", [False, True])
+async def test_adaptive_structured_output_after_replayed_tool_reasoning(
+    cls, forced, preopened
+):
+    from ...reasoning_parser import ReasoningParser
+
+    instance = object.__new__(cls)
+    instance.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        reasoning_content=True,
+    )
+    tokenizer = SimpleNamespace(encode=lambda text, **kw: list(text.encode()))
+    instance.reasoning_parser.bind_tokenizer(tokenizer)
+    family = json.loads((Path(__file__).parents[2] / "models/qwen3.json").read_text())[
+        0
+    ]
+    messages = [
+        {"role": "user", "content": "Read the file"},
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "Inspect it first",
+            "tool_calls": [
+                {
+                    "id": "call1",
+                    "type": "function",
+                    "function": {"name": "Read", "arguments": {"file_path": "a"}},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call1", "content": "file data"},
+    ]
+    prompt = instance._build_from_raw_template(
+        messages, family["chat_template"], enable_thinking=True
+    )
+    assert prompt.endswith("<|im_start|>assistant\n") and "</think>" in prompt
+    if preopened:
+        prompt += "<think>\n"
+    context = {"enable_thinking": True, "reasoning_content": True}
+    instance._validate_forced_tools = lambda _: None
+
+    async def prepare(_messages, config):
+        core.chat_context_var.set(context)
+        rendered = {"prompt": prompt} if cls is core.VLLMMultiModel else prompt
+        return rendered, [], context, config
+
+    instance._prepare_chat_inputs = prepare
+    payload = (
+        '[{"name":"Read","arguments":{"file_path":"a"}}]' if forced else '{"answer":42}'
+    )
+    generated_prompts = []
+
+    async def generate(rendered, *args, **kwargs):
+        text = rendered["prompt"] if isinstance(rendered, dict) else rendered
+        generated_prompts.append(text)
+        # Match vLLM's initial grammar gate on the complete prompt token IDs.
+        ended = instance.reasoning_parser.is_reasoning_end(tokenizer.encode(text))
+        output = payload if ended else "plan</think>" + payload
+        return {
+            "id": "test",
+            "model": "test",
+            "created": 1,
+            "choices": [{"index": 0, "text": output, "finish_reason": "stop"}],
+            "usage": {},
+        }
+
+    instance.async_generate = generate
+    instance.async_chat = lambda *args, **kwargs: cls.async_chat.__wrapped__(
+        instance, *args, **kwargs
+    )
+    config = {
+        "_anthropic_request": True,
+        "chat_template_kwargs": context,
+        "response_format": {"type": "json_object"},
+    }
+    if forced:
+        config.update(tools=tools(), tool_choice="required")
+    instance.lora_requests = []
+    instance._get_tokenizer = AsyncMock(return_value=tokenizer)
+    instance._gen_tokens_prompt = AsyncMock(
+        side_effect=lambda _tokenizer, rendered, _config: {
+            "prompt_token_ids": tokenizer.encode(
+                rendered["prompt"] if isinstance(rendered, dict) else rendered
+            )
+        }
+    )
+    token = core.chat_context_var.set(context)
+    try:
+        count = await instance.async_count_tokens(messages, config)
+        result = await instance.async_chat(messages, config)
+    finally:
+        core.chat_context_var.reset(token)
+    message = result["choices"][0]["message"]
+    assert generated_prompts[0].endswith("assistant\n<think>\n")
+    assert generated_prompts[0].count("<think>") == 2
+    assert count == len(tokenizer.encode(generated_prompts[0]))
+    assert message["reasoning_content"].strip() == "plan"
+    if forced:
+        assert message["tool_calls"][0]["function"]["name"] == "Read"
+    else:
+        assert json.loads(message["content"]) == {"answer": 42}
 
 
 def test_forced_named_tool_schema_restricts_name_arguments_and_count():
