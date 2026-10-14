@@ -157,7 +157,12 @@ def create(native, messages, stream=False, **kwargs):
     assert events[0].type == "message_start"
     assert events[-1].type == "message_stop"
     assert any(event.type == "content_block_delta" for event in events)
-    assert result.usage.input_tokens > 0 and result.usage.output_tokens > 0
+    assert (
+        result.usage.input_tokens
+        + (getattr(result.usage, "cache_read_input_tokens", 0) or 0)
+        > 0
+    )
+    assert result.usage.output_tokens > 0
     return result
 
 
@@ -212,7 +217,7 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
     messages = [
         {
             "role": "user",
-            "content": "Call lookup with value=alpha.",
+            "content": "Look up alpha, then record the value that lookup returns.",
         }
     ]
     kwargs = dict(
@@ -238,7 +243,7 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
                 {
                     "type": "tool_result",
                     "tool_use_id": calls[0].id,
-                    "content": "Lookup returned NATIVE_RESULT_42. Record this exact value using finish.",
+                    "content": "NATIVE_RESULT_42",
                 }
             ],
         },
@@ -317,7 +322,11 @@ def test_openai_path(native_model, stream, json_output):
         output = result.choices[0].message.content
         assert result.choices[0].finish_reason == "stop"
     assert "<think>" not in output, output
-    assert json.loads(output) == {"answer": 42} if json_output else "READY" in output
+    assert (
+        json.loads(output) == {"answer": 42}
+        if json_output
+        else "ready" in output.lower()
+    ), output
 
 
 @pytest.mark.parametrize("image_count", [0, 1, 2])

@@ -82,11 +82,13 @@ jobs:
           with open(os.environ["GITHUB_ENV"], "a") as output:
               for profile, config in configs.items():
                   config.update(model_format="mlx" if engine == "MLX" else "pytorch",
-                                quantization="4bit" if engine == "MLX" else "none")
+                                quantization="4bit" if engine == "MLX" else "none",
+                                reasoning_content=profile == "TEXT")
                   if engine != "MLX":
                       config["dtype"] = "float16"
                   if engine == "vLLM":
-                      config.update(max_model_len=8192, limit_mm_per_prompt={})
+                      config.update(max_model_len=8192, limit_mm_per_prompt={},
+                                    attention_config={"backend": "TRITON_ATTN"})
                       if profile == "VISION":
                           config.update(limit_mm_per_prompt={"image": 2, "video": 0},
                                         mm_processor_kwargs={"max_pixels": 65536})
