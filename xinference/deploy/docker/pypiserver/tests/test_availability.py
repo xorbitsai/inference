@@ -211,6 +211,49 @@ def test_index_failure_is_not_ignored(checker, monkeypatch):
     assert "index is unavailable" in failures[0]
 
 
+@pytest.mark.parametrize("machine", ["x86_64", "aarch64"])
+def test_model_index_resolves_nightly_pin(checker, monkeypatch, tmp_path, machine):
+    (tmp_path / "engines").mkdir()
+    (tmp_path / "manifest.json").write_text(
+        json.dumps({"machine": machine, "cuda_version": "13.0", "engines": {}})
+    )
+    nightly = "0.31.1rc1.dev281+gc85616efc"
+    index = "https://wheels.example/nightly"
+    (tmp_path / "pins.json").write_text(
+        json.dumps(
+            [
+                {
+                    "spec": "vllm==" + nightly,
+                    "sources": ["indexed-model"],
+                    "extra_index_urls": [index, index],
+                }
+            ]
+        )
+    )
+    constraints = tmp_path / "constraints.txt"
+    constraints.write_text("")
+    checks = checker.collect_requirements(tmp_path, constraints, "3.12.0")
+    assert checks[0]["indexes"] == (
+        checker.PYPI_INDEX,
+        index,
+        "https://download.pytorch.org/whl/cu130",
+    )
+
+    def fetch(index_url, name):
+        assert name == "vllm"
+        if index_url != index:
+            return []
+        return [
+            {"filename": f"vllm-{nightly}-cp38-abi3-manylinux_2_28_{arch}.whl"}
+            for arch in ("x86_64", "aarch64")
+        ]
+
+    monkeypatch.setattr(checker, "fetch_files", fetch)
+    assert checker.check_requirements(checks, "3.12.0") == []
+    checks[0]["indexes"] = (checker.PYPI_INDEX,)
+    assert len(checker.check_requirements(checks, "3.12.0")) == 1
+
+
 def test_collect_all_mirror_inputs_and_target_markers(checker, tmp_path):
     (tmp_path / "engines").mkdir()
     (tmp_path / "engines" / "vllm.in").write_text("vllm>=0.31\n")

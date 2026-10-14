@@ -106,6 +106,33 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
             }
         )
     )
+    nightly = "vllm==0.31.1rc1.dev281+gc85616efc"
+    model_index = "https://wheels.example/nightly"
+    secondary_index = "https://wheels.example/secondary"
+    for filename, virtualenv in (
+        (
+            "indexed-model.json",
+            {
+                "packages": [nightly + ' ; #engine# == "vllm"'],
+                "extra_index_url": model_index,
+            },
+        ),
+        (
+            "nested-model.json",
+            {
+                "packages": [nightly + ' ; #engine# == "vllm"'],
+                "extra_index_url": [model_index, secondary_index, model_index],
+            },
+        ),
+    ):
+        (src_root / "xinference" / "model" / filename).write_text(
+            json.dumps(
+                {
+                    "model_name": "indexed-model",
+                    "model_specs": [{"virtualenv": virtualenv}],
+                }
+            )
+        )
     result = subprocess.run(
         [
             sys.executable,
@@ -140,6 +167,15 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
     assert next(pin for pin in pins if pin["spec"] == "vllm>=0.32.0")["sources"] == [
         "future-model.json:future-model"
     ]
+    indexed_pin = next(pin for pin in pins if pin["spec"] == nightly)
+    assert indexed_pin["extra_index_urls"] == [model_index, secondary_index]
+    assert indexed_pin["sources"] == [
+        "indexed-model.json:indexed-model (vllm)",
+        "nested-model.json:indexed-model (vllm)",
+    ]
+    assert "extra_index_urls" not in next(
+        pin for pin in pins if pin["spec"] == "vllm>=0.32.0"
+    )
 
 
 def test_load_xinference_modules_restores_sys_modules():
@@ -688,16 +724,33 @@ def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
     }
 
 
-def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
+@pytest.mark.parametrize("platform", ["amd64", "arm64"])
+@pytest.mark.parametrize(
+    "model_indexes",
+    [
+        [],
+        ["https://wheels.example/nightly"],
+        [
+            "https://wheels.example/nightly",
+            "https://wheels.example/nightly",
+            "https://download.pytorch.org/whl/cu130",
+        ],
+    ],
+)
+@pytest.mark.parametrize("download_mode", ["direct", "retry", "sdist"])
+def test_download_packages_main_orchestration_skips_git(
+    monkeypatch, tmp_path, platform, model_indexes, download_mode
+):
     downloader = _load_script("download_packages")
     manifest = tmp_path / "manifest"
     engines = manifest / "engines"
     engines.mkdir(parents=True)
     (engines / "test.in").write_text("engine-pkg>=1.0\n")
     (engines / "test.meta.json").write_text("{}\n")
-    (manifest / "pins.json").write_text(
-        json.dumps([{"spec": "model-pin==1.0", "sources": ["test"]}])
-    )
+    pin = {"spec": "model-pin==1.0", "sources": ["test"]}
+    if model_indexes:
+        pin["extra_index_urls"] = model_indexes
+    (manifest / "pins.json").write_text(json.dumps([pin]))
     (manifest / "urls.txt").write_text(
         "https://example.invalid/direct-1.0-py3-none-any.whl\n"
     )
@@ -712,6 +765,8 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     compile_calls = []
     download_calls = []
     run_calls = []
+    sdist_calls = []
+    pin_attempts = 0
 
     def fake_uv_compile(in_file, out_file, **kwargs):
         compile_calls.append((in_file, out_file, kwargs))
@@ -722,14 +777,29 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
         return subprocess.CompletedProcess([], 0)
 
     def fake_pip_download(args, target, **kwargs):
+        nonlocal pin_attempts
         download_calls.append((list(args), kwargs))
         if args == ["model-pin==1.0"]:
+            pin_attempts += 1
+            if download_mode == "sdist" or (
+                download_mode == "retry" and pin_attempts == 1
+            ):
+                return subprocess.CompletedProcess([], 1)
             (target / "source-1.0.tar.gz").write_text("sdist")
         # The wheel built from the sdist declares a dependency that the
         # sdist metadata omitted; it only exists as an sdist itself.
         if args == [str(dest / "source-1.0-py3-none-any.whl")]:
             (target / "hiddendep-1.0.tar.gz").write_text("sdist")
         return subprocess.CompletedProcess([], 0)
+
+    def fake_download_sdist(spec, target, **kwargs):
+        sdist_calls.append((spec, kwargs))
+        # The source archive exists only at the model's additional index.
+        if model_indexes and kwargs["index_url"] != model_indexes[0]:
+            return None
+        sdist = target / "source-1.0.tar.gz"
+        sdist.write_text("sdist")
+        return sdist
 
     def fake_run(cmd, **kwargs):
         run_calls.append((list(cmd), kwargs))
@@ -741,6 +811,9 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
 
     monkeypatch.setattr(downloader, "uv_compile", fake_uv_compile)
     monkeypatch.setattr(downloader, "pip_download", fake_pip_download)
+    monkeypatch.setattr(
+        downloader, "download_sdist_without_metadata", fake_download_sdist
+    )
     monkeypatch.setattr(downloader, "run", fake_run)
     monkeypatch.setattr(
         sys,
@@ -752,7 +825,7 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
             "--dest",
             str(dest),
             "--platform",
-            "amd64",
+            platform,
             "--runtime-constraints",
             str(runtime_constraints),
         ],
@@ -761,6 +834,11 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     downloader.main()
 
     assert len(compile_calls) == 3
+    expected_machine = "x86_64" if platform == "amd64" else "aarch64"
+    assert all(
+        call[2]["python_platform"] == expected_machine + "-manylinux_2_34"
+        for call in compile_calls
+    )
     assert compile_calls[0][0] == runtime_constraints
     assert ["-r", str(manifest / "locks" / "test.lock")] in [
         call[0] for call in download_calls
@@ -783,9 +861,41 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
         call[0] for call in download_calls
     ]
     assert not (dest / "hiddendep-1.0.tar.gz").exists()
+    model_downloads = [
+        kwargs
+        for args, kwargs in download_calls
+        if args == ["model-pin==1.0"] or args[0].startswith(str(dest))
+    ]
+    expected_indexes = list(
+        dict.fromkeys(model_indexes + ["https://download.pytorch.org/whl/cu130"])
+    )
+    assert all(
+        kwargs["extra_index_urls"] == expected_indexes for kwargs in model_downloads
+    )
+    assert all(
+        kwargs["extra_index_urls"] == ["https://download.pytorch.org/whl/cu130"]
+        for args, kwargs in download_calls
+        if args[0] == "-r" or args[0].startswith("https://")
+    )
+    assert pin_attempts == (1 if download_mode == "direct" else 2)
+    if download_mode != "direct":
+        pin_downloads = [
+            kwargs for args, kwargs in download_calls if args == [pin["spec"]]
+        ]
+        assert pin_downloads[0]["constraints"] is not None
+        assert pin_downloads[1].get("constraints") is None
+    if download_mode == "sdist":
+        assert sdist_calls[-1][1]["index_url"] == (
+            model_indexes[0] if model_indexes else "https://pypi.org/simple"
+        )
     report = json.loads((manifest / "report.json").read_text())
     assert "transformers==5.13.1" in report["runtime_constraints"]
-    assert report["unconstrained_fallbacks"] == []
+    assert report["unconstrained_fallbacks"] == (
+        [] if download_mode == "direct" else [pin["spec"]]
+    )
+    assert report["raw_sdist_fallbacks"] == (
+        [pin["spec"]] if download_mode == "sdist" else []
+    )
     assert report["sdist_left"] == []
 
 
