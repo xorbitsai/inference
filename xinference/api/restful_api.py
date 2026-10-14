@@ -2485,6 +2485,8 @@ class RESTfulAPI(CancelMixin):
             # This worker-local hint is not an OpenAI wire field. Router models
             # retain their upstream engine's automatic prefix caching.
             openai_body.pop("_anthropic_cache_control", None)
+            openai_body.pop("_anthropic_content_metrics", None)
+            openai_body.pop("_anthropic_requested_features", None)
             if not token_router_runtime.get("available"):
                 return self._anthropic_error(
                     503,
@@ -2652,6 +2654,10 @@ class RESTfulAPI(CancelMixin):
                 logger.exception("Anthropic backend preparation failed")
                 status_code = 429 if "Rate limit reached" in str(exc) else 500
                 return self._anthropic_error(status_code, str(exc), request_id)
+        else:
+            kwargs.pop("_anthropic_content_metrics", None)
+            kwargs.pop("_anthropic_requested_features", None)
+            raw_kwargs = dict(kwargs)
 
         if canonical.stream:
             iterator = None

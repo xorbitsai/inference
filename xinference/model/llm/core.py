@@ -103,11 +103,49 @@ class LLM(abc.ABC):
     ) -> Dict[str, Any]:
         """Validate backend capabilities before starting an Anthropic response."""
         config = copy.deepcopy(config)
+        from ...api.protocols.anthropic_capabilities import plan_anthropic_compatibility
+
+        requested_features = frozenset(config.pop("_anthropic_requested_features", []))
+        content_metrics = config.pop("_anthropic_content_metrics", {})
+        capabilities = self.get_anthropic_capabilities()
+        engine = capabilities.engine
+        plan = plan_anthropic_compatibility(
+            requested_features, content_metrics, capabilities
+        )
+        for decision in plan.decisions:
+            logger.info(
+                "Anthropic compatibility decision: model=%s engine=%s "
+                "feature=%s action=%s reason=%s revision=%s",
+                self.model_uid,
+                engine,
+                decision.feature,
+                decision.action,
+                decision.reason,
+                capabilities.revision,
+            )
+        if not plan.allowed:
+            rejected = next(
+                decision for decision in plan.decisions if decision.action == "rejected"
+            )
+            if rejected.feature == "vision.max_images_per_prompt":
+                raise ValueError(
+                    f"Model {self.model_uid} supports at most "
+                    f"{plan.effective_max_images} images per prompt, but "
+                    f"{content_metrics.get('total_images', 0)} were provided "
+                    f"({content_metrics.get('direct_images', 0)} direct images, "
+                    f"{content_metrics.get('tool_result_images', 0)} tool-result "
+                    f"images, {content_metrics.get('document_pages', 0)} PDF pages)"
+                )
+            if rejected.feature == "vision":
+                raise ValueError("Image input requires a model with vision support")
+            raise NotImplementedError(
+                f"Anthropic feature {rejected.feature} is not supported by "
+                f"the {engine} engine"
+            )
         context = config.get("chat_template_kwargs") or {}
         if isinstance(context, str):
             context = json.loads(context)
         config["chat_template_kwargs"] = {**context, "_anthropic_request": True}
-        engine = type(self).__module__.split(".")[-2]
         if engine in {"vllm", "sglang"}:
             config["_anthropic_request"] = True
         if config.get("response_format") and engine not in {
@@ -186,6 +224,49 @@ class LLM(abc.ABC):
             "input_tokens": input_tokens,
             "cache_control_applied": cache_control_applied,
         }
+
+    def get_anthropic_capabilities(self):
+        """Describe Anthropic features for this loaded model instance."""
+        from ...api.protocols.anthropic_capabilities import (
+            AnthropicBackendCapabilities,
+            SupportLevel,
+        )
+
+        abilities = set(getattr(self.model_family, "model_ability", []) or [])
+        engine = type(self).__module__.split(".")[-2]
+        raw_limit = getattr(self, "_model_config", {}).get("limit_mm_per_prompt")
+        max_images = raw_limit.get("image") if isinstance(raw_limit, dict) else None
+        reasoning = "reasoning" in abilities or self.reasoning_parser is not None
+        tools = "tools" in abilities or self.tool_parser is not None
+        return AnthropicBackendCapabilities(
+            engine=engine,
+            vision=(
+                SupportLevel.NATIVE
+                if "vision" in abilities or "omni" in abilities
+                else SupportLevel.UNSUPPORTED
+            ),
+            tools=SupportLevel.NATIVE if tools else SupportLevel.UNSUPPORTED,
+            parallel_tools=(
+                SupportLevel.NATIVE
+                if tools and self.supports_tool_controls
+                else SupportLevel.UNSUPPORTED
+            ),
+            reasoning=(SupportLevel.NATIVE if reasoning else SupportLevel.UNSUPPORTED),
+            adaptive_thinking=(
+                SupportLevel.TRANSLATED if reasoning else SupportLevel.UNSUPPORTED
+            ),
+            structured_output=(
+                SupportLevel.NATIVE
+                if engine in {"vllm", "sglang", "llama_cpp"}
+                else SupportLevel.UNSUPPORTED
+            ),
+            prompt_cache=(
+                SupportLevel.NATIVE
+                if hasattr(self, "_prepare_reusable_prompt_cache")
+                else SupportLevel.DEGRADED
+            ),
+            max_images_per_prompt=max_images,
+        )
 
     @classmethod
     @abstractmethod

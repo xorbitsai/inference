@@ -328,6 +328,15 @@ class PDModelActor(xo.StatelessActor):
         )
 
     @log_async(logger=logger)
+    async def get_anthropic_capabilities(self):
+        if not self._decode_replicas:
+            from .model import ModelNotReadyError
+
+            raise ModelNotReadyError("No decode replicas available")
+        replica = next(iter(self._decode_replicas.values()))
+        return await actor_call(replica, "get_anthropic_capabilities")
+
+    @log_async(logger=logger)
     async def count_tokens(
         self, messages: List[Dict], generate_config: Optional[Dict] = None
     ):

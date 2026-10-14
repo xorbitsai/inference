@@ -1124,6 +1124,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             generate_config,
         )
 
+    @log_async(logger=logger)
+    async def get_anthropic_capabilities(self):
+        self._require_ready()
+        if not hasattr(self._model, "get_anthropic_capabilities"):
+            return None
+
+        def _describe():
+            from dataclasses import asdict, is_dataclass
+
+            capabilities = self._model.get_anthropic_capabilities()
+            return asdict(capabilities) if is_dataclass(capabilities) else capabilities
+
+        return await self._call_wrapper_json(_describe)
+
     @request_limit
     @log_async(logger=logger)
     async def rerank(
