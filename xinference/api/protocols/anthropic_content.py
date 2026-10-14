@@ -20,6 +20,22 @@ class ContentBudget:
     decoded_bytes: int = 0
     rendered_bytes: int = 0
     documents: Dict[int, List[Dict[str, Any]]] = field(default_factory=dict)
+    direct_images: int = 0
+    tool_result_images: int = 0
+    document_pages: int = 0
+    counted_direct_images: Set[int] = field(default_factory=set)
+    counted_tool_result_images: Set[int] = field(default_factory=set)
+
+    def metrics(self) -> Dict[str, int]:
+        return {
+            "direct_images": self.direct_images,
+            "tool_result_images": self.tool_result_images,
+            "document_pages": self.document_pages,
+            "document_count": len(self.documents),
+            "total_images": (
+                self.direct_images + self.tool_result_images + self.document_pages
+            ),
+        }
 
     def add_bytes(self, size: int, *, rendered: bool = False) -> None:
         from ...model.llm.media import _max_bytes
@@ -31,7 +47,9 @@ class ContentBudget:
         setattr(self, name, total)
 
 
-def _image(block: Dict[str, Any]) -> Dict[str, Any]:
+def _image(
+    block: Dict[str, Any], budget: ContentBudget, image_origin: str
+) -> Dict[str, Any]:
     source = block.get("source") or {}
     if not isinstance(source, dict):
         raise ValueError("Anthropic image source must be an object")
@@ -55,6 +73,14 @@ def _image(block: Dict[str, Any]) -> Dict[str, Any]:
         url = candidate
     else:
         raise ValueError("Anthropic images require a base64 or URL source")
+    block_id = id(block)
+    if image_origin == "tool_result":
+        if block_id not in budget.counted_tool_result_images:
+            budget.counted_tool_result_images.add(block_id)
+            budget.tool_result_images += 1
+    elif block_id not in budget.counted_direct_images:
+        budget.counted_direct_images.add(block_id)
+        budget.direct_images += 1
     return {"type": "image_url", "image_url": {"url": url}}
 
 
@@ -109,6 +135,7 @@ def _document(block: Dict[str, Any], budget: ContentBudget) -> List[Dict[str, An
     try:
         with _pdfium_lock, closing(pdfium.PdfDocument(raw)) as pdf:
             budget.pages += len(pdf)
+            budget.document_pages += len(pdf)
             if budget.pages > 20:
                 raise ValueError("PDF input supports at most 20 pages per request")
             for page in pdf:
@@ -148,6 +175,7 @@ def normalize_content(
     content: Any,
     tool_names: Optional[Set[str]] = None,
     budget: Optional[ContentBudget] = None,
+    image_origin: str = "direct",
 ) -> Union[str, List[Dict[str, Any]]]:
     if isinstance(content, str):
         return content
@@ -167,7 +195,7 @@ def normalize_content(
             if not text.startswith("x-anthropic-billing-header"):
                 parts.append({"type": "text", "text": text})
         elif kind == "image":
-            parts.append(_image(block))
+            parts.append(_image(block, budget, image_origin))
         elif kind == "document":
             citations = block.get("citations")
             if citations is not None and not isinstance(citations, dict):

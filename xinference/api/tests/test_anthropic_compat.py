@@ -314,11 +314,83 @@ def test_text_documents_and_pdf_pages():
     }
     result = request(messages=[{"role": "user", "content": [block]}])
     assert result.messages[0]["content"][0]["type"] == "image_url"
+    assert result.content_metrics == {
+        "direct_images": 0,
+        "tool_result_images": 0,
+        "document_pages": 1,
+        "document_count": 1,
+        "total_images": 1,
+    }
     from PIL import Image
 
     data_uri = result.messages[0]["content"][0]["image_url"]["url"]
     rendered = Image.open(io.BytesIO(base64.b64decode(data_uri.split(",", 1)[1])))
     assert rendered.convert("L").getextrema() == (0, 255)
+
+
+def test_multimodal_metrics_include_direct_and_tool_result_images():
+    direct = {
+        "type": "image",
+        "source": {"type": "url", "url": "https://example.com/direct.png"},
+    }
+    tool_image = {
+        "type": "image",
+        "source": {"type": "url", "url": "https://example.com/tool.png"},
+    }
+
+    result = request(
+        messages=[
+            {"role": "user", "content": [direct]},
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "read",
+                        "input": {},
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_1",
+                        "content": [tool_image],
+                    }
+                ],
+            },
+        ]
+    )
+
+    assert result.content_metrics == {
+        "direct_images": 1,
+        "tool_result_images": 1,
+        "document_pages": 0,
+        "document_count": 0,
+        "total_images": 2,
+    }
+
+
+def test_multimodal_protocol_image_limit():
+    images = [
+        {
+            "type": "image",
+            "source": {
+                "type": "url",
+                "url": f"https://example.com/image-{index}.png",
+            },
+        }
+        for index in range(65)
+    ]
+
+    allowed = request(messages=[{"role": "user", "content": images[:64]}])
+    assert allowed.content_metrics["total_images"] == 64
+
+    with pytest.raises(AnthropicProtocolError, match="at most 64 rendered images"):
+        request(messages=[{"role": "user", "content": images}])
 
 
 @pytest.mark.asyncio
