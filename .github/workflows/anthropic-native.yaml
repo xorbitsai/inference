@@ -12,8 +12,12 @@ on:
         type: choice
         options: [MLX, vLLM, SGLang]
         required: true
-      model_path:
-        description: Optional cached Qwen3.5-0.8B model path on the runner
+      text_model_path:
+        description: Optional cached Qwen3-0.6B path
+        type: string
+        default: ''
+      vision_model_path:
+        description: Optional cached Qwen3-VL-2B-Instruct path
         type: string
         default: ''
 
@@ -31,7 +35,9 @@ jobs:
       NO_WEB_UI: 1
       XINFERENCE_TEST_ANTHROPIC_ENGINE: ${{ inputs.engine || 'vLLM' }}
       XINFERENCE_TEST_CLAUDE_CODE: '1'
-      NATIVE_MODEL_PATH: ${{ inputs.model_path }}
+      TEXT_MODEL_PATH: ${{ inputs.text_model_path }}
+      VISION_MODEL_PATH: ${{ inputs.vision_model_path }}
+      NATIVE_TEST_FILE: xinference/model/llm/tests/test_anthropic_engine_integration.py
     defaults:
       run:
         shell: bash -l {0}
@@ -49,55 +55,74 @@ jobs:
           if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
             sysctl -n hw.memsize
           else
-            nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+            nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
           fi
       - name: Install test and engine dependencies
         run: |
+          set -euo pipefail
           python -m pip install -U pip 'setuptools<82'
-          python -m pip install -e '.[dev]' 'anthropic>=0.84' pillow
           case "$XINFERENCE_TEST_ANTHROPIC_ENGINE" in
-            MLX) python -m pip install 'mlx-lm==0.31.3' 'mlx-vlm==0.4.4' ;;
-            vLLM) python -m pip install 'vllm==0.19.0' ;;
-            SGLang) python -m pip install 'sglang[srt]==0.5.21' ninja ;;
+            MLX) engine_packages=('mlx-lm==0.31.3' 'mlx-vlm==0.4.4') ;;
+            vLLM) engine_packages=('vllm==0.19.0') ;;
+            SGLang) engine_packages=('sglang[srt]==0.5.21' ninja) ;;
           esac
+          python -m pip install -e '.[dev]' 'anthropic>=0.84' pillow "${engine_packages[@]}"
           npm install -g '@anthropic-ai/claude-code@2.1.81'
           python -m pip freeze > native-packages.txt
           claude --version >> native-packages.txt
-      - name: Configure cached model
+      - name: Configure small models
         run: |
           python - <<'PY'
           import json, os
           engine = os.environ["XINFERENCE_TEST_ANTHROPIC_ENGINE"]
-          config = {"model_size_in_billions": "0_8"}
-          if engine != "MLX":
-              config.update(model_format="pytorch", quantization="none", dtype="float16")
-          if engine == "vLLM":
-              config["max_model_len"] = 8192
-          else:
-              config["context_length"] = 8192
-          if engine == "SGLang":
-              config.update(attention_backend="triton", sampling_backend="pytorch")
-          if os.environ["NATIVE_MODEL_PATH"]:
-              config["model_path"] = os.environ["NATIVE_MODEL_PATH"]
+          configs = {
+              "TEXT": {"model_name": "qwen3", "model_size_in_billions": "0_6"},
+              "VISION": {"model_name": "Qwen3-VL-Instruct", "model_size_in_billions": 2},
+          }
           with open(os.environ["GITHUB_ENV"], "a") as output:
-              output.write("XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG=" + json.dumps(config) + "\n")
+              for profile, config in configs.items():
+                  config.update(model_format="mlx" if engine == "MLX" else "pytorch",
+                                quantization="4bit" if engine == "MLX" else "none")
+                  if engine != "MLX":
+                      config["dtype"] = "float16"
+                  if engine == "vLLM":
+                      config.update(max_model_len=8192, limit_mm_per_prompt={})
+                      if profile == "VISION":
+                          config.update(limit_mm_per_prompt={"image": 2, "video": 0},
+                                        mm_processor_kwargs={"max_pixels": 65536})
+                  else:
+                      config["context_length"] = 8192
+                  if engine == "SGLang":
+                      config.update(attention_backend="triton", sampling_backend="pytorch")
+                  if os.environ[profile + "_MODEL_PATH"]:
+                      config["model_path"] = os.environ[profile + "_MODEL_PATH"]
+                  output.write(profile + "_MODEL_CONFIG=" + json.dumps(config) + "\n")
           PY
       - name: Run native API and Claude Code regressions
         run: |
-          set -o pipefail
-          pytest --timeout=600 -vv \
-            --junitxml=native-results.xml \
-            --basetemp=native-artifacts \
-            xinference/model/llm/tests/test_anthropic_engine_integration.py \
-            2>&1 | tee native-pytest.log
+          set -euo pipefail
+          export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$TEXT_MODEL_CONFIG"
+          pytest --timeout=600 -x -s -vv \
+            --junitxml=native-text.xml --basetemp=native-text \
+            "$NATIVE_TEST_FILE::test_thinking_replay_and_tool_loop" \
+            "$NATIVE_TEST_FILE::test_counting_and_unsupported_controls" \
+            "$NATIVE_TEST_FILE::test_openai_path" \
+            "$NATIVE_TEST_FILE::test_claude_code[0]" 2>&1 | tee native-text.log
+          export XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG="$VISION_MODEL_CONFIG"
+          pytest --timeout=600 -x -s -vv \
+            --junitxml=native-vision.xml --basetemp=native-vision \
+            "$NATIVE_TEST_FILE::test_images" \
+            "$NATIVE_TEST_FILE::test_claude_code[1]" \
+            "$NATIVE_TEST_FILE::test_claude_code[2]" 2>&1 | tee native-vision.log
       - name: Upload results and runtime versions
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: anthropic-native-${{ inputs.engine || 'vLLM' }}
           path: |
-            native-results.xml
+            native-*.xml
             native-packages.txt
-            native-pytest.log
-            native-artifacts/**/claude.jsonl
+            native-*.log
+            native-text/**/claude.jsonl
+            native-vision/**/claude.jsonl
           if-no-files-found: ignore

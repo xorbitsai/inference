@@ -86,7 +86,8 @@ def native_model(record_testsuite_property):
             launched = True
         description = client.list_models()[model]
         assert description["model_engine"] == engine, description
-        assert {"vision", "tools", "reasoning"} <= set(description["model_ability"])
+        abilities = set(description["model_ability"])
+        assert "tools" in abilities, description
         for name in ["xinference", "anthropic", "openai"]:
             try:
                 record_testsuite_property(name, version(name))
@@ -112,6 +113,7 @@ def native_model(record_testsuite_property):
         ):
             yield SimpleNamespace(
                 engine=engine,
+                abilities=abilities,
                 model=model,
                 endpoint=endpoint,
                 key=key,
@@ -162,6 +164,7 @@ def create(native, messages, stream=False, **kwargs):
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("colors", [("red",), ("red", "blue")])
 def test_images(native_model, colors, stream):
+    assert "vision" in native_model.abilities
     result = create(
         native_model,
         [
@@ -205,6 +208,7 @@ def tools():
 
 @pytest.mark.parametrize("stream", [False, True])
 def test_thinking_replay_and_tool_loop(native_model, stream):
+    assert "reasoning" in native_model.abilities
     messages = [
         {
             "role": "user",
@@ -213,6 +217,8 @@ def test_thinking_replay_and_tool_loop(native_model, stream):
     ]
     kwargs = dict(
         max_tokens=4096,
+        temperature=0.6,
+        top_p=0.95,
         tools=tools(),
         thinking={"type": "adaptive"},
         output_config={"effort": "low"},
