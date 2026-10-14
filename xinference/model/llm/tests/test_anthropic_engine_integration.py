@@ -149,6 +149,10 @@ def text(message):
 def create(native, messages, stream=False, **kwargs):
     request = dict(model=native.model, max_tokens=768, temperature=0, messages=messages)
     request.update(kwargs)
+    # Newer Anthropic SDKs expose sampling controls only through extra_body.
+    request["extra_body"] = {
+        name: request.pop(name) for name in ("temperature", "top_p") if name in request
+    }
     if not stream:
         return native.anthropic.messages.create(**request)
     with native.anthropic.messages.stream(**request) as response:
