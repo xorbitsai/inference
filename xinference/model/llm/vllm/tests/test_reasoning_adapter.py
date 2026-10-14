@@ -1,6 +1,7 @@
 # Copyright 2022-2026 Xinference Holdings Pte. Ltd
 import runpy
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -9,6 +10,14 @@ import pytest
 
 from ...reasoning_parser import KimiK3ReasoningParser, ReasoningParser
 from ..reasoning import configure_structured_reasoning, create_reasoning_plugin
+
+
+@dataclass
+class FakeStructuredOutputsConfig:
+    backend: str = "auto"
+    reasoning_parser: str = ""
+    reasoning_parser_plugin: str = ""
+    enable_in_reasoning: bool = False
 
 
 class FakeVLLMReasoningParser:
@@ -26,11 +35,7 @@ def vllm_reasoning(monkeypatch):
     monkeypatch.setitem(
         sys.modules,
         "vllm.config",
-        SimpleNamespace(
-            StructuredOutputsConfig=SimpleNamespace(
-                __dataclass_fields__={"reasoning_parser_plugin": object()}
-            )
-        ),
+        SimpleNamespace(StructuredOutputsConfig=FakeStructuredOutputsConfig),
     )
     monkeypatch.setitem(
         sys.modules,
@@ -73,18 +78,19 @@ def test_auto_plugin_reuses_existing_parser_and_is_loadable(
     config = {"structured_outputs_config": {"backend": "xgrammar"}}
     configure_structured_reasoning(config, parser, str(tmp_path))
     structured = config["structured_outputs_config"]
-    assert structured["backend"] == "xgrammar"
-    plugin = Path(structured["reasoning_parser_plugin"])
+    assert isinstance(structured, FakeStructuredOutputsConfig)
+    assert structured.backend == "xgrammar"
+    plugin = Path(structured.reasoning_parser_plugin)
     original = plugin.read_bytes()
     assert create_reasoning_plugin(parser, str(tmp_path)) == (
-        structured["reasoning_parser"],
+        structured.reasoning_parser,
         str(plugin),
     )
     assert plugin.read_bytes() == original
-    # No registration in the launcher is needed; import in EngineCore does it.
+    # The generated file can independently register in a fresh EngineCore process.
     assert not vllm_reasoning
     runpy.run_path(str(plugin))
-    adapter_type = vllm_reasoning[structured["reasoning_parser"]]
+    adapter_type = vllm_reasoning[structured.reasoning_parser]
     tokenizer = SimpleNamespace(encode=lambda text, **kw: list(map(ord, text)))
     adapter = adapter_type(tokenizer)
     assert type(adapter.parser) is type(parser)
@@ -214,3 +220,31 @@ def test_explicit_config_object_is_preserved(tmp_path, vllm_reasoning):
     config = {"structured_outputs_config": configured}
     configure_structured_reasoning(config, ReasoningParser(), str(tmp_path))
     assert config["structured_outputs_config"] is configured
+
+
+@pytest.mark.parametrize(
+    "launch_key,config_key,value",
+    [
+        ("guided_decoding_backend", "guided_decoding_backend", "xgrammar"),
+        ("guided_decoding_disable_fallback", "disable_fallback", True),
+        ("guided_decoding_disable_any_whitespace", "disable_any_whitespace", True),
+        (
+            "guided_decoding_disable_additional_properties",
+            "disable_additional_properties",
+            True,
+        ),
+    ],
+)
+def test_auto_config_supports_legacy_engine_attribute_forwarding(
+    tmp_path, vllm_reasoning, launch_key, config_key, value
+):
+    parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    config = {launch_key: value}
+    configure_structured_reasoning(config, parser, str(tmp_path))
+    # vLLM 0.11.1 create_engine_config forwards these options as attributes.
+    structured = config["structured_outputs_config"]
+    setattr(structured, config_key, config[launch_key])
+    assert getattr(structured, config_key) == value
+    assert structured.reasoning_parser.startswith("xinference_")

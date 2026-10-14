@@ -77,7 +77,7 @@ def configure_structured_reasoning(
         return
     name, path = plugin
     structured.update(reasoning_parser=name, reasoning_parser_plugin=path)
-    model_config["structured_outputs_config"] = structured
+    model_config["structured_outputs_config"] = StructuredOutputsConfig(**structured)
 
 
 def register_reasoning_adapter(name: str, payload: Dict[str, Any]) -> None:

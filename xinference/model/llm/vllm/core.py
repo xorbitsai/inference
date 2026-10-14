@@ -33,6 +33,7 @@ from typing import (
     AsyncGenerator,
     Dict,
     List,
+    Mapping,
     Optional,
     Set,
     Tuple,
@@ -521,14 +522,27 @@ class VLLMModel(WeightCachedModel, LLM):
     support_draft_model = True
     supports_tool_controls = True
 
-    def _use_legacy_json_constraints(self, config: Dict, anthropic: bool) -> bool:
-        if anthropic or (config.get("response_format") or {}).get("type") not in {
-            "json_schema",
-            "json_object",
-        }:
+    def _use_legacy_constraints(
+        self, config: Mapping[str, Any], anthropic: bool
+    ) -> bool:
+        constrained = (
+            (config.get("response_format") or {}).get("type")
+            in {"json_schema", "json_object"}
+            or config.get("guided_json") is not None
+            or any(
+                config.get(key)
+                for key in (
+                    "guided_choice",
+                    "guided_regex",
+                    "guided_grammar",
+                    "guided_json_object",
+                )
+            )
+        )
+        if anthropic or not constrained:
             return False
         structured = getattr(
-            getattr(self._engine, "vllm_config", None),
+            getattr(getattr(self, "_engine", None), "vllm_config", None),
             "structured_outputs_config",
             None,
         )
@@ -2064,7 +2078,20 @@ class VLLMModel(WeightCachedModel, LLM):
         if (enable_thinking or tools) and generate_config:
             generate_config["skip_special_tokens"] = False
 
+        anthropic = bool((generate_config or {}).get("_anthropic_request"))
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
+        if self._use_legacy_constraints(sanitized_generate_config, anthropic):
+            if isinstance(prompt, str):
+                prompt = ChatModelMixin._close_reasoning_prompt(
+                    prompt, self.reasoning_parser
+                )
+            else:
+                prompt = {
+                    **prompt,
+                    "prompt": ChatModelMixin._close_reasoning_prompt(
+                        prompt["prompt"], self.reasoning_parser
+                    ),
+                }
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
         )
@@ -2785,13 +2812,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
-        plain_json = self._use_legacy_json_constraints(generate_config, anthropic)
+        plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         generate_config.pop("tool_choice", None)
         full_prompt, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
         generate_config = generate_config or {}
+        generate_config["_anthropic_request"] = anthropic
         parser = self.reasoning_parser
         chat_template_kwargs = {
             **(chat_template_kwargs or {}),
@@ -3288,13 +3316,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         anthropic = generate_config.pop("_anthropic_request", False)
         if anthropic and is_forced_tool_choice(generate_config):
             return await self._forced_tool_chat(messages, generate_config, request_id)
-        plain_json = self._use_legacy_json_constraints(generate_config, anthropic)
+        plain_json = self._use_legacy_constraints(generate_config, anthropic)
         parallel_tool_calls = generate_config.pop("parallel_tool_calls", True)
         generate_config.pop("tool_choice", None)
         inputs, tools, chat_template_kwargs, generate_config = (
             await self._prepare_chat_inputs(messages, generate_config)
         )
         generate_config = generate_config or {}
+        generate_config["_anthropic_request"] = anthropic
         parser = self.reasoning_parser
         chat_template_kwargs = {
             **(chat_template_kwargs or {}),

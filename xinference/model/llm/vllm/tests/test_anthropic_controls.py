@@ -404,12 +404,26 @@ async def test_openai_tool_choice_keeps_the_legacy_path(cls, choice):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cls", [core.VLLMChatModel, core.VLLMMultiModel])
-@pytest.mark.parametrize("format_type", ["json_schema", "json_object", "text"])
+@pytest.mark.parametrize(
+    "config,output",
+    [
+        ({"response_format": {"type": "json_schema"}}, '{"answer":42}'),
+        ({"response_format": {"type": "json_object"}}, '{"answer":42}'),
+        ({"guided_json": {"type": "object"}}, '{"answer":42}'),
+        ({"guided_json": {}}, '{"answer":42}'),
+        ({"guided_json_object": True}, '{"answer":42}'),
+        ({"guided_choice": ["yes", "no"]}, "yes"),
+        ({"guided_regex": "yes|no"}, "yes"),
+        ({"guided_grammar": 'root ::= "yes"'}, "yes"),
+        ({"response_format": {"type": "text"}}, '{"answer":42}'),
+    ],
+)
+@pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize(
     "prefix", ["qwen3_hybrid", "assistant<think>\n", "assistant<think>\n</think>\n"]
 )
 async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
-    cls, format_type, prefix
+    cls, config, output, stream, prefix
 ):
     import json
 
@@ -443,32 +457,46 @@ async def test_openai_json_schema_starts_after_closed_prompt_reasoning(
         assert prefix.endswith("<|im_start|>assistant\n")
         assert "<think>" not in prefix
     prompt = {"prompt": prefix} if cls is core.VLLMMultiModel else prefix
-    instance._prepare_chat_inputs = AsyncMock(return_value=(prompt, [], {}, {}))
+    instance._prepare_chat_inputs = AsyncMock(
+        return_value=(prompt, [], {}, {"stream": stream})
+    )
     generated = {
         "id": "test",
         "model": "test",
         "created": 1,
-        "choices": [{"text": '{"answer":42}', "finish_reason": "stop"}],
+        "choices": [{"index": 0, "text": output, "finish_reason": "stop"}],
         "usage": {},
     }
-    instance.async_generate = AsyncMock(return_value=generated)
+
+    async def chunks():
+        yield generated
+
+    instance.async_generate = AsyncMock(return_value=chunks() if stream else generated)
     result = await cls.async_chat.__wrapped__(
-        instance, [], {"response_format": {"type": format_type}}
+        instance, [], {**config, "stream": stream}
     )
     rendered = instance.async_generate.call_args.args[0]
     if isinstance(rendered, dict):
         rendered = rendered["prompt"]
-    if format_type == "text":
+    unconstrained = config == {"response_format": {"type": "text"}}
+    if unconstrained:
         assert rendered == prefix
     else:
         assert rendered.endswith("</think>\n")
         assert rendered.count("<think>") == 1
-    content = result["choices"][0]["message"]["content"]
-    if format_type == "text":
+    if stream:
+        content = "".join(
+            choice["delta"].get("content") or ""
+            for chunk in [c async for c in result]
+            for choice in chunk["choices"]
+        )
+    else:
+        content = result["choices"][0]["message"]["content"]
+        assert "reasoning_content" not in result["choices"][0]["message"]
+    if unconstrained:
         assert content.startswith("<think>\n")
     else:
-        assert json.loads(content) == {"answer": 42}
-    assert "reasoning_content" not in result["choices"][0]["message"]
+        assert content == output
 
 
 @pytest.mark.asyncio
@@ -513,3 +541,83 @@ async def test_forced_json_extraction_does_not_require_reasoning_content_display
         result["choices"][0]["message"]["tool_calls"][0]["function"]["name"] == "Read"
     )
     assert "reasoning_content" not in result["choices"][0]["message"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("anthropic", [False, True])
+@pytest.mark.parametrize("multimodal", [False, True])
+async def test_completion_constraints_start_before_thinking(
+    monkeypatch, anthropic, multimodal
+):
+    from ...reasoning_parser import ReasoningParser
+
+    class StopBeforeGeneration(Exception):
+        pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "vllm.sampling_params",
+        SimpleNamespace(
+            SamplingParams=lambda **kwargs: SimpleNamespace(max_tokens=None)
+        ),
+    )
+    monkeypatch.setattr(core, "VLLM_INSTALLED", False)
+    monkeypatch.setattr(core, "VLLM_VERSION", core.version.parse("0.19.0"))
+    model = object.__new__(core.VLLMChatModel)
+    model.reasoning_parser = ReasoningParser(
+        reasoning_start_tag="<think>", reasoning_end_tag="</think>"
+    )
+    model._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            structured_outputs_config=SimpleNamespace(
+                reasoning_parser="xinference_auto"
+            )
+        )
+    )
+    model.lora_requests = []
+    model._get_tokenizer = AsyncMock(return_value=object())
+    model._gen_tokens_prompt = AsyncMock(side_effect=StopBeforeGeneration)
+    prompt = (
+        {"prompt": "assistant\n", "multi_modal_data": {"image": object()}}
+        if multimodal
+        else "assistant\n"
+    )
+    with pytest.raises(StopBeforeGeneration):
+        await core.VLLMModel.async_generate.__wrapped__(
+            model, prompt, {"guided_choice": ["yes"], "_anthropic_request": anthropic}
+        )
+    rendered = model._gen_tokens_prompt.call_args.args[1]
+    text = rendered["prompt"] if multimodal else rendered
+    assert text == ("assistant\n" if anthropic else "assistant\n<think></think>\n")
+    if multimodal:
+        assert rendered["multi_modal_data"] is prompt["multi_modal_data"]
+        assert prompt["prompt"] == "assistant\n"
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("guided_json", {"type": "object"}),
+        ("guided_json_object", True),
+        ("guided_choice", ["yes"]),
+        ("guided_regex", "yes|no"),
+        ("guided_grammar", 'root ::= "yes"'),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True])
+def test_api_guided_params_reach_legacy_constraints(key, value, nested):
+    from xinference.api.restful_api import RESTfulAPI
+
+    raw = {"extra_body": {key: value}} if nested else {key: value}
+    config = RESTfulAPI.extract_guided_params(raw)
+    model = object.__new__(core.VLLMChatModel)
+    model._engine = SimpleNamespace(
+        vllm_config=SimpleNamespace(
+            structured_outputs_config=SimpleNamespace(
+                reasoning_parser="xinference_auto"
+            )
+        )
+    )
+    assert config[key] == value
+    assert model._use_legacy_constraints(config, False)
+    assert not model._use_legacy_constraints(config, True)
