@@ -8,6 +8,7 @@ canonical request and produce the same Anthropic response representation.
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid
 from dataclasses import dataclass
@@ -452,6 +453,78 @@ def anthropic_request_model(raw_body: Any) -> str:
     return model.strip()
 
 
+def _parse_context_management(raw_value: Any) -> Optional[Dict[str, Any]]:
+    if raw_value is None:
+        return None
+    if not isinstance(raw_value, dict):
+        raise _invalid("context_management must be an object")
+    edits = raw_value.get("edits")
+    if not isinstance(edits, list):
+        raise _invalid("context_management.edits must be an array")
+
+    clear_thinking = None
+    seen = set()
+    for edit in edits:
+        if not isinstance(edit, dict):
+            raise _invalid("Every context management edit must be an object")
+        edit_type = edit.get("type")
+        if not isinstance(edit_type, str) or not edit_type:
+            raise _invalid("Context management edits require a string 'type'")
+        if edit_type in seen:
+            raise _invalid(f"Duplicate Anthropic context management edit: {edit_type}")
+        seen.add(edit_type)
+        if edit_type != "clear_thinking_20251015":
+            raise _invalid(
+                f"Unsupported Anthropic context management edit type: {edit_type}"
+            )
+
+        keep = edit.get("keep")
+        if keep == "all":
+            clear_thinking = {"keep_all": True}
+        elif (
+            isinstance(keep, dict)
+            and keep.get("type") == "thinking_turns"
+            and isinstance(keep.get("value"), int)
+            and not isinstance(keep.get("value"), bool)
+            and keep["value"] > 0
+        ):
+            clear_thinking = {"keep_turns": keep["value"]}
+        else:
+            raise _invalid(
+                "clear_thinking_20251015.keep must be 'all' or a positive "
+                "thinking_turns value"
+            )
+    return clear_thinking
+
+
+def _apply_context_management(
+    messages: List[Dict[str, Any]], clear_thinking: Optional[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    if clear_thinking is None or clear_thinking.get("keep_all"):
+        return messages
+
+    prepared = copy.deepcopy(messages)
+    resolved_tool_ids = {
+        message.get("tool_call_id")
+        for message in prepared
+        if message.get("role") == "tool"
+    }
+    thinking_indexes = [
+        index
+        for index, message in enumerate(prepared)
+        if message.get("role") == "assistant" and message.get("reasoning_content")
+    ]
+    keep_indexes = set(thinking_indexes[-clear_thinking["keep_turns"] :])
+    for index in thinking_indexes:
+        tool_calls = prepared[index].get("tool_calls") or []
+        if any(call.get("id") not in resolved_tool_ids for call in tool_calls):
+            keep_indexes.add(index)
+    for index in thinking_indexes:
+        if index not in keep_indexes:
+            prepared[index].pop("reasoning_content", None)
+    return prepared
+
+
 def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
     model = anthropic_request_model(raw_body)
     max_tokens = raw_body.get("max_tokens")
@@ -506,6 +579,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
             if thinking_budget >= max_tokens:
                 raise _invalid("thinking.budget_tokens must be less than max_tokens")
 
+    clear_thinking = _parse_context_management(raw_body.get("context_management"))
     tools = _normalize_tools(raw_body.get("tools"))
     tool_names = {tool["function"]["name"] for tool in tools or []}
     budget = ContentBudget()
@@ -516,6 +590,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         budget=budget,
         model=model,
     )
+    messages = _apply_context_management(messages, clear_thinking)
     output_config = raw_body.get("output_config") or {}
     if not isinstance(output_config, dict):
         raise _invalid("output_config must be an object")
@@ -546,6 +621,11 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         if not isinstance(disabled, bool):
             raise _invalid("disable_parallel_tool_use must be a boolean")
         parallel = not disabled
+    cache_control = _parse_cache_control(raw_body, tool_names, messages, budget)
+    if cache_control is not None:
+        cache_control["messages"] = _apply_context_management(
+            cache_control["messages"], clear_thinking
+        )
     return CanonicalChatRequest(
         requested_model=model,
         messages=messages,
@@ -563,7 +643,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         response_format=response_format,
         reasoning_effort=effort,
         parallel_tool_calls=parallel,
-        cache_control=_parse_cache_control(raw_body, tool_names, messages, budget),
+        cache_control=cache_control,
     )
 
 

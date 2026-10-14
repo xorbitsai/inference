@@ -32,6 +32,130 @@ def _base_request(**overrides):
     return body
 
 
+def test_context_management_clears_old_verified_thinking(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.api.protocols.anthropic.verify_thinking",
+        lambda text, model, signature: True,
+    )
+    request = parse_anthropic_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "thinking",
+                            "thinking": "old reasoning",
+                            "signature": "xinference_v1:old",
+                        },
+                        {"type": "text", "text": "old answer"},
+                    ],
+                },
+                {"role": "user", "content": "continue"},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "thinking",
+                            "thinking": "new reasoning",
+                            "signature": "xinference_v1:new",
+                        },
+                        {"type": "text", "text": "new answer"},
+                    ],
+                },
+                {"role": "user", "content": "continue again"},
+            ],
+            context_management={
+                "edits": [
+                    {
+                        "type": "clear_thinking_20251015",
+                        "keep": {"type": "thinking_turns", "value": 1},
+                    }
+                ]
+            },
+        )
+    )
+
+    assistants = [
+        message for message in request.messages if message["role"] == "assistant"
+    ]
+    assert "reasoning_content" not in assistants[0]
+    assert assistants[0]["content"] == "old answer"
+    assert assistants[1]["reasoning_content"] == "new reasoning"
+
+
+def test_context_management_keep_all_is_a_noop(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.api.protocols.anthropic.verify_thinking",
+        lambda text, model, signature: True,
+    )
+    request = parse_anthropic_request(
+        _base_request(
+            messages=[
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "thinking",
+                            "thinking": "reasoning",
+                            "signature": "xinference_v1:signed",
+                        }
+                    ],
+                },
+                {"role": "user", "content": "continue"},
+            ],
+            context_management={
+                "edits": [{"type": "clear_thinking_20251015", "keep": "all"}]
+            },
+        )
+    )
+
+    assert request.messages[0]["reasoning_content"] == "reasoning"
+
+
+@pytest.mark.parametrize(
+    "context_management,message",
+    [
+        ("invalid", "context_management must be an object"),
+        ({"edits": "invalid"}, "context_management.edits must be an array"),
+        (
+            {"edits": [{"type": "clear_tool_uses_20250919"}]},
+            "Unsupported Anthropic context management edit type",
+        ),
+        (
+            {"edits": [{"type": "clear_thinking_20251015", "keep": {"value": 1}}]},
+            "clear_thinking_20251015.keep",
+        ),
+    ],
+)
+def test_context_management_rejects_invalid_edits(context_management, message):
+    with pytest.raises(AnthropicProtocolError, match=message):
+        parse_anthropic_request(_base_request(context_management=context_management))
+
+
+def test_context_management_preserves_unresolved_tool_thinking():
+    from xinference.api.protocols.anthropic import _apply_context_management
+
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "reasoning_content": "needed by pending tool use",
+            "tool_calls": [{"id": "pending"}],
+        },
+        {
+            "role": "assistant",
+            "content": "later answer",
+            "reasoning_content": "later reasoning",
+        },
+    ]
+
+    prepared = _apply_context_management(messages, {"keep_turns": 1})
+
+    assert prepared[0]["reasoning_content"] == "needed by pending tool use"
+    assert prepared[1]["reasoning_content"] == "later reasoning"
+
+
 def test_parse_request_maps_system_stop_tools_and_thinking():
     request = parse_anthropic_request(
         _base_request(
