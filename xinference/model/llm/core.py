@@ -236,8 +236,11 @@ class LLM(abc.ABC):
         engine = type(self).__module__.split(".")[-2]
         raw_limit = getattr(self, "_model_config", {}).get("limit_mm_per_prompt")
         max_images = raw_limit.get("image") if isinstance(raw_limit, dict) else None
-        reasoning = "reasoning" in abilities or self.reasoning_parser is not None
-        tools = "tools" in abilities or self.tool_parser is not None
+        reasoning = (
+            "reasoning" in abilities
+            or getattr(self, "reasoning_parser", None) is not None
+        )
+        tools = "tools" in abilities or getattr(self, "tool_parser", None) is not None
         return AnthropicBackendCapabilities(
             engine=engine,
             vision=(

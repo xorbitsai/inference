@@ -111,6 +111,16 @@ def test_loaded_model_capabilities_include_deployment_image_limit():
     assert capabilities.max_images_per_prompt == 4
 
 
+def test_capabilities_allow_partially_initialized_model_instances():
+    model = StubLLM.__new__(StubLLM)
+    model.model_family = SimpleNamespace(model_ability=["chat"])
+
+    capabilities = model.get_anthropic_capabilities()
+
+    assert capabilities.tools == SupportLevel.UNSUPPORTED
+    assert capabilities.reasoning == SupportLevel.UNSUPPORTED
+
+
 def test_planner_rejects_unsupported_explicit_constraint():
     plan = plan_anthropic_compatibility(
         frozenset({"parallel_tools"}),
