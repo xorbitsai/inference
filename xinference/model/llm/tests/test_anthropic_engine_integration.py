@@ -425,10 +425,21 @@ def test_claude_code(native_model, tmp_path, image_count, record_testsuite_prope
     if colors:
         assert all(color in final["result"].lower() for color in colors), final
     else:
-        assert "NATIVE_RESULT_42" in final["result"], final
-        assert any(
-            b.get("type") == "tool_use" and b.get("name") == "Read"
+        read_ids = {
+            b["id"]
             for event in events
             if event.get("type") == "assistant"
             for b in event["message"]["content"]
+            if b.get("type") == "tool_use" and b.get("name") == "Read"
+        }
+        assert read_ids, events
+        assert any(
+            b.get("type") == "tool_result"
+            and b.get("tool_use_id") in read_ids
+            and not b.get("is_error")
+            and "NATIVE_RESULT_42" in b.get("content", "")
+            for event in events
+            if event.get("type") == "user"
+            for b in event["message"]["content"]
         )
+        assert final["num_turns"] >= 2 and final["result"], final
