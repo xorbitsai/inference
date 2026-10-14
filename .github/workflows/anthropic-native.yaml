@@ -1,0 +1,103 @@
+name: Anthropic native regression
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/anthropic-native.yaml'
+      - 'xinference/model/llm/tests/test_anthropic_engine_integration.py'
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: Native engine to check
+        type: choice
+        options: [MLX, vLLM, SGLang]
+        required: true
+      model_path:
+        description: Optional cached Qwen3.5-0.8B model path on the runner
+        type: string
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    # PRs run one small vLLM smoke test on the existing GPU runner. The same
+    # suite can be dispatched for the other engines without adding PR jobs.
+    runs-on: ${{ inputs.engine == 'MLX' && 'macos-latest' || 'gpu-t4' }}
+    timeout-minutes: 90
+    env:
+      NO_WEB_UI: 1
+      XINFERENCE_TEST_ANTHROPIC_ENGINE: ${{ inputs.engine || 'vLLM' }}
+      XINFERENCE_TEST_CLAUDE_CODE: '1'
+      NATIVE_MODEL_PATH: ${{ inputs.model_path }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: '3.12'
+          activate-environment: native-test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Record runner hardware
+        run: |
+          if [ "$XINFERENCE_TEST_ANTHROPIC_ENGINE" = MLX ]; then
+            sysctl -n hw.memsize
+          else
+            nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+          fi
+      - name: Install test and engine dependencies
+        run: |
+          python -m pip install -U pip 'setuptools<82'
+          python -m pip install -e '.[dev]' 'anthropic>=0.84' pillow
+          case "$XINFERENCE_TEST_ANTHROPIC_ENGINE" in
+            MLX) python -m pip install 'mlx-lm==0.31.3' 'mlx-vlm==0.4.4' ;;
+            vLLM) python -m pip install 'vllm==0.19.0' ;;
+            SGLang) python -m pip install 'sglang[srt]==0.5.21' ninja ;;
+          esac
+          npm install -g '@anthropic-ai/claude-code@2.1.81'
+          python -m pip freeze > native-packages.txt
+          claude --version >> native-packages.txt
+      - name: Configure cached model
+        run: |
+          python - <<'PY'
+          import json, os
+          engine = os.environ["XINFERENCE_TEST_ANTHROPIC_ENGINE"]
+          config = {"model_size_in_billions": "0_8"}
+          if engine != "MLX":
+              config.update(model_format="pytorch", quantization="none", dtype="float16")
+          if engine == "vLLM":
+              config["max_model_len"] = 8192
+          else:
+              config["context_length"] = 8192
+          if engine == "SGLang":
+              config.update(attention_backend="triton", sampling_backend="pytorch")
+          if os.environ["NATIVE_MODEL_PATH"]:
+              config["model_path"] = os.environ["NATIVE_MODEL_PATH"]
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              output.write("XINFERENCE_TEST_ANTHROPIC_LAUNCH_CONFIG=" + json.dumps(config) + "\n")
+          PY
+      - name: Run native API and Claude Code regressions
+        run: |
+          set -o pipefail
+          pytest --timeout=600 -vv \
+            --junitxml=native-results.xml \
+            --basetemp=native-artifacts \
+            xinference/model/llm/tests/test_anthropic_engine_integration.py \
+            2>&1 | tee native-pytest.log
+      - name: Upload results and runtime versions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anthropic-native-${{ inputs.engine || 'vLLM' }}
+          path: |
+            native-results.xml
+            native-packages.txt
+            native-pytest.log
+            native-artifacts/**/claude.jsonl
+          if-no-files-found: ignore
