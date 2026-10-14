@@ -1154,6 +1154,24 @@ def model_launch(
 
                 time.sleep(0.5)
 
+            # Terminated instances are dropped from the instance info, so an
+            # empty result means the launch was cancelled or torn down.
+            if not status:
+                raise click.ClickException(
+                    f"Model {model_uid} was terminated before it became ready."
+                )
+            if any(s["status"] != "READY" for s in status):
+                errors = [
+                    replica["error_message"].strip()
+                    for s in status
+                    for replica in s.get("replica_statuses") or []
+                    if replica.get("error_message")
+                ]
+                raise click.ClickException(
+                    f"Failed to launch model {model_uid}: "
+                    + ("; ".join(errors) or "see the server logs for details.")
+                )
+
             # setting to 100%
             pbar.update(pbar.total - pbar.n)
 
