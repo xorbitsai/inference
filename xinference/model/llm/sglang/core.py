@@ -1696,7 +1696,10 @@ class SGLANGVisionModel(SGLANGModel):
                 if isinstance(image, Image.Image):
                     buffered = BytesIO()
                     image.save(buffered, format="JPEG", quality=100)
-                    base64_images.append(base64.b64encode(buffered.getvalue()).decode())
+                    base64_images.append(
+                        "data:image/jpeg;base64,"
+                        + base64.b64encode(buffered.getvalue()).decode()
+                    )
                 elif isinstance(image, str):
                     base64_images.append(image)
                 else:
