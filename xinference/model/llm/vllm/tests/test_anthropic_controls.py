@@ -109,6 +109,7 @@ async def test_adaptive_structured_output_after_replayed_tool_reasoning(
     generated_prompts = []
 
     async def generate(rendered, *args, **kwargs):
+        assert args[0]["_anthropic_request"] is True
         text = rendered["prompt"] if isinstance(rendered, dict) else rendered
         generated_prompts.append(text)
         # Match vLLM's initial grammar gate on the complete prompt token IDs.
@@ -508,6 +509,7 @@ async def test_openai_tool_choice_keeps_the_legacy_path(cls, choice):
     )
     assert result["choices"][0]["message"]["content"] == "answer"
     assert "tool_choice" not in instance._prepare_chat_inputs.call_args.args[1]
+    assert "_anthropic_request" not in instance.async_generate.call_args.args[1]
     instance._forced_tool_chat.assert_not_awaited()
 
 

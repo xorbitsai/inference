@@ -2844,7 +2844,8 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             await self._prepare_chat_inputs(messages, generate_config)
         )
         generate_config = generate_config or {}
-        generate_config["_anthropic_request"] = anthropic
+        if anthropic:
+            generate_config["_anthropic_request"] = True
         parser = self.reasoning_parser
         chat_template_kwargs = {
             **(chat_template_kwargs or {}),
@@ -3351,7 +3352,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             await self._prepare_chat_inputs(messages, generate_config)
         )
         generate_config = generate_config or {}
-        generate_config["_anthropic_request"] = anthropic
+        if anthropic:
+            generate_config["_anthropic_request"] = True
         parser = self.reasoning_parser
         chat_template_kwargs = {
             **(chat_template_kwargs or {}),
