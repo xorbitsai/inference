@@ -163,6 +163,83 @@ def test_cache_boundary_and_ttl_are_retained():
         request(cache_control={"type": "ephemeral", "ttl": "forever"})
 
 
+def test_context_edit_cache_prefix_renders_as_full_history_prefix(monkeypatch):
+    from types import SimpleNamespace
+
+    from xinference.model.llm.mlx.core import MLXChatModel
+
+    monkeypatch.setattr(
+        "xinference.api.protocols.anthropic.verify_thinking",
+        lambda text, model, signature: True,
+    )
+    parsed = request(
+        messages=[
+            {"role": "user", "content": "old question"},
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": "old reasoning",
+                        "signature": "xinference_v1:old",
+                    },
+                    {
+                        "type": "text",
+                        "text": "old answer",
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                ],
+            },
+            {"role": "user", "content": "new question"},
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": "new reasoning",
+                        "signature": "xinference_v1:new",
+                    },
+                    {"type": "text", "text": "new answer"},
+                ],
+            },
+            {"role": "user", "content": "continue"},
+        ],
+        context_management={
+            "edits": [
+                {
+                    "type": "clear_thinking_20251015",
+                    "keep": {"type": "thinking_turns", "value": 1},
+                }
+            ]
+        },
+    )
+    model = object.__new__(MLXChatModel)
+    model._tokenizer = SimpleNamespace(encode=lambda value: list(value))
+
+    def render(messages, *args, **kwargs):
+        return "".join(
+            f"{message['role']}:{message.get('reasoning_content', '')}:"
+            f"{message.get('content', '')}\n"
+            for message in messages
+        )
+
+    model.get_full_context = render
+    full_prompt = render(parsed.messages)
+    prefix_prompt = render(parsed.cache_control["messages"])
+
+    prefix_len = model._get_reusable_prompt_prefix_len(
+        parsed.messages,
+        full_prompt,
+        "unused",
+        None,
+        {},
+        parsed.cache_control,
+    )
+
+    assert prefix_len == len(prefix_prompt)
+    assert full_prompt.startswith(prefix_prompt)
+
+
 def test_schema_and_parallel_controls_are_preserved():
     schema = {
         "type": "object",

@@ -12,7 +12,7 @@ import copy
 import json
 import uuid
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, FrozenSet, List, Optional
 
 from .anthropic_content import ContentBudget, normalize_content
 from .anthropic_thinking import sign_thinking, verify_thinking
@@ -458,7 +458,7 @@ def _parse_context_management(raw_value: Any) -> Optional[Dict[str, Any]]:
         return None
     if not isinstance(raw_value, dict):
         raise _invalid("context_management must be an object")
-    edits = raw_value.get("edits")
+    edits = raw_value.get("edits", [])
     if not isinstance(edits, list):
         raise _invalid("context_management.edits must be an array")
 
@@ -478,8 +478,8 @@ def _parse_context_management(raw_value: Any) -> Optional[Dict[str, Any]]:
                 f"Unsupported Anthropic context management edit type: {edit_type}"
             )
 
-        keep = edit.get("keep")
-        if keep == "all":
+        keep = edit.get("keep", "all")
+        if keep == "all" or (isinstance(keep, dict) and keep.get("type") == "all"):
             clear_thinking = {"keep_all": True}
         elif (
             isinstance(keep, dict)
@@ -497,31 +497,58 @@ def _parse_context_management(raw_value: Any) -> Optional[Dict[str, Any]]:
     return clear_thinking
 
 
-def _apply_context_management(
+def _plan_context_management(
     messages: List[Dict[str, Any]], clear_thinking: Optional[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+) -> FrozenSet[int]:
     if clear_thinking is None or clear_thinking.get("keep_all"):
+        return frozenset()
+
+    resolved_tool_ids = {
+        message.get("tool_call_id")
+        for message in messages
+        if message.get("role") == "tool"
+    }
+    assistant_ordinal = 0
+    turn = 0
+    thinking_messages = []
+    unresolved_turns = set()
+    for message in messages:
+        if message.get("role") == "user":
+            turn += 1
+            continue
+        if message.get("role") != "assistant":
+            continue
+        tool_calls = message.get("tool_calls") or []
+        if any(call.get("id") not in resolved_tool_ids for call in tool_calls):
+            unresolved_turns.add(turn)
+        if message.get("reasoning_content"):
+            thinking_messages.append((assistant_ordinal, turn))
+        assistant_ordinal += 1
+
+    thinking_turns = list(dict.fromkeys(turn for _, turn in thinking_messages))
+    keep_turns = set(thinking_turns[-clear_thinking["keep_turns"] :])
+    keep_turns.update(unresolved_turns)
+    return frozenset(
+        ordinal
+        for ordinal, message_turn in thinking_messages
+        if message_turn not in keep_turns
+    )
+
+
+def _apply_context_management(
+    messages: List[Dict[str, Any]], clear_assistant_ordinals: FrozenSet[int]
+) -> List[Dict[str, Any]]:
+    if not clear_assistant_ordinals:
         return messages
 
     prepared = copy.deepcopy(messages)
-    resolved_tool_ids = {
-        message.get("tool_call_id")
-        for message in prepared
-        if message.get("role") == "tool"
-    }
-    thinking_indexes = [
-        index
-        for index, message in enumerate(prepared)
-        if message.get("role") == "assistant" and message.get("reasoning_content")
-    ]
-    keep_indexes = set(thinking_indexes[-clear_thinking["keep_turns"] :])
-    for index in thinking_indexes:
-        tool_calls = prepared[index].get("tool_calls") or []
-        if any(call.get("id") not in resolved_tool_ids for call in tool_calls):
-            keep_indexes.add(index)
-    for index in thinking_indexes:
-        if index not in keep_indexes:
-            prepared[index].pop("reasoning_content", None)
+    assistant_ordinal = 0
+    for message in prepared:
+        if message.get("role") != "assistant":
+            continue
+        if assistant_ordinal in clear_assistant_ordinals:
+            message.pop("reasoning_content", None)
+        assistant_ordinal += 1
     return prepared
 
 
@@ -590,7 +617,8 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
         budget=budget,
         model=model,
     )
-    messages = _apply_context_management(messages, clear_thinking)
+    clear_assistant_ordinals = _plan_context_management(messages, clear_thinking)
+    messages = _apply_context_management(messages, clear_assistant_ordinals)
     output_config = raw_body.get("output_config") or {}
     if not isinstance(output_config, dict):
         raise _invalid("output_config must be an object")
@@ -624,7 +652,7 @@ def parse_anthropic_request(raw_body: Any) -> CanonicalChatRequest:
     cache_control = _parse_cache_control(raw_body, tool_names, messages, budget)
     if cache_control is not None:
         cache_control["messages"] = _apply_context_management(
-            cache_control["messages"], clear_thinking
+            cache_control["messages"], clear_assistant_ordinals
         )
     return CanonicalChatRequest(
         requested_model=model,

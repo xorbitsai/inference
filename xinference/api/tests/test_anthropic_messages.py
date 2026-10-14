@@ -33,6 +33,62 @@ def make_app(api):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["/v1/messages", "/v1/messages/count_tokens"])
+@pytest.mark.parametrize(
+    "context_management",
+    [
+        {},
+        {"edits": [{"type": "clear_thinking_20251015"}]},
+        {"edits": [{"type": "clear_thinking_20251015", "keep": {"type": "all"}}]},
+        {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
+    ],
+)
+async def test_context_management_optional_shapes_are_accepted(
+    monkeypatch, endpoint, context_management
+):
+    api = make_rest_api()
+    app = make_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+
+    class Model:
+        async def prepare_anthropic_request(self, messages, config):
+            return {
+                "messages": messages,
+                "generate_config": config,
+                "input_tokens": 3,
+                "cache_control_applied": False,
+            }
+
+        async def chat(self, *args, **kwargs):
+            return {
+                "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 1},
+            }
+
+    async def require_model(*args, **kwargs):
+        return Model()
+
+    monkeypatch.setattr(restful_api_module, "require_model", require_model)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            endpoint,
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "local",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "context_management": context_management,
+            },
+        )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "error,status",
     [
