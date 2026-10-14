@@ -398,6 +398,14 @@ async def test_abort_both_stages(router):
 
 
 class FakeStage(xo.StatelessActor):
+    async def prepare_anthropic_request(self, messages, config):
+        return json.dumps(
+            {"messages": messages, "generate_config": config, "input_tokens": 13}
+        ).encode()
+
+    async def count_tokens(self, messages, config):
+        return b"13"
+
     @rpc_context
     async def decrease_serve_count(self):
         pass
@@ -436,6 +444,11 @@ async def test_nested_actor_streaming():
         )
         await router.add_prefill_actor("p", p)
         await router.add_decode_actor("d", d)
+        prepared = json.loads(await router.prepare_anthropic_request([], {}))
+        assert prepared == {"messages": [], "generate_config": {}, "input_tokens": 13}
+        assert await router.count_tokens([], {}) == b"13"
+        with pytest.raises(NotImplementedError, match="Forced tool choice"):
+            await router.prepare_anthropic_request([], {"tool_choice": "required"})
         assert await router.chat([], {"stream": False}) == b"non-stream"
         stream = await router.chat([], {"stream": True})
         assert [chunk async for chunk in stream] == [b"one", b"two"]

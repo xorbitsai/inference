@@ -38,7 +38,7 @@ msgid ""
 "Based on the log above, the endpoint is `http://127.0.0.1:9997`. Users can "
 "connect to the xinference server through this endpoint using the Client."
 msgstr ""
-"명령 로그에 서비스 주소가 출력되며, 위 로그에서는 `http://127.0.0.1:9997`입니다. 사용자는 Client를 통해 "
+"명령 로그에 서비스 주소가 출력되며, 위 로그에서는 `http://127.0.0.1:9997` 입니다. 사용자는 Client를 통해 "
 "Xinference 서비스에 연결할 수 있습니다."
 
 #: ../../source/user_guide/client_api.rst:20
@@ -113,10 +113,6 @@ msgstr "Codex CLI는 이 API를 통해 사용자 정의 제공자를 호출합�
 #: ../../source/user_guide/client_api.rst:142
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
-
-#: ../../source/user_guide/client_api.rst:144
-msgid "Anthropic API's access address is: /anthropic/v1/messages"
-msgstr "Anthropic의 API 접속 주소: /anthropic/v1/messages"
 
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
@@ -199,13 +195,39 @@ msgid "Cache hit token counts"
 msgstr "캐시 적중 토큰 수"
 
 #: user_guide/client_api.rst:99
-msgid "With vLLM, SGLang, and MLX, completion and chat completion responses expose the engine's reused prompt-token count in ``usage.prompt_tokens_details.cached_tokens`` when available. This count includes native prefix-cache reuse and Xavier cache reuse reported by the engine; it is part of ``prompt_tokens``, not an additional token count."
-msgstr "vLLM, SGLang, MLX에서 엔진이 통계를 제공하면 완성 및 채팅 완성 응답의 ``usage.prompt_tokens_details.cached_tokens``에 재사용된 프롬프트 토큰 수가 포함됩니다. 이 값에는 엔진이 보고한 기본 접두사 캐시 재사용과 Xavier 캐시 재사용이 포함됩니다. ``prompt_tokens``의 일부이며 추가 토큰 수가 아닙니다."
+msgid ""
+"With vLLM, SGLang, and MLX, completion and chat completion responses expose "
+"the engine's reused prompt-token count in "
+"``usage.prompt_tokens_details.cached_tokens`` when available. This count "
+"includes native prefix-cache reuse and Xavier cache reuse reported by the "
+"engine; it is part of ``prompt_tokens``, not an additional token count."
+msgstr ""
+"vLLM, SGLang, MLX에서 엔진이 통계를 제공하면 완성 및 채팅 완성 응답의 "
+"``usage.prompt_tokens_details.cached_tokens`` 에 재사용된 프롬프트 토큰 수가 포함됩니다. 이 값에는"
+" 엔진이 보고한 기본 접두사 캐시 재사용과 Xavier 캐시 재사용이 포함됩니다. ``prompt_tokens`` 의 일부이며 추가 토큰"
+" 수가 아닙니다."
 
 #: user_guide/client_api.rst:103
-msgid "For streaming requests, set ``stream_options={\"include_usage\": True}`` to receive the final usage chunk with ``choices=[]``. The Responses API exposes the same count as ``usage.input_tokens_details.cached_tokens``. If the engine does not report cache hits, completion and chat completion responses omit ``prompt_tokens_details``; the Responses API defaults the count to zero."
-msgstr "스트리밍 요청에서 ``stream_options={\"include_usage\": True}``를 설정하면 ``choices=[]``인 최종 사용량 청크를 받을 수 있습니다. Responses API는 동일한 값을 ``usage.input_tokens_details.cached_tokens``로 반환합니다. 엔진이 캐시 적중을 보고하지 않으면 완성 및 채팅 완성 응답에서 ``prompt_tokens_details``가 생략되고 Responses API는 기본값인 0을 반환합니다."
+msgid ""
+"For streaming requests, set ``stream_options={\"include_usage\": True}`` to "
+"receive the final usage chunk with ``choices=[]``. The Responses API exposes"
+" the same count as ``usage.input_tokens_details.cached_tokens``. If the "
+"engine does not report cache hits, completion and chat completion responses "
+"omit ``prompt_tokens_details``; the Responses API defaults the count to "
+"zero."
+msgstr ""
+"스트리밍 요청에서 ``stream_options={\"include_usage\": True}`` 를 설정하면 ``choices=[]``"
+" 인 최종 사용량 청크를 받을 수 있습니다. Responses API는 동일한 값을 "
+"``usage.input_tokens_details.cached_tokens`` 로 반환합니다. 엔진이 캐시 적중을 보고하지 않으면 완성"
+" 및 채팅 완성 응답에서 ``prompt_tokens_details`` 가 생략되고 Responses API는 기본값인 0을 반환합니다."
 
 #: user_guide/client_api.rst:101
 msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
 msgstr "P/D 분리에서는 현재 요청을 위해 계산된 KV도 포함하여 프리필 엔진에서 전송된 KV를 이 값에 포함합니다. 프리필 엔진의 이전 접두사 캐시 적중 횟수를 별도로 나타내지는 않습니다."
+
+#: user_guide/client_api.rst:200
+msgid ""
+"See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
+"supported features and limitations."
+msgstr ""
+"Claude Code 설정, Python SDK 예제, 지원 기능 및 제한 사항은 :ref:`anthropic_api` 를 참조하세요."

@@ -113,10 +113,6 @@ msgstr "Codex CLI 透過此 API 呼叫自訂提供者。在 ``~/.codex/config.to
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
 
-#: ../../source/user_guide/client_api.rst:144
-msgid "Anthropic API's access address is: /anthropic/v1/messages"
-msgstr "Anthropic的API訪問地址為：/anthropic/v1/messages"
-
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
 msgstr "Embedding"
@@ -204,3 +200,9 @@ msgstr "串流請求設定 ``stream_options={\"include_usage\": True}`` 後，�
 #: user_guide/client_api.rst:101
 msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
 msgstr "使用 P/D 分離時，此數值包含從預填充引擎傳輸的 KV，即使這些 KV 是為目前請求計算的；它不單獨統計預填充引擎的歷史前綴快取命中數。"
+
+#: user_guide/client_api.rst:200
+msgid ""
+"See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
+"supported features and limitations."
+msgstr "Claude Code 設定、Python SDK 範例以及支援的功能和限制，請參見 :ref:`anthropic_api`。"

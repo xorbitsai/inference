@@ -1045,7 +1045,10 @@ async def test_list_models_hides_persisted_virtual_models_when_router_disabled(
 
 
 @pytest.mark.asyncio
-async def test_anthropic_virtual_non_stream_uses_openai_data_plane(monkeypatch):
+@pytest.mark.parametrize("cache_hint", [False, True])
+async def test_anthropic_virtual_non_stream_uses_openai_data_plane(
+    monkeypatch, cache_hint
+):
     resolution = {
         "matched": True,
         "available": True,
@@ -1099,11 +1102,15 @@ async def test_anthropic_virtual_non_stream_uses_openai_data_plane(monkeypatch):
                 "messages": [{"role": "user", "content": "hello"}],
                 "max_tokens": 64,
                 "stop_sequences": ["END"],
+                **({"cache_control": {"type": "ephemeral"}} if cache_hint else {}),
             },
         )
 
     assert response.status_code == 200
     assert response.headers["request-id"] == "request-anthropic-a"
+    assert response.headers.get("x-xinference-cache-control") == (
+        "automatic" if cache_hint else None
+    )
     assert response.json()["model"] == "virtual-model"
     assert response.json()["stop_reason"] == "end_turn"
     assert response.json()["content"] == [{"type": "text", "text": "routed answer"}]

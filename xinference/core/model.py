@@ -1098,6 +1098,34 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     @request_limit
     @log_async(logger=logger)
+    async def count_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ):
+        self._require_ready()
+        return await self._call_wrapper_json(
+            getattr(self._model, "async_count_tokens", self._model.count_tokens),
+            messages,
+            generate_config,
+        )
+
+    @request_limit
+    @log_async(logger=logger)
+    async def prepare_anthropic_request(
+        self, messages: List[Dict], generate_config: Dict
+    ):
+        self._require_ready()
+        return await self._call_wrapper_json(
+            getattr(
+                self._model,
+                "async_prepare_anthropic_request",
+                self._model.prepare_anthropic_request,
+            ),
+            messages,
+            generate_config,
+        )
+
+    @request_limit
+    @log_async(logger=logger)
     async def rerank(
         self,
         documents: List[str],

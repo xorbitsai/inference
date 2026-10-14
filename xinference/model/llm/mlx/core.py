@@ -15,6 +15,7 @@
 import asyncio
 import concurrent.futures
 import copy
+import hashlib
 import importlib
 import inspect
 import logging
@@ -57,6 +58,7 @@ from ..context_length import ContextLengthExceeded
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..media import validate_messages_media
+from ..tool_parsers.glm4_tool_parser import Glm4ToolParser
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -698,6 +700,9 @@ class MLXGenerateConfig(TypedDict, total=False):
     tools: Optional[List[Dict]]
     lora_name: Optional[str]
     prompt_cache_prefix_len: Optional[int]
+    _anthropic_cache_ttl: int
+    _anthropic_cache_created_tokens: int
+    _anthropic_cache_control: Dict[str, Any]
 
 
 @dataclass
@@ -705,6 +710,24 @@ class PromptCache:
     cache: List[Any] = field(default_factory=list)
     model_key: Tuple[str, Optional[str]] = ("", None)
     tokens: List[int] = field(default_factory=list)
+
+
+class _CachedTextVisionModel:
+    """Keep text rotary offsets when older mlx-vlm resets embedding state."""
+
+    def __init__(self, model: Any):
+        self._model = model
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._model, name)
+
+    def get_input_embeddings(self, *args, **kwargs):
+        result = self._model.get_input_embeddings(*args, **kwargs)
+        import mlx.core as mx
+
+        self._model.language_model._position_ids = None
+        self._model.language_model._rope_deltas = mx.array(0)
+        return result
 
 
 class MLXModel(LLM, ChatModelMixin):
@@ -837,13 +860,21 @@ class MLXModel(LLM, ChatModelMixin):
         chat_template: str,
         tokenizer: Any,
         context_kwargs: Dict[str, Any],
+        cache_control: Optional[Dict[str, Any]] = None,
     ) -> Optional[int]:
         cache_tokenizer = self._tokenizer
         if cache_tokenizer is None or not messages:
             return None
 
-        prefix_messages = [dict(message) for message in messages]
-        prefix_messages[-1]["content"] = ""
+        prefix_messages = copy.deepcopy(
+            cache_control["messages"] if cache_control is not None else messages
+        )
+        if cache_control is not None and "tools" in cache_control:
+            context_kwargs["tools"] = cache_control["tools"]
+        if cache_control is None:
+            prefix_messages[-1]["content"] = ""
+        elif not any(message.get("role") == "user" for message in prefix_messages):
+            prefix_messages.append({"role": "user", "content": ""})
         try:
             prefix_prompt = self.get_full_context(
                 prefix_messages,
@@ -858,6 +889,8 @@ class MLXModel(LLM, ChatModelMixin):
                 if prompt_token != prefix_token:
                     break
                 prefix_len += 1
+            if cache_control is not None:
+                prefix_len = min(prefix_len, len(prompt_tokens) - 1)
             if 0 < prefix_len < len(prompt_tokens):
                 logger.debug(
                     "Reusable chat prompt prefix: %d of %d tokens",
@@ -1303,6 +1336,7 @@ class MLXModel(LLM, ChatModelMixin):
             if prepared_inputs is not None
             else self._prepare_inputs(prompt, kwargs)
         )
+        cache_created_tokens = kwargs.pop("_anthropic_cache_created_tokens", 0)
         max_tokens = self._get_max_tokens(input_echo_len, max_tokens)
 
         i = 0
@@ -1339,6 +1373,7 @@ class MLXModel(LLM, ChatModelMixin):
                 completion_tokens=i,
                 total_tokens=(input_echo_len + i),
                 prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
+                cache_creation_input_tokens=cache_created_tokens,
             )
 
             completion_chunk = generate_completion_chunk(
@@ -1373,6 +1408,7 @@ class MLXModel(LLM, ChatModelMixin):
             completion_tokens=i,
             total_tokens=(input_echo_len + i),
             prompt_tokens_details={"cached_tokens": cached_prompt_tokens},
+            cache_creation_input_tokens=cache_created_tokens,
         )
         completion_chunk = generate_completion_chunk(
             "",
@@ -1726,6 +1762,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
                 or model_family in GLM5_TOOL_CALL_FAMILY
                 or model_family in MINICPM5_TOOL_CALL_FAMILY
+                or isinstance(self.tool_parser, Glm4ToolParser)
             ):
                 full_context_kwargs["tools"] = tools
         chat_template = self.model_family.chat_template
@@ -2118,8 +2155,12 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
     def _init_reusable_prompt_cache(self) -> None:
         generate_step = _ensure_mlx_vlm_thread_local_stream().generate_step
-        if "prompt_cache_checkpoint" not in inspect.signature(generate_step).parameters:
-            logger.debug("Installed mlx-vlm does not support prompt cache checkpoints")
+        self._cache_has_checkpoint_api = (
+            "prompt_cache_checkpoint" in inspect.signature(generate_step).parameters
+        )
+        self._anthropic_cache_expiry: Dict[str, float] = {}
+        if "prompt_cache" not in inspect.signature(generate_step).parameters:
+            logger.debug("Installed mlx-vlm does not support prompt caches")
             return
 
         prompt_cache_size = self._model_config.get(
@@ -2147,6 +2188,13 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         if self._reusable_prompt_cache is None or len(prompt_tokens) < 2:
             return None, prompt_tokens, 0
 
+        expiries = getattr(self, "_anthropic_cache_expiry", {})
+        if any(time.monotonic() >= expiry for expiry in expiries.values()):
+            # The upstream cache can trim a longer entry to a shared prefix and
+            # does not expose which stored entry was used. Evict before lookup
+            # so a partial match cannot bypass an expired entry's lifetime.
+            self._reusable_prompt_cache.trim_to(n_sequences=0)
+            expiries.clear()
         cache, remaining_tokens = self._reusable_prompt_cache.fetch_nearest_cache(
             self._reusable_prompt_cache_model_key, prompt_tokens
         )
@@ -2170,8 +2218,15 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         return cache, remaining_tokens, cached_token_count
 
     def _prepare_reusable_prompt_cache(
-        self, prompt_tokens: List[int], prompt_cache_prefix_len: Optional[int]
+        self,
+        prompt_tokens: List[int],
+        prompt_cache_prefix_len: Optional[int],
+        ttl: Optional[int] = None,
     ) -> Tuple[List[int], Dict[str, Any], int]:
+        if len(getattr(self, "_anthropic_cache_expiry", {})) > max(
+            128, self._model_config.get("prompt_cache_size", 2) * 4
+        ):
+            self._init_reusable_prompt_cache()
         reusable_prompt_cache = self._reusable_prompt_cache
         if (
             reusable_prompt_cache is None
@@ -2202,16 +2257,40 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     copy.deepcopy(prompt_cache),
                     cache_type="system",
                 )
+                if ttl is not None:
+                    key = hashlib.sha256(str(checkpoint_tokens).encode()).hexdigest()
+                    self._anthropic_cache_expiry[key] = time.monotonic() + ttl
                 logger.debug(
                     "Stored MLX-VLM prompt cache with %d tokens; cached sequences: %d",
                     len(checkpoint_tokens),
                     len(reusable_prompt_cache),
                 )
 
-            cache_kwargs.update(
-                prompt_cache_checkpoint=store_checkpoint,
-                prompt_cache_checkpoint_len=checkpoint_len,
-            )
+            if getattr(self, "_cache_has_checkpoint_api", True):
+                cache_kwargs.update(
+                    prompt_cache_checkpoint=store_checkpoint,
+                    prompt_cache_checkpoint_len=checkpoint_len,
+                )
+            else:
+                # Older mlx-vlm supports cache reuse but no checkpoint callback.
+                # Prefill the stable text prefix on the same MLX thread, then
+                # continue generation with the remaining prompt and that cache.
+                import mlx.core as mx
+
+                if hasattr(self._model.language_model, "_rope_deltas"):
+                    self._model.language_model._rope_deltas = (
+                        mx.array(0) if cached_token_count else None
+                    )
+                    self._model.language_model._position_ids = None
+
+                for start in range(0, checkpoint_len, 1024):
+                    part = remaining_tokens[start : min(start + 1024, checkpoint_len)]
+                    self._model.language_model(
+                        inputs=mx.array(part)[None, :], cache=cache
+                    )
+                    mx.eval([entry.state for entry in cache])
+                store_checkpoint(checkpoint_len, cache)
+                remaining_tokens = remaining_tokens[checkpoint_len:]
         return remaining_tokens, cache_kwargs, cached_token_count
 
     def _draft_generate_kwargs(self) -> Dict[str, Any]:
@@ -2245,6 +2324,14 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         input_ids, pixel_values, mask, kwargs = inputs
         kwargs.update(extra_kwargs)
         kwargs.update(self._draft_generate_kwargs())
+        generation_model = self._model
+        if (
+            pixel_values is None
+            and kwargs.get("prompt_cache")
+            and not self._cache_has_checkpoint_api
+            and hasattr(self._model.language_model, "_rope_deltas")
+        ):
+            generation_model = _CachedTextVisionModel(self._model)
 
         tokenizer = self._processor.tokenizer
         detokenizer = self._processor.detokenizer
@@ -2253,7 +2340,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         tic = time.perf_counter()
         try:
             for n, (token, logprobs) in enumerate(
-                generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
+                generate_step(
+                    input_ids, generation_model, pixel_values, mask, **kwargs
+                ),
             ):
                 if n == 0:
                     prompt_time = time.perf_counter() - tic
@@ -2310,6 +2399,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         prompt_token_ids = tokenizer.encode(prompt_str)
         input_token_len = len(prompt_token_ids)
         prompt_cache_prefix_len = kwargs.pop("prompt_cache_prefix_len", None)
+        cache_ttl = kwargs.pop("_anthropic_cache_ttl", None)
         cached_prompt_tokens = 0
 
         if not images:
@@ -2320,8 +2410,16 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 prompt_cache_kwargs,
                 cached_prompt_tokens,
             ) = self._prepare_reusable_prompt_cache(
-                prompt_token_ids, prompt_cache_prefix_len
+                prompt_token_ids, prompt_cache_prefix_len, cache_ttl
             )
+            if (
+                cache_ttl is not None
+                and prompt_cache_prefix_len is not None
+                and prompt_cache_kwargs
+            ):
+                kwargs["_anthropic_cache_created_tokens"] = max(
+                    0, prompt_cache_prefix_len - cached_prompt_tokens
+                )
             prompt_tokens = mx.array(prompt_token_ids)
             input_ids = prompt_tokens[None, :]
             pixel_values = mask = None
@@ -2368,11 +2466,14 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             cached_prompt_tokens,
         )
 
-    def chat(
-        self,
-        messages: List[Dict],
-        generate_config: Optional[MLXGenerateConfig] = None,
-    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+    def _prepare_chat_inputs(
+        self, messages: List[Dict], generate_config: Optional[MLXGenerateConfig]
+    ):
+        cache_control = (
+            generate_config.pop("_anthropic_cache_control", None)
+            if generate_config
+            else None
+        )
         validate_messages_media(messages)
         messages = self._transform_messages(messages)  # type: ignore
         tools = generate_config.pop("tools", []) if generate_config else None
@@ -2426,11 +2527,14 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     chat_template,
                     tokenizer,
                     full_context_kwargs.copy(),
+                    cache_control,
                 )
                 if prefix_len is not None:
                     if generate_config is None:
                         generate_config = MLXGenerateConfig()
                     generate_config["prompt_cache_prefix_len"] = prefix_len
+                    if cache_control is not None:
+                        generate_config["_anthropic_cache_ttl"] = cache_control["ttl"]
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)  # type: ignore
 
@@ -2448,6 +2552,36 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 "prompt": prompt,
                 "multi_modal_data": {"image": images},  # type: ignore
             }
+        return inputs, tools, chat_template_kwargs, generate_config
+
+    def count_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict] = None
+    ) -> int:
+        return self._run_on_mlx_thread(
+            self._count_chat_tokens, messages, generate_config
+        )
+
+    def _count_chat_tokens(
+        self, messages: List[Dict], generate_config: Optional[Dict]
+    ) -> int:
+        inputs, _tools, _context, _config = self._prepare_chat_inputs(
+            copy.deepcopy(messages),
+            cast(Optional[MLXGenerateConfig], copy.deepcopy(generate_config)),
+        )
+        _prepared, count, _cached = self._prepare_inputs(inputs, {})
+        return count
+
+    def chat(
+        self,
+        messages: List[Dict],
+        generate_config: Optional[MLXGenerateConfig] = None,
+    ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
+        (
+            inputs,
+            tools,
+            chat_template_kwargs,
+            generate_config,
+        ) = self._prepare_chat_inputs(messages, generate_config)
         generate_config = self._sanitize_generate_config(generate_config)
 
         stream = generate_config.get("stream", False)
@@ -2486,7 +2620,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     _log_streaming_chunks(), chat_template_kwargs
                 )
             return self._to_chat_completion_chunks(
-                _log_streaming_chunks(), self.reasoning_parser
+                _log_streaming_chunks(), self.reasoning_parser, chat_template_kwargs
             )
         else:
             c = self.generate(inputs, generate_config)

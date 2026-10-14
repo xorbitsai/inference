@@ -13,6 +13,8 @@ from xinference.api.oauth2.advanced.crypto import get_password_hash
     [
         ("/xinference/v1/messages", "/v1/messages"),
         ("/anthropic/anthropic/v1/messages", "/anthropic/v1/messages"),
+        ("/xinference/v1/messages/count_tokens", "/v1/messages/count_tokens"),
+        ("/anthropic/v1/messages/count_tokens", "/anthropic/v1/messages/count_tokens"),
     ],
 )
 async def test_advanced_auth_accepts_x_api_key_as_credential(

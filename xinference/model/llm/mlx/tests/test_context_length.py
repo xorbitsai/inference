@@ -135,14 +135,21 @@ def test_vision_caps_output_and_reuses_processed_inputs(
     try:
         result = model.generate(
             {"prompt": "short text", "multi_modal_data": {"image": "image"}},
-            {"stream": stream, "max_tokens": max_tokens},
+            {
+                "stream": stream,
+                "max_tokens": max_tokens,
+                "_anthropic_cache_created_tokens": 32,
+            },
         )
         if stream:
-            assert list(result)
+            chunks = list(result)
+            assert chunks
+            result = chunks[-1]
         model._prepare_inputs.assert_called_once()
         kwargs = model._generate_stream_inner.call_args.kwargs
         assert kwargs["prompt_token_ids"] is processed_inputs
         assert kwargs["max_tokens"] == (1 if max_tokens == 1 else remaining)
+        assert result["usage"]["cache_creation_input_tokens"] == 32
     finally:
         model.stop()
 

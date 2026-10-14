@@ -122,10 +122,6 @@ msgstr "Codex CLI ruft benutzerdefinierte Anbieter über diese API auf. Fügen S
 msgid "Anthropic Client"
 msgstr "Anthropic Client"
 
-#: ../../source/user_guide/client_api.rst:144
-msgid "Anthropic API's access address is: /anthropic/v1/messages"
-msgstr "Der API-Zugriffspunkt von Anthropic lautet: /anthropic/v1/messages"
-
 #: ../../source/user_guide/client_api.rst:165
 msgid "Embedding"
 msgstr "Embedding"
@@ -225,3 +221,12 @@ msgstr "Setzen Sie bei Streaming-Anfragen ``stream_options={\"include_usage\": T
 #: user_guide/client_api.rst:101
 msgid "With P/D disaggregation, this count includes KV transferred from the prefill engine, even when that KV was computed for the current request; it does not separately measure historical prefix-cache hits on the prefill engine."
 msgstr "Bei der P/D-Trennung umfasst diese Anzahl auch vom Prefill-Motor übertragene KV, selbst wenn sie für die aktuelle Anfrage berechnet wurden; historische Präfix-Cache-Treffer im Prefill-Motor werden nicht separat gezählt."
+
+#: user_guide/client_api.rst:200
+msgid ""
+"See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and "
+"supported features and limitations."
+msgstr ""
+"Informationen zur Einrichtung von Claude Code, Python-SDK-Beispiele sowie "
+"unterstützte Funktionen und Einschränkungen finden Sie unter "
+":ref:`anthropic_api`."

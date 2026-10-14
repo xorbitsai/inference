@@ -1877,6 +1877,12 @@ class TestVLLMChatModel:
 
 
 class TestVLLMSanitizeGenerateConfig:
+    @pytest.fixture(autouse=True)
+    def vllm_version(self, monkeypatch):
+        from .. import core
+
+        monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.19.0"))
+
     """Guided-decoding extraction from response_format=json_schema.
 
     The OpenAI-compatible request body serializes the JSONSchema model without

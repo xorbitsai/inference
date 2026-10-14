@@ -195,27 +195,10 @@ in ``~/.codex/config.toml``:
 .. _anthropic_client:
 
 Anthropic Client
-========================
+================
 
-    Anthropic API's access address is: /anthropic/v1/messages
-
-.. code-block::
-
-    import anthropic
-
-    client = anthropic.Anthropic(
-        # defaults to os.environ.get("ANTHROPIC_API_KEY")
-        base_url="http://localhost:9997/anthropic",
-    )
-    message = client.messages.create(
-        model="qwen3",
-        max_tokens=1024,
-        messages=[
-            {"role": "user", "content": "Hello, Claude"}
-        ]
-    )
-    print(message.content)
-
+See :ref:`anthropic_api` for Claude Code setup, Python SDK examples, and
+supported features and limitations.
 
 Embedding
 ~~~~~~~~~

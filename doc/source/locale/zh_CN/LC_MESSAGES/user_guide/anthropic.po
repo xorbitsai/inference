@@ -1,0 +1,193 @@
+# Translations for the Anthropic API compatibility chapter.
+# Copyright (C) 2026 XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 11:07+0800\n"
+"PO-Revision-Date: 2026-10-13 12:00+0800\n"
+"Last-Translator: Xinference contributors\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: user_guide/anthropic.rst:4
+msgid "Anthropic API compatibility"
+msgstr "Anthropic API 兼容"
+
+#: user_guide/anthropic.rst:6
+msgid ""
+"Xinference exposes Anthropic-compatible Messages APIs for already launched "
+"models. Use the model UID in requests. The available features depend on the "
+"model and engine."
+msgstr ""
+"Xinference 为已启动的模型提供兼容 Anthropic 的 Messages API。请求中使用模型 UID。可用功能取决于模型和推理引擎。"
+
+#: user_guide/anthropic.rst:11
+msgid "Endpoints and authentication"
+msgstr "接口与认证"
+
+#: user_guide/anthropic.rst:13
+msgid ""
+"Send message requests to ``/v1/messages`` and token-count requests to "
+"``/v1/messages/count_tokens``. The standard routes require ``anthropic-"
+"version: 2023-06-01``. The ``/anthropic/v1/messages`` and "
+"``/anthropic/v1/messages/count_tokens`` aliases remain available."
+msgstr ""
+"消息请求发送到 ``/v1/messages``，token 计数请求发送到 ``/v1/messages/count_tokens``。标准接口要求提供"
+" ``anthropic-version: 2023-06-01``。同时保留 ``/anthropic/v1/messages`` 和 "
+"``/anthropic/v1/messages/count_tokens`` 别名接口。"
+
+#: user_guide/anthropic.rst:18
+msgid ""
+"Use your Xinference API key when authentication is enabled. An arbitrary non-"
+"empty key is sufficient when authentication is disabled."
+msgstr "启用认证时，使用你的 Xinference API key。未启用认证时，任意非空 key 即可。"
+
+#: user_guide/anthropic.rst:22
+msgid "Claude Code"
+msgstr "Claude Code"
+
+#: user_guide/anthropic.rst:24
+msgid ""
+"Launch a model with chat and tool-calling support first (see :ref:`launch`), "
+"then configure Claude Code to use the Xinference server and model UID:"
+msgstr ""
+"先启动支持聊天和工具调用的模型（参见 :ref:`launch`），然后配置 Claude Code 使用 Xinference 服务地址和模型 UID："
+
+#: user_guide/anthropic.rst:38
+msgid "Python SDK"
+msgstr "Python SDK"
+
+#: user_guide/anthropic.rst:57
+msgid "Token counting"
+msgstr "Token 计数"
+
+#: user_guide/anthropic.rst:59
+msgid ""
+"The standard ``/v1/messages/count_tokens`` endpoint and its "
+"``/anthropic/v1/messages/count_tokens`` alias use the loaded model's chat "
+"template and tokenizer, including tool definitions and images where "
+"supported. Both routes use the same model permissions and Xinference API key"
+" as message generation. SGLang supports text and tool token counting; image "
+"counting returns 501."
+msgstr ""
+"标准计数端点 ``/v1/messages/count_tokens`` 及别名 "
+"``/anthropic/v1/messages/count_tokens`` 使用已加载模型的聊天模板与 "
+"tokenizer，并在支持时计入工具定义和图像。两个接口使用与消息生成相同的模型权限和 Xinference API key。 SGLang "
+"支持文本和工具 token 计数；图像计数返回 501。"
+
+#: user_guide/anthropic.rst:74
+msgid "Images and documents"
+msgstr "图像与文档"
+
+#: user_guide/anthropic.rst:76
+msgid ""
+"Messages support text, base64 or URL images, tool results containing images, "
+"and tool references to tools declared in the request. Plain-text documents "
+"are supported; PDF pages are rendered as images with ``pypdfium2`` (install "
+"the ``image`` extra), require a vision model, and are limited to 20 pages per"
+" request. File IDs and document citations are not supported."
+msgstr ""
+"消息支持文本、base64 或 URL 图像、包含图像的工具结果，以及对请求中已声明工具的引用。支持纯文本文档；PDF 通过 ``pypdfium2`` "
+"渲染为图像（安装 ``image`` 扩展依赖），需要视觉模型，每个请求最多 20 页。不支持文件 ID 和文档引用标注。"
+
+#: user_guide/anthropic.rst:83
+msgid ""
+"Xinference's vLLM vision models default to two images per prompt. The limit "
+"includes images in conversation history and tool results, so successive "
+"single-image messages can also exceed it. Set ``limit_mm_per_prompt`` when "
+"launching the model, for example ``{\"image\": 8, \"video\": 0}``, to allow "
+"more images within the model's context length and available GPU memory."
+msgstr ""
+"Xinference 的 vLLM "
+"视觉模型默认每个提示词最多接收两张图片。该上限包括对话历史和工具结果中的图片，因此连续发送单图消息也可能超限。启动模型时设置 "
+"``limit_mm_per_prompt``，例如 ``{\"image\": 8, \"video\": 0}``，即可在模型上下文长度和可用 "
+"GPU 显存范围内接收更多图片。"
+
+#: user_guide/anthropic.rst:89
+msgid ""
+"PDF limits apply to the entire request: at most 20 pages and 20 million "
+"rendered pixels. Decoded PDF bytes and rendered PNG bytes each use "
+"``XINFERENCE_MEDIA_MAX_BYTES`` (64 MiB by default). Each PDF block is "
+"rendered once per request, and model access is checked before fetching or "
+"rendering content."
+msgstr ""
+"PDF 限制针对整个请求：最多 20 页、2000 万个渲染像素。解码后的 PDF 字节和渲染后的 PNG 字节各自受 "
+"``XINFERENCE_MEDIA_MAX_BYTES`` 限制（默认为 64 MiB）。每个 PDF "
+"内容块在一次请求中仅渲染一次，获取或渲染内容前会检查模型访问权限。"
+
+#: user_guide/anthropic.rst:83
+msgid "Thinking"
+msgstr "思考模式"
+
+#: user_guide/anthropic.rst:86
+msgid ""
+"Adaptive thinking enables the model's reasoning mode. The ``effort`` option "
+"maps to prompt guidance, with ``medium`` preserving the default prompt. "
+"Explicit thinking responses carry Xinference signatures, which can be "
+"replayed with the same model UID and signing key; configure "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET`` consistently across API servers. "
+"The MLX, vLLM and SGLang adapters do not currently enforce manual "
+"``budget_tokens`` as a separate reasoning-token limit."
+msgstr ""
+"Adaptive thinking 启用模型的推理模式。``effort`` 映射为提示词指导，``medium`` "
+"保持默认提示词。显式请求的思考响应带有 Xinference 签名，可以使用相同的模型 UID 和签名密钥回传；多个 API 服务器应配置相同的 "
+"``XINFERENCE_ANTHROPIC_THINKING_SECRET``。 MLX、vLLM 和 SGLang 适配层目前不会将手动 "
+"``budget_tokens`` 强制执行为独立的思考 token 上限。"
+
+#: user_guide/anthropic.rst:105
+msgid ""
+"Stale, unsigned or foreign thinking blocks are ignored during replay; "
+"accompanying answers and tool calls are preserved."
+msgstr "回放历史时会忽略失效、未签名或外来的 thinking 块，同时保留其附带的回答和工具调用。"
+
+#: user_guide/anthropic.rst:92
+msgid "Tool choice and structured output"
+msgstr "工具选择与结构化输出"
+
+#: user_guide/anthropic.rst:95
+msgid ""
+"Structured JSON output requires a supporting engine. The vLLM and SGLang "
+"engines support named and required tool choice through constrained JSON "
+"decoding, and disabled parallel tool use returns at most one tool per "
+"response. Forced tool arguments are buffered until complete."
+msgstr ""
+"结构化 JSON 输出需要引擎支持。vLLM 和 SGLang 引擎通过受约束的 JSON "
+"解码支持指定工具和必须调用工具；禁用并行工具调用时，每次响应最多返回一个工具调用。强制调用的工具参数会缓冲到完整后再返回。"
+
+#: ../docs-source/user_guide/anthropic.rst:116
+msgid ""
+"Xinference automatically connects its existing reasoning parser to vLLM and "
+"SGLang structured decoding for supported reasoning markers and engines with "
+"parser plugin support. Qwen3.5 needs no extra parser configuration. Explicit"
+" engine parser settings are preserved. Manual thinking cannot be combined "
+"with forced tool choice. P/D models return 501 for forced tool choice. Other"
+" engines return 501 for unsupported controls."
+msgstr ""
+"对于支持的思考标记和具备 parser 插件能力的引擎，Xinference 会自动将已有的 reasoning parser 接入 vLLM 和 "
+"SGLang 的结构化解码。Qwen3.5 无需额外配置 parser。用户显式指定的引擎 parser "
+"设置会保留。手动思考模式不能与强制工具选择组合。其他引擎对不支持的控制项返回 501。 P/D 模型对强制工具选择返回 501。"
+
+#: user_guide/anthropic.rst:103
+msgid "Prompt caching"
+msgstr "提示词缓存"
+
+#: ../docs-source/user_guide/anthropic.rst:126
+msgid ""
+"For text requests, the MLX vision engine reuses the furthest "
+"``cache_control`` boundary with a ``5m`` or ``1h`` lifetime and reports "
+"actual cache writes and reads. Earlier cache breakpoints do not have "
+"independently enforced lifetimes in this path. Cache hits do not currently "
+"refresh the lifetime, and expiry clears the reusable cache. Other paths "
+"retain automatic engine caching, indicated by the ``x-xinference-cache-"
+"control: automatic`` response header."
+msgstr ""
+"对于文本请求，MLX 视觉引擎复用到最后一个 ``cache_control`` 边界的前缀，生命周期为 ``5m`` 或 "
+"``1h``，并报告实际缓存写入和读取量。其他路径保留引擎自动缓存，并通过 ``x-xinference-cache-control: "
+"automatic`` 响应头标明。 此路径不会对更早的缓存断点分别执行独立的有效期。 目前缓存命中不会刷新有效期，过期时会清空可复用缓存。"

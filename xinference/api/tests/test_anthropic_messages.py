@@ -33,6 +33,46 @@ def make_app(api):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error,status",
+    [
+        (NotImplementedError("Forced tool choice is not supported"), 501),
+        (RuntimeError("Rate limit reached"), 429),
+    ],
+)
+async def test_backend_capability_error_is_reported_before_generation(
+    monkeypatch, error, status
+):
+    class Model:
+        async def prepare_anthropic_request(self, messages, config):
+            raise error
+
+        async def chat(self, *args, **kwargs):
+            pytest.fail("An unsupported request must not start generation")
+
+    async def require_model(*args):
+        return Model()
+
+    monkeypatch.setattr(restful_api_module, "require_model", require_model)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=make_app(make_rest_api())),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/v1/messages",
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "local",
+                "messages": [{"role": "user", "content": "hello"}],
+                "max_tokens": 32,
+                "tool_choice": {"type": "any"},
+            },
+        )
+    assert response.status_code == status
+    assert response.json()["error"]["message"] == str(error)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("root_path", ["", "/xinference", "/anthropic"])
 async def test_standard_path_requires_version_header(root_path):
     app = make_app(make_rest_api())
@@ -263,3 +303,52 @@ async def test_physical_stream_failure_is_reported_as_model_generator(monkeypatc
     assert "physical backend failed" in response.text
     assert reporter.outcome.state is StreamState.FAILED
     assert reporter.outcome.failure_origin is FailureOrigin.MODEL_GENERATOR
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["/v1/messages", "/v1/messages/count_tokens"])
+async def test_model_access_is_checked_before_media_normalization(
+    monkeypatch, endpoint
+):
+    api = make_rest_api()
+
+    def denied(*args):
+        raise HTTPException(403, "Model access denied")
+
+    api._check_model_access = denied
+
+    def parse(*args):
+        pytest.fail("Denied requests must not fetch or render media")
+
+    monkeypatch.setattr(restful_api_module, "parse_anthropic_request", parse)
+    app = make_app(api)
+    app.add_api_route(
+        "/v1/messages/count_tokens", api.count_anthropic_tokens, methods=["POST"]
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.post(
+            endpoint,
+            headers={"anthropic-version": "2023-06-01"},
+            json={
+                "model": "denied",
+                "max_tokens": 32,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "document",
+                                "source": {
+                                    "type": "url",
+                                    "url": "https://example.com/file.pdf",
+                                },
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == "Model access denied"

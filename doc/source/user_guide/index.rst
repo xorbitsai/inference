@@ -11,6 +11,7 @@ User Guide
    launch
    backends
    client_api
+   anthropic
    SD WebUI API compatibility <sd_webui>
 
 .. toctree::

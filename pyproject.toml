@@ -91,6 +91,7 @@ xinference_navidc_ocr = "xinference.thirdparty.navidc_ocr:register"
 
 [project.entry-points."sglang.srt.plugins"]
 xinference_xavier = "xinference.model.llm.sglang.xavier.plugin:register"
+xinference_reasoning = "xinference.model.llm.sglang.reasoning:register"
 
 [project.optional-dependencies]
 dev = [

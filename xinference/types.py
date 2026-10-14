@@ -230,6 +230,7 @@ class CompletionUsage(TypedDict):
     completion_tokens: int
     total_tokens: int
     prompt_tokens_details: NotRequired[PromptTokensDetails]
+    cache_creation_input_tokens: NotRequired[int]
 
 
 class CompletionChunk(TypedDict):

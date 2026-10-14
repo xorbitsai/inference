@@ -258,6 +258,7 @@ class ChatModelMixin:
                         "completion_tokens",
                         "total_tokens",
                         "prompt_tokens_details",
+                        "cache_creation_input_tokens",
                     )
                 }
 
@@ -270,6 +271,10 @@ class ChatModelMixin:
             completion_tokens=usage_data["completion_tokens"],
             total_tokens=usage_data["total_tokens"],
         )
+        if usage_data.get("cache_creation_input_tokens") is not None:
+            sanitized["cache_creation_input_tokens"] = usage_data[
+                "cache_creation_input_tokens"
+            ]
         prompt_tokens_details = usage_data.get("prompt_tokens_details")
         if prompt_tokens_details is not None:
             if not isinstance(prompt_tokens_details, dict):
@@ -310,6 +315,9 @@ class ChatModelMixin:
             extensions=["jinja2.ext.loopcontrols"],
         )
         jinja_env.globals["raise_exception"] = raise_exception
+        # Model templates use the Transformers filter's json.dumps options,
+        # including ensure_ascii, which Jinja's built-in filter does not accept.
+        jinja_env.filters["tojson"] = json.dumps
         return jinja_env.from_string(chat_template)
 
     @staticmethod
@@ -403,6 +411,19 @@ class ChatModelMixin:
         )
         return rendered
 
+    @staticmethod
+    def _close_reasoning_prompt(prompt: str, parser: Optional[ReasoningParser]) -> str:
+        """Start legacy JSON constraints in a reasoning-ended prompt state."""
+        if parser and parser.reasoning_start_tag and parser.reasoning_end_tag:
+            start = prompt.rfind(parser.reasoning_start_tag)
+            end = prompt.rfind(parser.reasoning_end_tag)
+            if end > start:
+                return prompt
+            if start < 0:
+                prompt += parser.reasoning_start_tag
+            return prompt + parser.reasoning_end_tag + "\n"
+        return prompt
+
     def get_full_context(
         self,
         messages: List,
@@ -411,6 +432,34 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
+        family = (
+            getattr(self.model_family, "model_family", None)
+            or self.model_family.model_name
+        )
+        if isinstance(
+            getattr(self, "tool_parser", None), Glm4ToolParser
+        ) and family.lower() in {"glm4-chat", "glm4-chat-1m", "glm4-0414"}:
+            glm_messages = []
+            for message in messages:
+                if message.get("role") == "tool":
+                    glm_messages.append({**message, "role": "observation"})
+                elif message.get("tool_calls"):
+                    if message.get("content"):
+                        glm_messages.append(
+                            {"role": "assistant", "content": message["content"]}
+                        )
+                    for call in message["tool_calls"]:
+                        function = call["function"]
+                        glm_messages.append(
+                            {
+                                "role": "assistant",
+                                "metadata": function["name"],
+                                "content": function["arguments"],
+                            }
+                        )
+                else:
+                    glm_messages.append(message)
+            messages = glm_messages
         normalization_template = chat_template
         if normalization_template is None and tokenizer is not None:
             normalization_template = getattr(tokenizer, "chat_template", None)
@@ -825,42 +874,54 @@ class ChatModelMixin:
         cls,
         chunks: Iterator[CompletionChunk],
         reasoning_parse: Optional[ReasoningParser] = None,
+        ctx: Optional[Dict[str, Any]] = None,
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
         is_first_chunk = True
         fallback_chunk: Optional[CompletionChunk] = None
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
-        for _, chunk in enumerate(chunks):
-            # usage
-            choices = chunk.get("choices")
-            if not choices:
-                # Fallback: convert plain content to choices for streaming
-                content = cast(Optional[str], chunk.get("content"))
-                if content is not None:
-                    finish_reason = cast(Optional[str], chunk.get("finish_reason"))
-                    chunk = chunk.copy()
-                    chunk["choices"] = [
-                        CompletionChoice(
-                            index=0,
-                            text=content,
-                            logprobs=None,
-                            finish_reason=finish_reason,
-                        )
-                    ]
-                    choices = chunk["choices"]
-                elif chunk.get("usage") is not None:
-                    yield cls._get_usage_chat_completion_chunk(chunk, fallback_chunk)
-                    continue
-                else:
-                    yield cls._get_final_chat_completion_chunk(chunk, fallback_chunk)
-                    continue
-
-            r = cls._to_chat_completion_chunk(
-                chunk, reasoning_parse, previous_texts, ensure_role=is_first_chunk
-            )
-            is_first_chunk = False
-            fallback_chunk = chunk
+        while True:
+            # Both parser iteration and conversion need the request context.
+            # Reset before yielding: a synchronous stream can resume on a
+            # different worker thread and must not leave request state behind.
+            token = chat_context_var.set(ctx) if ctx is not None else None
+            try:
+                try:
+                    chunk = next(chunks)
+                except StopIteration:
+                    break
+                choices = chunk.get("choices")
+                if not choices:
+                    content = cast(Optional[str], chunk.get("content"))
+                    if content is not None:
+                        finish_reason = cast(Optional[str], chunk.get("finish_reason"))
+                        chunk = chunk.copy()
+                        chunk["choices"] = [
+                            CompletionChoice(
+                                index=0,
+                                text=content,
+                                logprobs=None,
+                                finish_reason=finish_reason,
+                            )
+                        ]
+                        choices = chunk["choices"]
+                    elif chunk.get("usage") is not None:
+                        r = cls._get_usage_chat_completion_chunk(chunk, fallback_chunk)
+                    else:
+                        r = cls._get_final_chat_completion_chunk(chunk, fallback_chunk)
+                if choices:
+                    r = cls._to_chat_completion_chunk(
+                        chunk,
+                        reasoning_parse,
+                        previous_texts,
+                        ensure_role=is_first_chunk,
+                    )
+                    is_first_chunk = False
+                    fallback_chunk = chunk
+            finally:
+                if token is not None:
+                    chat_context_var.reset(token)
             yield r
 
     @classmethod
@@ -936,6 +997,10 @@ class ChatModelMixin:
                         previous_texts,
                         ensure_role=is_first_chunk,
                     )
+                    if is_first_chunk and ctx and ctx.get("_anthropic_request"):
+                        first_usage = cls._sanitize_usage(chunk.get("usage"))
+                        if first_usage is not None:
+                            chat_chunk["usage"] = first_usage
                     fallback_chunk = chunk
                     is_first_chunk = False
                 yield chat_chunk
@@ -1017,10 +1082,12 @@ class ChatModelMixin:
     ):
         if not c.get("choices"):
             return c
+        if self.tool_parser is None:
+            return c
         _id = chunk_id if chunk_id is not None else str(uuid.uuid4())
         tool_result = None
         finish_reason = None
-        if isinstance(self.tool_parser, Glm4ToolParser):
+        if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
             tool_result = self.tool_parser.extract_tool_calls_streaming(
                 [],
                 c,
@@ -1165,7 +1232,7 @@ class ChatModelMixin:
         c,
     ):
         if not self.tool_parser:
-            return self._get_final_chat_completion_chunk(c)
+            return self._to_chat_completion(c, self.reasoning_parser)
 
         _id = str(uuid.uuid4())
         reasoning_content = None
@@ -1175,9 +1242,10 @@ class ChatModelMixin:
         text = c["choices"][0]["text"]
         if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             # Extract reasoning content directly from the original text
-            reasoning_content, processed_content = (
-                self.reasoning_parser.extract_reasoning_content(text)
-            )
+            (
+                reasoning_content,
+                processed_content,
+            ) = self.reasoning_parser.extract_reasoning_content(text)
             # Use the processed content (without thinking tags) for tool parsing.
             # It is empty when the output only contains reasoning, e.g. when
             # generation stops inside the thinking block.
@@ -1186,7 +1254,7 @@ class ChatModelMixin:
         # Then, extract tool calls from the processed text (without thinking tags)
         tool_calls = []
         failed_contents = []
-        if isinstance(self.tool_parser, Glm4ToolParser):
+        if isinstance(self.tool_parser, Glm4ToolParser) and "name" in c:
             tool_result = self.tool_parser.extract_tool_calls(c)
         else:
             tool_result = self.tool_parser.extract_tool_calls(text)
@@ -1486,6 +1554,10 @@ class ChatModelMixin:
                     previous_texts,
                     ensure_role=i == 0,
                 )
+                if i == 0 and ctx and ctx.get("_anthropic_request"):
+                    first_usage = self._sanitize_usage(completion_chunk.get("usage"))
+                    if first_usage is not None:
+                        chat_chunk["usage"] = first_usage
                 i += 1
                 reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(
                     chat_chunk

@@ -34,6 +34,15 @@ def register_routes(api: "RESTfulAPI") -> None:
                 [Security(auth, scopes=["models:read"])] if is_auth else None
             ),
         )
+    for path in ("/v1/messages/count_tokens", "/anthropic/v1/messages/count_tokens"):
+        router.add_api_route(
+            path,
+            api.count_anthropic_tokens,
+            methods=["POST"],
+            dependencies=(
+                [Security(auth, scopes=["models:read"])] if is_auth else None
+            ),
+        )
     router.add_api_route(
         "/v1/responses",
         api.create_response,
