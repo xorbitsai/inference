@@ -106,7 +106,9 @@ def test_generate_package_lists_from_docker_sources(tmp_path, platform):
             }
         )
     )
-    nightly = "vllm==0.31.1rc1.dev281+gc85616efc"
+    # Keep the synthetic pin independent of real model requirements, whose
+    # indexes and source labels are merged into the same generated manifest.
+    nightly = "vllm==0.0.0.dev1+mirror.test"
     model_index = "https://wheels.example/nightly"
     secondary_index = "https://wheels.example/secondary"
     for filename, virtualenv in (

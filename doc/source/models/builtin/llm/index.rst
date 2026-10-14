@@ -461,6 +461,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - MiniCPM-V 4.6 Thinking is a reasoning-tuned version of MiniCPM-V 4.6. It supports deep reasoning for more complex problem solving, while inheriting the single-image, multi-image, and video understanding capabilities of the MiniCPM-V family.
 
+   * - :ref:`minicpm-v-4.7 <models_llm_minicpm-v-4.7>`
+     - chat, vision, hybrid
+     - 262144
+     - MiniCPM-V 4.7 supports single-image, multi-image, and video understanding with canvas M-RoPE and 4x/16x visual compression. It provides 1B dense and 35B-A3B MoE variants. Transformers requires >=5.18.0; vLLM requires the nightly containing PR #58674. SGLang support currently requires an upstream fork with conflicting dependency pins and is not enabled. GGUF and llama.cpp support is not enabled.
+
    * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
      - chat
      - 32768
@@ -1038,6 +1043,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm-v-4.6
   
    minicpm-v-4.6-thinking
+
+   minicpm-v-4.7
   
    minicpm3-4b
   

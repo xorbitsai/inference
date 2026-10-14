@@ -488,7 +488,7 @@ class CreateChatCompletion(  # type: ignore
     CreateChatCompletionTorch,
     CreateChatCompletionOpenAI,
 ):
-    pass
+    mm_processor_kwargs: Optional[Dict[str, Any]] = None
 
 
 class LoRA:

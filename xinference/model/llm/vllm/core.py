@@ -200,6 +200,7 @@ def _get_transformers_version() -> Optional[version.Version]:
 
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
+MINICPMV47_MIN_VLLM_VERSION = version.parse("0.31.1rc1.dev281+gc85616efc")
 
 
 def _get_effective_vllm_version() -> version.Version:
@@ -510,6 +511,11 @@ def _update_vllm_supported_lists() -> None:
         _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "DeepseekV41ForCausalLM")
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen4ExpForConditionalGeneration"
+        )
+
+    if effective_version >= MINICPMV47_MIN_VLLM_VERSION:
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_7ForConditionalGeneration"
         )
 
 
@@ -1632,7 +1638,12 @@ class VLLMModel(WeightCachedModel, LLM):
         if "model_quantization" in model_config:
             model_config["quantization"] = model_config.pop("model_quantization")
 
-        if self.model_spec.model_format == "fp8":
+        if (
+            self.model_spec.model_format == "fp8"
+            and not self.model_family.has_architecture(
+                "MiniCPMV4_7ForConditionalGeneration"
+            )
+        ):
             if model_config.get("quantization") in (None, "none"):
                 model_config["quantization"] = "fp8"
         else:
@@ -2921,7 +2932,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            # The official 35B-A3B INT4 checkpoint is already quantized with
+            # compressed-tensors; let vLLM detect its on-disk configuration.
+            offline_minicpmv47_int4 = (
+                llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration")
+                and quantization == "Int4"
+                and str(llm_spec.model_size_in_billions) == "35"
+            )
+            if quantization not in (None, "none") and not offline_minicpmv47_int4:
                 return (
                     False,
                     "pytorch format with quantization is not supported for vLLM multimodal",
@@ -2946,6 +2964,16 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                     f"(nightly with Qwen4Exp support); found {effective_version}",
                 )
             _append_unique(supported_architectures, "Qwen4ExpForConditionalGeneration")
+        if llm_family.has_architecture("MiniCPMV4_7ForConditionalGeneration"):
+            if effective_version < MINICPMV47_MIN_VLLM_VERSION:
+                return (
+                    False,
+                    "MiniCPM-V-4.7 requires vLLM nightly "
+                    "0.31.1rc1.dev281+gc85616efc or newer (PR #58674)",
+                )
+            _append_unique(
+                supported_architectures, "MiniCPMV4_7ForConditionalGeneration"
+            )
         if llm_family.has_architecture("DeepseekV41ForCausalLM"):
             if effective_version < version.parse("0.30.0.dev0"):
                 return (
@@ -3213,6 +3241,23 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
         chat_template_kwargs: Dict[str, Any] = {}
+        is_minicpmv47 = model_family == "MiniCPM-V-4.7"
+        processor_kwargs: Dict[str, Any] = {}
+        max_num_frames = 128
+        if is_minicpmv47:
+            generate_config = dict(generate_config or {})
+            processor_kwargs = dict(
+                generate_config.pop("mm_processor_kwargs", None) or {}
+            )
+            # vLLM processes MiniCPM video frames through the image processor;
+            # frame sampling belongs here, not in the image processor kwargs.
+            max_num_frames = processor_kwargs.pop("max_num_frames", 128)
+            if (
+                isinstance(max_num_frames, bool)
+                or not isinstance(max_num_frames, int)
+                or max_num_frames < 1
+            ):
+                raise ValueError("max_num_frames must be a positive integer")
         workspace = contextlib.ExitStack()
         try:
             if "internvl" not in model_family.lower():
@@ -3311,16 +3356,36 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
         finally:
             workspace.close()
-        inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
+        inputs = {
+            "prompt": prompt,
+            "multi_modal_data": {},
+            "mm_processor_kwargs": processor_kwargs,
+        }
         if images:
             inputs["multi_modal_data"]["image"] = images
         if videos:
-            fps_list = None
-            if isinstance(video_kwargs, dict):
-                fps_list = video_kwargs.get("fps")
-            videos = self._attach_video_metadata(videos, fps_list)
-            if fps_list:
-                inputs["mm_processor_kwargs"]["video_fps"] = fps_list
+            if is_minicpmv47:
+                sampled_videos = []
+                for video in videos:
+                    if len(video) > max_num_frames:
+                        indices = [
+                            i * (len(video) - 1) // max(max_num_frames - 1, 1)
+                            for i in range(max_num_frames)
+                        ]
+                        video = (
+                            [video[i] for i in indices]
+                            if isinstance(video, (list, tuple))
+                            else video[indices]
+                        )
+                    sampled_videos.append(video)
+                videos = sampled_videos
+            else:
+                fps_list = None
+                if isinstance(video_kwargs, dict):
+                    fps_list = video_kwargs.get("fps")
+                videos = self._attach_video_metadata(videos, fps_list)
+                if fps_list:
+                    inputs["mm_processor_kwargs"]["video_fps"] = fps_list
             inputs["multi_modal_data"]["video"] = videos
         if audios:
             inputs["multi_modal_data"]["audio"] = audios
