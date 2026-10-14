@@ -527,10 +527,11 @@ class QwenToolParser(ToolParser):
         args = {}
         for key, value in param_pattern.findall(text):
             cleaned = value.strip()
-            try:
-                cleaned = json.loads(cleaned)
-            except Exception:
-                pass
+            if not ToolParser._is_string_parameter(func_name, key):
+                try:
+                    cleaned = json.loads(cleaned)
+                except Exception:
+                    pass
             args[key] = cleaned
 
         return None, func_name, args

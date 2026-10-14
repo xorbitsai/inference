@@ -546,7 +546,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             choices=[completion_choice],
             usage=response["usage"],
         )
-        return self._post_process_completion(None, self.model_uid, completion)
+        return self._post_process_completion(None, self.model_uid, completion, tools)
 
     def chat(
         self,

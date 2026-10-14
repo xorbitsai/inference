@@ -1198,6 +1198,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
                 self.model_family,
                 self.model_uid,
                 req.completion[0],
+                req.tools,
             )
         else:
             req.completion[0] = self._to_chat_completion(

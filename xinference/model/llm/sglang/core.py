@@ -1174,7 +1174,9 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         if config.get("stream"):
             assert isinstance(completion, AsyncGenerator)
             if tools:
-                chunks = self._async_to_tool_completion_chunks(completion, context)
+                chunks = self._async_to_tool_completion_chunks(
+                    completion, context, tools
+                )
             else:
                 chunks = self._async_to_chat_completion_chunks(
                     completion, parser, context
@@ -1190,7 +1192,7 @@ class SGLANGModel(WeightCachedModel, LLM, ChatModelMixin):
         assert not isinstance(completion, AsyncGenerator)
         if tools:
             result = self._post_process_completion(
-                self.model_family, self.model_uid, completion
+                self.model_family, self.model_uid, completion, tools
             )
         else:
             result = self._to_chat_completion(completion, parser)

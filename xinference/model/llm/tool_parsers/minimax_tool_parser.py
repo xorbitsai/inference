@@ -45,10 +45,10 @@ class MiniMaxToolParser(ToolParser):
             r"<parameter\s+name=\"([^\"]+)\">(.*?)</parameter>", re.DOTALL
         )
 
-    def _parse_param_value(self, value: str) -> Any:
+    def _parse_param_value(self, value: str, is_string: bool = False) -> Any:
         value = value.strip()
-        if not value:
-            return ""
+        if not value or is_string:
+            return value
         try:
             return json.loads(value)
         except Exception:
@@ -59,7 +59,9 @@ class MiniMaxToolParser(ToolParser):
         for name, body in self.invoke_regex.findall(tool_block):
             args: Dict[str, Any] = {}
             for key, val in self.param_regex.findall(body):
-                args[key] = self._parse_param_value(val)
+                args[key] = self._parse_param_value(
+                    val, self._is_string_parameter(name, key)
+                )
             results.append((name, args))
         return results
 
