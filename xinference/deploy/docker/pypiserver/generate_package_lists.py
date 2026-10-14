@@ -29,7 +29,7 @@ Usage:
 Outputs (under --out):
     engines/<engine>.in         one resolvable requirement set per engine
     engines/<engine>.meta.json  extra index URLs / index strategy per engine
-    pins.json                   concrete per-model specs (versions kept as-is)
+    pins.json                   per-model specs and their additional indexes
     urls.txt                    direct wheel URLs (target arch only)
     git.txt                     git+ sources
     manifest.json               generation parameters and counts
@@ -117,19 +117,19 @@ def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
         sys.modules.update(saved_modules)
 
 
-def iter_virtualenv_packages(
+def iter_virtualenv_settings(
     model_dir: Path,
-) -> Iterator[Tuple[str, str, List[str]]]:
-    """Yield (json_relpath, model_name, packages) for every virtualenv block."""
+) -> Iterator[Tuple[str, str, Dict[str, Any]]]:
+    """Yield (json_relpath, model_name, settings) for every virtualenv block."""
 
-    def _walk(obj: Any, model_name: str) -> Iterator[Tuple[str, List[str]]]:
+    def _walk(obj: Any, model_name: str) -> Iterator[Tuple[str, Dict[str, Any]]]:
         if isinstance(obj, dict):
             model_name = obj.get("model_name", model_name)
             virtualenv = obj.get("virtualenv")
             if isinstance(virtualenv, dict) and isinstance(
                 virtualenv.get("packages"), list
             ):
-                yield model_name, list(virtualenv["packages"])
+                yield model_name, virtualenv
             for value in obj.values():
                 yield from _walk(value, model_name)
         elif isinstance(obj, list):
@@ -145,8 +145,16 @@ def iter_virtualenv_packages(
         # platforms (Path str-ifies with backslashes on Windows), keeping the
         # generated package lists and their tests portable.
         rel = json_path.relative_to(model_dir).as_posix()
-        for model_name, packages in _walk(data, "<unknown>"):
-            yield rel, model_name, packages
+        for model_name, settings in _walk(data, "<unknown>"):
+            yield rel, model_name, settings
+
+
+def iter_virtualenv_packages(
+    model_dir: Path,
+) -> Iterator[Tuple[str, str, List[str]]]:
+    """Yield packages without changing the legacy iterator's tuple format."""
+    for rel, model_name, settings in iter_virtualenv_settings(model_dir):
+        yield rel, model_name, list(settings["packages"])
 
 
 def classify_spec(spec: str) -> str:
@@ -268,11 +276,14 @@ def main() -> None:
     urls: Set[str] = set()
     git_sources: Set[str] = set()
     pins: Dict[str, Set[str]] = {}  # spec -> sources
+    pin_indexes: Dict[str, List[str]] = {}
     excluded_pins: Set[str] = set()
     find_links_only_pins: Dict[str, Set[str]] = {}
     deferred_model_pins: List[Dict[str, str]] = []
 
-    def _add(spec: str, source: str) -> None:
+    def _add(
+        spec: str, source: str, extra_index_urls: Optional[List[str]] = None
+    ) -> None:
         spec = normalize_mirror_spec(spec)
         kind = classify_spec(spec)
         if kind == "url":
@@ -285,6 +296,11 @@ def main() -> None:
                 excluded_pins.add(spec)
                 return
             pins.setdefault(spec, set()).add(source)
+            if extra_index_urls:
+                indexes = pin_indexes.setdefault(spec, [])
+                for index in extra_index_urls:
+                    if index not in indexes:
+                        indexes.append(index)
 
     # ------------------------------------------------------------------
     # Engine buckets: straight from ENGINE_VIRTUALENV_PACKAGES.
@@ -324,7 +340,14 @@ def main() -> None:
     # Per-model concrete specs from the model JSONs.
     # ------------------------------------------------------------------
     model_dir = src_root / "xinference" / "model"
-    for rel, model_name, packages in iter_virtualenv_packages(model_dir):
+    for rel, model_name, settings in iter_virtualenv_settings(model_dir):
+        packages = settings["packages"]
+        extra_index_url = settings.get("extra_index_url")
+        extra_index_urls = (
+            [extra_index_url]
+            if isinstance(extra_index_url, str)
+            else list(extra_index_url or [])
+        )
         concrete = [p for p in packages if not is_dependency_macro(p)]
         candidate_engines: Set[Optional[str]] = {None}
         for pkg in concrete:
@@ -352,14 +375,22 @@ def main() -> None:
                 if is_find_links_only_requirement(model_name, spec):
                     find_links_only_pins.setdefault(spec, set()).add(source)
                     continue
-                _add(spec, source)
+                _add(spec, source, extra_index_urls)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
     (out / "git.txt").write_text("".join(f"{g}\n" for g in sorted(git_sources)))
     (out / "pins.json").write_text(
         json.dumps(
             [
-                {"spec": spec, "sources": sorted(sources)}
+                {
+                    "spec": spec,
+                    "sources": sorted(sources),
+                    **(
+                        {"extra_index_urls": pin_indexes[spec]}
+                        if spec in pin_indexes
+                        else {}
+                    ),
+                }
                 for spec, sources in sorted(pins.items())
             ],
             indent=2,

@@ -226,7 +226,7 @@ def collect_requirements(
                     meta.get("extra_index_urls") or [],
                 )
     for pin in json.loads((manifest_dir / "pins.json").read_text()):
-        add(pin["spec"], pin["sources"], [])
+        add(pin["spec"], pin["sources"], pin.get("extra_index_urls") or [])
     for pin in manifest.get("deferred_model_pins", []):
         add(pin["spec"], [pin["source"]], [], deferred=pin["reason"])
     return checks
