@@ -51,6 +51,10 @@ The following is a list of built-in image models in Xinference:
   
    ideogram4
 
+   iris-3b
+
+   iris-3b-turbo
+
    jina-ocr-v1
 
    joyai-image-edit
